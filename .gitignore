@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.env
+.DS_Store
+
+# project working directories
+*/frames_raw/
+*/frames_wobbled/
+*/frames_treated/
+*/source/
+*/output/

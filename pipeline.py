@@ -1,0 +1,109 @@
+#!/usr/bin/env python3
+"""
+pipeline.py — phase 1: extract frames → wobble + grain
+after this completes, apply your Photoshop batch action to frames_wobbled/
+then run assemble.py to produce the final video
+"""
+
+import argparse
+import subprocess
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+from analog_wobble import process as wobble_process
+
+FOLDERS = ["source", "frames_raw", "frames_wobbled", "frames_treated", "output"]
+
+
+def require_ffmpeg() -> None:
+    try:
+        subprocess.run(["ffmpeg", "-version"], capture_output=True, check=True)
+    except FileNotFoundError:
+        raise SystemExit("error: ffmpeg not found — install it and ensure it's on PATH")
+
+
+def extract_frames(video: Path, frames_raw: Path, fps: float) -> int:
+    frames_raw.mkdir(parents=True, exist_ok=True)
+    pattern = frames_raw / "frame_%05d.png"
+    print(f"extracting frames at {fps}fps → {frames_raw}")
+    subprocess.run(
+        ["ffmpeg", "-y", "-i", str(video), "-vf", f"fps={fps}", str(pattern)],
+        check=True,
+    )
+    return len(list(frames_raw.glob("*.png")))
+
+
+def setup_project(project: Path) -> None:
+    for folder in FOLDERS:
+        (project / folder).mkdir(parents=True, exist_ok=True)
+    print(f"project structure created at {project}")
+
+
+def main() -> None:
+    p = argparse.ArgumentParser(
+        description="phase 1 — extract frames and apply wobble+grain",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    p.add_argument("input", type=Path,
+                   help="source video (e.g. project/source/clip.mp4)")
+    p.add_argument("project", type=Path,
+                   help="project root directory")
+    p.add_argument("--fps", type=float, default=10.0,
+                   help="extraction frame rate")
+    p.add_argument("--px", nargs=2, type=float, default=[3.0, 6.0],
+                   metavar=("MIN", "MAX"), help="wobble translation range in pixels")
+    p.add_argument("--deg", nargs=2, type=float, default=[0.3, 0.8],
+                   metavar=("MIN", "MAX"), help="wobble rotation range in degrees")
+    p.add_argument("--grain", nargs=2, type=float, default=[0.3, 0.8],
+                   metavar=("LO", "HI"), help="grain intensity range 0–1")
+    p.add_argument("--seed", type=int, default=None,
+                   help="RNG seed for reproducible wobble")
+    p.add_argument("--setup", action="store_true",
+                   help="create project folder structure and exit")
+    args = p.parse_args()
+
+    if args.setup:
+        setup_project(args.project)
+        return
+
+    require_ffmpeg()
+
+    if not args.input.exists():
+        raise SystemExit(f"error: input video not found: {args.input}")
+
+    frames_raw     = args.project / "frames_raw"
+    frames_wobbled = args.project / "frames_wobbled"
+    frames_wobbled.mkdir(parents=True, exist_ok=True)
+
+    count = extract_frames(args.input, frames_raw, args.fps)
+    print(f"extracted {count} frames")
+
+    print("\napplying wobble + grain...")
+    wobble_process(
+        frames_raw,
+        frames_wobbled,
+        px_range=(args.px[0], args.px[1]),
+        deg_range=(args.deg[0], args.deg[1]),
+        grain_range=(args.grain[0], args.grain[1]),
+        seed=args.seed,
+    )
+
+    treated = args.project / "frames_treated"
+    print(f"""
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  phase 1 complete
+
+  next: apply your Photoshop batch action to
+        {frames_wobbled}
+        → save treated frames to
+        {treated}
+
+  then run:
+        python assemble.py {args.project} --fps {args.fps}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+""")
+
+
+if __name__ == "__main__":
+    main()
