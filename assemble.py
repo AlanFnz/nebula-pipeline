@@ -16,6 +16,34 @@ def require_ffmpeg() -> None:
         raise SystemExit("error: ffmpeg not found — install it and ensure it's on PATH")
 
 
+def assemble_video(
+    input_dir: Path,
+    output_path: Path,
+    fps: float = 10.0,
+    crf: int = 18,
+) -> None:
+    if not input_dir.exists() or not list(input_dir.glob("*.png")):
+        raise FileNotFoundError(f"error: no PNG frames found in {input_dir}")
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    pattern = input_dir / "frame_%05d.png"
+    
+    print(f"assembling {len(list(input_dir.glob('*.png')))} frames → {output_path}")
+
+    subprocess.run(
+        [
+            "ffmpeg", "-y",
+            "-framerate", str(fps),
+            "-i", str(pattern),
+            "-c:v", "libx264",
+            "-pix_fmt", "yuv420p",
+            "-crf", str(crf),
+            str(output_path),
+        ],
+        check=True,
+    )
+
+
 def main() -> None:
     p = argparse.ArgumentParser(
         description="phase 2 — reassemble treated frames into final video",
@@ -33,30 +61,14 @@ def main() -> None:
     require_ffmpeg()
 
     frames_treated = args.project / "frames_treated"
-    if not frames_treated.exists() or not list(frames_treated.glob("*.png")):
-        raise SystemExit(f"error: no PNG frames found in {frames_treated}")
-
     output_dir = args.project / "output"
-    output_dir.mkdir(parents=True, exist_ok=True)
     output = args.output or output_dir / "final.mp4"
 
-    pattern = frames_treated / "frame_%05d.png"
-    print(f"assembling {len(list(frames_treated.glob('*.png')))} frames → {output}")
-
-    subprocess.run(
-        [
-            "ffmpeg", "-y",
-            "-framerate", str(args.fps),
-            "-i", str(pattern),
-            "-c:v", "libx264",
-            "-pix_fmt", "yuv420p",
-            "-crf", str(args.crf),
-            str(output),
-        ],
-        check=True,
-    )
-
-    print(f"done → {output}")
+    try:
+        assemble_video(frames_treated, output, fps=args.fps, crf=args.crf)
+        print(f"done → {output}")
+    except FileNotFoundError as e:
+        raise SystemExit(e)
 
 
 if __name__ == "__main__":
