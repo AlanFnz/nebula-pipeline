@@ -58,6 +58,10 @@ def main() -> None:
                    metavar=("MIN", "MAX"), help="wobble rotation range in degrees")
     p.add_argument("--grain", nargs=2, type=float, default=[0.3, 0.8],
                    metavar=("LO", "HI"), help="grain intensity range 0–1")
+    p.add_argument("--blur", nargs=2, type=float, default=[0.0, 0.0],
+                   metavar=("MIN", "MAX"), help="gaussian blur radius range (breathing effect)")
+    p.add_argument("--aberration", type=float, default=0.0,
+                   help="chromatic aberration strength in pixels")
     p.add_argument("--seed", type=int, default=None,
                    help="RNG seed for reproducible wobble")
     p.add_argument("--setup", action="store_true",
@@ -87,6 +91,8 @@ def main() -> None:
         px_range=(args.px[0], args.px[1]),
         deg_range=(args.deg[0], args.deg[1]),
         grain_range=(args.grain[0], args.grain[1]),
+        blur_range=(args.blur[0], args.blur[1]),
+        aberration=args.aberration,
         seed=args.seed,
     )
 
