@@ -40,12 +40,12 @@ def add_chromatic_aberration(img: Image.Image, strength: float) -> Image.Image:
     
     r, g, b = img.split()
     
-    # Random direction for shift
+    # random direction for shift
     theta = random.uniform(0, 2 * math.pi)
     dx = int(strength * math.cos(theta))
     dy = int(strength * math.sin(theta))
     
-    # Shift R and B in opposite directions
+    # shift R and B in opposite directions
     r = ImageChops.offset(r, dx, dy)
     b = ImageChops.offset(b, -dx, -dy)
     
@@ -58,15 +58,15 @@ def add_luminous_grain(img: Image.Image, sigma: float) -> Image.Image:
         return img
         
     arr = np.asarray(img, dtype=np.float32)
-    # Generate noise centered at 0
+    # generate noise centered at 0
     noise = np.random.normal(0.0, sigma, arr.shape).astype(np.float32)
     
-    # Simple soft-light-ish blend approximation: 
-    # Weighted by luminance to prevent grain in pure blacks
+    # simple soft-light-ish blend approximation: 
+    # weighted by luminance to prevent grain in pure blacks
     luminance = (0.299 * arr[..., 0] + 0.587 * arr[..., 1] + 0.114 * arr[..., 2]) / 255.0
     luminance = np.stack([luminance] * 3, axis=-1)
     
-    # Apply noise scaled by luminance
+    # apply noise scaled by luminance
     result = arr + (noise * (luminance ** 0.5))
     
     return Image.fromarray(np.clip(result, 0, 255).astype(np.uint8))
@@ -106,7 +106,7 @@ def process(
     output_dir.mkdir(parents=True, exist_ok=True)
     n = len(frames)
 
-    # Pre-calculate drifting parameters for "breathing"
+    # pre-calculate drifting parameters for "breathing"
     grain_sigmas = [v * 25 for v in smooth_walk(n, *grain_range)]
     blur_radii = smooth_walk(n, *blur_range)
 
