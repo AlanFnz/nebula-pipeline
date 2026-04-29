@@ -12,6 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 from analog_wobble import process as wobble_process
+from assemble import assemble_video
 
 FOLDERS = ["source", "frames_raw", "frames_wobbled", "frames_treated", "output"]
 
@@ -89,10 +90,16 @@ def main() -> None:
         seed=args.seed,
     )
 
+    preview_output = args.project / "output" / "preview_wobbled.mp4"
+    print("\ngenerating preview...")
+    assemble_video(frames_wobbled, preview_output, fps=args.fps)
+
     treated = args.project / "frames_treated"
     print(f"""
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   phase 1 complete
+
+  preview: {preview_output}
 
   next: apply your Photoshop batch action to
         {frames_wobbled}
