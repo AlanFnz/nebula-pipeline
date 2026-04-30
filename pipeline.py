@@ -62,6 +62,16 @@ def main() -> None:
                    metavar=("MIN", "MAX"), help="gaussian blur radius range (breathing effect)")
     p.add_argument("--aberration", type=float, default=0.0,
                    help="chromatic aberration strength in pixels")
+    p.add_argument("--vignette", type=float, default=0.0,
+                   help="vignette strength 0–1")
+    p.add_argument("--bands", type=float, default=0.0,
+                   help="horizontal scan band intensity 0–1")
+    p.add_argument("--texture", type=float, default=0.0,
+                   help="paper texture strength 0–1")
+    p.add_argument("--warm", type=float, default=0.0,
+                   help="warm toning strength 0–1")
+    p.add_argument("--dust", type=float, default=0.0,
+                   help="dust speck density 0–1")
     p.add_argument("--seed", type=int, default=None,
                    help="RNG seed for reproducible wobble")
     p.add_argument("--setup", action="store_true",
@@ -93,6 +103,11 @@ def main() -> None:
         grain_range=(args.grain[0], args.grain[1]),
         blur_range=(args.blur[0], args.blur[1]),
         aberration=args.aberration,
+        vignette=args.vignette,
+        bands=args.bands,
+        texture=args.texture,
+        warm=args.warm,
+        dust=args.dust,
         seed=args.seed,
     )
 
