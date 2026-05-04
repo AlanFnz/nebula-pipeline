@@ -212,6 +212,11 @@ def parse_and_set(line: str, params: dict) -> bool:
     tokens = line.split()
     key, vals = tokens[0], tokens[1:]
 
+    if not vals and key in (RANGE_PARAMS | SINGLE_PARAMS):
+        v = params[key]
+        print(f"  {key} = {f'{v[0]}  {v[1]}' if isinstance(v, tuple) else v}")
+        return False
+
     if key in RANGE_PARAMS:
         if len(vals) != 2:
             print(f"  {key} takes two values: MIN MAX")
