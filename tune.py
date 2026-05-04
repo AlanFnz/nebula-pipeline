@@ -50,6 +50,41 @@ DEFAULTS: dict = {
 RANGE_PARAMS  = {"blur", "grain", "px", "deg"}
 SINGLE_PARAMS = {"aberration", "vignette", "bands", "texture", "warm", "dust", "fps", "seed"}
 
+HELP = [
+    ("print pass — baked into the printed object", [
+        ("blur",        "MIN MAX", "base Gaussian blur — dissolves the source. higher = more ethereal"),
+        ("texture",     "0–1",     "paper substrate variation — mottled surface on the blacks"),
+        ("warm",        "0–1",     "warm color cast — shifts R up, B down. aged ink and paper feel"),
+    ]),
+    ("scan pass — digitizing artifacts layered on top", [
+        ("aberration",  "px",      "R/B channel shift — color fringing at edges of bright areas"),
+        ("bands",       "0–1",     "horizontal exposure banding — uneven scanner lamp artifact"),
+        ("vignette",    "0–1",     "corner darkening — print/scanner edge falloff"),
+        ("grain",       "LO HI",   "scan noise weighted by luminance — no grain in pure blacks"),
+        ("dust",        "0–1",     "sparse white specks — dust on scanner glass. lower to reduce dots"),
+    ]),
+    ("video pass — the assembled object in motion", [
+        ("px",          "MIN MAX", "translation wobble range in pixels"),
+        ("deg",         "MIN MAX", "rotation wobble range in degrees"),
+        ("fps",         "N",       "frame rate for extraction and assembly"),
+    ]),
+    ("misc", [
+        ("seed",        "N",       "RNG seed — fix to get reproducible results across runs"),
+    ]),
+]
+
+
+def help_text() -> None:
+    print()
+    for group, params in HELP:
+        print(f"  {group}")
+        for name, syntax, desc in params:
+            print(f"    {name:<14} {syntax:<10}  {desc}")
+    print()
+    print("  range params take two values: blur 1 4   grain 0.5 0.9")
+    print("  single params take one value: warm 0.6   dust 0.2")
+    print()
+
 
 def extract_frame(video: Path, fps: float, index: int) -> None:
     subprocess.run([
@@ -238,7 +273,7 @@ def main() -> None:
 
     apply_and_save(params)
     show(params)
-    print("adjust a param (e.g. 'blur 1 4'), or type 'show' / 'run' / 'export' / 'quit'\n")
+    print("type 'help' for param descriptions, or adjust directly (e.g. 'blur 1 4', 'dust 0.2')\n")
 
     while True:
         try:
@@ -251,7 +286,9 @@ def main() -> None:
             continue
         if line in ("q", "quit", "exit"):
             break
-        if line == "show":
+        if line in ("help", "h", "?"):
+            help_text()
+        elif line == "show":
             show(params)
         elif line == "reset":
             params = dict(DEFAULTS)
