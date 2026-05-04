@@ -9,3 +9,6 @@ __pycache__/
 */frames_treated/
 */source/
 */output/
+*/tune_params.json
+tune_preview.png
+tune_source.png

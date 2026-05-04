@@ -13,6 +13,7 @@ commands:
   q / quit             exit
 """
 
+import json
 import math
 import random
 import subprocess
@@ -50,6 +51,30 @@ DEFAULTS: dict = {
 
 RANGE_PARAMS  = {"blur", "grain", "px", "deg"}
 SINGLE_PARAMS = {"aberration", "vignette", "bands", "texture", "warm", "dust", "dust_opacity", "fps", "seed"}
+
+
+def params_file(project: Path) -> Path:
+    return project / "tune_params.json"
+
+
+def save_params(params: dict, project: Path) -> None:
+    params_file(project).parent.mkdir(parents=True, exist_ok=True)
+    params_file(project).write_text(json.dumps(params, indent=2))
+
+
+def load_params(project: Path) -> dict | None:
+    f = params_file(project)
+    if not f.exists():
+        return None
+    try:
+        raw = json.loads(f.read_text())
+        # restore tuples for range params
+        for k in RANGE_PARAMS:
+            if k in raw and isinstance(raw[k], list):
+                raw[k] = tuple(raw[k])
+        return raw
+    except Exception:
+        return None
 
 HELP = [
     ("print pass — baked into the printed object", [
@@ -258,7 +283,12 @@ def main() -> None:
     if not args.video.exists():
         raise SystemExit(f"error: video not found: {args.video}")
 
-    params = dict(DEFAULTS)
+    saved = load_params(args.project)
+    if saved:
+        params = saved
+        print(f"loaded params from {params_file(args.project)}")
+    else:
+        params = dict(DEFAULTS)
 
     # determine frame index
     if args.frame is not None:
@@ -300,6 +330,7 @@ def main() -> None:
             show(params)
         elif line == "reset":
             params = dict(DEFAULTS)
+            params_file(args.project).unlink(missing_ok=True)
             apply_and_save(params)
             show(params)
         elif line == "run":
@@ -310,6 +341,7 @@ def main() -> None:
             print(f"\n{export_cmd(args.video, args.project, params)}\n")
         else:
             if parse_and_set(line, params):
+                save_params(params, args.project)
                 apply_and_save(params)
 
 
