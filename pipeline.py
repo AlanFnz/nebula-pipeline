@@ -72,6 +72,8 @@ def main() -> None:
                    help="warm toning strength 0–1")
     p.add_argument("--dust", type=float, default=0.0,
                    help="dust speck density 0–1")
+    p.add_argument("--dust-opacity", type=float, default=1.0,
+                   help="dust speck opacity 0–1")
     p.add_argument("--seed", type=int, default=None,
                    help="RNG seed for reproducible wobble")
     p.add_argument("--setup", action="store_true",
@@ -108,6 +110,7 @@ def main() -> None:
         texture=args.texture,
         warm=args.warm,
         dust=args.dust,
+        dust_opacity=args.dust_opacity,
         seed=args.seed,
     )
 

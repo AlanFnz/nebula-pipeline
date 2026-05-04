@@ -121,7 +121,7 @@ def add_luminous_grain(img: Image.Image, sigma: float) -> Image.Image:
     return Image.fromarray(np.clip(result, 0, 255).astype(np.uint8))
 
 
-def add_dust(img: Image.Image, strength: float) -> Image.Image:
+def add_dust(img: Image.Image, strength: float, opacity: float = 1.0) -> Image.Image:
     """sparse bright specks — dust on scanner glass"""
     if strength <= 0:
         return img
@@ -131,7 +131,7 @@ def add_dust(img: Image.Image, strength: float) -> Image.Image:
     ys = np.random.randint(0, h, n)
     xs = np.random.randint(0, w, n)
     brightness = np.random.uniform(160, 255, n)
-    arr[ys, xs] = brightness[:, np.newaxis]
+    arr[ys, xs] = arr[ys, xs] * (1 - opacity) + brightness[:, np.newaxis] * opacity
     return Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
 
 
@@ -175,6 +175,7 @@ def process(
     texture: float,
     warm: float,
     dust: float,
+    dust_opacity: float,
     seed: int | None,
 ) -> None:
     if seed is not None:
@@ -206,7 +207,7 @@ def process(
         img = add_scan_bands(img, bands)
         img = add_vignette(img, vignette)
         img = add_luminous_grain(img, grain_sigmas[i])
-        img = add_dust(img, dust)
+        img = add_dust(img, dust, dust_opacity)
 
         # ── video pass ────────────────────────────────────────────────────────
         mag   = random.uniform(*px_range)
@@ -237,8 +238,9 @@ def main() -> None:
     p.add_argument("--bands",       type=float, default=0.0,  help="scan band intensity 0–1")
     p.add_argument("--texture",     type=float, default=0.0,  help="paper texture strength 0–1")
     p.add_argument("--warm",        type=float, default=0.0,  help="warm toning strength 0–1")
-    p.add_argument("--dust",        type=float, default=0.0,  help="dust speck density 0–1")
-    p.add_argument("--seed",        type=int,   default=None, help="RNG seed for reproducible output")
+    p.add_argument("--dust",         type=float, default=0.0,  help="dust speck density 0–1")
+    p.add_argument("--dust-opacity", type=float, default=1.0,  help="dust speck opacity 0–1 (blends with underlying pixel)")
+    p.add_argument("--seed",         type=int,   default=None, help="RNG seed for reproducible output")
     args = p.parse_args()
 
     process(
@@ -253,8 +255,9 @@ def main() -> None:
         bands      = args.bands,
         texture    = args.texture,
         warm       = args.warm,
-        dust       = args.dust,
-        seed       = args.seed,
+        dust         = args.dust,
+        dust_opacity = args.dust_opacity,
+        seed         = args.seed,
     )
 
 

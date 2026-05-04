@@ -40,15 +40,16 @@ DEFAULTS: dict = {
     "bands":      0.45,
     "vignette":   0.75,
     "grain":      (0.7, 1.1),
-    "dust":       0.6,
-    "px":         (2.0, 5.0),
+    "dust":         0.6,
+    "dust_opacity": 1.0,
+    "px":           (2.0, 5.0),
     "deg":        (0.2, 0.6),
     "fps":        12.0,
     "seed":       42,
 }
 
 RANGE_PARAMS  = {"blur", "grain", "px", "deg"}
-SINGLE_PARAMS = {"aberration", "vignette", "bands", "texture", "warm", "dust", "fps", "seed"}
+SINGLE_PARAMS = {"aberration", "vignette", "bands", "texture", "warm", "dust", "dust_opacity", "fps", "seed"}
 
 HELP = [
     ("print pass — baked into the printed object", [
@@ -61,7 +62,8 @@ HELP = [
         ("bands",       "0–1",     "horizontal exposure banding — uneven scanner lamp artifact"),
         ("vignette",    "0–1",     "corner darkening — print/scanner edge falloff"),
         ("grain",       "LO HI",   "scan noise weighted by luminance — no grain in pure blacks"),
-        ("dust",        "0–1",     "sparse white specks — dust on scanner glass. lower to reduce dots"),
+        ("dust",        "0–1",     "sparse white specks — dust on scanner glass. controls density"),
+        ("dust_opacity","0–1",     "how bright each speck is — blends with underlying pixel. lower = subtler"),
     ]),
     ("video pass — the assembled object in motion", [
         ("px",          "MIN MAX", "translation wobble range in pixels"),
@@ -112,7 +114,7 @@ def _render(params: dict, blur_r: float, grain_sigma: float,
     img = add_scan_bands(img, params["bands"])
     img = add_vignette(img, params["vignette"])
     img = add_luminous_grain(img, grain_sigma)
-    img = add_dust(img, params["dust"])
+    img = add_dust(img, params["dust"], params["dust_opacity"])
 
     theta = random.uniform(0, 2 * math.pi)
     dx    = int(px * math.cos(theta))
@@ -178,7 +180,8 @@ def build_pipeline_args(video: Path, project: Path, params: dict) -> list[str]:
         "--bands",      str(p["bands"]),
         "--vignette",   str(p["vignette"]),
         "--grain",      str(p["grain"][0]),      str(p["grain"][1]),
-        "--dust",       str(p["dust"]),
+        "--dust",         str(p["dust"]),
+        "--dust-opacity", str(p["dust_opacity"]),
         "--px",         str(p["px"][0]),         str(p["px"][1]),
         "--deg",        str(p["deg"][0]),         str(p["deg"][1]),
     ]
