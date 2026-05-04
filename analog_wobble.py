@@ -18,6 +18,7 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image, ImageChops, ImageFilter
+from tqdm import tqdm
 
 
 def sorted_frames(folder: Path) -> list[Path]:
@@ -192,7 +193,7 @@ def process(
 
     print(f"processing {n} frames\n  input : {input_dir}\n  output: {output_dir}")
 
-    for i, src in enumerate(frames):
+    for i, src in tqdm(enumerate(frames), total=n, unit="frame", dynamic_ncols=True):
         img = Image.open(src).convert("RGB")
 
         # ── print pass ────────────────────────────────────────────────────────
@@ -216,9 +217,6 @@ def process(
         img   = wobble(img, dx, dy, rot)
 
         img.save(output_dir / src.name)
-
-        if (i + 1) % 50 == 0 or i + 1 == n:
-            print(f"  {i + 1}/{n}  ({(i + 1) / n * 100:.0f}%)")
 
     print("done")
 
