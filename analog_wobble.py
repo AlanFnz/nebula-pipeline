@@ -152,12 +152,11 @@ def add_curvature(img: Image.Image, strength: float) -> Image.Image:
         arr[y1, x1] * wx       * wy
     )
 
-    # rounded corner mask — straight edges stay full, corners go black
-    corner_r = strength * 0.2
-    dx = np.maximum(np.abs(nx) - (1.0 - corner_r), 0.0)
-    dy = np.maximum(np.abs(ny) - (1.0 - corner_r), 0.0)
-    corner_dist = np.sqrt(dx ** 2 + dy ** 2)
-    corner_mask = 1.0 - np.clip((corner_dist - corner_r) / 0.02, 0, 1)
+    # corner mask — distance to nearest corner; straight edges stay untouched
+    dist_to_corner = np.sqrt((np.abs(nx) - 1.0) ** 2 + (np.abs(ny) - 1.0) ** 2)
+    inner = strength * 0.15
+    outer = inner + strength * 0.25
+    corner_mask = np.clip((dist_to_corner - inner) / (outer - inner), 0, 1)
     result *= corner_mask[..., np.newaxis]
 
     return Image.fromarray(np.clip(result, 0, 255).astype(np.uint8))
