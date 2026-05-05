@@ -120,7 +120,7 @@ def add_bloom(img: Image.Image, strength: float, radius: float = 8.0) -> Image.I
 
 
 def add_curvature(img: Image.Image, strength: float) -> Image.Image:
-    """barrel distortion — CRT curved glass"""
+    """barrel distortion + rounded corner mask — CRT curved glass and screen shape"""
     if strength <= 0:
         return img
     arr = np.asarray(img, dtype=np.float32)
@@ -131,6 +131,7 @@ def add_curvature(img: Image.Image, strength: float) -> Image.Image:
     nx = (X - cx) / cx
     ny = (Y - cy) / cy
 
+    # barrel distortion — center magnified, edges compressed
     r2     = nx ** 2 + ny ** 2
     factor = 1.0 / (1.0 + strength * r2)
     src_x  = nx * factor * cx + cx
@@ -151,8 +152,13 @@ def add_curvature(img: Image.Image, strength: float) -> Image.Image:
         arr[y1, x1] * wx       * wy
     )
 
-    outside = (src_x < 0) | (src_x >= w) | (src_y < 0) | (src_y >= h)
-    result[outside] = 0
+    # rounded corner mask — straight edges stay full, corners go black
+    corner_r = strength * 0.2
+    dx = np.maximum(np.abs(nx) - (1.0 - corner_r), 0.0)
+    dy = np.maximum(np.abs(ny) - (1.0 - corner_r), 0.0)
+    corner_dist = np.sqrt(dx ** 2 + dy ** 2)
+    corner_mask = 1.0 - np.clip((corner_dist - corner_r) / 0.02, 0, 1)
+    result *= corner_mask[..., np.newaxis]
 
     return Image.fromarray(np.clip(result, 0, 255).astype(np.uint8))
 
