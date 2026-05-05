@@ -6,7 +6,7 @@ apply per-frame analog degradation to a PNG sequence
 two-pass pipeline mirrors the physical process:
 
   PRINT PASS  — blur · paper texture · warm toning
-  SCAN PASS   — aberration · bands · vignette · grain · dust
+  SCAN PASS   — aberration · bands · scanlines · bloom · curvature · vignette · grain · dust
   VIDEO       — wobble
 """
 
@@ -95,6 +95,68 @@ def add_scan_bands(img: Image.Image, strength: float) -> Image.Image:
     return Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
 
 
+def add_scanlines(img: Image.Image, strength: float, spacing: int = 2) -> Image.Image:
+    """darken every Nth row — CRT electron beam gap"""
+    if strength <= 0:
+        return img
+    arr = np.asarray(img, dtype=np.float32).copy()
+    arr[::spacing] *= (1.0 - strength)
+    return Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
+
+
+def add_bloom(img: Image.Image, strength: float, radius: float = 8.0) -> Image.Image:
+    """bright areas bleed light onto neighbors — phosphor glow"""
+    if strength <= 0:
+        return img
+    arr = np.asarray(img, dtype=np.float32)
+    lum = (0.299 * arr[..., 0] + 0.587 * arr[..., 1] + 0.114 * arr[..., 2]) / 255.0
+    bright_mask = np.clip(lum * 2.0 - 0.5, 0, 1)
+    bright = arr * np.stack([bright_mask] * 3, axis=-1)
+    blurred = Image.fromarray(np.clip(bright, 0, 255).astype(np.uint8)).filter(
+        ImageFilter.GaussianBlur(radius=radius)
+    )
+    blurred_arr = np.asarray(blurred, dtype=np.float32)
+    return Image.fromarray(np.clip(arr + blurred_arr * strength, 0, 255).astype(np.uint8))
+
+
+def add_curvature(img: Image.Image, strength: float) -> Image.Image:
+    """barrel distortion — CRT curved glass"""
+    if strength <= 0:
+        return img
+    arr = np.asarray(img, dtype=np.float32)
+    h, w = arr.shape[:2]
+    cy, cx = h / 2.0, w / 2.0
+
+    Y, X = np.mgrid[0:h, 0:w]
+    nx = (X - cx) / cx
+    ny = (Y - cy) / cy
+
+    r2     = nx ** 2 + ny ** 2
+    factor = 1.0 / (1.0 + strength * r2)
+    src_x  = nx * factor * cx + cx
+    src_y  = ny * factor * cy + cy
+
+    x0 = np.clip(np.floor(src_x).astype(np.int32), 0, w - 1)
+    x1 = np.clip(x0 + 1, 0, w - 1)
+    y0 = np.clip(np.floor(src_y).astype(np.int32), 0, h - 1)
+    y1 = np.clip(y0 + 1, 0, h - 1)
+
+    wx = (src_x - np.floor(src_x))[..., np.newaxis]
+    wy = (src_y - np.floor(src_y))[..., np.newaxis]
+
+    result = (
+        arr[y0, x0] * (1 - wx) * (1 - wy) +
+        arr[y0, x1] * wx       * (1 - wy) +
+        arr[y1, x0] * (1 - wx) * wy       +
+        arr[y1, x1] * wx       * wy
+    )
+
+    outside = (src_x < 0) | (src_x >= w) | (src_y < 0) | (src_y >= h)
+    result[outside] = 0
+
+    return Image.fromarray(np.clip(result, 0, 255).astype(np.uint8))
+
+
 def add_vignette(img: Image.Image, strength: float) -> Image.Image:
     """darken corners — print/scanner edge falloff"""
     if strength <= 0:
@@ -176,6 +238,9 @@ def process(
     warm: float,
     dust: float,
     dust_opacity: float,
+    scanlines: float,
+    bloom: float,
+    curvature: float,
     seed: int | None,
 ) -> None:
     if seed is not None:
@@ -205,6 +270,9 @@ def process(
         # ── scan pass ─────────────────────────────────────────────────────────
         img = add_chromatic_aberration(img, aberration)
         img = add_scan_bands(img, bands)
+        img = add_scanlines(img, scanlines)
+        img = add_bloom(img, bloom)
+        img = add_curvature(img, curvature)
         img = add_vignette(img, vignette)
         img = add_luminous_grain(img, grain_sigmas[i])
         img = add_dust(img, dust, dust_opacity)
@@ -240,6 +308,9 @@ def main() -> None:
     p.add_argument("--warm",        type=float, default=0.0,  help="warm toning strength 0–1")
     p.add_argument("--dust",         type=float, default=0.0,  help="dust speck density 0–1")
     p.add_argument("--dust-opacity", type=float, default=1.0,  help="dust speck opacity 0–1 (blends with underlying pixel)")
+    p.add_argument("--scanlines",    type=float, default=0.0,  help="scanline darkness 0–1")
+    p.add_argument("--bloom",        type=float, default=0.0,  help="phosphor bloom strength 0–1")
+    p.add_argument("--curvature",    type=float, default=0.0,  help="barrel distortion strength 0–1")
     p.add_argument("--seed",         type=int,   default=None, help="RNG seed for reproducible output")
     args = p.parse_args()
 
@@ -257,6 +328,9 @@ def main() -> None:
         warm       = args.warm,
         dust         = args.dust,
         dust_opacity = args.dust_opacity,
+        scanlines    = args.scanlines,
+        bloom        = args.bloom,
+        curvature    = args.curvature,
         seed         = args.seed,
     )
 

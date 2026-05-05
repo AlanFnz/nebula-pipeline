@@ -26,8 +26,9 @@ from PIL import Image
 sys.path.insert(0, str(Path(__file__).parent))
 from analog_wobble import (
     add_blur, add_paper_texture, add_warm_toning,
-    add_chromatic_aberration, add_scan_bands, add_vignette,
-    add_luminous_grain, add_dust, wobble,
+    add_chromatic_aberration, add_scan_bands,
+    add_scanlines, add_bloom, add_curvature,
+    add_vignette, add_luminous_grain, add_dust, wobble,
 )
 
 PREVIEW    = Path("tune_preview.png")   # 3-panel: lo | mid | hi for range params
@@ -43,6 +44,9 @@ DEFAULTS: dict = {
     "grain":      (0.7, 1.1),
     "dust":         0.6,
     "dust_opacity": 1.0,
+    "scanlines":    0.0,
+    "bloom":        0.0,
+    "curvature":    0.0,
     "px":           (2.0, 5.0),
     "deg":        (0.2, 0.6),
     "fps":        12.0,
@@ -50,7 +54,8 @@ DEFAULTS: dict = {
 }
 
 RANGE_PARAMS  = {"blur", "grain", "px", "deg"}
-SINGLE_PARAMS = {"aberration", "vignette", "bands", "texture", "warm", "dust", "dust_opacity", "fps", "seed"}
+SINGLE_PARAMS = {"aberration", "vignette", "bands", "texture", "warm", "dust", "dust_opacity",
+                 "scanlines", "bloom", "curvature", "fps", "seed"}
 
 
 def params_file(project: Path) -> Path:
@@ -85,6 +90,9 @@ HELP = [
     ("scan pass — digitizing artifacts layered on top", [
         ("aberration",  "px",      "R/B channel shift — color fringing at edges of bright areas"),
         ("bands",       "0–1",     "horizontal exposure banding — uneven scanner lamp artifact"),
+        ("scanlines",   "0–1",     "darken every other row — CRT electron beam gap"),
+        ("bloom",       "0–1",     "bright areas bleed light onto neighbors — phosphor glow"),
+        ("curvature",   "0–1",     "barrel distortion — CRT curved glass. 0.2–0.4 is already strong"),
         ("vignette",    "0–1",     "corner darkening — print/scanner edge falloff"),
         ("grain",       "LO HI",   "scan noise weighted by luminance — no grain in pure blacks"),
         ("dust",        "0–1",     "sparse white specks — dust on scanner glass. controls density"),
@@ -137,6 +145,9 @@ def _render(params: dict, blur_r: float, grain_sigma: float,
 
     img = add_chromatic_aberration(img, params["aberration"])
     img = add_scan_bands(img, params["bands"])
+    img = add_scanlines(img, params["scanlines"])
+    img = add_bloom(img, params["bloom"])
+    img = add_curvature(img, params["curvature"])
     img = add_vignette(img, params["vignette"])
     img = add_luminous_grain(img, grain_sigma)
     img = add_dust(img, params["dust"], params["dust_opacity"])
@@ -207,6 +218,9 @@ def build_pipeline_args(video: Path, project: Path, params: dict) -> list[str]:
         "--grain",      str(p["grain"][0]),      str(p["grain"][1]),
         "--dust",         str(p["dust"]),
         "--dust-opacity", str(p["dust_opacity"]),
+        "--scanlines",    str(p["scanlines"]),
+        "--bloom",        str(p["bloom"]),
+        "--curvature",    str(p["curvature"]),
         "--px",         str(p["px"][0]),         str(p["px"][1]),
         "--deg",        str(p["deg"][0]),         str(p["deg"][1]),
     ]
@@ -285,7 +299,7 @@ def main() -> None:
 
     saved = load_params(args.project)
     if saved:
-        params = saved
+        params = {**DEFAULTS, **saved}   # fill any new keys not yet in the saved file
         print(f"loaded params from {params_file(args.project)}")
     else:
         params = dict(DEFAULTS)

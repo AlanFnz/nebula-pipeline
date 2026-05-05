@@ -74,6 +74,12 @@ def main() -> None:
                    help="dust speck density 0–1")
     p.add_argument("--dust-opacity", type=float, default=1.0,
                    help="dust speck opacity 0–1")
+    p.add_argument("--scanlines",    type=float, default=0.0,
+                   help="scanline darkness 0–1")
+    p.add_argument("--bloom",        type=float, default=0.0,
+                   help="phosphor bloom strength 0–1")
+    p.add_argument("--curvature",    type=float, default=0.0,
+                   help="barrel distortion strength 0–1")
     p.add_argument("--seed", type=int, default=None,
                    help="RNG seed for reproducible wobble")
     p.add_argument("--setup", action="store_true",
@@ -111,6 +117,9 @@ def main() -> None:
         warm=args.warm,
         dust=args.dust,
         dust_opacity=args.dust_opacity,
+        scanlines=args.scanlines,
+        bloom=args.bloom,
+        curvature=args.curvature,
         seed=args.seed,
     )
 
