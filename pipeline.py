@@ -80,6 +80,8 @@ def main() -> None:
                    help="phosphor bloom strength 0–1")
     p.add_argument("--curvature",    type=float, default=0.0,
                    help="barrel distortion strength 0–1")
+    p.add_argument("--brightness",   type=float, default=1.0,
+                   help="global brightness multiplier (1.0 = no change)")
     p.add_argument("--seed", type=int, default=None,
                    help="RNG seed for reproducible wobble")
     p.add_argument("--setup", action="store_true",
@@ -120,6 +122,7 @@ def main() -> None:
         scanlines=args.scanlines,
         bloom=args.bloom,
         curvature=args.curvature,
+        brightness=args.brightness,
         seed=args.seed,
     )
 

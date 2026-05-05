@@ -197,6 +197,14 @@ def add_dust(img: Image.Image, strength: float, opacity: float = 1.0) -> Image.I
     return Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
 
 
+def add_brightness(img: Image.Image, strength: float) -> Image.Image:
+    """global brightness multiplier — compensate for cumulative darkening"""
+    if strength == 1.0:
+        return img
+    arr = np.asarray(img, dtype=np.float32)
+    return Image.fromarray(np.clip(arr * strength, 0, 255).astype(np.uint8))
+
+
 # ── VIDEO PASS ────────────────────────────────────────────────────────────────
 
 def wobble(img: Image.Image, dx: int, dy: int, angle: float) -> Image.Image:
@@ -241,6 +249,7 @@ def process(
     scanlines: float,
     bloom: float,
     curvature: float,
+    brightness: float,
     seed: int | None,
 ) -> None:
     if seed is not None:
@@ -276,6 +285,7 @@ def process(
         img = add_vignette(img, vignette)
         img = add_luminous_grain(img, grain_sigmas[i])
         img = add_dust(img, dust, dust_opacity)
+        img = add_brightness(img, brightness)
 
         # ── video pass ────────────────────────────────────────────────────────
         mag   = random.uniform(*px_range)
@@ -311,6 +321,7 @@ def main() -> None:
     p.add_argument("--scanlines",    type=float, default=0.0,  help="scanline darkness 0–1")
     p.add_argument("--bloom",        type=float, default=0.0,  help="phosphor bloom strength 0–1")
     p.add_argument("--curvature",    type=float, default=0.0,  help="barrel distortion strength 0–1")
+    p.add_argument("--brightness",   type=float, default=1.0,  help="global brightness multiplier (1.0 = no change)")
     p.add_argument("--seed",         type=int,   default=None, help="RNG seed for reproducible output")
     args = p.parse_args()
 
@@ -331,6 +342,7 @@ def main() -> None:
         scanlines    = args.scanlines,
         bloom        = args.bloom,
         curvature    = args.curvature,
+        brightness   = args.brightness,
         seed         = args.seed,
     )
 

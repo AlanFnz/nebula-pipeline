@@ -28,7 +28,7 @@ from analog_wobble import (
     add_blur, add_paper_texture, add_warm_toning,
     add_chromatic_aberration, add_scan_bands,
     add_scanlines, add_bloom, add_curvature,
-    add_vignette, add_luminous_grain, add_dust, wobble,
+    add_vignette, add_luminous_grain, add_dust, add_brightness, wobble,
 )
 
 PREVIEW    = Path("tune_preview.png")   # 3-panel: lo | mid | hi for range params
@@ -47,6 +47,7 @@ DEFAULTS: dict = {
     "scanlines":    0.0,
     "bloom":        0.0,
     "curvature":    0.0,
+    "brightness":   1.0,
     "px":           (2.0, 5.0),
     "deg":        (0.2, 0.6),
     "fps":        12.0,
@@ -55,7 +56,7 @@ DEFAULTS: dict = {
 
 RANGE_PARAMS  = {"blur", "grain", "px", "deg"}
 SINGLE_PARAMS = {"aberration", "vignette", "bands", "texture", "warm", "dust", "dust_opacity",
-                 "scanlines", "bloom", "curvature", "fps", "seed"}
+                 "scanlines", "bloom", "curvature", "brightness", "fps", "seed"}
 
 
 def params_file(project: Path) -> Path:
@@ -93,6 +94,7 @@ HELP = [
         ("scanlines",   "0–1",     "darken every other row — CRT electron beam gap"),
         ("bloom",       "0–1",     "bright areas bleed light onto neighbors — phosphor glow"),
         ("curvature",   "0–1",     "barrel distortion — CRT curved glass. 0.2–0.4 is already strong"),
+        ("brightness",  ">0",      "global multiplier applied last — use to recover from cumulative darkening"),
         ("vignette",    "0–1",     "corner darkening — print/scanner edge falloff"),
         ("grain",       "LO HI",   "scan noise weighted by luminance — no grain in pure blacks"),
         ("dust",        "0–1",     "sparse white specks — dust on scanner glass. controls density"),
@@ -151,6 +153,7 @@ def _render(params: dict, blur_r: float, grain_sigma: float,
     img = add_vignette(img, params["vignette"])
     img = add_luminous_grain(img, grain_sigma)
     img = add_dust(img, params["dust"], params["dust_opacity"])
+    img = add_brightness(img, params["brightness"])
 
     theta = random.uniform(0, 2 * math.pi)
     dx    = int(px * math.cos(theta))
@@ -221,6 +224,7 @@ def build_pipeline_args(video: Path, project: Path, params: dict) -> list[str]:
         "--scanlines",    str(p["scanlines"]),
         "--bloom",        str(p["bloom"]),
         "--curvature",    str(p["curvature"]),
+        "--brightness",   str(p["brightness"]),
         "--px",         str(p["px"][0]),         str(p["px"][1]),
         "--deg",        str(p["deg"][0]),         str(p["deg"][1]),
     ]
