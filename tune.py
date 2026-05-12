@@ -57,12 +57,13 @@ DEFAULTS: dict = {
     "shadows":    0.15,
     "highlights": 0.05,
     "toning":     0.4,
+    "grade":      1,
 }
 
 RANGE_PARAMS  = {"blur", "grain", "px", "deg"}
 SINGLE_PARAMS = {"aberration", "vignette", "bands", "texture", "warm", "dust", "dust_opacity",
                  "scanlines", "bloom", "curvature", "brightness", "fps", "seed",
-                 "contrast", "shadows", "highlights", "toning"}
+                 "contrast", "shadows", "highlights", "toning", "grade"}
 
 
 def params_file(project: Path) -> Path:
@@ -112,6 +113,7 @@ HELP = [
         ("fps",         "N",       "frame rate for extraction and assembly"),
     ]),
     ("grade pass — color treatment applied after scan pass", [
+        ("grade",      "0/1", "enable or disable the entire grade pass — 0 to compare without it"),
         ("contrast",   "0–1", "S-curve contrast — darken shadows, lift highlights. tightens the image"),
         ("shadows",    "0–1", "shadow crush — push dark regions toward black. deepens the void"),
         ("highlights", "0–1", "highlight boost — lift bright regions toward white. makes light subjects glow"),
@@ -167,12 +169,13 @@ def _render(params: dict, blur_r: float, grain_sigma: float,
     img = add_dust(img, params["dust"], params["dust_opacity"])
     img = add_brightness(img, params["brightness"])
 
-    arr = np.asarray(img, dtype=np.float32)
-    arr = apply_contrast(arr, params["contrast"])
-    arr = apply_shadow_crush(arr, params["shadows"])
-    arr = apply_highlight_boost(arr, params["highlights"])
-    arr = apply_split_toning(arr, params["toning"])
-    img = Image.fromarray(arr.astype(np.uint8))
+    if params.get("grade", 1):
+        arr = np.asarray(img, dtype=np.float32)
+        arr = apply_contrast(arr, params["contrast"])
+        arr = apply_shadow_crush(arr, params["shadows"])
+        arr = apply_highlight_boost(arr, params["highlights"])
+        arr = apply_split_toning(arr, params["toning"])
+        img = Image.fromarray(arr.astype(np.uint8))
 
     theta = random.uniform(0, 2 * math.pi)
     dx    = int(px * math.cos(theta))
@@ -213,7 +216,7 @@ def show(params: dict) -> None:
     groups = [
         ("print pass", ["blur", "texture", "warm"]),
         ("scan pass",  ["aberration", "bands", "vignette", "grain", "dust"]),
-        ("grade pass", ["contrast", "shadows", "highlights", "toning"]),
+        ("grade pass", ["grade", "contrast", "shadows", "highlights", "toning"]),
         ("video",      ["px", "deg", "fps"]),
         ("misc",       ["seed"]),
     ]
@@ -248,13 +251,14 @@ def build_pipeline_args(video: Path, project: Path, params: dict) -> list[str]:
         "--px",         str(p["px"][0]),         str(p["px"][1]),
         "--deg",        str(p["deg"][0]),         str(p["deg"][1]),
     ]
-    args += [
-        "--grade",
-        "--contrast",   str(p["contrast"]),
-        "--shadows",    str(p["shadows"]),
-        "--highlights", str(p["highlights"]),
-        "--toning",     str(p["toning"]),
-    ]
+    if p.get("grade", 1):
+        args += [
+            "--grade",
+            "--contrast",   str(p["contrast"]),
+            "--shadows",    str(p["shadows"]),
+            "--highlights", str(p["highlights"]),
+            "--toning",     str(p["toning"]),
+        ]
     if p.get("seed") is not None:
         args += ["--seed", str(int(p["seed"]))]
     return args
@@ -302,7 +306,7 @@ def parse_and_set(line: str, params: dict) -> bool:
             print(f"  {key} takes one value")
             return False
         try:
-            params[key] = int(vals[0]) if key == "seed" else float(vals[0])
+            params[key] = int(vals[0]) if key in ("seed", "grade") else float(vals[0])
         except ValueError:
             print(f"  invalid value for {key}")
             return False
