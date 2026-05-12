@@ -30,6 +30,7 @@ from analog_wobble import (
     add_scanlines, add_bloom, add_curvature,
     add_vignette, add_luminous_grain, add_dust, add_brightness, wobble,
 )
+from grade import apply_contrast, apply_shadow_crush, apply_highlight_boost, apply_split_toning
 
 PREVIEW    = Path("tune_preview.png")   # 3-panel: lo | mid | hi for range params
 SRC_FRAME  = Path("tune_source.png")
@@ -52,11 +53,16 @@ DEFAULTS: dict = {
     "deg":        (0.2, 0.6),
     "fps":        12.0,
     "seed":       42,
+    "contrast":   0.4,
+    "shadows":    0.15,
+    "highlights": 0.05,
+    "toning":     0.4,
 }
 
 RANGE_PARAMS  = {"blur", "grain", "px", "deg"}
 SINGLE_PARAMS = {"aberration", "vignette", "bands", "texture", "warm", "dust", "dust_opacity",
-                 "scanlines", "bloom", "curvature", "brightness", "fps", "seed"}
+                 "scanlines", "bloom", "curvature", "brightness", "fps", "seed",
+                 "contrast", "shadows", "highlights", "toning"}
 
 
 def params_file(project: Path) -> Path:
@@ -104,6 +110,12 @@ HELP = [
         ("px",          "MIN MAX", "translation wobble range in pixels"),
         ("deg",         "MIN MAX", "rotation wobble range in degrees"),
         ("fps",         "N",       "frame rate for extraction and assembly"),
+    ]),
+    ("grade pass — color treatment applied after scan pass", [
+        ("contrast",   "0–1", "S-curve contrast — darken shadows, lift highlights. tightens the image"),
+        ("shadows",    "0–1", "shadow crush — push dark regions toward black. deepens the void"),
+        ("highlights", "0–1", "highlight boost — lift bright regions toward white. makes light subjects glow"),
+        ("toning",     "0–1", "split toning — teal shadows + amber highlights. warm/cold tension"),
     ]),
     ("misc", [
         ("seed",        "N",       "RNG seed — fix to get reproducible results across runs"),
@@ -155,6 +167,13 @@ def _render(params: dict, blur_r: float, grain_sigma: float,
     img = add_dust(img, params["dust"], params["dust_opacity"])
     img = add_brightness(img, params["brightness"])
 
+    arr = np.asarray(img, dtype=np.float32)
+    arr = apply_contrast(arr, params["contrast"])
+    arr = apply_shadow_crush(arr, params["shadows"])
+    arr = apply_highlight_boost(arr, params["highlights"])
+    arr = apply_split_toning(arr, params["toning"])
+    img = Image.fromarray(arr.astype(np.uint8))
+
     theta = random.uniform(0, 2 * math.pi)
     dx    = int(px * math.cos(theta))
     dy    = int(px * math.sin(theta))
@@ -194,6 +213,7 @@ def show(params: dict) -> None:
     groups = [
         ("print pass", ["blur", "texture", "warm"]),
         ("scan pass",  ["aberration", "bands", "vignette", "grain", "dust"]),
+        ("grade pass", ["contrast", "shadows", "highlights", "toning"]),
         ("video",      ["px", "deg", "fps"]),
         ("misc",       ["seed"]),
     ]
@@ -227,6 +247,13 @@ def build_pipeline_args(video: Path, project: Path, params: dict) -> list[str]:
         "--brightness",   str(p["brightness"]),
         "--px",         str(p["px"][0]),         str(p["px"][1]),
         "--deg",        str(p["deg"][0]),         str(p["deg"][1]),
+    ]
+    args += [
+        "--grade",
+        "--contrast",   str(p["contrast"]),
+        "--shadows",    str(p["shadows"]),
+        "--highlights", str(p["highlights"]),
+        "--toning",     str(p["toning"]),
     ]
     if p.get("seed") is not None:
         args += ["--seed", str(int(p["seed"]))]

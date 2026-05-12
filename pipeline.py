@@ -13,6 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from analog_wobble import process as wobble_process
 from assemble import assemble_video
+from grade import process as grade_process
 
 FOLDERS = ["source", "frames_raw", "frames_wobbled", "frames_treated", "output"]
 
@@ -84,6 +85,16 @@ def main() -> None:
                    help="global brightness multiplier (1.0 = no change)")
     p.add_argument("--seed", type=int, default=None,
                    help="RNG seed for reproducible wobble")
+    p.add_argument("--grade", action="store_true",
+                   help="run python color grade pass after wobble (skips manual Photoshop step)")
+    p.add_argument("--contrast",   type=float, default=0.4,
+                   help="grade: S-curve contrast 0–1")
+    p.add_argument("--shadows",    type=float, default=0.15,
+                   help="grade: shadow crush 0–1")
+    p.add_argument("--highlights", type=float, default=0.05,
+                   help="grade: highlight boost 0–1")
+    p.add_argument("--toning",     type=float, default=0.4,
+                   help="grade: split toning strength 0–1")
     p.add_argument("--setup", action="store_true",
                    help="create project folder structure and exit")
     args = p.parse_args()
@@ -126,12 +137,30 @@ def main() -> None:
         seed=args.seed,
     )
 
-    preview_output = args.project / "output" / "preview_wobbled.mp4"
-    print("\ngenerating preview...")
-    assemble_video(frames_wobbled, preview_output, fps=args.fps)
-
     treated = args.project / "frames_treated"
-    print(f"""
+
+    if args.grade:
+        print("\ngrading frames...")
+        grade_process(
+            frames_wobbled, treated,
+            contrast=args.contrast, shadows=args.shadows,
+            highlights=args.highlights, toning=args.toning,
+        )
+        final_output = args.project / "output" / "final.mp4"
+        print("\nassembling final video...")
+        assemble_video(treated, final_output, fps=args.fps)
+        print(f"""
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  pipeline complete
+
+  output: {final_output}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+""")
+    else:
+        preview_output = args.project / "output" / "preview_wobbled.mp4"
+        print("\ngenerating preview...")
+        assemble_video(frames_wobbled, preview_output, fps=args.fps)
+        print(f"""
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   phase 1 complete
 
