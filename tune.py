@@ -215,7 +215,8 @@ def apply_and_save(params: dict) -> None:
 def show(params: dict) -> None:
     groups = [
         ("print pass", ["blur", "texture", "warm"]),
-        ("scan pass",  ["aberration", "bands", "vignette", "grain", "dust"]),
+        ("scan pass",  ["aberration", "bands", "scanlines", "bloom", "curvature",
+                        "vignette", "grain", "dust", "dust_opacity", "brightness"]),
         ("grade pass", ["grade", "contrast", "shadows", "highlights", "toning"]),
         ("video",      ["px", "deg", "fps"]),
         ("misc",       ["seed"]),
