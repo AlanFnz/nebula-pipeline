@@ -8,6 +8,9 @@ commands:
   <param> <value(s)>   adjust a param, e.g.:  blur 1 4   warm 0.6   grain 0.5 0.9
   show                 print current parameter values
   reset                reset all to defaults
+  save <name>          save current params as a named preset
+  load <name>          restore a saved preset
+  presets              list all saved presets
   run                  run the full pipeline with current params
   export               print the equivalent pipeline.py command
   q / quit             exit
@@ -80,14 +83,41 @@ def load_params(project: Path) -> dict | None:
     if not f.exists():
         return None
     try:
-        raw = json.loads(f.read_text())
-        # restore tuples for range params
-        for k in RANGE_PARAMS:
-            if k in raw and isinstance(raw[k], list):
-                raw[k] = tuple(raw[k])
-        return raw
+        return _restore_tuples(json.loads(f.read_text()))
     except Exception:
         return None
+
+
+PRESETS_DIR = Path.home() / ".nebula_pipeline" / "presets"
+
+
+def _restore_tuples(raw: dict) -> dict:
+    for k in RANGE_PARAMS:
+        if k in raw and isinstance(raw[k], list):
+            raw[k] = tuple(raw[k])
+    return raw
+
+
+def save_preset(name: str, params: dict) -> None:
+    PRESETS_DIR.mkdir(parents=True, exist_ok=True)
+    (PRESETS_DIR / f"{name}.json").write_text(json.dumps(params, indent=2))
+
+
+def load_preset(name: str) -> dict | None:
+    f = PRESETS_DIR / f"{name}.json"
+    if not f.exists():
+        return None
+    try:
+        return _restore_tuples(json.loads(f.read_text()))
+    except Exception:
+        return None
+
+
+def list_presets() -> list[str]:
+    if not PRESETS_DIR.exists():
+        return []
+    return sorted(p.stem for p in PRESETS_DIR.glob("*.json"))
+
 
 HELP = [
     ("print pass — baked into the printed object", [
@@ -389,6 +419,29 @@ def main() -> None:
             subprocess.run(cmd_args)
         elif line == "export":
             print(f"\n{export_cmd(args.video, args.project, params)}\n")
+        elif line == "presets":
+            names = list_presets()
+            if names:
+                print(f"\n  {', '.join(names)}\n")
+            else:
+                print("  no presets saved yet — use: save <name>\n")
+        elif line.startswith("save "):
+            name = line[5:].strip()
+            if name:
+                save_preset(name, params)
+                print(f"  saved preset '{name}'")
+            else:
+                print("  usage: save <name>")
+        elif line.startswith("load "):
+            name = line[5:].strip()
+            preset = load_preset(name)
+            if preset is None:
+                print(f"  preset '{name}' not found — type 'presets' to list available")
+            else:
+                params = {**DEFAULTS, **preset}
+                save_params(params, args.project)
+                apply_and_save(params)
+                show(params)
         else:
             if parse_and_set(line, params):
                 save_params(params, args.project)
