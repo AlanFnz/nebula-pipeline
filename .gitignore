@@ -2,6 +2,8 @@ __pycache__/
 *.pyc
 .env
 .DS_Store
+CLAUDE.md
+.claude/
 
 # project working directories
 */frames_raw/

@@ -18,7 +18,7 @@ import numpy as np
 from PIL import Image
 from tqdm import tqdm
 
-# teal shadows, amber highlights — matches the warm/cold tension in CLAUDE.md
+# teal shadows, amber highlights — warm/cold color tension
 _SHADOW_COLOR    = np.array([-25.0,  10.0,  25.0], dtype=np.float32)
 _HIGHLIGHT_COLOR = np.array([ 25.0,   8.0, -20.0], dtype=np.float32)
 
