@@ -61,12 +61,13 @@ DEFAULTS: dict = {
     "highlights": 0.05,
     "toning":     0.4,
     "grade":      1,
+    "drift":      0.0,
 }
 
 RANGE_PARAMS  = {"blur", "grain", "px", "deg"}
 SINGLE_PARAMS = {"aberration", "vignette", "bands", "texture", "warm", "dust", "dust_opacity",
                  "scanlines", "bloom", "curvature", "brightness", "fps", "seed",
-                 "contrast", "shadows", "highlights", "toning", "grade"}
+                 "contrast", "shadows", "highlights", "toning", "grade", "drift"}
 
 
 def params_file(project: Path) -> Path:
@@ -150,7 +151,8 @@ HELP = [
         ("toning",     "0–1", "split toning — teal shadows + amber highlights. warm/cold tension"),
     ]),
     ("misc", [
-        ("seed",        "N",       "RNG seed — fix to get reproducible results across runs"),
+        ("drift", "0–1", "temporal drift — how much bands, aberration, brightness, warm wander frame to frame"),
+        ("seed",  "N",   "RNG seed — fix to get reproducible results across runs"),
     ]),
 ]
 
@@ -249,7 +251,7 @@ def show(params: dict) -> None:
                         "vignette", "grain", "dust", "dust_opacity", "brightness"]),
         ("grade pass", ["grade", "contrast", "shadows", "highlights", "toning"]),
         ("video",      ["px", "deg", "fps"]),
-        ("misc",       ["seed"]),
+        ("misc",       ["drift", "seed"]),
     ]
     print()
     for label, keys in groups:
@@ -279,6 +281,7 @@ def build_pipeline_args(video: Path, project: Path, params: dict) -> list[str]:
         "--bloom",        str(p["bloom"]),
         "--curvature",    str(p["curvature"]),
         "--brightness",   str(p["brightness"]),
+        "--drift",        str(p["drift"]),
         "--px",         str(p["px"][0]),         str(p["px"][1]),
         "--deg",        str(p["deg"][0]),         str(p["deg"][1]),
     ]

@@ -83,6 +83,8 @@ def main() -> None:
                    help="barrel distortion strength 0–1")
     p.add_argument("--brightness",   type=float, default=1.0,
                    help="global brightness multiplier (1.0 = no change)")
+    p.add_argument("--drift", type=float, default=0.0,
+                   help="temporal drift 0–1 — how much bands, aberration, brightness, warm vary frame to frame")
     p.add_argument("--seed", type=int, default=None,
                    help="RNG seed for reproducible wobble")
     p.add_argument("--grade", action="store_true",
@@ -135,6 +137,7 @@ def main() -> None:
         curvature=args.curvature,
         brightness=args.brightness,
         seed=args.seed,
+        drift=args.drift,
     )
 
     treated = args.project / "frames_treated"

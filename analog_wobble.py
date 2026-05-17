@@ -235,6 +235,14 @@ def smooth_walk(n: int, lo: float, hi: float, step: float = 0.15) -> list[float]
     return out
 
 
+def _drift_walk(n: int, value: float, drift: float) -> list[float]:
+    """smooth_walk around a fixed value — drift 0 = static, 1 = ±35% variation"""
+    if drift <= 0 or value == 0:
+        return [value] * n
+    half = value * drift * 0.35
+    return smooth_walk(n, max(0.0, value - half), value + half)
+
+
 # ── PROCESS ───────────────────────────────────────────────────────────────────
 
 def process(
@@ -256,6 +264,7 @@ def process(
     curvature: float,
     brightness: float,
     seed: int | None,
+    drift: float = 0.0,
 ) -> None:
     if seed is not None:
         random.seed(seed)
@@ -268,8 +277,12 @@ def process(
     output_dir.mkdir(parents=True, exist_ok=True)
     n = len(frames)
 
-    grain_sigmas = [v * 25 for v in smooth_walk(n, *grain_range)]
-    blur_radii   = smooth_walk(n, *blur_range)
+    grain_sigmas    = [v * 25 for v in smooth_walk(n, *grain_range)]
+    blur_radii      = smooth_walk(n, *blur_range)
+    aberration_vals = _drift_walk(n, aberration, drift)
+    bands_vals      = _drift_walk(n, bands,      drift)
+    brightness_vals = _drift_walk(n, brightness, drift)
+    warm_vals       = _drift_walk(n, warm,       drift)
 
     print(f"processing {n} frames\n  input : {input_dir}\n  output: {output_dir}")
 
@@ -279,18 +292,18 @@ def process(
         # ── print pass ────────────────────────────────────────────────────────
         img = add_blur(img, blur_radii[i])
         img = add_paper_texture(img, texture)
-        img = add_warm_toning(img, warm)
+        img = add_warm_toning(img, warm_vals[i])
 
         # ── scan pass ─────────────────────────────────────────────────────────
-        img = add_chromatic_aberration(img, aberration)
-        img = add_scan_bands(img, bands)
+        img = add_chromatic_aberration(img, aberration_vals[i])
+        img = add_scan_bands(img, bands_vals[i])
         img = add_scanlines(img, scanlines)
         img = add_bloom(img, bloom)
         img = add_curvature(img, curvature)
         img = add_vignette(img, vignette)
         img = add_luminous_grain(img, grain_sigmas[i])
         img = add_dust(img, dust, dust_opacity)
-        img = add_brightness(img, brightness)
+        img = add_brightness(img, brightness_vals[i])
 
         # ── video pass ────────────────────────────────────────────────────────
         mag   = random.uniform(*px_range)
