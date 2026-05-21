@@ -273,6 +273,7 @@ def process(
     seed: int | None,
     drift: float = 0.0,
     progress: Progress | None = None,
+    task_id: int | None = None,
 ) -> None:
     if seed is not None:
         random.seed(seed)
@@ -308,7 +309,11 @@ def process(
         )
 
     with (progress if _own else nullcontext()):
-        task = progress.add_task("wobbling", total=n)
+        if task_id is not None:
+            progress.update(task_id, total=n)
+            task = task_id
+        else:
+            task = progress.add_task("wobbling", total=n)
         for i, src in enumerate(frames):
             img = Image.open(src).convert("RGB")
 

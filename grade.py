@@ -74,6 +74,7 @@ def process(
     highlights: float = 0.05,
     toning:     float = 0.4,
     progress: Progress | None = None,
+    task_id: int | None = None,
 ) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     frames = sorted(input_dir.glob("*.png"))
@@ -94,7 +95,11 @@ def process(
         )
 
     with (progress if _own else nullcontext()):
-        task = progress.add_task("grading", total=len(frames))
+        if task_id is not None:
+            progress.update(task_id, total=len(frames))
+            task = task_id
+        else:
+            task = progress.add_task("grading", total=len(frames))
         for src in frames:
             img = Image.open(src).convert("RGB")
             arr = np.asarray(img, dtype=np.float32)

@@ -140,8 +140,12 @@ def main() -> None:
 
     progress = _make_progress()
 
+    extract_task  = progress.add_task("extracting", total=1)
+    wobble_task   = progress.add_task("wobbling",   total=None)
+    grade_task    = progress.add_task("grading",    total=None) if args.grade else None
+    assemble_task = progress.add_task("assembling", total=1)
+
     with Live(Group(get_banner_text(), progress), console=_console, refresh_per_second=10):
-        extract_task = progress.add_task("extracting", total=1)
         extract_frames(args.input, frames_raw, args.fps)
         progress.advance(extract_task)
 
@@ -165,6 +169,7 @@ def main() -> None:
             seed=args.seed,
             drift=args.drift,
             progress=progress,
+            task_id=wobble_task,
         )
 
         if args.grade:
@@ -173,12 +178,12 @@ def main() -> None:
                 contrast=args.contrast, shadows=args.shadows,
                 highlights=args.highlights, toning=args.toning,
                 progress=progress,
+                task_id=grade_task,
             )
             output = args.project / "output" / "final.mp4"
         else:
             output = args.project / "output" / "preview_wobbled.mp4"
 
-        assemble_task = progress.add_task("assembling", total=1)
         assemble_video(
             treated if args.grade else frames_wobbled,
             output, fps=args.fps,
