@@ -14,6 +14,7 @@ import argparse
 import math
 import random
 import re
+from contextlib import nullcontext
 from pathlib import Path
 
 import numpy as np
@@ -271,6 +272,7 @@ def process(
     brightness: float,
     seed: int | None,
     drift: float = 0.0,
+    progress: Progress | None = None,
 ) -> None:
     if seed is not None:
         random.seed(seed)
@@ -290,21 +292,23 @@ def process(
     brightness_vals = _drift_walk(n, brightness, drift)
     warm_vals       = _drift_walk(n, warm,       drift)
 
-    _console.print(f"  [dim]input :[/]  {input_dir}")
-    _console.print(f"  [dim]output:[/]  {output_dir}\n")
+    _own = progress is None
+    if _own:
+        _console.print(f"  [dim]input :[/]  {input_dir}")
+        _console.print(f"  [dim]output:[/]  {output_dir}\n")
+        progress = Progress(
+            TextColumn("  [dim]{task.description}[/]"),
+            BarColumn(bar_width=40, style="color(238)", complete_style="color(214)"),
+            MofNCompleteColumn(),
+            TextColumn("[dim]fr[/]"),
+            TimeElapsedColumn(),
+            TextColumn("[dim]·[/]"),
+            TimeRemainingColumn(),
+            console=_console,
+        )
 
-    _progress = Progress(
-        TextColumn("  [dim]{task.description}[/]"),
-        BarColumn(bar_width=40, style="color(238)", complete_style="color(214)"),
-        MofNCompleteColumn(),
-        TextColumn("[dim]fr[/]"),
-        TimeElapsedColumn(),
-        TextColumn("[dim]·[/]"),
-        TimeRemainingColumn(),
-        console=_console,
-    )
-    with _progress:
-        task = _progress.add_task("wobbling", total=n)
+    with (progress if _own else nullcontext()):
+        task = progress.add_task("wobbling", total=n)
         for i, src in enumerate(frames):
             img = Image.open(src).convert("RGB")
 
@@ -333,7 +337,7 @@ def process(
             img   = wobble(img, dx, dy, rot)
 
             img.save(output_dir / src.name)
-            _progress.advance(task)
+            progress.advance(task)
 
 
 def main() -> None:

@@ -12,6 +12,7 @@ effects applied in order:
 """
 
 import argparse
+from contextlib import nullcontext
 from pathlib import Path
 
 import numpy as np
@@ -72,24 +73,28 @@ def process(
     shadows:    float = 0.15,
     highlights: float = 0.05,
     toning:     float = 0.4,
+    progress: Progress | None = None,
 ) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     frames = sorted(input_dir.glob("*.png"))
     if not frames:
         raise SystemExit(f"no PNG frames in {input_dir}")
 
-    _progress = Progress(
-        TextColumn("  [dim]{task.description}[/]"),
-        BarColumn(bar_width=40, style="color(238)", complete_style="color(214)"),
-        MofNCompleteColumn(),
-        TextColumn("[dim]fr[/]"),
-        TimeElapsedColumn(),
-        TextColumn("[dim]·[/]"),
-        TimeRemainingColumn(),
-        console=_console,
-    )
-    with _progress:
-        task = _progress.add_task("grading", total=len(frames))
+    _own = progress is None
+    if _own:
+        progress = Progress(
+            TextColumn("  [dim]{task.description}[/]"),
+            BarColumn(bar_width=40, style="color(238)", complete_style="color(214)"),
+            MofNCompleteColumn(),
+            TextColumn("[dim]fr[/]"),
+            TimeElapsedColumn(),
+            TextColumn("[dim]·[/]"),
+            TimeRemainingColumn(),
+            console=_console,
+        )
+
+    with (progress if _own else nullcontext()):
+        task = progress.add_task("grading", total=len(frames))
         for src in frames:
             img = Image.open(src).convert("RGB")
             arr = np.asarray(img, dtype=np.float32)
@@ -98,7 +103,7 @@ def process(
             arr = apply_highlight_boost(arr, highlights)
             arr = apply_split_toning(arr, toning)
             Image.fromarray(arr.astype(np.uint8)).save(output_dir / src.name)
-            _progress.advance(task)
+            progress.advance(task)
 
 
 def main() -> None:

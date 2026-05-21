@@ -1,14 +1,20 @@
 from rich.console import Console
+from rich.text import Text
 import pyfiglet
 
 _console = Console()
 
-# amber on dark — matches the pipeline's warm/cold palette
 _AMBER = "color(214)"
 _DIM   = "dim white"
 
 
-def print_banner() -> None:
+def get_banner_text() -> Text:
     art = pyfiglet.figlet_format("afnz", font="ansi_shadow")
-    _console.print(f"[bold {_AMBER}]{art}[/]", end="")
-    _console.print(f"  [{_DIM}]analog degradation pipeline[/]\n")
+    t = Text()
+    t.append(art, style=f"bold {_AMBER}")
+    t.append("\n  analog degradation pipeline\n\n", style=_DIM)
+    return t
+
+
+def print_banner() -> None:
+    _console.print(get_banner_text())

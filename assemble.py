@@ -27,8 +27,6 @@ def assemble_video(
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     pattern = input_dir / "frame_%05d.png"
-    
-    print(f"assembling {len(list(input_dir.glob('*.png')))} frames → {output_path}")
 
     subprocess.run(
         [
@@ -41,6 +39,7 @@ def assemble_video(
             str(output_path),
         ],
         check=True,
+        capture_output=True,
     )
 
 

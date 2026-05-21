@@ -10,11 +10,33 @@ import subprocess
 import sys
 from pathlib import Path
 
+from rich.console import Console, Group
+from rich.live import Live
+from rich.progress import (
+    BarColumn, MofNCompleteColumn, Progress,
+    TextColumn, TimeElapsedColumn, TimeRemainingColumn,
+)
+
 sys.path.insert(0, str(Path(__file__).parent))
-from _banner import print_banner
+from _banner import get_banner_text
 from analog_wobble import process as wobble_process
 from assemble import assemble_video
 from grade import process as grade_process
+
+_console = Console()
+
+
+def _make_progress() -> Progress:
+    return Progress(
+        TextColumn("  [dim]{task.description:<12}[/]"),
+        BarColumn(bar_width=40, style="color(238)", complete_style="color(214)"),
+        MofNCompleteColumn(),
+        TextColumn("[dim]fr[/]"),
+        TimeElapsedColumn(),
+        TextColumn("[dim]·[/]"),
+        TimeRemainingColumn(),
+        console=_console,
+    )
 
 FOLDERS = ["source", "frames_raw", "frames_wobbled", "frames_treated", "output"]
 
@@ -29,10 +51,10 @@ def require_ffmpeg() -> None:
 def extract_frames(video: Path, frames_raw: Path, fps: float) -> int:
     frames_raw.mkdir(parents=True, exist_ok=True)
     pattern = frames_raw / "frame_%05d.png"
-    print(f"extracting frames at {fps}fps → {frames_raw}")
     subprocess.run(
         ["ffmpeg", "-y", "-i", str(video), "-vf", f"fps={fps}", str(pattern)],
         check=True,
+        capture_output=True,
     )
     return len(list(frames_raw.glob("*.png")))
 
@@ -102,8 +124,6 @@ def main() -> None:
                    help="create project folder structure and exit")
     args = p.parse_args()
 
-    print_banner()
-
     if args.setup:
         setup_project(args.project)
         return
@@ -115,72 +135,57 @@ def main() -> None:
 
     frames_raw     = args.project / "frames_raw"
     frames_wobbled = args.project / "frames_wobbled"
+    treated        = args.project / "frames_treated"
     frames_wobbled.mkdir(parents=True, exist_ok=True)
 
-    count = extract_frames(args.input, frames_raw, args.fps)
-    print(f"extracted {count} frames")
+    progress = _make_progress()
 
-    print("\napplying wobble + grain...")
-    wobble_process(
-        frames_raw,
-        frames_wobbled,
-        px_range=(args.px[0], args.px[1]),
-        deg_range=(args.deg[0], args.deg[1]),
-        grain_range=(args.grain[0], args.grain[1]),
-        blur_range=(args.blur[0], args.blur[1]),
-        aberration=args.aberration,
-        vignette=args.vignette,
-        bands=args.bands,
-        texture=args.texture,
-        warm=args.warm,
-        dust=args.dust,
-        dust_opacity=args.dust_opacity,
-        scanlines=args.scanlines,
-        bloom=args.bloom,
-        curvature=args.curvature,
-        brightness=args.brightness,
-        seed=args.seed,
-        drift=args.drift,
-    )
+    with Live(Group(get_banner_text(), progress), console=_console, refresh_per_second=10):
+        extract_task = progress.add_task("extracting", total=1)
+        extract_frames(args.input, frames_raw, args.fps)
+        progress.advance(extract_task)
 
-    treated = args.project / "frames_treated"
-
-    if args.grade:
-        print("\ngrading frames...")
-        grade_process(
-            frames_wobbled, treated,
-            contrast=args.contrast, shadows=args.shadows,
-            highlights=args.highlights, toning=args.toning,
+        wobble_process(
+            frames_raw, frames_wobbled,
+            px_range=(args.px[0], args.px[1]),
+            deg_range=(args.deg[0], args.deg[1]),
+            grain_range=(args.grain[0], args.grain[1]),
+            blur_range=(args.blur[0], args.blur[1]),
+            aberration=args.aberration,
+            vignette=args.vignette,
+            bands=args.bands,
+            texture=args.texture,
+            warm=args.warm,
+            dust=args.dust,
+            dust_opacity=args.dust_opacity,
+            scanlines=args.scanlines,
+            bloom=args.bloom,
+            curvature=args.curvature,
+            brightness=args.brightness,
+            seed=args.seed,
+            drift=args.drift,
+            progress=progress,
         )
-        final_output = args.project / "output" / "final.mp4"
-        print("\nassembling final video...")
-        assemble_video(treated, final_output, fps=args.fps)
-        print(f"""
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  pipeline complete
 
-  output: {final_output}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-""")
-    else:
-        preview_output = args.project / "output" / "preview_wobbled.mp4"
-        print("\ngenerating preview...")
-        assemble_video(frames_wobbled, preview_output, fps=args.fps)
-        print(f"""
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  phase 1 complete
+        if args.grade:
+            grade_process(
+                frames_wobbled, treated,
+                contrast=args.contrast, shadows=args.shadows,
+                highlights=args.highlights, toning=args.toning,
+                progress=progress,
+            )
+            output = args.project / "output" / "final.mp4"
+        else:
+            output = args.project / "output" / "preview_wobbled.mp4"
 
-  preview: {preview_output}
+        assemble_task = progress.add_task("assembling", total=1)
+        assemble_video(
+            treated if args.grade else frames_wobbled,
+            output, fps=args.fps,
+        )
+        progress.advance(assemble_task)
 
-  next: apply your Photoshop batch action to
-        {frames_wobbled}
-        → save treated frames to
-        {treated}
-
-  then run:
-        python assemble.py {args.project} --fps {args.fps}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-""")
+    _console.print(f"\n  [dim]→[/]  [color(214)]{output}[/]\n")
 
 
 if __name__ == "__main__":
