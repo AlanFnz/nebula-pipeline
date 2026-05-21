@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+from _banner import print_banner
 from analog_wobble import process as wobble_process
 from assemble import assemble_video
 from grade import process as grade_process
@@ -100,6 +101,8 @@ def main() -> None:
     p.add_argument("--setup", action="store_true",
                    help="create project folder structure and exit")
     args = p.parse_args()
+
+    print_banner()
 
     if args.setup:
         setup_project(args.project)

@@ -1,5 +1,6 @@
 pillow
 numpy
-tqdm
+rich
+pyfiglet
 replicate
 requests

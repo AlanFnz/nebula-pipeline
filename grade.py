@@ -16,7 +16,13 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image
-from tqdm import tqdm
+from rich.console import Console
+from rich.progress import (
+    BarColumn, MofNCompleteColumn, Progress,
+    TextColumn, TimeElapsedColumn, TimeRemainingColumn,
+)
+
+_console = Console()
 
 # teal shadows, amber highlights — warm/cold color tension
 _SHADOW_COLOR    = np.array([-25.0,  10.0,  25.0], dtype=np.float32)
@@ -72,14 +78,27 @@ def process(
     if not frames:
         raise SystemExit(f"no PNG frames in {input_dir}")
 
-    for src in tqdm(frames, desc="grading", unit="fr"):
-        img = Image.open(src).convert("RGB")
-        arr = np.asarray(img, dtype=np.float32)
-        arr = apply_contrast(arr, contrast)
-        arr = apply_shadow_crush(arr, shadows)
-        arr = apply_highlight_boost(arr, highlights)
-        arr = apply_split_toning(arr, toning)
-        Image.fromarray(arr.astype(np.uint8)).save(output_dir / src.name)
+    _progress = Progress(
+        TextColumn("  [dim]{task.description}[/]"),
+        BarColumn(bar_width=40, style="color(238)", complete_style="color(214)"),
+        MofNCompleteColumn(),
+        TextColumn("[dim]fr[/]"),
+        TimeElapsedColumn(),
+        TextColumn("[dim]·[/]"),
+        TimeRemainingColumn(),
+        console=_console,
+    )
+    with _progress:
+        task = _progress.add_task("grading", total=len(frames))
+        for src in frames:
+            img = Image.open(src).convert("RGB")
+            arr = np.asarray(img, dtype=np.float32)
+            arr = apply_contrast(arr, contrast)
+            arr = apply_shadow_crush(arr, shadows)
+            arr = apply_highlight_boost(arr, highlights)
+            arr = apply_split_toning(arr, toning)
+            Image.fromarray(arr.astype(np.uint8)).save(output_dir / src.name)
+            _progress.advance(task)
 
 
 def main() -> None:

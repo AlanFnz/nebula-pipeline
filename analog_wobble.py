@@ -18,7 +18,13 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image, ImageChops, ImageFilter
-from tqdm import tqdm
+from rich.console import Console
+from rich.progress import (
+    BarColumn, MofNCompleteColumn, Progress,
+    TextColumn, TimeElapsedColumn, TimeRemainingColumn,
+)
+
+_console = Console()
 
 
 def sorted_frames(folder: Path) -> list[Path]:
@@ -284,38 +290,50 @@ def process(
     brightness_vals = _drift_walk(n, brightness, drift)
     warm_vals       = _drift_walk(n, warm,       drift)
 
-    print(f"processing {n} frames\n  input : {input_dir}\n  output: {output_dir}")
+    _console.print(f"  [dim]input :[/]  {input_dir}")
+    _console.print(f"  [dim]output:[/]  {output_dir}\n")
 
-    for i, src in tqdm(enumerate(frames), total=n, unit="frame", dynamic_ncols=True):
-        img = Image.open(src).convert("RGB")
+    _progress = Progress(
+        TextColumn("  [dim]{task.description}[/]"),
+        BarColumn(bar_width=40, style="color(238)", complete_style="color(214)"),
+        MofNCompleteColumn(),
+        TextColumn("[dim]fr[/]"),
+        TimeElapsedColumn(),
+        TextColumn("[dim]·[/]"),
+        TimeRemainingColumn(),
+        console=_console,
+    )
+    with _progress:
+        task = _progress.add_task("wobbling", total=n)
+        for i, src in enumerate(frames):
+            img = Image.open(src).convert("RGB")
 
-        # ── print pass ────────────────────────────────────────────────────────
-        img = add_blur(img, blur_radii[i])
-        img = add_paper_texture(img, texture)
-        img = add_warm_toning(img, warm_vals[i])
+            # ── print pass ────────────────────────────────────────────────────
+            img = add_blur(img, blur_radii[i])
+            img = add_paper_texture(img, texture)
+            img = add_warm_toning(img, warm_vals[i])
 
-        # ── scan pass ─────────────────────────────────────────────────────────
-        img = add_chromatic_aberration(img, aberration_vals[i])
-        img = add_scan_bands(img, bands_vals[i])
-        img = add_scanlines(img, scanlines)
-        img = add_bloom(img, bloom)
-        img = add_curvature(img, curvature)
-        img = add_vignette(img, vignette)
-        img = add_luminous_grain(img, grain_sigmas[i])
-        img = add_dust(img, dust, dust_opacity)
-        img = add_brightness(img, brightness_vals[i])
+            # ── scan pass ─────────────────────────────────────────────────────
+            img = add_chromatic_aberration(img, aberration_vals[i])
+            img = add_scan_bands(img, bands_vals[i])
+            img = add_scanlines(img, scanlines)
+            img = add_bloom(img, bloom)
+            img = add_curvature(img, curvature)
+            img = add_vignette(img, vignette)
+            img = add_luminous_grain(img, grain_sigmas[i])
+            img = add_dust(img, dust, dust_opacity)
+            img = add_brightness(img, brightness_vals[i])
 
-        # ── video pass ────────────────────────────────────────────────────────
-        mag   = random.uniform(*px_range)
-        theta = random.uniform(0, 2 * math.pi)
-        dx    = int(mag * math.cos(theta))
-        dy    = int(mag * math.sin(theta))
-        rot   = random.uniform(*deg_range) * random.choice((-1, 1))
-        img   = wobble(img, dx, dy, rot)
+            # ── video pass ────────────────────────────────────────────────────
+            mag   = random.uniform(*px_range)
+            theta = random.uniform(0, 2 * math.pi)
+            dx    = int(mag * math.cos(theta))
+            dy    = int(mag * math.sin(theta))
+            rot   = random.uniform(*deg_range) * random.choice((-1, 1))
+            img   = wobble(img, dx, dy, rot)
 
-        img.save(output_dir / src.name)
-
-    print("done")
+            img.save(output_dir / src.name)
+            _progress.advance(task)
 
 
 def main() -> None:
