@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-tune.py — interactive single-frame parameter tuner
+nebula.py — interactive parameter tuner + pipeline runner
 
-open tune_preview.png in macOS Preview — it auto-refreshes on each change
+preview auto-opens in macOS Preview and refreshes on each change
 
 commands:
   <param> <value(s)>   adjust a param, e.g.:  blur 1 4   warm 0.6   grain 0.5 0.9
@@ -12,7 +12,7 @@ commands:
   load <name>          restore a saved preset
   presets              list all saved presets
   run                  run the full pipeline with current params
-  export               print the equivalent pipeline.py command
+  export               print the equivalent _pipeline.py command
   q / quit             exit
 """
 
@@ -269,7 +269,7 @@ def show(params: dict) -> None:
 def build_pipeline_args(video: Path, project: Path, params: dict) -> list[str]:
     p = params
     args = [
-        sys.executable, "pipeline.py", str(video), str(project),
+        sys.executable, "_pipeline.py", str(video), str(project),
         "--fps",        str(p["fps"]),
         "--blur",       str(p["blur"][0]),       str(p["blur"][1]),
         "--texture",    str(p["texture"]),

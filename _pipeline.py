@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
-pipeline.py — phase 1: extract frames → wobble + grain
-after this completes, apply your Photoshop batch action to frames_wobbled/
-then run assemble.py to produce the final video
+_pipeline.py — internal: extract frames → wobble + grade + assemble
+called by nebula.py — not meant to be invoked directly
 """
 
 import argparse
