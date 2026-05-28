@@ -2,5 +2,6 @@ pillow
 numpy
 rich
 pyfiglet
+textual>=0.50.0
 replicate
 requests

@@ -1,30 +1,25 @@
 #!/usr/bin/env python3
 """
-nebula.py — interactive parameter tuner + pipeline runner
-
-preview auto-opens in macOS Preview and refreshes on each change
-
-commands:
-  <param> <value(s)>   adjust a param, e.g.:  blur 1 4   warm 0.6   grain 0.5 0.9
-  show                 print current parameter values
-  reset                reset all to defaults
-  save <name>          save current params as a named preset
-  load <name>          restore a saved preset
-  presets              list all saved presets
-  run                  run the full pipeline with current params
-  export               print the equivalent _pipeline.py command
-  q / quit             exit
+nebula.py — analog degradation pipeline TUI
 """
 
+import argparse
 import json
 import math
 import random
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
+from textual import work
+from textual.app import App, ComposeResult
+from textual.binding import Binding
+from textual.containers import Horizontal, Vertical
+from textual.screen import ModalScreen
+from textual.widgets import DataTable, Footer, Header, Input, Label, RichLog, Rule, Static
 
 sys.path.insert(0, str(Path(__file__).parent))
 from analog_wobble import (
@@ -35,17 +30,21 @@ from analog_wobble import (
 )
 from grade import apply_contrast, apply_shadow_crush, apply_highlight_boost, apply_split_toning
 
-PREVIEW    = Path("tune_preview.png")   # 3-panel: lo | mid | hi for range params
-SRC_FRAME  = Path("tune_source.png")
+# ── paths ─────────────────────────────────────────────────────────────────────
+
+PREVIEW   = Path("tune_preview.png")
+SRC_FRAME = Path("tune_source.png")
+
+# ── params ────────────────────────────────────────────────────────────────────
 
 DEFAULTS: dict = {
-    "blur":       (3.0, 7.0),
-    "texture":    0.7,
-    "warm":       0.8,
-    "aberration": 3.0,
-    "bands":      0.45,
-    "vignette":   0.75,
-    "grain":      (0.7, 1.1),
+    "blur":         (3.0, 7.0),
+    "texture":      0.7,
+    "warm":         0.8,
+    "aberration":   3.0,
+    "bands":        0.45,
+    "vignette":     0.75,
+    "grain":        (0.7, 1.1),
     "dust":         0.6,
     "dust_opacity": 1.0,
     "scanlines":    0.0,
@@ -53,21 +52,43 @@ DEFAULTS: dict = {
     "curvature":    0.0,
     "brightness":   1.0,
     "px":           (2.0, 5.0),
-    "deg":        (0.2, 0.6),
-    "fps":        12.0,
-    "seed":       42,
-    "contrast":   0.4,
-    "shadows":    0.15,
-    "highlights": 0.05,
-    "toning":     0.4,
-    "grade":      1,
-    "drift":      0.0,
+    "deg":          (0.2, 0.6),
+    "fps":          12.0,
+    "seed":         42,
+    "contrast":     0.4,
+    "shadows":      0.15,
+    "highlights":   0.05,
+    "toning":       0.4,
+    "grade":        1,
+    "drift":        0.0,
 }
 
 RANGE_PARAMS  = {"blur", "grain", "px", "deg"}
 SINGLE_PARAMS = {"aberration", "vignette", "bands", "texture", "warm", "dust", "dust_opacity",
                  "scanlines", "bloom", "curvature", "brightness", "fps", "seed",
                  "contrast", "shadows", "highlights", "toning", "grade", "drift"}
+
+PARAM_GROUPS = [
+    ("print pass", ["blur", "texture", "warm"]),
+    ("scan pass",  ["aberration", "bands", "scanlines", "bloom", "curvature",
+                    "vignette", "grain", "dust", "dust_opacity", "brightness"]),
+    ("grade pass", ["grade", "contrast", "shadows", "highlights", "toning"]),
+    ("video",      ["px", "deg", "fps"]),
+    ("misc",       ["drift", "seed"]),
+]
+
+ALL_PARAMS = RANGE_PARAMS | SINGLE_PARAMS
+
+# ── persistence ───────────────────────────────────────────────────────────────
+
+PRESETS_DIR = Path.home() / ".nebula_pipeline" / "presets"
+
+
+def _restore_tuples(raw: dict) -> dict:
+    for k in RANGE_PARAMS:
+        if k in raw and isinstance(raw[k], list):
+            raw[k] = tuple(raw[k])
+    return raw
 
 
 def params_file(project: Path) -> Path:
@@ -87,16 +108,6 @@ def load_params(project: Path) -> dict | None:
         return _restore_tuples(json.loads(f.read_text()))
     except Exception:
         return None
-
-
-PRESETS_DIR = Path.home() / ".nebula_pipeline" / "presets"
-
-
-def _restore_tuples(raw: dict) -> dict:
-    for k in RANGE_PARAMS:
-        if k in raw and isinstance(raw[k], list):
-            raw[k] = tuple(raw[k])
-    return raw
 
 
 def save_preset(name: str, params: dict) -> None:
@@ -120,54 +131,7 @@ def list_presets() -> list[str]:
     return sorted(p.stem for p in PRESETS_DIR.glob("*.json"))
 
 
-HELP = [
-    ("print pass — baked into the printed object", [
-        ("blur",        "MIN MAX", "base Gaussian blur — dissolves the source. higher = more ethereal"),
-        ("texture",     "0–1",     "paper substrate variation — mottled surface on the blacks"),
-        ("warm",        "0–1",     "warm color cast — shifts R up, B down. aged ink and paper feel"),
-    ]),
-    ("scan pass — digitizing artifacts layered on top", [
-        ("aberration",  "px",      "R/B channel shift — color fringing at edges of bright areas"),
-        ("bands",       "0–1",     "horizontal exposure banding — uneven scanner lamp artifact"),
-        ("scanlines",   "0–1",     "darken every other row — CRT electron beam gap"),
-        ("bloom",       "0–1",     "bright areas bleed light onto neighbors — phosphor glow"),
-        ("curvature",   "0–1",     "barrel distortion — CRT curved glass. 0.2–0.4 is already strong"),
-        ("brightness",  ">0",      "global multiplier applied last — use to recover from cumulative darkening"),
-        ("vignette",    "0–1",     "corner darkening — print/scanner edge falloff"),
-        ("grain",       "LO HI",   "scan noise weighted by luminance — no grain in pure blacks"),
-        ("dust",        "0–1",     "sparse white specks — dust on scanner glass. controls density"),
-        ("dust_opacity","0–1",     "how bright each speck is — blends with underlying pixel. lower = subtler"),
-    ]),
-    ("video pass — the assembled object in motion", [
-        ("px",          "MIN MAX", "translation wobble range in pixels"),
-        ("deg",         "MIN MAX", "rotation wobble range in degrees"),
-        ("fps",         "N",       "frame rate for extraction and assembly"),
-    ]),
-    ("grade pass — color treatment applied after scan pass", [
-        ("grade",      "0/1", "enable or disable the entire grade pass — 0 to compare without it"),
-        ("contrast",   "0–1", "S-curve contrast — darken shadows, lift highlights. tightens the image"),
-        ("shadows",    "0–1", "shadow crush — push dark regions toward black. deepens the void"),
-        ("highlights", "0–1", "highlight boost — lift bright regions toward white. makes light subjects glow"),
-        ("toning",     "0–1", "split toning — teal shadows + amber highlights. warm/cold tension"),
-    ]),
-    ("misc", [
-        ("drift", "0–1", "temporal drift — how much bands, aberration, brightness, warm wander frame to frame"),
-        ("seed",  "N",   "RNG seed — fix to get reproducible results across runs"),
-    ]),
-]
-
-
-def help_text() -> None:
-    print()
-    for group, params in HELP:
-        print(f"  {group}")
-        for name, syntax, desc in params:
-            print(f"    {name:<14} {syntax:<10}  {desc}")
-    print()
-    print("  range params take two values: blur 1 4   grain 0.5 0.9")
-    print("  single params take one value: warm 0.6   dust 0.2")
-    print()
-
+# ── rendering ─────────────────────────────────────────────────────────────────
 
 def extract_frame(video: Path, fps: float, index: int) -> None:
     subprocess.run([
@@ -179,18 +143,15 @@ def extract_frame(video: Path, fps: float, index: int) -> None:
 
 def _render(params: dict, blur_r: float, grain_sigma: float,
             px: float, deg: float) -> Image.Image:
-    """render a single frame with explicit scalar values (no ranges)"""
     seed = params.get("seed")
     if seed is not None:
         random.seed(int(seed))
         np.random.seed(int(seed))
 
     img = Image.open(SRC_FRAME).convert("RGB")
-
     img = add_blur(img, blur_r)
     img = add_paper_texture(img, params["texture"])
     img = add_warm_toning(img, params["warm"])
-
     img = add_chromatic_aberration(img, params["aberration"])
     img = add_scan_bands(img, params["bands"])
     img = add_scanlines(img, params["scanlines"])
@@ -217,7 +178,6 @@ def _render(params: dict, blur_r: float, grain_sigma: float,
 
 
 def apply_and_save(params: dict) -> None:
-    """render a 3-panel contact sheet: lo | mid | hi for all range params"""
     blur_lo,  blur_hi  = params["blur"]
     grain_lo, grain_hi = params["grain"]
     px_lo,    px_hi    = params["px"]
@@ -225,13 +185,12 @@ def apply_and_save(params: dict) -> None:
 
     panels = []
     for blur_r, grain_s, px, deg in [
-        (blur_lo,                    grain_lo * 25,                    px_lo, deg_lo),
-        ((blur_lo + blur_hi) / 2,   (grain_lo + grain_hi) / 2 * 25,  (px_lo + px_hi) / 2, (deg_lo + deg_hi) / 2),
-        (blur_hi,                    grain_hi * 25,                    px_hi, deg_hi),
+        (blur_lo,                  grain_lo * 25,                  px_lo, deg_lo),
+        ((blur_lo + blur_hi) / 2, (grain_lo + grain_hi) / 2 * 25, (px_lo + px_hi) / 2, (deg_lo + deg_hi) / 2),
+        (blur_hi,                  grain_hi * 25,                  px_hi, deg_hi),
     ]:
         panels.append(_render(params, blur_r, grain_s, px, deg))
 
-    # stitch horizontally with a 2px black divider
     w, h  = panels[0].size
     sep   = 2
     sheet = Image.new("RGB", (w * 3 + sep * 2, h), (0, 0, 0))
@@ -242,42 +201,22 @@ def apply_and_save(params: dict) -> None:
     sheet.save(PREVIEW)
     if first_save:
         subprocess.run(["open", str(PREVIEW)], check=False)
-    blur_range  = f"{blur_lo}–{blur_hi}"
-    grain_range = f"{grain_lo}–{grain_hi}"
-    print(f"  → {PREVIEW.resolve()}  [lo | mid | hi]  blur {blur_range}  grain {grain_range}")
 
 
-def show(params: dict) -> None:
-    groups = [
-        ("print pass", ["blur", "texture", "warm"]),
-        ("scan pass",  ["aberration", "bands", "scanlines", "bloom", "curvature",
-                        "vignette", "grain", "dust", "dust_opacity", "brightness"]),
-        ("grade pass", ["grade", "contrast", "shadows", "highlights", "toning"]),
-        ("video",      ["px", "deg", "fps"]),
-        ("misc",       ["drift", "seed"]),
-    ]
-    print()
-    for label, keys in groups:
-        print(f"  {label}")
-        for k in keys:
-            v = params[k]
-            val = f"{v[0]}  {v[1]}" if isinstance(v, tuple) else str(v)
-            print(f"    {k:<14} {val}")
-    print()
-
+# ── pipeline ──────────────────────────────────────────────────────────────────
 
 def build_pipeline_args(video: Path, project: Path, params: dict) -> list[str]:
     p = params
     args = [
         sys.executable, "_pipeline.py", str(video), str(project),
-        "--fps",        str(p["fps"]),
-        "--blur",       str(p["blur"][0]),       str(p["blur"][1]),
-        "--texture",    str(p["texture"]),
-        "--warm",       str(p["warm"]),
-        "--aberration", str(p["aberration"]),
-        "--bands",      str(p["bands"]),
-        "--vignette",   str(p["vignette"]),
-        "--grain",      str(p["grain"][0]),      str(p["grain"][1]),
+        "--fps",          str(p["fps"]),
+        "--blur",         str(p["blur"][0]),       str(p["blur"][1]),
+        "--texture",      str(p["texture"]),
+        "--warm",         str(p["warm"]),
+        "--aberration",   str(p["aberration"]),
+        "--bands",        str(p["bands"]),
+        "--vignette",     str(p["vignette"]),
+        "--grain",        str(p["grain"][0]),      str(p["grain"][1]),
         "--dust",         str(p["dust"]),
         "--dust-opacity", str(p["dust_opacity"]),
         "--scanlines",    str(p["scanlines"]),
@@ -285,8 +224,8 @@ def build_pipeline_args(video: Path, project: Path, params: dict) -> list[str]:
         "--curvature",    str(p["curvature"]),
         "--brightness",   str(p["brightness"]),
         "--drift",        str(p["drift"]),
-        "--px",         str(p["px"][0]),         str(p["px"][1]),
-        "--deg",        str(p["deg"][0]),         str(p["deg"][1]),
+        "--px",           str(p["px"][0]),         str(p["px"][1]),
+        "--deg",          str(p["deg"][0]),         str(p["deg"][1]),
     ]
     if p.get("grade", 1):
         args += [
@@ -301,82 +240,332 @@ def build_pipeline_args(video: Path, project: Path, params: dict) -> list[str]:
     return args
 
 
-def export_cmd(video: Path, project: Path, params: dict) -> str:
-    args = build_pipeline_args(video, project, params)
-    # swap sys.executable back to "python" for display
-    args[0] = "python"
-    it = iter(args)
-    parts, current = [], []
-    for tok in it:
-        if tok.startswith("--"):
-            if current:
-                parts.append(" ".join(current))
-            current = [tok]
-        else:
-            current.append(tok)
-    if current:
-        parts.append(" ".join(current))
-    return " \\\n  ".join(parts)
-
-
-def parse_and_set(line: str, params: dict) -> bool:
-    tokens = line.split()
-    key, vals = tokens[0], tokens[1:]
-
-    if not vals and key in (RANGE_PARAMS | SINGLE_PARAMS):
-        v = params[key]
-        print(f"  {key} = {f'{v[0]}  {v[1]}' if isinstance(v, tuple) else v}")
-        return False
-
-    if key in RANGE_PARAMS:
-        if len(vals) != 2:
-            print(f"  {key} takes two values: MIN MAX")
-            return False
+def parse_and_set(param: str, raw: str, params: dict) -> tuple[bool, str]:
+    if param in RANGE_PARAMS:
+        parts = raw.split()
+        if len(parts) != 2:
+            return False, f"{param} needs two values: MIN MAX"
         try:
-            params[key] = (float(vals[0]), float(vals[1]))
+            params[param] = (float(parts[0]), float(parts[1]))
         except ValueError:
-            print(f"  invalid values for {key}")
-            return False
-
-    elif key in SINGLE_PARAMS:
-        if len(vals) != 1:
-            print(f"  {key} takes one value")
-            return False
+            return False, f"invalid values for {param}"
+    elif param in SINGLE_PARAMS:
         try:
-            params[key] = int(vals[0]) if key in ("seed", "grade") else float(vals[0])
+            params[param] = int(raw.strip()) if param in ("seed", "grade") else float(raw.strip())
         except ValueError:
-            print(f"  invalid value for {key}")
-            return False
-
+            return False, f"invalid value for {param}"
     else:
-        all_params = sorted(RANGE_PARAMS | SINGLE_PARAMS)
-        print(f"  unknown param '{key}' — known: {', '.join(all_params)}")
-        return False
+        return False, f"unknown param '{param}'"
+    return True, ""
 
-    return True
 
+def _fmt(v) -> str:
+    if isinstance(v, tuple):
+        return f"{v[0]}  {v[1]}"
+    return str(v)
+
+
+# ── modals ────────────────────────────────────────────────────────────────────
+
+class EditModal(ModalScreen):
+    DEFAULT_CSS = """
+    EditModal { align: center middle; }
+    #dialog {
+        background: #1a1a1a;
+        border: solid #ffaf00;
+        padding: 1 2;
+        width: 52;
+        height: auto;
+    }
+    #title { color: #ffaf00; text-style: bold; margin-bottom: 1; }
+    #val   { background: #0d0d0d; color: #ffaf00; border: solid #333333; width: 100%; }
+    #hint  { color: #444444; margin-top: 1; height: 1; }
+    """
+
+    BINDINGS = [Binding("escape", "cancel", show=False)]
+
+    def __init__(self, param: str, current: str) -> None:
+        super().__init__()
+        self._param   = param
+        self._current = current
+
+    def compose(self) -> ComposeResult:
+        hint = "MIN  MAX" if self._param in RANGE_PARAMS else "value"
+        with Vertical(id="dialog"):
+            yield Label(f"edit  {self._param}  [dim]{self._current}[/]", id="title", markup=True)
+            yield Input(value=self._current, placeholder=hint, id="val")
+            yield Label("enter to confirm · esc to cancel", id="hint")
+
+    def on_mount(self) -> None:
+        self.query_one(Input).focus()
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        self.dismiss(event.value.strip() or None)
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
+
+
+class NameModal(ModalScreen):
+    """Generic single-input modal for preset save/load."""
+
+    DEFAULT_CSS = """
+    NameModal { align: center middle; }
+    #dialog {
+        background: #1a1a1a;
+        border: solid #d78700;
+        padding: 1 2;
+        width: 52;
+        height: auto;
+    }
+    #title   { color: #d78700; text-style: bold; margin-bottom: 1; }
+    #names   { color: #555555; margin-bottom: 1; height: 1; }
+    #val     { background: #0d0d0d; color: #d78700; border: solid #333333; width: 100%; }
+    #hint    { color: #444444; margin-top: 1; height: 1; }
+    """
+
+    BINDINGS = [Binding("escape", "cancel", show=False)]
+
+    def __init__(self, title: str, names: list[str] | None = None) -> None:
+        super().__init__()
+        self._title = title
+        self._names = names or []
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="dialog"):
+            yield Label(self._title, id="title")
+            if self._names:
+                yield Label("  ".join(self._names), id="names")
+            yield Input(placeholder="name", id="val")
+            yield Label("enter to confirm · esc to cancel", id="hint")
+
+    def on_mount(self) -> None:
+        self.query_one(Input).focus()
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        self.dismiss(event.value.strip() or None)
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
+
+
+# ── app ───────────────────────────────────────────────────────────────────────
+
+class NebulaApp(App):
+    TITLE     = "nebula"
+    SUB_TITLE = "analog degradation"
+
+    CSS = """
+    NebulaApp { background: #0d0d0d; }
+
+    Header    { background: #0d0d0d; color: #ffaf00; text-style: bold; }
+    Footer    { background: #131313; color: #d78700; }
+
+    #body {
+        height: 1fr;
+        border: solid #2a2a2a;
+    }
+
+    #left {
+        width: 30;
+        border-right: solid #2a2a2a;
+    }
+
+    #params-table {
+        height: 1fr;
+        background: #0d0d0d;
+        color: #c87800;
+    }
+    DataTable > .datatable--row-highlighted {
+        background: #1e1500;
+        color: #ffaf00;
+    }
+
+    #right {
+        width: 1fr;
+        padding: 0 1;
+    }
+
+    #preview-status {
+        height: 1;
+        color: #ffaf00;
+        margin-top: 1;
+    }
+
+    #preview-path {
+        height: 1;
+        color: #3a3a3a;
+        margin-bottom: 1;
+    }
+
+    Rule { color: #2a2a2a; margin: 0; }
+
+    #log-header {
+        height: 1;
+        color: #3a3a3a;
+        margin-bottom: 1;
+    }
+
+    #log {
+        height: 1fr;
+        background: #0d0d0d;
+        color: #666666;
+    }
+    """
+
+    BINDINGS = [
+        Binding("r",      "run_pipeline", "Run"),
+        Binding("s",      "save_preset",  "Save preset"),
+        Binding("l",      "load_preset",  "Load preset"),
+        Binding("ctrl+z", "reset_params", "Reset"),
+        Binding("q",      "quit",         "Quit"),
+    ]
+
+    def __init__(self, video: Path, project: Path, frame_idx: int) -> None:
+        super().__init__()
+        self._video     = video
+        self._project   = project
+        self._frame_idx = frame_idx
+        saved           = load_params(project)
+        self._params    = {**DEFAULTS, **saved} if saved else dict(DEFAULTS)
+
+    # ── layout ────────────────────────────────────────────────────────────────
+
+    def compose(self) -> ComposeResult:
+        yield Header()
+        with Horizontal(id="body"):
+            with Vertical(id="left"):
+                yield DataTable(id="params-table", show_header=False, cursor_type="row")
+            with Vertical(id="right"):
+                yield Static("● rendering…", id="preview-status")
+                yield Static(str(PREVIEW.resolve()), id="preview-path")
+                yield Rule()
+                yield Static(
+                    f"[dim]video[/] {self._video.name}  "
+                    f"[dim]frame[/] {self._frame_idx}  "
+                    f"[dim]↑↓ navigate · enter edit · r run[/]",
+                    id="log-header", markup=True,
+                )
+                yield RichLog(id="log", markup=True, highlight=False)
+        yield Footer()
+
+    def on_mount(self) -> None:
+        self._build_table()
+        saved = load_params(self._project)
+        self._log(f"[dim]loaded params[/]" if saved else "[dim]using defaults[/]")
+        self._render_preview()
+
+    # ── table ─────────────────────────────────────────────────────────────────
+
+    def _build_table(self) -> None:
+        t = self.query_one("#params-table", DataTable)
+        t.add_column("", key="k", width=14)
+        t.add_column("", key="v", width=14)
+        for group, keys in PARAM_GROUPS:
+            t.add_row(f" [dim]{group}[/]", "", key=None)
+            for k in keys:
+                t.add_row(f"  {k}", _fmt(self._params[k]), key=k)
+
+    def _refresh_table(self) -> None:
+        t = self.query_one("#params-table", DataTable)
+        for k in ALL_PARAMS:
+            t.update_cell(k, "v", _fmt(self._params[k]), update_width=False)
+
+    # ── preview ───────────────────────────────────────────────────────────────
+
+    @work(thread=True, exclusive=True)
+    def _render_preview(self) -> None:
+        apply_and_save(self._params)
+        ts = datetime.now().strftime("%H:%M:%S")
+        self.call_from_thread(
+            self.query_one("#preview-status", Static).update,
+            f"[bold]●[/] preview updated {ts}",
+        )
+
+    # ── row edit ──────────────────────────────────────────────────────────────
+
+    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
+        key = event.row_key.value
+        if key not in ALL_PARAMS:
+            return
+
+        def on_result(raw: str | None) -> None:
+            if not raw:
+                return
+            ok, err = parse_and_set(key, raw, self._params)
+            if not ok:
+                self._log(f"[red]{err}[/]")
+                return
+            self.query_one("#params-table", DataTable).update_cell(
+                key, "v", _fmt(self._params[key]), update_width=False,
+            )
+            save_params(self._params, self._project)
+            self._log(f"  [color(214)]{key}[/] = {_fmt(self._params[key])}")
+            self._render_preview()
+
+        self.push_screen(EditModal(key, _fmt(self._params[key])), on_result)
+
+    # ── actions ───────────────────────────────────────────────────────────────
+
+    def action_run_pipeline(self) -> None:
+        cmd = build_pipeline_args(self._video, self._project, self._params)
+        with self.suspend():
+            subprocess.run(cmd)
+
+    def action_save_preset(self) -> None:
+        def on_name(name: str | None) -> None:
+            if name:
+                save_preset(name, self._params)
+                self._log(f"[color(214)]saved preset '{name}'[/]")
+        self.push_screen(NameModal("save preset"), on_name)
+
+    def action_load_preset(self) -> None:
+        names = list_presets()
+
+        def on_name(name: str | None) -> None:
+            if not name:
+                return
+            preset = load_preset(name)
+            if preset is None:
+                self._log(f"[red]preset '{name}' not found[/]")
+                return
+            self._params = {**DEFAULTS, **preset}
+            save_params(self._params, self._project)
+            self._refresh_table()
+            self._render_preview()
+            self._log(f"[color(214)]loaded preset '{name}'[/]")
+
+        self.push_screen(NameModal("load preset", names), on_name)
+
+    def action_reset_params(self) -> None:
+        self._params = dict(DEFAULTS)
+        params_file(self._project).unlink(missing_ok=True)
+        self._refresh_table()
+        self._render_preview()
+        self._log("[dim]reset to defaults[/]")
+
+    def _log(self, msg: str) -> None:
+        self.query_one("#log", RichLog).write(msg)
+
+
+# ── entry point ───────────────────────────────────────────────────────────────
 
 def main() -> None:
-    import argparse
-    ap = argparse.ArgumentParser(description="interactive single-frame parameter tuner")
-    ap.add_argument("video",   type=Path, help="source video (e.g. test-video.mp4)")
+    ap = argparse.ArgumentParser(description="nebula — analog degradation pipeline")
+    ap.add_argument("video",   type=Path, help="source video")
     ap.add_argument("project", type=Path, nargs="?", default=Path("test_run"),
-                    help="project dir for 'run' (default: test_run)")
+                    help="project folder (default: test_run)")
     ap.add_argument("--frame", type=int, default=None,
-                    help="frame index to tune on (default: midpoint)")
+                    help="frame index to preview (default: midpoint)")
     args = ap.parse_args()
 
     if not args.video.exists():
         raise SystemExit(f"error: video not found: {args.video}")
 
-    saved = load_params(args.project)
-    if saved:
-        params = {**DEFAULTS, **saved}   # fill any new keys not yet in the saved file
-        print(f"loaded params from {params_file(args.project)}")
-    else:
-        params = dict(DEFAULTS)
+    args.project.mkdir(parents=True, exist_ok=True)
+    saved  = load_params(args.project)
+    params = {**DEFAULTS, **saved} if saved else dict(DEFAULTS)
 
-    # determine frame index
     if args.frame is not None:
         frame_idx = args.frame
     else:
@@ -386,72 +575,14 @@ def main() -> None:
             capture_output=True, text=True,
         )
         try:
-            duration = float(result.stdout.strip())
-            frame_idx = int(duration * params["fps"] / 2)
+            frame_idx = int(float(result.stdout.strip()) * params["fps"] / 2)
         except (ValueError, TypeError):
             frame_idx = 15
 
-    print(f"\nextracting frame {frame_idx} from {args.video}...")
+    print(f"extracting frame {frame_idx}…")
     extract_frame(args.video, params["fps"], frame_idx)
-    print(f"open {PREVIEW} in macOS Preview — it auto-refreshes on each change\n")
 
-    apply_and_save(params)
-    show(params)
-    print("type 'help' for param descriptions, or adjust directly (e.g. 'blur 1 4', 'dust 0.2')\n")
-
-    while True:
-        try:
-            line = input("> ").strip()
-        except (EOFError, KeyboardInterrupt):
-            print()
-            break
-
-        if not line:
-            continue
-        if line in ("q", "quit", "exit"):
-            break
-        if line in ("help", "h", "?"):
-            help_text()
-        elif line == "show":
-            show(params)
-        elif line == "reset":
-            params = dict(DEFAULTS)
-            params_file(args.project).unlink(missing_ok=True)
-            apply_and_save(params)
-            show(params)
-        elif line == "run":
-            cmd_args = build_pipeline_args(args.video, args.project, params)
-            print(f"\n{export_cmd(args.video, args.project, params)}\n")
-            subprocess.run(cmd_args)
-        elif line == "export":
-            print(f"\n{export_cmd(args.video, args.project, params)}\n")
-        elif line == "presets":
-            names = list_presets()
-            if names:
-                print(f"\n  {', '.join(names)}\n")
-            else:
-                print("  no presets saved yet — use: save <name>\n")
-        elif line.startswith("save "):
-            name = line[5:].strip()
-            if name:
-                save_preset(name, params)
-                print(f"  saved preset '{name}'")
-            else:
-                print("  usage: save <name>")
-        elif line.startswith("load "):
-            name = line[5:].strip()
-            preset = load_preset(name)
-            if preset is None:
-                print(f"  preset '{name}' not found — type 'presets' to list available")
-            else:
-                params = {**DEFAULTS, **preset}
-                save_params(params, args.project)
-                apply_and_save(params)
-                show(params)
-        else:
-            if parse_and_set(line, params):
-                save_params(params, args.project)
-                apply_and_save(params)
+    NebulaApp(args.video, args.project, frame_idx).run()
 
 
 if __name__ == "__main__":
