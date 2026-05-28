@@ -238,10 +238,13 @@ def apply_and_save(params: dict) -> None:
     for i, panel in enumerate(panels):
         sheet.paste(panel, (i * (w + sep), 0))
 
+    first_save = not PREVIEW.exists()
     sheet.save(PREVIEW)
+    if first_save:
+        subprocess.run(["open", str(PREVIEW)], check=False)
     blur_range  = f"{blur_lo}–{blur_hi}"
     grain_range = f"{grain_lo}–{grain_hi}"
-    print(f"  → {PREVIEW}  [lo | mid | hi]  blur {blur_range}  grain {grain_range}")
+    print(f"  → {PREVIEW.resolve()}  [lo | mid | hi]  blur {blur_range}  grain {grain_range}")
 
 
 def show(params: dict) -> None:
