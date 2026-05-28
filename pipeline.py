@@ -48,8 +48,15 @@ def require_ffmpeg() -> None:
         raise SystemExit("error: ffmpeg not found — install it and ensure it's on PATH")
 
 
+def clear_frames(folder: Path) -> None:
+    if folder.exists():
+        for f in folder.glob("*.png"):
+            f.unlink()
+
+
 def extract_frames(video: Path, frames_raw: Path, fps: float) -> int:
     frames_raw.mkdir(parents=True, exist_ok=True)
+    clear_frames(frames_raw)
     pattern = frames_raw / "frame_%05d.png"
     subprocess.run(
         ["ffmpeg", "-y", "-i", str(video), "-vf", f"fps={fps}", str(pattern)],
@@ -136,7 +143,9 @@ def main() -> None:
     frames_raw     = args.project / "frames_raw"
     frames_wobbled = args.project / "frames_wobbled"
     treated        = args.project / "frames_treated"
-    frames_wobbled.mkdir(parents=True, exist_ok=True)
+    for folder in (frames_raw, frames_wobbled, treated):
+        folder.mkdir(parents=True, exist_ok=True)
+        clear_frames(folder)
 
     progress = _make_progress()
 
