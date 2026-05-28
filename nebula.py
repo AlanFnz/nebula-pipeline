@@ -35,6 +35,8 @@ from grade import apply_contrast, apply_shadow_crush, apply_highlight_boost, app
 PREVIEW   = Path("tune_preview.png")
 SRC_FRAME = Path("tune_source.png")
 
+_preview_opened = False
+
 # ── params ────────────────────────────────────────────────────────────────────
 
 DEFAULTS: dict = {
@@ -197,10 +199,11 @@ def apply_and_save(params: dict) -> None:
     for i, panel in enumerate(panels):
         sheet.paste(panel, (i * (w + sep), 0))
 
-    first_save = not PREVIEW.exists()
+    global _preview_opened
     sheet.save(PREVIEW)
-    if first_save:
+    if not _preview_opened:
         subprocess.run(["open", str(PREVIEW)], check=False)
+        _preview_opened = True
 
 
 # ── pipeline ──────────────────────────────────────────────────────────────────
