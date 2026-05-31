@@ -14,6 +14,7 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image
+from rich_pixels import Pixels
 from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -389,21 +390,11 @@ class NebulaApp(App):
         padding: 0 1;
     }
 
+    #preview-img {
+        height: auto;
+    }
+
     #preview-status {
-        height: 1;
-        color: #ffaf00;
-        margin-top: 1;
-    }
-
-    #preview-path {
-        height: 1;
-        color: #3a3a3a;
-        margin-bottom: 1;
-    }
-
-    Rule { color: #2a2a2a; margin: 0; }
-
-    #log-header {
         height: 1;
         color: #3a3a3a;
         margin-bottom: 1;
@@ -440,15 +431,8 @@ class NebulaApp(App):
             with Vertical(id="left"):
                 yield DataTable(id="params-table", show_header=False, cursor_type="row")
             with Vertical(id="right"):
+                yield Static("", id="preview-img")
                 yield Static("● rendering…", id="preview-status")
-                yield Static(str(PREVIEW.resolve()), id="preview-path")
-                yield Rule()
-                yield Static(
-                    f"[dim]video[/] {self._video.name}  "
-                    f"[dim]frame[/] {self._frame_idx}  "
-                    f"[dim]↑↓ navigate · enter edit · r run[/]",
-                    id="log-header", markup=True,
-                )
                 yield RichLog(id="log", markup=True, highlight=False)
         yield Footer()
 
@@ -479,11 +463,16 @@ class NebulaApp(App):
     @work(thread=True, exclusive=True)
     def _render_preview(self) -> None:
         apply_and_save(self._params)
+
+        img = Image.open(PREVIEW).convert("RGB")
+        panel_w = max(40, self.app.size.width - 36)
+        panel_h = panel_w * img.height // img.width
+        pixels = Pixels.from_image(img, resize=(panel_w, panel_h))
+
         ts = datetime.now().strftime("%H:%M:%S")
-        self.call_from_thread(
-            self.query_one("#preview-status", Static).update,
-            f"[bold]●[/] preview updated {ts}",
-        )
+        self.call_from_thread(self.query_one("#preview-img",     Static).update, pixels)
+        self.call_from_thread(self.query_one("#preview-status",  Static).update,
+                              f"[dim]● {ts}  {PREVIEW}[/]")
 
     # ── row edit ──────────────────────────────────────────────────────────────
 

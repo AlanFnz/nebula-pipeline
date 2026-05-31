@@ -3,5 +3,6 @@ numpy
 rich
 pyfiglet
 textual>=0.50.0
+rich-pixels
 replicate
 requests
