@@ -16,7 +16,6 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 from rich.text import Text as RichText
-from rich_pixels import Pixels
 from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -432,7 +431,6 @@ class NebulaApp(App):
     }
 
     #preview-panel { height: auto; }
-    #preview-img   { height: auto; }
     #preview-status {
         height: 1;
         color: #3a3a3a;
@@ -477,7 +475,6 @@ class NebulaApp(App):
                 yield DataTable(id="params-table", show_header=False, cursor_type="row")
             with Vertical(id="right"):
                 with Vertical(id="preview-panel"):
-                    yield Static("", id="preview-img")
                     yield Static("● rendering…", id="preview-status")
                 with Vertical(id="run-panel"):
                     yield Static(get_banner_text(), id="run-banner")
@@ -512,16 +509,11 @@ class NebulaApp(App):
     @work(thread=True, exclusive=True)
     def _render_preview(self) -> None:
         apply_and_save(self._params)
-
-        img = Image.open(PREVIEW).convert("RGB")
-        panel_w = max(40, self.app.size.width - 36)
-        panel_h = panel_w * img.height // img.width
-        pixels = Pixels.from_image(img, resize=(panel_w, panel_h))
-
         ts = datetime.now().strftime("%H:%M:%S")
-        self.call_from_thread(self.query_one("#preview-img",     Static).update, pixels)
-        self.call_from_thread(self.query_one("#preview-status",  Static).update,
-                              f"[dim]● {ts}  {PREVIEW}[/]")
+        self.call_from_thread(
+            self.query_one("#preview-status", Static).update,
+            f"[dim]● {ts}  {PREVIEW}[/]",
+        )
 
     # ── row edit ──────────────────────────────────────────────────────────────
 
