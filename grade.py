@@ -12,6 +12,7 @@ effects applied in order:
 """
 
 import argparse
+from collections.abc import Callable
 from contextlib import nullcontext
 from pathlib import Path
 
@@ -75,6 +76,7 @@ def process(
     toning:     float = 0.4,
     progress: Progress | None = None,
     task_id: int | None = None,
+    on_progress: Callable[[int, int], None] | None = None,
 ) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     frames = sorted(input_dir.glob("*.png"))
@@ -83,16 +85,20 @@ def process(
 
     _own = progress is None
     if _own:
-        progress = Progress(
-            TextColumn("  [dim]{task.description}[/]"),
-            BarColumn(bar_width=40, style="color(238)", complete_style="color(214)"),
-            MofNCompleteColumn(),
-            TextColumn("[dim]fr[/]"),
-            TimeElapsedColumn(),
-            TextColumn("[dim]·[/]"),
-            TimeRemainingColumn(),
-            console=_console,
-        )
+        if on_progress is not None:
+            from rich.console import Console as _C
+            progress = Progress(console=_C(quiet=True))
+        else:
+            progress = Progress(
+                TextColumn("  [dim]{task.description}[/]"),
+                BarColumn(bar_width=40, style="color(238)", complete_style="color(214)"),
+                MofNCompleteColumn(),
+                TextColumn("[dim]fr[/]"),
+                TimeElapsedColumn(),
+                TextColumn("[dim]·[/]"),
+                TimeRemainingColumn(),
+                console=_console,
+            )
 
     with (progress if _own else nullcontext()):
         if task_id is not None:
@@ -109,6 +115,8 @@ def process(
             arr = apply_split_toning(arr, toning)
             Image.fromarray(arr.astype(np.uint8)).save(output_dir / src.name)
             progress.advance(task)
+            if on_progress is not None:
+                on_progress(i + 1, len(frames))
 
 
 def main() -> None:

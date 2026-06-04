@@ -20,16 +20,20 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
-from textual.widgets import DataTable, Footer, Header, Input, Label, RichLog, Rule, Static
+from textual.widgets import DataTable, Footer, Header, Input, Label, ProgressBar, RichLog, Rule, Static
 
 sys.path.insert(0, str(Path(__file__).parent))
+from _pipeline import extract_frames, clear_frames, require_ffmpeg
+from assemble import assemble_video
 from analog_wobble import (
     add_blur, add_paper_texture, add_warm_toning,
     add_chromatic_aberration, add_scan_bands,
     add_scanlines, add_bloom, add_curvature,
     add_vignette, add_luminous_grain, add_dust, add_brightness, wobble,
 )
+from analog_wobble import process as wobble_process
 from grade import apply_contrast, apply_shadow_crush, apply_highlight_boost, apply_split_toning
+from grade import process as grade_process
 
 # ── paths ─────────────────────────────────────────────────────────────────────
 
@@ -400,6 +404,13 @@ class NebulaApp(App):
         margin-bottom: 1;
     }
 
+    #run-step { display: none; height: 1; color: #ffaf00; }
+    #run-bar  { display: none; margin-bottom: 1; }
+    #run-step.running, #run-bar.running { display: block; }
+
+    ProgressBar > .bar--bar { color: #ffaf00; }
+    ProgressBar > .bar--complete { color: #d78700; }
+
     #log {
         height: 1fr;
         background: #0d0d0d;
@@ -433,6 +444,8 @@ class NebulaApp(App):
             with Vertical(id="right"):
                 yield Static("", id="preview-img")
                 yield Static("● rendering…", id="preview-status")
+                yield Label("", id="run-step")
+                yield ProgressBar(id="run-bar", total=100, show_eta=False)
                 yield RichLog(id="log", markup=True, highlight=False)
         yield Footer()
 
@@ -500,9 +513,85 @@ class NebulaApp(App):
     # ── actions ───────────────────────────────────────────────────────────────
 
     def action_run_pipeline(self) -> None:
-        cmd = build_pipeline_args(self._video, self._project, self._params)
-        with self.suspend():
-            subprocess.run(cmd)
+        self._run_pipeline()
+
+    @work(thread=True, exclusive=True)
+    def _run_pipeline(self) -> None:
+        p = self._params
+        frames_raw     = self._project / "frames_raw"
+        frames_wobbled = self._project / "frames_wobbled"
+        treated        = self._project / "frames_treated"
+
+        def set_step(label: str, cur: int, tot: int) -> None:
+            self.call_from_thread(self._update_run_ui, label, cur, tot)
+
+        self.call_from_thread(self._set_run_visible, True)
+        try:
+            try:
+                require_ffmpeg()
+            except SystemExit as e:
+                self.call_from_thread(self._log, f"[red]{e}[/]")
+                return
+
+            for folder in (frames_raw, frames_wobbled, treated):
+                folder.mkdir(parents=True, exist_ok=True)
+                clear_frames(folder)
+
+            set_step("extracting", 0, 1)
+            n = extract_frames(self._video, frames_raw, p["fps"])
+            set_step("extracting", 1, 1)
+
+            set_step("wobbling", 0, n)
+            wobble_process(
+                frames_raw, frames_wobbled,
+                px_range=p["px"], deg_range=p["deg"],
+                grain_range=p["grain"], blur_range=p["blur"],
+                aberration=p["aberration"], vignette=p["vignette"],
+                bands=p["bands"], texture=p["texture"], warm=p["warm"],
+                dust=p["dust"], dust_opacity=p["dust_opacity"],
+                scanlines=p["scanlines"], bloom=p["bloom"],
+                curvature=p["curvature"], brightness=p["brightness"],
+                seed=int(p["seed"]) if p.get("seed") is not None else None,
+                drift=p["drift"],
+                on_progress=lambda cur, tot: set_step("wobbling", cur, tot),
+            )
+
+            if p.get("grade", 1):
+                set_step("grading", 0, n)
+                grade_process(
+                    frames_wobbled, treated,
+                    contrast=p["contrast"], shadows=p["shadows"],
+                    highlights=p["highlights"], toning=p["toning"],
+                    on_progress=lambda cur, tot: set_step("grading", cur, tot),
+                )
+                src_frames = treated
+                output = self._project / "output" / "final.mp4"
+            else:
+                src_frames = frames_wobbled
+                output = self._project / "output" / "preview_wobbled.mp4"
+
+            set_step("assembling", 0, 1)
+            (self._project / "output").mkdir(parents=True, exist_ok=True)
+            assemble_video(src_frames, output, fps=p["fps"])
+            set_step("assembling", 1, 1)
+
+            self.call_from_thread(self._log, f"[color(214)]→ {output}[/]")
+        except Exception as e:
+            self.call_from_thread(self._log, f"[red]error: {e}[/]")
+        finally:
+            self.call_from_thread(self._set_run_visible, False)
+
+    def _update_run_ui(self, label: str, cur: int, tot: int) -> None:
+        self.query_one("#run-step", Label).update(f"  {label}  [dim]{cur}/{tot}[/]")
+        self.query_one("#run-bar", ProgressBar).update(total=tot, progress=cur)
+
+    def _set_run_visible(self, visible: bool) -> None:
+        for wid in ("#run-step", "#run-bar"):
+            w = self.query_one(wid)
+            if visible:
+                w.add_class("running")
+            else:
+                w.remove_class("running")
 
     def action_save_preset(self) -> None:
         def on_name(name: str | None) -> None:
