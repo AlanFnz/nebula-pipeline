@@ -9,20 +9,23 @@ import math
 import random
 import subprocess
 import sys
+import time as _time
 from datetime import datetime
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
+from rich.text import Text as RichText
 from rich_pixels import Pixels
 from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
-from textual.widgets import DataTable, Footer, Header, Input, Label, ProgressBar, RichLog, Rule, Static
+from textual.widgets import DataTable, Footer, Header, Input, Label, RichLog, Static
 
 sys.path.insert(0, str(Path(__file__).parent))
+from _banner import get_banner_text
 from _pipeline import extract_frames, clear_frames, require_ffmpeg
 from assemble import assemble_video
 from analog_wobble import (
@@ -273,6 +276,40 @@ def _fmt(v) -> str:
     return str(v)
 
 
+def _fmt_elapsed(secs: float) -> str:
+    s = max(0, int(secs))
+    m, s = divmod(s, 60)
+    h, m = divmod(m, 60)
+    return f"{h}:{m:02d}:{s:02d}" if h else f"0:{m:02d}:{s:02d}"
+
+
+def _fmt_remaining(elapsed: float, cur: int, tot: int) -> str:
+    if cur <= 0 or cur >= tot or elapsed <= 0:
+        return "-:--:--"
+    return _fmt_elapsed(elapsed / cur * (tot - cur))
+
+
+def _make_run_progress(step_order: list, step_data: dict) -> RichText:
+    t = RichText()
+    now = _time.time()
+    for name in step_order:
+        d     = step_data[name]
+        cur, tot = d["cur"], d["tot"]
+        start = d.get("start")
+        elapsed = ((d.get("end") or now) - start) if start else 0.0
+        filled  = round(cur / tot * 40) if tot > 0 else 0
+        t.append(f"  {name:<14}", style="dim")
+        t.append("█" * filled,        style="color(214)")
+        t.append("░" * (40 - filled), style="color(238)")
+        t.append(f"  {cur}/{tot}",             style="")
+        t.append("  fr",                       style="dim")
+        t.append(f"  {_fmt_elapsed(elapsed)}", style="")
+        t.append("  ·  ",                      style="dim")
+        t.append(_fmt_remaining(elapsed, cur, tot), style="")
+        t.append("\n")
+    return t
+
+
 # ── modals ────────────────────────────────────────────────────────────────────
 
 class EditModal(ModalScreen):
@@ -394,22 +431,17 @@ class NebulaApp(App):
         padding: 0 1;
     }
 
-    #preview-img {
-        height: auto;
-    }
-
+    #preview-panel { height: auto; }
+    #preview-img   { height: auto; }
     #preview-status {
         height: 1;
         color: #3a3a3a;
         margin-bottom: 1;
     }
 
-    #run-step { display: none; height: 1; color: #ffaf00; }
-    #run-bar  { display: none; margin-bottom: 1; }
-    #run-step.running, #run-bar.running { display: block; }
-
-    ProgressBar > .bar--bar { color: #ffaf00; }
-    ProgressBar > .bar--complete { color: #d78700; }
+    #run-panel   { display: none; height: auto; padding: 1 0; }
+    #run-banner  { height: auto; }
+    #run-progress { height: auto; margin-top: 1; }
 
     #log {
         height: 1fr;
@@ -431,8 +463,10 @@ class NebulaApp(App):
         self._video     = video
         self._project   = project
         self._frame_idx = frame_idx
-        saved           = load_params(project)
-        self._params    = {**DEFAULTS, **saved} if saved else dict(DEFAULTS)
+        saved                = load_params(project)
+        self._params         = {**DEFAULTS, **saved} if saved else dict(DEFAULTS)
+        self._run_step_order: list[str] = []
+        self._run_step_data:  dict      = {}
 
     # ── layout ────────────────────────────────────────────────────────────────
 
@@ -442,10 +476,12 @@ class NebulaApp(App):
             with Vertical(id="left"):
                 yield DataTable(id="params-table", show_header=False, cursor_type="row")
             with Vertical(id="right"):
-                yield Static("", id="preview-img")
-                yield Static("● rendering…", id="preview-status")
-                yield Label("", id="run-step")
-                yield ProgressBar(id="run-bar", total=100, show_eta=False)
+                with Vertical(id="preview-panel"):
+                    yield Static("", id="preview-img")
+                    yield Static("● rendering…", id="preview-status")
+                with Vertical(id="run-panel"):
+                    yield Static(get_banner_text(), id="run-banner")
+                    yield Static("", id="run-progress")
                 yield RichLog(id="log", markup=True, highlight=False)
         yield Footer()
 
@@ -522,10 +558,15 @@ class NebulaApp(App):
         frames_wobbled = self._project / "frames_wobbled"
         treated        = self._project / "frames_treated"
 
-        def set_step(label: str, cur: int, tot: int) -> None:
-            self.call_from_thread(self._update_run_ui, label, cur, tot)
+        def set_step(name: str, cur: int, tot: int) -> None:
+            self.call_from_thread(self._update_run_ui, name, cur, tot)
 
-        self.call_from_thread(self._set_run_visible, True)
+        step_names = ["extracting", "wobbling"]
+        if p.get("grade", 1):
+            step_names.append("grading")
+        step_names.append("assembling")
+        self.call_from_thread(self._start_run_display, step_names)
+
         try:
             try:
                 require_ffmpeg()
@@ -579,19 +620,36 @@ class NebulaApp(App):
         except Exception as e:
             self.call_from_thread(self._log, f"[red]error: {e}[/]")
         finally:
-            self.call_from_thread(self._set_run_visible, False)
+            self.call_from_thread(self._end_run_display)
 
-    def _update_run_ui(self, label: str, cur: int, tot: int) -> None:
-        self.query_one("#run-step", Label).update(f"  {label}  [dim]{cur}/{tot}[/]")
-        self.query_one("#run-bar", ProgressBar).update(total=tot, progress=cur)
+    def _start_run_display(self, step_names: list[str]) -> None:
+        self._run_step_order = step_names
+        self._run_step_data  = {
+            n: {"cur": 0, "tot": 1, "start": None, "end": None}
+            for n in step_names
+        }
+        self.query_one("#run-progress", Static).update(
+            _make_run_progress(self._run_step_order, self._run_step_data)
+        )
+        self.query_one("#run-panel").display     = True
+        self.query_one("#preview-panel").display = False
 
-    def _set_run_visible(self, visible: bool) -> None:
-        for wid in ("#run-step", "#run-bar"):
-            w = self.query_one(wid)
-            if visible:
-                w.add_class("running")
-            else:
-                w.remove_class("running")
+    def _update_run_ui(self, name: str, cur: int, tot: int) -> None:
+        now = _time.time()
+        d   = self._run_step_data[name]
+        if d["start"] is None:
+            d["start"] = now
+        d["cur"] = cur
+        d["tot"] = tot
+        if cur >= tot:
+            d.setdefault("end", now)
+        self.query_one("#run-progress", Static).update(
+            _make_run_progress(self._run_step_order, self._run_step_data)
+        )
+
+    def _end_run_display(self) -> None:
+        self.query_one("#run-panel").display     = False
+        self.query_one("#preview-panel").display = True
 
     def action_save_preset(self) -> None:
         def on_name(name: str | None) -> None:
