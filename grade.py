@@ -106,7 +106,7 @@ def process(
             task = task_id
         else:
             task = progress.add_task("grading", total=len(frames))
-        for src in frames:
+        for i, src in enumerate(frames):
             img = Image.open(src).convert("RGB")
             arr = np.asarray(img, dtype=np.float32)
             arr = apply_contrast(arr, contrast)
