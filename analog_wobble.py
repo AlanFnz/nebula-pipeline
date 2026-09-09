@@ -47,16 +47,16 @@ def add_blur(img: Image.Image, radius: float) -> Image.Image:
     return img.filter(ImageFilter.GaussianBlur(radius=radius))
 
 
-def add_paper_texture(img: Image.Image, strength: float) -> Image.Image:
+def add_paper_texture(img: Image.Image, strength: float, rng=None, scale: float = 1.0) -> Image.Image:
     """low-frequency luminance variation — paper substrate baked into the print"""
     if strength <= 0:
         return img
     arr = np.asarray(img, dtype=np.float32)
     h, w = arr.shape[:2]
     # coarse noise upsampled smoothly — reads as surface, not grain
-    scale = 10
-    nh, nw = max(2, h // scale), max(2, w // scale)
-    coarse = np.random.uniform(0, 1, (nh, nw)).astype(np.float32)
+    cell = max(1, round(10 * scale))
+    nh, nw = max(2, h // cell), max(2, w // cell)
+    coarse = (rng if rng is not None else np.random).uniform(0, 1, (nh, nw)).astype(np.float32)
     texture = Image.fromarray((coarse * 255).astype(np.uint8), mode="L")
     texture = texture.resize((w, h), resample=Image.BILINEAR)
     t = np.asarray(texture, dtype=np.float32) / 255.0
@@ -78,12 +78,12 @@ def add_warm_toning(img: Image.Image, strength: float) -> Image.Image:
 
 # ── SCAN PASS ─────────────────────────────────────────────────────────────────
 
-def add_chromatic_aberration(img: Image.Image, strength: float) -> Image.Image:
+def add_chromatic_aberration(img: Image.Image, strength: float, rng=None) -> Image.Image:
     """per-frame R/B channel shift — scan misregistration"""
     if strength <= 0:
         return img
     r, g, b = img.split()
-    theta = random.uniform(0, 2 * math.pi)
+    theta = (rng if rng is not None else random).uniform(0, 2 * math.pi)
     dx = int(strength * math.cos(theta))
     dy = int(strength * math.sin(theta))
     r = ImageChops.offset(r, dx, dy)
@@ -91,13 +91,13 @@ def add_chromatic_aberration(img: Image.Image, strength: float) -> Image.Image:
     return Image.merge("RGB", (r, g, b))
 
 
-def add_scan_bands(img: Image.Image, strength: float) -> Image.Image:
+def add_scan_bands(img: Image.Image, strength: float, rng=None) -> Image.Image:
     """horizontal exposure banding — scanner light source artifact"""
     if strength <= 0:
         return img
     arr = np.asarray(img, dtype=np.float32)
     h = arr.shape[0]
-    bands = np.random.normal(1.0, strength * 0.12, h).astype(np.float32)
+    bands = (rng if rng is not None else np.random).normal(1.0, strength * 0.12, h).astype(np.float32)
     bands = np.clip(bands, 1.0 - strength * 0.4, 1.0 + strength * 0.15)
     arr = arr * bands[:, np.newaxis, np.newaxis]
     return Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
@@ -184,28 +184,29 @@ def add_vignette(img: Image.Image, strength: float) -> Image.Image:
     return Image.fromarray(np.clip(arr * mask, 0, 255).astype(np.uint8))
 
 
-def add_luminous_grain(img: Image.Image, sigma: float) -> Image.Image:
+def add_luminous_grain(img: Image.Image, sigma: float, rng=None) -> Image.Image:
     """overlay-style grain weighted by luminance — no grain in pure blacks"""
     if sigma <= 0:
         return img
     arr = np.asarray(img, dtype=np.float32)
-    noise = np.random.normal(0.0, sigma, arr.shape).astype(np.float32)
+    noise = (rng if rng is not None else np.random).normal(0.0, sigma, arr.shape).astype(np.float32)
     luminance = (0.299 * arr[..., 0] + 0.587 * arr[..., 1] + 0.114 * arr[..., 2]) / 255.0
     luminance = np.stack([luminance] * 3, axis=-1)
     result = arr + (noise * (luminance ** 0.5))
     return Image.fromarray(np.clip(result, 0, 255).astype(np.uint8))
 
 
-def add_dust(img: Image.Image, strength: float, opacity: float = 1.0) -> Image.Image:
+def add_dust(img: Image.Image, strength: float, opacity: float = 1.0, rng=None) -> Image.Image:
     """sparse bright specks — dust on scanner glass"""
     if strength <= 0:
         return img
     arr = np.asarray(img, dtype=np.float32).copy()
     h, w = arr.shape[:2]
     n = int(strength * h * w * 0.00015)
-    ys = np.random.randint(0, h, n)
-    xs = np.random.randint(0, w, n)
-    brightness = np.random.uniform(160, 255, n)
+    rng = rng if rng is not None else np.random.default_rng()
+    ys = rng.integers(0, h, n)
+    xs = rng.integers(0, w, n)
+    brightness = rng.uniform(160, 255, n)
     arr[ys, xs] = arr[ys, xs] * (1 - opacity) + brightness[:, np.newaxis] * opacity
     return Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
 
@@ -276,24 +277,20 @@ def process(
     progress: Progress | None = None,
     task_id: int | None = None,
     on_progress: Callable[[int, int], None] | None = None,
+    stages: dict | None = None,
 ) -> None:
-    if seed is not None:
-        random.seed(seed)
-        np.random.seed(seed)
-
+    from engine import render_frame
+    params = dict(px=px_range, deg=deg_range, grain=grain_range, blur=blur_range,
+                  aberration=aberration, vignette=vignette, bands=bands,
+                  texture=texture, warm=warm, dust=dust, dust_opacity=dust_opacity,
+                  scanlines=scanlines, bloom=bloom, curvature=curvature,
+                  brightness=brightness, seed=42 if seed is None else seed,
+                  drift=drift, grade=0, _stages=stages or {})
     frames = sorted_frames(input_dir)
     if not frames:
         raise SystemExit(f"no PNG files found in {input_dir}")
-
     output_dir.mkdir(parents=True, exist_ok=True)
     n = len(frames)
-
-    grain_sigmas    = [v * 25 for v in smooth_walk(n, *grain_range)]
-    blur_radii      = smooth_walk(n, *blur_range)
-    aberration_vals = _drift_walk(n, aberration, drift)
-    bands_vals      = _drift_walk(n, bands,      drift)
-    brightness_vals = _drift_walk(n, brightness, drift)
-    warm_vals       = _drift_walk(n, warm,       drift)
 
     _own = progress is None
     if _own:
@@ -323,29 +320,7 @@ def process(
         for i, src in enumerate(frames):
             img = Image.open(src).convert("RGB")
 
-            # ── print pass ────────────────────────────────────────────────────
-            img = add_blur(img, blur_radii[i])
-            img = add_paper_texture(img, texture)
-            img = add_warm_toning(img, warm_vals[i])
-
-            # ── scan pass ─────────────────────────────────────────────────────
-            img = add_chromatic_aberration(img, aberration_vals[i])
-            img = add_scan_bands(img, bands_vals[i])
-            img = add_scanlines(img, scanlines)
-            img = add_bloom(img, bloom)
-            img = add_curvature(img, curvature)
-            img = add_vignette(img, vignette)
-            img = add_luminous_grain(img, grain_sigmas[i])
-            img = add_dust(img, dust, dust_opacity)
-            img = add_brightness(img, brightness_vals[i])
-
-            # ── video pass ────────────────────────────────────────────────────
-            mag   = random.uniform(*px_range)
-            theta = random.uniform(0, 2 * math.pi)
-            dx    = int(mag * math.cos(theta))
-            dy    = int(mag * math.sin(theta))
-            rot   = random.uniform(*deg_range) * random.choice((-1, 1))
-            img   = wobble(img, dx, dy, rot)
+            img = render_frame(img, params, i)
 
             img.save(output_dir / src.name)
             progress.advance(task)

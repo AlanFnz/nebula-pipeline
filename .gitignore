@@ -14,3 +14,8 @@ CLAUDE.md
 */tune_params.json
 tune_preview.png
 tune_source.png
+
+# Local desktop environment and validation output
+.venv/
+.pytest_cache/
+.validation/
