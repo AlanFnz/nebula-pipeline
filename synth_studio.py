@@ -67,13 +67,19 @@ class SynthControl(QWidget):
         self.slider.setValue(round(float(value) * scale))
         self.slider.valueChanged.connect(lambda v: self.spin.setValue(v / scale))
         self.spin.valueChanged.connect(lambda v: (self.slider.setValue(round(float(v) * scale)), self.changed.emit()))
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 2, 0, 2)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 3, 0, 4)
         label = QLabel(spec.label)
         label.setToolTip(spec.hint)
-        layout.addWidget(label, 1)
-        layout.addWidget(self.slider, 1)
-        layout.addWidget(self.spin)
+        layout.addWidget(label)
+        row = QHBoxLayout()
+        row.setContentsMargins(0, 0, 0, 0)
+        row.addWidget(self.slider, 1)
+        self.spin.setFixedWidth(78)
+        row.addWidget(self.spin)
+        self.lock.setFixedWidth(48)
+        row.addWidget(self.lock)
+        layout.addLayout(row)
         layout.addWidget(self.lock)
 
     def value(self):
@@ -125,7 +131,9 @@ class SynthStudio(QMainWindow):
         super().__init__()
         self.setWindowTitle("Nebula Synth")
         self.resize(1280, 800)
-        self.preset = normalize_synth(preset or default_synth_preset())
+        if preset is None:
+            preset = curated_presets()["Reference blinds"]
+        self.preset = normalize_synth(preset)
         self.settings_generation = 0
         self.request_serial = 0
         self.last_displayed_request = 0
@@ -154,8 +162,9 @@ class SynthStudio(QMainWindow):
         header.addStretch(1)
         header.addWidget(QLabel("Preset"))
         self.preset_combo = QComboBox()
-        self.preset_combo.addItems(curated_presets().keys())
-        self.preset_combo.setCurrentText(self.preset.get("name", "Reference blinds"))
+        self.preset_combo.addItems([*curated_presets().keys(), "Custom"])
+        preset_name = self.preset.get("name", "Custom")
+        self.preset_combo.setCurrentText(preset_name if preset_name in curated_presets() else "Custom")
         self.preset_combo.currentTextChanged.connect(self.select_curated)
         header.addWidget(self.preset_combo)
         for text, slot in (("Save preset", self.save_preset_dialog), ("Load preset", self.load_preset_dialog), ("Generate variation", self.generate_variation)):
@@ -180,7 +189,7 @@ class SynthStudio(QMainWindow):
         self.cancel_export = QPushButton("Cancel export"); self.cancel_export.setEnabled(False); self.cancel_export.clicked.connect(self.cancel_export_job); export_row.addWidget(self.cancel_export)
         left_layout.addLayout(export_row)
         split.addWidget(left)
-        scroll = QScrollArea(); scroll.setWidgetResizable(True); panel = QWidget(); self.panel_layout = QVBoxLayout(panel); self.panel_layout.setAlignment(Qt.AlignmentFlag.AlignTop); scroll.setWidget(panel); split.addWidget(scroll); split.setSizes([760, 420]); outer.addWidget(split, 1)
+        scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff); panel = QWidget(); panel.setMinimumWidth(0); self.panel_layout = QVBoxLayout(panel); self.panel_layout.setAlignment(Qt.AlignmentFlag.AlignTop); scroll.setWidget(panel); split.addWidget(scroll); split.setSizes([760, 460]); outer.addWidget(split, 1)
         self.setCentralWidget(root)
 
     def global_group(self):
@@ -197,10 +206,14 @@ class SynthStudio(QMainWindow):
         targets = self.preset.get("animation", {}).get("targets", {})
         for target in ("blinds.aperture", "blinds.aperture_position", "blinds.curvature", "slab.width", "slab.spacing"):
             values = targets.get(target, {"depth": 0.0, "rate": 0.0})
-            row = QHBoxLayout(); row.addWidget(QLabel(target.replace(".", " · ")))
+            module_id, param_key = target.split(".", 1)
+            module = MODULE_BY_ID[module_id]
+            spec = next(spec for spec in module.params if spec.key == param_key)
+            block = QVBoxLayout(); title = QLabel(f"{module.label} · {spec.label}"); title.setToolTip(spec.hint); block.addWidget(title)
+            row = QHBoxLayout()
             for key, label, lo, hi, step in (("depth", "depth", 0, 1, .01), ("rate", "rate", 0, 4, .01)):
                 row.addWidget(QLabel(label)); spin = QDoubleSpinBox(); spin.setRange(lo, hi); spin.setSingleStep(step); spin.setValue(values.get(key, 0)); spin.valueChanged.connect(self.modulation_changed); row.addWidget(spin); self.mod_controls[(target, key)] = spin
-            modulation_layout.addLayout(row)
+            block.addLayout(row); modulation_layout.addLayout(block)
         layout.addWidget(modulation)
         return group
 
@@ -214,8 +227,9 @@ class SynthStudio(QMainWindow):
             if not module: continue
             group = QGroupBox(module.label); group.setCheckable(True); group.setChecked(entry.get("enabled", True)); group.toggled.connect(lambda checked, i=index: self.module_toggled(i, checked))
             layout = QVBoxLayout(group)
-            top = QHBoxLayout(); top.addWidget(QLabel(module.description)); top.addStretch(1)
-            up = QPushButton("↑"); down = QPushButton("↓"); up.clicked.connect(lambda _=False, i=index: self.move_module(i, -1)); down.clicked.connect(lambda _=False, i=index: self.move_module(i, 1)); top.addWidget(up); top.addWidget(down); layout.addLayout(top)
+            description = QLabel(module.description); description.setWordWrap(True); layout.addWidget(description)
+            order = QHBoxLayout(); order.addStretch(1)
+            up = QPushButton("↑"); down = QPushButton("↓"); up.setFixedWidth(32); down.setFixedWidth(32); up.clicked.connect(lambda _=False, i=index: self.move_module(i, -1)); down.clicked.connect(lambda _=False, i=index: self.move_module(i, 1)); order.addWidget(up); order.addWidget(down); layout.addLayout(order)
             for spec in module.params:
                 control = SynthControl(spec, entry.get("params", {}).get(spec.key, spec.default)); control.changed.connect(self.control_changed); layout.addWidget(control); self.controls[(index, spec.key)] = control
             self.panel_layout.addWidget(group); self.module_groups.append((index, group))
@@ -237,18 +251,24 @@ class SynthStudio(QMainWindow):
         return normalize_synth(p)
 
     def global_changed(self, key, value=None):
-        self.preset = self.collect(); self.preset["name"] = self.preset.get("name", "Custom synth"); self.update_timeline_max(); self.invalidate()
+        self.preset = self.collect(); self.mark_custom(); self.update_timeline_max(); self.invalidate()
         if self.play.isChecked(): self.play_timer.start(max(15, round(1000 / self.preset["export_fps"])))
     def modulation_changed(self):
-        self.preset = self.collect(); self.invalidate()
+        self.preset = self.collect(); self.mark_custom(); self.invalidate()
 
-    def control_changed(self): self.preset = self.collect(); self.invalidate()
-    def module_toggled(self, index, checked): self.preset["modules"][index]["enabled"] = checked; self.invalidate()
+    def mark_custom(self):
+        self.preset["name"] = "Custom"
+        if hasattr(self, "preset_combo"):
+            with QSignalBlocker(self.preset_combo):
+                self.preset_combo.setCurrentText("Custom")
+
+    def control_changed(self): self.preset = self.collect(); self.mark_custom(); self.invalidate()
+    def module_toggled(self, index, checked): self.preset["modules"][index]["enabled"] = checked; self.mark_custom(); self.invalidate()
 
     def move_module(self, index, delta):
         new = index + delta
         if 0 <= new < len(self.preset["modules"]):
-            self.preset = self.collect(); self.preset["modules"][index], self.preset["modules"][new] = self.preset["modules"][new], self.preset["modules"][index]; self.rebuild_modules(); self.invalidate()
+            self.preset = self.collect(); self.preset["modules"][index], self.preset["modules"][new] = self.preset["modules"][new], self.preset["modules"][index]; self.mark_custom(); self.rebuild_modules(); self.invalidate()
 
     def invalidate(self):
         self.settings_generation += 1; self.request_frame()
@@ -290,7 +310,7 @@ class SynthStudio(QMainWindow):
         if name not in curated_presets(): return
         self.preset = copy.deepcopy(curated_presets()[name]); self.rebuild_modules(); self.update_timeline_max(); self.invalidate()
     def generate_variation(self):
-        self.preset = self.collect(); rng = random.Random(self.preset["seed"] + 1); self.preset["seed"] = rng.randrange(2**31 - 1)
+        self.preset = self.collect(); rng = random.Random(self.preset["seed"] + 1); self.preset["seed"] = rng.randrange(2**31 - 1); self.mark_custom()
         with QSignalBlocker(self.global_controls["seed"]):
             self.global_controls["seed"].setValue(self.preset["seed"])
         for (index, key), control in self.controls.items():
