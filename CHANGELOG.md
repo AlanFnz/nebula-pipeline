@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.2.0 — 2026-09-25
+
+### Added
+
+- Source-free Nebula Synth desktop mode (`studio.py --synth`) with deterministic
+  luminous slabs, irregular Venetian-blind rays, warp, separation, smear,
+  bloom and raster modules.
+- Versioned synth JSON presets with module ordering/toggles, typed controls,
+  locked-parameter variation, treatment FPS holds, separate export FPS and
+  atomic FFmpeg loop export.
+- Renderer and export regression checks covering time determinism, schema
+  round trips, treatment holds and generated MP4 output.
+
+### Compatibility and known limits
+
+- The synth generator is source-free in this milestone; input-video modulation
+  is planned for a later phase. The existing clip pipeline remains unchanged.
+- CPU rendering is deterministic but is not promised to sustain full-resolution
+  real-time playback on every machine.
+
 ## 0.1.0 — 2026-09-09
 
 First native desktop milestone, following the existing `v0.0.1` pipeline release.

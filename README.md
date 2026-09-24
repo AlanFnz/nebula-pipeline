@@ -30,6 +30,26 @@ The Python entry point also works on other platforms with PySide6 and FFmpeg on 
 .venv/bin/python studio.py /path/to/clip.mp4 --preset /path/to/settings.json
 ```
 
+## Source-free visual synthesis
+
+The desktop studio also includes a native generator for the luminous slabs and
+irregular Venetian-blind rays in the reference study. Launch it with:
+
+```sh
+.venv/bin/python studio.py --synth
+```
+
+The Synth window supports deterministic continuous animation, treatment FPS
+holds, separate export FPS, module enable/order controls, typed parameter
+editors, per-parameter variation locks, curated presets, JSON round trips and
+atomic MP4 loop export. The schema and renderer live in [`synth.py`](synth.py);
+new effects register one module specification and one renderer callback in
+`RENDERERS`. Unknown modules survive save/reload for forward compatibility.
+
+This first synthesis pass is source-free. Input-video modulation is reserved
+for the next phase; the existing clip workflow remains available from the same
+`studio.py` entry point.
+
 ## Experimenting
 
 1. **Open clip…** loads a local video. The source is read-only. The initial loop is two seconds at the existing default treatment rate of 12 fps.

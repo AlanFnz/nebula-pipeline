@@ -664,7 +664,16 @@ def main():
     parser.add_argument("--version", action="version", version=f"Nebula Studio {__version__}")
     parser.add_argument("clip", nargs="?", type=Path)
     parser.add_argument("--preset", type=Path)
+    parser.add_argument("--synth", action="store_true", help="Open the source-free visual synthesizer")
+    parser.add_argument("--synth-preset", type=Path, help="Open a synth JSON preset")
     args = parser.parse_args()
+    if args.synth:
+        from synth_studio import run_synth_app
+        preset = None
+        if args.synth_preset:
+            from synth import load_synth
+            preset = load_synth(args.synth_preset)
+        sys.exit(run_synth_app(preset))
     app = QApplication(sys.argv[:1])
     app.setApplicationName("Nebula Studio")
     app.setApplicationVersion(__version__)
