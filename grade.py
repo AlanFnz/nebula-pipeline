@@ -78,6 +78,7 @@ def process(
     task_id: int | None = None,
     on_progress: Callable[[int, int], None] | None = None,
 ) -> None:
+    from engine import grade_frame
     output_dir.mkdir(parents=True, exist_ok=True)
     frames = sorted(input_dir.glob("*.png"))
     if not frames:
@@ -108,12 +109,8 @@ def process(
             task = progress.add_task("grading", total=len(frames))
         for i, src in enumerate(frames):
             img = Image.open(src).convert("RGB")
-            arr = np.asarray(img, dtype=np.float32)
-            arr = apply_contrast(arr, contrast)
-            arr = apply_shadow_crush(arr, shadows)
-            arr = apply_highlight_boost(arr, highlights)
-            arr = apply_split_toning(arr, toning)
-            Image.fromarray(arr.astype(np.uint8)).save(output_dir / src.name)
+            grade_frame(img, dict(contrast=contrast, shadows=shadows,
+                                 highlights=highlights, toning=toning)).save(output_dir / src.name)
             progress.advance(task)
             if on_progress is not None:
                 on_progress(i + 1, len(frames))

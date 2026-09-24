@@ -5,15 +5,12 @@ nebula.py — analog degradation pipeline TUI
 
 import argparse
 import json
-import math
-import random
 import subprocess
 import sys
 import time as _time
 from datetime import datetime
 from pathlib import Path
 
-import numpy as np
 from PIL import Image
 from rich.text import Text as RichText
 from textual import work
@@ -27,14 +24,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from _banner import get_banner_text
 from _pipeline import extract_frames, clear_frames, require_ffmpeg
 from assemble import assemble_video
-from analog_wobble import (
-    add_blur, add_paper_texture, add_warm_toning,
-    add_chromatic_aberration, add_scan_bands,
-    add_scanlines, add_bloom, add_curvature,
-    add_vignette, add_luminous_grain, add_dust, add_brightness, wobble,
-)
 from analog_wobble import process as wobble_process
-from grade import apply_contrast, apply_shadow_crush, apply_highlight_boost, apply_split_toning
 from grade import process as grade_process
 
 # ── paths ─────────────────────────────────────────────────────────────────────
@@ -43,34 +33,13 @@ PREVIEW   = Path("tune_preview.png")
 SRC_FRAME = Path("tune_source.png")
 
 _preview_opened = False
+_preview_frame_index = 0
+_preview_video = None
+_preview_fps = None
 
 # ── params ────────────────────────────────────────────────────────────────────
 
-DEFAULTS: dict = {
-    "blur":         (3.0, 7.0),
-    "texture":      0.7,
-    "warm":         0.8,
-    "aberration":   3.0,
-    "bands":        0.45,
-    "vignette":     0.75,
-    "grain":        (0.7, 1.1),
-    "dust":         0.6,
-    "dust_opacity": 1.0,
-    "scanlines":    0.0,
-    "bloom":        0.0,
-    "curvature":    0.0,
-    "brightness":   1.0,
-    "px":           (2.0, 5.0),
-    "deg":          (0.2, 0.6),
-    "fps":          12.0,
-    "seed":         42,
-    "contrast":     0.4,
-    "shadows":      0.15,
-    "highlights":   0.05,
-    "toning":       0.4,
-    "grade":        1,
-    "drift":        0.0,
-}
+from parameters import DEFAULTS
 
 RANGE_PARAMS  = {"blur", "grain", "px", "deg"}
 SINGLE_PARAMS = {"aberration", "vignette", "bands", "texture", "warm", "dust", "dust_opacity",
@@ -143,6 +112,9 @@ def list_presets() -> list[str]:
 # ── rendering ─────────────────────────────────────────────────────────────────
 
 def extract_frame(video: Path, fps: float, index: int) -> None:
+    global _preview_frame_index, _preview_video, _preview_fps
+    _preview_frame_index = index
+    _preview_video, _preview_fps = video, fps
     subprocess.run([
         "ffmpeg", "-y", "-i", str(video),
         "-vf", f"fps={fps},select=eq(n\\,{index})",
@@ -150,64 +122,14 @@ def extract_frame(video: Path, fps: float, index: int) -> None:
     ], check=True, capture_output=True)
 
 
-def _render(params: dict, blur_r: float, grain_sigma: float,
-            px: float, deg: float) -> Image.Image:
-    seed = params.get("seed")
-    if seed is not None:
-        random.seed(int(seed))
-        np.random.seed(int(seed))
-
-    img = Image.open(SRC_FRAME).convert("RGB")
-    img = add_blur(img, blur_r)
-    img = add_paper_texture(img, params["texture"])
-    img = add_warm_toning(img, params["warm"])
-    img = add_chromatic_aberration(img, params["aberration"])
-    img = add_scan_bands(img, params["bands"])
-    img = add_scanlines(img, params["scanlines"])
-    img = add_bloom(img, params["bloom"])
-    img = add_curvature(img, params["curvature"])
-    img = add_vignette(img, params["vignette"])
-    img = add_luminous_grain(img, grain_sigma)
-    img = add_dust(img, params["dust"], params["dust_opacity"])
-    img = add_brightness(img, params["brightness"])
-
-    if params.get("grade", 1):
-        arr = np.asarray(img, dtype=np.float32)
-        arr = apply_contrast(arr, params["contrast"])
-        arr = apply_shadow_crush(arr, params["shadows"])
-        arr = apply_highlight_boost(arr, params["highlights"])
-        arr = apply_split_toning(arr, params["toning"])
-        img = Image.fromarray(arr.astype(np.uint8))
-
-    theta = random.uniform(0, 2 * math.pi)
-    dx    = int(px * math.cos(theta))
-    dy    = int(px * math.sin(theta))
-    rot   = deg * random.choice((-1, 1))
-    return wobble(img, dx, dy, rot)
-
-
 def apply_and_save(params: dict) -> None:
-    blur_lo,  blur_hi  = params["blur"]
-    grain_lo, grain_hi = params["grain"]
-    px_lo,    px_hi    = params["px"]
-    deg_lo,   deg_hi   = params["deg"]
-
-    panels = []
-    for blur_r, grain_s, px, deg in [
-        (blur_lo,                  grain_lo * 25,                  px_lo, deg_lo),
-        ((blur_lo + blur_hi) / 2, (grain_lo + grain_hi) / 2 * 25, (px_lo + px_hi) / 2, (deg_lo + deg_hi) / 2),
-        (blur_hi,                  grain_hi * 25,                  px_hi, deg_hi),
-    ]:
-        panels.append(_render(params, blur_r, grain_s, px, deg))
-
-    w, h  = panels[0].size
-    sep   = 2
-    sheet = Image.new("RGB", (w * 3 + sep * 2, h), (0, 0, 0))
-    for i, panel in enumerate(panels):
-        sheet.paste(panel, (i * (w + sep), 0))
-
+    """Exact selected-frame rendering, using the same order and time as export."""
+    from engine import render_frame
+    if _preview_video is not None and params["fps"] != _preview_fps:
+        extract_frame(_preview_video, params["fps"], _preview_frame_index)
+    img = render_frame(Image.open(SRC_FRAME), params, _preview_frame_index)
     global _preview_opened
-    sheet.save(PREVIEW)
+    img.save(PREVIEW)
     if not _preview_opened:
         subprocess.run(["open", str(PREVIEW)], check=False)
         _preview_opened = True
@@ -586,6 +508,7 @@ class NebulaApp(App):
                 curvature=p["curvature"], brightness=p["brightness"],
                 seed=int(p["seed"]) if p.get("seed") is not None else None,
                 drift=p["drift"],
+                stages=p.get("_stages"),
                 on_progress=lambda cur, tot: set_step("wobbling", cur, tot),
             )
 
