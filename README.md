@@ -53,8 +53,11 @@ for the next phase; the existing clip workflow remains available from the same
 The **Reference 15s** action loads one editable cue sequence based on the first
 15 seconds of the study. Its JSON stores state overrides and timed `cut`,
 `morph`, `sweep` and `flash` cues; the same sequence renderer drives preview,
-scrubbing and export. **Save sequence** and **Load sequence** preserve the cue
-schedule without embedding reference media.
+scrubbing and export. Select a state to edit its module parameters and enabled
+modules, duplicate it for a local variation, and adjust cue intensity,
+direction, timing, seed, exposure valley and cloud field tracks in the same
+panel. **Save sequence** and **Load sequence** preserve those edits and the
+cue schedule without embedding reference media.
 
 ## Experimenting
 

@@ -143,6 +143,11 @@ class SynthStudio(QMainWindow):
         self.sequence = None
         self.sequence_table = None
         self.sequence_updating = False
+        self.sequence_state_updating = False
+        self.sequence_state_name = None
+        self.sequence_state_controls = {}
+        self.sequence_enabled_controls = {}
+        self.sequence_field_controls = {}
         self.settings_generation = 0
         self.request_serial = 0
         self.last_displayed_request = 0
@@ -232,17 +237,18 @@ class SynthStudio(QMainWindow):
         label = QLabel("15-second reference study · edit times, states and transition types")
         label.setWordWrap(True)
         layout.addWidget(label)
-        table = QTableWidget(len(self.sequence["cues"]), 4)
-        table.setHorizontalHeaderLabels(["Time", "State", "Transition", "Hold / blend"])
+        table = QTableWidget(len(self.sequence["cues"]), 6)
+        table.setHorizontalHeaderLabels(["Time", "State", "Transition", "Hold / blend", "Intensity", "Direction"])
         table.setAlternatingRowColors(True)
         table.setMinimumHeight(190)
         table.setMaximumHeight(280)
-        table.setColumnWidth(0, 62); table.setColumnWidth(1, 90); table.setColumnWidth(2, 82); table.setColumnWidth(3, 82)
+        table.setColumnWidth(0, 62); table.setColumnWidth(1, 90); table.setColumnWidth(2, 82); table.setColumnWidth(3, 82); table.setColumnWidth(4, 62); table.setColumnWidth(5, 62)
         for row, cue in enumerate(self.sequence["cues"]):
-            values = (f"{cue['time']:.2f}", cue["state"], cue["transition"], f"{cue.get('duration', 0):.2f}")
+            values = (f"{cue['time']:.2f}", cue["state"], cue["transition"], f"{cue.get('duration', 0):.2f}", f"{cue.get('intensity', 1.0):.2f}", f"{cue.get('direction', 1.0):.2f}")
             for column, value in enumerate(values):
                 table.setItem(row, column, QTableWidgetItem(value))
         table.cellChanged.connect(self.sequence_cell_changed)
+        table.itemSelectionChanged.connect(self.sequence_selection_changed)
         self.sequence_table = table
         layout.addWidget(table)
         buttons = QHBoxLayout()
@@ -252,13 +258,75 @@ class SynthStudio(QMainWindow):
         layout.addLayout(buttons)
         return group
 
+    def sequence_settings_group(self):
+        group = QGroupBox("Sequence timing and field")
+        layout = QVBoxLayout(group)
+        self.sequence_updating = True
+        self.sequence_field_controls = {}
+        timing = QHBoxLayout()
+        for key, label, minimum, maximum, step, integer in (("duration", "seconds", .1, 3600, .1, False), ("fps", "FPS", 1, 120, 1, True), ("seed", "seed", 0, 2**31 - 1, 1, True)):
+            timing.addWidget(QLabel(label))
+            spin = QSpinBox() if integer else QDoubleSpinBox()
+            spin.setRange(minimum, maximum); spin.setSingleStep(step); spin.setValue(self.sequence[key]); spin.setKeyboardTracking(False)
+            spin.valueChanged.connect(lambda value, k=key: self.sequence_setting_changed(k, value))
+            timing.addWidget(spin); self.sequence_field_controls[key] = spin
+        layout.addLayout(timing)
+        field = QHBoxLayout()
+        for key, label, minimum, maximum, step in (("valley_start", "valley in", 0, 3600, .01), ("valley_end", "valley out", 0, 3600, .01), ("valley_gain", "valley gain", 0, 2, .01), ("cloud_start", "cloud in", 0, 3600, .01), ("cloud_strength", "cloud", 0, 1, .01), ("cloud_late_start", "late cloud", 0, 3600, .01), ("cloud_late_rate", "late rate", 0, 1, .01)):
+            field.addWidget(QLabel(label))
+            spin = QDoubleSpinBox(); spin.setRange(minimum, maximum); spin.setSingleStep(step); spin.setDecimals(2); spin.setValue(self.sequence["field"].get(key, 0.0)); spin.setKeyboardTracking(False)
+            spin.valueChanged.connect(lambda value, k=key: self.sequence_field_changed(k, value))
+            field.addWidget(spin); self.sequence_field_controls[key] = spin
+        layout.addLayout(field)
+        self.sequence_updating = False
+        return group
+
+    def sequence_state_group(self):
+        group = QGroupBox("Selected state")
+        layout = QVBoxLayout(group)
+        row = QHBoxLayout(); row.addWidget(QLabel("State"))
+        combo = QComboBox(); combo.addItems(list(self.sequence["states"]))
+        if self.sequence_state_name in self.sequence["states"]:
+            combo.setCurrentText(self.sequence_state_name)
+        else:
+            combo.setCurrentIndex(0)
+        combo.currentTextChanged.connect(self.select_sequence_state); row.addWidget(combo, 1)
+        duplicate = QPushButton("Duplicate state"); duplicate.clicked.connect(self.duplicate_sequence_state); row.addWidget(duplicate)
+        layout.addLayout(row)
+        self.sequence_state_combo = combo
+        self.sequence_state_controls = {}
+        self.sequence_enabled_controls = {}
+        self.sequence_state_name = combo.currentText()
+        state = self.sequence["states"][self.sequence_state_name]
+        base = normalize_synth(curated_presets()[state["preset"]])
+        overrides = state.get("overrides", {})
+        enabled = set(state.get("enabled", [entry["id"] for entry in base["modules"] if entry.get("enabled", True)]))
+        for entry in base["modules"]:
+            module = MODULE_BY_ID.get(entry.get("id"))
+            if module is None:
+                continue
+            module_box = QGroupBox(module.label); module_box.setCheckable(True); module_box.setChecked(entry["id"] in enabled)
+            module_box.toggled.connect(lambda checked, module_id=entry["id"]: self.sequence_module_enabled_changed(module_id, checked))
+            module_layout = QVBoxLayout(module_box)
+            for spec in module.params:
+                path = f"{module.id}.{spec.key}"
+                value = overrides.get(path, entry.get("params", {}).get(spec.key, spec.default))
+                control = SynthControl(spec, value); control.changed.connect(lambda path=path: self.sequence_state_control_changed(path)); module_layout.addWidget(control); self.sequence_state_controls[path] = control
+            layout.addWidget(module_box); self.sequence_enabled_controls[module.id] = module_box
+        return group
+
     def rebuild_modules(self):
         while self.panel_layout.count():
             item = self.panel_layout.takeAt(0); widget = item.widget(); widget and widget.deleteLater()
         self.controls.clear(); self.module_groups.clear()
         self.sequence_table = None
+        self.sequence_state_controls = {}; self.sequence_enabled_controls = {}; self.sequence_field_controls = {}
         if self.sequence is not None:
             self.panel_layout.addWidget(self.sequence_group())
+            self.panel_layout.addWidget(self.sequence_settings_group())
+            self.panel_layout.addWidget(self.sequence_state_group())
+            note = QLabel("Sequence mode uses the selected-state inspector above. Standalone preset controls are hidden to keep edits reproducible."); note.setWordWrap(True); note.setObjectName("muted"); self.panel_layout.addWidget(note)
+            return
         self.panel_layout.addWidget(self.global_group())
         for index, entry in enumerate(self.preset["modules"]):
             module = MODULE_BY_ID.get(entry.get("id"))
@@ -321,15 +389,20 @@ class SynthStudio(QMainWindow):
             elif column == 2:
                 if value not in {"cut", "morph", "sweep", "flash"}: raise ValueError("Unknown transition")
                 cue["transition"] = value
-            else:
+            elif column == 3:
                 cue["duration"] = max(0.0, float(value))
+            elif column == 4:
+                cue["intensity"] = float(value)
+            else:
+                cue["direction"] = float(value)
             self.sequence = normalize_sequence(self.sequence)
             self.rebuild_modules(); self.update_timeline_max(); self.invalidate()
         except Exception as exc:
             self.status.setText(f"Sequence edit ignored: {exc}")
             self.sequence_updating = True
             try:
-                for index, value in enumerate((self.sequence["cues"][row]["time"], self.sequence["cues"][row]["state"], self.sequence["cues"][row]["transition"], self.sequence["cues"][row].get("duration", 0))):
+                cue = self.sequence["cues"][row]
+                for index, value in enumerate((cue["time"], cue["state"], cue["transition"], cue.get("duration", 0), cue.get("intensity", 1.0), cue.get("direction", 1.0))):
                     self.sequence_table.item(row, index).setText(f"{value:.2f}" if isinstance(value, float) else str(value))
             finally:
                 self.sequence_updating = False
@@ -339,6 +412,59 @@ class SynthStudio(QMainWindow):
         time = self.timeline.value() / max(1, self.sequence["fps"])
         self.sequence["cues"].append({"time": min(time, self.sequence["duration"]), "state": "slab", "transition": "cut", "duration": 0.0})
         self.sequence["cues"].sort(key=lambda cue: cue["time"])
+        self.sequence = normalize_sequence(self.sequence); self.rebuild_modules(); self.invalidate()
+
+    def sequence_selection_changed(self):
+        if self.sequence_table is None or self.sequence_table.currentRow() < 0:
+            return
+        state = self.sequence["cues"][self.sequence_table.currentRow()]["state"]
+        if state in self.sequence["states"] and hasattr(self, "sequence_state_combo"):
+            self.sequence_state_combo.setCurrentText(state)
+
+    def select_sequence_state(self, name):
+        if self.sequence is None or name not in self.sequence["states"]:
+            return
+        self.sequence_state_name = name
+        self.rebuild_modules(); self.invalidate()
+
+    def sequence_state_control_changed(self, path):
+        if self.sequence_state_updating or self.sequence is None or self.sequence_state_name not in self.sequence["states"]:
+            return
+        state = self.sequence["states"][self.sequence_state_name]
+        state.setdefault("overrides", {})[path] = self.sequence_state_controls[path].value()
+        self.sequence = normalize_sequence(self.sequence); self.invalidate()
+
+    def sequence_module_enabled_changed(self, module_id, checked):
+        if self.sequence_state_updating or self.sequence is None or self.sequence_state_name not in self.sequence["states"]:
+            return
+        state = self.sequence["states"][self.sequence_state_name]
+        enabled = set(state.get("enabled", []))
+        if checked: enabled.add(module_id)
+        else: enabled.discard(module_id)
+        state["enabled"] = sorted(enabled)
+        self.sequence = normalize_sequence(self.sequence); self.invalidate()
+
+    def sequence_setting_changed(self, key, value):
+        if self.sequence_updating or self.sequence is None or self.sequence_field_controls is None:
+            return
+        self.sequence[key] = int(value) if key in {"fps", "seed"} else float(value)
+        self.sequence = normalize_sequence(self.sequence); self.update_timeline_max(); self.invalidate()
+
+    def sequence_field_changed(self, key, value):
+        if self.sequence_updating or self.sequence is None:
+            return
+        self.sequence.setdefault("field", {})[key] = float(value)
+        self.sequence = normalize_sequence(self.sequence); self.invalidate()
+
+    def duplicate_sequence_state(self):
+        if self.sequence is None or self.sequence_state_name not in self.sequence["states"]:
+            return
+        source = self.sequence["states"][self.sequence_state_name]
+        base = f"{self.sequence_state_name}_copy"; name = base; index = 2
+        while name in self.sequence["states"]:
+            name = f"{base}{index}"; index += 1
+        self.sequence["states"][name] = copy.deepcopy(source)
+        self.sequence_state_name = name
         self.sequence = normalize_sequence(self.sequence); self.rebuild_modules(); self.invalidate()
 
     def remove_sequence_cue(self):

@@ -12,6 +12,15 @@ from PIL import Image
 from synth import _seed, SYNTH_SCHEMA_VERSION, curated_presets, normalize_synth, render_synth_frame
 
 SEQUENCE_SCHEMA_VERSION = 1
+NEUTRAL_FIELD = {
+    "valley_start": 0.0,
+    "valley_end": 0.0,
+    "valley_gain": 1.0,
+    "cloud_start": 0.0,
+    "cloud_strength": 0.0,
+    "cloud_late_start": 0.0,
+    "cloud_late_rate": 0.0,
+}
 
 
 def _state(base_name, overrides=None, enabled=None):
@@ -26,12 +35,24 @@ def reference_sequence():
         "duration": 15.0,
         "fps": 25,
         "seed": 15025,
+        "field": {
+            "valley_start": 11.4,
+            "valley_end": 13.2,
+            "valley_gain": .45,
+            "cloud_start": 8.2,
+            "cloud_strength": .045,
+            "cloud_late_start": 14.2,
+            "cloud_late_rate": .20,
+        },
         "states": {
-            "blinds": _state("Reference blinds", {"blinds.aperture": .30, "blinds.thickness": .010, "blinds.swelling": .78, "separation.amount": .006, "smear.amount": .045}),
-            "burst": _state("Reference blinds", {"blinds.aperture": .52, "blinds.thickness": .022, "blinds.swelling": 1.0, "blinds.taper": .48, "warp.amount": .035, "separation.amount": .012, "smear.amount": .18, "bloom.strength": .82}),
-            "slab": _state("Luminous slab", {"slab.height": .60, "slab.position_x": .16, "slab.position_y": .04, "slab.width": .30, "slab.edge_hardness": .88, "slab.notch": .16, "slab.intensity": .96, "slab.ghost_width": .58, "slab.ghost_offset": .30, "slab.ghost_opacity": .40, "smear.amount": .12, "separation.amount": .006}),
-            "double": _state("Luminous slab", {"slab.count": 2, "slab.height": .56, "slab.position_x": .08, "slab.spacing": .32, "slab.width": .20, "slab.position_y": .06, "slab.notch": .38, "slab.intensity": .86, "slab.ghost_width": .62, "slab.ghost_offset": .34, "slab.ghost_opacity": .46, "smear.amount": .16, "separation.amount": .009}),
-            "outline": _state("Luminous slab", {"slab.height": .56, "slab.position_x": .17, "slab.position_y": .02, "slab.width": .17, "slab.hollow": .98, "slab.edge_hardness": .98, "slab.notch": .40, "slab.intensity": .70, "slab.ghost_width": .70, "slab.ghost_offset": .34, "slab.ghost_opacity": .42, "bloom.strength": .32, "smear.amount": .07, "separation.amount": .004}),
+            "blinds": _state("Reference blinds", {"blinds.aperture": .52, "blinds.aperture_position": .40, "blinds.aperture_height": .64, "blinds.thickness": .014, "blinds.swelling": .78, "blinds.taper": .45, "blinds.curvature": .02, "warp.amount": .002, "separation.amount": .004, "smear.amount": .045, "bloom.strength": .18, "raster.grain": .045}),
+            "burst": _state("Reference blinds", {"blinds.aperture": .52, "blinds.aperture_position": .40, "blinds.thickness": .022, "blinds.swelling": 1.0, "blinds.taper": .48, "warp.amount": .035, "separation.amount": .012, "smear.amount": .18, "bloom.strength": .40}),
+            "slab": _state("Luminous slab", {"slab.height": .60, "slab.position_x": .16, "slab.position_y": .04, "slab.width": .30, "slab.edge_softness": .010, "slab.edge_hardness": .94, "slab.notch": .16, "slab.intensity": .96, "slab.ghost_width": .58, "slab.ghost_offset": .30, "slab.ghost_opacity": .40, "smear.amount": .12, "separation.amount": .006}),
+            "double": _state("Luminous slab", {"slab.count": 1, "slab.height": .56, "slab.position_x": .08, "slab.spacing": .32, "slab.width": .24, "slab.edge_softness": .010, "slab.position_y": .06, "slab.notch": .38, "slab.intensity": .86, "slab.ghost_width": .82, "slab.ghost_offset": .34, "slab.ghost_opacity": .46, "smear.amount": .16, "separation.amount": .009}),
+            "magenta": _state("Luminous slab", {"slab.count": 1, "slab.height": .58, "slab.position_x": .16, "slab.position_y": .04, "slab.width": .26, "slab.edge_softness": .012, "slab.notch": .28, "slab.intensity": .76, "slab.fill_magenta": .78, "slab.magenta": 1.0, "slab.ghost_width": .72, "slab.ghost_offset": .34, "slab.ghost_opacity": .48, "bloom.strength": .32, "smear.amount": .13, "separation.amount": .006}),
+            "outline": _state("Luminous slab", {"slab.height": .56, "slab.position_x": .17, "slab.position_y": .02, "slab.width": .17, "slab.edge_softness": .008, "slab.hollow": .98, "slab.edge_hardness": .98, "slab.notch": .40, "slab.intensity": .52, "slab.ghost_width": .70, "slab.ghost_offset": .34, "slab.ghost_opacity": .42, "bloom.strength": .20, "smear.amount": .07, "separation.amount": .004}),
+            "noisy": _state("Luminous slab", {"slab.height": .58, "slab.position_x": .18, "slab.position_y": .03, "slab.width": .28, "slab.edge_softness": .012, "slab.notch": .48, "slab.intensity": .80, "slab.ghost_width": .78, "slab.ghost_offset": .36, "slab.ghost_opacity": .52, "bloom.strength": .28, "raster.grain": .18, "raster.chroma": .06, "smear.amount": .16, "separation.amount": .003}),
+            "dimfilled": _state("Luminous slab", {"slab.height": .56, "slab.position_x": .18, "slab.position_y": .02, "slab.width": .26, "slab.edge_softness": .012, "slab.hollow": .02, "slab.notch": .32, "slab.intensity": .70, "slab.ghost_width": .72, "slab.ghost_offset": .34, "slab.ghost_opacity": .36, "bloom.strength": .18, "raster.grain": .11, "raster.chroma": .03, "smear.amount": .10, "separation.amount": .002}),
             "one": _state("Reference blinds", {"blinds.rows": 1, "blinds.thickness": .075, "blinds.aperture": .24, "blinds.aperture_height": .52, "blinds.swelling": 1.0, "blinds.taper": .28, "separation.amount": .004, "smear.amount": .06}),
             "two": _state("Reference blinds", {"blinds.rows": 2, "blinds.thickness": .026, "blinds.aperture": .22, "blinds.swelling": .90, "blinds.taper": .42, "separation.amount": .004, "smear.amount": .05}),
             "four": _state("Reference blinds", {"blinds.rows": 4, "blinds.thickness": .020, "blinds.aperture": .24, "blinds.swelling": .88, "blinds.taper": .52, "separation.amount": .005, "smear.amount": .05}),
@@ -92,7 +113,8 @@ def reference_sequence():
             {"time": 5.20, "state": "slab", "transition": "cut", "duration": 0.00},
             {"time": 6.10, "state": "double", "transition": "morph", "duration": .24},
             {"time": 7.15, "state": "slab", "transition": "cut", "duration": 0.00},
-            {"time": 8.04, "state": "outline", "transition": "morph", "duration": .20},
+            {"time": 7.62, "state": "magenta", "transition": "morph", "duration": .18},
+            {"time": 8.04, "state": "noisy", "transition": "morph", "duration": .20},
             {"time": 9.15, "state": "double", "transition": "sweep", "duration": .16, "intensity": .28, "direction": -1},
             {"time": 9.48, "state": "dense", "transition": "cut", "duration": 0.00},
             {"time": 9.52, "state": "double", "transition": "cut", "duration": 0.00},
@@ -116,10 +138,10 @@ def reference_sequence():
             {"time": 11.18, "state": "outline", "transition": "morph", "duration": .18},
             {"time": 11.20, "state": "dense", "transition": "cut", "duration": 0.00},
             {"time": 11.28, "state": "double", "transition": "cut", "duration": 0.00},
-            {"time": 11.40, "state": "outline", "transition": "cut", "duration": 0.00},
-            {"time": 12.05, "state": "outline", "transition": "cut", "duration": 0.00},
+            {"time": 11.40, "state": "dimfilled", "transition": "cut", "duration": 0.00},
+            {"time": 12.05, "state": "dimfilled", "transition": "cut", "duration": 0.00},
             {"time": 13.05, "state": "double", "transition": "morph", "duration": .18},
-            {"time": 13.20, "state": "outline", "transition": "cut", "duration": 0.00},
+            {"time": 13.20, "state": "dimfilled", "transition": "cut", "duration": 0.00},
             {"time": 13.62, "state": "outline", "transition": "cut", "duration": 0.00},
             {"time": 14.05, "state": "late_slab", "transition": "sweep", "duration": .14, "intensity": .20, "direction": 1},
             {"time": 14.54, "state": "late_slab", "transition": "flash", "duration": .13, "intensity": .12},
@@ -141,6 +163,15 @@ def normalize_sequence(raw=None):
         if not isinstance(value, (int, float)) or not math.isfinite(float(value)) or not lo <= float(value) <= hi:
             raise ValueError(f"{key} is outside the supported range")
         result[key] = int(value) if key in {"fps", "seed"} else float(value)
+    field = copy.deepcopy(raw.get("field", NEUTRAL_FIELD))
+    if not isinstance(field, dict):
+        raise ValueError("field must be an object")
+    result["field"] = copy.deepcopy(NEUTRAL_FIELD)
+    for key, default in NEUTRAL_FIELD.items():
+        value = field.get(key, default)
+        if not isinstance(value, (int, float)) or not math.isfinite(float(value)):
+            raise ValueError(f"field.{key} must be finite")
+        result["field"][key] = float(value)
     states = raw.get("states", result["states"])
     if not isinstance(states, dict):
         raise ValueError("states must be an object")
@@ -287,7 +318,11 @@ def render_sequence_frame(sequence, time_seconds, size=None):
         previous = seq["cues"][cue_index - 1]
         first = _state_preset(seq, previous["state"])
         second = _state_preset(seq, cue["state"])
-        current = render_synth_frame(_interpolate_presets(first, second, amount), time_seconds=t, size=size)
+        # Sweeps and flashes are authored as event overlays: their target
+        # geometry is visible on the first frame of the event. Only morphs
+        # spend their onset frame on the previous geometry.
+        base = second if transition in {"sweep", "flash"} else _interpolate_presets(first, second, amount)
+        current = render_synth_frame(base, time_seconds=t, size=size)
     else:
         current = render_synth_frame(_state_preset(seq, cue["state"]), time_seconds=t, size=size)
     result = np.asarray(current, dtype=np.float32) / 255
@@ -296,20 +331,21 @@ def render_sequence_frame(sequence, time_seconds, size=None):
         y = np.linspace(-1, 1, result.shape[0])[:, None]
         edge = -1 + amount * 2 if direction >= 0 else 1 - amount * 2
         sweep = np.clip((y - edge) / .16, 0, 1) if direction >= 0 else np.clip((edge - y) / .16, 0, 1)
-        result += sweep[..., None] * float(cue.get("intensity", .5)) * np.array((1.0, .93, .86), dtype=np.float32)[None, None, :]
+        result += sweep[..., None] * float(cue.get("intensity", .5)) * np.array((1.0, .985, .98), dtype=np.float32)[None, None, :]
     if transition == "flash" and amount < 1:
         # Flash peaks on its first held frame instead of vanishing at onset.
         intensity = float(cue.get("intensity", .6)) * (1.0 - .35 * amount)
         y, x = np.mgrid[0:result.shape[0], 0:result.shape[1]]
         xn = x / max(1, result.shape[1] - 1) * 2 - 1
         sweep = np.exp(-(((xn - (.15 + .55 * amount)) / .42) ** 2))
-        flash_color = np.array((1.0, .94, .87), dtype=np.float32)[None, None, :]
+        flash_color = np.array((1.0, .985, .98), dtype=np.float32)[None, None, :]
         result = result * (1 - .90 * intensity) + flash_color * (.90 * intensity)
         result += intensity * .12 * sweep[..., None] * flash_color
-    if 11.4 <= t <= 13.2:
-        result *= .36
-    if t >= 8.2:
-        cloud_strength = .045 if t < 14.2 else min(.15, .045 + (t - 14.2) * .20)
+    field = seq.get("field", NEUTRAL_FIELD)
+    if field["valley_start"] <= t <= field["valley_end"] and field["valley_end"] > field["valley_start"]:
+        result *= field["valley_gain"]
+    if t >= field["cloud_start"] and field["cloud_strength"] > 0:
+        cloud_strength = field["cloud_strength"] if t < field["cloud_late_start"] else min(.2, field["cloud_strength"] + (t - field["cloud_late_start"]) * field["cloud_late_rate"])
         rng = np.random.default_rng(_seed(seq["seed"], "sequence-cloud", round(t * seq["fps"])))
         cloud = rng.normal(0, cloud_strength, result.shape[:2]).astype(np.float32)
         y, x = np.mgrid[0:result.shape[0], 0:result.shape[1]]

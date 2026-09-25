@@ -63,6 +63,7 @@ MODULES = (
         P("hollow", "Hollow centre", 0, 0, 1, .01, "Cuts a dark channel through the luminous core."),
         P("notch", "Missing chunks", .08, 0, 1, .01, "Adds deterministic interruptions to the block."),
         P("intensity", "Core intensity", 1.0, .1, 1.5, .01, "Brightness of the white slab body."),
+        P("fill_magenta", "Magenta fill", 0.0, 0, 1, .01, "Moves the slab body from neutral white toward violet-magenta."),
         P("ghost_width", "Ghost width", .32, .05, 1, .01, "Width of the dimmer right-hand ghost."),
         P("ghost_offset", "Ghost offset", .24, .02, .8, .01, "Distance of the secondary ghost to the right."),
         P("ghost_opacity", "Ghost opacity", .34, 0, 1, .01, "Strength of the secondary ghost."),
@@ -331,12 +332,14 @@ def _render_slab(arr, p, t, preset, module_index):
         # Rectangular bites remove the right side of the body while leaving a
         # narrow vertical stem, which produces the L/T fragments in the study.
         cut_region = ((xn - center) > width * .08) & ((xn - center) < width * .72) & (np.abs(yn - notch_center) < .14)
-        cut_amount = float(p.get("notch", 0)) * (.65 + .35 * (fast_signal + 1) / 2)
-        core *= 1 - cut_amount * cut_region
+        notch_probability = float(p.get("notch", 0))
+        cut_active = 1.0 if fast_signal < (2 * notch_probability - 1) else 0.0
+        core *= 1 - cut_active * cut_region
         hollow = float(p.get("hollow", 0))
         core *= 1 - hollow * np.exp(-((dist / max(.001, width * .25)) ** 8))
         edge = np.exp(-(((dist - width / 2) / max(.002, q["edge_softness"])) ** 2)) * vertical_mask
-        color = np.array((1.0, .95, .90), dtype=np.float32)
+        fill_magenta = float(p.get("fill_magenta", 0.0))
+        color = (1.0 - fill_magenta) * np.array((1.0, .985, .98), dtype=np.float32) + fill_magenta * np.array((.92, .16, .72), dtype=np.float32)
         _add(arr, core, color)
         _add(arr, edge * q["magenta"], np.array((1.0, .04, .65), dtype=np.float32))
         fringe = np.exp(-(((dist - width * .72) / max(.003, q["edge_softness"] * 1.7)) ** 2)) * vertical_mask
@@ -346,7 +349,7 @@ def _render_slab(arr, p, t, preset, module_index):
         ghost_dist = np.abs(xn - center - ghost_offset)
         ghost = np.exp(-((ghost_dist / ghost_width) ** (3 + 8 * float(p.get("edge_hardness", .82))))) * vertical_mask
         ghost *= float(p.get("ghost_opacity", .34)) * (.78 + .22 * _smooth(preset["seed"], "slab-ghost", round(t * preset["treatment_fps"]) + index, preset["variation_mode"]))
-        ghost *= 1 - float(p.get("notch", 0)) * .55 * notch_band
+        ghost *= 1 - cut_active * .55 * notch_band
         _add(arr, ghost * float(p.get("intensity", 1.0)), np.array((.68, .66, .70), dtype=np.float32))
 
 
@@ -388,7 +391,8 @@ def _render_blinds(arr, p, t, preset, module_index):
         vertical_window = np.power(vertical_window, .65)
         envelope *= vertical_window
         taper = 1 - p["taper"] * (1 - envelope)
-        local_thickness = p["thickness"] * (1 + p["swelling"] * envelope * (3.0 + .55 * _smooth(preset["seed"], "blind-bulk", row, preset["variation_mode"])))
+        outer_scale = 1.0 + 1.8 / max(1, int(p["rows"]))
+        local_thickness = p["thickness"] * outer_scale * (1 + p["swelling"] * envelope * (3.0 + .55 * _smooth(preset["seed"], "blind-bulk", row, preset["variation_mode"])))
         local_thickness *= np.clip(taper, .08, 1.2)
         irregular = 1 + p["irregularity"] * .18 * _smooth(preset["seed"], "blind-width", row + clock, preset["variation_mode"])
         edge_power = 2 + (1 - np.clip(p.get("edge_softness", .06) / .4, 0, 1)) * 6
@@ -396,7 +400,7 @@ def _render_blinds(arr, p, t, preset, module_index):
         # Thin rays remain visible to the edges while the aperture holds a
         # near-rectangular bright section.
         mask *= .78 + .22 * envelope
-        white = np.array((1.0, .94, .9), dtype=np.float32)
+        white = np.array((1.0, .985, .98), dtype=np.float32)
         _add(arr, mask, white)
         edge = np.exp(-((distance / np.maximum(.001, local_thickness * 1.8)) ** 2)) - mask * .7
         edge *= np.clip(.35 + envelope, 0, 1) * (1 + p.get("edge_softness", .06) * 2)
