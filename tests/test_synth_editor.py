@@ -9,14 +9,14 @@ from PySide6.QtCore import QThreadPool
 from PySide6.QtWidgets import QApplication
 
 from synth_studio import SynthStudio
-from synth_sequence import load_sequence, render_sequence_frame, save_sequence
+from synth import curated_presets
+from synth_sequence import load_sequence, reference_sequence, render_sequence_frame, save_sequence
 
 
 @pytest.fixture
 def window():
     app = QApplication.instance() or QApplication([])
-    window = SynthStudio()
-    window.load_reference_sequence()
+    window = SynthStudio(preset=curated_presets()["Reference blinds"], sequence=reference_sequence())
     app.processEvents()
     yield window
     window.close()

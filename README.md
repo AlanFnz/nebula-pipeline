@@ -50,14 +50,33 @@ This first synthesis pass is source-free. Input-video modulation is reserved
 for the next phase; the existing clip workflow remains available from the same
 `studio.py` entry point.
 
-The **Reference 15s** action loads one editable cue sequence based on the first
-15 seconds of the study. Its JSON stores state overrides and timed `cut`,
-`morph`, `sweep` and `flash` cues; the same sequence renderer drives preview,
-scrubbing and export. Select a state to edit its module parameters and enabled
-modules, duplicate it for a local variation, and adjust cue intensity,
-direction, timing, seed, exposure valley and cloud field tracks in the same
-panel. **Save sequence** and **Load sequence** preserve those edits and the
-cue schedule without embedding reference media.
+The default view is a **composer**: six sections below the preview and seven
+macro controls for rhythm, width, instability, texture, brightness, flares,
+and magenta. The approved **Reference 15s** composition opens with every macro
+at 1×, reproducing the existing study without changing its renderer or recipe.
+
+- Select **Whole clip** to adjust the entire piece, or click a section to
+  adjust it locally. Sections can be added, duplicated, removed, reordered,
+  and given different durations. Their internal events are generated for you.
+- **New clip** starts a 15-second arrangement using the Blocks & ghosts phrase.
+  Choose other phrases from the section dropdown. Phrases repeat to fill their
+  duration; **Rhythm** controls how quickly their internal changes happen.
+- **New take** makes a reproducible variation in the current scope. **Keep**
+  locks a macro value during variation. **Reset controls** returns that scope
+  to 1× and its original variation; **Undo / Redo** recover composition edits.
+- **Save…** keeps the arrangement, macros, locks, variations and a snapshot of
+  the source recipe together in a versioned composition document. **Open…**
+  accepts compositions and existing detailed sequence files.
+- **Open detailed copy…** opens the generated events and full parameter editor
+  in an independent window. Editing that copy leaves the composition intact.
+  Detailed sequences can be brought back into the composer as a single phrase
+  with **Use this sequence in composer**.
+
+[`synth_composition.py`](synth_composition.py) compiles the arrangement to the
+existing public sequence format. Preview and export therefore use the same
+sequence renderer as the approved study. A regression test checks all 375
+frames of the neutral composition against that study, and composition tests
+cover local edits, deterministic variation and save/reload.
 
 The bundled recipe is [`presets/composite-study-15s.json`](presets/composite-study-15s.json).
 It includes 323 frame-timed cues at 25 fps: rapid ray-count changes, asymmetric
@@ -66,7 +85,7 @@ and a noisy final return. It is a procedural interpretation; signal feedback
 and the exact textures of the hardware reference are not reproduced exactly.
 The reference video is not a rendering input and is not distributed here.
 
-Selecting a cue scrubs to its time. **Duplicate state** creates an independent
+In the detailed editor, selecting a cue scrubs to its time. **Duplicate state** creates an independent
 copy and assigns it to that cue. **Generate variation** changes the selected
 state and honors its parameter locks. The **Signal flare** module controls
 exposure, position, spread, reach, and fringe; slab controls include split
@@ -99,7 +118,7 @@ Proxy blur, translation, channel offset, bloom and paper scale follow image scal
 
 A 100 ms debounce coalesces edits. The preview worker prioritizes the selected frame, then prepares the loop. New requests cancel obsolete FFmpeg work; generation IDs discard late results and errors. Source and rendered-frame caches have 64 MiB and 128 MiB budgets, and the displayed loop has a 128 MiB budget. A/B and high-fps loops automatically use smaller proxies to fit. Export uses a separate worker and an atomic temporary output.
 
-For accurate variable-rate seeking, decoding starts from the beginning of the clip before selecting the requested frame. Seeking late in a long clip can therefore take longer. CPU rendering, silent MP4 output, one clip at a time, fixed stage order, and no audio playback are intentional first-version limits. Frame-count estimates depend on container duration; malformed duration metadata may require choosing an earlier loop position. There is no installer, undo history, node graph or multi-clip editing in this milestone.
+For accurate variable-rate seeking, decoding starts from the beginning of the clip before selecting the requested frame. Seeking late in a long clip can therefore take longer. CPU rendering, silent MP4 output, one clip at a time, fixed stage order, and no audio playback are intentional first-version limits. Frame-count estimates depend on container duration; malformed duration metadata may require choosing an earlier loop position. There is no installer, node graph or multi-clip editing in this milestone. Undo/redo is available in the synth composer; the detailed editor and input-clip workflow do not yet have undo history.
 
 ## Validation
 

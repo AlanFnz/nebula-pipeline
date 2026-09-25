@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import json
 import random
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -20,6 +21,8 @@ from studio import STYLE
 from synth import MODULE_BY_ID, curated_presets, default_synth_preset, load_synth, normalize_synth, render_synth_frame, save_synth
 from synth_media import export_synth_video
 from synth_sequence import load_sequence, normalize_sequence, reference_sequence, render_sequence_frame, save_sequence
+from synth_composition import FORMAT, compile_composition, composition_from_sequence, load_composition, normalize_composition, reference_composition, save_composition, section_ranges
+from synth_composer_ui import CompositionPanel, SectionTimeline
 
 
 class SynthViewer(QWidget):
@@ -133,14 +136,26 @@ class ExportJob(QRunnable):
 
 
 class SynthStudio(QMainWindow):
-    def __init__(self, preset=None):
+    def __init__(self, preset=None, sequence=None, composition=None):
         super().__init__()
         self.setWindowTitle("Nebula Synth")
         self.resize(1280, 800)
+        if preset is None and sequence is None and composition is None:
+            composition = reference_composition()
         if preset is None:
             preset = curated_presets()["Reference blinds"]
         self.preset = normalize_synth(preset)
-        self.sequence = None
+        self.composition = normalize_composition(composition) if composition is not None else None
+        self.sequence = compile_composition(self.composition) if self.composition is not None else (normalize_sequence(sequence) if sequence is not None else None)
+        self.composer = None
+        self.composition_index = 0
+        self.composition_scope = 0
+        self.undo_compositions = []
+        self.redo_compositions = []
+        self.edit_key = None
+        self.edit_timer = QTimer(self); self.edit_timer.setSingleShot(True); self.edit_timer.timeout.connect(lambda: setattr(self, "edit_key", None))
+        self.detail_windows = []
+        self.closing = False
         self.sequence_table = None
         self.sequence_updating = False
         self.sequence_state_updating = False
@@ -174,27 +189,40 @@ class SynthStudio(QMainWindow):
         brand.setObjectName("brand")
         header.addWidget(brand)
         header.addStretch(1)
-        header.addWidget(QLabel("Preset"))
+        self.composition_widgets = []
+        for text, callback in (("New take", self.generate_variation), ("Reset controls", lambda: self.composer and self.composer.reset_controls()), ("Undo", self.undo_composition), ("Redo", self.redo_composition)):
+            button = QPushButton(text); button.clicked.connect(callback)
+            if text == "New take": button.setObjectName("primary")
+            if text == "Undo": self.composition_undo_button = button
+            if text == "Redo": self.composition_redo_button = button
+            header.addWidget(button); self.composition_widgets.append(button)
+        preset_label = QLabel("Preset")
+        header.addWidget(preset_label)
+        self.preset_widgets = [preset_label]
         self.preset_combo = QComboBox()
         self.preset_combo.addItems([*curated_presets().keys(), "Custom"])
         preset_name = self.preset.get("name", "Custom")
         self.preset_combo.setCurrentText(preset_name if preset_name in curated_presets() else "Custom")
         self.preset_combo.currentTextChanged.connect(self.select_curated)
         header.addWidget(self.preset_combo)
+        self.preset_widgets.append(self.preset_combo)
         for text, slot in (("Save preset", self.save_preset_dialog), ("Load preset", self.load_preset_dialog), ("Generate variation", self.generate_variation)):
             button = QPushButton(text)
             button.clicked.connect(slot)
             header.addWidget(button)
+            self.preset_widgets.append(button)
         outer.addLayout(header)
         sequence_actions = QHBoxLayout()
-        sequence_actions.addWidget(QLabel("Sequence"))
-        for text, slot in (("Reference 15s", self.load_reference_sequence), ("Save sequence", self.save_sequence_dialog), ("Load sequence", self.load_sequence_dialog)):
+        for text, slot in (("New clip", self.new_composition), ("Reference 15s", self.load_reference_sequence), ("Save…", self.save_sequence_dialog), ("Open…", self.load_sequence_dialog)):
             button = QPushButton(text); button.clicked.connect(slot); sequence_actions.addWidget(button)
         sequence_actions.addStretch(1)
         outer.addLayout(sequence_actions)
         split = QSplitter(Qt.Orientation.Horizontal)
         left = QWidget(); left_layout = QVBoxLayout(left)
         self.viewer = SynthViewer(); left_layout.addWidget(self.viewer, 1)
+        self.section_timeline = SectionTimeline()
+        self.section_timeline.selected.connect(lambda index: self.composer and self.composer.select_section(index))
+        left_layout.addWidget(self.section_timeline)
         self.status = QLabel("Source-free deterministic synthesis")
         self.status.setObjectName("muted"); left_layout.addWidget(self.status)
         timeline = QHBoxLayout()
@@ -205,7 +233,7 @@ class SynthStudio(QMainWindow):
         left_layout.addLayout(timeline)
         export_row = QHBoxLayout()
         self.quality = QComboBox(); self.quality.addItems(["Preview 360p", "Full 720×576"]); self.quality.currentIndexChanged.connect(lambda _index: self.invalidate()); export_row.addWidget(self.quality)
-        export = QPushButton("Export loop"); export.setObjectName("primary"); export.clicked.connect(self.export_dialog); export_row.addWidget(export)
+        export = QPushButton("Export MP4"); export.setObjectName("primary"); export.clicked.connect(self.export_dialog); export_row.addWidget(export)
         self.cancel_export = QPushButton("Cancel export"); self.cancel_export.setEnabled(False); self.cancel_export.clicked.connect(self.cancel_export_job); export_row.addWidget(self.cancel_export)
         left_layout.addLayout(export_row)
         split.addWidget(left)
@@ -334,12 +362,35 @@ class SynthStudio(QMainWindow):
         return group
 
     def rebuild_modules(self):
+        if self.composer is not None:
+            self.composition_index = self.composer.index
+            self.composition_scope = self.composer.scope
+        self.composer = None
         while self.panel_layout.count():
             item = self.panel_layout.takeAt(0); widget = item.widget(); widget and widget.deleteLater()
         self.controls.clear(); self.module_groups.clear()
         self.sequence_table = None
         self.sequence_state_controls = {}; self.sequence_enabled_controls = {}; self.sequence_field_controls = {}
+        for widget in self.preset_widgets:
+            widget.setVisible(self.composition is None)
+        for widget in self.composition_widgets:
+            widget.setVisible(self.composition is not None)
+        self.section_timeline.setVisible(self.composition is not None)
+        if self.composition is not None:
+            self.composer = CompositionPanel(self.composition, self.composition_index, self.composition_scope)
+            self.composer.changed.connect(self.composition_changed)
+            self.composer.failed.connect(lambda message: self.status.setText(f"Composition edit ignored: {message}"))
+            self.composer.sectionSelected.connect(self.composition_section_selected)
+            self.composer.detailsRequested.connect(self.open_detailed_copy)
+            self.panel_layout.addWidget(self.composer)
+            self.section_timeline.set_document(self.composition, self.composer.index)
+            self.update_composition_history()
+            self.status.setText(f"{self.composition['name']} · {len(self.composition['sections'])} sections")
+            return
         if self.sequence is not None:
+            compose = QPushButton("Use this sequence in composer")
+            compose.clicked.connect(lambda: self.set_composition(composition_from_sequence(self.sequence)))
+            self.panel_layout.addWidget(compose)
             self.panel_layout.addWidget(self.sequence_group())
             self.panel_layout.addWidget(self.sequence_settings_group())
             self.panel_layout.addWidget(self.sequence_state_group())
@@ -387,11 +438,80 @@ class SynthStudio(QMainWindow):
                 self.preset_combo.setCurrentText("Custom")
 
     def load_reference_sequence(self):
-        self.sequence = reference_sequence()
+        self.set_composition(reference_composition())
+
+    def new_composition(self):
+        project = reference_composition()
+        project["name"] = "New composition"
+        project["sections"] = [project["sections"][1]]
+        project["sections"][0]["duration"] = 15.
+        self.set_composition(project)
+
+    def set_composition(self, project):
+        project = normalize_composition(project)
+        sequence = compile_composition(project)
+        self.composition = project
+        self.sequence = sequence
+        self.composition_index = 0; self.composition_scope = 0
+        if self.composer:
+            self.composer.index = 0; self.composer.scope = 0
+        self.undo_compositions.clear(); self.redo_compositions.clear(); self.edit_key = None
         self.preset = normalize_synth(curated_presets()["Reference blinds"])
         with QSignalBlocker(self.preset_combo):
             self.preset_combo.setCurrentText("Reference blinds")
         self.rebuild_modules(); self.update_timeline_max(); self.invalidate()
+
+    def composition_changed(self, document, action):
+        compiled = compile_composition(document)
+        if self.edit_key != action or not action.startswith("macro:"):
+            self.undo_compositions.append(copy.deepcopy(self.composition))
+            self.undo_compositions = self.undo_compositions[-30:]
+        self.edit_key = action; self.edit_timer.start(400)
+        self.redo_compositions.clear()
+        self.composition = copy.deepcopy(document); self.sequence = compiled
+        self.composition_index = self.composer.index; self.composition_scope = self.composer.scope
+        self.refresh_composition()
+
+    def refresh_composition(self):
+        old_time = self.current_time
+        self.update_timeline_max()
+        with QSignalBlocker(self.timeline):
+            self.timeline.setValue(round(old_time * self.composition["fps"]))
+        self.section_timeline.set_document(self.composition, self.composer.index)
+        self.status.setText(f"{self.composition['name']} · {len(self.composition['sections'])} sections")
+        self.update_composition_history(); self.invalidate()
+        if self.play.isChecked():
+            self.play_timer.start(max(15, round(1000 / self.composition["fps"])))
+
+    def composition_section_selected(self, index):
+        self.composition_index = index
+        self.section_timeline.set_document(self.composition, index)
+        self.timeline.setValue(round(section_ranges(self.composition)[index][0] * self.composition["fps"]))
+
+    def update_composition_history(self):
+        if self.composer:
+            self.composition_undo_button.setEnabled(bool(self.undo_compositions))
+            self.composition_redo_button.setEnabled(bool(self.redo_compositions))
+
+    def _restore_composition_history(self, source, destination):
+        if not source: return
+        destination.append(copy.deepcopy(self.composition))
+        self.composition = source.pop(); self.sequence = compile_composition(self.composition)
+        self.composer.document = copy.deepcopy(self.composition)
+        self.composer.index = min(self.composer.index, len(self.composition["sections"]) - 1)
+        self.composer.refresh(); self.edit_key = None; self.refresh_composition()
+
+    def undo_composition(self):
+        self._restore_composition_history(self.undo_compositions, self.redo_compositions)
+
+    def redo_composition(self):
+        self._restore_composition_history(self.redo_compositions, self.undo_compositions)
+
+    def open_detailed_copy(self):
+        window = SynthStudio(preset=self.preset, sequence=copy.deepcopy(self.sequence))
+        window.setWindowTitle("Nebula · detailed copy")
+        self.detail_windows.append(window)
+        window.show()
 
     def sequence_cell_changed(self, row, column):
         if self.sequence_updating or self.sequence is None or self.sequence_table is None:
@@ -517,16 +637,26 @@ class SynthStudio(QMainWindow):
         self.sequence = normalize_sequence(self.sequence); self.rebuild_modules(); self.invalidate()
 
     def save_sequence_dialog(self):
+        if self.composition is not None:
+            path, _ = QFileDialog.getSaveFileName(self, "Save composition", "nebula-composition.json", "Nebula composition (*.json)")
+            if path: save_composition(path, self.composition)
+            return
         if self.sequence is None:
             self.load_reference_sequence()
         path, _ = QFileDialog.getSaveFileName(self, "Save synth sequence", "reference-study-15s.json", "Nebula sequence (*.json)")
         if path: save_sequence(path, self.sequence)
 
     def load_sequence_dialog(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Load synth sequence", "", "Nebula sequence (*.json)")
+        path, _ = QFileDialog.getOpenFileName(self, "Open composition or sequence", "", "Nebula document (*.json)")
         if not path: return
         try:
-            self.sequence = load_sequence(path)
+            with open(path) as document:
+                if json.load(document).get("format") == FORMAT:
+                    self.set_composition(load_composition(path))
+                    return
+            loaded = load_sequence(path)
+            self.composition = None
+            self.sequence = loaded
             base_name = next(iter(self.sequence["states"].values()))["preset"]
             self.preset = normalize_synth(curated_presets()[base_name])
             with QSignalBlocker(self.preset_combo): self.preset_combo.setCurrentText("Reference blinds" if base_name == "Reference blinds" else base_name)
@@ -550,9 +680,12 @@ class SynthStudio(QMainWindow):
             fps = self.sequence["fps"] if self.sequence is not None else self.preset["export_fps"]
             self.timeline.setMaximum(max(1, round(duration * fps)) - 1)
     def request_frame(self):
+        if self.closing: return
         self.request_serial += 1
         fps = self.sequence["fps"] if self.sequence is not None else self.preset["export_fps"]
         self.current_time = self.timeline.value() / max(1, fps)
+        if self.composition is not None:
+            self.section_timeline.set_time(self.current_time)
         if self.render_running:
             self.render_queued = True
             return
@@ -565,7 +698,7 @@ class SynthStudio(QMainWindow):
         if job in self.pending_jobs:
             self.pending_jobs.remove(job)
         self.render_running = False
-        if self.render_queued:
+        if self.render_queued and not self.closing:
             self.render_queued = False
             QTimer.singleShot(0, self.request_frame)
 
@@ -585,8 +718,12 @@ class SynthStudio(QMainWindow):
     def select_curated(self, name):
         if name not in curated_presets(): return
         self.sequence = None
+        self.composition = None
         self.preset = copy.deepcopy(curated_presets()[name]); self.rebuild_modules(); self.update_timeline_max(); self.invalidate()
     def generate_variation(self):
+        if self.composition is not None:
+            self.composer.new_take()
+            return
         if self.sequence is not None:
             rng = random.Random(self.sequence["seed"] + 1)
             self.sequence["seed"] = rng.randrange(2**31 - 1)
@@ -625,13 +762,14 @@ class SynthStudio(QMainWindow):
     def load_preset_dialog(self):
         path, _ = QFileDialog.getOpenFileName(self, "Load synth preset", "", "Nebula synth (*.json)")
         if path:
-            try: self.preset = load_synth(path); self.sequence = None; self.rebuild_modules(); self.update_timeline_max(); self.invalidate()
+            try: self.preset = load_synth(path); self.sequence = None; self.composition = None; self.rebuild_modules(); self.update_timeline_max(); self.invalidate()
             except Exception as exc: QMessageBox.critical(self, "Preset error", str(exc))
     def export_dialog(self):
         default_name = "reference-study-15s.mp4" if self.sequence is not None else "nebula-synth.mp4"
         path, _ = QFileDialog.getSaveFileName(self, "Export synth sequence" if self.sequence is not None else "Export synth loop", default_name, "MP4 video (*.mp4)")
         if not path: return
-        p = self.collect(); edge = 360 if self.quality.currentIndex() == 0 else None; size = None if edge is None else (round(p["width"] * edge / max(p["width"], p["height"])), round(p["height"] * edge / max(p["width"], p["height"])))
+        p = copy.deepcopy(self.preset) if self.sequence is not None else self.collect()
+        edge = 360 if self.quality.currentIndex() == 0 else None; size = None if edge is None else (round(p["width"] * edge / max(p["width"], p["height"])), round(p["height"] * edge / max(p["width"], p["height"])))
         job = ExportJob(p, path, size, self.sequence); self.export_job = job; self.cancel_export.setEnabled(True); self.pending_jobs.append(job); job.signals.progress.connect(lambda a, b: self.status.setText(f"Exporting {a}/{b}")); job.signals.done.connect(lambda _: self.status.setText(f"Exported {path}")); job.signals.done.connect(lambda _result, j=job: self._finish_export(j)); job.signals.failed.connect(lambda error: self.status.setText(f"Export error: {error}")); job.signals.failed.connect(lambda _error, j=job: self._finish_export(j)); self.jobs.start(job)
 
     def _finish_export(self, job):
@@ -647,6 +785,7 @@ class SynthStudio(QMainWindow):
             self.status.setText("Cancelling export…")
 
     def closeEvent(self, event):
+        self.closing = True
         self.play_timer.stop()
         if self.export_job:
             self.export_job.cancel.cancel()

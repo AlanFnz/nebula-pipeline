@@ -1,0 +1,97 @@
+import copy
+import os
+import subprocess
+import time
+
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+import pytest
+from PySide6.QtCore import QThreadPool
+from PySide6.QtWidgets import QApplication, QFileDialog, QTableWidget
+
+from synth_studio import SynthStudio
+from synth_composition import load_composition
+from synth_sequence import render_sequence_frame
+
+
+def wait_until(predicate, seconds=10):
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        QApplication.processEvents()
+        if predicate(): return
+        time.sleep(.01)
+    raise AssertionError("Composer did not settle")
+
+
+@pytest.fixture
+def window():
+    app = QApplication.instance() or QApplication([])
+    window = SynthStudio(); window.show(); app.processEvents()
+    yield window
+    for child in window.detail_windows: child.close()
+    window.close(); QThreadPool.globalInstance().waitForDone(10000); app.processEvents()
+
+
+def test_default_view_is_sections_and_macros_with_pixel_exact_undo(window):
+    assert window.findChildren(QTableWidget) == []
+    assert len(window.composition["sections"]) == 6
+    assert len(window.composer.macro_controls) == 7
+    before = render_sequence_frame(window.sequence, 6.2, (120, 96)).tobytes()
+    window.composer.macro_controls["width"].spin.setValue(1.5)
+    after = render_sequence_frame(window.sequence, 6.2, (120, 96)).tobytes()
+    assert after != before
+    window.undo_composition()
+    assert render_sequence_frame(window.sequence, 6.2, (120, 96)).tobytes() == before
+    window.redo_composition()
+    assert render_sequence_frame(window.sequence, 6.2, (120, 96)).tobytes() == after
+
+
+def test_section_arrangement_and_local_take(window):
+    panel = window.composer
+    panel.select_section(1)
+    assert window.current_time == 5.24
+    assert panel.scope == 1
+    panel.macro_controls["color"].lock.setChecked(True)
+    before = copy.deepcopy(window.composition)
+    panel.new_take()
+    assert window.composition["macros"] == before["macros"]
+    assert window.composition["sections"][0] == before["sections"][0]
+    assert window.composition["sections"][1]["macros"]["color"] == 1
+    panel.duplicate_section()
+    assert len(window.composition["sections"]) == 7
+    assert window.sequence["duration"] == 18
+    panel.move_section(-1)
+    panel.remove_section()
+    assert len(window.composition["sections"]) == 6
+    panel.duration.setValue(20)
+    assert window.sequence["duration"] == 20
+
+
+def test_save_open_and_actual_composer_export(window, tmp_path, monkeypatch):
+    # A short composition makes the GUI's real threaded export inexpensive.
+    window.composer.duration.setValue(.48)
+    original = copy.deepcopy(window.composition)
+    document = tmp_path / "composition.json"
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *args: (str(document), ""))
+    window.save_sequence_dialog()
+    assert load_composition(document) == original
+    window.composer.new_take()
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *args: (str(document), ""))
+    window.load_sequence_dialog()
+    assert window.composition == original
+    output = tmp_path / "clip.mp4"
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *args: (str(output), ""))
+    window.export_dialog()
+    wait_until(lambda: window.export_job is None)
+    assert output.exists(), window.status.text()
+    probe = subprocess.check_output(["ffprobe", "-v", "error", "-show_entries", "stream=nb_frames", "-of", "default=noprint_wrappers=1", str(output)], text=True)
+    assert "nb_frames=12" in probe
+
+
+def test_detailed_copy_can_be_edited_without_changing_composition(window):
+    original = copy.deepcopy(window.composition)
+    window.open_detailed_copy()
+    child = window.detail_windows[-1]
+    assert child.composition is None
+    child.sequence_state_controls["blinds.aperture"].set_value(.8)
+    assert window.composition == original
+    assert child.sequence != window.sequence

@@ -4,6 +4,12 @@
 
 ### Added
 
+- Native composition view with six reusable sections and seven macro controls,
+  whole-clip or local adjustments, phrase repetition, reordering, duration
+  changes, deterministic takes with locks, and composition undo/redo.
+- Self-contained composition documents and an independent detailed-copy editor.
+  Neutral composition controls preserve all frames of the approved study;
+  the renderer and its bundled recipe are unchanged by the composition layer.
 - Source-free Nebula Synth desktop mode (`studio.py --synth`) with deterministic
   luminous slabs, irregular Venetian-blind rays, warp, separation, smear,
   bloom and raster modules.
