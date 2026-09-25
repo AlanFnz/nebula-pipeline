@@ -178,7 +178,7 @@ def _particle_signal_composition():
     return normalize_composition(project)
 
 
-def particle_orbit_composition(refined=True):
+def particle_orbit_composition(refined=True, tape=True):
     """Two quick expansions with quiet holds and synchronized signal breaks."""
     project = _particle_orbit_original()
     if not refined:
@@ -241,6 +241,45 @@ def particle_orbit_composition(refined=True):
     project["sections"] = [dict(copy.deepcopy(section), id=f"section-{i + 1}", phrase=key,
                                 duration=round(phrase["end"] - phrase["start"], 2))
                            for i, (key, phrase) in enumerate(project["phrases"].items())]
+    return _particle_tape_study(project) if tape else normalize_composition(project)
+
+
+def _particle_tape_study(project):
+    """Keep the impulse clock; replace drawn bars with source-only tape faults."""
+    faults = {
+        "portrait": {},
+        "bars": {"tape.tracking": .10, "tape.jitter": .002, "tape.dropouts": .35,
+                 "tape.chroma_delay": .012, "tape.bleed": .02, "tape.head_switch": .5, "tape.mix": 1.},
+        "tear": {"tape.tracking": .17, "tape.jitter": .003, "tape.dropouts": .65,
+                 "tape.chroma_delay": .022, "tape.bleed": .028, "tape.head_switch": .8, "tape.mix": 1.},
+        "cloud": {"tape.tracking": .018, "tape.jitter": .0008, "tape.dropouts": .16},
+        "comb": {"tape.tracking": .03, "tape.jitter": .0025, "tape.dropouts": .3,
+                 "tape.chroma_delay": .014, "tape.head_switch": .65},
+        "return": {"tape.tracking": .075, "tape.dropouts": .45, "tape.chroma_delay": .010,
+                   "tape.jitter": .0015, "tape.mix": 1.},
+    }
+    renamed = {"bars": "tracking", "comb": "worn"}
+    states = {}
+    for name, state in project["source"]["states"].items():
+        state["enabled"] = ["particles", "warp", "separation", "smear", "bloom", "raster", "tape"]
+        state["overrides"] = {k: v for k, v in state["overrides"].items()
+                              if k.split(".")[0] not in {"blinds", "flare", "interference", "breakup"}}
+        state["overrides"].update({
+            "particles.attractor": 4, "particles.occlusion": 1., "particles.xray": 0.,
+            "particles.relief": 1., "particles.intensity": 2.3, "particles.released_brightness": .45,
+            "particles.yaw": -20., "particles.pitch": 0., "particles.perspective": .35,
+            "particles.shimmer": .28, "particles.jitter": .0008,
+            "warp.amount": .004, "separation.amount": .0015, "smear.amount": .005,
+            "raster.softness": .35, "bloom.strength": .35,
+            "tape.tracking": .005, "tape.jitter": .0006, "tape.dropouts": .07,
+            "tape.chroma_delay": .002, "tape.bleed": .006,
+            "tape.head_switch": .25, "tape.rate": 14., "tape.mix": .75,
+        })
+        state["overrides"].update(faults[name])
+        states[renamed.get(name, name)] = state
+    project["source"]["states"] = states
+    for cue in project["source"]["cues"]:
+        cue["state"] = renamed.get(cue["state"], cue["state"])
     return normalize_composition(project)
 
 

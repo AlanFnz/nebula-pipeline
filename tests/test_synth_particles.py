@@ -8,7 +8,7 @@ import pytest
 from synth import default_synth_preset, normalize_synth, render_synth_frame
 from synth_composition import compile_composition, load_composition, particle_composition, particle_orbit_composition, save_composition
 from synth_effects import describe_effects
-from synth_particles import _orbit_cloud, _population, particle_field, render_particles
+from synth_particles import _orbit_cloud, _population, _surface_visibility, particle_field, render_particles
 from synth_sequence import render_sequence_frame
 
 
@@ -20,7 +20,7 @@ def particle_only():
     return preset, preset["modules"][0]["params"]
 
 
-@pytest.mark.parametrize("shape", range(4))
+@pytest.mark.parametrize("shape", range(5))
 def test_persistent_points_assemble_and_release_without_history(shape):
     preset, params = particle_only()
     params.update(attractor=shape, count=1200, turbulence=0., yaw=0., pitch=0., rotation_speed=0., breathing=0.)
@@ -99,7 +99,7 @@ def test_particle_composition_roundtrip_overrides_and_local_bypass(tmp_path):
     assert not describe_effects(compile_composition(project)["states"].values())["particles"]["active"]
 
 
-@pytest.mark.parametrize("params", [{"count": 0}, {"attractor": 4}, {"period": 0}, {"assembly": float("nan")}, {"release": 2}, {"orbit_start": 1}, {"orbit_speed": float("inf")}, {"motion": 3}, {"expand_seconds": 0}, {"gather_seconds": 0}, {"motion_peak": 2}])
+@pytest.mark.parametrize("params", [{"count": 0}, {"attractor": 5}, {"period": 0}, {"assembly": float("nan")}, {"release": 2}, {"orbit_start": 1}, {"orbit_speed": float("inf")}, {"motion": 3}, {"expand_seconds": 0}, {"gather_seconds": 0}, {"motion_peak": 2}])
 def test_invalid_particle_controls_are_rejected(params):
     preset, settings = particle_only()
     settings.update(params)
@@ -276,19 +276,47 @@ def test_impulse_seeking_and_orbit_are_continuous_including_cycle_wraps(period):
         assert np.linalg.norm(particle_field(p, t + .0001, 20)[0] - before, axis=1).max() < .04
 
 
-def test_impulse_study_uses_bars_and_glitches_without_hiding_the_main_move():
+def test_impulse_study_uses_tape_faults_without_added_bars_or_changed_timing():
     from synth_sequence import _state_preset
     seq = compile_composition(particle_orbit_composition())
     summary = describe_effects(seq["states"].values())
-    assert summary["rays"]["active"] and summary["rays"]["intermittent"]
-    assert summary["breakup"]["ranges"]["breakup.mix"][1] >= .8
+    assert summary["tape"]["active"]
+    assert all(not summary[key]["active"] for key in ("rays", "forms", "flare", "breakup", "interference"))
+    assert summary["tape"]["ranges"]["tape.tracking"][1] >= .1
+    assert summary["particles"]["ranges"]["particles.attractor"] == (4, 4)
     assert summary["particles"]["ranges"]["particles.color_spread"][1] < .1
-    assert summary["interference"]["ranges"]["interference.chroma"][1] <= .1
     # The actual rendered recipe, including section boundaries, keeps one clock.
     for t in (2.48, 9.98):
         cue = next(cue for cue in reversed(seq["cues"]) if cue["time"] <= t)
         preset = _state_preset(seq, cue["state"])
         settings = {m["id"]: m for m in preset["modules"]}
         assert settings["particles"]["params"]["motion"] == 2
-        assert settings["breakup"]["params"]["mix"] == 0.
+        assert settings["tape"]["params"]["tracking"] == .005
         assert not settings["blinds"]["enabled"]
+    previous = describe_effects(compile_composition(particle_orbit_composition(tape=False))["states"].values())["particles"]["ranges"]
+    for key in ("motion", "release", "period", "phase", "expand_seconds", "gather_seconds", "motion_peak", "orbit_speed", "orbit_start"):
+        assert summary["particles"]["ranges"][f"particles.{key}"] == previous[f"particles.{key}"]
+
+
+def test_previous_two_impulse_study_keeps_its_pixels():
+    seq = compile_composition(particle_orbit_composition(tape=False))
+    frames = (render_sequence_frame(seq, t, (192, 144)).tobytes() for t in (0, .8, 2., 6., 10., 14.96))
+    assert hashlib.sha256(b"".join(frames)).hexdigest() == "1eda8e522c270637d12682142e1e4f85104e7ccadf9b6ddd28ffe3c6cc905722"
+
+
+def test_depth_hides_deeper_face_points_but_releases_the_whole_cloud():
+    points = np.array(((0, 0, .8), (0, 0, -.4), (1, 0, -.4)))
+    x, y = np.array((.5, .5, .8)), np.array((.5, .5, .5))
+    visible = _surface_visibility(points, x, y, np.ones(3), 1.25, 1.)
+    assert visible[0] == visible[2] == 1.
+    assert visible[1] < .001
+    assert np.array_equal(_surface_visibility(points, x, y, np.zeros(3), 1.25, 1.), np.ones(3))
+    assert np.array_equal(_surface_visibility(points, x, y, np.ones(3), 1.25, 0.), np.ones(3))
+
+
+def test_portrait_mesh_keeps_stable_points_and_valid_normals():
+    small, large = _population(4, 300, 81), _population(4, 1000, 81)
+    assert np.array_equal(small[0], large[0][:300])
+    assert np.allclose(np.linalg.norm(large[1], axis=1), 1., atol=1e-5)
+    assert np.isfinite(large[0]).all()
+    assert not np.array_equal(small[0], _population(3, 300, 81)[0])

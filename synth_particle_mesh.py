@@ -5,9 +5,9 @@ from pathlib import Path
 import numpy as np
 
 
-@lru_cache(maxsize=1)
-def _head_mesh():
-    path = Path(__file__).parent / "assets" / "models" / "human-head.npz"
+@lru_cache(maxsize=2)
+def _head_mesh(portrait=False):
+    path = Path(__file__).parent / "assets" / "models" / ("portrait-head.npz" if portrait else "human-head.npz")
     with np.load(path, allow_pickle=False) as data:
         vertices, faces, normals = data["vertices"], data["faces"], data["normals"]
     triangles = vertices[faces].astype(np.float64)
@@ -20,8 +20,8 @@ def _head_mesh():
     return triangles, vertex_normals, cumulative
 
 
-def sample_human_head(random):
-    triangles, vertex_normals, cumulative = _head_mesh()
+def sample_human_head(random, portrait=False):
+    triangles, vertex_normals, cumulative = _head_mesh(portrait)
     index = np.searchsorted(cumulative, random[:, 0])
     root = np.sqrt(random[:, 1])
     barycentric = np.column_stack((1 - root, root * (1 - random[:, 2]), root * random[:, 2]))

@@ -19,6 +19,7 @@ import numpy as np
 from PIL import Image, ImageFilter
 
 from synth_particles import render_particles
+from synth_tape import render_tape_damage
 
 SYNTH_SCHEMA_VERSION = 1
 SYNTH_PRESETS_DIR = Path.home() / ".nebula_pipeline" / "synth_presets"
@@ -121,7 +122,7 @@ MODULES = (
         P("edge_bias", "Colored tail balance", 0.0, -1, 1, .01, "Moves the colored ray fringe toward the left or right tail."),
     )),
     Module("particles", "Particle attractor", "Dots assemble around an invisible 3D surface, then disperse.", (
-        P("attractor", "Attractor", 0, 0, 3, 1, "Invisible surface; Human head uses the bundled anatomical mesh. Only particles are rendered.", choices=("Stylized head", "Sphere", "Ring", "Human head")),
+        P("attractor", "Attractor", 0, 0, 4, 1, "Portrait head adds smooth facial geometry and eye surfaces. Use Surface occlusion to keep the face readable. Only particles are rendered.", choices=("Stylized head", "Sphere", "Ring", "Human head", "Portrait head")),
         P("motion", "Motion", 0, 0, 2, 1, "Gentle drifts; Surges adds uneven arrivals and rebound. Impulse separates quick, peaked moves from longer holds.", choices=("Gentle", "Surges", "Impulse")),
         P("release", "Release", 0, 0, 1, 1, "Cloud / band retains the original dispersion. Expand / orbit releases in every direction, then revolves around the vertical axis.", choices=("Cloud / band", "Expand / orbit")),
         P("assembly", "Assembly", 1.0, 0, 1, .01, "0 = dispersed field; 1 = assembled surface. Breathing animates below this ceiling."),
@@ -150,6 +151,7 @@ MODULES = (
         P("position_y", "Vertical position", 0.0, -1, 1, .01),
         P("perspective", "Perspective", .65, 0, 1, .01, "0 = orthographic; 1 = stronger depth foreshortening."),
         P("xray", "See-through", .08, 0, 1, .01, "Visibility of the back surface through the front dots."),
+        P("occlusion", "Surface occlusion", 0.0, 0, 1, .01, "Hide deeper dots behind the assembled face, preventing the mouth interior and back of the head from shining through. Fades away during expansion."),
         P("relief", "Surface relief", .85, 0, 1, .01, "Directional point brightness reveals the nose, eyes and mouth; no solid surface is drawn."),
         P("intensity", "Intensity", 1.35, 0, 3, .01),
         P("released_brightness", "Released brightness", 1.0, 0, 1, .01, "Dim loose particles while retaining bright dots on the assembled surface."),
@@ -214,6 +216,16 @@ MODULES = (
         P("dropout", "Dropouts", .12, 0, 1, .01, "Probability of a band losing its signal."),
         P("rate", "Changes per second", 8.0, 0, 60, .5, "Hold rate of the tears; zero freezes the pattern."),
         P("mix", "Mix", .75, 0, 1, .01, "Blend the broken signal with the original."),
+    )),
+    Module("tape", "Tape damage", "Tracking slips, chroma smear and lost scanlines within the existing image.", (
+        P("tracking", "Tracking slip", .04, 0, .3, .002, "Horizontal displacement of short irregular scan regions."),
+        P("jitter", "Line jitter", .001, 0, .02, .0005, "Small independent scanline timing errors."),
+        P("dropouts", "Dropouts", .3, 0, 1, .01, "Short missing stretches of the recorded image."),
+        P("chroma_delay", "Chroma delay", .006, 0, .08, .001, "Delay color relative to luminance, measured as a fraction of image width."),
+        P("bleed", "Color bleed", .008, 0, .12, .001, "Smear the source's own color horizontally."),
+        P("head_switch", "Head-switch error", .25, 0, 1, .01, "Distort and darken the bottom edge as the tape head changes."),
+        P("rate", "Fault changes / sec", 16.0, 0, 60, .5, "Held fault rate at global speed 1; zero freezes the pattern."),
+        P("mix", "Mix", .8, 0, 1, .01, "Blend tape faults with the original signal."),
     )),
 )
 MODULE_BY_ID = {module.id: module for module in MODULES}
@@ -757,6 +769,7 @@ RENDERERS = {
     "bloom": lambda arr, params, t, preset, index: _bloom(arr, params),
     "raster": lambda arr, params, t, preset, index: _raster(arr, params, preset["seed"], round(t * preset["treatment_fps"])),
     "breakup": lambda arr, params, t, preset, index: _breakup(arr, params, t, preset),
+    "tape": lambda arr, params, t, preset, index: render_tape_damage(arr, params, t, preset["speed"], _seed(preset["seed"], "tape")),
 }
 
 

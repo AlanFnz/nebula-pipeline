@@ -2,11 +2,18 @@
 
 ## Unreleased
 
+- Portrait head with smoothed geometry and eye surfaces, plus opt-in particle
+  depth occlusion to suppress internal/far-side points. The earlier head asset
+  and all saved particle studies retain their pixels.
+- Reusable Tape damage effect: source-only tracking slips, jitter, short scanline
+  dropouts, chroma lag/bleed and head-switch errors. The current Expand / orbit
+  study replaces its drawn bars and flare with tape faults while preserving
+  both expansion/return bursts and their easing.
 - Expand / orbit particle release: outward dispersion into a broad 3D volume,
   delayed vertical-axis rotation, adjustable speed/direction and expansion threshold.
 - Impulse motion separates expansion/gather durations from cycle length, with
   an editable velocity peak. The revised Expand / orbit study has exactly two
-  expansions in 15 seconds, restrained violet/white color, irregular bars and
+  expansions in 15 seconds, restrained violet/white color, and
   tracking breaks timed around the bursts. Saved orbit documents and both earlier
   particle studies retain their previous pixels.
 - Anatomical Human head target sampled from a bundled CC0 MakeHuman mesh, plus

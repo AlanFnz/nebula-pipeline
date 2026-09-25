@@ -259,6 +259,10 @@ def test_particle_example_controls_undo_save_and_threaded_export(window, tmp_pat
     assert len(window.composition["sections"]) == 2
     assert effects.controls["particles.release"].input.currentText() == "Expand / orbit"
     assert effects.controls["particles.motion"].input.currentText() == "Impulse"
+    assert effects.controls["particles.attractor"].input.currentText() == "Portrait head"
+    assert effects.controls["particles.occlusion"].input.value() == 1.
+    assert effects.summary["tape"]["active"]
+    assert not effects.summary["rays"]["active"]
     assert effects.controls["particles.period"].input.value() == 7.5
     before = render_sequence_frame(window.sequence, 2.36, (120, 96)).tobytes()
     effects.controls["particles.motion_peak"].input.setValue(0.)
@@ -273,6 +277,14 @@ def test_particle_example_controls_undo_save_and_threaded_export(window, tmp_pat
     assert render_sequence_frame(window.sequence, 4., (120, 96)).tobytes() == before
     assert Path(window.suggested_output_path(".mp4")).name == "particle-orbit.mp4"
     effects = window.composer.effects_panel
+    effects.inspect_effect("tape")
+    before = render_sequence_frame(window.sequence, 1., (120, 96)).tobytes()
+    effects.controls["tape.tracking"].input.setValue(.2)
+    assert render_sequence_frame(window.sequence, 1., (120, 96)).tobytes() != before
+    window.undo_composition()
+    assert render_sequence_frame(window.sequence, 1., (120, 96)).tobytes() == before
+    effects = window.composer.effects_panel
+    effects.inspect_effect("particles")
     effects.controls["particles.breathing"].input.setValue(0.)
     effects.controls["particles.assembly"].input.setValue(.6)
     window.composer.duration.setValue(.24)

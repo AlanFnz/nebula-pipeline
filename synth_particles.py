@@ -69,9 +69,13 @@ def _population(shape, count, seed):
         points = np.column_stack((radial * np.sin(angle), .25 * np.sin(tube), radial * np.cos(angle)))
         normals = np.column_stack((np.cos(tube) * np.sin(angle), np.sin(tube), np.cos(tube) * np.cos(angle)))
     else:
-        points, normals = sample_human_head(random)
+        points, normals = sample_human_head(random, portrait=shape == 4)
     if shape != 0:
         random[:, 15] = 1
+    if shape == 4:
+        # A subdued iris in the new eye surfaces; eyelids and face occlude it.
+        iris = np.exp(-((np.abs(points[:, 0]) - .2647) / .04) ** 4 - ((points[:, 1] + .0136) / .043) ** 4)
+        random[:, 15] -= iris * .75 * _ease((points[:, 2] - .74) / .05)
     cloud = (random[:, 4:7] * 2 - 1) * np.array((1.65, 1.25, 1.3))
     for array in (points, normals, cloud, random):
         array.setflags(write=False)
@@ -243,6 +247,10 @@ def render_particles(arr, p, time, preset, seed):
     rgb = 1 - p["saturation"] + rgb * p["saturation"]
     facing = np.clip(normals[:, 2] * .85 + .2, 0, 1)
     visibility = (1 - cohesion) + cohesion * (p["xray"] + (1 - p["xray"]) * facing)
+    if p.get("occlusion", 0.) > 0:
+        # A fixed proxy grid gives preview/export the same depth decisions.
+        # Only point depths are used; no solid guide surface enters the image.
+        visibility *= _surface_visibility(points, x / w, y / h, cohesion, w / h, p["occlusion"])
     lighting = .18 + .82 * np.clip(normals @ np.array((-.45, .55, .7)), 0, 1)
     relief = lighting * attributes[:, 15]
     visibility *= 1 - cohesion * p["relief"] * (1 - relief)
@@ -277,3 +285,18 @@ def render_particles(arr, p, time, preset, seed):
                 slices[axis] = slice(offset, offset + arr.shape[axis])
                 layer += padded[tuple(slices)] * weight
     return arr + layer
+
+
+def _surface_visibility(points, x, y, cohesion, aspect, strength):
+    height, width = 192, round(192 * aspect)
+    ix = np.clip((x * width).astype(int), 0, width - 1)
+    iy = np.clip((y * height).astype(int), 0, height - 1)
+    depth = np.full((height, width), -np.inf)
+    eligible = (x >= 0) & (x < 1) & (y >= 0) & (y < 1) & (cohesion > .8)
+    np.maximum.at(depth, (iy[eligible], ix[eligible]), points[eligible, 2])
+    # Close small sampling gaps; the soft depth tolerance protects silhouette.
+    pad = np.pad(depth, 1, constant_values=-np.inf)
+    front = np.maximum.reduce([pad[dy:dy + height, dx:dx + width] for dy in range(3) for dx in range(3)])
+    gap = np.maximum(0., front[iy, ix] - points[:, 2] - .035)
+    hidden = 1 - np.exp(-gap * 28)
+    return 1 - hidden * strength * cohesion ** 4

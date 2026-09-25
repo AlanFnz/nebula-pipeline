@@ -153,9 +153,11 @@ motion with 11 signal-treatment cues. **Original particles** retains the first
 one-section study and its original pixels.
 **Expand / orbit** opens a 15-second variation with exactly two expansions,
 arranged as two sections. The head holds, expands quickly with a narrow velocity
-peak, revolves as a broad cloud, then gathers again. A restrained violet/white
-palette replaces the rainbow; irregular bars, horizontal tears and vertical
-scan strings punctuate each release. The strongest tears follow the main outward
+peak, revolves as a broad cloud, then gathers again. The portrait uses smooth
+facial geometry, eye surfaces and depth occlusion to suppress the mouth interior
+and far side. A restrained violet/white palette keeps the earlier color direction.
+Tape faults replace the added bars: tracking slips, scanline loss, color lag and
+bleed deform the existing image. The strongest faults follow the main outward
 move so it stays visible. Existing saved orbit clips retain their earlier motion
 and colors; Particle head and Original particles also retain their pixels.
 The default startup study and **Refined 15s / Approved 15s** remain unchanged.
@@ -198,6 +200,17 @@ You can also apply **Particle attractor** from Effects to any composition.
   include its pinned source and extraction script. **Stylized head**, **Sphere**
   and **Ring** retain their earlier procedural surfaces. Arbitrary mesh import
   and physical collision/gravity simulation are not included.
+- **Portrait head** adds the source's eye surfaces and a smooth subdivision pass.
+  The separate 454 KB mesh keeps the earlier Human head asset unchanged.
+  **Surface occlusion** under More controls hides deeper points behind the
+  assembled face using a fixed proxy depth grid. It fades away as particles
+  disperse; only points are rendered. Older documents default to zero occlusion.
+- **Tape damage** processes the recorded image after its other treatments.
+  Tracking slip and line jitter displace existing pixels; Dropouts remove short
+  stretches of scanline. Chroma delay and Color bleed lag/smear the source's own
+  color, and Head-switch error distorts the bottom edge. Fault changes / sec
+  controls its held cadence; 0 freezes it. Mix 0 bypasses exactly. The new study
+  has no active rays, slabs or flare generators. Tape damage is off in old presets.
 - Combine particles with bloom, raster / grain, color separation, trails or
   signal breakup. The particle source runs before those treatments. Parameters
   support whole-clip/local overrides, bypass, restore, undo/redo and save/open.
@@ -205,7 +218,7 @@ You can also apply **Particle attractor** from Effects to any composition.
   tab still controls luminous forms and ray apertures.
 - **Signal interference** is a separate reusable effect: moving chromatic bands,
   uneven exposure and bent vertical scan strings. Its speed, bending, density,
-  contrast, chroma and mix are editable. The new study also uses the existing
+  contrast, chroma and mix are editable. The Particle signal study also uses the existing
   warp, separation, trails, bloom, raster, brief exposure crests and tracking breaks.
   Released brightness dims particles between bursts. Neither reference video
   pixels nor external services are used by the renderer.

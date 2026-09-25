@@ -15,12 +15,21 @@ at (0, 7.3, 0.45), and uniformly scaled by 0.86. Vertex normals are averaged
 from adjacent face normals. No facial geometry is procedurally exaggerated.
 The result contains 4,286 vertices and 8,524 triangles.
 
+`portrait-head.npz` is a separate refinement of the same pinned CC0 asset. It
+also retains `helper-l-eye` and `helper-r-eye` surfaces and applies one
+Catmull–Clark subdivision pass, preserving open boundary loops. The same centering
+and uniform scale are used, with vertex normals recomputed afterward. It contains
+17,659 vertices and 35,216 triangles. The original `human-head.npz` is unchanged.
+
 To rebuild from the pinned source OBJ:
 
 ```sh
 .venv/bin/python scripts/build_head_asset.py /path/to/base.obj assets/models/human-head.npz
+.venv/bin/python scripts/build_head_asset.py /path/to/base.obj assets/models/portrait-head.npz --portrait
 ```
 
 The renderer samples triangles by surface area with stable seeded barycentric
 coordinates. The surface is never drawn; it only guides particle positions and
-their lighting. Mesh import through the UI is not yet supported.
+their lighting. Portrait particles receive a subdued iris brightness mask;
+optional point-depth occlusion prevents internal mouth and far-side points from
+shining through the assembled face. Mesh import through the UI is not yet supported.
