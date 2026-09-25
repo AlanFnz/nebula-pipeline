@@ -11,8 +11,8 @@ from PySide6.QtCore import QObject, QRunnable, QRect, QSignalBlocker, Qt, QThrea
 from PySide6.QtGui import QColor, QFont, QImage, QPainter
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog, QGroupBox,
-    QHBoxLayout, QLabel, QMainWindow, QPushButton, QScrollArea, QSlider,
-    QSpinBox, QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QMessageBox,
+    QHBoxLayout, QGridLayout, QLabel, QMainWindow, QPushButton, QScrollArea, QSlider,
+    QSpinBox, QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QMessageBox, QSizePolicy,
 )
 
 from media import Cancellation
@@ -181,11 +181,17 @@ class SynthStudio(QMainWindow):
         self.preset_combo.setCurrentText(preset_name if preset_name in curated_presets() else "Custom")
         self.preset_combo.currentTextChanged.connect(self.select_curated)
         header.addWidget(self.preset_combo)
-        for text, slot in (("Save preset", self.save_preset_dialog), ("Load preset", self.load_preset_dialog), ("Generate variation", self.generate_variation), ("Reference 15s", self.load_reference_sequence), ("Save sequence", self.save_sequence_dialog), ("Load sequence", self.load_sequence_dialog)):
+        for text, slot in (("Save preset", self.save_preset_dialog), ("Load preset", self.load_preset_dialog), ("Generate variation", self.generate_variation)):
             button = QPushButton(text)
             button.clicked.connect(slot)
             header.addWidget(button)
         outer.addLayout(header)
+        sequence_actions = QHBoxLayout()
+        sequence_actions.addWidget(QLabel("Sequence"))
+        for text, slot in (("Reference 15s", self.load_reference_sequence), ("Save sequence", self.save_sequence_dialog), ("Load sequence", self.load_sequence_dialog)):
+            button = QPushButton(text); button.clicked.connect(slot); sequence_actions.addWidget(button)
+        sequence_actions.addStretch(1)
+        outer.addLayout(sequence_actions)
         split = QSplitter(Qt.Orientation.Horizontal)
         left = QWidget(); left_layout = QVBoxLayout(left)
         self.viewer = SynthViewer(); left_layout.addWidget(self.viewer, 1)
@@ -240,6 +246,7 @@ class SynthStudio(QMainWindow):
         table = QTableWidget(len(self.sequence["cues"]), 6)
         table.setHorizontalHeaderLabels(["Time", "State", "Transition", "Hold / blend", "Intensity", "Direction"])
         table.setAlternatingRowColors(True)
+        table.setStyleSheet("QTableView { alternate-background-color: #22272e; selection-background-color: #43546b; }")
         table.setMinimumHeight(190)
         table.setMaximumHeight(280)
         table.setColumnWidth(0, 62); table.setColumnWidth(1, 90); table.setColumnWidth(2, 82); table.setColumnWidth(3, 82); table.setColumnWidth(4, 62); table.setColumnWidth(5, 62)
@@ -263,21 +270,30 @@ class SynthStudio(QMainWindow):
         layout = QVBoxLayout(group)
         self.sequence_updating = True
         self.sequence_field_controls = {}
-        timing = QHBoxLayout()
-        for key, label, minimum, maximum, step, integer in (("duration", "seconds", .1, 3600, .1, False), ("fps", "FPS", 1, 120, 1, True), ("seed", "seed", 0, 2**31 - 1, 1, True)):
-            timing.addWidget(QLabel(label))
+        timing = QGridLayout()
+        for column, (key, label, minimum, maximum, step, integer) in enumerate((("duration", "seconds", .1, 3600, .1, False), ("fps", "FPS", 1, 120, 1, True), ("seed", "seed", 0, 2**31 - 1, 1, True))):
+            timing.addWidget(QLabel(label), 0, column)
             spin = QSpinBox() if integer else QDoubleSpinBox()
             spin.setRange(minimum, maximum); spin.setSingleStep(step); spin.setValue(self.sequence[key]); spin.setKeyboardTracking(False)
             spin.valueChanged.connect(lambda value, k=key: self.sequence_setting_changed(k, value))
-            timing.addWidget(spin); self.sequence_field_controls[key] = spin
+            timing.addWidget(spin, 1, column); self.sequence_field_controls[key] = spin
         layout.addLayout(timing)
-        field = QHBoxLayout()
-        for key, label, minimum, maximum, step in (("valley_start", "valley in", 0, 3600, .01), ("valley_end", "valley out", 0, 3600, .01), ("valley_gain", "valley gain", 0, 2, .01), ("cloud_start", "cloud in", 0, 3600, .01), ("cloud_strength", "cloud", 0, 1, .01), ("cloud_late_start", "late cloud", 0, 3600, .01), ("cloud_late_rate", "late rate", 0, 1, .01)):
-            field.addWidget(QLabel(label))
+        field_widget = QWidget()
+        field = QGridLayout(field_widget)
+        field.setContentsMargins(0, 0, 0, 0)
+        for index, (key, label, minimum, maximum, step) in enumerate((("valley_start", "valley in", 0, 3600, .01), ("valley_end", "valley out", 0, 3600, .01), ("valley_gain", "valley gain", 0, 2, .01), ("cloud_start", "cloud in", 0, 3600, .01), ("cloud_strength", "cloud", 0, 1, .01), ("cloud_late_start", "late cloud", 0, 3600, .01), ("cloud_late_rate", "late rate", 0, 1, .01))):
+            row, column = divmod(index, 2)
+            field.addWidget(QLabel(label), row, column * 2)
             spin = QDoubleSpinBox(); spin.setRange(minimum, maximum); spin.setSingleStep(step); spin.setDecimals(2); spin.setValue(self.sequence["field"].get(key, 0.0)); spin.setKeyboardTracking(False)
             spin.valueChanged.connect(lambda value, k=key: self.sequence_field_changed(k, value))
-            field.addWidget(spin); self.sequence_field_controls[key] = spin
-        layout.addLayout(field)
+            field.addWidget(spin, row, column * 2 + 1); self.sequence_field_controls[key] = spin
+        field_widget.setVisible(False)
+        field_toggle = QPushButton("Exposure and cloud track ▸")
+        field_toggle.setCheckable(True)
+        field_toggle.toggled.connect(field_widget.setVisible)
+        field_toggle.toggled.connect(lambda opened: field_toggle.setText("Exposure and cloud track ▾" if opened else "Exposure and cloud track ▸"))
+        layout.addWidget(field_toggle)
+        layout.addWidget(field_widget)
         self.sequence_updating = False
         return group
 
@@ -286,6 +302,8 @@ class SynthStudio(QMainWindow):
         layout = QVBoxLayout(group)
         row = QHBoxLayout(); row.addWidget(QLabel("State"))
         combo = QComboBox(); combo.addItems(list(self.sequence["states"]))
+        combo.setMinimumWidth(0)
+        combo.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         if self.sequence_state_name in self.sequence["states"]:
             combo.setCurrentText(self.sequence_state_name)
         else:
@@ -379,7 +397,8 @@ class SynthStudio(QMainWindow):
         if self.sequence_updating or self.sequence is None or self.sequence_table is None:
             return
         try:
-            cue = self.sequence["cues"][row]
+            edited = copy.deepcopy(self.sequence)
+            cue = edited["cues"][row]
             value = self.sequence_table.item(row, column).text().strip()
             if column == 0:
                 cue["time"] = float(value)
@@ -395,7 +414,8 @@ class SynthStudio(QMainWindow):
                 cue["intensity"] = float(value)
             else:
                 cue["direction"] = float(value)
-            self.sequence = normalize_sequence(self.sequence)
+            edited["cues"].sort(key=lambda item: item["time"])
+            self.sequence = normalize_sequence(edited)
             self.rebuild_modules(); self.update_timeline_max(); self.invalidate()
         except Exception as exc:
             self.status.setText(f"Sequence edit ignored: {exc}")
@@ -410,21 +430,32 @@ class SynthStudio(QMainWindow):
     def add_sequence_cue(self):
         if self.sequence is None: return
         time = self.timeline.value() / max(1, self.sequence["fps"])
-        self.sequence["cues"].append({"time": min(time, self.sequence["duration"]), "state": "slab", "transition": "cut", "duration": 0.0})
+        state = self.sequence_state_name or next(iter(self.sequence["states"]))
+        self.sequence["cues"].append({"time": min(time, self.sequence["duration"]), "state": state, "transition": "cut", "duration": 0.0})
         self.sequence["cues"].sort(key=lambda cue: cue["time"])
         self.sequence = normalize_sequence(self.sequence); self.rebuild_modules(); self.invalidate()
 
     def sequence_selection_changed(self):
         if self.sequence_table is None or self.sequence_table.currentRow() < 0:
             return
-        state = self.sequence["cues"][self.sequence_table.currentRow()]["state"]
+        row = self.sequence_table.currentRow()
+        cue = self.sequence["cues"][row]
+        state = cue["state"]
+        self.timeline.setValue(round(cue["time"] * self.sequence["fps"]))
         if state in self.sequence["states"] and hasattr(self, "sequence_state_combo"):
             self.sequence_state_combo.setCurrentText(state)
+            with QSignalBlocker(self.sequence_table):
+                self.sequence_table.selectRow(row)
 
     def select_sequence_state(self, name):
         if self.sequence is None or name not in self.sequence["states"]:
             return
         self.sequence_state_name = name
+        active = [cue for cue in self.sequence["cues"] if cue["time"] <= self.current_time]
+        if not active or active[-1]["state"] != name:
+            first = next((cue for cue in self.sequence["cues"] if cue["state"] == name), None)
+            if first is not None:
+                self.timeline.setValue(round(first["time"] * self.sequence["fps"]))
         self.rebuild_modules(); self.invalidate()
 
     def sequence_state_control_changed(self, path):
@@ -438,7 +469,8 @@ class SynthStudio(QMainWindow):
         if self.sequence_state_updating or self.sequence is None or self.sequence_state_name not in self.sequence["states"]:
             return
         state = self.sequence["states"][self.sequence_state_name]
-        enabled = set(state.get("enabled", []))
+        base = curated_presets()[state["preset"]]
+        enabled = set(state.get("enabled", [entry["id"] for entry in base["modules"] if entry.get("enabled", True)]))
         if checked: enabled.add(module_id)
         else: enabled.discard(module_id)
         state["enabled"] = sorted(enabled)
@@ -447,8 +479,16 @@ class SynthStudio(QMainWindow):
     def sequence_setting_changed(self, key, value):
         if self.sequence_updating or self.sequence is None or self.sequence_field_controls is None:
             return
-        self.sequence[key] = int(value) if key in {"fps", "seed"} else float(value)
-        self.sequence = normalize_sequence(self.sequence); self.update_timeline_max(); self.invalidate()
+        edited = copy.deepcopy(self.sequence)
+        edited[key] = int(value) if key in {"fps", "seed"} else float(value)
+        try:
+            self.sequence = normalize_sequence(edited)
+        except ValueError as exc:
+            with QSignalBlocker(self.sequence_field_controls[key]):
+                self.sequence_field_controls[key].setValue(self.sequence[key])
+            self.status.setText(f"Sequence edit ignored: {exc}")
+            return
+        self.update_timeline_max(); self.invalidate()
 
     def sequence_field_changed(self, key, value):
         if self.sequence_updating or self.sequence is None:
@@ -464,6 +504,10 @@ class SynthStudio(QMainWindow):
         while name in self.sequence["states"]:
             name = f"{base}{index}"; index += 1
         self.sequence["states"][name] = copy.deepcopy(source)
+        row = self.sequence_table.currentRow() if self.sequence_table is not None else -1
+        if row < 0:
+            row = max((index for index, cue in enumerate(self.sequence["cues"]) if cue["time"] <= self.current_time), default=0)
+        self.sequence["cues"][row]["state"] = name
         self.sequence_state_name = name
         self.sequence = normalize_sequence(self.sequence); self.rebuild_modules(); self.invalidate()
 
@@ -543,6 +587,27 @@ class SynthStudio(QMainWindow):
         self.sequence = None
         self.preset = copy.deepcopy(curated_presets()[name]); self.rebuild_modules(); self.update_timeline_max(); self.invalidate()
     def generate_variation(self):
+        if self.sequence is not None:
+            rng = random.Random(self.sequence["seed"] + 1)
+            self.sequence["seed"] = rng.randrange(2**31 - 1)
+            state = self.sequence["states"][self.sequence_state_name]
+            self.sequence_state_updating = True
+            try:
+                for path, control in self.sequence_state_controls.items():
+                    if control.lock.isChecked(): continue
+                    spec = control.spec
+                    delta = (spec.maximum - spec.minimum) * .12
+                    value = max(spec.minimum, min(spec.maximum, control.value() + rng.uniform(-delta, delta)))
+                    value = round(value) if spec.kind == "int" else round(value / spec.step) * spec.step
+                    control.set_value(value)
+                    state.setdefault("overrides", {})[path] = control.value()
+            finally:
+                self.sequence_state_updating = False
+            self.sequence = normalize_sequence(self.sequence)
+            with QSignalBlocker(self.sequence_field_controls["seed"]):
+                self.sequence_field_controls["seed"].setValue(self.sequence["seed"])
+            self.invalidate()
+            return
         self.preset = self.collect(); rng = random.Random(self.preset["seed"] + 1); self.preset["seed"] = rng.randrange(2**31 - 1); self.mark_custom()
         with QSignalBlocker(self.global_controls["seed"]):
             self.global_controls["seed"].setValue(self.preset["seed"])
@@ -553,11 +618,14 @@ class SynthStudio(QMainWindow):
             else: control.set_value(rng.randint(int(spec.minimum), int(spec.maximum)))
         self.preset = self.collect(); self.invalidate()
     def save_preset_dialog(self):
+        if self.sequence is not None:
+            self.save_sequence_dialog()
+            return
         path, _ = QFileDialog.getSaveFileName(self, "Save synth preset", "", "Nebula synth (*.json)"); path and save_synth(path, self.collect())
     def load_preset_dialog(self):
         path, _ = QFileDialog.getOpenFileName(self, "Load synth preset", "", "Nebula synth (*.json)")
         if path:
-            try: self.preset = load_synth(path); self.rebuild_modules(); self.update_timeline_max(); self.invalidate()
+            try: self.preset = load_synth(path); self.sequence = None; self.rebuild_modules(); self.update_timeline_max(); self.invalidate()
             except Exception as exc: QMessageBox.critical(self, "Preset error", str(exc))
     def export_dialog(self):
         default_name = "reference-study-15s.mp4" if self.sequence is not None else "nebula-synth.mp4"

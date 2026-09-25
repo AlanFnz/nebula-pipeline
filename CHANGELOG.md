@@ -13,6 +13,12 @@
 - Editable 15-second reference-study cue sequence with deterministic cuts,
   numeric morphs, horizontal sweeps, flash events, sequence JSON round trips
   and one continuous export path.
+- Bundled 323-cue composite study with asymmetric exposure flares, rapid
+  filled/fragmented/outline changes, split magenta fill, local signal clouds,
+  grainy ghosts, per-frame registration and signal softness.
+- Sequence state editing, cue-linked duplication, locked variation and
+  selection-driven scrubbing, with validation that preserves the last valid
+  sequence after an invalid edit.
 - Renderer and export regression checks covering time determinism, schema
   round trips, treatment holds and generated MP4 output.
 

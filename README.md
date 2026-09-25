@@ -59,6 +59,21 @@ direction, timing, seed, exposure valley and cloud field tracks in the same
 panel. **Save sequence** and **Load sequence** preserve those edits and the
 cue schedule without embedding reference media.
 
+The bundled recipe is [`presets/composite-study-15s.json`](presets/composite-study-15s.json).
+It includes 323 frame-timed cues at 25 fps: rapid ray-count changes, asymmetric
+exposure sweeps, alternating filled/fragmented blocks, a dim violet passage,
+and a noisy final return. It is a procedural interpretation; signal feedback
+and the exact textures of the hardware reference are not reproduced exactly.
+The reference video is not a rendering input and is not distributed here.
+
+Selecting a cue scrubs to its time. **Duplicate state** creates an independent
+copy and assigns it to that cue. **Generate variation** changes the selected
+state and honors its parameter locks. The **Signal flare** module controls
+exposure, position, spread, reach, and fringe; slab controls include split
+magenta/white fill, per-frame registration, ghost grain, and a localized signal
+cloud. **Signal softness** softens the image before the final raster grain.
+These controls also work in standalone presets.
+
 ## Experimenting
 
 1. **Open clip…** loads a local video. The source is read-only. The initial loop is two seconds at the existing default treatment rate of 12 fps.
