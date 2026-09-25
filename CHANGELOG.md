@@ -4,8 +4,11 @@
 
 - Expand / orbit particle release: outward dispersion into a broad 3D volume,
   delayed vertical-axis rotation, adjustable speed/direction and expansion threshold.
-  The separate Expand / orbit example uses a 3.8-second cycle (21% faster), while
-  both earlier particle studies and their floor-band behavior retain their pixels.
+- Impulse motion separates expansion/gather durations from cycle length, with
+  an editable velocity peak. The revised Expand / orbit study has exactly two
+  expansions in 15 seconds, restrained violet/white color, irregular bars and
+  tracking breaks timed around the bursts. Saved orbit documents and both earlier
+  particle studies retain their previous pixels.
 - Anatomical Human head target sampled from a bundled CC0 MakeHuman mesh, plus
   opt-in Surges motion with acceleration, staggered curved arrivals and rebound.
 - Reusable Signal interference effect and a three-section Particle signal study

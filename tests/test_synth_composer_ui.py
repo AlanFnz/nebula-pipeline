@@ -256,9 +256,16 @@ def test_particle_example_controls_undo_save_and_threaded_export(window, tmp_pat
     assert render_sequence_frame(window.sequence, 6, (120, 96)).tobytes() == before
     buttons["Expand / orbit"].click()
     effects = window.composer.effects_panel
-    assert len(window.composition["sections"]) == 3
+    assert len(window.composition["sections"]) == 2
     assert effects.controls["particles.release"].input.currentText() == "Expand / orbit"
-    assert effects.controls["particles.period"].input.value() == 3.8
+    assert effects.controls["particles.motion"].input.currentText() == "Impulse"
+    assert effects.controls["particles.period"].input.value() == 7.5
+    before = render_sequence_frame(window.sequence, 2.36, (120, 96)).tobytes()
+    effects.controls["particles.motion_peak"].input.setValue(0.)
+    assert render_sequence_frame(window.sequence, 2.36, (120, 96)).tobytes() != before
+    window.undo_composition()
+    assert render_sequence_frame(window.sequence, 2.36, (120, 96)).tobytes() == before
+    effects = window.composer.effects_panel
     before = render_sequence_frame(window.sequence, 4., (120, 96)).tobytes()
     effects.controls["particles.orbit_speed"].input.setValue(-40.)
     assert render_sequence_frame(window.sequence, 4., (120, 96)).tobytes() != before

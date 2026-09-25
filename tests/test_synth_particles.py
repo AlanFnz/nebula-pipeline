@@ -99,7 +99,7 @@ def test_particle_composition_roundtrip_overrides_and_local_bypass(tmp_path):
     assert not describe_effects(compile_composition(project)["states"].values())["particles"]["active"]
 
 
-@pytest.mark.parametrize("params", [{"count": 0}, {"attractor": 4}, {"period": 0}, {"assembly": float("nan")}, {"release": 2}, {"orbit_start": 1}, {"orbit_speed": float("inf")}])
+@pytest.mark.parametrize("params", [{"count": 0}, {"attractor": 4}, {"period": 0}, {"assembly": float("nan")}, {"release": 2}, {"orbit_start": 1}, {"orbit_speed": float("inf")}, {"motion": 3}, {"expand_seconds": 0}, {"gather_seconds": 0}, {"motion_peak": 2}])
 def test_invalid_particle_controls_are_rejected(params):
     preset, settings = particle_only()
     settings.update(params)
@@ -216,14 +216,79 @@ def test_orbit_waits_for_expansion_and_stays_continuous_across_long_seeks():
     assert render_synth_frame(preset, time_seconds=0., size=(120, 96)).tobytes() == render_synth_frame(preset, time_seconds=15., size=(120, 96)).tobytes()
 
 
-def test_orbit_study_is_faster_editable_and_preserves_both_earlier_studies(tmp_path):
+def test_orbit_study_has_two_editable_expansions_and_preserves_earlier_studies(tmp_path):
     band = particle_composition(True)
     project = particle_orbit_composition()
-    assert len(project["sections"]) == 3
+    assert len(project["sections"]) == 2
+    assert compile_composition(project)["duration"] == 15.
     summary = describe_effects(compile_composition(project)["states"].values())["particles"]["ranges"]
     assert summary["particles.release"] == (1, 1)
-    assert summary["particles.period"] == (3.8, 3.8)
+    assert summary["particles.period"] == (7.5, 7.5)
+    assert summary["particles.motion"] == (2, 2)
     path = tmp_path / "orbit.json"
     save_composition(path, project)
     assert load_composition(path) == project
     assert particle_composition(True) == band
+
+
+def test_saved_first_orbit_study_keeps_its_pixels():
+    seq = compile_composition(particle_orbit_composition(refined=False))
+    frames = (render_sequence_frame(seq, t, (192, 144)).tobytes() for t in (0, .8, 2., 6., 10., 14.96))
+    assert hashlib.sha256(b"".join(frames)).hexdigest() == "ebe373ee1559c9d8459d8674602aaef1c4954088686cccfa0208dc5c34f36701"
+
+
+def test_impulse_has_exactly_two_expansions_and_peaked_velocity():
+    _, p = particle_only()
+    p.update(attractor=3, motion=2, release=1, count=300, period=7.5, phase=0.,
+             chaos=.35, yaw=0., pitch=0., rotation_speed=0., turbulence=0., orbit_speed=0.)
+    times = np.arange(375) / 25
+    release = np.array([1 - particle_field(p, t, 20)[3].mean() for t in times])
+    crossings = times[1:][(release[:-1] < .5) & (release[1:] >= .5)]
+    assert len(crossings) == 2
+    assert crossings[0] == pytest.approx(2.5, abs=.06)
+    assert crossings[1] - crossings[0] == pytest.approx(7.5, abs=.04)
+    assert release[0] == release[-1] == 0.
+    assert (release[80:135] == 1.).all()  # A real hold in the expanded cloud.
+    assert (release[175:230] == 0.).all()  # A held portrait between the bursts.
+
+    p["chaos"] = 0.
+    sample_times = np.linspace(2.1, 2.85, 151)
+    paths = np.array([particle_field(p, t, 20)[0] for t in sample_times])
+    speeds = np.linalg.norm(np.diff(paths, axis=0), axis=2).mean(axis=1) / .005
+    assert speeds.max() > 3.5 * speeds.mean()
+    assert speeds[0] < speeds.max() * .01 and speeds[-1] < speeds.max() * .01
+    p["motion_peak"] = 0.
+    linear = np.array([particle_field(p, t, 20)[0] for t in sample_times])
+    linear_speeds = np.linalg.norm(np.diff(linear, axis=0), axis=2).mean(axis=1) / .005
+    assert linear_speeds.max() < linear_speeds.mean() * 1.01
+
+
+@pytest.mark.parametrize("period", [.5, 7.5, 120.])
+def test_impulse_seeking_and_orbit_are_continuous_including_cycle_wraps(period):
+    _, p = particle_only()
+    p.update(attractor=3, motion=2, release=1, count=300, period=period,
+             chaos=.35, turbulence=.15, breathing=1., orbit_speed=24.)
+    for phase in (0., .28, .33, .76, .96, .9999):
+        t = 1000 * period + phase * period
+        before = particle_field(p, t, 20)[0]
+        particle_field(p, 30., 20)
+        assert np.array_equal(before, particle_field(p, t, 20)[0])
+        assert np.linalg.norm(particle_field(p, t + .0001, 20)[0] - before, axis=1).max() < .04
+
+
+def test_impulse_study_uses_bars_and_glitches_without_hiding_the_main_move():
+    from synth_sequence import _state_preset
+    seq = compile_composition(particle_orbit_composition())
+    summary = describe_effects(seq["states"].values())
+    assert summary["rays"]["active"] and summary["rays"]["intermittent"]
+    assert summary["breakup"]["ranges"]["breakup.mix"][1] >= .8
+    assert summary["particles"]["ranges"]["particles.color_spread"][1] < .1
+    assert summary["interference"]["ranges"]["interference.chroma"][1] <= .1
+    # The actual rendered recipe, including section boundaries, keeps one clock.
+    for t in (2.48, 9.98):
+        cue = next(cue for cue in reversed(seq["cues"]) if cue["time"] <= t)
+        preset = _state_preset(seq, cue["state"])
+        settings = {m["id"]: m for m in preset["modules"]}
+        assert settings["particles"]["params"]["motion"] == 2
+        assert settings["breakup"]["params"]["mix"] == 0.
+        assert not settings["blinds"]["enabled"]

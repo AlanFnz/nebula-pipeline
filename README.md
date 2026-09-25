@@ -151,10 +151,13 @@ anatomical head, rebound and dissolve toward a thin luminous band. Three section
 (Charge & gather, Signal storm, Release & return) combine the continuous particle
 motion with 11 signal-treatment cues. **Original particles** retains the first
 one-section study and its original pixels.
-**Expand / orbit** opens a separate 15-second variation with a 3.8-second cycle
-(about 21% faster than the 4.6-second signal study). Dots expand in all directions
-into a broad volume, then revolve slowly around the vertical axis. It keeps the
-same anatomical target and signal treatments. Both earlier examples are retained.
+**Expand / orbit** opens a 15-second variation with exactly two expansions,
+arranged as two sections. The head holds, expands quickly with a narrow velocity
+peak, revolves as a broad cloud, then gathers again. A restrained violet/white
+palette replaces the rainbow; irregular bars, horizontal tears and vertical
+scan strings punctuate each release. The strongest tears follow the main outward
+move so it stays visible. Existing saved orbit clips retain their earlier motion
+and colors; Particle head and Original particles also retain their pixels.
 The default startup study and **Refined 15s / Approved 15s** remain unchanged.
 You can also apply **Particle attractor** from Effects to any composition.
 
@@ -162,6 +165,14 @@ You can also apply **Particle attractor** from Effects to any composition.
   **Overshoot**. Groups hesitate, arrive on curved paths at different times and
   rebound before settling. The cycle's timing drifts continuously. **Gentle**
   retains the original motion; older saved presets default to Gentle.
+- **Motion → Impulse** separates the movement from the hold. **Expansion seconds**
+  and **Gather seconds** set the outward and inward durations, while **Motion peak**
+  shapes the speed curve: 0 is linear; higher values ease into a narrow velocity
+  peak and ease out again. The example uses a .75-second expansion, a 1-second
+  return and a .8 peak. **Cycle seconds** controls repetition independently.
+  Expansion/gather durations cap at 25%/20% of the cycle to leave room for holds.
+  Arrival disorder adds a small stagger without changing the number of cycles.
+  Orbit speed and expansion threshold remain under **More controls**.
 - **Assembly** sets how tightly particles follow the invisible surface.
   **Assembly cycle** controls automatic gathering and release; set it to **0**
   to hold Assembly at a fixed value. **Cycle seconds** sets the period at global

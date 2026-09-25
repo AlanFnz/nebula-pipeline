@@ -178,7 +178,73 @@ def _particle_signal_composition():
     return normalize_composition(project)
 
 
-def particle_orbit_composition():
+def particle_orbit_composition(refined=True):
+    """Two quick expansions with quiet holds and synchronized signal breaks."""
+    project = _particle_orbit_original()
+    if not refined:
+        return project
+    base = copy.deepcopy(project["source"]["states"]["charge"])
+    base["overrides"].update({
+        "particles.motion": 2, "particles.period": 7.5, "particles.phase": 0.,
+        "particles.expand_seconds": .75, "particles.gather_seconds": 1., "particles.motion_peak": .8,
+        "particles.chaos": .35, "particles.turbulence": .10, "particles.flow": .8,
+        "particles.saturation": .42, "particles.hue": .70,
+        "particles.color_spread": .09, "particles.color_drift": .001,
+        "particles.released_brightness": .55, "particles.intensity": 2.4,
+        "interference.chroma": .06, "interference.depth": .22,
+        "interference.comb": .22, "interference.bands": 6.,
+        "raster.chroma": .012, "raster.line_noise": .06,
+        "blinds.rows": 5, "blinds.thickness": .009, "blinds.swelling": .25,
+        "blinds.aperture": .60, "blinds.aperture_height": .85,
+        "blinds.curvature": .28, "blinds.row_drift": .16, "blinds.irregularity": .5,
+        "blinds.intensity": .65, "blinds.magenta": .5,
+        "blinds.tail_spread": .20, "blinds.edge_softness": .035,
+    })
+    variants = {
+        "portrait": {},
+        "bars": {"depth": .28, "breakup.mix": .55, "breakup.amount": .06,
+                 "breakup.bands": 14, "breakup.dropout": .10, "warp.amount": .016},
+        "tear": {"breakup.mix": .9, "breakup.amount": .17, "breakup.bands": 11,
+                 "breakup.dropout": .18, "warp.amount": .04, "separation.amount": .009,
+                 "flare.strength": .40, "flare.position_y": .84, "flare.spread": .025,
+                 "interference.depth": .65},
+        "cloud": {"interference.depth": .38, "interference.chroma": .10,
+                  "particles.turbulence": .16, "raster.line_noise": .09},
+        "comb": {"interference.comb": .80, "interference.columns": 86,
+                 "interference.bend": .48, "interference.depth": .55,
+                 "particles.released_brightness": .7, "raster.line_noise": .12},
+        "return": {"breakup.mix": .8, "breakup.amount": .10, "breakup.bands": 22,
+                   "breakup.dropout": .10, "blinds.rows": 3, "blinds.swelling": .08,
+                   "blinds.intensity": .5, "depth": .2},
+    }
+    states = {}
+    for name, overrides in variants.items():
+        states[name] = copy.deepcopy(base)
+        states[name]["overrides"].update(overrides)
+        if name in {"bars", "return"}:
+            states[name]["enabled"].append("blinds")
+    events = ((0., "portrait", 0.), (2.16, "bars", 0.), (2.32, "portrait", 0.),
+              (2.68, "tear", 0.), (2.84, "cloud", .12), (3.28, "comb", .12), (4.04, "bars", 0.),
+              (4.20, "cloud", .12), (5.64, "return", 0.), (5.84, "portrait", .18))
+    project["source"].update(states=states, cues=[
+        {"time": round(offset + t, 2), "state": name,
+         "transition": "morph" if duration else "cut", "duration": duration}
+        for offset in (0., 7.5) for t, name, duration in events
+    ])
+    project["phrases"] = {
+        "first": {"name": "First expansion", "start": 0., "end": 7.52},
+        "second": {"name": "Second expansion", "start": 7.52, "end": 15.},
+    }
+    section = project["sections"][0]
+    # 375 frames split as 188 + 187; rounding two 7.5s sections separately
+    # would add an extra frame. The particle clock still repeats every 7.5s.
+    project["sections"] = [dict(copy.deepcopy(section), id=f"section-{i + 1}", phrase=key,
+                                duration=round(phrase["end"] - phrase["start"], 2))
+                           for i, (key, phrase) in enumerate(project["phrases"].items())]
+    return normalize_composition(project)
+
+
+def _particle_orbit_original():
     """A faster, outward release variant; the earlier signal recipe stays intact."""
     project = _particle_signal_composition()
     project["name"] = project["source"]["name"] = "Particle orbit"
