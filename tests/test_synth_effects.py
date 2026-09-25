@@ -3,7 +3,7 @@ import copy
 import numpy as np
 import pytest
 
-from synth import _breakup
+from synth import _breakup, _interference
 from synth_composition import (
     blank_composition, compile_composition, load_composition, normalize_composition,
     reference_composition, save_composition,
@@ -124,3 +124,15 @@ def test_new_clip_has_no_hidden_study_events():
     assert not sequence["field"]["cloud_strength"]
     assert all(not state["enabled"] for state in sequence["states"].values())
     assert pixels(project, 0) == pixels(project, 12)
+
+
+def test_signal_interference_bypasses_exactly_and_has_a_stoppable_clock():
+    image = np.linspace(0, 1, 64 * 80 * 3, dtype=np.float32).reshape((64, 80, 3))
+    p = {path.split('.')[1]: value for path, value in effect_preset("interference")["params"].items()}
+    preset = {"speed": 1.}
+    assert np.array_equal(image, _interference(image, dict(p, mix=0), 2, preset))
+    assert np.array_equal(_interference(image, dict(p, speed=0), 0, preset), _interference(image, dict(p, speed=0), 19, preset))
+    first = _interference(image, p, .4, preset)
+    assert not np.array_equal(first, image)
+    assert not np.array_equal(first, _interference(image, p, .8, preset))
+    assert np.array_equal(first, _interference(image, p, .4, preset))

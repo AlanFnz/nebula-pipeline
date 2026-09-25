@@ -95,8 +95,10 @@ def blank_composition():
     return composition_from_sequence(source)
 
 
-def particle_composition():
+def particle_composition(refined=False):
     """One editable section; the particle module owns its assembly cycle."""
+    if refined:
+        return _particle_signal_composition()
     project = blank_composition()
     project["name"] = "Particle head"
     project["source"]["name"] = "Particle head"
@@ -117,6 +119,62 @@ def particle_composition():
         "raster.softness": .3, "raster.lines": .12, "raster.grain": .05,
         "raster.chroma": .006, "raster.line_noise": .045,
     })
+    return normalize_composition(project)
+
+
+def _particle_signal_composition():
+    """Three phrases layer signal treatments over one continuous particle clock."""
+    project = particle_composition()
+    base = copy.deepcopy(project["source"]["states"]["blank"])
+    base["enabled"] = ["particles", "flare", "warp", "separation", "smear", "interference", "bloom", "raster", "breakup"]
+    base["overrides"].update({
+        "particles.attractor": 3, "particles.motion": 1,
+        "particles.period": 4.6, "particles.phase": .02,
+        "particles.acceleration": .9, "particles.chaos": .78, "particles.overshoot": .65,
+        "particles.count": 48000, "particles.dot_size": 1.05,
+        "particles.dispersion": 1.08, "particles.collapse": .98,
+        "particles.turbulence": .22, "particles.flow": 1.4,
+        "particles.yaw": -32., "particles.pitch": -3., "particles.rotation_speed": 3.5,
+        "particles.saturation": .8, "particles.hue": .74, "particles.color_spread": 1.1,
+        "particles.intensity": 2.7, "particles.color_drift": .035, "particles.jitter": .002,
+        "particles.released_brightness": .22,
+        "warp.amount": .009, "warp.frequency": 4.5, "warp.speed": 1.3,
+        "separation.amount": .003, "separation.angle": .15,
+        "smear.amount": .014, "smear.ghosts": 3,
+        "interference.chroma": .55, "interference.depth": .4, "interference.comb": .3,
+        "interference.bands": 8., "interference.speed": 1.4,
+        "flare.strength": 0., "flare.position_y": .9, "flare.position_x": .5,
+        "flare.spread": .04, "flare.reach": .85,
+        "bloom.threshold": .2, "bloom.radius": 5., "bloom.strength": .42,
+        "raster.softness": .45, "raster.lines": .16, "raster.line_noise": .07,
+        "breakup.amount": .025, "breakup.bands": 20, "breakup.dropout": .04,
+        "breakup.rate": 8., "breakup.mix": 0.,
+    })
+    variants = {
+        "charge": {},
+        "crest": {"flare.strength": .55, "flare.spread": .065, "interference.chroma": .3},
+        "storm": {"warp.amount": .021, "interference.chroma": .85, "interference.depth": .65,
+                  "interference.comb": .65, "particles.turbulence": .32, "particles.jitter": .003},
+        "tear": {"warp.amount": .018, "breakup.mix": .85, "interference.chroma": .95,
+                 "interference.depth": .72, "interference.speed": 2.2, "separation.amount": .006},
+        "return": {"particles.turbulence": .16, "interference.depth": .32, "interference.chroma": .7,
+                   "particles.intensity": 2.35, "raster.line_noise": .05},
+    }
+    states = {}
+    for name, overrides in variants.items():
+        states[name] = copy.deepcopy(base)
+        states[name]["overrides"].update(overrides)
+    cues = [(0., "charge", 0.), (2.45, "crest", .12), (2.65, "charge", .18),
+            (4.8, "storm", .2), (6.35, "tear", .08), (6.65, "storm", .16),
+            (8.65, "crest", .08), (8.85, "storm", .18),
+            (10.2, "return", .25), (12.75, "crest", .10), (12.95, "return", .18)]
+    project["name"] = "Particle signal"
+    project["source"].update(name="Particle signal", states=states,
+        cues=[{"time": t, "state": name, "transition": "morph" if duration else "cut", "duration": duration} for t, name, duration in cues])
+    phrases = (("charge", "Charge & gather", 0., 4.8), ("storm", "Signal storm", 4.8, 10.2), ("return", "Release & return", 10.2, 15.))
+    project["phrases"] = {key: {"name": name, "start": start, "end": end} for key, name, start, end in phrases}
+    section = project["sections"][0]
+    project["sections"] = [dict(copy.deepcopy(section), id=f"section-{index + 1}", phrase=key, duration=round(end - start, 2)) for index, (key, _, start, end) in enumerate(phrases)]
     return normalize_composition(project)
 
 

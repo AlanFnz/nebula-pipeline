@@ -121,10 +121,14 @@ MODULES = (
         P("edge_bias", "Colored tail balance", 0.0, -1, 1, .01, "Moves the colored ray fringe toward the left or right tail."),
     )),
     Module("particles", "Particle attractor", "Dots assemble around an invisible 3D surface, then disperse.", (
-        P("attractor", "Attractor", 0, 0, 2, 1, "Invisible procedural surface; only particles are rendered.", choices=("Head", "Sphere", "Ring")),
+        P("attractor", "Attractor", 0, 0, 3, 1, "Invisible surface; Human head uses the bundled anatomical mesh. Only particles are rendered.", choices=("Stylized head", "Sphere", "Ring", "Human head")),
+        P("motion", "Motion", 0, 0, 1, 1, "Gentle preserves the original motion. Surges adds delayed arrivals, acceleration and overshoot.", choices=("Gentle", "Surges")),
         P("assembly", "Assembly", 1.0, 0, 1, .01, "0 = dispersed field; 1 = assembled surface. Breathing animates below this ceiling."),
         P("breathing", "Assembly cycle", 1.0, 0, 1, .01, "Depth of automatic assembly / release. Set to 0 to hold Assembly fixed."),
         P("period", "Cycle seconds", 12.0, .5, 120, .5, "One assembly / release cycle at global speed 1."),
+        P("acceleration", "Acceleration", .8, 0, 1, .01, "Surges: particles hesitate, accelerate sharply, then settle."),
+        P("chaos", "Arrival disorder", .7, 0, 1, .01, "Surges: stagger particle groups, bend their paths and vary cycle timing."),
+        P("overshoot", "Overshoot", .45, 0, 1, .01, "Surges: pass through the target and rebound before settling."),
         P("count", "Particle count", 22000, 200, 60000, 100, "More points create a denser signal field.", kind="int"),
         P("dot_size", "Dot size", 1.2, .5, 6, .1, "Soft dot radius at 576-pixel image height."),
         P("dispersion", "Dispersion", 1.0, 0, 2, .01, "Spread of released particles around the attractor."),
@@ -142,6 +146,7 @@ MODULES = (
         P("xray", "See-through", .08, 0, 1, .01, "Visibility of the back surface through the front dots."),
         P("relief", "Surface relief", .85, 0, 1, .01, "Directional point brightness reveals the nose, eyes and mouth; no solid surface is drawn."),
         P("intensity", "Intensity", 1.35, 0, 3, .01),
+        P("released_brightness", "Released brightness", 1.0, 0, 1, .01, "Dim loose particles while retaining bright dots on the assembled surface."),
         P("hue", "Hue", .76, 0, 1, .01, "Color of the central band; 0 = red, .33 = green, .67 = blue."),
         P("saturation", "Saturation", .65, 0, 1, .01),
         P("color_spread", "Spectral spread", .85, 0, 2, .01, "Different colors along the vertical volume."),
@@ -174,6 +179,16 @@ MODULES = (
         P("amount", "Trail length", .12, 0, .7, .01, "Normalized horizontal trail length."),
         P("direction", "Direction", .2, -1, 1, .01, "Left/right balance of the trails."),
         P("ghosts", "Ghost count", 4, 1, 10, 1, "Number of shifted translucent copies", kind="int"),
+    )),
+    Module("interference", "Signal interference", "Moving chromatic bands and a bent vertical scan comb across the sources.", (
+        P("chroma", "Chromatic bands", .65, 0, 1, .01, "Mix broad moving violet, green and blue interference into the signal."),
+        P("bands", "Band count", 7.0, 1, 24, .25),
+        P("depth", "Band contrast", .45, 0, 1, .01, "Uneven exposure between horizontal bands."),
+        P("bend", "Band bending", .3, 0, 1, .01),
+        P("comb", "Vertical comb", .35, 0, 1, .01, "Broken vertical strings within the signal."),
+        P("speed", "Signal speed", 1.0, 0, 6, .05),
+        P("columns", "Comb columns", 130, 20, 320, 1),
+        P("mix", "Mix", 1.0, 0, 1, .01),
     )),
     Module("bloom", "Bloom", "Soft overexposure around luminous regions.", (
         P("threshold", "Threshold", .42, 0, 1, .01, "Luminance threshold for glow."),
@@ -687,6 +702,27 @@ def _raster(arr, p, seed, treatment_frame):
     return result
 
 
+def _interference(arr, p, t, preset):
+    if p["mix"] == 0:
+        return arr
+    h, w = arr.shape[:2]
+    y, x = np.mgrid[0:h, 0:w].astype(np.float32)
+    y /= max(1, h - 1)
+    x /= max(1, w - 1)
+    clock = t * preset["speed"] * p["speed"]
+    background = np.array((.055, .067, .055), dtype=np.float32)
+    signal = np.maximum(arr - background, 0)
+    phase = math.tau * (y * p["bands"] - clock * .7 + x * p["bend"])
+    phase += p["bend"] * np.sin(y * 17 + clock * 2.3) * 3
+    gain = 1 - p["depth"] * (.5 + .5 * np.sin(phase))
+    color_phase = y * 9 + x * 3 + np.sin(y * 13 - clock) + clock * .8
+    colors = .25 + .75 * (.5 + .5 * np.cos(color_phase[..., None] + np.array((0., 2.1, 4.2))))
+    tinted = signal * (1 - p["chroma"]) + signal.mean(axis=2, keepdims=True) * colors * 1.6 * p["chroma"]
+    comb = .5 + .5 * np.sin(x * math.tau * p["columns"] + np.sin(y * 27 + clock * 3) * p["bend"] * 5)
+    treated = background + tinted * (gain * (1 - p["comb"] * comb))[..., None]
+    return arr * (1 - p["mix"]) + treated * p["mix"]
+
+
 def _breakup(arr, p, t, preset):
     if p["mix"] == 0 or (p["amount"] == 0 and p["dropout"] == 0):
         return arr
@@ -711,6 +747,7 @@ RENDERERS = {
     "warp": lambda arr, params, t, preset, index: _warp(arr, params, t, preset),
     "separation": lambda arr, params, t, preset, index: _separate(arr, params, t, preset),
     "smear": lambda arr, params, t, preset, index: _smear(arr, params),
+    "interference": lambda arr, params, t, preset, index: _interference(arr, params, t, preset),
     "bloom": lambda arr, params, t, preset, index: _bloom(arr, params),
     "raster": lambda arr, params, t, preset, index: _raster(arr, params, preset["seed"], round(t * preset["treatment_fps"])),
     "breakup": lambda arr, params, t, preset, index: _breakup(arr, params, t, preset),
