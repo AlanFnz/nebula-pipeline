@@ -6,11 +6,11 @@ import time
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 from PySide6.QtCore import QThreadPool
-from PySide6.QtWidgets import QApplication, QFileDialog, QTableWidget
+from PySide6.QtWidgets import QApplication, QFileDialog, QTableWidget, QPushButton
 
 from synth_studio import SynthStudio
 from synth_composition import load_composition
-from synth_sequence import render_sequence_frame
+from synth_sequence import render_sequence_frame, reference_sequence
 
 
 def wait_until(predicate, seconds=10):
@@ -95,3 +95,15 @@ def test_detailed_copy_can_be_edited_without_changing_composition(window):
     child.sequence_state_controls["blinds.aperture"].set_value(.8)
     assert window.composition == original
     assert child.sequence != window.sequence
+
+
+def test_both_studies_are_accessible_without_changing_the_approved_recipe(window):
+    assert window.composition["name"] == "Refined signal"
+    refined = render_sequence_frame(window.sequence, 11.6, (120, 96)).tobytes()
+    buttons = {button.text(): button for button in window.findChildren(QPushButton)}
+    buttons["Approved 15s"].click()
+    approved = render_sequence_frame(reference_sequence(), 11.6, (120, 96)).tobytes()
+    assert render_sequence_frame(window.sequence, 11.6, (120, 96)).tobytes() == approved
+    assert approved != refined
+    buttons["Refined 15s"].click()
+    assert render_sequence_frame(window.sequence, 11.6, (120, 96)).tobytes() == refined

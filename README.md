@@ -52,13 +52,13 @@ for the next phase; the existing clip workflow remains available from the same
 
 The default view is a **composer**: six sections below the preview and seven
 macro controls for rhythm, width, instability, texture, brightness, flares,
-and magenta. The approved **Reference 15s** composition opens with every macro
-at 1×, reproducing the existing study without changing its renderer or recipe.
+and magenta. It opens the **Refined 15s** study with every macro at 1×.
+**Approved 15s** reloads the earlier study with its original recipe and pixels.
 
 - Select **Whole clip** to adjust the entire piece, or click a section to
   adjust it locally. Sections can be added, duplicated, removed, reordered,
   and given different durations. Their internal events are generated for you.
-- **New clip** starts a 15-second arrangement using the Blocks & ghosts phrase.
+- **New clip** starts a 15-second arrangement using the refined Blocks & ghosts phrase.
   Choose other phrases from the section dropdown. Phrases repeat to fill their
   duration; **Rhythm** controls how quickly their internal changes happen.
 - **New take** makes a reproducible variation in the current scope. **Keep**
@@ -74,11 +74,21 @@ at 1×, reproducing the existing study without changing its renderer or recipe.
 
 [`synth_composition.py`](synth_composition.py) compiles the arrangement to the
 existing public sequence format. Preview and export therefore use the same
-sequence renderer as the approved study. A regression test checks all 375
-frames of the neutral composition against that study, and composition tests
-cover local edits, deterministic variation and save/reload.
+sequence renderer as the approved study. A fixed pixel-hash regression checks
+all 375 approved frames at 96×72 against the renderer before refinement;
+composition tests cover local edits, deterministic variation and save/reload.
 
-The bundled recipe is [`presets/composite-study-15s.json`](presets/composite-study-15s.json).
+The refined study adds granular halos and ghosts, edge flutter, short horizontal
+noise streaks, blue-violet falloff in dim forms, colored ray tails and uneven
+exposure sweeps. **Texture**, **Instability**, **Magenta** and **Flares** control
+these treatments in the current scope; **Brightness** also affects ray cores.
+The detailed editor exposes each new parameter independently. New renderer
+parameters default to neutral values so the approved study remains unchanged.
+Previously saved compositions retain their source snapshots; non-neutral
+Brightness settings now also scale ray intensity.
+
+The approved recipe is [`presets/composite-study-15s.json`](presets/composite-study-15s.json);
+the new treatment is [`presets/composite-signal-refined-15s.json`](presets/composite-signal-refined-15s.json).
 It includes 323 frame-timed cues at 25 fps: rapid ray-count changes, asymmetric
 exposure sweeps, alternating filled/fragmented blocks, a dim violet passage,
 and a noisy final return. It is a procedural interpretation; signal feedback

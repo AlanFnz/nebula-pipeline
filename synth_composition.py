@@ -1,4 +1,4 @@
-"""Musical-scale composition above the existing, unchanged sequence renderer.
+"""Musical-scale composition above the deterministic sequence renderer.
 
 Documents keep a snapshot of their source material. Sections arrange reusable
 phrases and macro controls compile to ordinary sequence states and cues.
@@ -18,19 +18,19 @@ FORMAT = "nebula-composition"
 MACROS = {
     "rhythm": ("Rhythm", .25, 2., "Slower holds / faster changes within each section."),
     "width": ("Width", .5, 1.8, "Scale the luminous forms and ray apertures together."),
-    "motion": ("Instability", 0., 2., "Registration, deformation and missing fragments."),
-    "texture": ("Texture", 0., 2., "Grain, noisy ghosts and the surrounding signal cloud."),
+    "motion": ("Instability", 0., 2., "Registration, edge flutter, deformation and missing fragments."),
+    "texture": ("Texture", 0., 2., "Horizontal grain, granular ghosts and the surrounding signal cloud."),
     "glow": ("Brightness", .25, 1.6, "Core intensity and bloom, preserving the color relationships."),
     "flashes": ("Flares", 0., 1.8, "Strength of exposure bursts and sweeps."),
-    "color": ("Magenta", 0., 1.8, "Amount of violet and magenta in the signal."),
+    "color": ("Magenta", 0., 1.8, "Violet-magenta edges and the blue falloff in dim forms."),
 }
 PATHS = {
     "width": ("slab.width", "blinds.aperture"),
-    "motion": ("slab.frame_jitter", "slab.jitter", "slab.notch", "blinds.curvature", "blinds.row_drift", "blinds.irregularity", "warp.amount"),
-    "texture": ("raster.grain", "raster.chroma", "slab.ghost_grain", "slab.cloud_strength"),
-    "glow": ("slab.intensity", "bloom.strength"),
+    "motion": ("slab.frame_jitter", "slab.edge_ripple", "slab.jitter", "slab.notch", "blinds.curvature", "blinds.row_drift", "blinds.irregularity", "warp.amount", "flare.bend", "flare.asymmetry"),
+    "texture": ("raster.grain", "raster.chroma", "raster.line_noise", "slab.ghost_grain", "slab.cloud_strength", "slab.cloud_detail"),
+    "glow": ("slab.intensity", "blinds.intensity", "bloom.strength"),
     "flashes": ("flare.strength",),
-    "color": ("slab.fill_magenta", "slab.magenta", "blinds.magenta", "flare.fringe"),
+    "color": ("slab.fill_magenta", "slab.vertical_tint", "slab.magenta", "blinds.magenta", "flare.fringe"),
 }
 PHRASES = (
     ("rays", "Ray bursts", 0., 5.24),
@@ -46,11 +46,11 @@ def neutral_macros():
     return dict.fromkeys(MACROS, 1.)
 
 
-def reference_composition():
-    source = reference_sequence()
+def reference_composition(refined=False):
+    source = reference_sequence(refined=refined)
     return {
         "format": FORMAT, "schema_version": 1,
-        "name": "Composite signal", "fps": source["fps"], "seed": source["seed"],
+        "name": "Refined signal" if refined else "Composite signal", "fps": source["fps"], "seed": source["seed"],
         "source": source,
         "phrases": {key: {"name": name, "start": start, "end": end} for key, name, start, end in PHRASES},
         "macros": neutral_macros(), "variation": 0, "locks": [],

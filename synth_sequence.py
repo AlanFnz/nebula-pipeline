@@ -24,14 +24,15 @@ NEUTRAL_FIELD = {
 }
 
 
-@lru_cache(maxsize=1)
-def _reference_data():
-    return json.loads((Path(__file__).parent / "presets" / "composite-study-15s.json").read_text())
+@lru_cache(maxsize=2)
+def _reference_data(refined=False):
+    filename = "composite-signal-refined-15s.json" if refined else "composite-study-15s.json"
+    return json.loads((Path(__file__).parent / "presets" / filename).read_text())
 
 
-def reference_sequence():
+def reference_sequence(refined=False):
     """Return an independent, editable copy of the bundled 15-second study."""
-    return copy.deepcopy(_reference_data())
+    return copy.deepcopy(_reference_data(refined))
 
 
 def normalize_sequence(raw=None):

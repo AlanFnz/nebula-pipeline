@@ -65,6 +65,7 @@ MODULES = (
         P("intensity", "Core intensity", 1.0, .1, 1.5, .01, "Brightness of the white slab body."),
         P("fill_magenta", "Magenta fill", 0.0, 0, 1, .01, "Moves the slab body from neutral white toward violet-magenta."),
         P("fill_gradient", "Split fill", 0.0, 0, 1, .01, "Concentrates the magenta fill on the left, leaving a white right core."),
+        P("vertical_tint", "Blue falloff", 0.0, 0, 1, .01, "Fades a warm upper core into blue-violet at the bottom."),
         P("ghost_width", "Ghost width", .32, .05, 1, .01, "Width of the dimmer right-hand ghost."),
         P("ghost_offset", "Ghost offset", .24, .02, .8, .01, "Distance of the secondary ghost to the right."),
         P("ghost_opacity", "Ghost opacity", .34, 0, 1, .01, "Strength of the secondary ghost."),
@@ -73,10 +74,12 @@ MODULES = (
         P("cyan", "Cyan fringe", .42, 0, 1, .01, "Green/cyan channel fringe strength."),
         P("jitter", "Shape irregularity", .12, 0, .5, .01, "Slow shape wobble; does not randomize every frame."),
         P("frame_jitter", "Frame registration", 0.0, 0, .04, .001, "Small independent horizontal registration changes at the treatment rate."),
+        P("edge_ripple", "Edge flutter", 0.0, 0, .04, .001, "Uneven horizontal registration across groups of scan lines."),
         P("ghost_grain", "Ghost grain", 0.0, 0, 1, .01, "Breaks the secondary block into fine signal noise."),
         P("cloud_strength", "Signal cloud", 0.0, 0, 1, .01, "Local noisy halo surrounding the block."),
         P("cloud_tint", "Cloud violet", .8, 0, 1, .01, "Blends gray-green signal noise toward violet."),
         P("cloud_position", "Cloud vertical offset", 0.0, -1, 1, .01, "Moves the noisy halo above or below the block."),
+        P("cloud_detail", "Cloud granulation", 0.0, 0, 1, .01, "Clumped signal noise that survives softness, including in the ghost."),
     )),
     Module("blinds", "Irregular Venetian blinds", "Horizontal rays that swell into an asymmetric central aperture.", (
         P("rows", "Ray count", 9, 1, 32, 1, "Number of horizontal rays", kind="int"),
@@ -96,6 +99,9 @@ MODULES = (
         P("row_drift", "Row drift", .08, 0, .5, .01, "Independent smooth drift for each ray."),
         P("irregularity", "Irregularity", .16, 0, 1, .01, "Uneven thickness and ray breaks."),
         P("magenta", "Magenta edge", .9, 0, 1, .01, "Colored edge around white rays."),
+        P("intensity", "Ray intensity", 1.0, .1, 1.5, .01, "Brightness of the white rays and their colored edges."),
+        P("tail_spread", "Soft ray tails", 0.0, 0, 1, .01, "Broadens the tapered shoulders outside the central aperture."),
+        P("edge_bias", "Colored tail balance", 0.0, -1, 1, .01, "Moves the colored ray fringe toward the left or right tail."),
     )),
     Module("flare", "Signal flare", "An asymmetric horizontal exposure sweep around the source.", (
         P("strength", "Exposure", 0.0, 0, 3, .01, "Adds a clipped white signal flare."),
@@ -104,6 +110,8 @@ MODULES = (
         P("spread", "Vertical spread", .25, .02, 2, .01, "From a narrow horizontal burst to full-frame exposure."),
         P("reach", "Horizontal reach", .4, .05, 2, .01, "Width of the flare around its centre."),
         P("fringe", "Violet fringe", .2, 0, 1, .01, "Violet noise around the exposure boundary."),
+        P("asymmetry", "Uneven exposure", 0.0, -1, 1, .01, "Different falloff above and below the exposure crest."),
+        P("bend", "Exposure bend", 0.0, -1, 1, .01, "Bends the crest away from the brightest part of the source."),
     )),
     Module("warp", "Independent warp", "Displaces rows and columns without temporal feedback.", (
         P("amount", "Warp amount", .035, 0, .25, .001, "Normalized displacement."),
@@ -131,6 +139,7 @@ MODULES = (
         P("lines", "Scanline depth", .18, 0, .8, .01, "Darkness of alternating rows."),
         P("grain", "Fine grain", .08, 0, .5, .01, "Fine luminance grain."),
         P("chroma", "Chroma noise", .035, 0, .25, .005, "Small colored noise component."),
+        P("line_noise", "Horizontal grain", 0.0, 0, .5, .01, "Correlated signal grain along short horizontal streaks."),
     )),
 )
 MODULE_BY_ID = {module.id: module for module in MODULES}
@@ -317,6 +326,13 @@ def _modulated(preset, module_id, key, value, t, minimum=None, maximum=None):
     return result
 
 
+def _signal_noise(seed, name, frame, size, grid):
+    """A reference-sized noise field keeps its physical scale in the preview."""
+    rng = np.random.default_rng(_seed(seed, name, frame))
+    noise = rng.normal(size=(grid[1], grid[0])).astype(np.float32)
+    return np.asarray(Image.fromarray(noise).resize(size, Image.Resampling.BILINEAR))
+
+
 def _render_slab(arr, p, t, preset, module_index):
     h, w = arr.shape[:2]
     y, x = np.mgrid[0:h, 0:w]
@@ -328,6 +344,9 @@ def _render_slab(arr, p, t, preset, module_index):
     rng = np.random.default_rng(_seed(preset["seed"], "slab-signal", frame_clock))
     registration = p.get("frame_jitter", 0)
     xn = xn + registration * (rng.normal(0, .25) + .12 * rng.normal(size=(h, 1)))
+    if p.get("edge_ripple", 0) > 0:
+        ripple = _signal_noise(preset["seed"], "slab-edge", round(t * preset["treatment_fps"]), (1, h), (1, 144))
+        xn = xn + ripple * p["edge_ripple"]
     wobble = _smooth(preset["seed"], "slab-shape", clock * .6, preset["variation_mode"]) * q["jitter"] * .18 * preset["depth"]
     count = int(q["count"])
     width = _modulated(preset, "slab", "width", q["width"], t, .02, .8)
@@ -359,10 +378,19 @@ def _render_slab(arr, p, t, preset, module_index):
             split_fill = np.clip((center + width * .18 - xn) / max(.001, width * .20), 0, 1)
             tint = fill_magenta * ((1 - p["fill_gradient"]) + p["fill_gradient"] * split_fill)
             color = (1 - tint[..., None]) * np.array((.95, .965, .94)) + tint[..., None] * np.array((.90, .32, 1.0))
+        if p.get("vertical_tint", 0) > 0:
+            gradient = np.clip((yn - vertical_center + half_height) / (2 * half_height), 0, 1)
+            warm = np.array((.78, .57, .59)); cool = np.array((.34, .22, .75))
+            gradient_color = warm + gradient[..., None] * (cool - warm)
+            color = color * (1 - p["vertical_tint"]) + gradient_color * p["vertical_tint"]
+        if np.ndim(color) > 1:
             arr += (core * fill_flicker * p["intensity"])[..., None] * color
         else:
             _add(arr, core * fill_flicker * p["intensity"], color)
-        _add(arr, edge * q["magenta"] * p["intensity"], np.array((.78, .02, .65), dtype=np.float32))
+        edge_color = np.array((.78, .02, .65), dtype=np.float32)
+        if p.get("vertical_tint", 0) > 0:
+            edge_color = edge_color * (1 - p["vertical_tint"]) + np.array((.95, .38, .12)) * p["vertical_tint"]
+        _add(arr, edge * q["magenta"] * p["intensity"], edge_color)
         fringe = np.exp(-(((dist - width * .72) / max(.003, q["edge_softness"] * 1.7)) ** 2)) * vertical_mask
         _add(arr, fringe * q["cyan"], np.array((.02, .55, .45), dtype=np.float32))
         ghost_offset = float(p.get("ghost_offset", .24))
@@ -372,12 +400,26 @@ def _render_slab(arr, p, t, preset, module_index):
         ghost *= float(p.get("ghost_opacity", .34)) * (.78 + .22 * _smooth(preset["seed"], "slab-ghost", round(t * preset["treatment_fps"]) + index, preset["variation_mode"]))
         ghost *= 1 - cut_active * .90 * (yn > notch_center)
         ghost *= (1 - p.get("ghost_grain", 0)) + p.get("ghost_grain", 0) * np.clip(rng.normal(.65, .52, (h, w)), 0, 1)
+        detail = p.get("cloud_detail", 0)
+        if detail > 0:
+            signal = _signal_noise(preset["seed"], f"slab-cloud-{index}", frame_clock, (w, h), (360, 288))
+            patches = _signal_noise(preset["seed"], f"slab-density-{index}", frame_clock, (w, h), (18, 16))
+            granules = np.clip(signal * 1.3 - .12, 0, 1.8)
+            density = np.clip(.7 + patches * .35, .4, 1.1)
+            ghost *= (1 - detail) + detail * np.clip(.8 + signal * 1.2, 0, 1.5)
         _add(arr, ghost * float(p.get("intensity", 1.0)), np.array((.68, .66, .70), dtype=np.float32))
         if p.get("cloud_strength", 0) > 0:
             # Noise lives around the source, with a broad halo and uneven
             # signal density; it does not lift the whole background uniformly.
             cloud_mask = np.exp(-((xn - center) / (width * 1.4)) ** 2 - ((yn - vertical_center - p.get("cloud_position", 0)) / (half_height * 1.2)) ** 4)
             cloud = np.clip(rng.normal(.14, .30, (h, w)), 0, 1) * cloud_mask
+            if detail > 0:
+                # Concentrate the granular spill at the left edge and above
+                # the block, leaving the right-hand ghost legible.
+                halo_y = yn - vertical_center - p.get("cloud_position", 0)
+                halo = np.exp(-((xn - center + width * .45) / (width * .55)) ** 2 - (halo_y / (half_height * 1.25)) ** 4)
+                cap = np.exp(-((xn - center + width * .1) / (width * .8)) ** 2 - ((halo_y + half_height) / .22) ** 2)
+                cloud = cloud * (1 - detail) + granules * density * np.maximum(halo, cap) * detail
             tint = p.get("cloud_tint", .8)
             cloud_color = (1 - tint) * np.array((.72, .82, .69)) + tint * np.array((.60, .08, .95))
             _add(arr, cloud * p["cloud_strength"], cloud_color)
@@ -422,6 +464,8 @@ def _render_blinds(arr, p, t, preset, module_index):
         envelope *= vertical_window
         taper = 1 - p["taper"] * (1 - envelope)
         outer = p["thickness"] * .4 + .12 / (p["rows"] ** 2 + 1) * np.exp(-((u - asym) / .96) ** 2)
+        if p.get("tail_spread", 0) > 0:
+            outer += p["tail_spread"] * .07 / p["rows"] * np.exp(-((u - asym) / .7) ** 2)
         local_thickness = outer * np.clip(taper, .35, 1.2) + p["swelling"] * envelope * .36 / p["rows"]
         irregular = 1 + p["irregularity"] * .18 * _smooth(preset["seed"], "blind-width", row + clock, preset["variation_mode"])
         edge_power = 2 + (1 - np.clip(p.get("edge_softness", .06) / .4, 0, 1)) * 6
@@ -430,12 +474,14 @@ def _render_blinds(arr, p, t, preset, module_index):
         # near-rectangular bright section.
         mask *= .62 + .32 * envelope
         white = np.array((1.0, .985, .98), dtype=np.float32)
-        _add(arr, mask, white)
+        _add(arr, mask * p.get("intensity", 1), white)
         edge = np.exp(-((distance / np.maximum(.001, local_thickness + .002 + p["edge_softness"] * .10)) ** 2)) - mask
         edge *= np.clip(.35 + envelope, 0, 1) * (1 + p.get("edge_softness", .06) * 2)
         edge = np.clip(edge, 0, 1) * p["magenta"]
+        if p.get("edge_bias", 0) != 0:
+            edge *= 1 + p["edge_bias"] * np.tanh((asym - u) * 5)
         color = _hsv(base_hue + .004 * row, .82, .8)
-        _add(arr, edge, color)
+        _add(arr, edge * p.get("intensity", 1), color)
 
 
 def _render_flare(arr, p, t, preset, module_index):
@@ -444,7 +490,13 @@ def _render_flare(arr, p, t, preset, module_index):
     h, w = arr.shape[:2]
     y, x = np.mgrid[0:h, 0:w].astype(np.float32)
     x /= max(1, w - 1); y /= max(1, h - 1)
-    sweep = np.exp(-((y - p["position_y"]) / p["spread"]) ** 2)
+    distance = y - p["position_y"]
+    if p.get("bend", 0) != 0:
+        distance = distance - p["bend"] * .24 * ((x - p["position_x"]) / p["reach"]) ** 2
+    spread = p["spread"]
+    if p.get("asymmetry", 0) != 0:
+        spread = spread * (1 + p["asymmetry"] * .75 * np.sign(distance))
+    sweep = np.exp(-(distance / spread) ** 2)
     sweep *= .12 + 1.15 * np.exp(-((x - p["position_x"]) / p["reach"]) ** 2)
     rng = np.random.default_rng(_seed(preset["seed"], "flare", round(t * preset["treatment_fps"])))
     boundary = np.exp(-((sweep - .28) / .16) ** 2)
@@ -519,6 +571,9 @@ def _raster(arr, p, seed, treatment_frame):
     chroma = rng.normal(0, p["chroma"], (h, w, 1)).astype(np.float32)
     result[..., 0] += chroma[..., 0]
     result[..., 2] -= chroma[..., 0]
+    if p.get("line_noise", 0) > 0:
+        streaks = _signal_noise(seed, "line-grain", treatment_frame, (w, h), (120, 576))
+        result += streaks[..., None] * p["line_noise"] * np.sqrt(np.clip(luminance, 0, 1))
     return result
 
 

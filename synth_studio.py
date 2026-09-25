@@ -141,7 +141,7 @@ class SynthStudio(QMainWindow):
         self.setWindowTitle("Nebula Synth")
         self.resize(1280, 800)
         if preset is None and sequence is None and composition is None:
-            composition = reference_composition()
+            composition = reference_composition(refined=True)
         if preset is None:
             preset = curated_presets()["Reference blinds"]
         self.preset = normalize_synth(preset)
@@ -213,7 +213,7 @@ class SynthStudio(QMainWindow):
             self.preset_widgets.append(button)
         outer.addLayout(header)
         sequence_actions = QHBoxLayout()
-        for text, slot in (("New clip", self.new_composition), ("Reference 15s", self.load_reference_sequence), ("Save…", self.save_sequence_dialog), ("Open…", self.load_sequence_dialog)):
+        for text, slot in (("New clip", self.new_composition), ("Refined 15s", self.load_refined_sequence), ("Approved 15s", self.load_reference_sequence), ("Save…", self.save_sequence_dialog), ("Open…", self.load_sequence_dialog)):
             button = QPushButton(text); button.clicked.connect(slot); sequence_actions.addWidget(button)
         sequence_actions.addStretch(1)
         outer.addLayout(sequence_actions)
@@ -440,8 +440,11 @@ class SynthStudio(QMainWindow):
     def load_reference_sequence(self):
         self.set_composition(reference_composition())
 
+    def load_refined_sequence(self):
+        self.set_composition(reference_composition(refined=True))
+
     def new_composition(self):
-        project = reference_composition()
+        project = reference_composition(refined=True)
         project["name"] = "New composition"
         project["sections"] = [project["sections"][1]]
         project["sections"][0]["duration"] = 15.
