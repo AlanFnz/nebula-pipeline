@@ -95,6 +95,31 @@ def blank_composition():
     return composition_from_sequence(source)
 
 
+def particle_composition():
+    """One editable section; the particle module owns its assembly cycle."""
+    project = blank_composition()
+    project["name"] = "Particle head"
+    project["source"]["name"] = "Particle head"
+    project["phrases"]["custom"]["name"] = "Assemble / disperse"
+    state = project["source"]["states"]["blank"]
+    state["enabled"] = ["particles", "bloom", "raster"]
+    state["overrides"].update({
+        "speed": 1., "depth": 0., "treatment_fps": 25,
+        "particles.period": 15., "particles.phase": .03,
+        "particles.count": 42000, "particles.dot_size": 1.3,
+        "particles.dispersion": 1.1, "particles.collapse": .8,
+        "particles.turbulence": .3, "particles.yaw": -48.,
+        "particles.pitch": -4., "particles.rotation_speed": 4.,
+        "particles.intensity": 2.3, "particles.saturation": .45,
+        "particles.color_spread": .6, "particles.color_drift": .012,
+        "particles.shimmer": .45, "particles.xray": .025,
+        "bloom.threshold": .3, "bloom.radius": 6., "bloom.strength": .35,
+        "raster.softness": .3, "raster.lines": .12, "raster.grain": .05,
+        "raster.chroma": .006, "raster.line_noise": .045,
+    })
+    return normalize_composition(project)
+
+
 def _number(value, label, low, high, integer=False):
     if not isinstance(value, (int, float)) or not math.isfinite(value) or not low <= value <= high:
         raise ValueError(f"{label} must be between {low} and {high}")

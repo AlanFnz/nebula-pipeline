@@ -19,8 +19,8 @@ def pixels(project, time=.4):
 @pytest.mark.parametrize("effect", EFFECTS, ids=lambda effect: effect.id)
 def test_effects_can_be_applied_to_a_new_section_and_bypassed(effect):
     project = blank_composition()
-    # Processors need a source. The two generators also work from an empty field.
-    if effect.id not in {"forms", "rays"}:
+    # Processors need a source. Generators also work from an empty field.
+    if effect.id not in {"forms", "rays", "particles"}:
         project["effects"]["forms"] = effect_preset("forms")
     baseline = pixels(project)
     project["sections"][0]["effects"][effect.id] = effect_preset(effect.id)

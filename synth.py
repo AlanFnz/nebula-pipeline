@@ -18,6 +18,8 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageFilter
 
+from synth_particles import render_particles
+
 SYNTH_SCHEMA_VERSION = 1
 SYNTH_PRESETS_DIR = Path.home() / ".nebula_pipeline" / "synth_presets"
 
@@ -117,6 +119,35 @@ MODULES = (
         P("intensity", "Ray intensity", 1.0, .1, 1.5, .01, "Brightness of the white rays and their colored edges."),
         P("tail_spread", "Soft ray tails", 0.0, 0, 1, .01, "Broadens the tapered shoulders outside the central aperture."),
         P("edge_bias", "Colored tail balance", 0.0, -1, 1, .01, "Moves the colored ray fringe toward the left or right tail."),
+    )),
+    Module("particles", "Particle attractor", "Dots assemble around an invisible 3D surface, then disperse.", (
+        P("attractor", "Attractor", 0, 0, 2, 1, "Invisible procedural surface; only particles are rendered.", choices=("Head", "Sphere", "Ring")),
+        P("assembly", "Assembly", 1.0, 0, 1, .01, "0 = dispersed field; 1 = assembled surface. Breathing animates below this ceiling."),
+        P("breathing", "Assembly cycle", 1.0, 0, 1, .01, "Depth of automatic assembly / release. Set to 0 to hold Assembly fixed."),
+        P("period", "Cycle seconds", 12.0, .5, 120, .5, "One assembly / release cycle at global speed 1."),
+        P("count", "Particle count", 22000, 200, 60000, 100, "More points create a denser signal field.", kind="int"),
+        P("dot_size", "Dot size", 1.2, .5, 6, .1, "Soft dot radius at 576-pixel image height."),
+        P("dispersion", "Dispersion", 1.0, 0, 2, .01, "Spread of released particles around the attractor."),
+        P("turbulence", "Turbulence", .18, 0, 1, .01, "Continuous wandering, stronger away from the surface."),
+        P("collapse", "Collapse to band", .0, 0, 1, .01, "Released dots compress toward a low horizontal band."),
+        P("flow", "Flow speed", .7, 0, 4, .05, "Rate of the continuous turbulent field."),
+        P("phase", "Cycle phase", 0.0, 0, 1, .01, "Move the assembly cycle forward; .5 starts assembled."),
+        P("yaw", "Head turn", -20.0, -180, 180, 1, "Starting rotation around the vertical axis."),
+        P("pitch", "Tilt", 0.0, -90, 90, 1, "Tilt the entire 3D field."),
+        P("rotation_speed", "Turn degrees / sec", 4.0, -90, 90, .5, "Continuous rotation at global speed 1; 0 holds the view."),
+        P("scale", "Scale", 1.0, .2, 2, .01, "Size of the attractor in the image."),
+        P("position_x", "Horizontal position", 0.0, -1, 1, .01),
+        P("position_y", "Vertical position", 0.0, -1, 1, .01),
+        P("perspective", "Perspective", .65, 0, 1, .01, "0 = orthographic; 1 = stronger depth foreshortening."),
+        P("xray", "See-through", .08, 0, 1, .01, "Visibility of the back surface through the front dots."),
+        P("relief", "Surface relief", .85, 0, 1, .01, "Directional point brightness reveals the nose, eyes and mouth; no solid surface is drawn."),
+        P("intensity", "Intensity", 1.35, 0, 3, .01),
+        P("hue", "Hue", .76, 0, 1, .01, "Color of the central band; 0 = red, .33 = green, .67 = blue."),
+        P("saturation", "Saturation", .65, 0, 1, .01),
+        P("color_spread", "Spectral spread", .85, 0, 2, .01, "Different colors along the vertical volume."),
+        P("color_drift", "Color drift", .025, 0, .5, .005, "Slow color circulation per second."),
+        P("shimmer", "Shimmer", .45, 0, 1, .01, "Per-dot brightness fluctuation, independent of its trajectory."),
+        P("jitter", "Scan registration", .0015, 0, .02, .0005, "Small held shifts across scan lines."),
     )),
     Module("flare", "Signal flare", "An asymmetric horizontal exposure sweep around the source.", (
         P("strength", "Exposure", 0.0, 0, 3, .01, "Adds a clipped white signal flare."),
@@ -675,6 +706,7 @@ def _breakup(arr, p, t, preset):
 RENDERERS = {
     "slab": lambda arr, params, t, preset, index: _render_slab(arr, params, t, preset, index),
     "blinds": lambda arr, params, t, preset, index: _render_blinds(arr, params, t, preset, index),
+    "particles": lambda arr, params, t, preset, index: render_particles(arr, params, t, preset, _seed(preset["seed"], "particles")),
     "flare": lambda arr, params, t, preset, index: _render_flare(arr, params, t, preset, index),
     "warp": lambda arr, params, t, preset, index: _warp(arr, params, t, preset),
     "separation": lambda arr, params, t, preset, index: _separate(arr, params, t, preset),
