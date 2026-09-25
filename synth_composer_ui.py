@@ -244,7 +244,8 @@ class CompositionPanel(QWidget):
             prefix = section["id"] + ":"
             states = [state for name, state in compiled["states"].items() if not self.scope or name.startswith(prefix)]
             label = f"SECTION {self.index + 1:02d} / {self.document['phrases'][section['phrase']]['name']}" if self.scope else "WHOLE CLIP / section overrides take priority"
-            self.effects_panel.set_context(target["effects"], self.document["effects"] if self.scope else {}, states, label, bool(self.scope))
+            context_key = section["id"] if self.scope else None
+            self.effects_panel.set_context(target["effects"], self.document["effects"] if self.scope else {}, states, label, bool(self.scope), (self.scope, context_key))
             for key, control in self.macro_controls.items():
                 control.set_value(target["macros"][key], key in target["locks"])
             geometry = target["geometry"]

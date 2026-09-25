@@ -71,7 +71,10 @@ affects the interface only; saved compositions and exported pixels are unchanged
   section, independently of the section's source phrase. Rays and Venetian
   blinds are two starting settings of the same configurable generator.
 - Each effect shows its own parameters and whether it is active, intermittent
-  or off. Authored parameters that vary are shown as ranges. Click a range to
+  or off. **Used in this section** lists the active effects as shortcuts to
+  their controls. Selecting another section opens an active effect if the
+  previously inspected effect is unused there. Off applies only to the
+  inspected effect, not to the section. Authored parameters that vary are shown as ranges. Click a range to
   start a fixed value at its lower bound, then edit it. **↶** restores that
   parameter's recipe or inherited value. Unedited parameters keep animating.
   **Follow recipe** retains the authored enable/disable changes; **On** or

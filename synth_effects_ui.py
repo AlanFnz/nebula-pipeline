@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
 )
 
 from synth_effects import EFFECTS, EFFECT_BY_ID, describe_effects, effect_preset, parameter
+from studio_theme import COLORS
 
 
 def format_value(path, value):
@@ -87,10 +88,18 @@ class EffectsPanel(QWidget):
         super().__init__()
         self.entries = {}; self.parent_entries = {}; self.summary = {}
         self.effect_id = "rays"; self.controls = {}; self.rows = {}
+        self.context_key = None
         self.updating = False
         layout = QVBoxLayout(self); layout.setContentsMargins(8, 8, 8, 8)
         self.scope_label = QLabel(); self.scope_label.setObjectName("sectionTitle"); self.scope_label.setWordWrap(True)
         layout.addWidget(self.scope_label)
+        self.used_effects = QLabel(); self.used_effects.setWordWrap(True)
+        self.used_effects.setObjectName("muted")
+        self.used_effects.setOpenExternalLinks(False)
+        self.used_effects.linkActivated.connect(self.inspect_effect)
+        layout.addWidget(self.used_effects)
+        inspector_label = QLabel("INSPECT EFFECT"); inspector_label.setObjectName("sectionTitle")
+        layout.addWidget(inspector_label)
         self.selector = QComboBox(); self.selector.currentIndexChanged.connect(self.select_effect)
         self.selector.setToolTip("Every effect can be used in any section. Select one to inspect its own parameters.")
         layout.addWidget(self.selector)
@@ -115,11 +124,22 @@ class EffectsPanel(QWidget):
         self.note.setWordWrap(True); self.note.setObjectName("muted"); layout.addWidget(self.note)
         layout.addStretch(1)
 
-    def set_context(self, entries, parent_entries, states, scope_label, local):
+    def set_context(self, entries, parent_entries, states, scope_label, local, context_key):
         self.updating = True
         self.entries = copy.deepcopy(entries); self.parent_entries = copy.deepcopy(parent_entries)
         self.summary = describe_effects(states)
         self.scope_label.setText(scope_label)
+        active = [effect for effect in EFFECTS if self.summary[effect.id]["active"]]
+        if context_key != self.context_key and not self.summary[self.effect_id]["active"] and active:
+            self.effect_id = active[0].id
+            with QSignalBlocker(self.more): self.more.setChecked(False)
+        self.context_key = context_key
+        links = []
+        for effect in active:
+            label = effect.label + (" (intermittent)" if self.summary[effect.id]["intermittent"] else "")
+            links.append(f'<a href="{effect.id}" style="color: {COLORS["accent"]}">{label}</a>')
+        prefix = "Used in this section: " if local else "Used across the clip: "
+        self.used_effects.setText(prefix + (" · ".join(links) if links else "none. Choose an effect below to build this section."))
         with QSignalBlocker(self.selector), QSignalBlocker(self.mode):
             self.selector.clear()
             for effect in EFFECTS:
@@ -130,6 +150,10 @@ class EffectsPanel(QWidget):
             self.mode.setItemText(0, "Follow whole clip / recipe" if local else "Follow recipe")
         self.updating = False
         self.refresh_effect()
+
+    def inspect_effect(self, effect_id):
+        index = self.selector.findData(effect_id)
+        if index >= 0: self.selector.setCurrentIndex(index)
 
     def select_effect(self, index):
         if self.updating or index < 0: return
@@ -167,7 +191,7 @@ class EffectsPanel(QWidget):
         self.apply_button.setText("Replace settings" if info["active"] else "+ Apply effect")
         self.status.setText("Active during part of the recipe. On keeps it enabled throughout." if info["intermittent"] else
                             "Active. Unedited values keep following their recipe." if info["active"] else
-                            "Off. Apply a preset to add this effect, or turn it on with recipe values.")
+                            f"{effect.label} is off in this scope. Other effects are listed above. Apply a preset to add it.")
         self.show_more(self.more.isChecked())
         self.updating = False
 

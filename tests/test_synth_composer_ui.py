@@ -5,7 +5,8 @@ import time
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
-from PySide6.QtCore import QThreadPool
+from PySide6.QtCore import QThreadPool, Qt
+from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QFileDialog, QTableWidget, QPushButton
 
 from synth_studio import SynthStudio
@@ -168,6 +169,7 @@ def test_effect_inspector_shows_animation_and_local_absolute_edits(window):
     row.reset_button.click()
     assert row.value_stack.currentWidget() is row.animated_value
     panel.select_section(1)
+    effects.inspect_effect("rays")
     assert "off" in effects.selector.currentText()
     assert not effects.controls["blinds.rows"].input.isEnabled()
     before = render_sequence_frame(window.sequence, 6.2, (120, 96)).tobytes()
@@ -203,3 +205,33 @@ def test_new_clip_supports_combining_effects_and_local_bypass(window):
     assert window.composition["sections"][0]["effects"]["breakup"]["mode"] == "off"
     panel.reset_controls()
     assert effects.controls["breakup.bands"].input.value() == 9
+
+
+def test_timeline_click_shows_effects_used_by_blocks_and_ghosts(window):
+    original = copy.deepcopy(window.composition)
+    effects = window.composer.effects_panel
+    effects.inspect_effect("rays")
+    rect = window.section_timeline.rectangles()[1]
+    QTest.mouseClick(window.section_timeline, Qt.MouseButton.LeftButton, pos=rect.center().toPoint())
+    assert window.composer.index == 1
+    assert effects.effect_id == "forms"
+    assert effects.summary["forms"]["active"]
+    assert effects.summary["ghosts"]["active"]
+    assert not effects.summary["rays"]["active"]
+    assert "Luminous forms" in effects.used_effects.text()
+    assert "Ghosts / trails" in effects.used_effects.text()
+    assert "Rays / Venetian blinds" not in effects.used_effects.text()
+    # The summary is a navigation control, not an edit to the recipe.
+    effects.used_effects.linkActivated.emit("ghosts")
+    assert effects.effect_id == "ghosts"
+    assert window.composition == original
+    assert window.undo_compositions == []
+    # Inspecting or turning off an effect deliberately must not switch away.
+    effects.inspect_effect("rays")
+    assert "Rays / Venetian blinds is off" in effects.status.text()
+    window.composer.refresh()
+    assert effects.effect_id == "rays"
+    effects.inspect_effect("forms")
+    effects.mode.setCurrentIndex(effects.mode.findData("off"))
+    assert effects.effect_id == "forms"
+    assert not effects.summary["forms"]["active"]
