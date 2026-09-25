@@ -13,6 +13,7 @@ from pathlib import Path
 
 from synth import MODULE_BY_ID, SHAPES, _seed, curated_presets
 from synth_sequence import normalize_sequence, reference_sequence
+from synth_effects import apply_effects, merge_effects, normalize_effects
 
 FORMAT = "nebula-composition"
 MACROS = {
@@ -65,10 +66,10 @@ def reference_composition(refined=False):
         "name": "Refined signal" if refined else "Composite signal", "fps": source["fps"], "seed": source["seed"],
         "source": source,
         "phrases": {key: {"name": name, "start": start, "end": end} for key, name, start, end in PHRASES},
-        "macros": neutral_macros(), "geometry": default_geometry(), "variation": 0, "locks": [],
+        "macros": neutral_macros(), "geometry": default_geometry(), "effects": {}, "variation": 0, "locks": [],
         "sections": [
             {"id": f"section-{index + 1}", "phrase": key, "duration": round(end - start, 2),
-             "macros": neutral_macros(), "geometry": default_geometry(section=True), "variation": 0, "locks": []}
+             "macros": neutral_macros(), "geometry": default_geometry(section=True), "effects": {}, "variation": 0, "locks": []}
             for index, (key, _name, start, end) in enumerate(PHRASES)
         ],
     }
@@ -80,8 +81,18 @@ def composition_from_sequence(sequence):
     result = reference_composition()
     result.update(name=source["name"], source=source, fps=source["fps"], seed=source["seed"])
     result["phrases"] = {"custom": {"name": source["name"], "start": 0., "end": source["duration"]}}
-    result["sections"] = [{"id": "section-1", "phrase": "custom", "duration": source["duration"], "macros": neutral_macros(), "geometry": default_geometry(section=True), "variation": 0, "locks": []}]
+    result["sections"] = [{"id": "section-1", "phrase": "custom", "duration": source["duration"], "macros": neutral_macros(), "geometry": default_geometry(section=True), "effects": {}, "variation": 0, "locks": []}]
     return result
+
+
+def blank_composition():
+    """A single clean section to build from reusable effects."""
+    source = normalize_sequence({
+        "schema_version": 1, "name": "Free composition", "duration": 15., "fps": 25, "seed": 2409,
+        "states": {"blank": {"preset": "Reference blinds", "enabled": [], "overrides": {"slab.ghost_opacity": 0., "slab.cloud_strength": 0., "slab.cloud_detail": 0.}}},
+        "cues": [{"time": 0., "state": "blank", "transition": "cut"}],
+    })
+    return composition_from_sequence(source)
 
 
 def _number(value, label, low, high, integer=False):
@@ -128,6 +139,7 @@ def normalize_composition(raw):
     result["seed"] = _number(raw.get("seed", 0), "Seed", 0, 2**31 - 1, True)
     result["macros"] = _controls(raw.get("macros", {}))
     result["geometry"] = _geometry(raw.get("geometry", {}))
+    result["effects"] = normalize_effects(raw.get("effects", {}))
     result["variation"] = _number(raw.get("variation", 0), "Variation", 0, 2**31 - 1, True)
     result["locks"] = [key for key in raw.get("locks", []) if key in MACROS]
     phrases = result.get("phrases")
@@ -156,6 +168,7 @@ def normalize_composition(raw):
         section["duration"] = max(1, round(duration * result["fps"])) / result["fps"]
         section["macros"] = _controls(section.get("macros", {}))
         section["geometry"] = _geometry(section.get("geometry", {}), section=True)
+        section["effects"] = normalize_effects(section.get("effects", {}))
         section["variation"] = _number(section.get("variation", 0), "Variation", 0, 2**31 - 1, True)
         section["locks"] = [key for key in section.get("locks", []) if key in MACROS]
     if sum(section["duration"] for section in sections) > 3600:
@@ -201,6 +214,17 @@ def _adjust_state(state, macros, seed_offset, geometry):
     return result
 
 
+def phrase_events(project, section):
+    phrase = project["phrases"][section["phrase"]]
+    first, last = phrase["start"], phrase["end"]
+    cues = project["source"]["cues"]
+    active = next((cue for cue in reversed(cues) if cue["time"] <= first), cues[0])
+    events = [copy.deepcopy(cue) for cue in cues if first <= cue["time"] < last]
+    if not events or events[0]["time"] > first:
+        events.insert(0, dict(active, time=first, transition="cut", duration=0.))
+    return events
+
+
 def compile_composition(raw):
     """Compile the arrangement to the same public sequence format as before."""
     project = normalize_composition(raw)
@@ -209,15 +233,12 @@ def compile_composition(raw):
     fps = project["fps"]
     ranges = section_ranges(project)
     result["duration"] = ranges[-1][1]
-    source_cues = project["source"]["cues"]
     # The optional field track keeps its original absolute-time contract.
     for section, (start, end) in zip(project["sections"], ranges):
         phrase = project["phrases"][section["phrase"]]
         first, last = phrase["start"], phrase["end"]
-        active = next((cue for cue in reversed(source_cues) if cue["time"] <= first), source_cues[0])
-        events = [copy.deepcopy(cue) for cue in source_cues if first <= cue["time"] < last]
-        if not events or events[0]["time"] > first:
-            events.insert(0, dict(active, time=first, transition="cut", duration=0.))
+        events = phrase_events(project, section)
+        effects = merge_effects(project["effects"], section["effects"])
         macros = {key: project["macros"][key] * section["macros"][key] for key in MACROS}
         rate = macros["rhythm"]
         cycle = (last - first) / rate
@@ -231,7 +252,8 @@ def compile_composition(raw):
                     break
                 state_name = f"{section['id']}:{cue['state']}"
                 if state_name not in result["states"]:
-                    result["states"][state_name] = _adjust_state(project["source"]["states"][cue["state"]], macros, offset, effective_geometry(project, section))
+                    state = _adjust_state(project["source"]["states"][cue["state"]], macros, offset, effective_geometry(project, section))
+                    result["states"][state_name] = apply_effects(state, effects)
                 item = dict(cue, time=frame / fps, state=state_name)
                 item["duration"] = min(float(cue.get("duration", 0)) / rate, end - frame / fps)
                 if cue.get("transition") in {"flash", "sweep"}:

@@ -156,6 +156,13 @@ MODULES = (
         P("chroma", "Chroma noise", .035, 0, .25, .005, "Small colored noise component."),
         P("line_noise", "Horizontal grain", 0.0, 0, .5, .01, "Correlated signal grain along short horizontal streaks."),
     )),
+    Module("breakup", "Signal breakup", "Held horizontal tears and dropouts across the combined image.", (
+        P("amount", "Horizontal tear", .08, 0, .5, .01, "Maximum horizontal displacement as a fraction of image width."),
+        P("bands", "Bands", 18, 1, 96, 1, "Number of independently displaced horizontal bands."),
+        P("dropout", "Dropouts", .12, 0, 1, .01, "Probability of a band losing its signal."),
+        P("rate", "Changes per second", 8.0, 0, 60, .5, "Hold rate of the tears; zero freezes the pattern."),
+        P("mix", "Mix", .75, 0, 1, .01, "Blend the broken signal with the original."),
+    )),
 )
 MODULE_BY_ID = {module.id: module for module in MODULES}
 
@@ -649,6 +656,22 @@ def _raster(arr, p, seed, treatment_frame):
     return result
 
 
+def _breakup(arr, p, t, preset):
+    if p["mix"] == 0 or (p["amount"] == 0 and p["dropout"] == 0):
+        return arr
+    h, w = arr.shape[:2]
+    rng = np.random.default_rng(_seed(preset["seed"], "breakup", math.floor(t * p["rate"] + 1e-9)))
+    bands = int(p["bands"])
+    band = np.minimum(np.arange(h) * bands // h, bands - 1)
+    shifts = np.rint(rng.uniform(-1, 1, bands) * p["amount"] * w).astype(int)[band]
+    x = np.arange(w)[None, :] - shifts[:, None]
+    result = arr[np.arange(h)[:, None], np.clip(x, 0, w - 1)].copy()
+    background = np.array((.055, .067, .055), dtype=np.float32)
+    result[(x < 0) | (x >= w)] = background
+    result[rng.random(bands)[band] < p["dropout"]] = background
+    return arr * (1 - p["mix"]) + result * p["mix"]
+
+
 RENDERERS = {
     "slab": lambda arr, params, t, preset, index: _render_slab(arr, params, t, preset, index),
     "blinds": lambda arr, params, t, preset, index: _render_blinds(arr, params, t, preset, index),
@@ -658,6 +681,7 @@ RENDERERS = {
     "smear": lambda arr, params, t, preset, index: _smear(arr, params),
     "bloom": lambda arr, params, t, preset, index: _bloom(arr, params),
     "raster": lambda arr, params, t, preset, index: _raster(arr, params, preset["seed"], round(t * preset["treatment_fps"])),
+    "breakup": lambda arr, params, t, preset, index: _breakup(arr, params, t, preset),
 }
 
 

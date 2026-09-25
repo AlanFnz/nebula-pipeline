@@ -10,9 +10,10 @@ def pixels(sequence, time):
     return render_sequence_frame(sequence, time, (96, 72)).tobytes()
 
 
-def test_neutral_composition_preserves_every_approved_frame():
-    original = reference_sequence()
-    project = reference_composition()
+@pytest.mark.parametrize("refined", [False, True])
+def test_neutral_composition_preserves_every_approved_frame(refined):
+    original = reference_sequence(refined=refined)
+    project = reference_composition(refined=refined)
     assert len(project["sections"]) == 6
     compiled = compile_composition(project)
     assert compiled["duration"] == 15
