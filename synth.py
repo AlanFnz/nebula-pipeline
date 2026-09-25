@@ -64,6 +64,7 @@ MODULES = (
         P("notch", "Missing chunks", .08, 0, 1, .01, "Adds deterministic interruptions to the block."),
         P("intensity", "Core intensity", 1.0, .1, 1.5, .01, "Brightness of the white slab body."),
         P("fill_magenta", "Magenta fill", 0.0, 0, 1, .01, "Moves the slab body from neutral white toward violet-magenta."),
+        P("fill_gradient", "Split fill", 0.0, 0, 1, .01, "Concentrates the magenta fill on the left, leaving a white right core."),
         P("ghost_width", "Ghost width", .32, .05, 1, .01, "Width of the dimmer right-hand ghost."),
         P("ghost_offset", "Ghost offset", .24, .02, .8, .01, "Distance of the secondary ghost to the right."),
         P("ghost_opacity", "Ghost opacity", .34, 0, 1, .01, "Strength of the secondary ghost."),
@@ -71,6 +72,11 @@ MODULES = (
         P("magenta", "Magenta edge", .85, 0, 1, .01, "Purple/magenta channel strength."),
         P("cyan", "Cyan fringe", .42, 0, 1, .01, "Green/cyan channel fringe strength."),
         P("jitter", "Shape irregularity", .12, 0, .5, .01, "Slow shape wobble; does not randomize every frame."),
+        P("frame_jitter", "Frame registration", 0.0, 0, .04, .001, "Small independent horizontal registration changes at the treatment rate."),
+        P("ghost_grain", "Ghost grain", 0.0, 0, 1, .01, "Breaks the secondary block into fine signal noise."),
+        P("cloud_strength", "Signal cloud", 0.0, 0, 1, .01, "Local noisy halo surrounding the block."),
+        P("cloud_tint", "Cloud violet", .8, 0, 1, .01, "Blends gray-green signal noise toward violet."),
+        P("cloud_position", "Cloud vertical offset", 0.0, -1, 1, .01, "Moves the noisy halo above or below the block."),
     )),
     Module("blinds", "Irregular Venetian blinds", "Horizontal rays that swell into an asymmetric central aperture.", (
         P("rows", "Ray count", 9, 1, 32, 1, "Number of horizontal rays", kind="int"),
@@ -90,6 +96,14 @@ MODULES = (
         P("row_drift", "Row drift", .08, 0, .5, .01, "Independent smooth drift for each ray."),
         P("irregularity", "Irregularity", .16, 0, 1, .01, "Uneven thickness and ray breaks."),
         P("magenta", "Magenta edge", .9, 0, 1, .01, "Colored edge around white rays."),
+    )),
+    Module("flare", "Signal flare", "An asymmetric horizontal exposure sweep around the source.", (
+        P("strength", "Exposure", 0.0, 0, 3, .01, "Adds a clipped white signal flare."),
+        P("position_y", "Vertical position", .5, 0, 1, .01, "Centre of the horizontal sweep."),
+        P("position_x", "Horizontal centre", .62, 0, 1, .01, "Strongest part of the exposure."),
+        P("spread", "Vertical spread", .25, .02, 2, .01, "From a narrow horizontal burst to full-frame exposure."),
+        P("reach", "Horizontal reach", .4, .05, 2, .01, "Width of the flare around its centre."),
+        P("fringe", "Violet fringe", .2, 0, 1, .01, "Violet noise around the exposure boundary."),
     )),
     Module("warp", "Independent warp", "Displaces rows and columns without temporal feedback.", (
         P("amount", "Warp amount", .035, 0, .25, .001, "Normalized displacement."),
@@ -113,6 +127,7 @@ MODULES = (
         P("strength", "Strength", .55, 0, 2, .01, "Glow contribution."),
     )),
     Module("raster", "Raster + grain", "Scan lines, fine grain and restrained color noise.", (
+        P("softness", "Signal softness", 0.0, 0, 5, .1, "Softens the signal before grain; radius at 720-pixel width."),
         P("lines", "Scanline depth", .18, 0, .8, .01, "Darkness of alternating rows."),
         P("grain", "Fine grain", .08, 0, .5, .01, "Fine luminance grain."),
         P("chroma", "Chroma noise", .035, 0, .25, .005, "Small colored noise component."),
@@ -309,6 +324,10 @@ def _render_slab(arr, p, t, preset, module_index):
     yn = (y / max(1, h - 1)) * 2 - 1
     q = p
     clock = _clock(preset, t)
+    frame_clock = round(t * preset["treatment_fps"])
+    rng = np.random.default_rng(_seed(preset["seed"], "slab-signal", frame_clock))
+    registration = p.get("frame_jitter", 0)
+    xn = xn + registration * (rng.normal(0, .25) + .12 * rng.normal(size=(h, 1)))
     wobble = _smooth(preset["seed"], "slab-shape", clock * .6, preset["variation_mode"]) * q["jitter"] * .18 * preset["depth"]
     count = int(q["count"])
     width = _modulated(preset, "slab", "width", q["width"], t, .02, .8)
@@ -316,41 +335,52 @@ def _render_slab(arr, p, t, preset, module_index):
     vertical_center = float(p.get("position_y", 0)) + .08 * _smooth(preset["seed"], "slab-y", clock * .4, preset["variation_mode"]) * preset["depth"]
     half_height = max(.02, float(p.get("height", .62)))
     vertical_distance = np.abs(yn - vertical_center)
-    vertical_power = 2 + 12 * float(p.get("edge_hardness", .82))
-    vertical_mask = np.exp(-((vertical_distance / half_height) ** vertical_power))
-    vertical_mask *= np.clip((half_height + .04 - vertical_distance) / .04, 0, 1) ** (1.0 - .8 * float(p.get("edge_hardness", .82)))
+    vertical_mask = np.clip((half_height - vertical_distance) / max(.004, (1 - p["edge_hardness"]) * .10), 0, 1)
     for index in range(count):
         center = float(p.get("position_x", .2)) + (index - (count - 1) / 2) * spacing + wobble
         dist = np.abs(xn - center)
-        core_power = 4 + 12 * float(p.get("edge_hardness", .82))
         frame_clock = round(t * preset["treatment_fps"])
         fast_signal = _smooth(preset["seed"], "slab-fill", frame_clock + index * .17, "stepped")
         fill_flicker = .62 + .36 * (fast_signal + 1) / 2
-        core = np.exp(-((dist / max(.001, width / 2)) ** core_power)) * vertical_mask * fill_flicker * float(p.get("intensity", 1.0))
-        notch_center = _smooth(preset["seed"], "slab-notch", index + clock * .25, preset["variation_mode"]) * .38
-        notch_band = np.exp(-(((yn - notch_center) / .07) ** 8))
+        core = np.clip((width / 2 - dist) / max(.002, q["edge_softness"]), 0, 1) * vertical_mask
+        notch_center = vertical_center + _smooth(preset["seed"], "slab-notch", index + frame_clock, "stepped") * half_height
         # Rectangular bites remove the right side of the body while leaving a
         # narrow vertical stem, which produces the L/T fragments in the study.
-        cut_region = ((xn - center) > width * .08) & ((xn - center) < width * .72) & (np.abs(yn - notch_center) < .14)
+        cut_region = ((xn - center) > -width * .30) & (np.abs(yn - notch_center) < half_height * .65)
         notch_probability = float(p.get("notch", 0))
         cut_active = 1.0 if fast_signal < (2 * notch_probability - 1) else 0.0
         core *= 1 - cut_active * cut_region
         hollow = float(p.get("hollow", 0))
         core *= 1 - hollow * np.exp(-((dist / max(.001, width * .25)) ** 8))
-        edge = np.exp(-(((dist - width / 2) / max(.002, q["edge_softness"])) ** 2)) * vertical_mask
+        edge = np.exp(-(((xn - center + width / 2) / max(.002, q["edge_softness"])) ** 2)) * vertical_mask
         fill_magenta = float(p.get("fill_magenta", 0.0))
-        color = (1.0 - fill_magenta) * np.array((1.0, .985, .98), dtype=np.float32) + fill_magenta * np.array((.92, .16, .72), dtype=np.float32)
-        _add(arr, core, color)
-        _add(arr, edge * q["magenta"], np.array((1.0, .04, .65), dtype=np.float32))
+        color = (1.0 - fill_magenta) * np.array((.95, .965, .94), dtype=np.float32) + fill_magenta * np.array((.76, .26, .91), dtype=np.float32)
+        if p.get("fill_gradient", 0) > 0:
+            split_fill = np.clip((center + width * .18 - xn) / max(.001, width * .20), 0, 1)
+            tint = fill_magenta * ((1 - p["fill_gradient"]) + p["fill_gradient"] * split_fill)
+            color = (1 - tint[..., None]) * np.array((.95, .965, .94)) + tint[..., None] * np.array((.90, .32, 1.0))
+            arr += (core * fill_flicker * p["intensity"])[..., None] * color
+        else:
+            _add(arr, core * fill_flicker * p["intensity"], color)
+        _add(arr, edge * q["magenta"] * p["intensity"], np.array((.78, .02, .65), dtype=np.float32))
         fringe = np.exp(-(((dist - width * .72) / max(.003, q["edge_softness"] * 1.7)) ** 2)) * vertical_mask
         _add(arr, fringe * q["cyan"], np.array((.02, .55, .45), dtype=np.float32))
         ghost_offset = float(p.get("ghost_offset", .24))
         ghost_width = max(.02, width * float(p.get("ghost_width", .32)))
         ghost_dist = np.abs(xn - center - ghost_offset)
-        ghost = np.exp(-((ghost_dist / ghost_width) ** (3 + 8 * float(p.get("edge_hardness", .82))))) * vertical_mask
+        ghost = np.clip((ghost_width - ghost_dist) / max(.006, q["edge_softness"]), 0, 1) * vertical_mask
         ghost *= float(p.get("ghost_opacity", .34)) * (.78 + .22 * _smooth(preset["seed"], "slab-ghost", round(t * preset["treatment_fps"]) + index, preset["variation_mode"]))
-        ghost *= 1 - cut_active * .55 * notch_band
+        ghost *= 1 - cut_active * .90 * (yn > notch_center)
+        ghost *= (1 - p.get("ghost_grain", 0)) + p.get("ghost_grain", 0) * np.clip(rng.normal(.65, .52, (h, w)), 0, 1)
         _add(arr, ghost * float(p.get("intensity", 1.0)), np.array((.68, .66, .70), dtype=np.float32))
+        if p.get("cloud_strength", 0) > 0:
+            # Noise lives around the source, with a broad halo and uneven
+            # signal density; it does not lift the whole background uniformly.
+            cloud_mask = np.exp(-((xn - center) / (width * 1.4)) ** 2 - ((yn - vertical_center - p.get("cloud_position", 0)) / (half_height * 1.2)) ** 4)
+            cloud = np.clip(rng.normal(.14, .30, (h, w)), 0, 1) * cloud_mask
+            tint = p.get("cloud_tint", .8)
+            cloud_color = (1 - tint) * np.array((.72, .82, .69)) + tint * np.array((.60, .08, .95))
+            _add(arr, cloud * p["cloud_strength"], cloud_color)
 
 
 def _render_blinds(arr, p, t, preset, module_index):
@@ -359,7 +389,7 @@ def _render_blinds(arr, p, t, preset, module_index):
     xn = (x / max(1, w - 1)) * 2 - 1
     yn = y / max(1, h - 1)
     clock = _clock(preset, t)
-    base_hue = .86 + .03 * _smooth(preset["seed"], "blind-hue", clock, preset["variation_mode"])
+    base_hue = .76 + .025 * _smooth(preset["seed"], "blind-hue", clock, preset["variation_mode"])
     orientation = float(p.get("orientation", 0))
     theta = orientation * math.pi / 2
     yn2 = yn * 2 - 1
@@ -382,7 +412,7 @@ def _render_blinds(arr, p, t, preset, module_index):
         absu = np.abs(u - asym)
         # A shallow plateau creates the broad white patches; the outer ramp
         # preserves the pinched/tapered ends seen in the reference.
-        shoulder = max(.01, half_aperture * .32)
+        shoulder = max(.01, half_aperture * (.12 + p["taper"] * .24))
         envelope = np.clip((half_aperture - absu) / shoulder, 0, 1)
         envelope = np.power(envelope, .72)
         vertical_center = .5 + float(p.get("aperture_vertical", 0)) * .35
@@ -391,22 +421,35 @@ def _render_blinds(arr, p, t, preset, module_index):
         vertical_window = np.power(vertical_window, .65)
         envelope *= vertical_window
         taper = 1 - p["taper"] * (1 - envelope)
-        outer_scale = 1.0 + 1.8 / max(1, int(p["rows"]))
-        local_thickness = p["thickness"] * outer_scale * (1 + p["swelling"] * envelope * (3.0 + .55 * _smooth(preset["seed"], "blind-bulk", row, preset["variation_mode"])))
-        local_thickness *= np.clip(taper, .08, 1.2)
+        outer = p["thickness"] * .4 + .12 / (p["rows"] ** 2 + 1) * np.exp(-((u - asym) / .96) ** 2)
+        local_thickness = outer * np.clip(taper, .35, 1.2) + p["swelling"] * envelope * .36 / p["rows"]
         irregular = 1 + p["irregularity"] * .18 * _smooth(preset["seed"], "blind-width", row + clock, preset["variation_mode"])
         edge_power = 2 + (1 - np.clip(p.get("edge_softness", .06) / .4, 0, 1)) * 6
         mask = np.exp(-((distance / np.maximum(.001, local_thickness * irregular)) ** edge_power))
         # Thin rays remain visible to the edges while the aperture holds a
         # near-rectangular bright section.
-        mask *= .78 + .22 * envelope
+        mask *= .62 + .32 * envelope
         white = np.array((1.0, .985, .98), dtype=np.float32)
         _add(arr, mask, white)
-        edge = np.exp(-((distance / np.maximum(.001, local_thickness * 1.8)) ** 2)) - mask * .7
+        edge = np.exp(-((distance / np.maximum(.001, local_thickness + .002 + p["edge_softness"] * .10)) ** 2)) - mask
         edge *= np.clip(.35 + envelope, 0, 1) * (1 + p.get("edge_softness", .06) * 2)
         edge = np.clip(edge, 0, 1) * p["magenta"]
-        color = _hsv(base_hue + .015 * row, .82, .8)
+        color = _hsv(base_hue + .004 * row, .82, .8)
         _add(arr, edge, color)
+
+
+def _render_flare(arr, p, t, preset, module_index):
+    if p["strength"] <= 0:
+        return
+    h, w = arr.shape[:2]
+    y, x = np.mgrid[0:h, 0:w].astype(np.float32)
+    x /= max(1, w - 1); y /= max(1, h - 1)
+    sweep = np.exp(-((y - p["position_y"]) / p["spread"]) ** 2)
+    sweep *= .12 + 1.15 * np.exp(-((x - p["position_x"]) / p["reach"]) ** 2)
+    rng = np.random.default_rng(_seed(preset["seed"], "flare", round(t * preset["treatment_fps"])))
+    boundary = np.exp(-((sweep - .28) / .16) ** 2)
+    _add(arr, boundary * np.clip(rng.normal(.2, .3, (h, w)), 0, 1) * p["fringe"], np.array((.8, .08, 1.0)))
+    _add(arr, sweep * p["strength"], np.array((.96, .98, .94)))
 
 
 def _warp(arr, p, t, preset):
@@ -466,6 +509,9 @@ def _bloom(arr, p):
 def _raster(arr, p, seed, treatment_frame):
     h, w = arr.shape[:2]
     result = arr.copy()
+    if p.get("softness", 0) > 0:
+        signal = Image.fromarray(np.clip(result * 255, 0, 255).astype(np.uint8))
+        result = np.asarray(signal.filter(ImageFilter.GaussianBlur(p["softness"] * w / 720)), dtype=np.float32) / 255
     result[::2] *= 1 - p["lines"]
     rng = np.random.default_rng(_seed(seed, "raster", treatment_frame))
     luminance = np.mean(result, axis=2, keepdims=True)
@@ -479,6 +525,7 @@ def _raster(arr, p, seed, treatment_frame):
 RENDERERS = {
     "slab": lambda arr, params, t, preset, index: _render_slab(arr, params, t, preset, index),
     "blinds": lambda arr, params, t, preset, index: _render_blinds(arr, params, t, preset, index),
+    "flare": lambda arr, params, t, preset, index: _render_flare(arr, params, t, preset, index),
     "warp": lambda arr, params, t, preset, index: _warp(arr, params, t, preset),
     "separation": lambda arr, params, t, preset, index: _separate(arr, params, t, preset),
     "smear": lambda arr, params, t, preset, index: _smear(arr, params),

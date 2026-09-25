@@ -4,12 +4,13 @@ from __future__ import annotations
 import copy
 import json
 import math
+from functools import lru_cache
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
-from synth import _seed, SYNTH_SCHEMA_VERSION, curated_presets, normalize_synth, render_synth_frame
+from synth import _seed, curated_presets, normalize_synth, render_synth_frame
 
 SEQUENCE_SCHEMA_VERSION = 1
 NEUTRAL_FIELD = {
@@ -23,130 +24,14 @@ NEUTRAL_FIELD = {
 }
 
 
-def _state(base_name, overrides=None, enabled=None):
-    return {"preset": base_name, "overrides": overrides or {}, **({"enabled": enabled} if enabled is not None else {})}
+@lru_cache(maxsize=1)
+def _reference_data():
+    return json.loads((Path(__file__).parent / "presets" / "composite-study-15s.json").read_text())
 
 
 def reference_sequence():
-    """A 15 second authored study of the reference's rapid shape changes."""
-    return {
-        "schema_version": SEQUENCE_SCHEMA_VERSION,
-        "name": "Reference study · first 15 seconds",
-        "duration": 15.0,
-        "fps": 25,
-        "seed": 15025,
-        "field": {
-            "valley_start": 11.4,
-            "valley_end": 13.2,
-            "valley_gain": .45,
-            "cloud_start": 8.2,
-            "cloud_strength": .045,
-            "cloud_late_start": 14.2,
-            "cloud_late_rate": .20,
-        },
-        "states": {
-            "blinds": _state("Reference blinds", {"blinds.aperture": .52, "blinds.aperture_position": .40, "blinds.aperture_height": .64, "blinds.thickness": .014, "blinds.swelling": .78, "blinds.taper": .45, "blinds.curvature": .02, "warp.amount": .002, "separation.amount": .004, "smear.amount": .045, "bloom.strength": .18, "raster.grain": .045}),
-            "burst": _state("Reference blinds", {"blinds.aperture": .52, "blinds.aperture_position": .40, "blinds.thickness": .022, "blinds.swelling": 1.0, "blinds.taper": .48, "warp.amount": .035, "separation.amount": .012, "smear.amount": .18, "bloom.strength": .40}),
-            "slab": _state("Luminous slab", {"slab.height": .60, "slab.position_x": .16, "slab.position_y": .04, "slab.width": .30, "slab.edge_softness": .010, "slab.edge_hardness": .94, "slab.notch": .16, "slab.intensity": .96, "slab.ghost_width": .58, "slab.ghost_offset": .30, "slab.ghost_opacity": .40, "smear.amount": .12, "separation.amount": .006}),
-            "double": _state("Luminous slab", {"slab.count": 1, "slab.height": .56, "slab.position_x": .08, "slab.spacing": .32, "slab.width": .24, "slab.edge_softness": .010, "slab.position_y": .06, "slab.notch": .38, "slab.intensity": .86, "slab.ghost_width": .82, "slab.ghost_offset": .34, "slab.ghost_opacity": .46, "smear.amount": .16, "separation.amount": .009}),
-            "magenta": _state("Luminous slab", {"slab.count": 1, "slab.height": .58, "slab.position_x": .16, "slab.position_y": .04, "slab.width": .26, "slab.edge_softness": .012, "slab.notch": .28, "slab.intensity": .76, "slab.fill_magenta": .78, "slab.magenta": 1.0, "slab.ghost_width": .72, "slab.ghost_offset": .34, "slab.ghost_opacity": .48, "bloom.strength": .32, "smear.amount": .13, "separation.amount": .006}),
-            "outline": _state("Luminous slab", {"slab.height": .56, "slab.position_x": .17, "slab.position_y": .02, "slab.width": .17, "slab.edge_softness": .008, "slab.hollow": .98, "slab.edge_hardness": .98, "slab.notch": .40, "slab.intensity": .52, "slab.ghost_width": .70, "slab.ghost_offset": .34, "slab.ghost_opacity": .42, "bloom.strength": .20, "smear.amount": .07, "separation.amount": .004}),
-            "noisy": _state("Luminous slab", {"slab.height": .58, "slab.position_x": .18, "slab.position_y": .03, "slab.width": .28, "slab.edge_softness": .012, "slab.notch": .48, "slab.intensity": .80, "slab.ghost_width": .78, "slab.ghost_offset": .36, "slab.ghost_opacity": .52, "bloom.strength": .28, "raster.grain": .18, "raster.chroma": .06, "smear.amount": .16, "separation.amount": .003}),
-            "dimfilled": _state("Luminous slab", {"slab.height": .56, "slab.position_x": .18, "slab.position_y": .02, "slab.width": .26, "slab.edge_softness": .012, "slab.hollow": .02, "slab.notch": .32, "slab.intensity": .70, "slab.ghost_width": .72, "slab.ghost_offset": .34, "slab.ghost_opacity": .36, "bloom.strength": .18, "raster.grain": .11, "raster.chroma": .03, "smear.amount": .10, "separation.amount": .002}),
-            "one": _state("Reference blinds", {"blinds.rows": 1, "blinds.thickness": .075, "blinds.aperture": .24, "blinds.aperture_height": .52, "blinds.swelling": 1.0, "blinds.taper": .28, "separation.amount": .004, "smear.amount": .06}),
-            "two": _state("Reference blinds", {"blinds.rows": 2, "blinds.thickness": .026, "blinds.aperture": .22, "blinds.swelling": .90, "blinds.taper": .42, "separation.amount": .004, "smear.amount": .05}),
-            "four": _state("Reference blinds", {"blinds.rows": 4, "blinds.thickness": .020, "blinds.aperture": .24, "blinds.swelling": .88, "blinds.taper": .52, "separation.amount": .005, "smear.amount": .05}),
-            "eight": _state("Reference blinds", {"blinds.rows": 8, "blinds.thickness": .014, "blinds.aperture": .27, "blinds.swelling": .84, "blinds.taper": .66, "separation.amount": .005, "smear.amount": .05}),
-            "dense": _state("Reference blinds", {"blinds.rows": 18, "blinds.thickness": .007, "blinds.aperture": .30, "blinds.swelling": .72, "blinds.taper": .78, "warp.amount": .012, "separation.amount": .004, "smear.amount": .03}),
-            "fullflash": _state("Luminous slab", {"slab.count": 1, "slab.height": 1.0, "slab.position_x": .02, "slab.position_y": 0, "slab.width": .78, "slab.edge_hardness": .35, "slab.intensity": 1.5, "slab.ghost_width": .9, "slab.ghost_offset": .22, "slab.ghost_opacity": .48, "bloom.strength": 1.2, "smear.amount": .22, "separation.amount": .004}),
-            "late_slab": _state("Luminous slab", {"slab.height": .58, "slab.position_x": .18, "slab.position_y": .04, "slab.width": .30, "slab.intensity": .62, "slab.ghost_width": .82, "slab.ghost_offset": .34, "slab.ghost_opacity": .46, "slab.notch": .25, "bloom.strength": .42, "smear.amount": .20, "separation.amount": .004}),
-        },
-        "cues": [
-            {"time": 0.00, "state": "blinds", "transition": "cut", "duration": 0.00},
-            {"time": 0.36, "state": "fullflash", "transition": "flash", "duration": .08, "intensity": .90},
-            {"time": 0.40, "state": "outline", "transition": "cut", "duration": 0.00},
-            {"time": 0.44, "state": "one", "transition": "cut", "duration": 0.00},
-            {"time": 0.48, "state": "fullflash", "transition": "flash", "duration": .08, "intensity": 1.0},
-            {"time": 0.56, "state": "four", "transition": "sweep", "duration": .08, "intensity": .32, "direction": 1},
-            {"time": 0.64, "state": "one", "transition": "cut", "duration": 0.00},
-            {"time": 0.68, "state": "two", "transition": "cut", "duration": 0.00},
-            {"time": 0.72, "state": "four", "transition": "cut", "duration": 0.00},
-            {"time": 0.76, "state": "eight", "transition": "cut", "duration": 0.00},
-            {"time": 0.80, "state": "dense", "transition": "cut", "duration": 0.00},
-            {"time": 0.88, "state": "slab", "transition": "sweep", "duration": .08, "intensity": .25, "direction": 1},
-            {"time": 1.12, "state": "dense", "transition": "cut", "duration": 0.00},
-            {"time": 1.16, "state": "eight", "transition": "cut", "duration": 0.00},
-            {"time": 1.20, "state": "two", "transition": "cut", "duration": 0.00},
-            {"time": 1.24, "state": "burst", "transition": "flash", "duration": .08, "intensity": .76},
-            {"time": 1.32, "state": "slab", "transition": "sweep", "duration": .08, "intensity": .26, "direction": -1},
-            {"time": 1.36, "state": "fullflash", "transition": "flash", "duration": .08, "intensity": 1.0},
-            {"time": 1.44, "state": "burst", "transition": "sweep", "duration": .08, "intensity": .58, "direction": 1},
-            {"time": 1.48, "state": "four", "transition": "cut", "duration": 0.00},
-            {"time": 1.52, "state": "eight", "transition": "cut", "duration": 0.00},
-            {"time": 1.56, "state": "dense", "transition": "cut", "duration": 0.00},
-            {"time": 1.60, "state": "slab", "transition": "sweep", "duration": .08, "intensity": .20, "direction": -1},
-            {"time": 1.72, "state": "eight", "transition": "cut", "duration": 0.00},
-            {"time": 1.76, "state": "burst", "transition": "sweep", "duration": .08, "intensity": .66, "direction": 1},
-            {"time": 1.84, "state": "burst", "transition": "flash", "duration": .08, "intensity": .92},
-            {"time": 1.88, "state": "two", "transition": "cut", "duration": 0.00},
-            {"time": 1.92, "state": "dense", "transition": "cut", "duration": 0.00},
-            {"time": 2.00, "state": "outline", "transition": "cut", "duration": 0.00},
-            {"time": 2.08, "state": "burst", "transition": "flash", "duration": .08, "intensity": .65},
-            {"time": 2.16, "state": "dense", "transition": "cut", "duration": 0.00},
-            {"time": 2.20, "state": "double", "transition": "morph", "duration": .12},
-            {"time": 2.76, "state": "blinds", "transition": "cut", "duration": 0.00},
-            {"time": 3.16, "state": "dense", "transition": "cut", "duration": 0.00},
-            {"time": 3.24, "state": "blinds", "transition": "cut", "duration": 0.00},
-            {"time": 3.28, "state": "double", "transition": "sweep", "duration": .08, "intensity": .20, "direction": 1},
-            {"time": 3.32, "state": "double", "transition": "cut", "duration": 0.00},
-            {"time": 3.84, "state": "slab", "transition": "morph", "duration": .10},
-            {"time": 4.12, "state": "dense", "transition": "cut", "duration": 0.00},
-            {"time": 4.52, "state": "eight", "transition": "cut", "duration": 0.00},
-            {"time": 4.64, "state": "eight", "transition": "cut", "duration": 0.00},
-            {"time": 4.68, "state": "four", "transition": "cut", "duration": 0.00},
-            {"time": 4.72, "state": "two", "transition": "cut", "duration": 0.00},
-            {"time": 4.76, "state": "one", "transition": "cut", "duration": 0.00},
-            {"time": 4.80, "state": "two", "transition": "cut", "duration": 0.00},
-            {"time": 4.84, "state": "eight", "transition": "cut", "duration": 0.00},
-            {"time": 4.92, "state": "burst", "transition": "sweep", "duration": .08, "intensity": .52, "direction": -1},
-            {"time": 5.00, "state": "burst", "transition": "flash", "duration": .08, "intensity": .72},
-            {"time": 5.20, "state": "slab", "transition": "cut", "duration": 0.00},
-            {"time": 6.10, "state": "double", "transition": "morph", "duration": .24},
-            {"time": 7.15, "state": "slab", "transition": "cut", "duration": 0.00},
-            {"time": 7.62, "state": "magenta", "transition": "morph", "duration": .18},
-            {"time": 8.04, "state": "noisy", "transition": "morph", "duration": .20},
-            {"time": 9.15, "state": "double", "transition": "sweep", "duration": .16, "intensity": .28, "direction": -1},
-            {"time": 9.48, "state": "dense", "transition": "cut", "duration": 0.00},
-            {"time": 9.52, "state": "double", "transition": "cut", "duration": 0.00},
-            {"time": 9.80, "state": "slab", "transition": "cut", "duration": 0.00},
-            {"time": 10.08, "state": "eight", "transition": "cut", "duration": 0.00},
-            {"time": 10.12, "state": "eight", "transition": "cut", "duration": 0.00},
-            {"time": 10.16, "state": "four", "transition": "cut", "duration": 0.00},
-            {"time": 10.20, "state": "four", "transition": "cut", "duration": 0.00},
-            {"time": 10.24, "state": "two", "transition": "cut", "duration": 0.00},
-            {"time": 10.28, "state": "four", "transition": "cut", "duration": 0.00},
-            {"time": 10.32, "state": "four", "transition": "cut", "duration": 0.00},
-            {"time": 10.40, "state": "four", "transition": "cut", "duration": 0.00},
-            {"time": 10.48, "state": "one", "transition": "cut", "duration": 0.00},
-            {"time": 10.52, "state": "two", "transition": "sweep", "duration": .08, "intensity": .42, "direction": 1},
-            {"time": 10.68, "state": "burst", "transition": "sweep", "duration": .08, "intensity": .78, "direction": 1},
-            {"time": 10.72, "state": "outline", "transition": "cut", "duration": 0.00},
-            {"time": 10.76, "state": "fullflash", "transition": "flash", "duration": .08, "intensity": 1.0},
-            {"time": 10.84, "state": "double", "transition": "sweep", "duration": .08, "intensity": .25, "direction": -1},
-            {"time": 10.92, "state": "outline", "transition": "cut", "duration": 0.00},
-            {"time": 10.96, "state": "outline", "transition": "cut", "duration": 0.00},
-            {"time": 11.18, "state": "outline", "transition": "morph", "duration": .18},
-            {"time": 11.20, "state": "dense", "transition": "cut", "duration": 0.00},
-            {"time": 11.28, "state": "double", "transition": "cut", "duration": 0.00},
-            {"time": 11.40, "state": "dimfilled", "transition": "cut", "duration": 0.00},
-            {"time": 12.05, "state": "dimfilled", "transition": "cut", "duration": 0.00},
-            {"time": 13.05, "state": "double", "transition": "morph", "duration": .18},
-            {"time": 13.20, "state": "dimfilled", "transition": "cut", "duration": 0.00},
-            {"time": 13.62, "state": "outline", "transition": "cut", "duration": 0.00},
-            {"time": 14.05, "state": "late_slab", "transition": "sweep", "duration": .14, "intensity": .20, "direction": 1},
-            {"time": 14.54, "state": "late_slab", "transition": "flash", "duration": .13, "intensity": .12},
-        ],
-    }
+    """Return an independent, editable copy of the bundled 15-second study."""
+    return copy.deepcopy(_reference_data())
 
 
 def normalize_sequence(raw=None):
@@ -205,7 +90,11 @@ def normalize_sequence(raw=None):
         item = {"time": float(time), "state": cue["state"], "transition": str(cue.get("transition", "cut")), "duration": min(float(duration), result["duration"] - float(time))}
         for key in ("intensity", "direction"):
             if key in cue:
-                item[key] = float(cue[key])
+                value = cue[key]
+                lo, hi = (0, 3) if key == "intensity" else (-1, 1)
+                if not isinstance(value, (int, float)) or not math.isfinite(value) or not lo <= value <= hi:
+                    raise ValueError(f"Cue {key} is outside the supported range")
+                item[key] = float(value)
         if item["transition"] not in {"cut", "morph", "sweep", "flash"}:
             raise ValueError("transition must be cut, morph, sweep or flash")
         normalized.append(item)
@@ -284,20 +173,6 @@ def _interpolate_presets(first, second, amount):
     return normalize_synth(result)
 
 
-def _transition_images(sequence, cue_index, time_seconds, size):
-    cue = sequence["cues"][cue_index]
-    if cue_index == 0 or cue.get("transition") == "cut" or cue.get("duration", 0) <= 0:
-        return render_synth_frame(_state_preset(sequence, cue["state"]), time_seconds=time_seconds, size=size), None, 0.0, cue
-    previous = sequence["cues"][cue_index - 1]
-    duration = float(cue.get("duration", 0))
-    elapsed = time_seconds - float(cue["time"])
-    current = render_synth_frame(_state_preset(sequence, previous["state"]), time_seconds=time_seconds, size=size)
-    target = render_synth_frame(_state_preset(sequence, cue["state"]), time_seconds=time_seconds, size=size)
-    if elapsed >= duration:
-        return target, None, 0.0, cue
-    return current, target, _ease(elapsed / duration), cue
-
-
 def render_sequence_frame(sequence, time_seconds, size=None):
     seq = normalize_sequence(sequence)
     t = max(0.0, min(float(seq["duration"]), float(time_seconds)))
@@ -309,8 +184,8 @@ def render_sequence_frame(sequence, time_seconds, size=None):
             break
     cue = seq["cues"][cue_index]
     transition = cue.get("transition", "cut")
-    amount = 0.0
-    if cue_index > 0 and transition != "cut" and cue.get("duration", 0) > 0:
+    amount = 1.0
+    if transition != "cut" and cue.get("duration", 0) > 0:
         amount = _ease((t - cue["time"]) / cue["duration"])
         if amount >= 1:
             amount = 1.0

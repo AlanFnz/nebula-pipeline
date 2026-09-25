@@ -1,6 +1,8 @@
 import copy
 import subprocess
 
+import pytest
+
 from synth import curated_presets
 from synth_media import export_synth_video
 from synth_sequence import load_sequence, normalize_sequence, reference_sequence, render_sequence_frame, save_sequence
@@ -36,3 +38,29 @@ def test_sequence_export_is_one_continuous_fps_grid(tmp_path):
     export_synth_video(preset, output, sequence=sequence, size=(96, 72))
     info = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "stream=nb_frames,width,height", "-of", "default=noprint_wrappers=1", str(output)], capture_output=True, text=True, check=True).stdout
     assert "nb_frames=5" in info and "width=96" in info and "height=72" in info
+
+
+def test_zero_duration_event_finishes_and_custom_field_is_neutral():
+    sequence = reference_sequence()
+    sequence.pop("field")
+    sequence["cues"] = [{"time": 0, "state": "slab", "transition": "flash", "duration": 0}]
+    flash = render_sequence_frame(sequence, 12, (120, 96))
+    sequence["cues"][0]["transition"] = "cut"
+    assert flash.tobytes() == render_sequence_frame(sequence, 12, (120, 96)).tobytes()
+    assert normalize_sequence(sequence)["field"]["valley_gain"] == 1
+    assert normalize_sequence(sequence)["field"]["cloud_strength"] == 0
+
+
+def test_event_geometry_starts_on_onset_and_flash_has_finite_duration():
+    sequence = reference_sequence()
+    sequence["field"] = {}
+    sequence["cues"] = [
+        {"time": 0, "state": "blinds", "transition": "cut", "duration": 0},
+        {"time": 1, "state": "slab", "transition": "flash", "duration": .08, "intensity": 0},
+    ]
+    event = render_sequence_frame(sequence, 1, (120, 96))
+    sequence["cues"][1]["transition"] = "cut"
+    assert event.tobytes() == render_sequence_frame(sequence, 1, (120, 96)).tobytes()
+    sequence["cues"][1].update(transition="flash", intensity=float("nan"))
+    with pytest.raises(ValueError):
+        normalize_sequence(sequence)
