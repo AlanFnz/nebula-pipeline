@@ -235,3 +235,34 @@ def test_timeline_click_shows_effects_used_by_blocks_and_ghosts(window):
     effects.mode.setCurrentIndex(effects.mode.findData("off"))
     assert effects.effect_id == "forms"
     assert not effects.summary["forms"]["active"]
+
+
+def test_particle_example_controls_undo_save_and_threaded_export(window, tmp_path, monkeypatch):
+    buttons = {button.text(): button for button in window.findChildren(QPushButton)}
+    buttons["Particle head 15s"].click()
+    assert len(window.composition["sections"]) == 1
+    effects = window.composer.effects_panel
+    assert effects.effect_id == "particles"
+    assert effects.summary["particles"]["active"]
+    before = render_sequence_frame(window.sequence, 6, (120, 96)).tobytes()
+    effects.controls["particles.attractor"].input.setCurrentText("Ring")
+    assert render_sequence_frame(window.sequence, 6, (120, 96)).tobytes() != before
+    window.undo_composition()
+    assert render_sequence_frame(window.sequence, 6, (120, 96)).tobytes() == before
+    effects = window.composer.effects_panel
+    effects.controls["particles.breathing"].input.setValue(0.)
+    effects.controls["particles.assembly"].input.setValue(.6)
+    window.composer.duration.setValue(.24)
+    document = tmp_path / "particles.json"
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *args: (str(document), ""))
+    window.save_sequence_dialog()
+    assert load_composition(document) == window.composition
+    output = tmp_path / "particles.mp4"
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *args: (str(output), ""))
+    window.export_dialog()
+    wait_until(lambda: window.export_job is None)
+    assert output.exists(), window.status.text()
+    probe = subprocess.check_output(["ffprobe", "-v", "error", "-show_entries", "stream=nb_frames", "-of", "default=noprint_wrappers=1", str(output)], text=True)
+    assert "nb_frames=6" in probe
+    buttons["Refined 15s"].click()
+    assert not window.composer.effects_panel.summary["particles"]["active"]

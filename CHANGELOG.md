@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Opt-in Particle attractor effect with persistent dots assembling around hidden
+  procedural head, sphere and ring surfaces. Controls cover assembly cycles,
+  dispersion, turbulence, point density/size, rotation, color and signal texture.
+- Separate one-section **Particle head 15s** example, native effect controls,
+  composition save/open, undo/redo and shared preview/export rendering.
+- Existing presets leave particles disabled. Approved and Refined studies keep
+  their prior rendered pixels; no reference media or external head asset is used.
+
 ## 0.2.0 — 2026-09-25
 
 ### Added

@@ -82,7 +82,7 @@ affects the interface only; saved compositions and exported pixels are unchanged
   adjust it locally. Sections can be added, duplicated, removed, reordered,
   and given different durations under **Arrange**. Their internal events are
   generated for you.
-- **Effects** exposes luminous forms, rays / Venetian blinds, ghosts / trails,
+- **Effects** exposes luminous forms, rays / Venetian blinds, particle attractors, ghosts / trails,
   signal breakup, signal drift, granular halos, exposure flares, color
   separation, bloom, and raster / grain. Select any effect in the library and
   **Apply effect** to add it with a preset. Effects can be combined in any
@@ -116,7 +116,7 @@ affects the interface only; saved compositions and exported pixels are unchanged
   saves with the composition and supports undo/redo. **New take** keeps the
   shape, diameter, height, sides and rotation; the Width macro still varies
   rectangular/elliptical forms unless locked. Circles remain circular.
-- **New clip** starts an empty 15-second section. Add forms or rays, then
+- **New clip** starts an empty 15-second section. Add forms, rays or particles, then
   combine them with signal effects. In the bundled studies, choose source
   phrases under **Arrange**. Phrases repeat to fill their duration;
   **Rhythm** controls how quickly their internal changes happen.
@@ -143,6 +143,41 @@ from that registry, and the composition compiler writes ordinary sequence
 overrides. Older documents gain an empty effect rack and keep their pixels.
 The signal-breakup module is disabled in older presets; its held horizontal
 tears and dropouts are deterministic under scrubbing and export.
+
+### Particle attractors
+
+**Particle head 15s** opens a separate one-section example: colored dots gather
+into a slowly turning head and disperse toward a shimmering horizontal field.
+The default startup study and **Refined 15s / Approved 15s** remain unchanged.
+You can also apply **Particle attractor** from Effects to any composition.
+
+- **Assembly** sets how tightly particles follow the invisible surface.
+  **Assembly cycle** controls automatic gathering and release; set it to **0**
+  to hold Assembly at a fixed value. **Cycle seconds** sets the period at global
+  speed 1, and **Cycle phase** changes the starting point. This motion lives in
+  the effect; it does not require extra timeline states. The inspector displays
+  the cycle's settings, not its instantaneous computed assembly value.
+- **Particle count**, **Dot size**, **Dispersion** and **Turbulence** set density,
+  texture and the released field. **More controls** includes collapse toward a
+  horizontal band, rotation, tilt, scale, position, perspective, surface relief,
+  see-through depth, spectral color, shimmer and scan registration.
+- **Head**, **Sphere** and **Ring** are procedural 3D sampling targets. Only
+  particles are visible. The head is a stylized mathematical surface with facial
+  relief, ears and a short neck; no external model or reference pixels are used.
+  Importing arbitrary meshes and physical collision/gravity simulation are not
+  part of this implementation.
+- Combine particles with bloom, raster / grain, color separation, trails or
+  signal breakup. The particle source runs before those treatments. Parameters
+  support whole-clip/local overrides, bypass, restore, undo/redo and save/open.
+  Its own **Scale**, **Head turn** and **Tilt** control the 3D target; the Geometry
+  tab still controls luminous forms and ray apertures.
+
+[`synth_particles.py`](synth_particles.py) keeps seeded point identities and
+evaluates continuous paths directly from time. Scrubbing, held treatment frames
+and export therefore agree without a simulation warmup. The new module is off
+in all existing presets. Regression tests retain every saved pixel hash for both
+375-frame studies; full-resolution frames are also compared with the previous
+commit before shipping this change. Higher particle counts cost more CPU time.
 
 The refined study adds granular halos and ghosts, edge flutter, short horizontal
 noise streaks, blue-violet falloff in dim forms, colored ray tails and uneven
