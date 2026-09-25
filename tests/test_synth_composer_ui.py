@@ -71,6 +71,9 @@ def test_save_open_and_actual_composer_export(window, tmp_path, monkeypatch):
     panel = window.composer
     panel.geometry_shape.setCurrentIndex(panel.geometry_shape.findData("polygon"))
     panel.geometry_controls["sides"].setValue(5)
+    effects = panel.effects_panel
+    effects.selector.setCurrentIndex(effects.selector.findData("breakup"))
+    effects.apply_button.click()
     window.composer.duration.setValue(.48)
     original = copy.deepcopy(window.composition)
     document = tmp_path / "composition.json"
@@ -149,3 +152,54 @@ def test_detailed_editor_has_named_geometry_choices(window):
     assert child.sequence["states"][child.sequence_state_name]["overrides"]["blinds.shape"] == 3
     child.sequence_state_controls["blinds.sides"].set_value(5)
     render_sequence_frame(child.sequence, 0., (120, 96))
+
+
+def test_effect_inspector_shows_animation_and_local_absolute_edits(window):
+    panel = window.composer
+    panel.select_section(0)
+    effects = panel.effects_panel
+    effects.selector.setCurrentIndex(effects.selector.findData("rays"))
+    assert "Animated" in effects.controls["blinds.rows"].origin.text()
+    row = effects.controls["blinds.rows"]
+    assert row.value_stack.currentWidget() is row.animated_value
+    row.animated_value.click()
+    assert row.value_stack.currentWidget() is row.input
+    assert "Fixed" in row.origin.text()
+    row.reset_button.click()
+    assert row.value_stack.currentWidget() is row.animated_value
+    panel.select_section(1)
+    assert "off" in effects.selector.currentText()
+    assert not effects.controls["blinds.rows"].input.isEnabled()
+    before = render_sequence_frame(window.sequence, 6.2, (120, 96)).tobytes()
+    effects.look.setCurrentText("Venetian blinds")
+    effects.apply_button.click()
+    assert effects.controls["blinds.rows"].input.isEnabled()
+    effects.controls["blinds.rows"].input.setValue(17)
+    assert panel.document["sections"][1]["effects"]["rays"]["params"]["blinds.rows"] == 17
+    assert "Fixed" in effects.controls["blinds.rows"].origin.text()
+    assert render_sequence_frame(window.sequence, 6.2, (120, 96)).tobytes() != before
+    effects.restore.click()
+    assert render_sequence_frame(window.sequence, 6.2, (120, 96)).tobytes() == before
+    window.undo_composition()
+    assert panel.document["sections"][1]["effects"]["rays"]["params"]["blinds.rows"] == 17
+    window.redo_composition()
+    assert not panel.document["sections"][1]["effects"]
+
+
+def test_new_clip_supports_combining_effects_and_local_bypass(window):
+    window.new_composition()
+    panel = window.composer; effects = panel.effects_panel
+    for effect in ("forms", "ghosts", "breakup"):
+        effects.selector.setCurrentIndex(effects.selector.findData(effect))
+        effects.apply_button.click()
+    assert set(window.composition["effects"]) == {"forms", "ghosts", "breakup"}
+    effects.controls["breakup.bands"].input.setValue(9)
+    assert window.composition["effects"]["breakup"]["params"]["breakup.bands"] == 9
+    panel.select_section(0)
+    assert effects.controls["breakup.bands"].input.value() == 9
+    assert "whole clip" in effects.controls["breakup.bands"].origin.text()
+    effects.mode.setCurrentIndex(effects.mode.findData("off"))
+    assert window.composition["effects"]["breakup"]["mode"] == "on"
+    assert window.composition["sections"][0]["effects"]["breakup"]["mode"] == "off"
+    panel.reset_controls()
+    assert effects.controls["breakup.bands"].input.value() == 9

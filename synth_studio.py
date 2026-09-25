@@ -397,7 +397,10 @@ class SynthStudio(QMainWindow):
             self.composition_scope = self.composer.scope
         self.composer = None
         while self.panel_layout.count():
-            item = self.panel_layout.takeAt(0); widget = item.widget(); widget and widget.deleteLater()
+            item = self.panel_layout.takeAt(0); widget = item.widget()
+            if widget:
+                widget.hide()
+                widget.deleteLater()
         self.controls.clear(); self.module_groups.clear()
         self.sequence_table = None
         self.sequence_state_controls = {}; self.sequence_enabled_controls = {}; self.sequence_field_controls = {}
@@ -474,11 +477,8 @@ class SynthStudio(QMainWindow):
         self.set_composition(reference_composition(refined=True))
 
     def new_composition(self):
-        project = reference_composition(refined=True)
-        project["name"] = "New composition"
-        project["sections"] = [project["sections"][1]]
-        project["sections"][0]["duration"] = 15.
-        self.set_composition(project)
+        from synth_composition import blank_composition
+        self.set_composition(blank_composition())
 
     def set_composition(self, project):
         project = normalize_composition(project)
@@ -496,7 +496,7 @@ class SynthStudio(QMainWindow):
 
     def composition_changed(self, document, action):
         compiled = compile_composition(document)
-        if self.edit_key != action or not action.startswith(("macro:", "geometry:")):
+        if self.edit_key != action or not action.startswith(("macro:", "geometry:", "effect-param:")):
             self.undo_compositions.append(copy.deepcopy(self.composition))
             self.undo_compositions = self.undo_compositions[-30:]
         self.edit_key = action; self.edit_timer.start(400)

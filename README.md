@@ -50,9 +50,8 @@ This first synthesis pass is source-free. Input-video modulation is reserved
 for the next phase; the existing clip workflow remains available from the same
 `studio.py` entry point.
 
-The default view is a **composer**: six sections below the preview and seven
-macro controls for rhythm, width, instability, texture, brightness, flares,
-and magenta. It opens the **Refined 15s** study with every macro at 1×.
+The default view is a **composer**: sections below the preview and an **Effects**
+inspector. It opens the **Refined 15s** study with its original animated recipe.
 **Approved 15s** reloads the earlier study with its original recipe and pixels.
 
 The native editors share a terminal-inspired interface: a system-available
@@ -63,25 +62,48 @@ affects the interface only; saved compositions and exported pixels are unchanged
 
 - Select **Whole clip** to adjust the entire piece, or click a section to
   adjust it locally. Sections can be added, duplicated, removed, reordered,
-  and given different durations. Their internal events are generated for you.
+  and given different durations under **Arrange**. Their internal events are
+  generated for you.
+- **Effects** exposes luminous forms, rays / Venetian blinds, ghosts / trails,
+  signal breakup, signal drift, granular halos, exposure flares, color
+  separation, bloom, and raster / grain. Select any effect in the library and
+  **Apply effect** to add it with a preset. Effects can be combined in any
+  section, independently of the section's source phrase. Rays and Venetian
+  blinds are two starting settings of the same configurable generator.
+- Each effect shows its own parameters and whether it is active, intermittent
+  or off. Authored parameters that vary are shown as ranges. Click a range to
+  start a fixed value at its lower bound, then edit it. **↶** restores that
+  parameter's recipe or inherited value. Unedited parameters keep animating.
+  **Follow recipe** retains the authored enable/disable changes; **On** or
+  **Off throughout scope** overrides those changes. **Restore** removes that
+  effect's overrides from the current scope.
+- Effects use absolute values. Whole-clip settings apply first; section
+  settings override them. Fixed effect values take priority over Geometry
+  and Finishing. A luminous form's companion ghost and granular halo require
+  that form; ghost trails also apply to rays. Exposure flares are independent
+  of the timeline's flash/sweep transitions. There is one instance per effect
+  family, in the renderer's established order.
 - In **Geometry**, choose a rectangle, ellipse, circle or regular polygon.
   Width and height scale rectangular/elliptical forms; circles and polygons
   use a diameter measured as a percentage of image height. Polygons have
   3–32 sides. Rotation is available for rectangles, ellipses and polygons.
   The same geometry shapes the luminous source, its echoes and the central
-  ray aperture. Signal treatment remains in the **Treatment** tab.
+  ray aperture. **Finishing** holds the relative treatment adjustments:
+  1× means the original recipe, so different sections can look different at 1×.
 - **Original geometry** retains each source state's authored shape. Sections
   default to **From whole clip** and can override it independently. Geometry
   saves with the composition and supports undo/redo. **New take** keeps the
   shape, diameter, height, sides and rotation; the Width macro still varies
   rectangular/elliptical forms unless locked. Circles remain circular.
-- **New clip** starts a 15-second arrangement using the refined Blocks & ghosts phrase.
-  Choose other phrases from the section dropdown. Phrases repeat to fill their
-  duration; **Rhythm** controls how quickly their internal changes happen.
+- **New clip** starts an empty 15-second section. Add forms or rays, then
+  combine them with signal effects. In the bundled studies, choose source
+  phrases under **Arrange**. Phrases repeat to fill their duration;
+  **Rhythm** controls how quickly their internal changes happen.
 - **New take** makes a reproducible variation in the current scope. **Keep**
-  locks a macro value during variation. **Reset controls** returns that scope
-  to 1×, its original geometry and variation; **Undo / Redo** recover composition edits.
-- **Save…** keeps the arrangement, macros, locks, variations and a snapshot of
+  locks a macro value during variation. Fixed effect values stay fixed.
+  **Reset controls** clears the scope's effect overrides and returns it to
+  1×, its original geometry and variation; **Undo / Redo** recover composition edits.
+- **Save…** keeps effects, arrangement, macros, locks, variations and a snapshot of
   the source recipe together in a versioned composition document. **Open…**
   accepts compositions and existing detailed sequence files.
 - **Open detailed copy…** opens the generated events and full parameter editor
@@ -94,6 +116,12 @@ existing public sequence format. Preview and export therefore use the same
 sequence renderer as the approved study. A fixed pixel-hash regression checks
 all 375 frames of each study at 96×72 against their earlier renderers;
 composition tests cover local edits, deterministic variation and save/reload.
+[`synth_effects.py`](synth_effects.py) registers each reusable effect's parameter
+paths, activation rules and starting presets. The native inspector is generated
+from that registry, and the composition compiler writes ordinary sequence
+overrides. Older documents gain an empty effect rack and keep their pixels.
+The signal-breakup module is disabled in older presets; its held horizontal
+tears and dropouts are deterministic under scrubbing and export.
 
 The refined study adds granular halos and ghosts, edge flutter, short horizontal
 noise streaks, blue-violet falloff in dim forms, colored ray tails and uneven

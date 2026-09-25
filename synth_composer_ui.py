@@ -12,7 +12,8 @@ from PySide6.QtWidgets import (
 
 from synth import SHAPES
 from studio_theme import COLORS
-from synth_composition import MACROS, default_geometry, effective_geometry, neutral_macros, normalize_composition, section_ranges, vary_composition
+from synth_composition import MACROS, compile_composition, default_geometry, effective_geometry, neutral_macros, normalize_composition, section_ranges, vary_composition
+from synth_effects_ui import EffectsPanel
 
 
 class SectionTimeline(QWidget):
@@ -136,8 +137,12 @@ class CompositionPanel(QWidget):
         layout = QVBoxLayout(self); layout.setContentsMargins(0, 0, 0, 0)
         title = QLabel("02 / COMPOSER"); title.setObjectName("sectionTitle")
         layout.addWidget(title)
-        hint = QLabel("Arrange sections. Shape the whole clip, or focus on one section.")
+        hint = QLabel("Combine effects. Arrange their changes in sections.")
         hint.setWordWrap(True); hint.setObjectName("muted"); layout.addWidget(hint)
+
+        self.arrangement_button = QPushButton(); self.arrangement_button.setCheckable(True)
+        self.arrangement_button.setToolTip("Show section arrangement, duration and frame-rate controls.")
+        layout.addWidget(self.arrangement_button)
 
         clip = QGroupBox("CLIP / TIMING")
         grid = QGridLayout(clip)
@@ -166,15 +171,23 @@ class CompositionPanel(QWidget):
             button = QPushButton(label); button.clicked.connect(callback); row.addWidget(button)
         section_layout.addLayout(row)
         layout.addWidget(section_box)
+        clip.hide(); section_box.hide()
+        self.arrangement_button.toggled.connect(clip.setVisible)
+        self.arrangement_button.toggled.connect(section_box.setVisible)
 
         shape = QGroupBox("PARAMETERS / SCOPE")
         shape_layout = QVBoxLayout(shape)
         self.scope_combo = QComboBox(); self.scope_combo.addItems(["Whole clip", "Selected section"])
         self.scope_combo.currentIndexChanged.connect(self.change_scope); shape_layout.addWidget(self.scope_combo)
         self.look_tabs = QTabWidget()
+        self.effects_panel = EffectsPanel()
+        self.effects_panel.edited.connect(self.change_effect)
+        self.look_tabs.addTab(self.effects_panel, "Effects")
         geometry_page = QWidget(); geometry_layout = QVBoxLayout(geometry_page)
         treatment_page = QWidget(); treatment_layout = QVBoxLayout(treatment_page)
-        self.look_tabs.addTab(geometry_page, "Geometry"); self.look_tabs.addTab(treatment_page, "Treatment")
+        self.look_tabs.addTab(geometry_page, "Geometry"); self.look_tabs.addTab(treatment_page, "Finishing")
+        treatment_hint = QLabel("Relative adjustments to the recipe. 1× keeps its original treatment; different recipes can look different at 1×.")
+        treatment_hint.setWordWrap(True); treatment_hint.setObjectName("muted"); treatment_layout.addWidget(treatment_hint)
         shape_layout.addWidget(self.look_tabs)
         self.geometry_shape = QComboBox()
         self.geometry_shape.currentIndexChanged.connect(self.change_shape)
@@ -215,6 +228,8 @@ class CompositionPanel(QWidget):
             self.duration.setMinimum(len(self.document["sections"]) / self.document["fps"])
             self.duration.setValue(section_ranges(self.document)[-1][1])
             self.fps.setValue(self.document["fps"])
+            count = len(self.document["sections"])
+            self.arrangement_button.setText(f"Arrange / {count} {'section' if count == 1 else 'sections'} · {self.duration.value():.2f}s · {self.document['fps']} fps")
             self.section_combo.clear()
             for index, section in enumerate(self.document["sections"]):
                 self.section_combo.addItem(f"{index + 1} · {self.document['phrases'][section['phrase']]['name']}")
@@ -225,6 +240,11 @@ class CompositionPanel(QWidget):
             self.section_duration.setValue(section["duration"])
             self.scope_combo.setCurrentIndex(self.scope)
             target = self.target()
+            compiled = compile_composition(self.document)
+            prefix = section["id"] + ":"
+            states = [state for name, state in compiled["states"].items() if not self.scope or name.startswith(prefix)]
+            label = f"SECTION {self.index + 1:02d} / {self.document['phrases'][section['phrase']]['name']}" if self.scope else "WHOLE CLIP / section overrides take priority"
+            self.effects_panel.set_context(target["effects"], self.document["effects"] if self.scope else {}, states, label, bool(self.scope))
             for key, control in self.macro_controls.items():
                 control.set_value(target["macros"][key], key in target["locks"])
             geometry = target["geometry"]
@@ -243,7 +263,7 @@ class CompositionPanel(QWidget):
                 control.setEnabled(key == "height" or (not inherited and geometry["shape"] != "original"))
                 self.geometry_rows[key].setVisible({"height": not radial, "diameter": radial, "sides": resolved["shape"] == "polygon", "rotation": resolved["shape"] not in {"original", "circle"}}[key])
             self.geometry_hint.setText("Diameter is a percentage of image height. The source and ray aperture share the same shape." if radial else "Width and height scale the source and ray aperture. 1× preserves their authored proportions.")
-            pristine = not target["variation"] and all(value == 1 for value in target["macros"].values()) and geometry == default_geometry(section=bool(self.scope))
+            pristine = not target["effects"] and not target["variation"] and all(value == 1 for value in target["macros"].values()) and geometry == default_geometry(section=bool(self.scope))
             self.take_label.setText("Default controls in this scope" if pristine else (f"Take {target['variation']}" if target["variation"] else "Custom adjustments"))
         finally:
             self.updating = False
@@ -276,6 +296,16 @@ class CompositionPanel(QWidget):
         document = copy.deepcopy(self.document)
         self.target(document)["macros"][key] = value
         self.commit(document, f"macro:{self.scope}:{self.index}:{key}")
+
+    def change_effect(self, effect_id, entry, action):
+        if self.updating: return
+        document = copy.deepcopy(self.document)
+        effects = self.target(document)["effects"]
+        if entry is None:
+            effects.pop(effect_id, None)
+        else:
+            effects[effect_id] = entry
+        self.commit(document, f"{action}:{self.scope}:{self.index}:{effect_id}")
 
     def change_shape(self, index):
         if self.updating or index < 0: return
@@ -369,4 +399,5 @@ class CompositionPanel(QWidget):
         document = copy.deepcopy(self.document)
         target = self.target(document); target["macros"] = neutral_macros(); target["variation"] = 0
         target["geometry"] = default_geometry(section=bool(self.scope))
+        target["effects"] = {}
         self.commit(document, "reset")
