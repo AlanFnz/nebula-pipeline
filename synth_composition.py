@@ -178,7 +178,7 @@ def _particle_signal_composition():
     return normalize_composition(project)
 
 
-def particle_orbit_composition(refined=True, tape=True):
+def particle_orbit_composition(refined=True, tape=True, centered=True):
     """Two quick expansions with quiet holds and synchronized signal breaks."""
     project = _particle_orbit_original()
     if not refined:
@@ -241,10 +241,10 @@ def particle_orbit_composition(refined=True, tape=True):
     project["sections"] = [dict(copy.deepcopy(section), id=f"section-{i + 1}", phrase=key,
                                 duration=round(phrase["end"] - phrase["start"], 2))
                            for i, (key, phrase) in enumerate(project["phrases"].items())]
-    return _particle_tape_study(project) if tape else normalize_composition(project)
+    return _particle_tape_study(project, centered) if tape else normalize_composition(project)
 
 
-def _particle_tape_study(project):
+def _particle_tape_study(project, centered=True):
     """Keep the impulse clock; replace drawn bars with source-only tape faults."""
     faults = {
         "portrait": {},
@@ -276,6 +276,10 @@ def _particle_tape_study(project):
             "tape.head_switch": .25, "tape.rate": 14., "tape.mix": .75,
         })
         state["overrides"].update(faults[name])
+        if centered:
+            state["overrides"].update({"particles.rotation_speed": 18., "particles.turn_scope": 1,
+                                      "particles.axis_mode": 1, "particles.neck_fade": .42,
+                                      "particles.yaw": -35.})
         states[renamed.get(name, name)] = state
     project["source"]["states"] = states
     for cue in project["source"]["cues"]:

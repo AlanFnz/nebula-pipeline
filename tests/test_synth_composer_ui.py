@@ -261,6 +261,10 @@ def test_particle_example_controls_undo_save_and_threaded_export(window, tmp_pat
     assert effects.controls["particles.motion"].input.currentText() == "Impulse"
     assert effects.controls["particles.attractor"].input.currentText() == "Portrait head"
     assert effects.controls["particles.occlusion"].input.value() == 1.
+    assert effects.controls["particles.rotation_speed"].input.value() == 18.
+    assert effects.controls["particles.turn_scope"].input.currentText() == "Assembled only"
+    assert effects.controls["particles.axis_mode"].input.currentText() == "Centered"
+    assert effects.controls["particles.neck_fade"].input.value() == .42
     assert effects.summary["tape"]["active"]
     assert not effects.summary["rays"]["active"]
     assert effects.controls["particles.period"].input.value() == 7.5
@@ -285,6 +289,17 @@ def test_particle_example_controls_undo_save_and_threaded_export(window, tmp_pat
     assert render_sequence_frame(window.sequence, 1., (120, 96)).tobytes() == before
     effects = window.composer.effects_panel
     effects.inspect_effect("particles")
+    for path, value, t in (("particles.rotation_speed", 0., 1.8), ("particles.axis_mode", 0, 4.), ("particles.neck_fade", 0., 0.)):
+        before = render_sequence_frame(window.sequence, t, (120, 96)).tobytes()
+        control = effects.controls[path].input
+        if path == "particles.axis_mode":
+            control.setCurrentIndex(value)
+        else:
+            control.setValue(value)
+        assert render_sequence_frame(window.sequence, t, (120, 96)).tobytes() != before
+        window.undo_composition()
+        assert render_sequence_frame(window.sequence, t, (120, 96)).tobytes() == before
+        effects = window.composer.effects_panel
     effects.controls["particles.breathing"].input.setValue(0.)
     effects.controls["particles.assembly"].input.setValue(.6)
     window.composer.duration.setValue(.24)

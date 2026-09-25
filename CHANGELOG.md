@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Faster assembled-head turning with an independent, gated turn clock; centered
+  head/cloud rotation removes the expanded volume’s offset orbit. A model-space
+  neck feather softens the mesh cutoff. The current Expand / orbit study uses
+  these controls while preserving its two bursts and tape treatment; saved
+  earlier studies retain their output.
+
 - Portrait head with smoothed geometry and eye surfaces, plus opt-in particle
   depth occlusion to suppress internal/far-side points. The earlier head asset
   and all saved particle studies retain their pixels.

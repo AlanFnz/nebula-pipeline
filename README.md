@@ -152,8 +152,10 @@ anatomical head, rebound and dissolve toward a thin luminous band. Three section
 motion with 11 signal-treatment cues. **Original particles** retains the first
 one-section study and its original pixels.
 **Expand / orbit** opens a 15-second variation with exactly two expansions,
-arranged as two sections. The head holds, expands quickly with a narrow velocity
-peak, revolves as a broad cloud, then gathers again. The portrait uses smooth
+arranged as two sections. The assembled head turns at 18°/s, expands quickly with
+a narrow velocity peak, revolves as a broad cloud at 24°/s, then gathers again.
+A shared centered axis keeps the cloud from circling an offset pivot. The neck
+fades into sparse points above the mesh edge. The portrait uses smooth
 facial geometry, eye surfaces and depth occlusion to suppress the mouth interior
 and far side. A restrained violet/white palette keeps the earlier color direction.
 Tape faults replace the added bars: tracking slips, scanline loss, color lag and
@@ -205,6 +207,13 @@ You can also apply **Particle attractor** from Effects to any composition.
   **Surface occlusion** under More controls hides deeper points behind the
   assembled face using a fixed proxy depth grid. It fades away as particles
   disperse; only points are rendered. Older documents default to zero occlusion.
+- **Turn timing → Assembled only** eases the head turn to a hold during release,
+  keeping **Turn degrees / sec** independent of **Orbit degrees / sec**.
+  **Rotation axis → Centered** aligns both volumes to a common vertical pivot;
+  its reference population is fixed, so changing Particle count retains identities.
+  **Neck feather** softens the lower edge of head targets and restores those dots
+  during expansion. These controls are under Particle attractor → More controls;
+  old documents keep continuous turning, the original origin and no feather.
 - **Tape damage** processes the recorded image after its other treatments.
   Tracking slip and line jitter displace existing pixels; Dropouts remove short
   stretches of scanline. Chroma delay and Color bleed lag/smear the source's own

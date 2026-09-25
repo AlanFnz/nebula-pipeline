@@ -153,12 +153,42 @@ def _orbit_integral(motion, assembly, breathing, acceleration, start,
     return integral
 
 
-def _orbit_cloud(p, time, target, attributes):
+def _outward_direction(target, attributes):
+    direction = target / np.array((.8, 1.1, .8)) + (attributes[:, 4:7] - .5) * 1.4
+    direction /= np.maximum(1e-8, np.linalg.norm(direction, axis=1, keepdims=True))
+    return direction * (.6 + attributes[:, 6] * .8)[:, None]
+
+
+@lru_cache(maxsize=8)
+def _axis_reference(shape, seed):
+    # A fixed population keeps the pivot independent of the displayed count.
+    # Remove the target's offset and the radial distribution's own bias before
+    # rotating; otherwise the whole cloud travels around the origin.
+    target, _, _, attributes = _population(shape, 32768, seed)
+    pivot = target.mean(axis=0)
+    pivot[1] = 0.
+    drift = _outward_direction(target - pivot, attributes).mean(axis=0)
+    pivot.setflags(write=False); drift.setflags(write=False)
+    return pivot, drift
+
+
+def _assembled_turn_time(p, time):
+    """Integrate the assembled gate, so a released cloud keeps its own speed."""
+    integral = _orbit_integral(p.get("motion", 0), p["assembly"], p["breathing"], p["acceleration"], 0.,
+                               p["period"], p.get("expand_seconds", .75), p.get("gather_seconds", 1.), p.get("motion_peak", .8))
+    phase = np.array((p["phase"], time / p["period"] + p["phase"]))
+    released = (np.floor(phase) * integral[-1] + np.interp(phase % 1, np.linspace(0., 1., len(integral)), integral)) * p["period"]
+    return time - (released[1] - released[0])
+
+
+def _orbit_cloud(p, time, target, attributes, drift=None):
     # A rounded, irregular volume, distributed outward from each surface point.
     # Its radius does not taper with height, so it never forms a funnel.
     direction = target / np.array((.8, 1.1, .8)) + (attributes[:, 4:7] - .5) * 1.4
     direction /= np.maximum(1e-8, np.linalg.norm(direction, axis=1, keepdims=True))
     cloud = target + direction * (p["dispersion"] * (.6 + attributes[:, 6] * .8))[:, None]
+    if drift is not None:
+        cloud -= p["dispersion"] * drift
     phase = time / p["period"] + p["phase"]
     if p.get("motion", 0) == 1:
         phase = _surge_phase(p, phase, target, attributes)
@@ -178,6 +208,10 @@ def _orbit_cloud(p, time, target, attributes):
 def particle_field(p, time, seed):
     """Return continuous 3D positions, view normals and persistent attributes."""
     target, normals, cloud, attributes = _population(int(p["attractor"]), int(p["count"]), seed)
+    drift = None
+    if p.get("axis_mode", 0) == 1:
+        pivot, drift = _axis_reference(int(p["attractor"]), seed)
+        target = target - pivot
     phase = time / p["period"] + p["phase"]
     wave = .5 - .5 * math.cos(phase * math.tau)
     hold = np.clip(wave * 1.6, 0, 1)
@@ -198,7 +232,7 @@ def particle_field(p, time, seed):
         transfer = cohesion
     orbit = p.get("release", 0) == 1
     if orbit:
-        loose = _orbit_cloud(p, time, target, attributes)
+        loose = _orbit_cloud(p, time, target, attributes, drift)
     else:
         loose = cloud * p["dispersion"]
         # Collapse toward a horizontal band, like the reference's compressed field.
@@ -221,7 +255,8 @@ def particle_field(p, time, seed):
     if (surges or impulse) and not orbit:
         flow[:, 1:] *= (1 - .9 * p["collapse"] * (1 - cohesion))[:, None]
     points += flow * p["turbulence"] * (.12 + .88 * (1 - cohesion[:, None]))
-    yaw = math.radians(p["yaw"] + time * p["rotation_speed"])
+    turn_time = _assembled_turn_time(p, time) if p.get("turn_scope", 0) == 1 else time
+    yaw = math.radians(p["yaw"] + turn_time * p["rotation_speed"])
     pitch = math.radians(p["pitch"])
     yaw_matrix = np.array(((math.cos(yaw), 0, math.sin(yaw)), (0, 1, 0), (-math.sin(yaw), 0, math.cos(yaw))))
     pitch_matrix = np.array(((1, 0, 0), (0, math.cos(pitch), -math.sin(pitch)), (0, math.sin(pitch), math.cos(pitch))))
@@ -258,6 +293,11 @@ def render_particles(arr, p, time, preset, seed):
     light = (.35 + attributes[:, 14] * .9) * visibility * twinkle * p["intensity"]
     if p.get("released_brightness", 1.) != 1.:
         light *= p["released_brightness"] + (1 - p["released_brightness"]) * cohesion
+    if p.get("neck_fade", 0.) > 0 and int(p["attractor"]) in (0, 3, 4):
+        target = _population(int(p["attractor"]), int(p["count"]), seed)[0]
+        # Fade in model space so the soft edge turns with the head. Restore
+        # those dots during release, retaining the complete expanded cloud.
+        light *= _neck_visibility(target[:, 1], attributes[:, 3], cohesion, p["neck_fade"])
     colors = rgb * light[:, None]
     layer = np.zeros_like(arr)
     # Subpixel splats avoid pixel snapping; fixed reference sizes keep dots
@@ -285,6 +325,15 @@ def render_particles(arr, p, time, preset, seed):
                 slices[axis] = slice(offset, offset + arr.shape[axis])
                 layer += padded[tuple(slices)] * weight
     return arr + layer
+
+
+def _neck_visibility(height, variation, cohesion, width):
+    if width <= 0:
+        return np.ones_like(height)
+    # All head guides end near -1.25. The feather begins just above the lowest
+    # mesh edge; seeded variation prevents a new ruler-straight boundary.
+    feather = _ease((height + 1.18 - (variation - .5) * width * .18) / width)
+    return 1 - (1 - feather) * cohesion ** 2
 
 
 def _surface_visibility(points, x, y, cohesion, aspect, strength):

@@ -8,7 +8,7 @@ import pytest
 from synth import default_synth_preset, normalize_synth, render_synth_frame
 from synth_composition import compile_composition, load_composition, particle_composition, particle_orbit_composition, save_composition
 from synth_effects import describe_effects
-from synth_particles import _orbit_cloud, _population, _surface_visibility, particle_field, render_particles
+from synth_particles import _assembled_turn_time, _neck_visibility, _orbit_cloud, _population, _surface_visibility, particle_field, render_particles
 from synth_sequence import render_sequence_frame
 
 
@@ -99,7 +99,7 @@ def test_particle_composition_roundtrip_overrides_and_local_bypass(tmp_path):
     assert not describe_effects(compile_composition(project)["states"].values())["particles"]["active"]
 
 
-@pytest.mark.parametrize("params", [{"count": 0}, {"attractor": 5}, {"period": 0}, {"assembly": float("nan")}, {"release": 2}, {"orbit_start": 1}, {"orbit_speed": float("inf")}, {"motion": 3}, {"expand_seconds": 0}, {"gather_seconds": 0}, {"motion_peak": 2}])
+@pytest.mark.parametrize("params", [{"count": 0}, {"attractor": 5}, {"period": 0}, {"assembly": float("nan")}, {"release": 2}, {"orbit_start": 1}, {"orbit_speed": float("inf")}, {"motion": 3}, {"expand_seconds": 0}, {"gather_seconds": 0}, {"motion_peak": 2}, {"axis_mode": 2}, {"turn_scope": 2}, {"neck_fade": -1}])
 def test_invalid_particle_controls_are_rejected(params):
     preset, settings = particle_only()
     settings.update(params)
@@ -320,3 +320,61 @@ def test_portrait_mesh_keeps_stable_points_and_valid_normals():
     assert np.allclose(np.linalg.norm(large[1], axis=1), 1., atol=1e-5)
     assert np.isfinite(large[0]).all()
     assert not np.array_equal(small[0], _population(3, 300, 81)[0])
+
+
+def test_previous_tape_portrait_keeps_its_pixels_with_neutral_new_controls():
+    seq = compile_composition(particle_orbit_composition(centered=False))
+    frames = (render_sequence_frame(seq, t, (192, 144)).tobytes() for t in (0, .8, 2., 6., 10., 14.96))
+    # Captured from db21607 before pivot, turn timing and neck feather controls.
+    assert hashlib.sha256(b"".join(frames)).hexdigest() == "da749fa54e59354db5eb9e63177bea6cc0aedb969a601461800390545fe06193"
+
+
+def test_centered_orbit_stays_near_one_axis_and_retains_point_identities():
+    _, p = particle_only()
+    p.update(attractor=4, count=48000, motion=2, release=1, period=7.5, phase=0.,
+             axis_mode=1, turn_scope=1, rotation_speed=18., chaos=.35, turbulence=.1,
+             dispersion=.9, orbit_speed=24., yaw=-35., pitch=0.)
+    for t in (0., 2., 3.5, 4.5, 5.5, 8.5, 10.5, 12.5, 14.96):
+        points = particle_field(p, t, 81)[0]
+        assert np.linalg.norm(points.mean(axis=0)[[0, 2]]) < .025
+    p.update(axis_mode=0, turn_scope=0, rotation_speed=1.5)
+    assert np.linalg.norm(particle_field(p, 5., 81)[0].mean(axis=0)[[0, 2]]) > .3
+    p.update(axis_mode=1, turn_scope=1, count=400)
+    before = particle_field(p, 4., 81)[0]
+    p["count"] = 900
+    assert np.array_equal(before, particle_field(p, 4., 81)[0][:400])
+    particle_field(p, 1000., 81)
+    assert np.array_equal(before, particle_field(dict(p, count=400), 4., 81)[0])
+
+
+def test_head_turn_clock_rotates_while_assembled_and_holds_during_orbit():
+    _, p = particle_only()
+    p.update(motion=2, period=7.5, phase=0., turn_scope=1)
+    assert _assembled_turn_time(p, 0.) == 0.
+    assert _assembled_turn_time(p, 2.) == pytest.approx(2.)
+    assert _assembled_turn_time(p, 5.) == pytest.approx(_assembled_turn_time(p, 3.))
+    assert _assembled_turn_time(p, 8.5) - _assembled_turn_time(p, 7.) == pytest.approx(1.5)
+    for t in (2.1, 2.85, 5.7, 6.7, 7.5, 7500., 1000000.):
+        step = _assembled_turn_time(p, t + .001) - _assembled_turn_time(p, t)
+        assert -.000001 <= step <= .001001
+    p.update(breathing=0., assembly=0.)
+    assert _assembled_turn_time(p, 15.) == pytest.approx(0.)
+    p["assembly"] = 1.
+    assert _assembled_turn_time(p, 15.) == pytest.approx(15.)
+    # A fast assembled turn must not add speed to a fully released orbit.
+    p.update(attractor=4, release=1, count=600, assembly=0., turbulence=0., chaos=0.,
+             axis_mode=1, rotation_speed=80., orbit_speed=24.)
+    fast = particle_field(p, 2., 20)[0]
+    p["rotation_speed"] = 0.
+    assert np.allclose(fast, particle_field(p, 2., 20)[0], atol=1e-12)
+
+
+def test_neck_feather_hides_mesh_edge_and_restores_released_particles():
+    height = np.array((-1.3, -1.24, -1.05, -.90, -.65))
+    variation = np.full(5, .5)
+    feather = _neck_visibility(height, variation, np.ones(5), .42)
+    assert feather[0] == feather[1] == 0.
+    assert np.all(np.diff(feather) >= 0.)
+    assert 0. < feather[2] < feather[3] < feather[4] == 1.
+    assert np.array_equal(_neck_visibility(height, variation, np.zeros(5), .42), np.ones(5))
+    assert np.array_equal(_neck_visibility(height, variation, np.ones(5), 0.), np.ones(5))
