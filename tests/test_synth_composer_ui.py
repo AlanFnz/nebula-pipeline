@@ -2,6 +2,7 @@ import copy
 import os
 import subprocess
 import time
+from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
@@ -240,10 +241,14 @@ def test_timeline_click_shows_effects_used_by_blocks_and_ghosts(window):
 def test_particle_example_controls_undo_save_and_threaded_export(window, tmp_path, monkeypatch):
     buttons = {button.text(): button for button in window.findChildren(QPushButton)}
     buttons["Particle head 15s"].click()
-    assert len(window.composition["sections"]) == 1
+    assert len(window.composition["sections"]) == 3
     effects = window.composer.effects_panel
     assert effects.effect_id == "particles"
     assert effects.summary["particles"]["active"]
+    assert effects.controls["particles.attractor"].input.currentText() == "Human head"
+    assert effects.controls["particles.motion"].input.currentText() == "Surges"
+    assert Path(window.suggested_output_path(".mp4")).is_absolute()
+    assert Path(window.suggested_output_path(".mp4")).name == "particle-signal.mp4"
     before = render_sequence_frame(window.sequence, 6, (120, 96)).tobytes()
     effects.controls["particles.attractor"].input.setCurrentText("Ring")
     assert render_sequence_frame(window.sequence, 6, (120, 96)).tobytes() != before
@@ -264,5 +269,8 @@ def test_particle_example_controls_undo_save_and_threaded_export(window, tmp_pat
     assert output.exists(), window.status.text()
     probe = subprocess.check_output(["ffprobe", "-v", "error", "-show_entries", "stream=nb_frames", "-of", "default=noprint_wrappers=1", str(output)], text=True)
     assert "nb_frames=6" in probe
+    buttons["Original particles"].click()
+    assert len(window.composition["sections"]) == 1
+    assert window.composer.effects_panel.controls["particles.motion"].input.currentText() == "Gentle"
     buttons["Refined 15s"].click()
     assert not window.composer.effects_panel.summary["particles"]["active"]

@@ -6,6 +6,7 @@ import copy
 import json
 import random
 import sys
+from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
 from PySide6.QtCore import QObject, QRunnable, QRect, QSignalBlocker, Qt, QThreadPool, QTimer, Signal
@@ -226,7 +227,7 @@ class SynthStudio(QMainWindow):
             self.preset_widgets.append(button)
         outer.addLayout(header)
         sequence_actions = QHBoxLayout()
-        for text, slot in (("New clip", self.new_composition), ("Refined 15s", self.load_refined_sequence), ("Approved 15s", self.load_reference_sequence), ("Particle head 15s", self.load_particle_composition), ("Save…", self.save_sequence_dialog), ("Open…", self.load_sequence_dialog)):
+        for text, slot in (("New clip", self.new_composition), ("Refined 15s", self.load_refined_sequence), ("Approved 15s", self.load_reference_sequence), ("Particle head 15s", lambda: self.load_particle_composition()), ("Original particles", lambda: self.load_particle_composition(False)), ("Save…", self.save_sequence_dialog), ("Open…", self.load_sequence_dialog)):
             button = QPushButton(text); button.clicked.connect(slot); sequence_actions.addWidget(button)
         sequence_actions.addStretch(1)
         outer.addLayout(sequence_actions)
@@ -480,9 +481,9 @@ class SynthStudio(QMainWindow):
         from synth_composition import blank_composition
         self.set_composition(blank_composition())
 
-    def load_particle_composition(self):
+    def load_particle_composition(self, refined=True):
         from synth_composition import particle_composition
-        self.set_composition(particle_composition())
+        self.set_composition(particle_composition(refined=refined))
         self.composer.effects_panel.inspect_effect("particles")
 
     def set_composition(self, project):
@@ -674,14 +675,20 @@ class SynthStudio(QMainWindow):
         del self.sequence["cues"][self.sequence_table.currentRow()]
         self.sequence = normalize_sequence(self.sequence); self.rebuild_modules(); self.invalidate()
 
+    def suggested_output_path(self, suffix):
+        document = self.composition or self.sequence or self.preset
+        name = "".join(character if character.isalnum() or character in "-_" else "-" for character in document.get("name", "nebula").lower()).strip("-") or "nebula"
+        folder = Path.home() / ("Movies" if suffix == ".mp4" else "Documents")
+        return str((folder if folder.is_dir() else Path.home()) / (name[:80] + suffix))
+
     def save_sequence_dialog(self):
         if self.composition is not None:
-            path, _ = QFileDialog.getSaveFileName(self, "Save composition", "nebula-composition.json", "Nebula composition (*.json)")
+            path, _ = QFileDialog.getSaveFileName(self, "Save composition", self.suggested_output_path(".json"), "Nebula composition (*.json)")
             if path: save_composition(path, self.composition)
             return
         if self.sequence is None:
             self.load_reference_sequence()
-        path, _ = QFileDialog.getSaveFileName(self, "Save synth sequence", "reference-study-15s.json", "Nebula sequence (*.json)")
+        path, _ = QFileDialog.getSaveFileName(self, "Save synth sequence", self.suggested_output_path(".json"), "Nebula sequence (*.json)")
         if path: save_sequence(path, self.sequence)
 
     def load_sequence_dialog(self):
@@ -805,7 +812,7 @@ class SynthStudio(QMainWindow):
             try: self.preset = load_synth(path); self.sequence = None; self.composition = None; self.rebuild_modules(); self.update_timeline_max(); self.invalidate()
             except Exception as exc: QMessageBox.critical(self, "Preset error", str(exc))
     def export_dialog(self):
-        default_name = "reference-study-15s.mp4" if self.sequence is not None else "nebula-synth.mp4"
+        default_name = self.suggested_output_path(".mp4")
         path, _ = QFileDialog.getSaveFileName(self, "Export synth sequence" if self.sequence is not None else "Export synth loop", default_name, "MP4 video (*.mp4)")
         if not path: return
         p = copy.deepcopy(self.preset) if self.sequence is not None else self.collect()

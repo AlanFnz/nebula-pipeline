@@ -84,7 +84,7 @@ affects the interface only; saved compositions and exported pixels are unchanged
   generated for you.
 - **Effects** exposes luminous forms, rays / Venetian blinds, particle attractors, ghosts / trails,
   signal breakup, signal drift, granular halos, exposure flares, color
-  separation, bloom, and raster / grain. Select any effect in the library and
+  separation, signal interference, bloom, and raster / grain. Select any effect in the library and
   **Apply effect** to add it with a preset. Effects can be combined in any
   section, independently of the section's source phrase. Rays and Venetian
   blinds are two starting settings of the same configurable generator.
@@ -146,11 +146,18 @@ tears and dropouts are deterministic under scrubbing and export.
 
 ### Particle attractors
 
-**Particle head 15s** opens a separate one-section example: colored dots gather
-into a slowly turning head and disperse toward a shimmering horizontal field.
+**Particle head 15s** opens the new **Particle signal** study: dots rush into an
+anatomical head, rebound and dissolve toward a thin luminous band. Three sections
+(Charge & gather, Signal storm, Release & return) combine the continuous particle
+motion with 11 signal-treatment cues. **Original particles** retains the first
+one-section study and its original pixels.
 The default startup study and **Refined 15s / Approved 15s** remain unchanged.
 You can also apply **Particle attractor** from Effects to any composition.
 
+- **Motion → Surges** adds **Acceleration**, **Arrival disorder** and
+  **Overshoot**. Groups hesitate, arrive on curved paths at different times and
+  rebound before settling. The cycle's timing drifts continuously. **Gentle**
+  retains the original motion; older saved presets default to Gentle.
 - **Assembly** sets how tightly particles follow the invisible surface.
   **Assembly cycle** controls automatic gathering and release; set it to **0**
   to hold Assembly at a fixed value. **Cycle seconds** sets the period at global
@@ -161,23 +168,33 @@ You can also apply **Particle attractor** from Effects to any composition.
   texture and the released field. **More controls** includes collapse toward a
   horizontal band, rotation, tilt, scale, position, perspective, surface relief,
   see-through depth, spectral color, shimmer and scan registration.
-- **Head**, **Sphere** and **Ring** are procedural 3D sampling targets. Only
-  particles are visible. The head is a stylized mathematical surface with facial
-  relief, ears and a short neck; no external model or reference pixels are used.
-  Importing arbitrary meshes and physical collision/gravity simulation are not
-  part of this implementation.
+- **Human head** uses an anatomical head/neck mesh derived from MakeHuman's
+  CC0 base asset, sampled uniformly by surface area. Geometry and interpolated
+  normals provide the facial detail; the solid mesh is never drawn. The 94 KB
+  asset is bundled for offline use. [Provenance and license](assets/models/README.md)
+  include its pinned source and extraction script. **Stylized head**, **Sphere**
+  and **Ring** retain their earlier procedural surfaces. Arbitrary mesh import
+  and physical collision/gravity simulation are not included.
 - Combine particles with bloom, raster / grain, color separation, trails or
   signal breakup. The particle source runs before those treatments. Parameters
   support whole-clip/local overrides, bypass, restore, undo/redo and save/open.
   Its own **Scale**, **Head turn** and **Tilt** control the 3D target; the Geometry
   tab still controls luminous forms and ray apertures.
+- **Signal interference** is a separate reusable effect: moving chromatic bands,
+  uneven exposure and bent vertical scan strings. Its speed, bending, density,
+  contrast, chroma and mix are editable. The new study also uses the existing
+  warp, separation, trails, bloom, raster, brief exposure crests and tracking breaks.
+  Released brightness dims particles between bursts. Neither reference video
+  pixels nor external services are used by the renderer.
 
 [`synth_particles.py`](synth_particles.py) keeps seeded point identities and
 evaluates continuous paths directly from time. Scrubbing, held treatment frames
 and export therefore agree without a simulation warmup. The new module is off
 in all existing presets. Regression tests retain every saved pixel hash for both
-375-frame studies; full-resolution frames are also compared with the previous
-commit before shipping this change. Higher particle counts cost more CPU time.
+375-frame studies and selected frames of the original particle study. Higher
+particle counts cost more CPU time. Save/export dialogs suggest the current
+composition's name under Documents/Movies, avoiding Finder's read-only root
+working directory.
 
 The refined study adds granular halos and ghosts, edge flutter, short horizontal
 noise streaks, blue-violet falloff in dim forms, colored ray tails and uneven

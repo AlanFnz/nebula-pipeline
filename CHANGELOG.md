@@ -2,13 +2,20 @@
 
 ## Unreleased
 
+- Anatomical Human head target sampled from a bundled CC0 MakeHuman mesh, plus
+  opt-in Surges motion with acceleration, staggered curved arrivals and rebound.
+- Reusable Signal interference effect and a three-section Particle signal study
+  combining it with warp, flares, grain, color separation and tracking breaks.
+  Original particles retains the first study; saved Gentle motion is unchanged.
+- Native save/export dialogs suggest the composition's name in Documents/Movies.
 - Opt-in Particle attractor effect with persistent dots assembling around hidden
   procedural head, sphere and ring surfaces. Controls cover assembly cycles,
   dispersion, turbulence, point density/size, rotation, color and signal texture.
 - Separate one-section **Particle head 15s** example, native effect controls,
   composition save/open, undo/redo and shared preview/export rendering.
-- Existing presets leave particles disabled. Approved and Refined studies keep
-  their prior rendered pixels; no reference media or external head asset is used.
+- Existing presets leave particles and interference disabled. Approved, Refined
+  and original particle studies keep their prior rendered pixels. The new human
+  mesh is bundled with provenance; no reference media pixels are used.
 
 ## 0.2.0 — 2026-09-25
 
