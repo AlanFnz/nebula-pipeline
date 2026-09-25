@@ -56,15 +56,27 @@ MODULES = (
         P("count", "Slab count", 1, 1, 5, 1, "Number of vertical sources."),
         P("width", "Core width", .18, .02, .8, .01, "Width of the bright central aperture."),
         P("spacing", "Spacing", .22, .02, 1, .01, "Distance between slab centers."),
+        P("height", "Height", .62, .08, 1, .01, "Finite vertical extent of the slab."),
+        P("position_x", "Horizontal position", .2, -1, 1, .01, "Moves the slab across the frame."),
+        P("position_y", "Vertical position", 0, -1, 1, .01, "Moves the slab up or down."),
+        P("edge_hardness", "Edge hardness", .82, 0, 1, .01, "Hard rectangular edge versus soft glow."),
+        P("hollow", "Hollow centre", 0, 0, 1, .01, "Cuts a dark channel through the luminous core."),
+        P("notch", "Missing chunks", .08, 0, 1, .01, "Adds deterministic interruptions to the block."),
+        P("intensity", "Core intensity", 1.0, .1, 1.5, .01, "Brightness of the white slab body."),
+        P("ghost_width", "Ghost width", .32, .05, 1, .01, "Width of the dimmer right-hand ghost."),
+        P("ghost_offset", "Ghost offset", .24, .02, .8, .01, "Distance of the secondary ghost to the right."),
+        P("ghost_opacity", "Ghost opacity", .34, 0, 1, .01, "Strength of the secondary ghost."),
         P("edge_softness", "Edge softness", .08, .005, .35, .005, "Soft luminous edge falloff."),
         P("magenta", "Magenta edge", .85, 0, 1, .01, "Purple/magenta channel strength."),
         P("cyan", "Cyan fringe", .42, 0, 1, .01, "Green/cyan channel fringe strength."),
         P("jitter", "Shape irregularity", .12, 0, .5, .01, "Slow shape wobble; does not randomize every frame."),
     )),
     Module("blinds", "Irregular Venetian blinds", "Horizontal rays that swell into an asymmetric central aperture.", (
-        P("rows", "Ray count", 9, 2, 32, 1, "Number of horizontal rays", kind="int"),
+        P("rows", "Ray count", 9, 1, 32, 1, "Number of horizontal rays", kind="int"),
         P("thickness", "Ray thickness", .012, .002, .12, .001, "Thickness of the thin outer rays."),
         P("aperture", "Aperture width", .34, .03, .95, .01, "Width of the thick central region."),
+        P("aperture_height", "Aperture height", .64, .10, 1, .01, "Vertical window for thickening the rays."),
+        P("aperture_vertical", "Aperture vertical", 0.0, -1, 1, .01, "Moves the thickening window up or down."),
         P("swelling", "Central swelling", .9, 0, 1, .01, "How much rays thicken inside the aperture."),
         P("taper", "Pinch / taper", .8, 0, 1, .01, "Asymmetric point-like taper toward the sides."),
         P("asymmetry", "Asymmetry", .22, -1, 1, .01, "Offsets one side of the aperture envelope."),
@@ -293,22 +305,49 @@ def _render_slab(arr, p, t, preset, module_index):
     h, w = arr.shape[:2]
     y, x = np.mgrid[0:h, 0:w]
     xn = (x / max(1, w - 1)) * 2 - 1
+    yn = (y / max(1, h - 1)) * 2 - 1
     q = p
     clock = _clock(preset, t)
     wobble = _smooth(preset["seed"], "slab-shape", clock * .6, preset["variation_mode"]) * q["jitter"] * .18 * preset["depth"]
     count = int(q["count"])
     width = _modulated(preset, "slab", "width", q["width"], t, .02, .8)
     spacing = _modulated(preset, "slab", "spacing", q["spacing"], t, .02, 1)
+    vertical_center = float(p.get("position_y", 0)) + .08 * _smooth(preset["seed"], "slab-y", clock * .4, preset["variation_mode"]) * preset["depth"]
+    half_height = max(.02, float(p.get("height", .62)))
+    vertical_distance = np.abs(yn - vertical_center)
+    vertical_power = 2 + 12 * float(p.get("edge_hardness", .82))
+    vertical_mask = np.exp(-((vertical_distance / half_height) ** vertical_power))
+    vertical_mask *= np.clip((half_height + .04 - vertical_distance) / .04, 0, 1) ** (1.0 - .8 * float(p.get("edge_hardness", .82)))
     for index in range(count):
-        center = (index - (count - 1) / 2) * spacing + wobble
+        center = float(p.get("position_x", .2)) + (index - (count - 1) / 2) * spacing + wobble
         dist = np.abs(xn - center)
-        core = np.exp(-((dist / max(.001, width / 2)) ** 8))
-        edge = np.exp(-(((dist - width / 2) / max(.002, q["edge_softness"])) ** 2))
-        color = _hsv(.88 + .06 * index, .08, 1.0)
+        core_power = 4 + 12 * float(p.get("edge_hardness", .82))
+        frame_clock = round(t * preset["treatment_fps"])
+        fast_signal = _smooth(preset["seed"], "slab-fill", frame_clock + index * .17, "stepped")
+        fill_flicker = .62 + .36 * (fast_signal + 1) / 2
+        core = np.exp(-((dist / max(.001, width / 2)) ** core_power)) * vertical_mask * fill_flicker * float(p.get("intensity", 1.0))
+        notch_center = _smooth(preset["seed"], "slab-notch", index + clock * .25, preset["variation_mode"]) * .38
+        notch_band = np.exp(-(((yn - notch_center) / .07) ** 8))
+        # Rectangular bites remove the right side of the body while leaving a
+        # narrow vertical stem, which produces the L/T fragments in the study.
+        cut_region = ((xn - center) > width * .08) & ((xn - center) < width * .72) & (np.abs(yn - notch_center) < .14)
+        cut_amount = float(p.get("notch", 0)) * (.65 + .35 * (fast_signal + 1) / 2)
+        core *= 1 - cut_amount * cut_region
+        hollow = float(p.get("hollow", 0))
+        core *= 1 - hollow * np.exp(-((dist / max(.001, width * .25)) ** 8))
+        edge = np.exp(-(((dist - width / 2) / max(.002, q["edge_softness"])) ** 2)) * vertical_mask
+        color = np.array((1.0, .95, .90), dtype=np.float32)
         _add(arr, core, color)
         _add(arr, edge * q["magenta"], np.array((1.0, .04, .65), dtype=np.float32))
-        fringe = np.exp(-(((dist - width * .72) / max(.003, q["edge_softness"] * 1.7)) ** 2))
+        fringe = np.exp(-(((dist - width * .72) / max(.003, q["edge_softness"] * 1.7)) ** 2)) * vertical_mask
         _add(arr, fringe * q["cyan"], np.array((.02, .55, .45), dtype=np.float32))
+        ghost_offset = float(p.get("ghost_offset", .24))
+        ghost_width = max(.02, width * float(p.get("ghost_width", .32)))
+        ghost_dist = np.abs(xn - center - ghost_offset)
+        ghost = np.exp(-((ghost_dist / ghost_width) ** (3 + 8 * float(p.get("edge_hardness", .82))))) * vertical_mask
+        ghost *= float(p.get("ghost_opacity", .34)) * (.78 + .22 * _smooth(preset["seed"], "slab-ghost", round(t * preset["treatment_fps"]) + index, preset["variation_mode"]))
+        ghost *= 1 - float(p.get("notch", 0)) * .55 * notch_band
+        _add(arr, ghost * float(p.get("intensity", 1.0)), np.array((.68, .66, .70), dtype=np.float32))
 
 
 def _render_blinds(arr, p, t, preset, module_index):
@@ -333,7 +372,9 @@ def _render_blinds(arr, p, t, preset, module_index):
         distance = np.abs(vn - cy - bend)
         aperture = _modulated(preset, "blinds", "aperture", p["aperture"], t, .03, .95)
         aperture_pos = _modulated(preset, "blinds", "aperture_position", p.get("aperture_position", 0), t, -1, 1)
-        half_aperture = max(.01, aperture / 2)
+        # `aperture` is expressed as a frame-width fraction. Coordinates are
+        # in [-1, 1], so its half-width is close to the fraction itself.
+        half_aperture = max(.01, aperture * .9)
         asym = p["asymmetry"] * .28 + aperture_pos * .45
         absu = np.abs(u - asym)
         # A shallow plateau creates the broad white patches; the outer ramp
@@ -341,6 +382,11 @@ def _render_blinds(arr, p, t, preset, module_index):
         shoulder = max(.01, half_aperture * .32)
         envelope = np.clip((half_aperture - absu) / shoulder, 0, 1)
         envelope = np.power(envelope, .72)
+        vertical_center = .5 + float(p.get("aperture_vertical", 0)) * .35
+        vertical_half = max(.04, float(p.get("aperture_height", .64)) / 2)
+        vertical_window = np.clip((vertical_half - np.abs(vn - vertical_center)) / max(.02, vertical_half * .22), 0, 1)
+        vertical_window = np.power(vertical_window, .65)
+        envelope *= vertical_window
         taper = 1 - p["taper"] * (1 - envelope)
         local_thickness = p["thickness"] * (1 + p["swelling"] * envelope * (3.0 + .55 * _smooth(preset["seed"], "blind-bulk", row, preset["variation_mode"])))
         local_thickness *= np.clip(taper, .08, 1.2)
@@ -446,9 +492,10 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None):
     # for grain. This keeps preview, scrub and export identical at any FPS.
     t = math.floor(t * p["treatment_fps"] + 1e-9) / p["treatment_fps"]
     arr = np.zeros((height, width, 3), dtype=np.float32)
-    # A gentle green-black ground keeps overexposed forms anchored like the reference.
-    arr[..., 1] = .004
-    arr[..., 2] = .006
+    # The reference has a lifted green-black field rather than zero RGB.
+    arr[..., 0] = .055
+    arr[..., 1] = .067
+    arr[..., 2] = .055
     treatment_frame = round(t * p["treatment_fps"])
     for index, entry in enumerate(p["modules"]):
         if not entry.get("enabled", True):
@@ -471,6 +518,9 @@ def curated_presets():
     for item in slab["modules"]:
         item["enabled"] = item["id"] in {"slab", "separation", "smear", "bloom", "raster"}
     slab["speed"], slab["seed"] = .28, 1101
+    for item in slab["modules"]:
+        if item["id"] == "slab":
+            item["params"].update({"height": .62, "position_x": .18, "position_y": .04, "width": .24, "edge_hardness": .88, "notch": .12, "intensity": .92, "ghost_width": .56, "ghost_offset": .30, "ghost_opacity": .38})
     blinds = copy.deepcopy(base)
     blinds["name"] = "Reference blinds"
     for item in blinds["modules"]:

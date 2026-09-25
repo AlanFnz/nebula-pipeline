@@ -50,6 +50,12 @@ This first synthesis pass is source-free. Input-video modulation is reserved
 for the next phase; the existing clip workflow remains available from the same
 `studio.py` entry point.
 
+The **Reference 15s** action loads one editable cue sequence based on the first
+15 seconds of the study. Its JSON stores state overrides and timed `cut`,
+`morph`, `sweep` and `flash` cues; the same sequence renderer drives preview,
+scrubbing and export. **Save sequence** and **Load sequence** preserve the cue
+schedule without embedding reference media.
+
 ## Experimenting
 
 1. **Open clip…** loads a local video. The source is read-only. The initial loop is two seconds at the existing default treatment rate of 12 fps.

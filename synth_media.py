@@ -10,7 +10,7 @@ from media import Cancellation, Cancelled
 from synth import normalize_synth, render_synth_frame
 
 
-def export_synth_video(preset, output, start=0, count=None, cancel=None, progress=None, size=None):
+def export_synth_video(preset, output, start=0, count=None, cancel=None, progress=None, size=None, sequence=None):
     """Render a deterministic synth loop to MP4.
 
     ``time_seconds`` is derived from the export FPS, while all stochastic
@@ -18,11 +18,17 @@ def export_synth_video(preset, output, start=0, count=None, cancel=None, progres
     export FPS therefore changes cadence without changing the animation clock.
     """
     p = normalize_synth(preset)
+    sequence_renderer = None
+    sequence_data = None
+    if sequence is not None:
+        from synth_sequence import normalize_sequence, render_sequence_frame
+        sequence_data = normalize_sequence(sequence)
+        sequence_renderer = render_sequence_frame
     cancel = cancel or Cancellation()
     output = Path(output)
     width, height = size or (p["width"], p["height"])
-    export_fps = int(p["export_fps"])
-    total = max(1, round(float(p["loop_seconds"]) * export_fps))
+    export_fps = int(sequence_data["fps"] if sequence_data else p["export_fps"])
+    total = max(1, round(float(sequence_data["duration"] if sequence_data else p["loop_seconds"]) * export_fps))
     start = int(start)
     count = total - start if count is None else int(count)
     if start < 0 or count < 1 or start + count > total:
@@ -44,8 +50,11 @@ def export_synth_video(preset, output, start=0, count=None, cancel=None, progres
             for index in range(start, start + count):
                 cancel.check()
                 time_seconds = index / export_fps
-                treatment_frame = round(time_seconds * p["treatment_fps"])
-                image = render_synth_frame(p, frame=treatment_frame, time_seconds=time_seconds, size=(width, height))
+                if sequence_renderer:
+                    image = sequence_renderer(sequence_data, time_seconds, size=(width, height))
+                else:
+                    treatment_frame = round(time_seconds * p["treatment_fps"])
+                    image = render_synth_frame(p, frame=treatment_frame, time_seconds=time_seconds, size=(width, height))
                 proc.stdin.write(image.tobytes())
                 if progress:
                     progress(index - start + 1, count)

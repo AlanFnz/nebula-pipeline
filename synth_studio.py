@@ -12,13 +12,14 @@ from PySide6.QtGui import QColor, QFont, QImage, QPainter
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog, QGroupBox,
     QHBoxLayout, QLabel, QMainWindow, QPushButton, QScrollArea, QSlider,
-    QSpinBox, QSplitter, QVBoxLayout, QWidget, QMessageBox,
+    QSpinBox, QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QMessageBox,
 )
 
 from media import Cancellation
 from studio import STYLE
 from synth import MODULE_BY_ID, curated_presets, default_synth_preset, load_synth, normalize_synth, render_synth_frame, save_synth
 from synth_media import export_synth_video
+from synth_sequence import load_sequence, normalize_sequence, reference_sequence, render_sequence_frame, save_sequence
 
 
 class SynthViewer(QWidget):
@@ -96,31 +97,36 @@ class JobSignals(QObject):
 
 
 class RenderJob(QRunnable):
-    def __init__(self, preset, time_seconds, size, settings_generation, request_serial):
+    def __init__(self, preset, time_seconds, size, settings_generation, request_serial, sequence=None):
         super().__init__()
         self.preset, self.time_seconds, self.size = copy.deepcopy(preset), time_seconds, size
         self.settings_generation, self.request_serial = settings_generation, request_serial
+        self.sequence = copy.deepcopy(sequence)
         self.signals = JobSignals()
 
     def run(self):
         try:
-            treatment_frame = round(self.time_seconds * self.preset["treatment_fps"])
-            image = render_synth_frame(self.preset, treatment_frame, self.time_seconds, self.size)
+            if self.sequence is not None:
+                image = render_sequence_frame(self.sequence, self.time_seconds, self.size)
+            else:
+                treatment_frame = round(self.time_seconds * self.preset["treatment_fps"])
+                image = render_synth_frame(self.preset, treatment_frame, self.time_seconds, self.size)
             self.signals.done.emit((self.settings_generation, self.request_serial, self.time_seconds, image.size, image.tobytes()))
         except Exception as exc:
             self.signals.failed.emit(str(exc))
 
 
 class ExportJob(QRunnable):
-    def __init__(self, preset, path, size):
+    def __init__(self, preset, path, size, sequence=None):
         super().__init__()
         self.preset, self.path, self.size = copy.deepcopy(preset), path, size
+        self.sequence = copy.deepcopy(sequence)
         self.cancel = Cancellation()
         self.signals = JobSignals()
 
     def run(self):
         try:
-            export_synth_video(self.preset, self.path, cancel=self.cancel, size=self.size, progress=lambda a, b: self.signals.progress.emit(a, b))
+            export_synth_video(self.preset, self.path, cancel=self.cancel, size=self.size, sequence=self.sequence, progress=lambda a, b: self.signals.progress.emit(a, b))
             self.signals.done.emit(self.path)
         except Exception as exc:
             self.signals.failed.emit(str(exc))
@@ -134,6 +140,9 @@ class SynthStudio(QMainWindow):
         if preset is None:
             preset = curated_presets()["Reference blinds"]
         self.preset = normalize_synth(preset)
+        self.sequence = None
+        self.sequence_table = None
+        self.sequence_updating = False
         self.settings_generation = 0
         self.request_serial = 0
         self.last_displayed_request = 0
@@ -167,7 +176,7 @@ class SynthStudio(QMainWindow):
         self.preset_combo.setCurrentText(preset_name if preset_name in curated_presets() else "Custom")
         self.preset_combo.currentTextChanged.connect(self.select_curated)
         header.addWidget(self.preset_combo)
-        for text, slot in (("Save preset", self.save_preset_dialog), ("Load preset", self.load_preset_dialog), ("Generate variation", self.generate_variation)):
+        for text, slot in (("Save preset", self.save_preset_dialog), ("Load preset", self.load_preset_dialog), ("Generate variation", self.generate_variation), ("Reference 15s", self.load_reference_sequence), ("Save sequence", self.save_sequence_dialog), ("Load sequence", self.load_sequence_dialog)):
             button = QPushButton(text)
             button.clicked.connect(slot)
             header.addWidget(button)
@@ -217,10 +226,39 @@ class SynthStudio(QMainWindow):
         layout.addWidget(modulation)
         return group
 
+    def sequence_group(self):
+        group = QGroupBox("Editable sequence cues")
+        layout = QVBoxLayout(group)
+        label = QLabel("15-second reference study · edit times, states and transition types")
+        label.setWordWrap(True)
+        layout.addWidget(label)
+        table = QTableWidget(len(self.sequence["cues"]), 4)
+        table.setHorizontalHeaderLabels(["Time", "State", "Transition", "Hold / blend"])
+        table.setAlternatingRowColors(True)
+        table.setMinimumHeight(190)
+        table.setMaximumHeight(280)
+        table.setColumnWidth(0, 62); table.setColumnWidth(1, 90); table.setColumnWidth(2, 82); table.setColumnWidth(3, 82)
+        for row, cue in enumerate(self.sequence["cues"]):
+            values = (f"{cue['time']:.2f}", cue["state"], cue["transition"], f"{cue.get('duration', 0):.2f}")
+            for column, value in enumerate(values):
+                table.setItem(row, column, QTableWidgetItem(value))
+        table.cellChanged.connect(self.sequence_cell_changed)
+        self.sequence_table = table
+        layout.addWidget(table)
+        buttons = QHBoxLayout()
+        add = QPushButton("Add cue"); add.clicked.connect(self.add_sequence_cue)
+        remove = QPushButton("Remove cue"); remove.clicked.connect(self.remove_sequence_cue)
+        buttons.addWidget(add); buttons.addWidget(remove); buttons.addStretch(1)
+        layout.addLayout(buttons)
+        return group
+
     def rebuild_modules(self):
         while self.panel_layout.count():
             item = self.panel_layout.takeAt(0); widget = item.widget(); widget and widget.deleteLater()
         self.controls.clear(); self.module_groups.clear()
+        self.sequence_table = None
+        if self.sequence is not None:
+            self.panel_layout.addWidget(self.sequence_group())
         self.panel_layout.addWidget(self.global_group())
         for index, entry in enumerate(self.preset["modules"]):
             module = MODULE_BY_ID.get(entry.get("id"))
@@ -262,6 +300,70 @@ class SynthStudio(QMainWindow):
             with QSignalBlocker(self.preset_combo):
                 self.preset_combo.setCurrentText("Custom")
 
+    def load_reference_sequence(self):
+        self.sequence = reference_sequence()
+        self.preset = normalize_synth(curated_presets()["Reference blinds"])
+        with QSignalBlocker(self.preset_combo):
+            self.preset_combo.setCurrentText("Reference blinds")
+        self.rebuild_modules(); self.update_timeline_max(); self.invalidate()
+
+    def sequence_cell_changed(self, row, column):
+        if self.sequence_updating or self.sequence is None or self.sequence_table is None:
+            return
+        try:
+            cue = self.sequence["cues"][row]
+            value = self.sequence_table.item(row, column).text().strip()
+            if column == 0:
+                cue["time"] = float(value)
+            elif column == 1:
+                if value not in self.sequence["states"]: raise ValueError("Unknown state")
+                cue["state"] = value
+            elif column == 2:
+                if value not in {"cut", "morph", "sweep", "flash"}: raise ValueError("Unknown transition")
+                cue["transition"] = value
+            else:
+                cue["duration"] = max(0.0, float(value))
+            self.sequence = normalize_sequence(self.sequence)
+            self.rebuild_modules(); self.update_timeline_max(); self.invalidate()
+        except Exception as exc:
+            self.status.setText(f"Sequence edit ignored: {exc}")
+            self.sequence_updating = True
+            try:
+                for index, value in enumerate((self.sequence["cues"][row]["time"], self.sequence["cues"][row]["state"], self.sequence["cues"][row]["transition"], self.sequence["cues"][row].get("duration", 0))):
+                    self.sequence_table.item(row, index).setText(f"{value:.2f}" if isinstance(value, float) else str(value))
+            finally:
+                self.sequence_updating = False
+
+    def add_sequence_cue(self):
+        if self.sequence is None: return
+        time = self.timeline.value() / max(1, self.sequence["fps"])
+        self.sequence["cues"].append({"time": min(time, self.sequence["duration"]), "state": "slab", "transition": "cut", "duration": 0.0})
+        self.sequence["cues"].sort(key=lambda cue: cue["time"])
+        self.sequence = normalize_sequence(self.sequence); self.rebuild_modules(); self.invalidate()
+
+    def remove_sequence_cue(self):
+        if self.sequence is None or self.sequence_table is None or self.sequence_table.currentRow() <= 0: return
+        del self.sequence["cues"][self.sequence_table.currentRow()]
+        self.sequence = normalize_sequence(self.sequence); self.rebuild_modules(); self.invalidate()
+
+    def save_sequence_dialog(self):
+        if self.sequence is None:
+            self.load_reference_sequence()
+        path, _ = QFileDialog.getSaveFileName(self, "Save synth sequence", "reference-study-15s.json", "Nebula sequence (*.json)")
+        if path: save_sequence(path, self.sequence)
+
+    def load_sequence_dialog(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Load synth sequence", "", "Nebula sequence (*.json)")
+        if not path: return
+        try:
+            self.sequence = load_sequence(path)
+            base_name = next(iter(self.sequence["states"].values()))["preset"]
+            self.preset = normalize_synth(curated_presets()[base_name])
+            with QSignalBlocker(self.preset_combo): self.preset_combo.setCurrentText("Reference blinds" if base_name == "Reference blinds" else base_name)
+            self.rebuild_modules(); self.update_timeline_max(); self.invalidate()
+        except Exception as exc:
+            QMessageBox.critical(self, "Sequence error", str(exc))
+
     def control_changed(self): self.preset = self.collect(); self.mark_custom(); self.invalidate()
     def module_toggled(self, index, checked): self.preset["modules"][index]["enabled"] = checked; self.mark_custom(); self.invalidate()
 
@@ -274,17 +376,20 @@ class SynthStudio(QMainWindow):
         self.settings_generation += 1; self.request_frame()
     def update_timeline_max(self):
         if hasattr(self, "timeline"):
-            self.timeline.setMaximum(max(1, round(self.preset["loop_seconds"] * self.preset["export_fps"])) - 1)
+            duration = self.sequence["duration"] if self.sequence is not None else self.preset["loop_seconds"]
+            fps = self.sequence["fps"] if self.sequence is not None else self.preset["export_fps"]
+            self.timeline.setMaximum(max(1, round(duration * fps)) - 1)
     def request_frame(self):
         self.request_serial += 1
-        self.current_time = self.timeline.value() / max(1, self.preset["export_fps"])
+        fps = self.sequence["fps"] if self.sequence is not None else self.preset["export_fps"]
+        self.current_time = self.timeline.value() / max(1, fps)
         if self.render_running:
             self.render_queued = True
             return
         edge = 360 if self.quality.currentIndex() == 0 else min(self.preset["width"], 720)
         scale = min(1, edge / max(self.preset["width"], self.preset["height"])); size = (max(1, round(self.preset["width"] * scale)), max(1, round(self.preset["height"] * scale)))
         self.render_running = True
-        job = RenderJob(self.preset, self.current_time, size, self.settings_generation, self.request_serial); self.pending_jobs.append(job); job.signals.done.connect(self.frame_ready); job.signals.done.connect(lambda _result, j=job: self._release_job(j)); job.signals.failed.connect(self.render_failed); job.signals.failed.connect(lambda _error, j=job: self._release_job(j)); self.jobs.start(job)
+        job = RenderJob(self.preset, self.current_time, size, self.settings_generation, self.request_serial, self.sequence); self.pending_jobs.append(job); job.signals.done.connect(self.frame_ready); job.signals.done.connect(lambda _result, j=job: self._release_job(j)); job.signals.failed.connect(self.render_failed); job.signals.failed.connect(lambda _error, j=job: self._release_job(j)); self.jobs.start(job)
 
     def _release_job(self, job):
         if job in self.pending_jobs:
@@ -304,10 +409,12 @@ class SynthStudio(QMainWindow):
     def advance(self): self.timeline.setValue((self.timeline.value() + 1) % max(1, self.timeline.maximum() + 1))
     def toggle_play(self, checked):
         self.play.setText("Pause" if checked else "Play")
-        if checked: self.play_timer.start(max(15, round(1000 / self.preset["export_fps"])))
+        fps = self.sequence["fps"] if self.sequence is not None else self.preset["export_fps"]
+        if checked: self.play_timer.start(max(15, round(1000 / fps)))
         else: self.play_timer.stop()
     def select_curated(self, name):
         if name not in curated_presets(): return
+        self.sequence = None
         self.preset = copy.deepcopy(curated_presets()[name]); self.rebuild_modules(); self.update_timeline_max(); self.invalidate()
     def generate_variation(self):
         self.preset = self.collect(); rng = random.Random(self.preset["seed"] + 1); self.preset["seed"] = rng.randrange(2**31 - 1); self.mark_custom()
@@ -327,10 +434,11 @@ class SynthStudio(QMainWindow):
             try: self.preset = load_synth(path); self.rebuild_modules(); self.update_timeline_max(); self.invalidate()
             except Exception as exc: QMessageBox.critical(self, "Preset error", str(exc))
     def export_dialog(self):
-        path, _ = QFileDialog.getSaveFileName(self, "Export synth loop", "nebula-synth.mp4", "MP4 video (*.mp4)")
+        default_name = "reference-study-15s.mp4" if self.sequence is not None else "nebula-synth.mp4"
+        path, _ = QFileDialog.getSaveFileName(self, "Export synth sequence" if self.sequence is not None else "Export synth loop", default_name, "MP4 video (*.mp4)")
         if not path: return
         p = self.collect(); edge = 360 if self.quality.currentIndex() == 0 else None; size = None if edge is None else (round(p["width"] * edge / max(p["width"], p["height"])), round(p["height"] * edge / max(p["width"], p["height"])))
-        job = ExportJob(p, path, size); self.export_job = job; self.cancel_export.setEnabled(True); self.pending_jobs.append(job); job.signals.progress.connect(lambda a, b: self.status.setText(f"Exporting {a}/{b}")); job.signals.done.connect(lambda _: self.status.setText(f"Exported {path}")); job.signals.done.connect(lambda _result, j=job: self._finish_export(j)); job.signals.failed.connect(lambda error: self.status.setText(f"Export error: {error}")); job.signals.failed.connect(lambda _error, j=job: self._finish_export(j)); self.jobs.start(job)
+        job = ExportJob(p, path, size, self.sequence); self.export_job = job; self.cancel_export.setEnabled(True); self.pending_jobs.append(job); job.signals.progress.connect(lambda a, b: self.status.setText(f"Exporting {a}/{b}")); job.signals.done.connect(lambda _: self.status.setText(f"Exported {path}")); job.signals.done.connect(lambda _result, j=job: self._finish_export(j)); job.signals.failed.connect(lambda error: self.status.setText(f"Export error: {error}")); job.signals.failed.connect(lambda _error, j=job: self._finish_export(j)); self.jobs.start(job)
 
     def _finish_export(self, job):
         if job in self.pending_jobs:

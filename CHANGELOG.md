@@ -10,6 +10,9 @@
 - Versioned synth JSON presets with module ordering/toggles, typed controls,
   locked-parameter variation, treatment FPS holds, separate export FPS and
   atomic FFmpeg loop export.
+- Editable 15-second reference-study cue sequence with deterministic cuts,
+  numeric morphs, horizontal sweeps, flash events, sequence JSON round trips
+  and one continuous export path.
 - Renderer and export regression checks covering time determinism, schema
   round trips, treatment holds and generated MP4 output.
 
