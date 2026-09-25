@@ -6,14 +6,28 @@ The project version comes from [`_version.py`](_version.py); run `python studio.
 
 ## Launch on this Mac
 
-After the one-time setup below, launch the native window from the repository directory:
+The installed **Nebula Studio.app** lives in `~/Applications`. Open it in Finder
+or click its Dock icon; it opens the visual synthesizer directly. Python, Qt,
+the renderer, presets and icons are inside the app, so it does not need to read
+the development environment under Documents. FFmpeg remains a local dependency
+installed through Homebrew. Startup errors are recorded in
+`~/Library/Logs/Nebula Studio/studio.log`.
+
+To build or update the app from a checkout on this Mac:
 
 ```sh
 cd nebula-pipeline
-.venv/bin/python studio.py
+.venv/bin/python -m pip install -r requirements-build.txt
+.venv/bin/python scripts/build_macos.py --install
 ```
 
-After launch, all experimentation happens in the desktop window. The optional **Nebula Studio.app** wrapper is also included, but Launch Services on the validation Mac denied Python access to the environment under Documents (`Operation not permitted` reading `.venv/pyvenv.cfg`). Its double-click launch therefore remains unverified there; the command above was verified. No system privacy settings were changed. Keep the wrapper inside this repository: it uses `.venv` and is not a self-contained signed installer. Its diagnostic log is `.validation/studio.log`.
+Quit the installed app before updating it. The installer stages and verifies a
+complete bundle, preserves any previous installation as a dated backup, then
+replaces the app. Builds are snapshots: rebuild after source changes. Without
+`--install`, the result stays in `dist/Nebula Studio.app`. Generated bundles and
+build intermediates are ignored by Git. The bundle is signed ad hoc for local
+use on the build Mac; it is not a notarized distribution for other computers.
+The build uses [PyInstaller's macOS bundle support](https://pyinstaller.org/en/stable/spec-files.html).
 
 For a fresh checkout, install Python 3.11+ and FFmpeg, then create the isolated environment once:
 
@@ -24,7 +38,11 @@ python3 -m venv .venv
 .venv/bin/python studio.py
 ```
 
-The Python entry point also works on other platforms with PySide6 and FFmpeg on PATH; this milestone was validated on macOS with Python 3.14 and PySide6 6.11.2. Optional startup arguments:
+The development entry point remains available without building an app:
+`studio.py --synth` opens the synthesizer; `studio.py` opens the input-clip editor.
+The installed app also accepts `--clip-studio` to open that editor. The Python
+entry point works on other platforms with PySide6 and FFmpeg on PATH; this
+milestone was validated on macOS with Python 3.14 and PySide6 6.11.2. Optional startup arguments:
 
 ```sh
 .venv/bin/python studio.py /path/to/clip.mp4 --preset /path/to/settings.json

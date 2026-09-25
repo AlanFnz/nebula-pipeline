@@ -1,7 +1,9 @@
 """Terminal-inspired chrome for the native editors, independent of rendering."""
 from pathlib import Path
 
-from PySide6.QtGui import QColor, QFont, QFontDatabase, QPalette
+from PySide6.QtGui import QColor, QFont, QFontDatabase, QPalette, QIcon
+
+from _version import __version__
 
 
 COLORS = {
@@ -96,6 +98,10 @@ def terminal_font():
 
 
 def apply_theme(app):
+    app.setApplicationName("Nebula Studio")
+    app.setApplicationDisplayName("Nebula Studio")
+    app.setApplicationVersion(__version__)
+    app.setWindowIcon(QIcon(str(Path(__file__).parent / "assets" / "nebula-icon.svg")))
     app.setStyle("Fusion")
     app.setFont(terminal_font())
     palette = QPalette()

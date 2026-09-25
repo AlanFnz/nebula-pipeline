@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Synchronize the macOS wrapper metadata with the canonical Python version."""
+"""Synchronize the macOS app metadata with the canonical Python version."""
 import argparse
 import plistlib
 import re
@@ -16,8 +16,8 @@ def main():
     parser.add_argument("--check", action="store_true", help="report stale metadata without editing it")
     args = parser.parse_args()
     if not re.fullmatch(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)", __version__):
-        parser.error("Use a stable MAJOR.MINOR.PATCH version for this macOS wrapper")
-    path = ROOT / "Nebula Studio.app" / "Contents" / "Info.plist"
+        parser.error("Use a stable MAJOR.MINOR.PATCH version for this macOS app")
+    path = ROOT / "packaging" / "Info.plist"
     metadata = plistlib.loads(path.read_bytes())
     keys = ("CFBundleVersion", "CFBundleShortVersionString")
     if args.check:
