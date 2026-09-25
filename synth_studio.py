@@ -9,15 +9,15 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 
 from PySide6.QtCore import QObject, QRunnable, QRect, QSignalBlocker, Qt, QThreadPool, QTimer, Signal
-from PySide6.QtGui import QColor, QFont, QImage, QPainter
+from PySide6.QtGui import QColor, QImage, QPainter
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog, QGroupBox,
     QHBoxLayout, QGridLayout, QLabel, QMainWindow, QPushButton, QScrollArea, QSlider,
-    QSpinBox, QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QMessageBox, QSizePolicy,
+    QSpinBox, QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QMessageBox, QSizePolicy, QFrame,
 )
 
 from media import Cancellation
-from studio import STYLE
+from studio_theme import COLORS, apply_theme, terminal_font
 from synth import MODULE_BY_ID, curated_presets, default_synth_preset, load_synth, normalize_synth, render_synth_frame, save_synth
 from synth_media import export_synth_video
 from synth_sequence import load_sequence, normalize_sequence, reference_sequence, render_sequence_frame, save_sequence
@@ -37,11 +37,11 @@ class SynthViewer(QWidget):
 
     def paintEvent(self, event):
         painter = QPainter(self)
-        painter.fillRect(self.rect(), QColor("#101216"))
+        painter.fillRect(self.rect(), QColor(COLORS["monitor"]))
         if not self.packet:
-            painter.setPen(QColor("#929ba9"))
-            painter.setFont(QFont("Helvetica", 15))
-            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "Generate a synth frame\n\nLuminous slabs · irregular blinds")
+            painter.setPen(QColor(COLORS["muted"]))
+            painter.setFont(terminal_font())
+            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "> awaiting signal\n\nLuminous sources / irregular blinds")
             return
         (w, h), raw = self.packet
         ratio = min(self.width() / w, self.height() / h)
@@ -149,6 +149,7 @@ class SynthStudio(QMainWindow):
     def __init__(self, preset=None, sequence=None, composition=None):
         super().__init__()
         self.setWindowTitle("Nebula Synth")
+        self.setFont(terminal_font())
         self.resize(1280, 800)
         if preset is None and sequence is None and composition is None:
             composition = reference_composition(refined=True)
@@ -194,10 +195,12 @@ class SynthStudio(QMainWindow):
     def build_ui(self):
         root = QWidget()
         outer = QVBoxLayout(root)
+        outer.setContentsMargins(12, 10, 12, 12); outer.setSpacing(10)
         header = QHBoxLayout()
-        brand = QLabel("NEBULA / SYNTHESIS")
+        brand = QLabel("nebula_")
         brand.setObjectName("brand")
         header.addWidget(brand)
+        mode = QLabel("/ SIGNAL SYNTH"); mode.setObjectName("muted"); header.addWidget(mode)
         header.addStretch(1)
         self.composition_widgets = []
         for text, callback in (("New take", self.generate_variation), ("Reset controls", lambda: self.composer and self.composer.reset_controls()), ("Undo", self.undo_composition), ("Redo", self.redo_composition)):
@@ -228,18 +231,33 @@ class SynthStudio(QMainWindow):
         sequence_actions.addStretch(1)
         outer.addLayout(sequence_actions)
         split = QSplitter(Qt.Orientation.Horizontal)
+        split.setHandleWidth(1); split.setChildrenCollapsible(False)
         left = QWidget(); left_layout = QVBoxLayout(left)
-        self.viewer = SynthViewer(); left_layout.addWidget(self.viewer, 1)
+        left_layout.setContentsMargins(0, 0, 10, 0); left_layout.setSpacing(8)
+        monitor = QFrame(); monitor.setObjectName("monitorFrame")
+        monitor_layout = QVBoxLayout(monitor); monitor_layout.setContentsMargins(1, 1, 1, 1); monitor_layout.setSpacing(0)
+        monitor_header = QWidget(); monitor_header.setObjectName("monitorHeader")
+        monitor_row = QHBoxLayout(monitor_header); monitor_row.setContentsMargins(10, 7, 10, 7)
+        monitor_title = QLabel("01 / SIGNAL MONITOR"); monitor_title.setObjectName("sectionTitle"); monitor_row.addWidget(monitor_title)
+        monitor_row.addStretch(1)
+        self.monitor_meta = QLabel("RGB"); self.monitor_meta.setObjectName("monitorMeta"); monitor_row.addWidget(self.monitor_meta)
+        self.monitor_state = QLabel("[ HOLD ]"); self.monitor_state.setObjectName("monitorState"); monitor_row.addWidget(self.monitor_state)
+        monitor_layout.addWidget(monitor_header)
+        self.viewer = SynthViewer(); monitor_layout.addWidget(self.viewer, 1)
+        left_layout.addWidget(monitor, 1)
         self.section_timeline = SectionTimeline()
         self.section_timeline.selected.connect(lambda index: self.composer and self.composer.select_section(index))
         left_layout.addWidget(self.section_timeline)
         self.status = QLabel("Source-free deterministic synthesis")
-        self.status.setObjectName("muted"); left_layout.addWidget(self.status)
+        self.status.setObjectName("muted"); self.status.setWordWrap(True)
+        status_row = QHBoxLayout()
+        prompt = QLabel(">"); prompt.setObjectName("sectionTitle"); status_row.addWidget(prompt); status_row.addWidget(self.status, 1)
+        left_layout.addLayout(status_row)
         timeline = QHBoxLayout()
         self.play = QPushButton("Play"); self.play.setCheckable(True); self.play.toggled.connect(self.toggle_play)
         timeline.addWidget(self.play)
         self.timeline = QSlider(Qt.Orientation.Horizontal); self.timeline.valueChanged.connect(self.scrub); timeline.addWidget(self.timeline, 1)
-        self.time_label = QLabel("0.00s"); timeline.addWidget(self.time_label)
+        self.time_label = QLabel("00:00.00"); self.time_label.setObjectName("timecode"); timeline.addWidget(self.time_label)
         left_layout.addLayout(timeline)
         export_row = QHBoxLayout()
         self.quality = QComboBox(); self.quality.addItems(["Preview 360p", "Full 720×576"]); self.quality.currentIndexChanged.connect(lambda _index: self.invalidate()); export_row.addWidget(self.quality)
@@ -247,7 +265,7 @@ class SynthStudio(QMainWindow):
         self.cancel_export = QPushButton("Cancel export"); self.cancel_export.setEnabled(False); self.cancel_export.clicked.connect(self.cancel_export_job); export_row.addWidget(self.cancel_export)
         left_layout.addLayout(export_row)
         split.addWidget(left)
-        scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff); panel = QWidget(); panel.setMinimumWidth(0); self.panel_layout = QVBoxLayout(panel); self.panel_layout.setAlignment(Qt.AlignmentFlag.AlignTop); scroll.setWidget(panel); split.addWidget(scroll); split.setSizes([760, 460]); outer.addWidget(split, 1)
+        scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff); panel = QWidget(); panel.setMinimumWidth(0); self.panel_layout = QVBoxLayout(panel); self.panel_layout.setContentsMargins(12, 0, 0, 0); self.panel_layout.setAlignment(Qt.AlignmentFlag.AlignTop); scroll.setWidget(panel); split.addWidget(scroll); split.setSizes([750, 490]); outer.addWidget(split, 1)
         self.setCentralWidget(root)
 
     def global_group(self):
@@ -282,12 +300,14 @@ class SynthStudio(QMainWindow):
         label.setWordWrap(True)
         layout.addWidget(label)
         table = QTableWidget(len(self.sequence["cues"]), 6)
-        table.setHorizontalHeaderLabels(["Time", "State", "Transition", "Hold / blend", "Intensity", "Direction"])
+        headers = ["Time", "State", "Transition", "Hold / blend", "Intensity", "Direction"]
+        table.setHorizontalHeaderLabels(headers)
         table.setAlternatingRowColors(True)
-        table.setStyleSheet("QTableView { alternate-background-color: #22272e; selection-background-color: #43546b; }")
         table.setMinimumHeight(190)
         table.setMaximumHeight(280)
-        table.setColumnWidth(0, 62); table.setColumnWidth(1, 90); table.setColumnWidth(2, 82); table.setColumnWidth(3, 82); table.setColumnWidth(4, 62); table.setColumnWidth(5, 62)
+        for column, (label, minimum) in enumerate(zip(headers, (62, 100, 82, 82, 62, 62))):
+            table.setColumnWidth(column, max(minimum, table.fontMetrics().horizontalAdvance(label) + 22))
+            table.horizontalHeaderItem(column).setToolTip(label)
         for row, cue in enumerate(self.sequence["cues"]):
             values = (f"{cue['time']:.2f}", cue["state"], cue["transition"], f"{cue.get('duration', 0):.2f}", f"{cue.get('intensity', 1.0):.2f}", f"{cue.get('direction', 1.0):.2f}")
             for column, value in enumerate(values):
@@ -719,12 +739,14 @@ class SynthStudio(QMainWindow):
         settings_generation, request_serial, time_seconds, size, raw = result
         if settings_generation != self.settings_generation or request_serial < self.last_displayed_request: return
         self.last_displayed_request = request_serial
-        self.viewer.set_packet((size, raw)); self.time_label.setText(f"{time_seconds:.2f}s")
+        self.viewer.set_packet((size, raw)); self.time_label.setText(f"{int(time_seconds) // 60:02d}:{time_seconds % 60:05.2f}")
+        self.monitor_meta.setText(f"{size[0]}×{size[1]} / RGB")
     def render_failed(self, message): self.status.setText(f"Render error: {message}")
     def scrub(self, value): self.request_frame()
     def advance(self): self.timeline.setValue((self.timeline.value() + 1) % max(1, self.timeline.maximum() + 1))
     def toggle_play(self, checked):
         self.play.setText("Pause" if checked else "Play")
+        self.monitor_state.setText("[ PLAY ]" if checked else "[ HOLD ]")
         fps = self.sequence["fps"] if self.sequence is not None else self.preset["export_fps"]
         if checked: self.play_timer.start(max(15, round(1000 / fps)))
         else: self.play_timer.stop()
@@ -808,7 +830,7 @@ class SynthStudio(QMainWindow):
 
 def run_synth_app(preset=None):
     app = QApplication.instance() or QApplication(sys.argv)
-    app.setStyleSheet(STYLE)
+    apply_theme(app)
     window = SynthStudio(preset); window.show()
     return app.exec()
 

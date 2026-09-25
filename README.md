@@ -55,6 +55,12 @@ macro controls for rhythm, width, instability, texture, brightness, flares,
 and magenta. It opens the **Refined 15s** study with every macro at 1×.
 **Approved 15s** reloads the earlier study with its original recipe and pixels.
 
+The native editors share a terminal-inspired interface: a system-available
+monospaced font, dark panels, phosphor-green controls and a violet playhead.
+The synth monitor shows the rendered preview dimensions, RGB format and
+play/hold state. The theme lives in [`studio_theme.py`](studio_theme.py) and
+affects the interface only; saved compositions and exported pixels are unchanged.
+
 - Select **Whole clip** to adjust the entire piece, or click a section to
   adjust it locally. Sections can be added, duplicated, removed, reordered,
   and given different durations. Their internal events are generated for you.

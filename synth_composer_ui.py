@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 )
 
 from synth import SHAPES
+from studio_theme import COLORS
 from synth_composition import MACROS, default_geometry, effective_geometry, neutral_macros, normalize_composition, section_ranges, vary_composition
 
 
@@ -44,24 +45,28 @@ class SectionTimeline(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        colors = ("#9b82b3", "#cba883", "#82a49b", "#b783a3", "#8982bf", "#a1b19b")
         for index, rect in enumerate(self.rectangles()):
             section = self.document["sections"][index]
-            painter.setBrush(QColor("#292630" if index == self.index else "#20252d"))
-            painter.setPen(QPen(QColor("#efc27f" if index == self.index else "#39414c"), 2 if index == self.index else 1))
-            painter.drawRoundedRect(rect, 5, 5)
-            painter.fillRect(QRectF(rect.left() + 5, rect.top() + 5, max(0, rect.width() - 10), 3), QColor(colors[index % len(colors)]))
+            selected = index == self.index
+            painter.setBrush(QColor(COLORS["selected"] if selected else COLORS["panel"]))
+            painter.setPen(QPen(QColor(COLORS["accent"] if selected else COLORS["border"]), 1))
+            painter.drawRect(rect)
+            small_font = self.font(); small_font.setPixelSize(10); painter.setFont(small_font)
+            painter.setPen(QColor(COLORS["accent"] if selected else COLORS["muted"]))
+            painter.drawText(rect.adjusted(7, 3, -4, -47), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, f"{index + 1:02d}")
             label = self.document["phrases"][section["phrase"]]["name"]
-            painter.setPen(QColor("#ece8ed"))
+            label_font = self.font(); label_font.setPixelSize(11); painter.setFont(label_font)
+            painter.setPen(QColor(COLORS["text"]))
             label = painter.fontMetrics().elidedText(label, Qt.TextElideMode.ElideRight, max(0, int(rect.width() - 10)))
-            painter.drawText(rect.adjusted(5, 10, -5, -25), Qt.AlignmentFlag.AlignCenter, label)
-            painter.setPen(QColor("#aeb3bf"))
-            painter.drawText(rect.adjusted(4, 36, -4, -3), Qt.AlignmentFlag.AlignCenter, f"{section['duration']:.2f}s")
+            painter.drawText(rect.adjusted(5, 20, -5, -21), Qt.AlignmentFlag.AlignCenter, label)
+            painter.setFont(small_font); painter.setPen(QColor(COLORS["muted"]))
+            painter.drawText(rect.adjusted(4, 43, -4, -3), Qt.AlignmentFlag.AlignCenter, f"{section['duration']:.2f}s")
         if self.document:
             total = section_ranges(self.document)[-1][1]
             x = max(1, min(self.width() - 1, self.time / total * self.width()))
-            painter.setPen(QPen(QColor("#f4e2bf"), 2))
+            painter.setPen(QPen(QColor(COLORS["cursor"]), 1))
             painter.drawLine(int(x), 2, int(x), 77)
+            painter.fillRect(QRectF(x - 3, 0, 6, 3), QColor(COLORS["cursor"]))
 
     def mousePressEvent(self, event):
         if not self.document:
@@ -88,7 +93,7 @@ class MacroControl(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 2)
         row = QHBoxLayout()
-        name = QLabel(label); name.setFixedWidth(70)
+        name = QLabel(label); name.setFixedWidth(88)
         row.addWidget(name)
         self.slider = QSlider(Qt.Orientation.Horizontal)
         self.slider.setRange(round(low * 100), round(high * 100))
@@ -129,12 +134,12 @@ class CompositionPanel(QWidget):
         self.scope = scope
         self.updating = False
         layout = QVBoxLayout(self); layout.setContentsMargins(0, 0, 0, 0)
-        title = QLabel("COMPOSE YOUR CLIP"); title.setStyleSheet("color: #f1c37c; font-weight: 600;")
+        title = QLabel("02 / COMPOSER"); title.setObjectName("sectionTitle")
         layout.addWidget(title)
-        hint = QLabel("Arrange sections below the preview. Shape the whole clip, or focus on one section.")
+        hint = QLabel("Arrange sections. Shape the whole clip, or focus on one section.")
         hint.setWordWrap(True); hint.setObjectName("muted"); layout.addWidget(hint)
 
-        clip = QGroupBox("Clip")
+        clip = QGroupBox("CLIP / TIMING")
         grid = QGridLayout(clip)
         self.duration = QDoubleSpinBox(); self.duration.setRange(.24, 300); self.duration.setDecimals(2); self.duration.setSuffix(" s"); self.duration.setKeyboardTracking(False)
         self.fps = QSpinBox(); self.fps.setRange(1, 120); self.fps.setSuffix(" fps"); self.fps.setKeyboardTracking(False)
@@ -144,7 +149,7 @@ class CompositionPanel(QWidget):
         self.fps.valueChanged.connect(self.change_fps)
         layout.addWidget(clip)
 
-        section_box = QGroupBox("Arrangement")
+        section_box = QGroupBox("SEQUENCE / ARRANGEMENT")
         section_layout = QVBoxLayout(section_box)
         self.section_combo = QComboBox(); self.section_combo.currentIndexChanged.connect(self.select_section)
         section_layout.addWidget(self.section_combo)
@@ -162,7 +167,7 @@ class CompositionPanel(QWidget):
         section_layout.addLayout(row)
         layout.addWidget(section_box)
 
-        shape = QGroupBox("Shape the result")
+        shape = QGroupBox("PARAMETERS / SCOPE")
         shape_layout = QVBoxLayout(shape)
         self.scope_combo = QComboBox(); self.scope_combo.addItems(["Whole clip", "Selected section"])
         self.scope_combo.currentIndexChanged.connect(self.change_scope); shape_layout.addWidget(self.scope_combo)
