@@ -1,5 +1,82 @@
 # Changelog
 
+## Unreleased
+
+- Carry orbit return rotation keeps the head and cloud in one rotating frame,
+  retaining accumulated rotation as particles gather instead of unwinding toward
+  the earlier head angle. Enabled in the current Expand / orbit study; older
+  documents retain their original return and pixels.
+
+- Faster assembled-head turning with an independent, gated turn clock; centered
+  head/cloud rotation removes the expanded volume’s offset orbit. A model-space
+  neck feather softens the mesh cutoff. The current Expand / orbit study uses
+  these controls while preserving its two bursts and tape treatment; saved
+  earlier studies retain their output.
+
+- Portrait head with smoothed geometry and eye surfaces, plus opt-in particle
+  depth occlusion to suppress internal/far-side points. The earlier head asset
+  and all saved particle studies retain their pixels.
+- Reusable Tape damage effect: source-only tracking slips, jitter, short scanline
+  dropouts, chroma lag/bleed and head-switch errors. The current Expand / orbit
+  study replaces its drawn bars and flare with tape faults while preserving
+  both expansion/return bursts and their easing.
+- Expand / orbit particle release: outward dispersion into a broad 3D volume,
+  delayed vertical-axis rotation, adjustable speed/direction and expansion threshold.
+- Impulse motion separates expansion/gather durations from cycle length, with
+  an editable velocity peak. The revised Expand / orbit study has exactly two
+  expansions in 15 seconds, restrained violet/white color, and
+  tracking breaks timed around the bursts. Saved orbit documents and both earlier
+  particle studies retain their previous pixels.
+- Anatomical Human head target sampled from a bundled CC0 MakeHuman mesh, plus
+  opt-in Surges motion with acceleration, staggered curved arrivals and rebound.
+- Reusable Signal interference effect and a three-section Particle signal study
+  combining it with warp, flares, grain, color separation and tracking breaks.
+  Original particles retains the first study; saved Gentle motion is unchanged.
+- Native save/export dialogs suggest the composition's name in Documents/Movies.
+- Opt-in Particle attractor effect with persistent dots assembling around hidden
+  procedural head, sphere and ring surfaces. Controls cover assembly cycles,
+  dispersion, turbulence, point density/size, rotation, color and signal texture.
+- Separate one-section **Particle head 15s** example, native effect controls,
+  composition save/open, undo/redo and shared preview/export rendering.
+- Existing presets leave particles and interference disabled. Approved, Refined
+  and original particle studies keep their prior rendered pixels. The new human
+  mesh is bundled with provenance; no reference media pixels are used.
+
+## 0.2.0 — 2026-09-25
+
+### Added
+
+- Native composition view with six reusable sections and seven macro controls,
+  whole-clip or local adjustments, phrase repetition, reordering, duration
+  changes, deterministic takes with locks, and composition undo/redo.
+- Self-contained composition documents and an independent detailed-copy editor.
+  Neutral composition controls preserve all frames of the approved study;
+  the renderer and its bundled recipe are unchanged by the composition layer.
+- Source-free Nebula Synth desktop mode (`studio.py --synth`) with deterministic
+  luminous slabs, irregular Venetian-blind rays, warp, separation, smear,
+  bloom and raster modules.
+- Versioned synth JSON presets with module ordering/toggles, typed controls,
+  locked-parameter variation, treatment FPS holds, separate export FPS and
+  atomic FFmpeg loop export.
+- Editable 15-second reference-study cue sequence with deterministic cuts,
+  numeric morphs, horizontal sweeps, flash events, sequence JSON round trips
+  and one continuous export path.
+- Bundled 323-cue composite study with asymmetric exposure flares, rapid
+  filled/fragmented/outline changes, split magenta fill, local signal clouds,
+  grainy ghosts, per-frame registration and signal softness.
+- Sequence state editing, cue-linked duplication, locked variation and
+  selection-driven scrubbing, with validation that preserves the last valid
+  sequence after an invalid edit.
+- Renderer and export regression checks covering time determinism, schema
+  round trips, treatment holds and generated MP4 output.
+
+### Compatibility and known limits
+
+- The synth generator is source-free in this milestone; input-video modulation
+  is planned for a later phase. The existing clip pipeline remains unchanged.
+- CPU rendering is deterministic but is not promised to sustain full-resolution
+  real-time playback on every machine.
+
 ## 0.1.0 — 2026-09-09
 
 First native desktop milestone, following the existing `v0.0.1` pipeline release.

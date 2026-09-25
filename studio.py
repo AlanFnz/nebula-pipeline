@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QTimer, QRect, QSignalBlocker
-from PySide6.QtGui import QColor, QFont, QImage, QPainter, QPen, QKeySequence, QShortcut
+from PySide6.QtGui import QColor, QImage, QPainter, QPen, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QSlider, QDoubleSpinBox, QSpinBox, QComboBox, QCheckBox,
@@ -20,29 +20,8 @@ from media import Cancellation, Cancelled, probe, frame_count, export_video
 from parameters import DEFAULTS, LIMITS, RANGES, STAGES, PRESETS_DIR, normalize, load, save
 from preview_jobs import Events, PreviewWorker
 from _version import __version__
+from studio_theme import COLORS, STYLE, apply_theme, terminal_font
 
-STYLE = """
-QWidget { background: #181b20; color: #e4e5e8; font-size: 12px; }
-QMainWindow { background: #181b20; }
-QLabel#brand { color: #f1c37c; font-size: 23px; font-weight: 600; }
-QLabel#muted { color: #929ba9; }
-QPushButton { background: #2b3039; border: 1px solid #424a57; border-radius: 5px; padding: 7px 11px; }
-QPushButton:hover { background: #39414c; }
-QPushButton:checked { background: #665133; border-color: #f1c37c; }
-QPushButton:disabled { color: #66707d; border-color: #303640; }
-QPushButton#primary { background: #e1b476; color: #191b20; font-weight: 600; }
-QComboBox, QSpinBox, QDoubleSpinBox { background: #232830; border: 1px solid #414956; border-radius: 4px; padding: 5px; }
-QGroupBox { border: 1px solid #343c48; border-radius: 6px; margin-top: 16px; padding: 12px 8px 8px; font-weight: 600; }
-QGroupBox::title { subcontrol-origin: margin; left: 12px; color: #c4cad3; }
-QSlider::groove:horizontal { background: #353d48; height: 4px; border-radius: 2px; }
-QSlider::sub-page:horizontal { background: #c5a373; border-radius: 2px; }
-QSlider::handle:horizontal { background: #f1c37c; width: 12px; margin: -5px 0; border-radius: 6px; }
-QScrollArea { border: none; }
-QSplitter::handle { background: #303640; }
-QProgressBar { border: 1px solid #414956; border-radius: 4px; text-align: center; }
-QProgressBar::chunk { background: #6b593f; }
-QCheckBox::indicator { width: 14px; height: 14px; }
-"""
 
 GROUPS = [
     ("01  Print", "print", ["blur", "texture", "warm"]),
@@ -90,10 +69,10 @@ class Viewer(QWidget):
 
     def paintEvent(self, event):
         painter = QPainter(self)
-        painter.fillRect(self.rect(), QColor("#101216"))
+        painter.fillRect(self.rect(), QColor(COLORS["monitor"]))
         if not self.packet:
-            painter.setPen(QColor("#929ba9"))
-            painter.setFont(QFont("Helvetica", 15))
+            painter.setPen(QColor(COLORS["muted"]))
+            painter.setFont(terminal_font())
             painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter,
                              "Open a clip to begin\n\nPrint · Scan · Motion · Grade")
             return
@@ -109,10 +88,10 @@ class Viewer(QWidget):
             painter.setClipRect(0, 0, divider, self.height())
             painter.drawImage(target, QImage(a, w, h, w * 3, QImage.Format.Format_RGB888))
             painter.restore()
-            painter.setPen(QPen(QColor("#f1c37c"), 2))
+            painter.setPen(QPen(QColor(COLORS["accent"]), 2))
             painter.drawLine(divider, 0, divider, self.height())
             for text, x in [("A · snapshot", 12), ("B · current", self.width() - 112)]:
-                painter.fillRect(x - 4, 9, 107, 26, QColor("#181b20"))
+                painter.fillRect(x - 4, 9, 107, 26, QColor(COLORS["background"]))
                 painter.drawText(x, 27, text)
 
 
@@ -185,6 +164,7 @@ class Studio(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle(f"Nebula Studio — {__version__}")
+        self.setFont(terminal_font())
         self.resize(1280, 860)
         self.params = normalize()
         self.info = None
@@ -230,10 +210,10 @@ class Studio(QMainWindow):
         root.setContentsMargins(18, 14, 18, 14)
         root.setSpacing(12)
         top = QHBoxLayout()
-        brand = QLabel("NEBULA")
+        brand = QLabel("nebula_")
         brand.setObjectName("brand")
         top.addWidget(brand)
-        subtitle = QLabel("ANALOG MOTION STUDIO")
+        subtitle = QLabel("/ CLIP STUDIO")
         subtitle.setObjectName("muted")
         top.addWidget(subtitle)
         top.addStretch()
@@ -664,12 +644,20 @@ def main():
     parser.add_argument("--version", action="version", version=f"Nebula Studio {__version__}")
     parser.add_argument("clip", nargs="?", type=Path)
     parser.add_argument("--preset", type=Path)
+    parser.add_argument("--synth", action="store_true", help="Open the source-free visual synthesizer")
+    parser.add_argument("--synth-preset", type=Path, help="Open a synth JSON preset")
     args = parser.parse_args()
+    if args.synth:
+        from synth_studio import run_synth_app
+        preset = None
+        if args.synth_preset:
+            from synth import load_synth
+            preset = load_synth(args.synth_preset)
+        sys.exit(run_synth_app(preset))
     app = QApplication(sys.argv[:1])
     app.setApplicationName("Nebula Studio")
     app.setApplicationVersion(__version__)
-    app.setStyle("Fusion")
-    app.setStyleSheet(STYLE)
+    apply_theme(app)
     window = Studio()
     if args.preset:
         try:

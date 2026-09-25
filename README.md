@@ -6,14 +6,28 @@ The project version comes from [`_version.py`](_version.py); run `python studio.
 
 ## Launch on this Mac
 
-After the one-time setup below, launch the native window from the repository directory:
+The installed **Nebula Studio.app** lives in `~/Applications`. Open it in Finder
+or click its Dock icon; it opens the visual synthesizer directly. Python, Qt,
+the renderer, presets and icons are inside the app, so it does not need to read
+the development environment under Documents. FFmpeg remains a local dependency
+installed through Homebrew. Startup errors are recorded in
+`~/Library/Logs/Nebula Studio/studio.log`.
+
+To build or update the app from a checkout on this Mac:
 
 ```sh
 cd nebula-pipeline
-.venv/bin/python studio.py
+.venv/bin/python -m pip install -r requirements-build.txt
+.venv/bin/python scripts/build_macos.py --install
 ```
 
-After launch, all experimentation happens in the desktop window. The optional **Nebula Studio.app** wrapper is also included, but Launch Services on the validation Mac denied Python access to the environment under Documents (`Operation not permitted` reading `.venv/pyvenv.cfg`). Its double-click launch therefore remains unverified there; the command above was verified. No system privacy settings were changed. Keep the wrapper inside this repository: it uses `.venv` and is not a self-contained signed installer. Its diagnostic log is `.validation/studio.log`.
+Quit the installed app before updating it. The installer stages and verifies a
+complete bundle, preserves any previous installation as a dated backup, then
+replaces the app. Builds are snapshots: rebuild after source changes. Without
+`--install`, the result stays in `dist/Nebula Studio.app`. Generated bundles and
+build intermediates are ignored by Git. The bundle is signed ad hoc for local
+use on the build Mac; it is not a notarized distribution for other computers.
+The build uses [PyInstaller's macOS bundle support](https://pyinstaller.org/en/stable/spec-files.html).
 
 For a fresh checkout, install Python 3.11+ and FFmpeg, then create the isolated environment once:
 
@@ -24,11 +38,240 @@ python3 -m venv .venv
 .venv/bin/python studio.py
 ```
 
-The Python entry point also works on other platforms with PySide6 and FFmpeg on PATH; this milestone was validated on macOS with Python 3.14 and PySide6 6.11.2. Optional startup arguments:
+The development entry point remains available without building an app:
+`studio.py --synth` opens the synthesizer; `studio.py` opens the input-clip editor.
+The installed app also accepts `--clip-studio` to open that editor. The Python
+entry point works on other platforms with PySide6 and FFmpeg on PATH; this
+milestone was validated on macOS with Python 3.14 and PySide6 6.11.2. Optional startup arguments:
 
 ```sh
 .venv/bin/python studio.py /path/to/clip.mp4 --preset /path/to/settings.json
 ```
+
+## Source-free visual synthesis
+
+The desktop studio also includes a native generator for the luminous slabs and
+irregular Venetian-blind rays in the reference study. Launch it with:
+
+```sh
+.venv/bin/python studio.py --synth
+```
+
+The Synth window supports deterministic continuous animation, treatment FPS
+holds, separate export FPS, module enable/order controls, typed parameter
+editors, per-parameter variation locks, curated presets, JSON round trips and
+atomic MP4 loop export. The schema and renderer live in [`synth.py`](synth.py);
+new effects register one module specification and one renderer callback in
+`RENDERERS`. Unknown modules survive save/reload for forward compatibility.
+
+This first synthesis pass is source-free. Input-video modulation is reserved
+for the next phase; the existing clip workflow remains available from the same
+`studio.py` entry point.
+
+The default view is a **composer**: sections below the preview and an **Effects**
+inspector. It opens the **Refined 15s** study with its original animated recipe.
+**Approved 15s** reloads the earlier study with its original recipe and pixels.
+
+The native editors share a terminal-inspired interface: a system-available
+monospaced font, dark panels, phosphor-green controls and a violet playhead.
+The synth monitor shows the rendered preview dimensions, RGB format and
+play/hold state. The theme lives in [`studio_theme.py`](studio_theme.py) and
+affects the interface only; saved compositions and exported pixels are unchanged.
+
+- Select **Whole clip** to adjust the entire piece, or click a section to
+  adjust it locally. Sections can be added, duplicated, removed, reordered,
+  and given different durations under **Arrange**. Their internal events are
+  generated for you.
+- **Effects** exposes luminous forms, rays / Venetian blinds, particle attractors, ghosts / trails,
+  signal breakup, signal drift, granular halos, exposure flares, color
+  separation, signal interference, bloom, and raster / grain. Select any effect in the library and
+  **Apply effect** to add it with a preset. Effects can be combined in any
+  section, independently of the section's source phrase. Rays and Venetian
+  blinds are two starting settings of the same configurable generator.
+- Each effect shows its own parameters and whether it is active, intermittent
+  or off. **Used in this section** lists the active effects as shortcuts to
+  their controls. Selecting another section opens an active effect if the
+  previously inspected effect is unused there. Off applies only to the
+  inspected effect, not to the section. Authored parameters that vary are shown as ranges. Click a range to
+  start a fixed value at its lower bound, then edit it. **↶** restores that
+  parameter's recipe or inherited value. Unedited parameters keep animating.
+  **Follow recipe** retains the authored enable/disable changes; **On** or
+  **Off throughout scope** overrides those changes. **Restore** removes that
+  effect's overrides from the current scope.
+- Effects use absolute values. Whole-clip settings apply first; section
+  settings override them. Fixed effect values take priority over Geometry
+  and Finishing. A luminous form's companion ghost and granular halo require
+  that form; ghost trails also apply to rays. Exposure flares are independent
+  of the timeline's flash/sweep transitions. There is one instance per effect
+  family, in the renderer's established order.
+- In **Geometry**, choose a rectangle, ellipse, circle or regular polygon.
+  Width and height scale rectangular/elliptical forms; circles and polygons
+  use a diameter measured as a percentage of image height. Polygons have
+  3–32 sides. Rotation is available for rectangles, ellipses and polygons.
+  The same geometry shapes the luminous source, its echoes and the central
+  ray aperture. **Finishing** holds the relative treatment adjustments:
+  1× means the original recipe, so different sections can look different at 1×.
+- **Original geometry** retains each source state's authored shape. Sections
+  default to **From whole clip** and can override it independently. Geometry
+  saves with the composition and supports undo/redo. **New take** keeps the
+  shape, diameter, height, sides and rotation; the Width macro still varies
+  rectangular/elliptical forms unless locked. Circles remain circular.
+- **New clip** starts an empty 15-second section. Add forms, rays or particles, then
+  combine them with signal effects. In the bundled studies, choose source
+  phrases under **Arrange**. Phrases repeat to fill their duration;
+  **Rhythm** controls how quickly their internal changes happen.
+- **New take** makes a reproducible variation in the current scope. **Keep**
+  locks a macro value during variation. Fixed effect values stay fixed.
+  **Reset controls** clears the scope's effect overrides and returns it to
+  1×, its original geometry and variation; **Undo / Redo** recover composition edits.
+- **Save…** keeps effects, arrangement, macros, locks, variations and a snapshot of
+  the source recipe together in a versioned composition document. **Open…**
+  accepts compositions and existing detailed sequence files.
+- **Open detailed copy…** opens the generated events and full parameter editor
+  in an independent window. Editing that copy leaves the composition intact.
+  Detailed sequences can be brought back into the composer as a single phrase
+  with **Use this sequence in composer**.
+
+[`synth_composition.py`](synth_composition.py) compiles the arrangement to the
+existing public sequence format. Preview and export therefore use the same
+sequence renderer as the approved study. A fixed pixel-hash regression checks
+all 375 frames of each study at 96×72 against their earlier renderers;
+composition tests cover local edits, deterministic variation and save/reload.
+[`synth_effects.py`](synth_effects.py) registers each reusable effect's parameter
+paths, activation rules and starting presets. The native inspector is generated
+from that registry, and the composition compiler writes ordinary sequence
+overrides. Older documents gain an empty effect rack and keep their pixels.
+The signal-breakup module is disabled in older presets; its held horizontal
+tears and dropouts are deterministic under scrubbing and export.
+
+### Particle attractors
+
+**Particle head 15s** opens the new **Particle signal** study: dots rush into an
+anatomical head, rebound and dissolve toward a thin luminous band. Three sections
+(Charge & gather, Signal storm, Release & return) combine the continuous particle
+motion with 11 signal-treatment cues. **Original particles** retains the first
+one-section study and its original pixels.
+**Expand / orbit** opens a 15-second variation with exactly two expansions,
+arranged as two sections. The assembled head turns at 18°/s, expands quickly with
+a narrow velocity peak, revolves as a broad cloud at 24°/s, then gathers again.
+A shared centered axis keeps the cloud from circling an offset pivot. The head
+inherits the cloud’s accumulated rotation on return, so reassembly keeps turning
+forward instead of unwinding toward an earlier angle. The neck
+fades into sparse points above the mesh edge. The portrait uses smooth
+facial geometry, eye surfaces and depth occlusion to suppress the mouth interior
+and far side. A restrained violet/white palette keeps the earlier color direction.
+Tape faults replace the added bars: tracking slips, scanline loss, color lag and
+bleed deform the existing image. The strongest faults follow the main outward
+move so it stays visible. Existing saved orbit clips retain their earlier motion
+and colors; Particle head and Original particles also retain their pixels.
+The default startup study and **Refined 15s / Approved 15s** remain unchanged.
+You can also apply **Particle attractor** from Effects to any composition.
+
+- **Motion → Surges** adds **Acceleration**, **Arrival disorder** and
+  **Overshoot**. Groups hesitate, arrive on curved paths at different times and
+  rebound before settling. The cycle's timing drifts continuously. **Gentle**
+  retains the original motion; older saved presets default to Gentle.
+- **Motion → Impulse** separates the movement from the hold. **Expansion seconds**
+  and **Gather seconds** set the outward and inward durations, while **Motion peak**
+  shapes the speed curve: 0 is linear; higher values ease into a narrow velocity
+  peak and ease out again. The example uses a .75-second expansion, a 1-second
+  return and a .8 peak. **Cycle seconds** controls repetition independently.
+  Expansion/gather durations cap at 25%/20% of the cycle to leave room for holds.
+  Arrival disorder adds a small stagger without changing the number of cycles.
+  Orbit speed and expansion threshold remain under **More controls**.
+- **Assembly** sets how tightly particles follow the invisible surface.
+  **Assembly cycle** controls automatic gathering and release; set it to **0**
+  to hold Assembly at a fixed value. **Cycle seconds** sets the period at global
+  speed 1, and **Cycle phase** changes the starting point. This motion lives in
+  the effect; it does not require extra timeline states. The inspector displays
+  the cycle's settings, not its instantaneous computed assembly value.
+- **Release → Expand / orbit** chooses the new outward motion. **Dispersion**
+  sets its spread, **Orbit degrees / sec** sets cloud rotation (negative reverses
+  it), and **Orbit after expansion** delays spin-up until the field opens out.
+  The example uses 24°/s and a 70% threshold. Orbit slows as particles gather;
+  **Turn degrees / sec** separately rotates the entire target and field.
+  **Cloud / band** restores the earlier release and its **Collapse to band**
+  control. Collapse is ignored in Expand / orbit, which has no downward pull
+  or funnel taper. Release and orbit settings can also be overridden per section.
+- **Particle count**, **Dot size**, **Dispersion** and **Turbulence** set density,
+  texture and the released field. **More controls** includes collapse toward a
+  horizontal band, rotation, tilt, scale, position, perspective, surface relief,
+  see-through depth, spectral color, shimmer and scan registration.
+- **Human head** uses an anatomical head/neck mesh derived from MakeHuman's
+  CC0 base asset, sampled uniformly by surface area. Geometry and interpolated
+  normals provide the facial detail; the solid mesh is never drawn. The 94 KB
+  asset is bundled for offline use. [Provenance and license](assets/models/README.md)
+  include its pinned source and extraction script. **Stylized head**, **Sphere**
+  and **Ring** retain their earlier procedural surfaces. Arbitrary mesh import
+  and physical collision/gravity simulation are not included.
+- **Portrait head** adds the source's eye surfaces and a smooth subdivision pass.
+  The separate 454 KB mesh keeps the earlier Human head asset unchanged.
+  **Surface occlusion** under More controls hides deeper points behind the
+  assembled face using a fixed proxy depth grid. It fades away as particles
+  disperse; only points are rendered. Older documents default to zero occlusion.
+- **Turn timing → Assembled only** eases the head turn to a hold during release,
+  keeping **Turn degrees / sec** independent of **Orbit degrees / sec**.
+  **Rotation axis → Centered** aligns both volumes to a common vertical pivot;
+  its reference population is fixed, so changing Particle count retains identities.
+  **Neck feather** softens the lower edge of head targets and restores those dots
+  during expansion. These controls are under Particle attractor → More controls;
+  old documents keep continuous turning, the original origin and no feather.
+- **Return rotation → Carry orbit** gives the head and cloud one accumulated
+  orientation. The head reforms at the angle reached by the orbit, preventing
+  a backward turn during gathering. Particle positions and surface lighting
+  turn together; expansion timing and easing remain independent. Older documents
+  retain **Original head angle** unless this control is changed.
+- **Tape damage** processes the recorded image after its other treatments.
+  Tracking slip and line jitter displace existing pixels; Dropouts remove short
+  stretches of scanline. Chroma delay and Color bleed lag/smear the source's own
+  color, and Head-switch error distorts the bottom edge. Fault changes / sec
+  controls its held cadence; 0 freezes it. Mix 0 bypasses exactly. The new study
+  has no active rays, slabs or flare generators. Tape damage is off in old presets.
+- Combine particles with bloom, raster / grain, color separation, trails or
+  signal breakup. The particle source runs before those treatments. Parameters
+  support whole-clip/local overrides, bypass, restore, undo/redo and save/open.
+  Its own **Scale**, **Head turn** and **Tilt** control the 3D target; the Geometry
+  tab still controls luminous forms and ray apertures.
+- **Signal interference** is a separate reusable effect: moving chromatic bands,
+  uneven exposure and bent vertical scan strings. Its speed, bending, density,
+  contrast, chroma and mix are editable. The Particle signal study also uses the existing
+  warp, separation, trails, bloom, raster, brief exposure crests and tracking breaks.
+  Released brightness dims particles between bursts. Neither reference video
+  pixels nor external services are used by the renderer.
+
+[`synth_particles.py`](synth_particles.py) keeps seeded point identities and
+evaluates continuous paths directly from time. Scrubbing, held treatment frames
+and export therefore agree without a simulation warmup. The new module is off
+in all existing presets. Regression tests retain every saved pixel hash for both
+375-frame studies and selected frames of both earlier particle studies. Higher
+particle counts cost more CPU time. Save/export dialogs suggest the current
+composition's name under Documents/Movies, avoiding Finder's read-only root
+working directory.
+
+The refined study adds granular halos and ghosts, edge flutter, short horizontal
+noise streaks, blue-violet falloff in dim forms, colored ray tails and uneven
+exposure sweeps. **Texture**, **Instability**, **Magenta** and **Flares** control
+these treatments in the current scope; **Brightness** also affects ray cores.
+The detailed editor exposes each new parameter independently. New renderer
+parameters default to neutral values so the approved study remains unchanged.
+Previously saved compositions retain their source snapshots; non-neutral
+Brightness settings now also scale ray intensity.
+
+The approved recipe is [`presets/composite-study-15s.json`](presets/composite-study-15s.json);
+the new treatment is [`presets/composite-signal-refined-15s.json`](presets/composite-signal-refined-15s.json).
+It includes 323 frame-timed cues at 25 fps: rapid ray-count changes, asymmetric
+exposure sweeps, alternating filled/fragmented blocks, a dim violet passage,
+and a noisy final return. It is a procedural interpretation; signal feedback
+and the exact textures of the hardware reference are not reproduced exactly.
+The reference video is not a rendering input and is not distributed here.
+
+In the detailed editor, selecting a cue scrubs to its time. **Duplicate state** creates an independent
+copy and assigns it to that cue. **Generate variation** changes the selected
+state and honors its parameter locks. The **Signal flare** module controls
+exposure, position, spread, reach, and fringe; slab controls include split
+magenta/white fill, per-frame registration, ghost grain, and a localized signal
+cloud. **Signal softness** softens the image before the final raster grain.
+These controls also work in standalone presets.
 
 ## Experimenting
 
@@ -55,7 +298,7 @@ Proxy blur, translation, channel offset, bloom and paper scale follow image scal
 
 A 100 ms debounce coalesces edits. The preview worker prioritizes the selected frame, then prepares the loop. New requests cancel obsolete FFmpeg work; generation IDs discard late results and errors. Source and rendered-frame caches have 64 MiB and 128 MiB budgets, and the displayed loop has a 128 MiB budget. A/B and high-fps loops automatically use smaller proxies to fit. Export uses a separate worker and an atomic temporary output.
 
-For accurate variable-rate seeking, decoding starts from the beginning of the clip before selecting the requested frame. Seeking late in a long clip can therefore take longer. CPU rendering, silent MP4 output, one clip at a time, fixed stage order, and no audio playback are intentional first-version limits. Frame-count estimates depend on container duration; malformed duration metadata may require choosing an earlier loop position. There is no installer, undo history, node graph or multi-clip editing in this milestone.
+For accurate variable-rate seeking, decoding starts from the beginning of the clip before selecting the requested frame. Seeking late in a long clip can therefore take longer. CPU rendering, silent MP4 output, one clip at a time, fixed stage order, and no audio playback are intentional first-version limits. Frame-count estimates depend on container duration; malformed duration metadata may require choosing an earlier loop position. There is no installer, node graph or multi-clip editing in this milestone. Undo/redo is available in the synth composer; the detailed editor and input-clip workflow do not yet have undo history.
 
 ## Validation
 
