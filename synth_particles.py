@@ -83,13 +83,17 @@ def _ease(value):
     return value * value * (3 - 2 * value)
 
 
-def _surge_motion(p, phase, target, attributes):
-    """Uneven charges and damped arrivals, with continuous cycle boundaries."""
+def _surge_phase(p, phase, target, attributes):
     chaos = p["chaos"]
     # Modulate cycle duration continuously; the clock never jumps at a wrap.
     phase += chaos * (.055 * np.sin(phase * math.tau * .73) + .022 * np.sin(phase * math.tau * 1.91))
     delay = chaos * (.12 * attributes[:, 7] + .025 * target[:, 1])
-    local = (phase - delay) % 1
+    return phase - delay
+
+
+def _surge_motion(p, phase, target, attributes):
+    """Uneven charges and damped arrivals, with continuous cycle boundaries."""
+    local = _surge_phase(p, phase, target, attributes) % 1
     incoming = _ease((local - .10) / .30) ** (1 + 4 * p["acceleration"])
     outgoing = _ease((local - .57) / .24) ** (1 + 3 * p["acceleration"])
     hold = incoming * (1 - outgoing)
@@ -98,6 +102,47 @@ def _surge_motion(p, phase, target, attributes):
     ring = np.sin(settle * math.tau * 1.5) * np.sin(settle * math.pi) ** 2 * np.exp(-settle * 2)
     transfer = cohesion + ring * p["overshoot"] * .75 * p["assembly"] * p["breathing"]
     return cohesion, transfer
+
+
+@lru_cache(maxsize=32)
+def _orbit_integral(motion, assembly, breathing, acceleration, start):
+    """Integral of the release gate over one cycle, in cycle units.
+
+    Integrating angular velocity keeps rotation continuous across cycle wraps
+    and long seeks. Multiplying absolute time by a release weight would rewind
+    the cloud at every gathering, with speed increasing as the clip gets longer.
+    """
+    phase = np.linspace(0., 1., 2049)
+    if motion == 1:
+        incoming = _ease((phase - .10) / .30) ** (1 + 4 * acceleration)
+        outgoing = _ease((phase - .57) / .24) ** (1 + 3 * acceleration)
+        hold = incoming * (1 - outgoing)
+    else:
+        hold = _ease((.5 - .5 * np.cos(phase * math.tau)) * 1.6)
+    cohesion = assembly * (1 - breathing * (1 - hold))
+    gate = _ease(((1 - cohesion) - start) / (1 - start))
+    integral = np.concatenate(([0.], np.cumsum((gate[:-1] + gate[1:]) * .5 / (len(phase) - 1))))
+    integral.setflags(write=False)
+    return integral
+
+
+def _orbit_cloud(p, time, target, attributes):
+    # A rounded, irregular volume, distributed outward from each surface point.
+    # Its radius does not taper with height, so it never forms a funnel.
+    direction = target / np.array((.8, 1.1, .8)) + (attributes[:, 4:7] - .5) * 1.4
+    direction /= np.maximum(1e-8, np.linalg.norm(direction, axis=1, keepdims=True))
+    cloud = target + direction * (p["dispersion"] * (.6 + attributes[:, 6] * .8))[:, None]
+    phase = time / p["period"] + p["phase"]
+    if p.get("motion", 0) == 1:
+        phase = _surge_phase(p, phase, target, attributes)
+    integral = _orbit_integral(p.get("motion", 0), p["assembly"], p["breathing"], p["acceleration"], p["orbit_start"])
+    # Each group keeps its staggered release, including its delayed spin-up.
+    clock = (np.floor(phase) * integral[-1] + np.interp(phase % 1, np.linspace(0., 1., len(integral)), integral)) * p["period"]
+    angle = np.deg2rad(p["orbit_speed"]) * clock
+    cosine, sine = np.cos(angle), np.sin(angle)
+    x, z = cloud[:, 0].copy(), cloud[:, 2].copy()
+    cloud[:, 0], cloud[:, 2] = x * cosine + z * sine, -x * sine + z * cosine
+    return cloud
 
 
 def particle_field(p, time, seed):
@@ -115,11 +160,15 @@ def particle_field(p, time, seed):
     surges = p.get("motion", 0) == 1
     if surges:
         cohesion, transfer = _surge_motion(p, phase, target, attributes)
-    loose = cloud * p["dispersion"]
-    # Collapse toward a horizontal band, like the reference's compressed field.
-    loose[:, 1] = loose[:, 1] * (1 - p["collapse"]) - p["collapse"] * 1.15
-    if surges:
-        loose[:, 2] *= 1 - p["collapse"]
+    orbit = p.get("release", 0) == 1
+    if orbit:
+        loose = _orbit_cloud(p, time, target, attributes)
+    else:
+        loose = cloud * p["dispersion"]
+        # Collapse toward a horizontal band, like the reference's compressed field.
+        loose[:, 1] = loose[:, 1] * (1 - p["collapse"]) - p["collapse"] * 1.15
+        if surges:
+            loose[:, 2] *= 1 - p["collapse"]
     points = target * transfer[:, None] + loose * (1 - transfer[:, None])
     if surges:
         # Groups take curved paths into the target instead of a straight lerp.
@@ -133,7 +182,7 @@ def particle_field(p, time, seed):
         flow_clock += p["chaos"] * (.7 * np.sin(time * 1.7) + .3 * np.sin(time * 4.1))
     flow = np.sin(target[:, [1, 2, 0]] * 3.4 + motion_phase + flow_clock)
     flow += .4 * np.sin(target[:, [2, 0, 1]] * 6.2 - motion_phase + flow_clock * .63)
-    if surges:
+    if surges and not orbit:
         flow[:, 1:] *= (1 - .9 * p["collapse"] * (1 - cohesion))[:, None]
     points += flow * p["turbulence"] * (.12 + .88 * (1 - cohesion[:, None]))
     yaw = math.radians(p["yaw"] + time * p["rotation_speed"])

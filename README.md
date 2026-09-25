@@ -151,6 +151,10 @@ anatomical head, rebound and dissolve toward a thin luminous band. Three section
 (Charge & gather, Signal storm, Release & return) combine the continuous particle
 motion with 11 signal-treatment cues. **Original particles** retains the first
 one-section study and its original pixels.
+**Expand / orbit** opens a separate 15-second variation with a 3.8-second cycle
+(about 21% faster than the 4.6-second signal study). Dots expand in all directions
+into a broad volume, then revolve slowly around the vertical axis. It keeps the
+same anatomical target and signal treatments. Both earlier examples are retained.
 The default startup study and **Refined 15s / Approved 15s** remain unchanged.
 You can also apply **Particle attractor** from Effects to any composition.
 
@@ -164,6 +168,14 @@ You can also apply **Particle attractor** from Effects to any composition.
   speed 1, and **Cycle phase** changes the starting point. This motion lives in
   the effect; it does not require extra timeline states. The inspector displays
   the cycle's settings, not its instantaneous computed assembly value.
+- **Release → Expand / orbit** chooses the new outward motion. **Dispersion**
+  sets its spread, **Orbit degrees / sec** sets cloud rotation (negative reverses
+  it), and **Orbit after expansion** delays spin-up until the field opens out.
+  The example uses 24°/s and a 70% threshold. Orbit slows as particles gather;
+  **Turn degrees / sec** separately rotates the entire target and field.
+  **Cloud / band** restores the earlier release and its **Collapse to band**
+  control. Collapse is ignored in Expand / orbit, which has no downward pull
+  or funnel taper. Release and orbit settings can also be overridden per section.
 - **Particle count**, **Dot size**, **Dispersion** and **Turbulence** set density,
   texture and the released field. **More controls** includes collapse toward a
   horizontal band, rotation, tilt, scale, position, perspective, surface relief,
@@ -191,7 +203,7 @@ You can also apply **Particle attractor** from Effects to any composition.
 evaluates continuous paths directly from time. Scrubbing, held treatment frames
 and export therefore agree without a simulation warmup. The new module is off
 in all existing presets. Regression tests retain every saved pixel hash for both
-375-frame studies and selected frames of the original particle study. Higher
+375-frame studies and selected frames of both earlier particle studies. Higher
 particle counts cost more CPU time. Save/export dialogs suggest the current
 composition's name under Documents/Movies, avoiding Finder's read-only root
 working directory.

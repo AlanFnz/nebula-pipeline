@@ -178,6 +178,24 @@ def _particle_signal_composition():
     return normalize_composition(project)
 
 
+def particle_orbit_composition():
+    """A faster, outward release variant; the earlier signal recipe stays intact."""
+    project = _particle_signal_composition()
+    project["name"] = project["source"]["name"] = "Particle orbit"
+    for state in project["source"]["states"].values():
+        state["overrides"].update({
+            "particles.release": 1, "particles.period": 3.8,
+            "particles.orbit_speed": 24., "particles.orbit_start": .7,
+            "particles.dispersion": .9, "particles.scale": .8,
+            "particles.released_brightness": .65, "particles.rotation_speed": 1.5,
+            "flare.position_y": .5, "flare.spread": .12,
+        })
+    project["phrases"]["charge"]["name"] = "Gather & expand"
+    project["phrases"]["storm"]["name"] = "Orbiting signal"
+    project["phrases"]["return"]["name"] = "Disperse & return"
+    return normalize_composition(project)
+
+
 def _number(value, label, low, high, integer=False):
     if not isinstance(value, (int, float)) or not math.isfinite(value) or not low <= value <= high:
         raise ValueError(f"{label} must be between {low} and {high}")

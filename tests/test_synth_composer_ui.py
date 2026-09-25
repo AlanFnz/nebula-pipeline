@@ -254,6 +254,17 @@ def test_particle_example_controls_undo_save_and_threaded_export(window, tmp_pat
     assert render_sequence_frame(window.sequence, 6, (120, 96)).tobytes() != before
     window.undo_composition()
     assert render_sequence_frame(window.sequence, 6, (120, 96)).tobytes() == before
+    buttons["Expand / orbit"].click()
+    effects = window.composer.effects_panel
+    assert len(window.composition["sections"]) == 3
+    assert effects.controls["particles.release"].input.currentText() == "Expand / orbit"
+    assert effects.controls["particles.period"].input.value() == 3.8
+    before = render_sequence_frame(window.sequence, 4., (120, 96)).tobytes()
+    effects.controls["particles.orbit_speed"].input.setValue(-40.)
+    assert render_sequence_frame(window.sequence, 4., (120, 96)).tobytes() != before
+    window.undo_composition()
+    assert render_sequence_frame(window.sequence, 4., (120, 96)).tobytes() == before
+    assert Path(window.suggested_output_path(".mp4")).name == "particle-orbit.mp4"
     effects = window.composer.effects_panel
     effects.controls["particles.breathing"].input.setValue(0.)
     effects.controls["particles.assembly"].input.setValue(.6)

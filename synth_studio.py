@@ -227,7 +227,7 @@ class SynthStudio(QMainWindow):
             self.preset_widgets.append(button)
         outer.addLayout(header)
         sequence_actions = QHBoxLayout()
-        for text, slot in (("New clip", self.new_composition), ("Refined 15s", self.load_refined_sequence), ("Approved 15s", self.load_reference_sequence), ("Particle head 15s", lambda: self.load_particle_composition()), ("Original particles", lambda: self.load_particle_composition(False)), ("Save…", self.save_sequence_dialog), ("Open…", self.load_sequence_dialog)):
+        for text, slot in (("New clip", self.new_composition), ("Refined 15s", self.load_refined_sequence), ("Approved 15s", self.load_reference_sequence), ("Particle head 15s", lambda: self.load_particle_composition()), ("Expand / orbit", self.load_particle_orbit), ("Original particles", lambda: self.load_particle_composition(False)), ("Save…", self.save_sequence_dialog), ("Open…", self.load_sequence_dialog)):
             button = QPushButton(text); button.clicked.connect(slot); sequence_actions.addWidget(button)
         sequence_actions.addStretch(1)
         outer.addLayout(sequence_actions)
@@ -484,6 +484,11 @@ class SynthStudio(QMainWindow):
     def load_particle_composition(self, refined=True):
         from synth_composition import particle_composition
         self.set_composition(particle_composition(refined=refined))
+        self.composer.effects_panel.inspect_effect("particles")
+
+    def load_particle_orbit(self):
+        from synth_composition import particle_orbit_composition
+        self.set_composition(particle_orbit_composition())
         self.composer.effects_panel.inspect_effect("particles")
 
     def set_composition(self, project):
