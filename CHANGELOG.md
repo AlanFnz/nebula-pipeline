@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Carry orbit return rotation keeps the head and cloud in one rotating frame,
+  retaining accumulated rotation as particles gather instead of unwinding toward
+  the earlier head angle. Enabled in the current Expand / orbit study; older
+  documents retain their original return and pixels.
+
 - Faster assembled-head turning with an independent, gated turn clock; centered
   head/cloud rotation removes the expanded volume’s offset orbit. A model-space
   neck feather softens the mesh cutoff. The current Expand / orbit study uses

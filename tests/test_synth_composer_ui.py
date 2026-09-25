@@ -265,6 +265,7 @@ def test_particle_example_controls_undo_save_and_threaded_export(window, tmp_pat
     assert effects.controls["particles.turn_scope"].input.currentText() == "Assembled only"
     assert effects.controls["particles.axis_mode"].input.currentText() == "Centered"
     assert effects.controls["particles.neck_fade"].input.value() == .42
+    assert effects.controls["particles.orbit_handoff"].input.currentText() == "Carry orbit"
     assert effects.summary["tape"]["active"]
     assert not effects.summary["rays"]["active"]
     assert effects.controls["particles.period"].input.value() == 7.5
@@ -289,10 +290,10 @@ def test_particle_example_controls_undo_save_and_threaded_export(window, tmp_pat
     assert render_sequence_frame(window.sequence, 1., (120, 96)).tobytes() == before
     effects = window.composer.effects_panel
     effects.inspect_effect("particles")
-    for path, value, t in (("particles.rotation_speed", 0., 1.8), ("particles.axis_mode", 0, 4.), ("particles.neck_fade", 0., 0.)):
+    for path, value, t in (("particles.rotation_speed", 0., 1.8), ("particles.axis_mode", 0, 4.), ("particles.neck_fade", 0., 0.), ("particles.orbit_handoff", 0, 6.2)):
         before = render_sequence_frame(window.sequence, t, (120, 96)).tobytes()
         control = effects.controls[path].input
-        if path == "particles.axis_mode":
+        if path in ("particles.axis_mode", "particles.orbit_handoff"):
             control.setCurrentIndex(value)
         else:
             control.setValue(value)

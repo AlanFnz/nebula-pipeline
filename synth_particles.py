@@ -181,7 +181,23 @@ def _assembled_turn_time(p, time):
     return time - (released[1] - released[0])
 
 
-def _orbit_cloud(p, time, target, attributes, drift=None):
+def _orbit_time(p, phase):
+    integral = _orbit_integral(p.get("motion", 0), p["assembly"], p["breathing"], p["acceleration"], p["orbit_start"],
+                               p["period"], p.get("expand_seconds", .75), p.get("gather_seconds", 1.), p.get("motion_peak", .8))
+    return (np.floor(phase) * integral[-1] + np.interp(phase % 1, np.linspace(0., 1., len(integral)), integral)) * p["period"]
+
+
+def _carried_orbit_time(p, time):
+    # One orientation for both volumes, retained after every gathering. An
+    # independent clock per point would deform the face as it reassembles.
+    phase = np.array((p["phase"], time / p["period"] + p["phase"]))
+    if p.get("motion", 0) == 1:
+        phase += p["chaos"] * (.055 * np.sin(phase * math.tau * .73) + .022 * np.sin(phase * math.tau * 1.91))
+    clock = _orbit_time(p, phase)
+    return clock[1] - clock[0]
+
+
+def _orbit_cloud(p, time, target, attributes, drift=None, rotate=True):
     # A rounded, irregular volume, distributed outward from each surface point.
     # Its radius does not taper with height, so it never forms a funnel.
     direction = target / np.array((.8, 1.1, .8)) + (attributes[:, 4:7] - .5) * 1.4
@@ -189,15 +205,15 @@ def _orbit_cloud(p, time, target, attributes, drift=None):
     cloud = target + direction * (p["dispersion"] * (.6 + attributes[:, 6] * .8))[:, None]
     if drift is not None:
         cloud -= p["dispersion"] * drift
+    if not rotate:
+        return cloud
     phase = time / p["period"] + p["phase"]
     if p.get("motion", 0) == 1:
         phase = _surge_phase(p, phase, target, attributes)
     elif p.get("motion", 0) == 2:
         phase = _impulse_phase(p, phase, target, attributes)
-    integral = _orbit_integral(p.get("motion", 0), p["assembly"], p["breathing"], p["acceleration"], p["orbit_start"],
-                               p["period"], p.get("expand_seconds", .75), p.get("gather_seconds", 1.), p.get("motion_peak", .8))
     # Each group keeps its staggered release, including its delayed spin-up.
-    clock = (np.floor(phase) * integral[-1] + np.interp(phase % 1, np.linspace(0., 1., len(integral)), integral)) * p["period"]
+    clock = _orbit_time(p, phase)
     angle = np.deg2rad(p["orbit_speed"]) * clock
     cosine, sine = np.cos(angle), np.sin(angle)
     x, z = cloud[:, 0].copy(), cloud[:, 2].copy()
@@ -231,8 +247,9 @@ def particle_field(p, time, seed):
         cohesion = p["assembly"] * (1 - p["breathing"] * (1 - hold))
         transfer = cohesion
     orbit = p.get("release", 0) == 1
+    carry = orbit and p.get("orbit_handoff", 0) == 1
     if orbit:
-        loose = _orbit_cloud(p, time, target, attributes, drift)
+        loose = _orbit_cloud(p, time, target, attributes, drift, rotate=not carry)
     else:
         loose = cloud * p["dispersion"]
         # Collapse toward a horizontal band, like the reference's compressed field.
@@ -257,6 +274,10 @@ def particle_field(p, time, seed):
     points += flow * p["turbulence"] * (.12 + .88 * (1 - cohesion[:, None]))
     turn_time = _assembled_turn_time(p, time) if p.get("turn_scope", 0) == 1 else time
     yaw = math.radians(p["yaw"] + turn_time * p["rotation_speed"])
+    if carry:
+        # Blend the two shapes in one rotating frame. Blending an orbiting
+        # cloud back toward an unrotated target makes the return unwind.
+        yaw += math.radians(_carried_orbit_time(p, time) * p["orbit_speed"])
     pitch = math.radians(p["pitch"])
     yaw_matrix = np.array(((math.cos(yaw), 0, math.sin(yaw)), (0, 1, 0), (-math.sin(yaw), 0, math.cos(yaw))))
     pitch_matrix = np.array(((1, 0, 0), (0, math.cos(pitch), -math.sin(pitch)), (0, math.sin(pitch), math.cos(pitch))))

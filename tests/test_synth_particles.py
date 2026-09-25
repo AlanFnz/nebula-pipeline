@@ -99,7 +99,7 @@ def test_particle_composition_roundtrip_overrides_and_local_bypass(tmp_path):
     assert not describe_effects(compile_composition(project)["states"].values())["particles"]["active"]
 
 
-@pytest.mark.parametrize("params", [{"count": 0}, {"attractor": 5}, {"period": 0}, {"assembly": float("nan")}, {"release": 2}, {"orbit_start": 1}, {"orbit_speed": float("inf")}, {"motion": 3}, {"expand_seconds": 0}, {"gather_seconds": 0}, {"motion_peak": 2}, {"axis_mode": 2}, {"turn_scope": 2}, {"neck_fade": -1}])
+@pytest.mark.parametrize("params", [{"count": 0}, {"attractor": 5}, {"period": 0}, {"assembly": float("nan")}, {"release": 2}, {"orbit_start": 1}, {"orbit_speed": float("inf")}, {"motion": 3}, {"expand_seconds": 0}, {"gather_seconds": 0}, {"motion_peak": 2}, {"axis_mode": 2}, {"turn_scope": 2}, {"neck_fade": -1}, {"orbit_handoff": 2}])
 def test_invalid_particle_controls_are_rejected(params):
     preset, settings = particle_only()
     settings.update(params)
@@ -378,3 +378,53 @@ def test_neck_feather_hides_mesh_edge_and_restores_released_particles():
     assert 0. < feather[2] < feather[3] < feather[4] == 1.
     assert np.array_equal(_neck_visibility(height, variation, np.zeros(5), .42), np.ones(5))
     assert np.array_equal(_neck_visibility(height, variation, np.ones(5), 0.), np.ones(5))
+
+
+def test_previous_centered_study_keeps_its_pixels_without_carried_rotation():
+    project = particle_orbit_composition()
+    for state in project["source"]["states"].values():
+        state["overrides"]["particles.orbit_handoff"] = 0
+    seq = compile_composition(project)
+    frames = (render_sequence_frame(seq, t, (192, 144)).tobytes() for t in (0, .8, 2., 6., 10., 14.96))
+    # Captured from 3bcd80d before the cloud-to-head rotation handoff fix.
+    assert hashlib.sha256(b"".join(frames)).hexdigest() == "a1d142e0a62d3fb3f0f6e54ec2afbecce244d108fb227dd993c8950cb8774469"
+
+
+@pytest.mark.parametrize("direction", [1, -1])
+def test_carried_rotation_never_unwinds_during_either_return(direction):
+    _, p = particle_only()
+    p.update(attractor=4, count=4000, motion=2, release=1, period=7.5, phase=0.,
+             axis_mode=1, turn_scope=1, rotation_speed=18. * direction,
+             orbit_speed=24. * direction, orbit_handoff=1, turbulence=0., chaos=0.)
+    # Measure the angular motion of the point correspondences, including the
+    # shape change itself. The previous return reversed by over 300 degrees/s.
+    for offset in (0., 7.5):
+        for t in np.linspace(5.7, 6.8, 80) + offset:
+            a = particle_field(p, t, 20)[0]
+            b = particle_field(p, t + .005, 20)[0]
+            cross = (a[:, 2] * b[:, 0] - a[:, 0] * b[:, 2]).sum()
+            dot = (a[:, 0] * b[:, 0] + a[:, 2] * b[:, 2]).sum()
+            assert direction * np.arctan2(cross, dot) > 0.
+    p["orbit_handoff"] = 0
+    a, b = (particle_field(p, t, 20)[0] for t in (6.2, 6.205))
+    assert direction * (a[:, 2] * b[:, 0] - a[:, 0] * b[:, 2]).sum() < 0.
+
+
+def test_rotation_handoff_is_rigid_and_preserves_timing_identity_and_seeking():
+    _, p = particle_only()
+    p.update(attractor=4, count=400, motion=2, release=1, period=7.5, phase=0.,
+             axis_mode=1, turn_scope=1, rotation_speed=18., orbit_speed=24.,
+             orbit_handoff=1, turbulence=0., chaos=.35)
+    held, normals, _, cohesion = particle_field(p, 7.5, 20)
+    old, old_normals, _, old_cohesion = particle_field(dict(p, orbit_handoff=0), 7.5, 20)
+    assert not np.allclose(held, old)
+    assert np.array_equal(cohesion, old_cohesion)
+    assert np.allclose(np.linalg.norm(held[1:] - held[:-1], axis=1), np.linalg.norm(old[1:] - old[:-1], axis=1))
+    assert np.allclose(np.einsum("ij,ij->i", held, normals), np.einsum("ij,ij->i", old, old_normals))
+    for t in (0., 2.5, 6.2, 7.4999, 10., 13.7, 1000000.):
+        before, _, _, cohesion = particle_field(p, t, 20)
+        assert np.array_equal(cohesion, particle_field(dict(p, orbit_handoff=0), t, 20)[3])
+        assert np.array_equal(before, particle_field(dict(p, count=900), t, 20)[0][:400])
+        particle_field(p, 15., 20)
+        assert np.array_equal(before, particle_field(p, t, 20)[0])
+        assert np.linalg.norm(particle_field(p, t + .0001, 20)[0] - before, axis=1).max() < .02

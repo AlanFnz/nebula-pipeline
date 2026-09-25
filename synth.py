@@ -133,6 +133,7 @@ MODULES = (
         P("motion_peak", "Motion peak", .8, 0, 1, .01, "Impulse: 0 is linear; higher values concentrate velocity into a narrow peak, easing into and out of the move."),
         P("orbit_speed", "Orbit degrees / sec", 20.0, -90, 90, .5, "Expand / orbit: speed of the released cloud. Negative values reverse direction; separate from Head turn."),
         P("orbit_start", "Orbit after expansion", .7, 0, .95, .01, "Expand / orbit: fraction of release before rotation eases in. .7 waits until roughly 70% expanded."),
+        P("orbit_handoff", "Return rotation", 0, 0, 1, 1, "Carry orbit keeps the accumulated cloud rotation when the head reforms. Both shapes share one orientation, preventing a backward unwind on return.", choices=("Original head angle", "Carry orbit")),
         P("acceleration", "Acceleration", .8, 0, 1, .01, "Surges: particles hesitate, accelerate sharply, then settle."),
         P("chaos", "Arrival disorder", .7, 0, 1, .01, "Bend and stagger particle paths. Surges also varies cycle timing; Impulse keeps the cycle exact with a small stagger."),
         P("overshoot", "Overshoot", .45, 0, 1, .01, "Surges: pass through the target and rebound before settling."),

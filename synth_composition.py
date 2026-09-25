@@ -279,7 +279,7 @@ def _particle_tape_study(project, centered=True):
         if centered:
             state["overrides"].update({"particles.rotation_speed": 18., "particles.turn_scope": 1,
                                       "particles.axis_mode": 1, "particles.neck_fade": .42,
-                                      "particles.yaw": -35.})
+                                      "particles.yaw": -35., "particles.orbit_handoff": 1})
         states[renamed.get(name, name)] = state
     project["source"]["states"] = states
     for cue in project["source"]["cues"]:
