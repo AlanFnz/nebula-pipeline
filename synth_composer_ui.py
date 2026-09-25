@@ -7,10 +7,11 @@ from PySide6.QtCore import Qt, QRectF, QSignalBlocker, Signal
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox, QLabel,
-    QDoubleSpinBox, QSpinBox, QComboBox, QPushButton, QSlider, QCheckBox,
+    QDoubleSpinBox, QSpinBox, QComboBox, QPushButton, QSlider, QCheckBox, QTabWidget,
 )
 
-from synth_composition import MACROS, neutral_macros, normalize_composition, section_ranges, vary_composition
+from synth import SHAPES
+from synth_composition import MACROS, default_geometry, effective_geometry, neutral_macros, normalize_composition, section_ranges, vary_composition
 
 
 class SectionTimeline(QWidget):
@@ -165,12 +166,35 @@ class CompositionPanel(QWidget):
         shape_layout = QVBoxLayout(shape)
         self.scope_combo = QComboBox(); self.scope_combo.addItems(["Whole clip", "Selected section"])
         self.scope_combo.currentIndexChanged.connect(self.change_scope); shape_layout.addWidget(self.scope_combo)
+        self.look_tabs = QTabWidget()
+        geometry_page = QWidget(); geometry_layout = QVBoxLayout(geometry_page)
+        treatment_page = QWidget(); treatment_layout = QVBoxLayout(treatment_page)
+        self.look_tabs.addTab(geometry_page, "Geometry"); self.look_tabs.addTab(treatment_page, "Treatment")
+        shape_layout.addWidget(self.look_tabs)
+        self.geometry_shape = QComboBox()
+        self.geometry_shape.currentIndexChanged.connect(self.change_shape)
+        geometry_layout.addWidget(self.geometry_shape)
         self.macro_controls = {}
         for key, (label, low, high, tip) in MACROS.items():
             control = MacroControl(label, low, high, tip)
             control.changed.connect(lambda value, key=key: self.change_macro(key, value))
             control.locked.connect(lambda value, key=key: self.lock_macro(key, value))
-            shape_layout.addWidget(control); self.macro_controls[key] = control
+            (geometry_layout if key == "width" else treatment_layout).addWidget(control)
+            self.macro_controls[key] = control
+        self.geometry_controls = {}; self.geometry_rows = {}
+        for key, label, low, high, step, suffix in (("height", "Height", .25, 2., .05, " ×"), ("diameter", "Diameter", 5., 150., 1., " %"), ("sides", "Sides", 3, 32, 1, ""), ("rotation", "Rotation", -180., 180., 1., "°")):
+            row_widget = QWidget(); row = QHBoxLayout(row_widget); row.setContentsMargins(0, 0, 0, 0)
+            row.addWidget(QLabel(label)); row.addStretch(1)
+            control = QSpinBox() if key == "sides" else QDoubleSpinBox()
+            control.setRange(low, high); control.setSingleStep(step); control.setSuffix(suffix); control.setKeyboardTracking(False)
+            control.setFixedWidth(110)
+            if key != "sides": control.setDecimals(2 if key == "height" else 1)
+            control.valueChanged.connect(lambda value, key=key: self.change_geometry(key, value / 100 if key == "diameter" else value))
+            row.addWidget(control); geometry_layout.addWidget(row_widget)
+            self.geometry_controls[key] = control; self.geometry_rows[key] = row_widget
+        self.geometry_hint = QLabel(); self.geometry_hint.setWordWrap(True); self.geometry_hint.setObjectName("muted")
+        geometry_layout.addWidget(self.geometry_hint); geometry_layout.addStretch(1)
+        treatment_layout.addStretch(1)
         self.take_label = QLabel(); self.take_label.setObjectName("muted"); shape_layout.addWidget(self.take_label)
         layout.addWidget(shape)
         details = QPushButton("Open detailed copy…"); details.clicked.connect(self.detailsRequested.emit); layout.addWidget(details)
@@ -198,8 +222,24 @@ class CompositionPanel(QWidget):
             target = self.target()
             for key, control in self.macro_controls.items():
                 control.set_value(target["macros"][key], key in target["locks"])
-            pristine = not target["variation"] and all(value == 1 for value in target["macros"].values())
-            self.take_label.setText("1× keeps the original look" if pristine else (f"Take {target['variation']}" if target["variation"] else "Custom adjustments"))
+            geometry = target["geometry"]
+            self.geometry_shape.clear()
+            if self.scope: self.geometry_shape.addItem("From whole clip", "inherit")
+            self.geometry_shape.addItem("Original geometry", "original")
+            for label in SHAPES: self.geometry_shape.addItem(label, label.lower())
+            self.geometry_shape.setCurrentIndex(self.geometry_shape.findData(geometry["shape"]))
+            inherited = geometry["shape"] == "inherit"
+            resolved = effective_geometry(self.document, section) if self.scope else geometry
+            radial = resolved["shape"] in {"circle", "polygon"}
+            self.macro_controls["width"].setVisible(not radial)
+            for key, control in self.geometry_controls.items():
+                value = geometry[key] if key == "height" else resolved[key]
+                control.setValue(value * 100 if key == "diameter" else value)
+                control.setEnabled(key == "height" or (not inherited and geometry["shape"] != "original"))
+                self.geometry_rows[key].setVisible({"height": not radial, "diameter": radial, "sides": resolved["shape"] == "polygon", "rotation": resolved["shape"] not in {"original", "circle"}}[key])
+            self.geometry_hint.setText("Diameter is a percentage of image height. The source and ray aperture share the same shape." if radial else "Width and height scale the source and ray aperture. 1× preserves their authored proportions.")
+            pristine = not target["variation"] and all(value == 1 for value in target["macros"].values()) and geometry == default_geometry(section=bool(self.scope))
+            self.take_label.setText("Default controls in this scope" if pristine else (f"Take {target['variation']}" if target["variation"] else "Custom adjustments"))
         finally:
             self.updating = False
 
@@ -231,6 +271,22 @@ class CompositionPanel(QWidget):
         document = copy.deepcopy(self.document)
         self.target(document)["macros"][key] = value
         self.commit(document, f"macro:{self.scope}:{self.index}:{key}")
+
+    def change_shape(self, index):
+        if self.updating or index < 0: return
+        document = copy.deepcopy(self.document)
+        geometry = self.target(document)["geometry"]
+        if geometry["shape"] == "inherit":
+            for key in ("diameter", "sides", "rotation"):
+                geometry[key] = document["geometry"][key]
+        geometry["shape"] = self.geometry_shape.itemData(index)
+        self.commit(document, "shape")
+
+    def change_geometry(self, key, value):
+        if self.updating: return
+        document = copy.deepcopy(self.document)
+        self.target(document)["geometry"][key] = value
+        self.commit(document, f"geometry:{self.scope}:{self.index}:{key}")
 
     def lock_macro(self, key, locked):
         if self.updating: return
@@ -307,4 +363,5 @@ class CompositionPanel(QWidget):
     def reset_controls(self):
         document = copy.deepcopy(self.document)
         target = self.target(document); target["macros"] = neutral_macros(); target["variation"] = 0
+        target["geometry"] = default_geometry(section=bool(self.scope))
         self.commit(document, "reset")

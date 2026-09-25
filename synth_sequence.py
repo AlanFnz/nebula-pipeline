@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from synth import _seed, curated_presets, normalize_synth, render_synth_frame
+from synth import MODULE_BY_ID, _seed, curated_presets, normalize_synth, render_synth_frame
 
 SEQUENCE_SCHEMA_VERSION = 1
 NEUTRAL_FIELD = {
@@ -166,9 +166,14 @@ def _interpolate_presets(first, second, amount):
         entry["enabled"] = entry.get("enabled", True) if amount < .5 else other.get("enabled", True)
         for key, value in other.get("params", {}).items():
             original = entry.get("params", {}).get(key, value)
+            module = MODULE_BY_ID.get(entry.get("id"))
+            spec = next((spec for spec in module.params if spec.key == key), None) if module else None
+            if spec and spec.choices:
+                entry.setdefault("params", {})[key] = original if amount < .5 else value
+                continue
             if isinstance(original, (int, float)) and isinstance(value, (int, float)):
                 interpolated = float(original) * (1 - amount) + float(value) * amount
-                entry.setdefault("params", {})[key] = round(interpolated) if key in {"count", "rows", "ghosts"} else interpolated
+                entry.setdefault("params", {})[key] = round(interpolated) if spec and spec.kind == "int" else interpolated
             elif amount >= .5:
                 entry.setdefault("params", {})[key] = value
     return normalize_synth(result)

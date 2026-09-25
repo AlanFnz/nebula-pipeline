@@ -58,6 +58,13 @@ class SynthControl(QWidget):
         self.spec = spec
         self.lock = QCheckBox("lock")
         self.lock.setToolTip("Keep this parameter fixed when Generate variation is pressed.")
+        if spec.choices:
+            self.spin = QComboBox(); self.spin.addItems(spec.choices); self.spin.setCurrentIndex(int(value))
+            self.spin.currentIndexChanged.connect(lambda _value: self.changed.emit())
+            layout = QVBoxLayout(self); layout.setContentsMargins(0, 3, 0, 4)
+            label = QLabel(spec.label); label.setToolTip(spec.hint); layout.addWidget(label)
+            row = QHBoxLayout(); row.addWidget(self.spin, 1); row.addWidget(self.lock); layout.addLayout(row)
+            return
         self.spin = QSpinBox() if spec.kind == "int" else QDoubleSpinBox()
         self.spin.setRange(spec.minimum, spec.maximum)
         if spec.kind == "float":
@@ -87,10 +94,13 @@ class SynthControl(QWidget):
         layout.addWidget(self.lock)
 
     def value(self):
-        return self.spin.value()
+        return self.spin.currentIndex() if self.spec.choices else self.spin.value()
 
     def set_value(self, value):
-        self.spin.setValue(value)
+        if self.spec.choices:
+            self.spin.setCurrentIndex(int(value))
+        else:
+            self.spin.setValue(value)
 
 
 class JobSignals(QObject):
@@ -466,7 +476,7 @@ class SynthStudio(QMainWindow):
 
     def composition_changed(self, document, action):
         compiled = compile_composition(document)
-        if self.edit_key != action or not action.startswith("macro:"):
+        if self.edit_key != action or not action.startswith(("macro:", "geometry:")):
             self.undo_compositions.append(copy.deepcopy(self.composition))
             self.undo_compositions = self.undo_compositions[-30:]
         self.edit_key = action; self.edit_timer.start(400)

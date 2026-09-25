@@ -32,6 +32,7 @@ class Param:
     step: float = 0.01
     kind: str = "float"
     hint: str = ""
+    choices: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -42,17 +43,30 @@ class Module:
     params: tuple[Param, ...]
 
 
-def P(key, label, default, minimum=0, maximum=1, step=.01, hint="", kind=None):
+def P(key, label, default, minimum=0, maximum=1, step=.01, hint="", kind=None, choices=()):
     if kind is None:
         integer_bounds = float(minimum).is_integer() and float(maximum).is_integer()
         kind = "int" if isinstance(default, int) and not isinstance(default, bool) and step == 1 and integer_bounds else "float"
     if kind == "int":
         step = 1
-    return Param(key, label, default, minimum, maximum, step, kind=kind, hint=hint)
+    return Param(key, label, default, minimum, maximum, step, kind=kind, hint=hint, choices=choices)
+
+
+SHAPES = ("Rectangle", "Ellipse", "Circle", "Polygon")
+
+
+def geometry_params():
+    return (
+        P("shape", "Shape", 0, 0, 3, 1, "Geometry of the luminous source or ray aperture.", choices=SHAPES),
+        P("diameter", "Diameter", .6, .05, 1.5, .01, "Circle / polygon diameter as a fraction of image height."),
+        P("sides", "Polygon sides", 6, 3, 32, 1, "Number of sides of the regular polygon."),
+        P("rotation", "Rotation", 0.0, -180, 180, 1, "Rotation in degrees around the source centre."),
+    )
 
 
 MODULES = (
     Module("slab", "Luminous slabs", "Vertical luminous sources with white cores and colored edges.", (
+        *geometry_params(),
         P("count", "Slab count", 1, 1, 5, 1, "Number of vertical sources."),
         P("width", "Core width", .18, .02, .8, .01, "Width of the bright central aperture."),
         P("spacing", "Spacing", .22, .02, 1, .01, "Distance between slab centers."),
@@ -82,6 +96,7 @@ MODULES = (
         P("cloud_detail", "Cloud granulation", 0.0, 0, 1, .01, "Clumped signal noise that survives softness, including in the ghost."),
     )),
     Module("blinds", "Irregular Venetian blinds", "Horizontal rays that swell into an asymmetric central aperture.", (
+        *geometry_params(),
         P("rows", "Ray count", 9, 1, 32, 1, "Number of horizontal rays", kind="int"),
         P("thickness", "Ray thickness", .012, .002, .12, .001, "Thickness of the thin outer rays."),
         P("aperture", "Aperture width", .34, .03, .95, .01, "Width of the thick central region."),
@@ -333,6 +348,23 @@ def _signal_noise(seed, name, frame, size, grid):
     return np.asarray(Image.fromarray(noise).resize(size, Image.Resampling.BILINEAR))
 
 
+def _shape_distance(dx, dy, rx, ry, shape, sides=6, rotation=0, aspect=1):
+    """Signed contour distance; rotate in image pixels before normalizing axes."""
+    angle = math.radians(rotation)
+    x = dx * aspect
+    u = (x * math.cos(angle) + dy * math.sin(angle)) / (rx * aspect)
+    v = (-x * math.sin(angle) + dy * math.cos(angle)) / ry
+    if shape == 0:
+        distance = np.maximum(np.abs(u), np.abs(v)) - 1
+    elif shape in (1, 2):
+        distance = np.hypot(u, v) - 1
+    else:
+        sector = math.tau / sides
+        angle = (np.arctan2(v, u) + math.pi / 2) % sector - sector / 2
+        distance = np.hypot(u, v) * np.cos(angle) - math.cos(math.pi / sides)
+    return distance * min(rx, ry), u, v
+
+
 def _render_slab(arr, p, t, preset, module_index):
     h, w = arr.shape[:2]
     y, x = np.mgrid[0:h, 0:w]
@@ -353,6 +385,12 @@ def _render_slab(arr, p, t, preset, module_index):
     spacing = _modulated(preset, "slab", "spacing", q["spacing"], t, .02, 1)
     vertical_center = float(p.get("position_y", 0)) + .08 * _smooth(preset["seed"], "slab-y", clock * .4, preset["variation_mode"]) * preset["depth"]
     half_height = max(.02, float(p.get("height", .62)))
+    shape = int(p.get("shape", 0))
+    shaped = shape != 0 or p.get("rotation", 0) != 0
+    aspect = w / h
+    if shape in (2, 3):
+        half_height = p["diameter"]
+        width = 2 * half_height / aspect
     vertical_distance = np.abs(yn - vertical_center)
     vertical_mask = np.clip((half_height - vertical_distance) / max(.004, (1 - p["edge_hardness"]) * .10), 0, 1)
     for index in range(count):
@@ -362,16 +400,26 @@ def _render_slab(arr, p, t, preset, module_index):
         fast_signal = _smooth(preset["seed"], "slab-fill", frame_clock + index * .17, "stepped")
         fill_flicker = .62 + .36 * (fast_signal + 1) / 2
         core = np.clip((width / 2 - dist) / max(.002, q["edge_softness"]), 0, 1) * vertical_mask
+        if shaped:
+            distance, u, v = _shape_distance(xn - center, yn - vertical_center, width / 2, half_height, shape, p["sides"], p["rotation"], aspect)
+            core = np.clip(-distance / max(.002, q["edge_softness"]), 0, 1)
         notch_center = vertical_center + _smooth(preset["seed"], "slab-notch", index + frame_clock, "stepped") * half_height
         # Rectangular bites remove the right side of the body while leaving a
         # narrow vertical stem, which produces the L/T fragments in the study.
         cut_region = ((xn - center) > -width * .30) & (np.abs(yn - notch_center) < half_height * .65)
+        if shaped:
+            cut_region = (u > -.6) & (np.abs(v - (notch_center - vertical_center) / half_height) < .65)
         notch_probability = float(p.get("notch", 0))
         cut_active = 1.0 if fast_signal < (2 * notch_probability - 1) else 0.0
         core *= 1 - cut_active * cut_region
         hollow = float(p.get("hollow", 0))
-        core *= 1 - hollow * np.exp(-((dist / max(.001, width * .25)) ** 8))
+        if shaped:
+            core *= 1 - hollow * np.clip((-distance - q["edge_softness"] * 1.5) / max(.002, min(width / 2, half_height) * .12), 0, 1)
+        else:
+            core *= 1 - hollow * np.exp(-((dist / max(.001, width * .25)) ** 8))
         edge = np.exp(-(((xn - center + width / 2) / max(.002, q["edge_softness"])) ** 2)) * vertical_mask
+        if shaped:
+            edge = np.exp(-(distance / max(.002, q["edge_softness"])) ** 2) * np.clip(.5 - u * .5, 0, 1)
         fill_magenta = float(p.get("fill_magenta", 0.0))
         color = (1.0 - fill_magenta) * np.array((.95, .965, .94), dtype=np.float32) + fill_magenta * np.array((.76, .26, .91), dtype=np.float32)
         if p.get("fill_gradient", 0) > 0:
@@ -392,11 +440,16 @@ def _render_slab(arr, p, t, preset, module_index):
             edge_color = edge_color * (1 - p["vertical_tint"]) + np.array((.95, .38, .12)) * p["vertical_tint"]
         _add(arr, edge * q["magenta"] * p["intensity"], edge_color)
         fringe = np.exp(-(((dist - width * .72) / max(.003, q["edge_softness"] * 1.7)) ** 2)) * vertical_mask
+        if shaped:
+            fringe = np.exp(-((distance - q["edge_softness"]) / max(.003, q["edge_softness"] * 1.7)) ** 2) * np.clip(.5 + u * .5, 0, 1)
         _add(arr, fringe * q["cyan"], np.array((.02, .55, .45), dtype=np.float32))
         ghost_offset = float(p.get("ghost_offset", .24))
         ghost_width = max(.02, width * float(p.get("ghost_width", .32)))
         ghost_dist = np.abs(xn - center - ghost_offset)
         ghost = np.clip((ghost_width - ghost_dist) / max(.006, q["edge_softness"]), 0, 1) * vertical_mask
+        if shaped:
+            ghost_distance, _, _ = _shape_distance(xn - center - ghost_offset, yn - vertical_center, ghost_width, half_height, shape, p["sides"], p["rotation"], aspect)
+            ghost = np.clip(-ghost_distance / max(.006, q["edge_softness"]), 0, 1)
         ghost *= float(p.get("ghost_opacity", .34)) * (.78 + .22 * _smooth(preset["seed"], "slab-ghost", round(t * preset["treatment_fps"]) + index, preset["variation_mode"]))
         ghost *= 1 - cut_active * .90 * (yn > notch_center)
         ghost *= (1 - p.get("ghost_grain", 0)) + p.get("ghost_grain", 0) * np.clip(rng.normal(.65, .52, (h, w)), 0, 1)
@@ -412,6 +465,9 @@ def _render_slab(arr, p, t, preset, module_index):
             # Noise lives around the source, with a broad halo and uneven
             # signal density; it does not lift the whole background uniformly.
             cloud_mask = np.exp(-((xn - center) / (width * 1.4)) ** 2 - ((yn - vertical_center - p.get("cloud_position", 0)) / (half_height * 1.2)) ** 4)
+            if shaped:
+                cloud_distance, cloud_u, _ = _shape_distance(xn - center, yn - vertical_center - p.get("cloud_position", 0), width / 2, half_height, shape, p["sides"], p["rotation"], aspect)
+                cloud_mask = np.exp(-(cloud_distance / max(.01, min(width / 2, half_height) * .5)) ** 2) * np.clip(.65 - cloud_u * .35, .15, 1)
             cloud = np.clip(rng.normal(.14, .30, (h, w)), 0, 1) * cloud_mask
             if detail > 0:
                 # Concentrate the granular spill at the left edge and above
@@ -419,7 +475,8 @@ def _render_slab(arr, p, t, preset, module_index):
                 halo_y = yn - vertical_center - p.get("cloud_position", 0)
                 halo = np.exp(-((xn - center + width * .45) / (width * .55)) ** 2 - (halo_y / (half_height * 1.25)) ** 4)
                 cap = np.exp(-((xn - center + width * .1) / (width * .8)) ** 2 - ((halo_y + half_height) / .22) ** 2)
-                cloud = cloud * (1 - detail) + granules * density * np.maximum(halo, cap) * detail
+                halo_mask = cloud_mask if shaped else np.maximum(halo, cap)
+                cloud = cloud * (1 - detail) + granules * density * halo_mask * detail
             tint = p.get("cloud_tint", .8)
             cloud_color = (1 - tint) * np.array((.72, .82, .69)) + tint * np.array((.60, .08, .95))
             _add(arr, cloud * p["cloud_strength"], cloud_color)
@@ -438,6 +495,7 @@ def _render_blinds(arr, p, t, preset, module_index):
     u = xn * math.cos(theta) + yn2 * math.sin(theta)
     v = -xn * math.sin(theta) + yn2 * math.cos(theta)
     vn = (v + 1) / 2
+    shaped_envelope = None
     for row in range(int(p["rows"])):
         row_unit = (row + .5) / p["rows"]
         drift = _smooth(preset["seed"], "blind-row", row + clock * .65, preset["variation_mode"]) * p["row_drift"] * preset["depth"] / max(1, p["rows"])
@@ -462,6 +520,20 @@ def _render_blinds(arr, p, t, preset, module_index):
         vertical_window = np.clip((vertical_half - np.abs(vn - vertical_center)) / max(.02, vertical_half * .22), 0, 1)
         vertical_window = np.power(vertical_window, .65)
         envelope *= vertical_window
+        shape = int(p.get("shape", 0))
+        if shape != 0 or p.get("rotation", 0) != 0:
+            if shaped_envelope is None:
+                rx, ry = half_aperture, vertical_half * 2
+                if shape in (2, 3):
+                    rx, ry = p["diameter"] * h / w, p["diameter"]
+                # Place the aperture in image space so rotating the ray stack
+                # cannot stretch a circle on a non-square canvas.
+                aperture_y = (vertical_center - .5) * 2
+                center_x = asym * math.cos(theta) - aperture_y * math.sin(theta)
+                center_y = asym * math.sin(theta) + aperture_y * math.cos(theta)
+                aperture_distance, _, _ = _shape_distance(xn - center_x, yn2 - center_y, rx, ry, shape, p["sides"], p["rotation"] + math.degrees(theta), w / h)
+                shaped_envelope = np.clip(-aperture_distance / max(.005, min(rx, ry) * (.12 + p["taper"] * .24)), 0, 1) ** .72
+            envelope = shaped_envelope
         taper = 1 - p["taper"] * (1 - envelope)
         outer = p["thickness"] * .4 + .12 / (p["rows"] ** 2 + 1) * np.exp(-((u - asym) / .96) ** 2)
         if p.get("tail_spread", 0) > 0:

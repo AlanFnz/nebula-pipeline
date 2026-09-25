@@ -68,6 +68,9 @@ def test_section_arrangement_and_local_take(window):
 
 def test_save_open_and_actual_composer_export(window, tmp_path, monkeypatch):
     # A short composition makes the GUI's real threaded export inexpensive.
+    panel = window.composer
+    panel.geometry_shape.setCurrentIndex(panel.geometry_shape.findData("polygon"))
+    panel.geometry_controls["sides"].setValue(5)
     window.composer.duration.setValue(.48)
     original = copy.deepcopy(window.composition)
     document = tmp_path / "composition.json"
@@ -107,3 +110,42 @@ def test_both_studies_are_accessible_without_changing_the_approved_recipe(window
     assert approved != refined
     buttons["Refined 15s"].click()
     assert render_sequence_frame(window.sequence, 11.6, (120, 96)).tobytes() == refined
+
+
+def test_geometry_controls_inherit_override_and_undo(window):
+    panel = window.composer
+    original = render_sequence_frame(window.sequence, 5.8, (120, 96)).tobytes()
+    panel.geometry_shape.setCurrentIndex(panel.geometry_shape.findData("circle"))
+    assert panel.geometry_rows["height"].isHidden()
+    assert panel.geometry_rows["sides"].isHidden()
+    assert not panel.geometry_rows["diameter"].isHidden()
+    panel.geometry_controls["diameter"].setValue(45.)
+    assert window.composition["geometry"]["diameter"] == .45
+    circle = render_sequence_frame(window.sequence, 5.8, (120, 96)).tobytes()
+    assert circle != original
+    panel.select_section(1)
+    assert panel.geometry_shape.currentData() == "inherit"
+    assert not panel.geometry_controls["diameter"].isEnabled()
+    assert panel.geometry_controls["diameter"].value() == 45.
+    panel.geometry_shape.setCurrentIndex(panel.geometry_shape.findData("polygon"))
+    panel.geometry_controls["sides"].setValue(3)
+    triangle = render_sequence_frame(window.sequence, 5.8, (120, 96)).tobytes()
+    assert triangle != circle
+    window.undo_composition()
+    assert window.composition["sections"][1]["geometry"]["sides"] == 6
+    window.redo_composition()
+    assert render_sequence_frame(window.sequence, 5.8, (120, 96)).tobytes() == triangle
+    panel.reset_controls()
+    assert render_sequence_frame(window.sequence, 5.8, (120, 96)).tobytes() == circle
+    panel.change_scope(0); panel.reset_controls()
+    assert render_sequence_frame(window.sequence, 5.8, (120, 96)).tobytes() == original
+
+
+def test_detailed_editor_has_named_geometry_choices(window):
+    window.open_detailed_copy()
+    child = window.detail_windows[-1]
+    control = child.sequence_state_controls["blinds.shape"]
+    control.spin.setCurrentText("Polygon")
+    assert child.sequence["states"][child.sequence_state_name]["overrides"]["blinds.shape"] == 3
+    child.sequence_state_controls["blinds.sides"].set_value(5)
+    render_sequence_frame(child.sequence, 0., (120, 96))

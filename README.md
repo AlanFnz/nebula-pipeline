@@ -58,12 +58,23 @@ and magenta. It opens the **Refined 15s** study with every macro at 1×.
 - Select **Whole clip** to adjust the entire piece, or click a section to
   adjust it locally. Sections can be added, duplicated, removed, reordered,
   and given different durations. Their internal events are generated for you.
+- In **Geometry**, choose a rectangle, ellipse, circle or regular polygon.
+  Width and height scale rectangular/elliptical forms; circles and polygons
+  use a diameter measured as a percentage of image height. Polygons have
+  3–32 sides. Rotation is available for rectangles, ellipses and polygons.
+  The same geometry shapes the luminous source, its echoes and the central
+  ray aperture. Signal treatment remains in the **Treatment** tab.
+- **Original geometry** retains each source state's authored shape. Sections
+  default to **From whole clip** and can override it independently. Geometry
+  saves with the composition and supports undo/redo. **New take** keeps the
+  shape, diameter, height, sides and rotation; the Width macro still varies
+  rectangular/elliptical forms unless locked. Circles remain circular.
 - **New clip** starts a 15-second arrangement using the refined Blocks & ghosts phrase.
   Choose other phrases from the section dropdown. Phrases repeat to fill their
   duration; **Rhythm** controls how quickly their internal changes happen.
 - **New take** makes a reproducible variation in the current scope. **Keep**
   locks a macro value during variation. **Reset controls** returns that scope
-  to 1× and its original variation; **Undo / Redo** recover composition edits.
+  to 1×, its original geometry and variation; **Undo / Redo** recover composition edits.
 - **Save…** keeps the arrangement, macros, locks, variations and a snapshot of
   the source recipe together in a versioned composition document. **Open…**
   accepts compositions and existing detailed sequence files.
@@ -75,7 +86,7 @@ and magenta. It opens the **Refined 15s** study with every macro at 1×.
 [`synth_composition.py`](synth_composition.py) compiles the arrangement to the
 existing public sequence format. Preview and export therefore use the same
 sequence renderer as the approved study. A fixed pixel-hash regression checks
-all 375 approved frames at 96×72 against the renderer before refinement;
+all 375 frames of each study at 96×72 against their earlier renderers;
 composition tests cover local edits, deterministic variation and save/reload.
 
 The refined study adds granular halos and ghosts, edge flutter, short horizontal

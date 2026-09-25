@@ -11,7 +11,7 @@ import math
 import random
 from pathlib import Path
 
-from synth import MODULE_BY_ID, _seed, curated_presets
+from synth import MODULE_BY_ID, SHAPES, _seed, curated_presets
 from synth_sequence import normalize_sequence, reference_sequence
 
 FORMAT = "nebula-composition"
@@ -46,6 +46,18 @@ def neutral_macros():
     return dict.fromkeys(MACROS, 1.)
 
 
+def default_geometry(section=False):
+    return {"shape": "inherit" if section else "original", "height": 1., "diameter": .6, "sides": 6, "rotation": 0.}
+
+
+def effective_geometry(project, section):
+    global_geometry = project["geometry"]
+    local_geometry = section["geometry"]
+    result = copy.deepcopy(global_geometry if local_geometry["shape"] == "inherit" else local_geometry)
+    result["height"] = global_geometry["height"] * local_geometry["height"]
+    return result
+
+
 def reference_composition(refined=False):
     source = reference_sequence(refined=refined)
     return {
@@ -53,10 +65,10 @@ def reference_composition(refined=False):
         "name": "Refined signal" if refined else "Composite signal", "fps": source["fps"], "seed": source["seed"],
         "source": source,
         "phrases": {key: {"name": name, "start": start, "end": end} for key, name, start, end in PHRASES},
-        "macros": neutral_macros(), "variation": 0, "locks": [],
+        "macros": neutral_macros(), "geometry": default_geometry(), "variation": 0, "locks": [],
         "sections": [
             {"id": f"section-{index + 1}", "phrase": key, "duration": round(end - start, 2),
-             "macros": neutral_macros(), "variation": 0, "locks": []}
+             "macros": neutral_macros(), "geometry": default_geometry(section=True), "variation": 0, "locks": []}
             for index, (key, _name, start, end) in enumerate(PHRASES)
         ],
     }
@@ -68,7 +80,7 @@ def composition_from_sequence(sequence):
     result = reference_composition()
     result.update(name=source["name"], source=source, fps=source["fps"], seed=source["seed"])
     result["phrases"] = {"custom": {"name": source["name"], "start": 0., "end": source["duration"]}}
-    result["sections"] = [{"id": "section-1", "phrase": "custom", "duration": source["duration"], "macros": neutral_macros(), "variation": 0, "locks": []}]
+    result["sections"] = [{"id": "section-1", "phrase": "custom", "duration": source["duration"], "macros": neutral_macros(), "geometry": default_geometry(section=True), "variation": 0, "locks": []}]
     return result
 
 
@@ -89,6 +101,21 @@ def _controls(raw):
     return result
 
 
+def _geometry(raw, section=False):
+    if not isinstance(raw, dict):
+        raise ValueError("Geometry must be an object")
+    result = default_geometry(section)
+    result.update({key: raw[key] for key in result if key in raw})
+    shapes = {"original", *(label.lower() for label in SHAPES)}
+    if section:
+        shapes.add("inherit")
+    if not isinstance(result["shape"], str) or result["shape"] not in shapes:
+        raise ValueError("Unknown geometry shape")
+    for key, low, high in (("height", .25, 2.), ("diameter", .05, 1.5), ("sides", 3, 32), ("rotation", -180, 180)):
+        result[key] = _number(result[key], key, low, high, key == "sides")
+    return result
+
+
 def normalize_composition(raw):
     if not isinstance(raw, dict) or raw.get("format") != FORMAT or raw.get("schema_version") != 1:
         raise ValueError("Unsupported composition document")
@@ -100,6 +127,7 @@ def normalize_composition(raw):
     result["fps"] = _number(raw.get("fps", 25), "FPS", 1, 120, True)
     result["seed"] = _number(raw.get("seed", 0), "Seed", 0, 2**31 - 1, True)
     result["macros"] = _controls(raw.get("macros", {}))
+    result["geometry"] = _geometry(raw.get("geometry", {}))
     result["variation"] = _number(raw.get("variation", 0), "Variation", 0, 2**31 - 1, True)
     result["locks"] = [key for key in raw.get("locks", []) if key in MACROS]
     phrases = result.get("phrases")
@@ -127,6 +155,7 @@ def normalize_composition(raw):
         duration = _number(section.get("duration"), "Section duration", 1 / result["fps"], 300)
         section["duration"] = max(1, round(duration * result["fps"])) / result["fps"]
         section["macros"] = _controls(section.get("macros", {}))
+        section["geometry"] = _geometry(section.get("geometry", {}), section=True)
         section["variation"] = _number(section.get("variation", 0), "Variation", 0, 2**31 - 1, True)
         section["locks"] = [key for key in section.get("locks", []) if key in MACROS]
     if sum(section["duration"] for section in sections) > 3600:
@@ -145,11 +174,20 @@ def section_ranges(composition):
     return result
 
 
-def _adjust_state(state, macros, seed_offset):
+def _adjust_state(state, macros, seed_offset, geometry):
     result = copy.deepcopy(state)
     presets = curated_presets()[state["preset"]]
     defaults = {f"{entry['id']}.{key}": value for entry in presets["modules"] for key, value in entry["params"].items()}
     overrides = result.setdefault("overrides", {})
+    for module_id, height_key in (("slab", "height"), ("blinds", "aperture_height")):
+        if geometry["shape"] != "original":
+            overrides[f"{module_id}.shape"] = [label.lower() for label in SHAPES].index(geometry["shape"])
+            for key in ("diameter", "sides", "rotation"):
+                overrides[f"{module_id}.{key}"] = geometry[key]
+        if geometry["height"] != 1:
+            path = f"{module_id}.{height_key}"
+            spec = next(spec for spec in MODULE_BY_ID[module_id].params if spec.key == height_key)
+            overrides[path] = max(spec.minimum, min(spec.maximum, overrides.get(path, defaults[path]) * geometry["height"]))
     for macro, paths in PATHS.items():
         if macros[macro] == 1:
             continue  # Neutral macros preserve the approved settings verbatim.
@@ -193,7 +231,7 @@ def compile_composition(raw):
                     break
                 state_name = f"{section['id']}:{cue['state']}"
                 if state_name not in result["states"]:
-                    result["states"][state_name] = _adjust_state(project["source"]["states"][cue["state"]], macros, offset)
+                    result["states"][state_name] = _adjust_state(project["source"]["states"][cue["state"]], macros, offset, effective_geometry(project, section))
                 item = dict(cue, time=frame / fps, state=state_name)
                 item["duration"] = min(float(cue.get("duration", 0)) / rate, end - frame / fps)
                 if cue.get("transition") in {"flash", "sweep"}:

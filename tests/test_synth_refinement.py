@@ -10,14 +10,18 @@ from synth_composition import compile_composition, reference_composition, save_c
 from synth_sequence import _state_preset, reference_sequence, render_sequence_frame
 
 
-def test_approved_frames_keep_the_pre_refinement_pixel_hash():
-    # Captured before adding the new renderer parameters, not regenerated from
-    # the current renderer during the test. Covers every treatment frame.
-    sequence = reference_sequence()
+@pytest.mark.parametrize("refined,expected", [
+    (False, "4959175086abe01d22c0045f593113e6bc7c82f14481321b0ed7bc0ed1fc7f72"),
+    (True, "62c42e95c096dc8b700754a6f3c53d1973df464aabb78363bfdf55faf3c91351"),
+])
+def test_study_frames_keep_their_earlier_pixel_hashes(refined, expected):
+    # Captured from the pre-refinement / pre-geometry renderers respectively,
+    # not regenerated from the current renderer during the test.
+    sequence = reference_sequence(refined=refined)
     digest = hashlib.sha256()
     for frame in range(375):
         digest.update(render_sequence_frame(sequence, frame / 25, (96, 72)).tobytes())
-    assert digest.hexdigest() == "4959175086abe01d22c0045f593113e6bc7c82f14481321b0ed7bc0ed1fc7f72"
+    assert digest.hexdigest() == expected
 
 
 @pytest.mark.parametrize("state,path,value", [
