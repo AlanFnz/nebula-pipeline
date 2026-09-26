@@ -9,6 +9,7 @@ import math
 import numpy as np
 
 from synth_particle_mesh import sample_human_head
+from synth_canvas import particle_framing
 
 
 def _head_surface(y, angle):
@@ -293,6 +294,7 @@ def render_particles(arr, p, time, preset, seed):
     points, normals, attributes, cohesion = particle_field(p, clock, seed)
     perspective = 3.8 / np.maximum(.5, 3.8 - points[:, 2] * p["perspective"])
     scale = h * .35 * p["scale"]
+    scale *= particle_framing(w, h, preset.get("framing", "native"))
     x = w * (.5 + p["position_x"] * .5) + points[:, 0] * scale * perspective
     y = h * (.5 - p["position_y"] * .5) - (points[:, 1] + .1) * scale * perspective
     # Irregular scan registration is separate from the smooth particle paths.

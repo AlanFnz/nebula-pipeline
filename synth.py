@@ -20,6 +20,7 @@ from PIL import Image, ImageFilter
 
 from synth_particles import render_particles
 from synth_tape import render_tape_damage
+from synth_canvas import normalize_canvas
 
 SYNTH_SCHEMA_VERSION = 1
 SYNTH_PRESETS_DIR = Path.home() / ".nebula_pipeline" / "synth_presets"
@@ -245,6 +246,7 @@ def default_synth_preset():
         "name": "Irregular blinds",
         "width": 720,
         "height": 576,
+        "framing": "native",
         "treatment_fps": 25,
         "export_fps": 25,
         "loop_seconds": 4.0,
@@ -282,6 +284,7 @@ def normalize_synth(raw=None):
     if int(raw.get("schema_version", 1)) != SYNTH_SCHEMA_VERSION:
         raise ValueError(f"Unsupported synth schema version: {raw.get('schema_version')}")
     result = copy.deepcopy(base)
+    result["framing"] = normalize_canvas({"framing": raw.get("framing", "native")})["framing"]
     for key in ("name", "variation_mode"):
         if key in raw:
             result[key] = str(raw[key])
@@ -799,6 +802,8 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None):
         if renderer is None:
             continue
         params = entry.get("params", {})
+        if p.get("framing") == "adaptive" and width < height and module_id in {"slab", "blinds"} and int(params.get("shape", 0)) in (2, 3):
+            params = dict(params, diameter=params["diameter"] * width / height)
         rendered = renderer(arr, params, t, p, index)
         if rendered is not None:
             arr = rendered

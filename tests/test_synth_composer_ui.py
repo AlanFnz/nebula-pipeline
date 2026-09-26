@@ -24,6 +24,11 @@ def wait_until(predicate, seconds=10):
     raise AssertionError("Composer did not settle")
 
 
+def choose_starter(window, identifier):
+    window.starter_combo.setCurrentIndex(window.starter_combo.findData(identifier))
+    window.load_starter_button.click()
+
+
 @pytest.fixture
 def window():
     app = QApplication.instance() or QApplication([])
@@ -108,12 +113,11 @@ def test_detailed_copy_can_be_edited_without_changing_composition(window):
 def test_both_studies_are_accessible_without_changing_the_approved_recipe(window):
     assert window.composition["name"] == "Refined signal"
     refined = render_sequence_frame(window.sequence, 11.6, (120, 96)).tobytes()
-    buttons = {button.text(): button for button in window.findChildren(QPushButton)}
-    buttons["Approved 15s"].click()
+    choose_starter(window, "approved")
     approved = render_sequence_frame(reference_sequence(), 11.6, (120, 96)).tobytes()
     assert render_sequence_frame(window.sequence, 11.6, (120, 96)).tobytes() == approved
     assert approved != refined
-    buttons["Refined 15s"].click()
+    choose_starter(window, "refined")
     assert render_sequence_frame(window.sequence, 11.6, (120, 96)).tobytes() == refined
 
 
@@ -239,8 +243,7 @@ def test_timeline_click_shows_effects_used_by_blocks_and_ghosts(window):
 
 
 def test_particle_example_controls_undo_save_and_threaded_export(window, tmp_path, monkeypatch):
-    buttons = {button.text(): button for button in window.findChildren(QPushButton)}
-    buttons["Particle head 15s"].click()
+    choose_starter(window, "particle-head")
     assert len(window.composition["sections"]) == 3
     effects = window.composer.effects_panel
     assert effects.effect_id == "particles"
@@ -254,7 +257,7 @@ def test_particle_example_controls_undo_save_and_threaded_export(window, tmp_pat
     assert render_sequence_frame(window.sequence, 6, (120, 96)).tobytes() != before
     window.undo_composition()
     assert render_sequence_frame(window.sequence, 6, (120, 96)).tobytes() == before
-    buttons["Expand / orbit"].click()
+    choose_starter(window, "particle-orbit")
     effects = window.composer.effects_panel
     assert len(window.composition["sections"]) == 2
     assert effects.controls["particles.release"].input.currentText() == "Expand / orbit"
@@ -315,8 +318,61 @@ def test_particle_example_controls_undo_save_and_threaded_export(window, tmp_pat
     assert output.exists(), window.status.text()
     probe = subprocess.check_output(["ffprobe", "-v", "error", "-show_entries", "stream=nb_frames", "-of", "default=noprint_wrappers=1", str(output)], text=True)
     assert "nb_frames=6" in probe
-    buttons["Original particles"].click()
+    choose_starter(window, "original-particles")
     assert len(window.composition["sections"]) == 1
     assert window.composer.effects_panel.controls["particles.motion"].input.currentText() == "Gentle"
-    buttons["Refined 15s"].click()
+    choose_starter(window, "refined")
     assert not window.composer.effects_panel.summary["particles"]["active"]
+
+
+def test_canvas_switch_is_undoable_and_preserves_scene_and_playhead(window, tmp_path, monkeypatch):
+    choose_starter(window, "particle-orbit")
+    window.timeline.setValue(160)
+    before = copy.deepcopy(window.composition)
+    old_pixels = render_sequence_frame(window.sequence, 6.4, (180, 144)).tobytes()
+    window.canvas_combo.setCurrentIndex(window.canvas_combo.findData("stories"))
+    assert window.composition["source"] == before["source"]
+    assert window.composition["sections"] == before["sections"]
+    assert window.current_time == 6.4
+    assert window.current_canvas() == {"width": 1080, "height": 1920, "framing": "adaptive"}
+    wait_until(lambda: window.viewer.packet is not None and window.viewer.packet[0] == (202, 360))
+    assert window.viewer.packet[0] == (202, 360)
+    assert "1080 × 1920" in window.canvas_label.text()
+    window.undo_composition()
+    assert window.composition == before
+    assert window.canvas_combo.currentData() == "original"
+    assert render_sequence_frame(window.sequence, 6.4, (180, 144)).tobytes() == old_pixels
+    window.redo_composition()
+    assert window.canvas_combo.currentData() == "stories"
+    path = tmp_path / "story.json"
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *args: (str(path), ""))
+    window.save_sequence_dialog()
+    window.canvas_combo.setCurrentIndex(window.canvas_combo.findData("square"))
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *args: (str(path), ""))
+    window.load_sequence_dialog()
+    assert window.canvas_combo.currentData() == "stories"
+    window.open_detailed_copy()
+    assert window.detail_windows[-1].current_canvas() == window.current_canvas()
+    window.composer.duration.setValue(.16)
+    # Draft preview must still export the selected full-resolution canvas.
+    output = tmp_path / "story.mp4"
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *args: (str(output), ""))
+    window.export_dialog()
+    assert window.export_job.size == (1080, 1920)
+    wait_until(lambda: window.export_job is None, seconds=30)
+    assert output.exists(), window.status.text()
+
+
+def test_starter_menu_requires_load_and_uses_current_canvas(window):
+    before = copy.deepcopy(window.composition)
+    window.starter_combo.setCurrentIndex(window.starter_combo.findData("particle-orbit"))
+    assert window.composition == before
+    window.canvas_combo.setCurrentIndex(window.canvas_combo.findData("stories"))
+    window.load_starter_button.click()
+    assert len(window.composition["sections"]) == 2
+    assert window.canvas_combo.currentData() == "stories"
+    assert window.composition["canvas"]["height"] == 1920
+    window.composer.effects_panel.controls["particles.rotation_speed"].input.setValue(45.)
+    window.load_starter_button.click()
+    assert window.composer.effects_panel.controls["particles.rotation_speed"].input.value() == 18.
+    assert window.canvas_combo.currentData() == "stories"

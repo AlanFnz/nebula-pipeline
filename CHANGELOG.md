@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Non-destructive canvas formats: original 5:4, Stories/Reels 9:16, portrait 4:5
+  and 3:4, square 1:1, landscape 1.91:1 and widescreen 16:9. Adaptive subject
+  framing keeps particles proportional on narrow canvases while noise and tape
+  treatments render edge to edge. Canvas settings persist, support composer
+  Undo/Redo, and travel into detailed copies and exports.
+- Starters dropdown with all five built-in studies, explicit Load starter and
+  independent editable copies that retain the selected canvas format.
+- Preview quality is now independent of MP4 resolution; export always uses the
+  full canvas dimensions shown in the toolbar.
+
 - Carry orbit return rotation keeps the head and cloud in one rotating frame,
   retaining accumulated rotation as particles gather instead of unwinding toward
   the earlier head angle. Enabled in the current Expand / orbit study; older

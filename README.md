@@ -69,8 +69,11 @@ for the next phase; the existing clip workflow remains available from the same
 `studio.py` entry point.
 
 The default view is a **composer**: sections below the preview and an **Effects**
-inspector. It opens the **Refined 15s** study with its original animated recipe.
-**Approved 15s** reloads the earlier study with its original recipe and pixels.
+inspector. It opens the **Refined signal** study with its original animated recipe.
+Choose a study in **Starters**, then press **Load starter** to create an editable
+copy. The library includes Refined signal, Approved signal, Particle head,
+Expand / orbit and Original particles. Selection alone does not replace the
+current composition; loading a starter keeps the current canvas format.
 
 The native editors share a terminal-inspired interface: a system-available
 monospaced font, dark panels, phosphor-green controls and a violet playhead.
@@ -144,9 +147,43 @@ overrides. Older documents gain an empty effect rack and keep their pixels.
 The signal-breakup module is disabled in older presets; its held horizontal
 tears and dropouts are deterministic under scrubbing and export.
 
+### Canvas formats
+
+The **Canvas** dropdown changes the generated canvas independently of effects,
+source recipes and timeline settings. The built-in formats are:
+
+| Format | Canvas |
+| --- | --- |
+| Original · 5:4 | 720 × 576 |
+| Stories / Reels · 9:16 | 1080 × 1920 |
+| Portrait feed · 4:5 | 1080 × 1350 |
+| Square · 1:1 | 1080 × 1080 |
+| Portrait · 3:4 | 1080 × 1440 |
+| Landscape feed · 1.91:1 | 1080 × 566 |
+| Widescreen · 16:9 | 1920 × 1080 |
+
+**Fit subject** is enabled when choosing a format. On narrow canvases, it
+uniformly scales particle subjects to leave space for profile turns and fits
+circular/polygonal forms to the available width. It does not change the authored
+Scale, geometry or motion controls. Noise, raster, tape damage, fields and
+transitions render across the entire new canvas; no padded or stretched image
+is used. Turn Fit subject off to retain the original framing behavior.
+
+Canvas settings save in compositions, detailed sequences and standalone presets.
+Composer Undo/Redo includes canvas changes. Switching back to Original restores
+its earlier pixels. Earlier documents default to native framing and retain their
+output. Starters are independent copies; loading one retains the selected canvas.
+
+**Preview quality** affects only the monitor (360 px, 720 px or full canvas).
+**Export MP4** always uses the document's full dimensions, shown beside Canvas,
+even with a fast preview selected. The export snapshots the canvas and scene so
+subsequent edits do not change an in-progress render. Custom dimensions in loaded
+documents are retained. The new format/size helpers live in `synth_canvas.py` and
+the starter registry lives in `synth_starters.py`.
+
 ### Particle attractors
 
-**Particle head 15s** opens the new **Particle signal** study: dots rush into an
+**Starters → Particle head** opens the **Particle signal** study: dots rush into an
 anatomical head, rebound and dissolve toward a thin luminous band. Three sections
 (Charge & gather, Signal storm, Release & return) combine the continuous particle
 motion with 11 signal-treatment cues. **Original particles** retains the first
@@ -164,7 +201,7 @@ Tape faults replace the added bars: tracking slips, scanline loss, color lag and
 bleed deform the existing image. The strongest faults follow the main outward
 move so it stays visible. Existing saved orbit clips retain their earlier motion
 and colors; Particle head and Original particles also retain their pixels.
-The default startup study and **Refined 15s / Approved 15s** remain unchanged.
+The default startup study and **Refined signal / Approved signal** remain unchanged.
 You can also apply **Particle attractor** from Effects to any composition.
 
 - **Motion → Surges** adds **Acceleration**, **Arrival disorder** and

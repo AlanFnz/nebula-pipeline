@@ -26,7 +26,8 @@ def export_synth_video(preset, output, start=0, count=None, cancel=None, progres
         sequence_renderer = render_sequence_frame
     cancel = cancel or Cancellation()
     output = Path(output)
-    width, height = size or (p["width"], p["height"])
+    canvas = sequence_data.get("canvas", p) if sequence_data else p
+    width, height = size or (canvas["width"], canvas["height"])
     export_fps = int(sequence_data["fps"] if sequence_data else p["export_fps"])
     total = max(1, round(float(sequence_data["duration"] if sequence_data else p["loop_seconds"]) * export_fps))
     start = int(start)

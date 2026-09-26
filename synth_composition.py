@@ -14,6 +14,7 @@ from pathlib import Path
 from synth import MODULE_BY_ID, SHAPES, _seed, curated_presets
 from synth_sequence import normalize_sequence, reference_sequence
 from synth_effects import apply_effects, merge_effects, normalize_effects
+from synth_canvas import normalize_canvas
 
 FORMAT = "nebula-composition"
 MACROS = {
@@ -65,6 +66,7 @@ def reference_composition(refined=False):
         "format": FORMAT, "schema_version": 1,
         "name": "Refined signal" if refined else "Composite signal", "fps": source["fps"], "seed": source["seed"],
         "source": source,
+        "canvas": normalize_canvas(source.get("canvas")),
         "phrases": {key: {"name": name, "start": start, "end": end} for key, name, start, end in PHRASES},
         "macros": neutral_macros(), "geometry": default_geometry(), "effects": {}, "variation": 0, "locks": [],
         "sections": [
@@ -80,6 +82,7 @@ def composition_from_sequence(sequence):
     source = normalize_sequence(sequence)
     result = reference_composition()
     result.update(name=source["name"], source=source, fps=source["fps"], seed=source["seed"])
+    result["canvas"] = normalize_canvas(source.get("canvas"))
     result["phrases"] = {"custom": {"name": source["name"], "start": 0., "end": source["duration"]}}
     result["sections"] = [{"id": "section-1", "phrase": "custom", "duration": source["duration"], "macros": neutral_macros(), "geometry": default_geometry(section=True), "effects": {}, "variation": 0, "locks": []}]
     return result
@@ -344,6 +347,7 @@ def normalize_composition(raw):
     if not isinstance(raw.get("source"), dict):
         raise ValueError("A composition must contain its source recipe")
     result["source"] = normalize_sequence(raw.get("source"))
+    result["canvas"] = normalize_canvas(raw.get("canvas", result["source"].get("canvas")))
     result["name"] = str(raw.get("name", "Untitled composition"))
     result["fps"] = _number(raw.get("fps", 25), "FPS", 1, 120, True)
     result["seed"] = _number(raw.get("seed", 0), "Seed", 0, 2**31 - 1, True)
@@ -440,6 +444,7 @@ def compile_composition(raw):
     project = normalize_composition(raw)
     result = copy.deepcopy(project["source"])
     result.update(name=project["name"], fps=project["fps"], seed=project["seed"], states={}, cues=[])
+    result["canvas"] = copy.deepcopy(project["canvas"])
     fps = project["fps"]
     ranges = section_ranges(project)
     result["duration"] = ranges[-1][1]

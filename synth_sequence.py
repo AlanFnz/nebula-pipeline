@@ -11,6 +11,7 @@ import numpy as np
 from PIL import Image
 
 from synth import MODULE_BY_ID, _seed, curated_presets, normalize_synth, render_synth_frame
+from synth_canvas import normalize_canvas
 
 SEQUENCE_SCHEMA_VERSION = 1
 NEUTRAL_FIELD = {
@@ -44,6 +45,8 @@ def normalize_sequence(raw=None):
         raise ValueError(f"Unsupported sequence schema version: {raw.get('schema_version')}")
     result = copy.deepcopy(reference_sequence())
     result["name"] = str(raw.get("name", result["name"]))
+    if "canvas" in raw:
+        result["canvas"] = normalize_canvas(raw["canvas"])
     for key, lo, hi in (("duration", .1, 3600), ("fps", 1, 120), ("seed", 0, 2**31 - 1)):
         value = raw.get(key, result[key])
         if not isinstance(value, (int, float)) or not math.isfinite(float(value)) or not lo <= float(value) <= hi:
@@ -140,6 +143,8 @@ def _state_preset(sequence, state_name):
     # slow LFO targets so a cue cannot be silently reshaped underneath it.
     preset["animation"]["targets"] = {}
     preset["seed"] = int((preset["seed"] + sequence["seed"]) % (2**31 - 1))
+    if "canvas" in sequence:
+        preset.update(sequence["canvas"])
     return normalize_synth(preset)
 
 

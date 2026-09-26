@@ -24,6 +24,8 @@ from synth_media import export_synth_video
 from synth_sequence import load_sequence, normalize_sequence, reference_sequence, render_sequence_frame, save_sequence
 from synth_composition import FORMAT, compile_composition, composition_from_sequence, load_composition, normalize_composition, reference_composition, save_composition, section_ranges
 from synth_composer_ui import CompositionPanel, SectionTimeline
+from synth_canvas import CANVAS_FORMATS, format_canvas, normalize_canvas, preview_size
+from synth_starters import STARTERS, starter_composition
 
 
 class SynthViewer(QWidget):
@@ -227,10 +229,32 @@ class SynthStudio(QMainWindow):
             self.preset_widgets.append(button)
         outer.addLayout(header)
         sequence_actions = QHBoxLayout()
-        for text, slot in (("New clip", self.new_composition), ("Refined 15s", self.load_refined_sequence), ("Approved 15s", self.load_reference_sequence), ("Particle head 15s", lambda: self.load_particle_composition()), ("Expand / orbit", self.load_particle_orbit), ("Original particles", lambda: self.load_particle_composition(False)), ("Save…", self.save_sequence_dialog), ("Open…", self.load_sequence_dialog)):
+        new = QPushButton("New clip"); new.clicked.connect(self.new_composition); sequence_actions.addWidget(new)
+        sequence_actions.addWidget(QLabel("Starters"))
+        self.starter_combo = QComboBox(); self.starter_combo.setAccessibleName("Starters")
+        for identifier, label, _factory in STARTERS:
+            self.starter_combo.addItem(label, identifier)
+        self.starter_combo.setToolTip("Choose a built-in study, then load an editable copy in the current canvas format.")
+        sequence_actions.addWidget(self.starter_combo)
+        self.load_starter_button = QPushButton("Load starter"); self.load_starter_button.clicked.connect(self.load_starter)
+        sequence_actions.addWidget(self.load_starter_button)
+        for text, slot in (("Save…", self.save_sequence_dialog), ("Open…", self.load_sequence_dialog)):
             button = QPushButton(text); button.clicked.connect(slot); sequence_actions.addWidget(button)
         sequence_actions.addStretch(1)
         outer.addLayout(sequence_actions)
+        canvas_row = QHBoxLayout(); canvas_row.addWidget(QLabel("Canvas"))
+        self.canvas_combo = QComboBox(); self.canvas_combo.setAccessibleName("Canvas aspect ratio")
+        for identifier, label, _width, _height in CANVAS_FORMATS:
+            self.canvas_combo.addItem(label, identifier)
+        self.canvas_combo.currentIndexChanged.connect(self.canvas_selected)
+        self.canvas_combo.setToolTip("Reframe the generated scene without rewriting effects, timing or source material. Saved with the document.")
+        canvas_row.addWidget(self.canvas_combo)
+        self.fit_subject = QCheckBox("Fit subject"); self.fit_subject.setAccessibleName("Fit subject")
+        self.fit_subject.setToolTip("Keep the head's proportions and give it room on narrow canvases. Noise and tape treatments always cover the whole canvas.")
+        self.fit_subject.toggled.connect(self.framing_changed); canvas_row.addWidget(self.fit_subject)
+        canvas_row.addStretch(1)
+        self.canvas_label = QLabel(); self.canvas_label.setObjectName("muted"); canvas_row.addWidget(self.canvas_label)
+        outer.addLayout(canvas_row)
         split = QSplitter(Qt.Orientation.Horizontal)
         split.setHandleWidth(1); split.setChildrenCollapsible(False)
         left = QWidget(); left_layout = QVBoxLayout(left)
@@ -261,7 +285,10 @@ class SynthStudio(QMainWindow):
         self.time_label = QLabel("00:00.00"); self.time_label.setObjectName("timecode"); timeline.addWidget(self.time_label)
         left_layout.addLayout(timeline)
         export_row = QHBoxLayout()
-        self.quality = QComboBox(); self.quality.addItems(["Preview 360p", "Full 720×576"]); self.quality.currentIndexChanged.connect(lambda _index: self.invalidate()); export_row.addWidget(self.quality)
+        self.quality = QComboBox(); self.quality.setAccessibleName("Preview quality")
+        self.quality.addItems(["Preview · 360 px", "Preview · 720 px", "Preview · full"])
+        self.quality.setToolTip("Preview resolution only. MP4 exports use the full canvas size shown above.")
+        self.quality.currentIndexChanged.connect(lambda _index: self.invalidate()); export_row.addWidget(self.quality)
         export = QPushButton("Export MP4"); export.setObjectName("primary"); export.clicked.connect(self.export_dialog); export_row.addWidget(export)
         self.cancel_export = QPushButton("Cancel export"); self.cancel_export.setEnabled(False); self.cancel_export.clicked.connect(self.cancel_export_job); export_row.addWidget(self.cancel_export)
         left_layout.addLayout(export_row)
@@ -393,6 +420,7 @@ class SynthStudio(QMainWindow):
         return group
 
     def rebuild_modules(self):
+        self.refresh_canvas_controls()
         if self.composer is not None:
             self.composition_index = self.composer.index
             self.composition_scope = self.composer.scope
@@ -472,24 +500,77 @@ class SynthStudio(QMainWindow):
                 self.preset_combo.setCurrentText("Custom")
 
     def load_reference_sequence(self):
-        self.set_composition(reference_composition())
+        self.load_starter_id("approved")
 
     def load_refined_sequence(self):
-        self.set_composition(reference_composition(refined=True))
+        self.load_starter_id("refined")
 
     def new_composition(self):
         from synth_composition import blank_composition
-        self.set_composition(blank_composition())
+        project = blank_composition(); project["canvas"] = self.current_canvas()
+        self.set_composition(project)
 
     def load_particle_composition(self, refined=True):
-        from synth_composition import particle_composition
-        self.set_composition(particle_composition(refined=refined))
-        self.composer.effects_panel.inspect_effect("particles")
+        self.load_starter_id("particle-head" if refined else "original-particles")
 
     def load_particle_orbit(self):
-        from synth_composition import particle_orbit_composition
-        self.set_composition(particle_orbit_composition())
-        self.composer.effects_panel.inspect_effect("particles")
+        self.load_starter_id("particle-orbit")
+
+    def load_starter(self):
+        self.load_starter_id(self.starter_combo.currentData())
+
+    def load_starter_id(self, identifier):
+        project = starter_composition(identifier)
+        project["canvas"] = self.current_canvas()
+        self.set_composition(project)
+        with QSignalBlocker(self.starter_combo):
+            self.starter_combo.setCurrentIndex(self.starter_combo.findData(identifier))
+        if identifier in ("particle-head", "particle-orbit", "original-particles"):
+            self.composer.effects_panel.inspect_effect("particles")
+
+    def current_canvas(self):
+        if self.composition is not None:
+            return normalize_canvas(self.composition.get("canvas"))
+        if self.sequence is not None and "canvas" in self.sequence:
+            return normalize_canvas(self.sequence["canvas"])
+        return normalize_canvas({key: self.preset[key] for key in ("width", "height", "framing") if key in self.preset})
+
+    def refresh_canvas_controls(self):
+        canvas = self.current_canvas()
+        with QSignalBlocker(self.canvas_combo), QSignalBlocker(self.fit_subject):
+            while self.canvas_combo.count() > len(CANVAS_FORMATS):
+                self.canvas_combo.removeItem(self.canvas_combo.count() - 1)
+            index = next((i for i, (_key, _label, w, h) in enumerate(CANVAS_FORMATS) if (w, h) == (canvas["width"], canvas["height"])), -1)
+            if index < 0:
+                self.canvas_combo.addItem(f"Custom · {canvas['width']}×{canvas['height']}", "custom")
+                index = self.canvas_combo.count() - 1
+            self.canvas_combo.setCurrentIndex(index)
+            self.fit_subject.setChecked(canvas["framing"] == "adaptive")
+        self.canvas_label.setText(f"Export / {canvas['width']} × {canvas['height']}")
+        with QSignalBlocker(self.quality):
+            self.quality.setItemText(2, f"Preview · full {canvas['width']}×{canvas['height']}")
+
+    def canvas_selected(self, index):
+        identifier = self.canvas_combo.itemData(index)
+        if identifier and identifier != "custom":
+            self.apply_canvas(format_canvas(identifier))
+
+    def framing_changed(self, checked):
+        self.apply_canvas(dict(self.current_canvas(), framing="adaptive" if checked else "native"))
+
+    def apply_canvas(self, canvas):
+        canvas = normalize_canvas(canvas)
+        if canvas == self.current_canvas(): return
+        if self.composition is not None:
+            document = copy.deepcopy(self.composition); document["canvas"] = canvas
+            self.composer.document = copy.deepcopy(document)
+            self.composition_changed(document, "canvas")
+        elif self.sequence is not None:
+            self.sequence = normalize_sequence(dict(self.sequence, canvas=canvas))
+            self.refresh_canvas_controls(); self.invalidate()
+        else:
+            self.preset.update(canvas); self.mark_custom()
+            self.refresh_canvas_controls(); self.invalidate()
 
     def set_composition(self, project):
         project = normalize_composition(project)
@@ -517,6 +598,7 @@ class SynthStudio(QMainWindow):
         self.refresh_composition()
 
     def refresh_composition(self):
+        self.refresh_canvas_controls()
         old_time = self.current_time
         self.update_timeline_max()
         with QSignalBlocker(self.timeline):
@@ -739,8 +821,8 @@ class SynthStudio(QMainWindow):
         if self.render_running:
             self.render_queued = True
             return
-        edge = 360 if self.quality.currentIndex() == 0 else min(self.preset["width"], 720)
-        scale = min(1, edge / max(self.preset["width"], self.preset["height"])); size = (max(1, round(self.preset["width"] * scale)), max(1, round(self.preset["height"] * scale)))
+        edge = (360, 720, None)[self.quality.currentIndex()]
+        size = preview_size(self.current_canvas(), edge)
         self.render_running = True
         job = RenderJob(self.preset, self.current_time, size, self.settings_generation, self.request_serial, self.sequence); self.pending_jobs.append(job); job.signals.done.connect(self.frame_ready); job.signals.done.connect(lambda _result, j=job: self._release_job(j)); job.signals.failed.connect(self.render_failed); job.signals.failed.connect(lambda _error, j=job: self._release_job(j)); self.jobs.start(job)
 
@@ -821,7 +903,7 @@ class SynthStudio(QMainWindow):
         path, _ = QFileDialog.getSaveFileName(self, "Export synth sequence" if self.sequence is not None else "Export synth loop", default_name, "MP4 video (*.mp4)")
         if not path: return
         p = copy.deepcopy(self.preset) if self.sequence is not None else self.collect()
-        edge = 360 if self.quality.currentIndex() == 0 else None; size = None if edge is None else (round(p["width"] * edge / max(p["width"], p["height"])), round(p["height"] * edge / max(p["width"], p["height"])))
+        canvas = self.current_canvas(); size = (canvas["width"], canvas["height"])
         job = ExportJob(p, path, size, self.sequence); self.export_job = job; self.cancel_export.setEnabled(True); self.pending_jobs.append(job); job.signals.progress.connect(lambda a, b: self.status.setText(f"Exporting {a}/{b}")); job.signals.done.connect(lambda _: self.status.setText(f"Exported {path}")); job.signals.done.connect(lambda _result, j=job: self._finish_export(j)); job.signals.failed.connect(lambda error: self.status.setText(f"Export error: {error}")); job.signals.failed.connect(lambda _error, j=job: self._finish_export(j)); self.jobs.start(job)
 
     def _finish_export(self, job):
