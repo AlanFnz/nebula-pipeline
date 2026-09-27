@@ -12,10 +12,11 @@ from concurrent.futures import ThreadPoolExecutor
 from PySide6.QtCore import QObject, QRunnable, QRect, QSignalBlocker, Qt, QThreadPool, QTimer, Signal
 from PySide6.QtGui import QColor, QImage, QPainter
 from PySide6.QtWidgets import (
-    QApplication, QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog, QGroupBox,
-    QHBoxLayout, QGridLayout, QLabel, QMainWindow, QPushButton, QScrollArea, QSlider,
-    QSpinBox, QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QMessageBox, QSizePolicy, QFrame,
+    QApplication, QCheckBox, QFileDialog, QGroupBox,
+    QHBoxLayout, QGridLayout, QLabel, QMainWindow, QPushButton, QScrollArea,
+    QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QMessageBox, QSizePolicy, QFrame,
 )
+from studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBox, SpinBox as QSpinBox, Slider as QSlider
 
 from media import Cancellation
 from studio_theme import COLORS, apply_theme, terminal_font

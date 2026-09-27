@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Dropdowns, numeric fields and sliders pass wheel/trackpad input through to
+  their scroll panel, including focused controls. Click selection, typing,
+  keyboard arrows and dragging remain available throughout the native editors.
 - Ink timing is now one shared setup for every section. Existing local timing
   overrides consolidate into a complete global profile, preventing different
   loop lengths or scene clocks from causing jumps at section boundaries. Timing

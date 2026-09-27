@@ -608,3 +608,15 @@ def test_ink_timing_tabs_seconds_scope_reset_undo_and_save(window, tmp_path, mon
     assert not window.composition['ink_timing']
     assert [s['duration'] for s in window.composition['sections']] == [53 / 15] * 2
     window.undo_composition(); assert window.composition == saved
+
+
+def test_all_native_parameter_controls_are_protected_from_wheel_edits(window):
+    from PySide6.QtWidgets import QComboBox, QAbstractSpinBox, QSlider
+    from studio_widgets import ScrollThrough
+    for key in ('refined', 'mixed-media', 'particle-orbit'):
+        choose_starter(window, key)
+        for kind in (QComboBox, QAbstractSpinBox, QSlider):
+            assert all(isinstance(control, ScrollThrough) for control in window.findChildren(kind))
+    window.open_detailed_copy()
+    for kind in (QComboBox, QAbstractSpinBox, QSlider):
+        assert all(isinstance(control, ScrollThrough) for control in window.detail_windows[-1].findChildren(kind))

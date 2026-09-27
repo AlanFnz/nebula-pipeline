@@ -12,9 +12,10 @@ from PySide6.QtCore import Qt, QTimer, QRect, QSignalBlocker
 from PySide6.QtGui import QColor, QImage, QPainter, QPen, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QPushButton, QSlider, QDoubleSpinBox, QSpinBox, QComboBox, QCheckBox,
+    QPushButton, QCheckBox,
     QScrollArea, QGroupBox, QFileDialog, QMessageBox, QSplitter, QProgressBar,
 )
+from studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBox, SpinBox as QSpinBox, Slider as QSlider
 
 from media import Cancellation, Cancelled, probe, frame_count, export_video
 from parameters import DEFAULTS, LIMITS, RANGES, STAGES, PRESETS_DIR, normalize, load, save

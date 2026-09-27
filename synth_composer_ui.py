@@ -7,8 +7,9 @@ from PySide6.QtCore import Qt, QRectF, QSignalBlocker, Signal
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox, QLabel,
-    QDoubleSpinBox, QSpinBox, QComboBox, QPushButton, QSlider, QCheckBox, QTabWidget,
+    QPushButton, QCheckBox, QTabWidget,
 )
+from studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBox, SpinBox as QSpinBox, Slider as QSlider
 
 from synth import SHAPES
 from studio_theme import COLORS

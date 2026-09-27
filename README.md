@@ -147,6 +147,11 @@ overrides. Older documents gain an empty effect rack and keep their pixels.
 The signal-breakup module is disabled in older presets; its held horizontal
 tears and dropouts are deterministic under scrubbing and export.
 
+Closed dropdowns, numeric fields and sliders ignore the mouse wheel and trackpad
+so scrolling moves the surrounding panel, even after a control has focus. Open
+dropdowns with a click and select an option from their list. Typing, keyboard
+arrows, slider dragging and numeric step buttons continue to edit values.
+
 ### Canvas formats
 
 The **Canvas** dropdown changes the generated canvas independently of effects,

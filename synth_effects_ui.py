@@ -6,9 +6,9 @@ import math
 
 from PySide6.QtCore import QSignalBlocker, Signal
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QPushButton,
-    QDoubleSpinBox, QSpinBox, QStackedWidget, QTabBar,
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QStackedWidget, QTabBar,
 )
+from studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBox, SpinBox as QSpinBox
 
 from synth_effects import EFFECTS, EFFECT_BY_ID, describe_effects, effect_preset, parameter
 from studio_theme import COLORS
