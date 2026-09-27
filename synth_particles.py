@@ -9,7 +9,7 @@ import math
 import numpy as np
 
 from synth_particle_mesh import sample_human_head
-from synth_canvas import particle_framing
+from synth_canvas import content_size, particle_framing, source_framing
 
 
 def _head_surface(y, angle):
@@ -293,13 +293,17 @@ def render_particles(arr, p, time, preset, seed):
     clock = time * preset["speed"]
     points, normals, attributes, cohesion = particle_field(p, clock, seed)
     perspective = 3.8 / np.maximum(.5, 3.8 - points[:, 2] * p["perspective"])
-    scale = h * .35 * p["scale"]
-    scale *= particle_framing(w, h, preset.get("framing", "native"))
+    cw, ch = content_size(preset, (w, h))
+    scale = ch * .35 * p["scale"]
+    scale *= particle_framing(cw, ch, source_framing(preset))
     x = w * (.5 + p["position_x"] * .5) + points[:, 0] * scale * perspective
     y = h * (.5 - p["position_y"] * .5) - (points[:, 1] + .1) * scale * perspective
+    if 'reference' in preset:
+        x = w / 2 + cw * p['position_x'] * .5 + points[:, 0] * scale * perspective
+        y = h / 2 - ch * p['position_y'] * .5 - (points[:, 1] + .1) * scale * perspective
     # Irregular scan registration is separate from the smooth particle paths.
     frame = round(time * preset["treatment_fps"])
-    x += p["jitter"] * w * np.sin(np.floor(y / max(1, h / 144)) * 1.73 + frame * 2.39)
+    x += p["jitter"] * cw * np.sin(np.floor((y - (h - ch) / 2) / max(1, ch / 144)) * 1.73 + frame * 2.39)
     hue = p["hue"] + points[:, 1] * p["color_spread"] * .35 + attributes[:, 11] * .12 + clock * p["color_drift"]
     rgb = np.clip(np.abs((hue[:, None] + np.array((0, 2 / 3, 1 / 3))) % 1 * 6 - 3) - 1, 0, 1)
     rgb = 1 - p["saturation"] + rgb * p["saturation"]
@@ -308,7 +312,7 @@ def render_particles(arr, p, time, preset, seed):
     if p.get("occlusion", 0.) > 0:
         # A fixed proxy grid gives preview/export the same depth decisions.
         # Only point depths are used; no solid guide surface enters the image.
-        visibility *= _surface_visibility(points, x / w, y / h, cohesion, w / h, p["occlusion"])
+        visibility *= _surface_visibility(points, (x - (w - cw) / 2) / cw, (y - (h - ch) / 2) / ch, cohesion, cw / ch, p["occlusion"])
     lighting = .18 + .82 * np.clip(normals @ np.array((-.45, .55, .7)), 0, 1)
     relief = lighting * attributes[:, 15]
     visibility *= 1 - cohesion * p["relief"] * (1 - relief)
@@ -327,12 +331,12 @@ def render_particles(arr, p, time, preset, seed):
     # consistent between preview and export. Off-screen particles never wrap.
     ix, iy = np.floor(x).astype(int), np.floor(y).astype(int)
     fx, fy = x - ix, y - iy
-    energy = (h / 576) ** 2 * (1 + p["dot_size"] ** 1.5)
+    energy = (ch / 576) ** 2 * (1 + p["dot_size"] ** 1.5)
     for dx, dy, weight in ((0, 0, (1 - fx) * (1 - fy)), (1, 0, fx * (1 - fy)), (0, 1, (1 - fx) * fy), (1, 1, fx * fy)):
         xx, yy = ix + dx, iy + dy
         inside = (xx >= 0) & (xx < w) & (yy >= 0) & (yy < h)
         np.add.at(layer, (yy[inside], xx[inside]), colors[inside] * (weight[inside] * energy)[:, None])
-    radius = max(0, p["dot_size"] - .5) * h / 576 * .65
+    radius = max(0, p["dot_size"] - .5) * ch / 576 * .65
     if radius > .05:
         # Float convolution retains additive energy in dense, glowing clusters.
         reach = math.ceil(radius * 3)

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Canvas format changes preserve artwork size, proportions and center instead
+  of stretching it. Optional Fit subject scales uniformly; procedural noise and
+  backgrounds fill the new canvas. Saved artwork references survive repeated
+  format changes, Undo/Redo, detailed copies and exports.
+
 - Slowing Gesture speed no longer lowers Motion FPS. Ink motion now samples its
   hold clock before scaling travel, keeping smaller pose changes at the selected
   cadence instead of increasingly long freezes. Shared clock scaling follows

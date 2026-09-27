@@ -25,7 +25,7 @@ from synth_media import export_synth_video
 from synth_sequence import load_sequence, normalize_sequence, reference_sequence, render_sequence_frame, save_sequence
 from synth_composition import FORMAT, compile_composition, composition_from_sequence, load_composition, normalize_composition, reference_composition, save_composition, section_ranges
 from synth_composer_ui import CompositionPanel, SectionTimeline
-from synth_canvas import CANVAS_FORMATS, format_canvas, normalize_canvas, preview_size
+from synth_canvas import CANVAS_FORMATS, format_canvas, normalize_canvas, preview_size, resize_canvas
 from synth_starters import STARTERS, starter_composition
 from synth_artwork_ui import ArtworkControl
 from synth_master import normalize_master
@@ -262,7 +262,7 @@ class SynthStudio(QMainWindow):
         self.canvas_combo.setToolTip("Reframe the generated scene without rewriting effects, timing or source material. Saved with the document.")
         canvas_row.addWidget(self.canvas_combo)
         self.fit_subject = QCheckBox("Fit subject"); self.fit_subject.setAccessibleName("Fit subject")
-        self.fit_subject.setToolTip("Keep the head's proportions and give it room on narrow canvases. Noise and tape treatments always cover the whole canvas.")
+        self.fit_subject.setToolTip("Optional uniform scaling to fit the artwork's reference frame. Off keeps its pixel size and centers/crops it like resizing a canvas. Never stretches its proportions.")
         self.fit_subject.toggled.connect(self.framing_changed); canvas_row.addWidget(self.fit_subject)
         canvas_row.addStretch(1)
         self.canvas_label = QLabel(); self.canvas_label.setObjectName("muted"); canvas_row.addWidget(self.canvas_label)
@@ -538,7 +538,8 @@ class SynthStudio(QMainWindow):
 
     def load_starter_id(self, identifier):
         project = starter_composition(identifier)
-        project["canvas"] = self.current_canvas()
+        current = self.current_canvas()
+        project["canvas"] = resize_canvas(project['canvas'], current, fit=current['framing'] == 'fit') if 'reference' in current else current
         self.set_composition(project)
         with QSignalBlocker(self.starter_combo):
             self.starter_combo.setCurrentIndex(self.starter_combo.findData(identifier))
@@ -554,7 +555,7 @@ class SynthStudio(QMainWindow):
             return normalize_canvas(self.composition.get("canvas"))
         if self.sequence is not None and "canvas" in self.sequence:
             return normalize_canvas(self.sequence["canvas"])
-        return normalize_canvas({key: self.preset[key] for key in ("width", "height", "framing") if key in self.preset})
+        return normalize_canvas(self.preset)
 
     def refresh_canvas_controls(self):
         canvas = self.current_canvas()
@@ -566,7 +567,7 @@ class SynthStudio(QMainWindow):
                 self.canvas_combo.addItem(f"Custom · {canvas['width']}×{canvas['height']}", "custom")
                 index = self.canvas_combo.count() - 1
             self.canvas_combo.setCurrentIndex(index)
-            self.fit_subject.setChecked(canvas["framing"] == "adaptive")
+            self.fit_subject.setChecked(canvas["framing"] in ('adaptive', 'fit'))
         self.canvas_label.setText(f"Export / {canvas['width']} × {canvas['height']}")
         with QSignalBlocker(self.quality):
             self.quality.setItemText(2, f"Preview · full {canvas['width']}×{canvas['height']}")
@@ -574,10 +575,11 @@ class SynthStudio(QMainWindow):
     def canvas_selected(self, index):
         identifier = self.canvas_combo.itemData(index)
         if identifier and identifier != "custom":
-            self.apply_canvas(format_canvas(identifier))
+            self.apply_canvas(resize_canvas(self.current_canvas(), format_canvas(identifier)))
 
     def framing_changed(self, checked):
-        self.apply_canvas(dict(self.current_canvas(), framing="adaptive" if checked else "native"))
+        canvas = self.current_canvas()
+        self.apply_canvas(resize_canvas(canvas, canvas, fit=checked))
 
     def apply_canvas(self, canvas):
         canvas = normalize_canvas(canvas)

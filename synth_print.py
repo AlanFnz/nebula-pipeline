@@ -81,7 +81,7 @@ def stamp_outline(p, seed, identity, artwork=None):
     return vertices
 
 
-def render_ink_bloom(arr, p, time, speed, seed):
+def render_ink_bloom(arr, p, time, speed, seed, content_size=None):
     if p['opacity'] == 0:
         return arr
     h, w = arr.shape[:2]
@@ -96,7 +96,8 @@ def render_ink_bloom(arr, p, time, speed, seed):
     roll = math.radians(p['rotation'] + p['tumble'] * 140 * math.sin(math.tau * (phase - .30)))
     pitch = math.radians(p['tilt'] * math.sin(math.tau * phase))
     matrix = _rotation(yaw, pitch, roll)
-    canvas_scale = min(w, h)
+    cw, ch = content_size or (w, h)
+    canvas_scale = min(cw, ch)
     radius = p['size'] * canvas_scale * (.94 + .06 * opening)
     spread = p['spread'] * canvas_scale * opening
     count = int(p['count'])
@@ -126,8 +127,8 @@ def render_ink_bloom(arr, p, time, speed, seed):
         # Gentle orthographic depth keeps the print-like silhouettes readable.
         perspective = 1 / np.maximum(.4, 1 - vertices[:, 2] / canvas_scale * p['perspective'])
         xy = vertices[:, :2] * perspective[:, None]
-        xy[:, 0] += w * (.5 + p['position_x'] * .5)
-        xy[:, 1] += h * (.5 + p['position_y'] * .5)
+        xy[:, 0] += w * (.5 + p['position_x'] * .5) if content_size is None else w / 2 + cw * p['position_x'] * .5
+        xy[:, 1] += h * (.5 + p['position_y'] * .5) if content_size is None else h / 2 + ch * p['position_y'] * .5
         cards.append((center[2], i, xy))
     result = arr.copy()
     yy, xx = np.mgrid[:h, :w].astype(np.float32)

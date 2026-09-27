@@ -24,8 +24,15 @@ def normalize_canvas(raw=None):
             raise ValueError(f"Canvas {key} must be an integer between 64 and 4096")
         result[key] = int(value)
     result["framing"] = raw.get("framing", "native")
-    if result["framing"] not in ("native", "adaptive"):
-        raise ValueError("Canvas framing must be native or adaptive")
+    if result["framing"] not in ("native", "adaptive", "preserve", "fit"):
+        raise ValueError("Unknown canvas framing")
+    if 'reference' in raw:
+        reference = raw['reference']
+        if not isinstance(reference, dict) or reference.get('framing', 'native') not in ('native', 'adaptive') or 'reference' in reference:
+            raise ValueError('Canvas reference must be an original canvas')
+        result['reference'] = normalize_canvas(reference)
+    if result['framing'] in ('preserve', 'fit') and 'reference' not in result:
+        raise ValueError('Preserved canvas needs an artwork reference')
     return result
 
 
@@ -41,6 +48,29 @@ def preview_size(canvas, edge=360):
     width, height = canvas["width"], canvas["height"]
     scale = min(1., edge / max(width, height)) if edge else 1.
     return max(1, round(width * scale)), max(1, round(height * scale))
+
+
+def resize_canvas(current, target, fit=False):
+    """Change the viewport, retaining the original artwork's pixel dimensions."""
+    current = normalize_canvas(current); target = normalize_canvas(target)
+    reference = current.get('reference', {key: current[key] for key in ('width', 'height', 'framing')})
+    return normalize_canvas(dict(width=target['width'], height=target['height'],
+                                 framing='fit' if fit else 'preserve', reference=reference))
+
+
+def content_size(canvas, output):
+    """Artwork size in working pixels; one scale for both axes, never stretch."""
+    if 'reference' not in canvas:
+        return output
+    reference = canvas['reference']
+    scale = min(output[0] / canvas['width'], output[1] / canvas['height'])
+    if canvas['framing'] == 'fit':
+        scale *= min(canvas['width'] / reference['width'], canvas['height'] / reference['height'])
+    return reference['width'] * scale, reference['height'] * scale
+
+
+def source_framing(canvas):
+    return canvas.get('reference', canvas).get('framing', 'native')
 
 
 def particle_framing(width, height, framing):

@@ -20,7 +20,7 @@ from PIL import Image, ImageFilter
 
 from synth_particles import render_particles
 from synth_tape import render_tape_damage
-from synth_canvas import normalize_canvas
+from synth_canvas import content_size, normalize_canvas, source_framing
 from synth_print import render_ink_bloom, render_print_surface
 from synth_artwork import validate_artwork
 from synth_jitter import render_frame_jitter
@@ -372,7 +372,7 @@ def normalize_synth(raw=None):
     if int(raw.get("schema_version", 1)) != SYNTH_SCHEMA_VERSION:
         raise ValueError(f"Unsupported synth schema version: {raw.get('schema_version')}")
     result = copy.deepcopy(base)
-    result["framing"] = normalize_canvas({"framing": raw.get("framing", "native")})["framing"]
+    result.update(normalize_canvas(raw))
     for key in ("name", "variation_mode"):
         if key in raw:
             result[key] = str(raw[key])
@@ -537,8 +537,9 @@ def _shape_distance(dx, dy, rx, ry, shape, sides=6, rotation=0, aspect=1):
 def _render_slab(arr, p, t, preset, module_index):
     h, w = arr.shape[:2]
     y, x = np.mgrid[0:h, 0:w]
-    xn = (x / max(1, w - 1)) * 2 - 1
-    yn = (y / max(1, h - 1)) * 2 - 1
+    cw, ch = content_size(preset, (w, h))
+    xn = ((x - (w - cw) / 2) / max(1, cw - 1)) * 2 - 1
+    yn = ((y - (h - ch) / 2) / max(1, ch - 1)) * 2 - 1
     q = p
     clock = _clock(preset, t)
     frame_clock = round(t * preset["treatment_fps"])
@@ -556,7 +557,7 @@ def _render_slab(arr, p, t, preset, module_index):
     half_height = max(.02, float(p.get("height", .62)))
     shape = int(p.get("shape", 0))
     shaped = shape != 0 or p.get("rotation", 0) != 0
-    aspect = w / h
+    aspect = cw / ch
     if shape in (2, 3):
         half_height = p["diameter"]
         width = 2 * half_height / aspect
@@ -654,8 +655,9 @@ def _render_slab(arr, p, t, preset, module_index):
 def _render_blinds(arr, p, t, preset, module_index):
     h, w = arr.shape[:2]
     y, x = np.mgrid[0:h, 0:w]
-    xn = (x / max(1, w - 1)) * 2 - 1
-    yn = y / max(1, h - 1)
+    cw, ch = content_size(preset, (w, h))
+    xn = ((x - (w - cw) / 2) / max(1, cw - 1)) * 2 - 1
+    yn = (y - (h - ch) / 2) / max(1, ch - 1)
     clock = _clock(preset, t)
     base_hue = .76 + .025 * _smooth(preset["seed"], "blind-hue", clock, preset["variation_mode"])
     orientation = float(p.get("orientation", 0))
@@ -694,13 +696,13 @@ def _render_blinds(arr, p, t, preset, module_index):
             if shaped_envelope is None:
                 rx, ry = half_aperture, vertical_half * 2
                 if shape in (2, 3):
-                    rx, ry = p["diameter"] * h / w, p["diameter"]
+                    rx, ry = p["diameter"] * ch / cw, p["diameter"]
                 # Place the aperture in image space so rotating the ray stack
                 # cannot stretch a circle on a non-square canvas.
                 aperture_y = (vertical_center - .5) * 2
                 center_x = asym * math.cos(theta) - aperture_y * math.sin(theta)
                 center_y = asym * math.sin(theta) + aperture_y * math.cos(theta)
-                aperture_distance, _, _ = _shape_distance(xn - center_x, yn2 - center_y, rx, ry, shape, p["sides"], p["rotation"] + math.degrees(theta), w / h)
+                aperture_distance, _, _ = _shape_distance(xn - center_x, yn2 - center_y, rx, ry, shape, p["sides"], p["rotation"] + math.degrees(theta), cw / ch)
                 shaped_envelope = np.clip(-aperture_distance / max(.005, min(rx, ry) * (.12 + p["taper"] * .24)), 0, 1) ** .72
             envelope = shaped_envelope
         taper = 1 - p["taper"] * (1 - envelope)
@@ -856,8 +858,8 @@ def _breakup(arr, p, t, preset):
 
 
 RENDERERS = {
-    "frame_jitter": lambda arr, params, t, preset, index: render_frame_jitter(arr, params, t, preset["speed"], _seed(preset["seed"], "frame-jitter")),
-    "ink_bloom": lambda arr, params, t, preset, index: render_ink_bloom(arr, params, t, preset["speed"], _seed(preset["seed"], "ink-bloom")),
+    "frame_jitter": lambda arr, params, t, preset, index: render_frame_jitter(arr, params, t, preset["speed"], _seed(preset["seed"], "frame-jitter"), content_size(preset, (arr.shape[1], arr.shape[0])) if 'reference' in preset else None),
+    "ink_bloom": lambda arr, params, t, preset, index: render_ink_bloom(arr, params, t, preset["speed"], _seed(preset["seed"], "ink-bloom"), content_size(preset, (arr.shape[1], arr.shape[0])) if 'reference' in preset else None),
     "print_surface": lambda arr, params, t, preset, index: render_print_surface(arr, params, t, preset["speed"], _seed(preset["seed"], "print-surface")),
     "slab": lambda arr, params, t, preset, index: _render_slab(arr, params, t, preset, index),
     "blinds": lambda arr, params, t, preset, index: _render_blinds(arr, params, t, preset, index),
@@ -896,8 +898,9 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None):
         if renderer is None:
             continue
         params = entry.get("params", {})
-        if p.get("framing") == "adaptive" and width < height and module_id in {"slab", "blinds"} and int(params.get("shape", 0)) in (2, 3):
-            params = dict(params, diameter=params["diameter"] * width / height)
+        cw, ch = content_size(p, (width, height))
+        if source_framing(p) == "adaptive" and cw < ch and module_id in {"slab", "blinds"} and int(params.get("shape", 0)) in (2, 3):
+            params = dict(params, diameter=params["diameter"] * cw / ch)
         # Shared ink motion owns its hold clock across recipe sections. Other
         # effects retain the scene's speed and treatment cadence.
         module_time = continuous_time if module_id == 'ink_bloom' and params.get('clock_mode', 0) else t

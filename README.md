@@ -182,17 +182,22 @@ source recipes and timeline settings. The built-in formats are:
 | Landscape feed · 1.91:1 | 1080 × 566 |
 | Widescreen · 16:9 | 1920 × 1080 |
 
-**Fit subject** is enabled when choosing a format. On narrow canvases, it
-uniformly scales particle subjects to leave space for profile turns and fits
-circular/polygonal forms to the available width. It does not change the authored
-Scale, geometry or motion controls. Noise, raster, tape damage, fields and
-transitions render across the entire new canvas; no padded or stretched image
-is used. Turn Fit subject off to retain the original framing behavior.
+Changing format preserves the artwork's original pixel dimensions, proportions
+and center, like resizing a canvas in an image editor. Smaller canvases crop the
+view; larger ones reveal more space. Geometry, particles, ink figures and frame
+jitter keep the same reference dimensions. Noise, raster, tape damage, fields
+and transitions render across the entire new canvas.
+
+**Fit subject** is optional: it uniformly scales the artwork's reference canvas
+to fit inside the selected output. Both axes always use the same scale. Changing
+format defaults to preserving the original size; neither mode edits authored
+geometry, motion or effect parameters.
 
 Canvas settings save in compositions, detailed sequences and standalone presets.
-Composer Undo/Redo includes canvas changes. Switching back to Original restores
-its earlier pixels. Earlier documents default to native framing and retain their
-output. Starters are independent copies; loading one retains the selected canvas.
+Composer Undo/Redo includes canvas changes. Returning to the original artwork
+dimensions restores its framing. Earlier documents keep their saved framing and output until
+the canvas is edited. Starters are independent copies; loading one retains the
+selected output format and uses that starter's own artwork reference.
 
 **Preview quality** affects only the monitor (360 px, 720 px or full canvas).
 **Export MP4** always uses the document's full dimensions, shown beside Canvas,

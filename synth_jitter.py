@@ -12,14 +12,15 @@ def frame_pose(p, time, speed, seed):
     return x * p['x'], y * p['y'], angle * p['rotation'], 1 + zoom * p['scale'] / 100
 
 
-def render_frame_jitter(arr, p, time, speed, seed):
+def render_frame_jitter(arr, p, time, speed, seed, content_size=None):
     if p['strength'] == 0 or not any(p[key] for key in ('x', 'y', 'rotation', 'scale')):
         return arr
     h, w = arr.shape[:2]
     dx, dy, angle, zoom = frame_pose(p, time, speed, seed)
     # The short edge gives the same displacement relative to the artwork when
     # previewing, exporting or changing between portrait and landscape canvases.
-    dx *= min(w, h) / 720; dy *= min(w, h) / 720
+    scale = min(content_size or (w, h)) / 720
+    dx *= scale; dy *= scale
     angle = math.radians(angle)
     y, x = np.mgrid[:h, :w].astype(np.float32)
     cx, cy = (w - 1) / 2, (h - 1) / 2

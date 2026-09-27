@@ -334,7 +334,7 @@ def test_canvas_switch_is_undoable_and_preserves_scene_and_playhead(window, tmp_
     assert window.composition["source"] == before["source"]
     assert window.composition["sections"] == before["sections"]
     assert window.current_time == 6.4
-    assert window.current_canvas() == {"width": 1080, "height": 1920, "framing": "adaptive"}
+    assert window.current_canvas() == {"width": 1080, "height": 1920, "framing": "preserve", 'reference': before['canvas']}
     wait_until(lambda: window.viewer.packet is not None and window.viewer.packet[0] == (202, 360))
     assert window.viewer.packet[0] == (202, 360)
     assert "1080 × 1920" in window.canvas_label.text()
