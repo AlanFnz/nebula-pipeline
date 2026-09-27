@@ -7,6 +7,11 @@
   backgrounds fill the new canvas. Saved artwork references survive repeated
   format changes, Undo/Redo, detailed copies and exports.
 
+- View-only zoom with Fit, percentages, 100%, drag panning and pointer-centered
+  Ctrl/⌘ + wheel zoom. A wider draggable divider resizes the inspector. The main
+  app opens fullscreen initially and remembers window mode, geometry, panel
+  width and zoom across launches.
+
 - Slowing Gesture speed no longer lowers Motion FPS. Ink motion now samples its
   hold clock before scaling travel, keeping smaller pose changes at the selected
   cadence instead of increasingly long freezes. Shared clock scaling follows

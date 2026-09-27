@@ -73,6 +73,7 @@ QScrollBar::handle:horizontal:hover { background: #7d9d70; }
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
 QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: #0c110e; }
 QSplitter::handle { background: #304536; }
+QSplitter::handle:hover { background: #91b286; }
 QProgressBar { background: #080e0a; border: 1px solid #304536; border-radius: 0; text-align: center; color: #d6e3d4; }
 QProgressBar::chunk { background: #405b45; }
 QCheckBox { spacing: 5px; background: transparent; }

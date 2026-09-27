@@ -206,6 +206,17 @@ subsequent edits do not change an in-progress render. Custom dimensions in loade
 documents are retained. The new format/size helpers live in `synth_canvas.py` and
 the starter registry lives in `synth_starters.py`.
 
+**View zoom** below the monitor changes only the view. Choose **Fit**, **100%**,
+enter a percentage, or use **− / +**. Drag to pan a zoomed image, double-click to
+fit, or use Ctrl/⌘ + wheel to zoom around the pointer. Zoom does not change
+preview quality, export resolution or the composition.
+
+Drag the divider between the monitor and inspector to adjust the effects
+column's width. The app remembers this split, view zoom, window position, size
+and fullscreen/maximized state. On first launch it opens fullscreen; the header's
+**Full screen / Exit full screen** button switches modes. Detailed-copy windows keep
+their own temporary layout without overwriting the main workspace preferences.
+
 **Effects → Low-res finish → 360 px preview feel → + Apply effect** keeps
 the texture of the 360 px preview in a full-size export. Choose the whole-clip
 scope to apply it throughout, or select a section for a local treatment.

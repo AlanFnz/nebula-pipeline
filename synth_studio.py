@@ -9,8 +9,7 @@ import sys
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
-from PySide6.QtCore import QObject, QRunnable, QRect, QSignalBlocker, Qt, QThreadPool, QTimer, Signal
-from PySide6.QtGui import QColor, QImage, QPainter
+from PySide6.QtCore import QEvent, QObject, QRunnable, QSettings, QSignalBlocker, Qt, QThreadPool, QTimer, Signal
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QFileDialog, QGroupBox,
     QHBoxLayout, QGridLayout, QLabel, QMainWindow, QPushButton, QScrollArea,
@@ -30,31 +29,7 @@ from synth_starters import STARTERS, starter_composition
 from synth_artwork_ui import ArtworkControl
 from synth_master import normalize_master
 from synth_master_ui import MasterPanel
-
-
-class SynthViewer(QWidget):
-    def __init__(self):
-        super().__init__()
-        self.packet = None
-        self.setMinimumSize(460, 320)
-
-    def set_packet(self, packet):
-        self.packet = packet
-        self.update()
-
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        painter.fillRect(self.rect(), QColor(COLORS["monitor"]))
-        if not self.packet:
-            painter.setPen(QColor(COLORS["muted"]))
-            painter.setFont(terminal_font())
-            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "> awaiting signal\n\nLuminous sources / irregular blinds")
-            return
-        (w, h), raw = self.packet
-        ratio = min(self.width() / w, self.height() / h)
-        target = (round((self.width() - w * ratio) / 2), round((self.height() - h * ratio) / 2), round(w * ratio), round(h * ratio))
-        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-        painter.drawImage(QRect(*target), QImage(raw, w, h, w * 3, QImage.Format.Format_RGB888))
+from synth_viewer import SynthViewer
 
 
 class SynthControl(QWidget):
@@ -161,8 +136,9 @@ class ExportJob(QRunnable):
 
 
 class SynthStudio(QMainWindow):
-    def __init__(self, preset=None, sequence=None, composition=None):
+    def __init__(self, preset=None, sequence=None, composition=None, settings=None):
         super().__init__()
+        self.workspace_settings = settings
         self.setWindowTitle("Nebula Synth")
         self.setFont(terminal_font())
         self.resize(1280, 800)
@@ -207,6 +183,37 @@ class SynthStudio(QMainWindow):
         self.update_timeline_max()
         self.request_frame()
 
+    def show_workspace(self):
+        settings = self.workspace_settings
+        if settings is None:
+            self.show(); return
+        if settings.contains('window/geometry'):
+            self.restoreGeometry(settings.value('window/geometry'))
+        mode = settings.value('window/mode', 'fullscreen')
+        if mode == 'fullscreen': self.showFullScreen()
+        elif mode == 'maximized': self.showMaximized()
+        else: self.showNormal()
+        if settings.contains('window/splitter'):
+            self.splitter.restoreState(settings.value('window/splitter'))
+        self.viewer.set_zoom(float(settings.value('viewer/zoom', 0.)))
+
+    def save_workspace(self):
+        if self.workspace_settings is None: return
+        settings = self.workspace_settings
+        settings.setValue('window/geometry', self.saveGeometry())
+        settings.setValue('window/mode', 'fullscreen' if self.isFullScreen() else 'maximized' if self.isMaximized() else 'normal')
+        settings.setValue('window/splitter', self.splitter.saveState())
+        settings.setValue('viewer/zoom', self.viewer.zoom)
+        settings.sync()
+
+    def toggle_fullscreen(self):
+        self.showNormal() if self.isFullScreen() else self.showFullScreen()
+
+    def changeEvent(self, event):
+        if event.type() == QEvent.Type.WindowStateChange and hasattr(self, 'fullscreen_button'):
+            self.fullscreen_button.setText('Exit full screen' if self.isFullScreen() else 'Full screen')
+        super().changeEvent(event)
+
     def build_ui(self):
         root = QWidget()
         outer = QVBoxLayout(root)
@@ -217,6 +224,9 @@ class SynthStudio(QMainWindow):
         header.addWidget(brand)
         mode = QLabel("/ SIGNAL SYNTH"); mode.setObjectName("muted"); header.addWidget(mode)
         header.addStretch(1)
+        fullscreen = QPushButton('Full screen')
+        fullscreen.clicked.connect(self.toggle_fullscreen); header.addWidget(fullscreen)
+        self.fullscreen_button = fullscreen
         self.composition_widgets = []
         for text, callback in (("New take", self.generate_variation), ("Reset controls", lambda: self.composer and self.composer.reset_controls()), ("Undo", self.undo_composition), ("Redo", self.redo_composition)):
             button = QPushButton(text); button.clicked.connect(callback)
@@ -267,8 +277,8 @@ class SynthStudio(QMainWindow):
         canvas_row.addStretch(1)
         self.canvas_label = QLabel(); self.canvas_label.setObjectName("muted"); canvas_row.addWidget(self.canvas_label)
         outer.addLayout(canvas_row)
-        split = QSplitter(Qt.Orientation.Horizontal)
-        split.setHandleWidth(1); split.setChildrenCollapsible(False)
+        self.splitter = split = QSplitter(Qt.Orientation.Horizontal)
+        split.setHandleWidth(9); split.setChildrenCollapsible(False)
         left = QWidget(); left_layout = QVBoxLayout(left)
         left_layout.setContentsMargins(0, 0, 10, 0); left_layout.setSpacing(8)
         monitor = QFrame(); monitor.setObjectName("monitorFrame")
@@ -282,6 +292,16 @@ class SynthStudio(QMainWindow):
         monitor_layout.addWidget(monitor_header)
         self.viewer = SynthViewer(); monitor_layout.addWidget(self.viewer, 1)
         left_layout.addWidget(monitor, 1)
+        view_row = QHBoxLayout(); view_row.addWidget(QLabel('View zoom'))
+        minus = QPushButton('−'); minus.setAccessibleName('Zoom out'); minus.setFixedWidth(32); minus.clicked.connect(lambda: self.viewer.zoom_by(.8)); view_row.addWidget(minus)
+        self.view_zoom = QDoubleSpinBox(); self.view_zoom.setRange(0, 800); self.view_zoom.setDecimals(1); self.view_zoom.setSpecialValueText('Fit'); self.view_zoom.setSuffix(' %'); self.view_zoom.setKeyboardTracking(False); self.view_zoom.setFixedWidth(95)
+        self.view_zoom.setAccessibleName('Viewer zoom'); self.view_zoom.setToolTip('View only. 100% uses canvas dimensions. Preview quality controls image detail; export is unchanged.')
+        self.view_zoom.valueChanged.connect(lambda value: self.viewer.set_zoom(value / 100)); view_row.addWidget(self.view_zoom)
+        plus = QPushButton('+'); plus.setAccessibleName('Zoom in'); plus.setFixedWidth(32); plus.clicked.connect(lambda: self.viewer.zoom_by(1.25)); view_row.addWidget(plus)
+        fit = QPushButton('Fit'); fit.setAccessibleName('Fit canvas in viewer'); fit.clicked.connect(lambda: self.viewer.set_zoom(0)); view_row.addWidget(fit)
+        actual = QPushButton('100%'); actual.setAccessibleName('View at 100 percent'); actual.clicked.connect(lambda: self.viewer.set_zoom(1)); view_row.addWidget(actual)
+        view_row.addStretch(1); left_layout.addLayout(view_row)
+        self.viewer.zoomChanged.connect(self.refresh_view_zoom)
         self.section_timeline = SectionTimeline()
         self.section_timeline.selected.connect(lambda index: self.composer and self.composer.select_section(index))
         left_layout.addWidget(self.section_timeline)
@@ -305,8 +325,12 @@ class SynthStudio(QMainWindow):
         self.cancel_export = QPushButton("Cancel export"); self.cancel_export.setEnabled(False); self.cancel_export.clicked.connect(self.cancel_export_job); export_row.addWidget(self.cancel_export)
         left_layout.addLayout(export_row)
         split.addWidget(left)
-        scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff); panel = QWidget(); panel.setMinimumWidth(0); self.panel_layout = QVBoxLayout(panel); self.panel_layout.setContentsMargins(12, 0, 0, 0); self.panel_layout.setAlignment(Qt.AlignmentFlag.AlignTop); scroll.setWidget(panel); split.addWidget(scroll); split.setSizes([750, 490]); outer.addWidget(split, 1)
+        self.inspector_scroll = scroll = QScrollArea(); scroll.setMinimumWidth(380); scroll.setWidgetResizable(True); scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff); panel = QWidget(); panel.setMinimumWidth(0); self.panel_layout = QVBoxLayout(panel); self.panel_layout.setContentsMargins(8, 0, 0, 0); self.panel_layout.setAlignment(Qt.AlignmentFlag.AlignTop); scroll.setWidget(panel); split.addWidget(scroll); split.setSizes([750, 490]); outer.addWidget(split, 1)
+        split.handle(1).setToolTip('Drag to resize the monitor and controls column.')
         self.setCentralWidget(root)
+
+    def refresh_view_zoom(self, percent):
+        with QSignalBlocker(self.view_zoom): self.view_zoom.setValue(percent)
 
     def global_group(self):
         group = QGroupBox("Global timing")
@@ -569,6 +593,7 @@ class SynthStudio(QMainWindow):
             self.canvas_combo.setCurrentIndex(index)
             self.fit_subject.setChecked(canvas["framing"] in ('adaptive', 'fit'))
         self.canvas_label.setText(f"Export / {canvas['width']} × {canvas['height']}")
+        self.viewer.set_canvas_size((canvas['width'], canvas['height']))
         with QSignalBlocker(self.quality):
             self.quality.setItemText(2, f"Preview · full {canvas['width']}×{canvas['height']}")
 
@@ -960,6 +985,7 @@ class SynthStudio(QMainWindow):
             self.status.setText("Cancelling export…")
 
     def closeEvent(self, event):
+        self.save_workspace()
         self.closing = True
         self.play_timer.stop()
         if self.export_job:
@@ -971,7 +997,7 @@ class SynthStudio(QMainWindow):
 def run_synth_app(preset=None):
     app = QApplication.instance() or QApplication(sys.argv)
     apply_theme(app)
-    window = SynthStudio(preset); window.show()
+    window = SynthStudio(preset, settings=QSettings('AlanFnz', 'Nebula Studio')); window.show_workspace()
     return app.exec()
 
 
