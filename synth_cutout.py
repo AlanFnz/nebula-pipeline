@@ -43,7 +43,7 @@ def subject_mask(image, mode, cancel, directory=None):
             target.unlink(missing_ok=True)
     helper = mask_helper()
     encoded = io.BytesIO(); image.save(encoded, format='PNG')
-    proc = subprocess.Popen([str(helper), 'people' if mode else 'foreground'],
+    proc = subprocess.Popen([str(helper), ('foreground', 'people', 'crowd')[mode]],
                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     cancel.attach(proc)
     try:
@@ -76,6 +76,23 @@ def subject_mask(image, mode, cancel, directory=None):
             if total > 512 * 1024**2 and path != target: path.unlink(missing_ok=True)
         except FileNotFoundError: pass  # Another renderer can evict old entries.
     return mask
+
+
+def retain_mask(image, mask, neighbors, strength):
+    """Fill short detection holes only where both neighbors agree in color.
+
+    No accumulated state or optical trails: source changes and real occlusions
+    veto the borrowed mask, and random seeks return the same result as export.
+    """
+    if strength <= 0 or len(neighbors) != 2: return mask
+    current = np.asarray(image, dtype=np.float32) / 255
+    support = []
+    for frame, adjacent in neighbors:
+        difference = np.max(np.abs(current - np.asarray(frame, dtype=np.float32) / 255), axis=2)
+        confidence = np.clip(1 - difference / .16, 0, 1)
+        support.append(np.asarray(adjacent, dtype=np.float32) * confidence)
+    recovered = np.minimum(*support) * strength
+    return Image.fromarray(np.uint8(np.maximum(np.asarray(mask), recovered)))
 
 
 def render_cutout(image, mask, p):

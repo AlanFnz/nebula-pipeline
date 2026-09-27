@@ -250,7 +250,9 @@ def render_sequence_frame(sequence, time_seconds, size=None, frame_provider=None
         if bypass: return source_image
         cutout = next((entry for entry in base['modules'] if entry['id'] == 'subject_cutout' and entry['enabled']), None)
         if cutout and cutout['params']['mix'] > 0:
-            source_mask = frame_provider.mask(footage, t, base, cutout['params']['mode'])
+            p = cutout['params']
+            continuity = {'retention': p['retention'], 'retention_seconds': p['retention_seconds']} if p['retention'] > 0 else {}
+            source_mask = frame_provider.mask(footage, t, base, p['mode'], **continuity)
         base['treatment_fps'] = footage['treatment_fps']
     # Keep transition overlays and sequence noise on the same working raster.
     # The synth receives that exact size, so it performs no intermediate resize.

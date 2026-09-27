@@ -276,8 +276,8 @@ class VideoFrameProvider:
         self.close_reader()
         raise ValueError('Video ended before its advertised duration. Try trimming the Out point.')
 
-    def mask(self, footage, time_seconds, canvas, mode):
-        from synth_cutout import subject_mask
+    def mask(self, footage, time_seconds, canvas, mode, retention=0., retention_seconds=.12):
+        from synth_cutout import subject_mask, retain_mask
         # One canonical crop for every monitor/export size. Detection sees the
         # same composition that the user sees, including source zoom/position.
         if self.mask_provider is None:
@@ -287,7 +287,24 @@ class VideoFrameProvider:
         size = tuple(max(1, round(canvas[key] * ratio)) for key in ('width', 'height'))
         framed = frame_on_canvas(source, footage, canvas, size)
         directory = Path(self.directory) / 'masks' if self.directory else None
-        return subject_mask(framed, mode, self.cancel, directory)
+        mask = subject_mask(framed, mode, self.cancel, directory)
+        if retention <= 0: return mask
+        # Sample around the held source frame, never around preview call order
+        # or across a trim/loop boundary. At either boundary use the original.
+        fps = footage['sample_fps']
+        index = source_index(footage, time_seconds)
+        step = max(1, round(retention_seconds * fps))
+        first = math.floor(footage['in'] * fps + 1e-8)
+        last = min(frame_count(footage, fps) - 1, math.ceil(footage['out'] * fps - 1e-8) - 1)
+        if index - step < first or index + step > last: return mask
+        adjacent_footage = dict(footage, motion_fps=0., end_mode='hold')
+        neighbors = []
+        for adjacent in (index - step, index + step):
+            t = max(0., adjacent / fps - footage['in']) + 1e-7
+            source = self.mask_provider.frame(adjacent_footage, t, edge=PROXY_EDGE)
+            frame = frame_on_canvas(source, footage, canvas, size)
+            neighbors.append((frame, subject_mask(frame, mode, self.cancel, directory)))
+        return retain_mask(framed, mask, neighbors, retention)
 
     def close_reader(self):
         if self.reader is not None: self.reader.close()

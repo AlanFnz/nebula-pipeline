@@ -11,7 +11,7 @@ from media import Cancellation, Cancelled
 from synth import MODULE_BY_ID, curated_presets, render_synth_frame
 from synth_compat import frozen_data
 from synth_composition import blank_composition, compile_composition, load_composition, save_composition
-from synth_cutout import render_cutout, subject_mask
+from synth_cutout import render_cutout, subject_mask, retain_mask
 from synth_effects import effect_preset
 from synth_photocopy import render_photocopy
 from synth_sequence import render_sequence_frame
@@ -120,14 +120,76 @@ def test_mask_cache_cancellation_and_modes(tmp_path, monkeypatch):
     assert subject_mask(image, 0, cancel, tmp_path).tobytes() == first.tobytes() and len(calls) == 1
     subject_mask(image, 1, cancel, tmp_path)
     assert len(calls) == 2 and calls[-1][-1] == 'people'
+    subject_mask(image, 2, cancel, tmp_path)
+    assert len(calls) == 3 and calls[-1][-1] == 'crowd'
     cancel.cancel()
     with pytest.raises(Cancelled): subject_mask(image, 0, cancel, tmp_path)
     assert not cancel.processes
 
 
+@pytest.mark.parametrize('mode', (0, 1, 2))
 @pytest.mark.skipif(sys.platform != 'darwin' or not Path('build/native/nebula-mask').is_file(), reason='optional native helper not built')
-def test_native_mask_helper_empty_frame(tmp_path):
+def test_native_mask_helper_empty_frame(tmp_path, mode):
     # Actual native protocol, including the no-object path; no private assets.
-    mask = subject_mask(Image.new('RGB', (160, 240), 'white'), 0, Cancellation(), tmp_path)
+    mask = subject_mask(Image.new('RGB', (160, 240), 'white'), mode, Cancellation(), tmp_path)
     assert mask.mode == 'L' and mask.size == (160, 240)
     assert np.asarray(mask).mean() < 1
+
+
+def test_continuity_recovers_missing_subject_without_borrowing_changed_pixels():
+    frame = Image.new('RGB', (40, 40), 'white')
+    ImageDraw.Draw(frame).rectangle((10, 10, 20, 30), fill='black')
+    present = Image.new('L', frame.size)
+    ImageDraw.Draw(present).rectangle((10, 10, 20, 30), fill=255)
+    missing = Image.new('L', frame.size)
+    neighbors = [(frame, present), (frame.copy(), present.copy())]
+    recovered = retain_mask(frame, missing, neighbors, 1.)
+    assert recovered.tobytes() == present.tobytes()
+    assert retain_mask(frame, missing, neighbors, 0.) is missing
+    assert retain_mask(frame, missing, neighbors[:1], 1.) is missing
+    # A real occlusion or exit must not leave a borrowed silhouette behind.
+    gone = Image.new('RGB', frame.size, 'white')
+    assert not np.asarray(retain_mask(gone, missing, neighbors, 1.)).any()
+    assert not np.asarray(retain_mask(frame, missing, [(frame, present), (frame, missing)], 1.)).any()
+    # Existing detections remain at full opacity regardless of neighbor support.
+    assert retain_mask(frame, present, [(gone, missing)] * 2, 1.).tobytes() == present.tobytes()
+
+
+def test_continuity_uses_held_source_frames_and_is_seek_order_independent(clip, tmp_path, monkeypatch):
+    import synth_cutout
+    calls = []
+    def acquire(image, mode, cancel, directory):
+        calls.append(mode)
+        return Image.new('L', image.size, 200)
+    monkeypatch.setattr(synth_cutout, 'subject_mask', acquire)
+    footage = dict(clip, motion_fps=3., end_mode='loop', **{'in': .05, 'out': .8})
+    canvas = {'width': 96, 'height': 72}
+    with VideoFrameProvider(directory=tmp_path) as provider:
+        provider.mask(footage, .1, canvas, 2, .9, .12)
+        assert calls == [2]  # Beginning has no earlier neighbor; never wraps.
+        calls.clear()
+        a = provider.mask(footage, .34, canvas, 2, .9, .12)
+        assert calls == [2, 2, 2]
+        assert a.tobytes() == provider.mask(footage, .65, canvas, 2, .9, .12).tobytes()
+        calls.clear()
+        provider.mask(dict(footage, motion_fps=0.), .7, canvas, 2, .9, .12)
+        assert calls == [2]  # End has no later neighbor; never crosses Out.
+        provider.mask(footage, .1, canvas, 2, .9, .12)
+        assert a.tobytes() == provider.mask(footage, .34, canvas, 2, .9, .12).tobytes()
+
+
+def test_crowd_controls_persist_and_reach_renderer(clip, tmp_path, monkeypatch):
+    project = video_composition(clip)
+    project['effects']['subject_cutout'] = effect_preset('subject_cutout')
+    project['effects']['subject_cutout']['params'].update({
+        'subject_cutout.mode': 2, 'subject_cutout.retention': .8, 'subject_cutout.retention_seconds': .2})
+    saved = tmp_path / 'crowd.json'; save_composition(saved, project)
+    loaded = load_composition(saved)
+    assert loaded['effects']['subject_cutout'] == project['effects']['subject_cutout']
+    seen = []
+    def mask(self, footage, time, canvas, mode, **kwargs):
+        seen.append((mode, kwargs))
+        return Image.new('L', (96, 72), 255)
+    monkeypatch.setattr(VideoFrameProvider, 'mask', mask)
+    render_sequence_frame(compile_composition(loaded), .25, (96, 72))
+    assert seen == [(2, {'retention': .8, 'retention_seconds': .2})]

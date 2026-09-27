@@ -409,7 +409,9 @@ MODULES = (
         P("sampling", "Enlargement", 0, 0, 1, 1, "Soft matches the smooth preview enlargement. Crisp pixels keeps hard pixel edges.", choices=("Soft", "Crisp pixels")),
     )),
     Module("subject_cutout", "Subject cutout", "Local foreground masking before image treatments. Requires imported video and macOS 14 or later.", (
-        P("mode", "Detect", 0, 0, 1, 1, "Foreground isolates prominent objects; People restricts detection to people. First use analyzes and caches each frame locally.", choices=("Foreground", "People")),
+        P("mode", "Detect", 0, 0, 2, 1, "Foreground isolates prominent objects; People restricts detection to people. Crowd gives smaller figures their own detection region. Crowd is slower on first use; all masks are cached locally.", choices=("Foreground", "People", "Crowd")),
+        P("retention", "Mask continuity", 0., 0, 1, .01, "Recover brief detection gaps where the surrounding frames agree. Zero keeps single-frame detection. Does not reconstruct hidden bodies."),
+        P("retention_seconds", "Continuity reach", .12, .04, .5, .01, "Seconds before and after the source frame to check. Larger values can bridge longer gaps but are less reliable for fast movement."),
         P("silhouette", "Silhouette", .65, 0, 1, .01, "Darken the extracted subject; zero preserves its original colors."),
         P("paper", "Backdrop brightness", 1., 0, 1, .01),
         P("background_detail", "Original background", 0., 0, 1, .01, "Blend the source surroundings back into the backdrop."),

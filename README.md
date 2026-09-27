@@ -143,7 +143,15 @@ across the entire canvas, without wrapping a tiled paper image.
 
 **Effects → Subject cutout** is an optional video source stage, before jitter
 and image treatments. Foreground detects prominent objects; People provides a
-person-specific alternative. Adjust silhouette density, original-background
+person-specific alternative. **Crowd** also detects human regions and analyzes
+them individually, helping smaller figures survive changes in foreground
+prominence. It is slower on the first visit to an uncached frame.
+**Mask continuity** optionally fills short gaps from the source frames on both
+sides; **Continuity reach** sets that distance in seconds. Both neighboring
+masks and their colors must agree before a pixel is recovered. This avoids an
+accumulating trail and respects source trim boundaries and held motion frames.
+Zero continuity retains the original single-frame behavior.
+Adjust silhouette density, original-background
 detail, mask cutoff, feathering and expansion. Optional projected shadows use
 the same mask; Subject base follows its lowest point, while Canvas plane lets
 you place the ground manually. Crowded scenes, motion blur and occlusions can

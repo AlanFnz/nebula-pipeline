@@ -31,7 +31,7 @@ def paths(module, keys=None):
 
 
 EFFECTS = (
-    Effect("subject_cutout", "Subject cutout", "Isolate the foreground locally before applying image treatments. Foreground detects prominent objects; People is an alternative for portraits. Masks are cached on first use. Available with imported video on macOS.", paths("subject_cutout"), ("subject_cutout",), primary=6),
+    Effect("subject_cutout", "Subject cutout", "Isolate the foreground locally before applying image treatments. Crowd recovers smaller figures using individual detection regions. Mask continuity fills brief gaps where neighboring source frames agree. First use is cached locally. Available with imported video on macOS.", paths("subject_cutout"), ("subject_cutout",), primary=8),
     Effect("photocopy", "Photocopy", "Crushed black ink, fresh toner grain, cold highlights and screened dots. Exposure pulses, uneven illumination and print cadence can all be adjusted independently. Applies to videos and generated artwork.", paths("photocopy"), ("photocopy",),
            looks=(("Cold copy / pulses", {}), ("Clean monochrome", {"photocopy.tint": 0., "photocopy.blackout": 0., "photocopy.light_depth": 0., "photocopy.flutter": 0.}), ("Screen print", {"photocopy.halftone": .8, "photocopy.grain": .4, "photocopy.blackout": 0.})), primary=8),
     Effect("signal_background", "Signal background", "Refined signal's green-black field, fine grain and horizontal noise in the deepest shadows. Bright artwork stays intact; the texture covers the whole canvas.", paths("signal_background"), ("signal_background",),
