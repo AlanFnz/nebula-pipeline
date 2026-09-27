@@ -20,7 +20,7 @@ from PIL import Image, ImageFilter
 
 from synth_particles import render_particles
 from synth_tape import render_tape_damage
-from synth_canvas import content_size, normalize_canvas, source_framing
+from synth_canvas import content_size, normalize_canvas, source_framing, object_offset
 from synth_print import render_ink_bloom, render_print_surface
 from synth_artwork import validate_artwork
 from synth_jitter import render_frame_jitter
@@ -335,6 +335,7 @@ def default_synth_preset():
         "width": 720,
         "height": 576,
         "framing": "native",
+        "object_x": 0., "object_y": 0.,
         "treatment_fps": 25,
         "export_fps": 25,
         "loop_seconds": 4.0,
@@ -376,7 +377,7 @@ def normalize_synth(raw=None):
     for key in ("name", "variation_mode"):
         if key in raw:
             result[key] = str(raw[key])
-    for key, minimum, maximum in (("width", 64, 4096), ("height", 64, 4096), ("treatment_fps", 1, 120), ("export_fps", 1, 120), ("seed", 0, 2**31 - 1), ("speed", 0, 8), ("depth", 0, 1), ("loop_seconds", .1, 3600)):
+    for key, minimum, maximum in (("width", 64, 4096), ("height", 64, 4096), ("treatment_fps", 1, 120), ("export_fps", 1, 120), ("seed", 0, 2**31 - 1), ("speed", 0, 8), ("depth", 0, 1), ("loop_seconds", .1, 3600), ("object_x", -100000, 100000), ("object_y", -100000, 100000)):
         if key in raw:
             value = raw[key]
             if not _finite(value) or not minimum <= float(value) <= maximum:
@@ -537,6 +538,9 @@ def _shape_distance(dx, dy, rx, ry, shape, sides=6, rotation=0, aspect=1):
 def _render_slab(arr, p, t, preset, module_index):
     h, w = arr.shape[:2]
     y, x = np.mgrid[0:h, 0:w]
+    dx, dy = object_offset(preset, (w, h))
+    if dx: x = x - dx
+    if dy: y = y - dy
     cw, ch = content_size(preset, (w, h))
     xn = ((x - (w - cw) / 2) / max(1, cw - 1)) * 2 - 1
     yn = ((y - (h - ch) / 2) / max(1, ch - 1)) * 2 - 1
@@ -655,6 +659,9 @@ def _render_slab(arr, p, t, preset, module_index):
 def _render_blinds(arr, p, t, preset, module_index):
     h, w = arr.shape[:2]
     y, x = np.mgrid[0:h, 0:w]
+    dx, dy = object_offset(preset, (w, h))
+    if dx: x = x - dx
+    if dy: y = y - dy
     cw, ch = content_size(preset, (w, h))
     xn = ((x - (w - cw) / 2) / max(1, cw - 1)) * 2 - 1
     yn = (y - (h - ch) / 2) / max(1, ch - 1)
@@ -859,7 +866,7 @@ def _breakup(arr, p, t, preset):
 
 RENDERERS = {
     "frame_jitter": lambda arr, params, t, preset, index: render_frame_jitter(arr, params, t, preset["speed"], _seed(preset["seed"], "frame-jitter"), content_size(preset, (arr.shape[1], arr.shape[0])) if 'reference' in preset else None),
-    "ink_bloom": lambda arr, params, t, preset, index: render_ink_bloom(arr, params, t, preset["speed"], _seed(preset["seed"], "ink-bloom"), content_size(preset, (arr.shape[1], arr.shape[0])) if 'reference' in preset else None),
+    "ink_bloom": lambda arr, params, t, preset, index: render_ink_bloom(arr, params, t, preset["speed"], _seed(preset["seed"], "ink-bloom"), content_size(preset, (arr.shape[1], arr.shape[0])) if 'reference' in preset else None, object_offset(preset, (arr.shape[1], arr.shape[0]))),
     "print_surface": lambda arr, params, t, preset, index: render_print_surface(arr, params, t, preset["speed"], _seed(preset["seed"], "print-surface")),
     "slab": lambda arr, params, t, preset, index: _render_slab(arr, params, t, preset, index),
     "blinds": lambda arr, params, t, preset, index: _render_blinds(arr, params, t, preset, index),

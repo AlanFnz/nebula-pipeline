@@ -11,7 +11,7 @@ import numpy as np
 from PIL import Image
 
 from synth import MODULE_BY_ID, _seed, curated_presets, normalize_synth, render_synth_frame
-from synth_canvas import normalize_canvas
+from synth_canvas import normalize_canvas, object_offset
 from synth_resolution import finish_resolution, render_resolution
 from synth_ink_timing import DURATION_KEYS, stage_durations
 from synth_master import apply_master, normalize_master
@@ -165,7 +165,7 @@ def _interpolate_presets(first, second, amount):
     and exposure change as one generated form instead of dissolving two images.
     """
     result = copy.deepcopy(first)
-    for key in ("speed", "depth"):
+    for key in ("speed", "depth", "object_x", "object_y"):
         if key in second and isinstance(second[key], (int, float)):
             result[key] = float(first.get(key, second[key])) * (1 - amount) + float(second[key]) * amount
     by_id = {entry.get("id"): entry for entry in second.get("modules", [])}
@@ -250,6 +250,9 @@ def render_sequence_frame(sequence, time_seconds, size=None):
         rng = np.random.default_rng(_seed(seq["seed"], "sequence-cloud", round(t * seq["fps"])))
         cloud = rng.normal(0, cloud_strength, result.shape[:2]).astype(np.float32)
         y, x = np.mgrid[0:result.shape[0], 0:result.shape[1]]
+        dx, dy = object_offset(base, (result.shape[1], result.shape[0]))
+        if dx: x = x - dx
+        if dy: y = y - dy
         cloud_mask = np.exp(-((((x / max(1, result.shape[1] - 1) - .62) / .42) ** 2) + (((y / max(1, result.shape[0] - 1) - .5) / .65) ** 2)))
         result += cloud[..., None] * cloud_mask[..., None] * np.array((.72, .82, .78), dtype=np.float32)[None, None, :]
     image = Image.fromarray(np.clip(result * 255, 0, 255).astype(np.uint8), "RGB")

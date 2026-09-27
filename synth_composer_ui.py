@@ -203,6 +203,8 @@ class CompositionPanel(QWidget):
         self.object_panel.parameter_changed.connect(self.change_object_parameter)
         self.object_panel.parameter_reset.connect(self.reset_object_parameter)
         self.object_panel.details_requested.connect(self.open_object_details)
+        self.object_panel.position_changed.connect(self.change_geometry)
+        self.object_panel.position_reset.connect(self.reset_object_position)
         treatment_page = QWidget(); treatment_layout = QVBoxLayout(treatment_page)
         self.look_tabs.addTab(geometry_page, "Object"); self.look_tabs.addTab(treatment_page, "Finishing")
         self.master_panel = MasterPanel()
@@ -276,6 +278,7 @@ class CompositionPanel(QWidget):
             for key, control in self.macro_controls.items():
                 control.set_value(target["macros"][key], key in target["locks"])
             geometry = target["geometry"]
+            self.object_panel.refresh_position(geometry, self.document["geometry"], self.document["canvas"], bool(self.scope))
             self.geometry_shape.clear()
             if self.scope: self.geometry_shape.addItem("From whole clip", "inherit")
             self.geometry_shape.addItem("Original geometry", "original")
@@ -347,6 +350,12 @@ class CompositionPanel(QWidget):
         if self.updating: return
         document = select_subject(self.document, kind, self.index if self.scope else None)
         self.commit(document, f'object:{self.scope}:{self.index}')
+
+    def reset_object_position(self):
+        if self.updating: return
+        document = copy.deepcopy(self.document)
+        self.target(document)['geometry'].update(position_x=0., position_y=0.)
+        self.commit(document, 'object-position-reset')
 
     def restore_object(self):
         if self.updating: return

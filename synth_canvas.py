@@ -77,3 +77,9 @@ def particle_framing(width, height, framing):
     # Keep head proportions uniform and leave room for ears/profile turns on
     # narrow canvases. Native framing keeps every earlier document's pixels.
     return min(1., width / height / .8) if framing == "adaptive" else 1.
+
+
+def object_offset(preset, output):
+    """Canvas-pixel translation, scaled only for preview/working resolution."""
+    return (preset.get('object_x', 0.) * output[0] / preset['width'],
+            preset.get('object_y', 0.) * output[1] / preset['height'])

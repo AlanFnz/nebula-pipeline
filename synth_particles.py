@@ -9,7 +9,7 @@ import math
 import numpy as np
 
 from synth_particle_mesh import sample_human_head
-from synth_canvas import content_size, particle_framing, source_framing
+from synth_canvas import content_size, particle_framing, source_framing, object_offset
 
 
 def _head_surface(y, angle):
@@ -329,6 +329,9 @@ def render_particles(arr, p, time, preset, seed):
     layer = np.zeros_like(arr)
     # Subpixel splats avoid pixel snapping; fixed reference sizes keep dots
     # consistent between preview and export. Off-screen particles never wrap.
+    dx, dy = object_offset(preset, (w, h))
+    if dx: x = x + dx
+    if dy: y = y + dy
     ix, iy = np.floor(x).astype(int), np.floor(y).astype(int)
     fx, fy = x - ix, y - iy
     energy = (ch / 576) ** 2 * (1 + p["dot_size"] ** 1.5)

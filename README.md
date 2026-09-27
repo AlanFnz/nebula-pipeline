@@ -123,6 +123,16 @@ affects the interface only; saved compositions and exported pixels are unchanged
   parameter edits and embedded artwork survive switching. Undo/Redo, save/open
   and detailed copies preserve the result. Existing combinations made through
   Effects remain editable; Object names additional active source families.
+- **Object → Position X / Y** moves the complete source group in output canvas
+  pixels. Positive X moves right; positive Y moves down. Zero preserves the
+  starter's authored placement and movement. Stamps and their split pieces,
+  particles during assembly/expansion, geometric sources and attached ghosts,
+  halos and glow follow the placement; full-canvas noise and tape processing
+  remain across the canvas. Whole-clip position applies to all sections; a
+  selected section adds a local offset. **Reset position** clears both offsets
+  in that scope. Position survives object-type switches, canvas resizing,
+  Undo/Redo, save/open, detailed copies and export. Preview zoom does not change
+  its units. Existing per-effect positions remain available in More object controls.
 - **Total** beside the playback counter always shows the complete duration,
   calculated from the sum of the sections. It updates after section edits and
   automatic timing changes, including the two-burst starter. No separate total

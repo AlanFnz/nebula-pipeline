@@ -51,7 +51,7 @@ def neutral_macros():
 
 
 def default_geometry(section=False):
-    return {"shape": "inherit" if section else "original", "height": 1., "diameter": .6, "sides": 6, "rotation": 0.}
+    return {"shape": "inherit" if section else "original", "height": 1., "diameter": .6, "sides": 6, "rotation": 0., "position_x": 0., "position_y": 0.}
 
 
 def effective_geometry(project, section):
@@ -59,6 +59,8 @@ def effective_geometry(project, section):
     local_geometry = section["geometry"]
     result = copy.deepcopy(global_geometry if local_geometry["shape"] == "inherit" else local_geometry)
     result["height"] = global_geometry["height"] * local_geometry["height"]
+    for axis in ("x", "y"):
+        result[f"position_{axis}"] = global_geometry[f"position_{axis}"] + local_geometry[f"position_{axis}"]
     return result
 
 
@@ -392,7 +394,9 @@ def _geometry(raw, section=False):
         shapes.add("inherit")
     if not isinstance(result["shape"], str) or result["shape"] not in shapes:
         raise ValueError("Unknown geometry shape")
-    for key, low, high in (("height", .25, 2.), ("diameter", .05, 1.5), ("sides", 3, 32), ("rotation", -180, 180)):
+    for key, low, high in (("height", .25, 2.), ("diameter", .05, 1.5), ("sides", 3, 32), ("rotation", -180, 180), ("position_x", -4096, 4096), ("position_y", -4096, 4096)):
+        if key.startswith("position_") and isinstance(result[key], bool):
+            raise ValueError(f"{key} must be a number")
         result[key] = _number(result[key], key, low, high, key == "sides")
     return result
 
@@ -465,6 +469,10 @@ def _adjust_state(state, macros, seed_offset, geometry):
     presets = curated_presets()[state["preset"]]
     defaults = {f"{entry['id']}.{key}": value for entry in presets["modules"] for key, value in entry["params"].items()}
     overrides = result.setdefault("overrides", {})
+    for axis in ("x", "y"):
+        if geometry[f"position_{axis}"]:
+            path = f"object_{axis}"
+            overrides[path] = overrides.get(path, 0.) + geometry[f"position_{axis}"]
     for module_id, height_key in (("slab", "height"), ("blinds", "aperture_height")):
         if geometry["shape"] != "original":
             overrides[f"{module_id}.shape"] = [label.lower() for label in SHAPES].index(geometry["shape"])

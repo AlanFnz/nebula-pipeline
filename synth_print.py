@@ -81,7 +81,7 @@ def stamp_outline(p, seed, identity, artwork=None):
     return vertices
 
 
-def render_ink_bloom(arr, p, time, speed, seed, content_size=None):
+def render_ink_bloom(arr, p, time, speed, seed, content_size=None, offset=(0., 0.)):
     if p['opacity'] == 0:
         return arr
     h, w = arr.shape[:2]
@@ -129,6 +129,8 @@ def render_ink_bloom(arr, p, time, speed, seed, content_size=None):
         xy = vertices[:, :2] * perspective[:, None]
         xy[:, 0] += w * (.5 + p['position_x'] * .5) if content_size is None else w / 2 + cw * p['position_x'] * .5
         xy[:, 1] += h * (.5 + p['position_y'] * .5) if content_size is None else h / 2 + ch * p['position_y'] * .5
+        if offset[0]: xy[:, 0] += offset[0]
+        if offset[1]: xy[:, 1] += offset[1]
         cards.append((center[2], i, xy))
     result = arr.copy()
     yy, xx = np.mgrid[:h, :w].astype(np.float32)

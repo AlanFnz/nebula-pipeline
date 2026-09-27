@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Object adds shared Position X/Y sliders and numeric inputs in canvas pixels,
+  with scope-aware offsets and Reset position. Placement moves the full source
+  group and attached ghosts/halos before treatments, preserving motion, canvas
+  backgrounds, existing artwork and neutral rendering. Supports all source
+  families, canvas resizing, Undo/Redo, saved/detailed documents and export.
+
 - Object replaces the Geometry tab with one source selector and contextual
   controls for geometric signals, ink stamps/custom artwork and particle models.
   Source replacement retains treatments, authored parameters and section timing;

@@ -803,3 +803,35 @@ def test_all_native_parameter_controls_are_protected_from_wheel_edits(window):
     window.open_detailed_copy()
     for kind in (QComboBox, QAbstractSpinBox, QSlider):
         assert all(isinstance(control, ScrollThrough) for control in window.detail_windows[-1].findChildren(kind))
+
+
+@pytest.mark.parametrize('starter', ['refined', 'mixed-media', 'particle-orbit'])
+def test_object_position_controls_move_each_source_and_reset_exactly(window, starter):
+    choose_starter(window, starter)
+    obj = window.composer.object_panel; window.composer.look_tabs.setCurrentWidget(obj)
+    QApplication.processEvents()
+    assert obj.position_host.isVisible()
+    original = render_sequence_frame(window.sequence, 1.4, (160, 128)).tobytes()
+    obj.position_controls['x'].setValue(100.)
+    obj.position_controls['y'].setValue(-50.)
+    assert window.composition['geometry']['position_x'] == 100.
+    moved = render_sequence_frame(window.sequence, 1.4, (160, 128)).tobytes()
+    assert moved != original
+    obj.reset_position.click()
+    assert render_sequence_frame(window.sequence, 1.4, (160, 128)).tobytes() == original
+    window.undo_composition()
+    assert render_sequence_frame(window.sequence, 1.4, (160, 128)).tobytes() == moved
+    window.redo_composition()
+    assert obj.position_controls['x'].value() == obj.position_controls['y'].value() == 0.
+
+
+def test_local_object_position_adds_to_whole_clip_and_restores_inherited_position(window):
+    choose_starter(window, 'mixed-media'); panel = window.composer; obj = panel.object_panel
+    obj.position_controls['x'].setValue(80.)
+    panel.select_section(1)
+    assert obj.position_controls['x'].value() == 0.
+    obj.position_controls['x'].setValue(25.)
+    assert window.composition['geometry']['position_x'] == 80.
+    assert 'adds to whole-clip' in obj.position_note.text()
+    obj.reset_position.click()
+    for state in window.sequence['states'].values(): assert state['overrides']['object_x'] == 80.
