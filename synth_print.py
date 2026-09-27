@@ -139,6 +139,39 @@ def _paper_noise(seed, width, height, grain_size, layer):
     return result
 
 
+def _fresh_noise(rng, width, height, cell_x, cell_y):
+    """One full-frame random field, without texture reuse or wrapped edges."""
+    shape = (max(2, math.ceil(height / cell_y)), max(2, math.ceil(width / cell_x)))
+    values = rng.standard_normal(shape).astype(np.float32)
+    field = np.asarray(Image.fromarray(values).resize((width, height), Image.Resampling.BILINEAR), dtype=np.float32)
+    return (field - field.mean()) / max(float(field.std()), 1e-6)
+
+
+def frame_noise_background(width, height, p, tick, seed):
+    """Independent grain and density patches for every held frame/seed."""
+    rng = _rng(seed, 109, tick)
+    scale = min(width, height) / 720
+    size = max(.7, p['noise_size'] * scale)
+    fine = _fresh_noise(rng, width, height, size, size)
+    flecks = _fresh_noise(rng, width, height, size * 1.8, max(.7, size * .8))
+    coarse = _fresh_noise(rng, width, height, max(6, min(width, height) * .11), max(6, min(width, height) * .14))
+    density = (1 - p['noise_clumps']) + p['noise_clumps'] * np.clip(.5 + coarse * .4, .05, 1.5)
+    pores = np.maximum(flecks - 1.2, 0) ** 1.3
+    noise = fine * .007 + pores * .10 * density + coarse * p['noise_clumps'] * .003
+    dust = (rng.random((height, width)) > 1 - p['dust'] * .0004) * rng.uniform(.15, .4, (height, width))
+    return np.maximum(0., p['noise_floor'] + (noise + dust) * p['noise_amount']).astype(np.float32)
+
+
+def _background_mask(coverage, radius):
+    # Protect the source and the full support of its optical blur. Feather only
+    # outside that guard, so switching backgrounds cannot repaint the figures.
+    ink = Image.fromarray(np.uint8(coverage > .5) * 255)
+    guard = ink.filter(ImageFilter.MaxFilter(2 * max(1, math.ceil(radius * 3 + 1)) + 1))
+    hard = np.asarray(guard, dtype=np.float32) / 255
+    soft = np.asarray(guard.filter(ImageFilter.GaussianBlur(max(1., radius * 2))), dtype=np.float32) / 255
+    return 1 - np.maximum(hard, soft)
+
+
 def render_print_surface(arr, p, time, speed, seed):
     if p['mix'] == 0:
         return arr
@@ -183,4 +216,8 @@ def render_print_surface(arr, p, time, speed, seed):
         result = np.asarray(image.filter(ImageFilter.GaussianBlur(p['softness'] * scale)), dtype=np.float32) / 255
     # Fine scan noise follows the optical softness, retaining grit at export size.
     result += (live - .5)[..., None] * p['ink_grain'] * .25 * np.sqrt(np.clip(signal.mean(axis=2), 0, 1))[..., None]
+    if p.get('background_mode', 0) == 1:
+        background = frame_noise_background(w, h, p, tick, seed)
+        background_mix = _background_mask(coverage, p['softness'] * scale)[..., None]
+        result = result * (1 - background_mix) + background[..., None] * background_mix
     return arr * (1 - p['mix']) + result * p['mix']

@@ -106,6 +106,7 @@ def ink_bloom_composition():
     settings = {f"{module}.{param.key}": param.default
                 for module in ("ink_bloom", "print_surface") for param in MODULE_BY_ID[module].params}
     settings.update(speed=1., depth=0., treatment_fps=60)
+    settings["print_surface.background_mode"] = 1
     source = normalize_sequence({
         "schema_version": 1, "name": "Ink bloom", "duration": duration, "fps": 15, "seed": 2709,
         "canvas": {"width": 1080, "height": 1080, "framing": "adaptive"},

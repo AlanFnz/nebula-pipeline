@@ -74,11 +74,12 @@ EFFECTS = (
     Effect("interference", "Signal interference", "Moving chromatic exposure bands and bent vertical strings. Processes particles, forms and rays before bloom and grain.", paths("interference"), ("interference",)),
     Effect("bloom", "Bloom", "Spread light from the brightest parts of the image.", paths("bloom"), ("bloom",)),
     Effect("raster", "Raster / grain", "Soften the signal and add scan lines, luminance grain and chroma noise.", paths("raster"), ("raster",)),
-    Effect("print_surface", "Print surface", "Treat any generated image as a worn print on textured black paper. Fibers persist while held registration and fresh scan noise vary. Applied after the signal treatments.",
+    Effect("print_surface", "Print surface", "Worn ink on charcoal stock. Frame noise renews the background every scan while preserving the ink treatment; Original paper retains the moving sheet. Applied after signal treatments.",
            paths("print_surface"), ("print_surface",),
            looks=(("Gritty charcoal stock", {}),
                   ("Rough photocopy", {"print_surface.ink_wear": .7, "print_surface.edge_wear": .9, "print_surface.grain_size": 2.8}),
-                  ("Quiet paper", {"print_surface.paper_motion": 0., "print_surface.boil": .08, "print_surface.registration": .0005}))),
+                  ("Quiet paper", {"print_surface.paper_motion": 0., "print_surface.boil": .08, "print_surface.registration": .0005}),
+                  ("Chaotic background", {"print_surface.background_mode": 1}))),
 )
 EFFECT_BY_ID = {effect.id: effect for effect in EFFECTS}
 

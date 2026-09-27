@@ -204,6 +204,16 @@ Two independent effects are available in every composition:
   also be applied to the head, rays and other sources. **Mix = 0** is an exact
   bypass. Scan FPS sets its own cadence at global speed 1.
 
+Ink bloom now uses **Print surface → Background → Frame noise**: a fresh
+full-canvas grain field and new density patches on every held scan frame, with
+no translated texture or wrapping. Background noise, Noise size, Noise clumping
+and Background tone are independent of the figure's ink treatment. The source
+and its softened edges are protected while the surrounding background changes.
+The noise remains deterministic when scrubbing or exporting. **Original paper**
+retains the previous moving-sheet treatment and is the default for older saved
+documents. To update an existing clip, change only Background to Frame noise;
+the Chaotic background preset also provides a starting point for new effects.
+
 The shorter canvas edge controls stamp size, preserving proportions when
 switching formats. Paper covers the entire canvas. Effect overrides support
 save/open, Undo/Redo, section scope, independent starter copies and detailed

@@ -406,3 +406,25 @@ def test_ink_starter_exposes_both_effects_and_persists_customization(window, tmp
     assert window.composition['source'] == before['source']
     window.open_detailed_copy()
     assert window.detail_windows[-1].current_canvas()['height'] == 1920
+
+
+def test_frame_noise_controls_are_editable_and_undoable(window, tmp_path, monkeypatch):
+    choose_starter(window, 'ink-bloom')
+    panel = window.composer.effects_panel
+    panel.inspect_effect('print_surface')
+    assert panel.controls['print_surface.background_mode'].input.currentIndex() == 1
+    before = copy.deepcopy(window.composition)
+    panel.controls['print_surface.noise_amount'].input.setValue(1.4)
+    changed = copy.deepcopy(window.composition)
+    assert changed['effects']['print_surface']['params']['print_surface.noise_amount'] == 1.4
+    assert changed['source'] == before['source']
+    window.undo_composition()
+    assert window.composition == before
+    window.redo_composition()
+    assert window.composition == changed
+    path = tmp_path / 'noise-background.json'
+    monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *args: (str(path), ''))
+    window.save_sequence_dialog()
+    assert load_composition(path) == changed
+    panel.controls['print_surface.background_mode'].input.setCurrentIndex(0)
+    assert window.composition['effects']['print_surface']['params']['print_surface.background_mode'] == 0

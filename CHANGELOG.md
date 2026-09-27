@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Ink bloom now uses fresh background noise on each held frame, replacing the
+  visibly translated/wrapped paper field. Independent noise amount, size,
+  clumping and tone controls protect the approved ink figures and motion.
+  Original paper preserves existing saved clips and remains selectable.
+
 - Ink bloom starter: a 3.53-second, 15 fps procedural mixed-media gesture with
   seven irregular CMY/white stamps unfolding, turning and refolding in one
   editable section. Reusable Ink bloom controls cover shape, palette, depth,
