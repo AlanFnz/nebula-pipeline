@@ -19,6 +19,7 @@ tune_source.png
 .venv/
 .pytest_cache/
 .validation/
+output/
 
 # Generated macOS application and packaging intermediates
 build/
