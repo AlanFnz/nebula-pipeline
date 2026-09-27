@@ -4,6 +4,10 @@ A native Python + PySide6 desktop app for experimenting with the existing digita
 
 The project version comes from [`_version.py`](_version.py); run `python studio.py --version` to display it. See [versioning](VERSIONING.md) and the [changelog](CHANGELOG.md) for milestone history and compatibility notes.
 
+The [reusable effects proposal](docs/reusable-effects-plan.md) describes an
+incremental separation of objects, regions and treatments while preserving the
+existing starter results. It is a plan, not a change to current rendering.
+
 ## Launch on this Mac
 
 The installed **Nebula Studio.app** lives in `~/Applications`. Open it in Finder
