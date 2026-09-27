@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Object replaces the Geometry tab with one source selector and contextual
+  controls for geometric signals, ink stamps/custom artwork and particle models.
+  Source replacement retains treatments, authored parameters and section timing;
+  returning to an authored family restores its source choreography. Includes
+  scope-aware edits, starter restoration, Undo/Redo and shared Timing shortcuts.
+
 - A persistent Total display beside playback follows the sum of all sections,
   including automatically retimed gestures.
 

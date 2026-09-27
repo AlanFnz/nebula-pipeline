@@ -108,17 +108,32 @@ affects the interface only; saved compositions and exported pixels are unchanged
   **Follow recipe** retains the authored enable/disable changes; **On** or
   **Off throughout scope** overrides those changes. **Restore** removes that
   effect's overrides from the current scope.
+- **Object** is the common place for the scene's source. It replaces the former
+  Geometry tab and opens the controls for the object actually used by the starter:
+  **Geometric signal** edits the luminous form/ray aperture, **Ink stamps** edits
+  the printed silhouette, artwork, dimensions and layout, and **Particle model**
+  edits the head/sphere/ring model, pose, size and point density. Irrelevant geometry
+  controls are hidden. **Motion & timing** opens the shared ink Timing controls;
+  **More object controls** opens the source's complete Effects inspector.
+  Choosing an object type replaces source families in the selected scope while
+  keeping treatments, canvas, timeline and durations. Whole-clip replacement also
+  resets local source activation overrides, retaining their parameter values.
+  Switching back to an authored source follows its original enable/disable
+  choreography. **↶** follows starter/whole-clip source activation again; object
+  parameter edits and embedded artwork survive switching. Undo/Redo, save/open
+  and detailed copies preserve the result. Existing combinations made through
+  Effects remain editable; Object names additional active source families.
 - **Total** beside the playback counter always shows the complete duration,
   calculated from the sum of the sections. It updates after section edits and
   automatic timing changes, including the two-burst starter. No separate total
   duration edit is needed.
 - Effects use absolute values. Whole-clip settings apply first; section
-  settings override them. Fixed effect values take priority over Geometry
+  settings override them. Fixed effect values take priority over geometric Object controls
   and Finishing. A luminous form's companion ghost and granular halo require
   that form; ghost trails also apply to rays. Exposure flares are independent
   of the timeline's flash/sweep transitions. There is one instance per effect
   family, in the renderer's established order.
-- In **Geometry**, choose a rectangle, ellipse, circle or regular polygon.
+- In **Object → Geometric signal**, choose a rectangle, ellipse, circle or regular polygon.
   Width and height scale rectangular/elliptical forms; circles and polygons
   use a diameter measured as a percentage of image height. Polygons have
   3–32 sides. Rotation is available for rectangles, ellipses and polygons.
@@ -445,8 +460,9 @@ You can also apply **Particle attractor** from Effects to any composition.
 - Combine particles with bloom, raster / grain, color separation, trails or
   signal breakup. The particle source runs before those treatments. Parameters
   support whole-clip/local overrides, bypass, restore, undo/redo and save/open.
-  Its own **Scale**, **Head turn** and **Tilt** control the 3D target; the Geometry
-  tab still controls luminous forms and ray apertures.
+  **Object → Particle model** controls the model, scale, pose and point density.
+  **More object controls** opens its complete inspector, including head turn,
+  assembly, expansion and orbit controls.
 - **Signal interference** is a separate reusable effect: moving chromatic bands,
   uneven exposure and bent vertical scan strings. Its speed, bending, density,
   contrast, chroma and mix are editable. The Particle signal study also uses the existing

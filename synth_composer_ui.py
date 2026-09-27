@@ -18,6 +18,8 @@ from synth_effects_ui import EffectsPanel
 from synth_shared_timing import edit_shared_timing, restore_shared_timing, without_timing
 from synth_master import normalize_master
 from synth_master_ui import MasterPanel
+from synth_subject import select_subject, restore_subject
+from synth_subject_ui import SubjectPanel
 
 
 class SectionTimeline(QWidget):
@@ -194,9 +196,15 @@ class CompositionPanel(QWidget):
         self.effects_panel.timing_reset.connect(self.reset_ink_timing)
         self.effects_panel.timing_selected.connect(self.show_timing_scope)
         self.look_tabs.addTab(self.effects_panel, "Effects")
-        geometry_page = QWidget(); geometry_layout = QVBoxLayout(geometry_page)
+        self.object_panel = SubjectPanel(); geometry_page = self.object_panel
+        geometry_layout = self.object_panel.signal_layout
+        self.object_panel.selected.connect(self.change_object)
+        self.object_panel.restored.connect(self.restore_object)
+        self.object_panel.parameter_changed.connect(self.change_object_parameter)
+        self.object_panel.parameter_reset.connect(self.reset_object_parameter)
+        self.object_panel.details_requested.connect(self.open_object_details)
         treatment_page = QWidget(); treatment_layout = QVBoxLayout(treatment_page)
-        self.look_tabs.addTab(geometry_page, "Geometry"); self.look_tabs.addTab(treatment_page, "Finishing")
+        self.look_tabs.addTab(geometry_page, "Object"); self.look_tabs.addTab(treatment_page, "Finishing")
         self.master_panel = MasterPanel()
         self.master_panel.edited.connect(self.change_master)
         self.master_panel.resetRequested.connect(self.reset_master)
@@ -264,6 +272,7 @@ class CompositionPanel(QWidget):
             label = f"SECTION {self.index + 1:02d} / {self.document['phrases'][section['phrase']]['name']}" if self.scope else "WHOLE CLIP / section overrides take priority"
             context_key = section["id"] if self.scope else None
             self.effects_panel.set_context(target["effects"], self.document["effects"] if self.scope else {}, states, label, bool(self.scope), (self.scope, context_key), self.document['ink_timing'], all_states)
+            self.object_panel.refresh(self.effects_panel.summary, target['effects'], self.document['effects'] if self.scope else {}, bool(self.scope))
             for key, control in self.macro_controls.items():
                 control.set_value(target["macros"][key], key in target["locks"])
             geometry = target["geometry"]
@@ -333,6 +342,33 @@ class CompositionPanel(QWidget):
         self.timing_scope_label.setVisible(timing)
         self.master_scope_label.setVisible(master)
         self.take_label.setVisible(not master)
+
+    def change_object(self, kind):
+        if self.updating: return
+        document = select_subject(self.document, kind, self.index if self.scope else None)
+        self.commit(document, f'object:{self.scope}:{self.index}')
+
+    def restore_object(self):
+        if self.updating: return
+        self.commit(restore_subject(self.document, self.index if self.scope else None), 'object-restore')
+
+    def change_object_parameter(self, effect, path, value):
+        if self.updating: return
+        entry = copy.deepcopy(self.target()['effects'].get(effect, {'mode': 'recipe', 'params': {}}))
+        entry['params'][path] = value
+        if path == 'ink_bloom.artwork' and value:
+            entry['params']['ink_bloom.shape'] = 5
+        self.change_effect(effect, entry, f'effect-param:{path}')
+
+    def reset_object_parameter(self, effect, path):
+        if self.updating: return
+        entry = copy.deepcopy(self.target()['effects'][effect]); entry['params'].pop(path, None)
+        self.change_effect(effect, entry, 'effect-reset-param')
+
+    def open_object_details(self, effect, timing):
+        self.effects_panel.inspect_effect(effect)
+        self.effects_panel.parameter_tabs.setCurrentIndex(1 if timing else 0)
+        self.look_tabs.setCurrentWidget(self.effects_panel)
 
     def change_master(self, key, value):
         if self.updating: return

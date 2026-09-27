@@ -300,6 +300,63 @@ def test_effect_groups_follow_section_overrides_and_whole_clip_coverage(window):
     assert 'tape' in effects.applied_ids and effects.effect_choices['tape'].badge.text() == 'Intermittent'
 
 
+def test_object_tab_follows_starter_and_edits_the_visible_stamp(window):
+    choose_starter(window, 'mixed-media')
+    panel = window.composer; obj = panel.object_panel
+    panel.look_tabs.setCurrentWidget(obj); QApplication.processEvents()
+    assert obj.selector.currentData() == 'ink'
+    assert panel.look_tabs.tabText(1) == 'Object'
+    assert obj.signal_host.isHidden() and obj.control_host.isVisible()
+    before = render_sequence_frame(window.sequence, 1.3, (160, 160)).tobytes()
+    obj.controls['ink_bloom.shape'].input.setCurrentIndex(1)
+    obj.controls['ink_bloom.shape_width'].input.setValue(.6)
+    assert window.composition['effects']['ink_bloom']['params']['ink_bloom.shape_width'] == .6
+    assert render_sequence_frame(window.sequence, 1.3, (160, 160)).tobytes() != before
+    assert window.sequence['duration'] == pytest.approx(106 / 15)
+    obj.timing.click()
+    assert panel.look_tabs.currentWidget() is panel.effects_panel
+    assert panel.effects_panel.effect_id == 'ink_bloom' and panel.effects_panel.parameter_tabs.currentIndex() == 1
+    assert panel.timing_scope_label.isVisible()
+
+
+def test_object_selector_replaces_sources_and_undo_restores_the_starter(window, tmp_path, monkeypatch):
+    choose_starter(window, 'mixed-media'); panel = window.composer; obj = panel.object_panel
+    original = copy.deepcopy(window.composition)
+    obj.selector.setCurrentIndex(obj.selector.findData('particles'))
+    assert obj.kind == 'particles' and 'particles.scale' in obj.controls
+    assert obj.controls['particles.attractor'].input.currentText() == 'Portrait head'
+    assert not panel.effects_panel.summary['ink_bloom']['active']
+    assert panel.effects_panel.summary['print_surface']['active']
+    window.undo_composition()
+    assert window.composition == original and obj.kind == 'ink'
+    window.redo_composition(); obj.controls['particles.scale'].input.setValue(.7)
+    document = tmp_path / 'object.json'
+    monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *args: (str(document), ''))
+    window.save_sequence_dialog()
+    assert load_composition(document) == window.composition
+    window.open_detailed_copy()
+    child = window.detail_windows[-1]
+    assert any(state['overrides']['particles.scale'] == .7 and 'particles' in state['enabled'] for state in child.sequence['states'].values())
+
+
+def test_object_artwork_import_edits_the_same_stamp_and_survives_family_switch(window, tmp_path, monkeypatch):
+    from PIL import Image
+    from synth_artwork import decode_artwork
+    choose_starter(window, 'mixed-media'); obj = window.composer.object_panel
+    obj.controls['ink_bloom.shape'].input.setCurrentIndex(5)
+    path = tmp_path / 'stamp.png'; artwork = Image.new('RGBA', (40, 60))
+    artwork.paste((255, 255, 255, 255), (5, 5, 35, 55)); artwork.save(path)
+    monkeypatch.setattr(QFileDialog, 'getOpenFileName', lambda *args: (str(path), ''))
+    obj.controls['ink_bloom.artwork'].input.import_button.click()
+    embedded = obj.controls['ink_bloom.artwork'].input.value()
+    assert decode_artwork(embedded).size == (30, 50)
+    assert window.composition['effects']['ink_bloom']['params']['ink_bloom.shape'] == 5
+    obj.selector.setCurrentIndex(obj.selector.findData('particles'))
+    obj.selector.setCurrentIndex(obj.selector.findData('ink'))
+    assert obj.controls['ink_bloom.artwork'].input.value() == embedded
+    assert not obj.controls['ink_bloom.artwork'].isHidden()
+
+
 def test_total_duration_stays_visible_and_tracks_automatic_timing_and_sections(window):
     choose_starter(window, 'mixed-media'); panel = window.composer
     panel.look_tabs.setCurrentIndex(1); QApplication.processEvents()

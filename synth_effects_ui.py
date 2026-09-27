@@ -179,7 +179,7 @@ class EffectsPanel(QWidget):
         self.parameter_host = QWidget(); self.parameter_layout = QVBoxLayout(self.parameter_host); self.parameter_layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.parameter_host)
         self.more = QPushButton("More controls"); self.more.setCheckable(True); self.more.toggled.connect(self.show_more); layout.addWidget(self.more)
-        self.note = QLabel("Click a range to set a fixed value. ↶ restores the recipe. Fixed effect values take priority over Geometry and Finishing.")
+        self.note = QLabel("Click a range to set a fixed value. ↶ restores the recipe. Fixed effect values take priority over geometric Object controls and Finishing.")
         self.note.setWordWrap(True); self.note.setObjectName("muted"); layout.addWidget(self.note)
         layout.addStretch(1)
 
