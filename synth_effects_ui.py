@@ -17,6 +17,9 @@ from synth_ink_timing import DURATION_KEYS, TIMING_KEYS
 INK_DURATIONS = {f'ink_bloom.{key}' for key in DURATION_KEYS}
 INK_TIMING = tuple(f'ink_bloom.{key}' for key in TIMING_KEYS)
 SHARED_TIMING_CONTROLS = INK_TIMING[:8]
+REGION_CONTROLS = tuple('edge_phosphor.' + key for key in (
+    'fade_mode', 'neck_dissolve', 'fade_strength', 'fade_start', 'fade_width',
+    'fade_angle', 'fade_softness', 'fade_anchor', 'fade_x', 'fade_y', 'fade_curve'))
 
 
 def format_value(path, value):
@@ -277,8 +280,11 @@ class EffectsPanel(QWidget):
     def show_more(self, checked):
         effect = EFFECT_BY_ID[self.effect_id]
         ink = effect.id == 'ink_bloom'
+        phosphor = effect.id == 'edge_phosphor'
+        region = phosphor and self.parameter_tabs.currentIndex() == 1
         timing = ink and self.parameter_tabs.currentIndex() == 1
-        self.parameter_tabs.setVisible(ink)
+        self.parameter_tabs.setTabText(1, 'Region' if phosphor else 'Timing')
+        self.parameter_tabs.setVisible(ink or phosphor)
         self.timing_note.setVisible(timing)
         self.restore_timing.setVisible(timing)
         self.restore_timing.setEnabled(bool(self.shared_timing))
@@ -286,6 +292,27 @@ class EffectsPanel(QWidget):
         self.scope_label.setText('GLOBAL TIMING / all sections' if timing else self.context_scope_label)
         self.timing_selected.emit(timing)
         visible_paths = SHARED_TIMING_CONTROLS if timing else tuple(path for path in effect.paths if not ink or path not in INK_TIMING)
+        if phosphor:
+            if region:
+                mode = self.summary['edge_phosphor']['ranges']['edge_phosphor.fade_mode']
+                legacy = mode == (0, 0)
+                visible_paths = REGION_CONTROLS if mode[0] != mode[1] else REGION_CONTROLS[:2] if legacy else tuple(p for p in REGION_CONTROLS if p != 'edge_phosphor.neck_dissolve')
+                if mode == (2, 2):
+                    visible_paths = tuple(p for p in visible_paths if p != 'edge_phosphor.fade_anchor')
+                self.description.setText('Profile preset keeps the original neck blend. Choose Object to attach a reusable fade to a source, or Canvas to hold it in the viewport. The region affects contours, echoes, fill and surrounding light; it leaves the final background texture intact.')
+                sources = ('silhouette', 'forms', 'ink_bloom', 'particles', 'rays')
+                anchor = self.summary['edge_phosphor']['ranges']['edge_phosphor.fade_anchor']
+                missing = mode == (1, 1) and (not any(self.summary[s]['active'] for s in sources) if anchor == (0, 0) else
+                          anchor[0] == anchor[1] and not self.summary[sources[int(anchor[0]) - 1]]['active'])
+                if missing:
+                    self.status.setText('The selected object anchor is not present. Choose an active object anchor or Canvas for this region.')
+                neck_control = self.controls['edge_phosphor.neck_dissolve']
+                neck_control.setEnabled(self.summary['silhouette']['active'])
+                if legacy and not self.summary['silhouette']['active']:
+                    self.status.setText('Profile preset needs Model silhouette. Choose Object or Canvas to use the directional region with this source.')
+            else:
+                visible_paths = tuple(p for p in visible_paths if p not in REGION_CONTROLS)
+                self.description.setText(effect.description)
         primary = 6 if timing else effect.primary
         shown = set(visible_paths if checked else visible_paths[:primary])
         for path, control in self.controls.items(): control.setVisible(path in shown)
@@ -317,6 +344,13 @@ class EffectsPanel(QWidget):
             return
         entry = copy.deepcopy(self.entries.get(self.effect_id, {"mode": "recipe", "params": {}}))
         entry["params"][path] = value
+        if path == 'edge_phosphor.fade_mode' and value and 'edge_phosphor.fade_strength' not in entry['params']:
+            info = self.summary['edge_phosphor']['ranges']
+            strength = info['edge_phosphor.neck_dissolve'][1]
+            entry['params']['edge_phosphor.fade_strength'] = info['edge_phosphor.fade_strength'][1] or strength or 1.
+            if value == 1 and strength and self.summary['silhouette']['active']:
+                entry['params'].setdefault('edge_phosphor.fade_start', .9)
+                entry['params'].setdefault('edge_phosphor.fade_width', .38)
         if path == 'ink_bloom.artwork' and value:
             entry['params']['ink_bloom.shape'] = 5
         self.edited.emit(self.effect_id, entry, f"effect-param:{path}")

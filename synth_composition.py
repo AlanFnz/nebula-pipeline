@@ -17,6 +17,7 @@ from synth_effects import apply_effects, merge_effects, normalize_effects
 from synth_canvas import normalize_canvas
 from synth_shared_timing import apply_shared_timing, normalize_shared_timing
 from synth_master import normalize_master
+from synth_compat import render_version
 
 FORMAT = "nebula-composition"
 MACROS = {
@@ -65,9 +66,9 @@ def effective_geometry(project, section):
 
 
 def reference_composition(refined=False):
-    source = reference_sequence(refined=refined)
+    source = normalize_sequence(reference_sequence(refined=refined))
     return {
-        "format": FORMAT, "schema_version": 1,
+        "format": FORMAT, "schema_version": 1, "render_version": source['render_version'],
         "name": "Refined signal" if refined else "Composite signal", "fps": source["fps"], "seed": source["seed"],
         "source": source,
         "canvas": normalize_canvas(source.get("canvas")),
@@ -531,6 +532,7 @@ def normalize_composition(raw):
     if not isinstance(raw.get("source"), dict):
         raise ValueError("A composition must contain its source recipe")
     result["source"] = normalize_sequence(raw.get("source"))
+    result['render_version'] = render_version(raw if 'render_version' in raw else result['source'])
     result["canvas"] = normalize_canvas(raw.get("canvas", result["source"].get("canvas")))
     result["master"] = normalize_master(raw.get("master", result['source'].get('master')))
     result["name"] = str(raw.get("name", "Untitled composition"))
@@ -573,6 +575,10 @@ def normalize_composition(raw):
     if sum(section["duration"] for section in sections) > 3600:
         raise ValueError("Composition is longer than one hour")
     normalize_shared_timing(result)
+    scopes = [result, *result['sections']]
+    if any(scope['effects'].get('edge_phosphor', {}).get('params', {}).get('edge_phosphor.fade_mode', 0) or
+           scope['effects'].get('silhouette', {}).get('params', {}).get('silhouette.definition', 0) for scope in scopes):
+        result['render_version'] = 2
     return result
 
 
@@ -633,6 +639,7 @@ def compile_composition(raw):
     """Compile the arrangement to the same public sequence format as before."""
     project = normalize_composition(raw)
     result = copy.deepcopy(project["source"])
+    result['render_version'] = project['render_version']
     result.update(name=project["name"], fps=project["fps"], seed=project["seed"], states={}, cues=[])
     result["canvas"] = copy.deepcopy(project["canvas"])
     result['master'] = copy.deepcopy(project['master'])

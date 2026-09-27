@@ -1,5 +1,8 @@
 """Independent editable copies of the built-in studies."""
 from synth_composition import ink_bloom_composition, mixed_media_composition, particle_composition, particle_orbit_composition, reference_composition, profile_signal_composition, profile_echoes_composition
+from synth_composition import normalize_composition
+from synth_compat import starter_snapshot
+from synth_profile_recipes import clear_profile_composition
 
 
 STARTERS = (
@@ -11,6 +14,7 @@ STARTERS = (
     ("ink-bloom", "Ink bloom · 3.5s", ink_bloom_composition),
     ("profile-signal", "Profile / phosphor scan · 4s", profile_signal_composition),
     ("profile-echoes", "Profile / signal echoes · 8s", profile_echoes_composition),
+    ("profile-clear", "Profile / clear silhouette · 8s", clear_profile_composition),
     ("mixed-media", "Mixed media / two bursts · 7s", mixed_media_composition),
 )
 
@@ -18,5 +22,10 @@ STARTERS = (
 def starter_composition(identifier):
     for key, _label, factory in STARTERS:
         if key == identifier:
-            return factory()
+            if key == 'profile-clear':
+                return factory()
+            project = starter_snapshot(identifier)
+            project['render_version'] = 2
+            project['source']['render_version'] = 2
+            return normalize_composition(project)
     raise ValueError(f"Unknown starter: {identifier}")

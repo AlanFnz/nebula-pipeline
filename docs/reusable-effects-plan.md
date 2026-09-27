@@ -1,7 +1,39 @@
 # Reusable effects without changing the existing studies
 
-Status: proposal; no renderer or app changes are included in this document.
+Status: first milestone implemented; later extractions remain planned.
 Baseline: `2f4f8a2` on `codex/synthesizer-v0.2`.
+
+## First milestone delivered
+
+- Nine original recipes and named/default presets are frozen in
+  `presets/compat-v1.json`. The regression manifest covers 3,385 frames in 99
+  cases: complete native cycles, every supported canvas preset, section
+  boundaries, previews, full-size samples and an explicit low-resolution finish.
+- Saved documents now carry a rendering version independently of their schema.
+  Unversioned documents resolve to v1; new starter copies use v2. The original
+  phosphor implementation is retained in `synth_profile_v1.py`. Unchanged
+  compiler/render operations remain shared and protected by the baseline tests;
+  future changes to their algorithms must retain compatible implementations too.
+- `synth_render_context.py` and `synth_source_adapters.py` introduce explicit
+  image/context/local-frame inputs. `synth_regions.py` provides directional
+  regions; `synth_phosphor.py` consumes them without inspecting source IDs.
+  Image-derived coverage remains explicit to preserve the original appearance.
+- Effects → Edge phosphor → Region exposes object/canvas anchors, strength,
+  start, width, direction, origin, curve and light blending. Profile preset
+  retains the existing Neck dissolve control. Choosing a generic region opts
+  the edited document into v2; save/load and undo retain the selected behavior.
+- Tests compare legacy and generic phosphor before quantization at zero,
+  partial and full strength, and demonstrate reuse on geometry and embedded
+  artwork. The original nine starters retain their captured pixels.
+- A separate Profile / clear silhouette starter uses the new region binding.
+  Its optional Facial definition source control emphasizes the nose/lips/chin;
+  the existing mesh assets and original starter recipes are unchanged.
+
+Scope: region bindings currently treat phosphor contributions. Source adapters
+expose compound root frames, not individual stamp planes or particle frames.
+Slab ghosts/halos, arbitrary effect instances, reordered stacks and general
+capability-aware source routing are still later milestones. This is a first
+working extraction, not a claim that every legacy renderer is now decoupled.
 
 ## Goal
 

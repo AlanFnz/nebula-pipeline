@@ -29,6 +29,30 @@ def choose_starter(window, identifier):
     window.load_starter_button.click()
 
 
+def test_region_controls_preserve_profile_then_edit_save_and_undo(window, tmp_path):
+    from synth_compat import starter_snapshot
+    from synth_composition import save_composition
+    window.set_composition(starter_snapshot('profile-echoes'))
+    panel = window.composer.effects_panel
+    panel.inspect_effect('edge_phosphor')
+    panel.parameter_tabs.setCurrentIndex(1)
+    assert panel.parameter_tabs.tabText(1) == 'Region'
+    assert not panel.controls['edge_phosphor.neck_dissolve'].isHidden()
+    assert panel.controls['edge_phosphor.fade_strength'].isHidden()
+    before = render_sequence_frame(window.sequence, .4, (160, 90)).tobytes()
+    panel.controls['edge_phosphor.fade_mode'].input.setCurrentIndex(1)
+    assert window.composition['render_version'] == 2
+    assert render_sequence_frame(window.sequence, .4, (160, 90)).tobytes() == before
+    assert not panel.controls['edge_phosphor.fade_strength'].isHidden()
+    panel.controls['edge_phosphor.fade_start'].input.setValue(-.4)
+    after = render_sequence_frame(window.sequence, .4, (160, 90)).tobytes()
+    assert after != before
+    save_composition(tmp_path / 'region.json', window.composition)
+    assert render_sequence_frame(compile_composition(load_composition(tmp_path / 'region.json')), .4, (160, 90)).tobytes() == after
+    window.undo_composition()
+    assert render_sequence_frame(window.sequence, .4, (160, 90)).tobytes() == before
+
+
 @pytest.fixture
 def window():
     app = QApplication.instance() or QApplication([])
@@ -496,6 +520,8 @@ def test_canvas_switch_is_undoable_and_preserves_scene_and_playhead(window, tmp_
 
 
 def test_starter_menu_requires_load_and_uses_current_canvas(window):
+    assert window.starter_combo.currentData() is None
+    assert not window.load_starter_button.isEnabled()
     before = copy.deepcopy(window.composition)
     window.starter_combo.setCurrentIndex(window.starter_combo.findData("particle-orbit"))
     assert window.composition == before
@@ -508,6 +534,14 @@ def test_starter_menu_requires_load_and_uses_current_canvas(window):
     window.load_starter_button.click()
     assert window.composer.effects_panel.controls["particles.rotation_speed"].input.value() == 18.
     assert window.canvas_combo.currentData() == "stories"
+
+
+def test_opened_composition_does_not_display_an_unrelated_starter(window):
+    choose_starter(window, 'refined')
+    from synth_starters import starter_composition
+    window.set_composition(starter_composition('profile-clear'))
+    assert window.starter_combo.currentData() is None
+    assert not window.load_starter_button.isEnabled()
 
 
 def test_ink_starter_exposes_both_effects_and_persists_customization(window, tmp_path, monkeypatch):

@@ -7,6 +7,7 @@ from PIL import Image, ImageDraw, ImageFilter
 
 from synth_canvas import content_size, object_offset
 from synth_particle_mesh import _head_mesh
+from synth_profile_v1 import _neck_dissolve
 
 
 def _blur(signal, radius):
@@ -42,31 +43,24 @@ def _extends_canvas(p, preset, width, height, cw, ch):
                 and (width > cw + .5 or height > ch + .5))
 
 
-def _neck_dissolve(preset, size, amount):
-    """A soft neck region attached to the projected model, not the canvas."""
-    model = next((m['params'] for m in preset.get('modules', ())
-                  if m['id'] == 'silhouette' and m.get('enabled', True)), None)
-    if not amount or model is None:
-        return None
-    w, h = size; cw, ch = content_size(preset, size); dx, dy = object_offset(preset, size)
-    y, x = np.mgrid[:h, :w]
-    roll = math.radians(model['roll']); pitch = math.radians(model['pitch'])
-    center_x = w / 2 + cw * (model['center_x'] - .5) + dx
-    center_y = h / 2 + ch * (model['center_y'] - .5) + dy
-    down = ((x - center_x) * math.sin(roll) + (y - center_y) * math.cos(roll))
-    down /= max(1., ch * model['scale'] * max(.3, math.cos(pitch)))
-    blend = np.clip((down - .9) / .38, 0, 1)
-    return blend * blend * (3 - 2 * blend) * amount
-
-
 @lru_cache(maxsize=8)
-def _projected_head(width, height, cw, ch, model, scale, yaw, pitch, roll, center_x, center_y, neck_length, neck_fullness, dx, dy):
+def _projected_head(width, height, cw, ch, model, scale, yaw, pitch, roll, center_x, center_y, neck_length, neck_fullness, dx, dy, definition=0.):
     triangles, _, _ = _head_mesh(portrait=model == 0)
     yaw, pitch, roll = map(math.radians, (yaw, pitch, roll))
     cy, sy = math.cos(yaw), math.sin(yaw); cx, sx = math.cos(pitch), math.sin(pitch)
     cz, sz = math.cos(roll), math.sin(roll)
     matrix = np.array(((cz, -sz, 0), (sz, cz, 0), (0, 0, 1))) @ np.array(((1, 0, 0), (0, cx, -sx), (0, sx, cx))) @ np.array(((cy, 0, sy), (0, 1, 0), (-sy, 0, cy)))
     vertices = triangles.copy()
+    if definition:
+        # Optional source geometry, before pose/projection. Soft feature weights
+        # emphasize the facial profile without changing the skull or neck.
+        front = np.clip((vertices[..., 2] - .5) / .35, 0, 1)
+        center = np.exp(-(vertices[..., 0] / .25) ** 2)
+        y = vertices[..., 1]
+        relief = (.15 * np.exp(-((y + .32) / .12) ** 2)
+                  + .025 * np.exp(-((y + .53) / .055) ** 2)
+                  + .07 * np.exp(-((y + .82) / .15) ** 2))
+        vertices[..., 2] += definition * front * center * relief
     fullness = neck_fullness * np.clip((-vertices[..., 1] - .92) / .2, 0, 1) * np.clip((vertices[..., 2] + .35) / .6, 0, 1)
     vertices[..., 2] += np.minimum(fullness, np.maximum(0, .65 - vertices[..., 2]))
     vertices[..., 1] -= np.clip((-vertices[..., 1] - 1.05) / .18, 0, 1) * neck_length
@@ -89,70 +83,17 @@ def _projected_head(width, height, cw, ch, model, scale, yaw, pitch, roll, cente
 def render_silhouette(arr, p, time, preset, seed):
     if p['opacity'] == 0: return arr
     h, w = arr.shape[:2]; cw, ch = content_size(preset, (w, h)); dx, dy = object_offset(preset, (w, h))
-    pose = (cw, ch, p['model'], p['scale'], p['yaw'], p['pitch'], p['roll'], p['center_x'], p['center_y'], p['neck_length'], p['neck_fullness'], dx, dy)
+    pose = (cw, ch, p['model'], p['scale'], p['yaw'], p['pitch'], p['roll'], p['center_x'], p['center_y'], p['neck_length'], p['neck_fullness'], dx, dy, p.get('definition', 0.))
     mask = _projected_head(w, h, *(round(value, 6) for value in pose)).astype(np.float32) / 255
     if p['softness']: mask = _blur(mask, p['softness'] * ch / 540)
     return arr * (1 - mask[..., None] * p['opacity']) + mask[..., None] * p['opacity']
 
 
-def render_edge_phosphor(arr, p, time, preset, seed):
-    if p['mix'] == 0: return arr
-    h, w = arr.shape[:2]; cw, ch = content_size(preset, (w, h))
-    luminance = arr.max(axis=2)
-    mask = np.clip((luminance - p['threshold']) / max(.001, 1 - p['threshold']), 0, 1)
-    if not np.any(mask > .1): return arr
-    rng = _rng(seed, time, preset['speed'], p['rate'])
-    x = np.arange(w)[None, :]; y = np.arange(h)[:, None]
-    side = -1 if p['side'] == 0 else 1
-    edge = np.maximum(mask - _sample(mask, x + side * max(.7, p['rim_width'] * cw)), 0)
-    rim = _blur(edge, .5 * cw / 480)
-    rim *= 1 - p['lower_fade'] * np.clip((y / h - .74) / .24, 0, 1)
-    neck = _neck_dissolve(preset, (w, h), p.get('neck_dissolve', 0.))
-    if neck is not None:
-        rim *= 1 - neck
-    shifted = _sample(rim, x + side * p['separation'] * cw)
-    glow = _blur(rim, p['glow'] * cw)
-    present = (mask > .2).any(axis=1)
-    boundary = np.argmax(mask > .2, axis=1) if side == -1 else w - 1 - np.argmax(mask[:, ::-1] > .2, axis=1)
-    extend = _extends_canvas(p, preset, w, h, cw, ch)
-    if extend and np.any(present):
-        rows = np.flatnonzero(present)
-        # Continue the lighting field past the source's finite height. Only the
-        # atmosphere uses this guide; the projected mesh and contour stay put.
-        guide = np.interp(np.arange(h), rows, boundary[rows])
-        distance = (guide[:, None] - x) * -side / max(1., w, cw)
-        gap = np.maximum(0, np.maximum(rows[0] - y, y - rows[-1]))
-        feather = np.maximum(1., gap * .35) / max(1., w, cw)
-        coverage = np.clip(1 + distance / feather, 0, 1)
-        coverage = coverage * coverage * (3 - 2 * coverage)
-        field = np.exp(-np.maximum(0, distance) / max(.001, p['spread'])) * coverage
-    else:
-        distance = (boundary[:, None] - x) * -side / max(1., cw)
-        field = np.exp(-np.maximum(0, distance) / max(.001, p['spread'])) * (distance >= 0) * present[:, None]
-    field *= 1 - mask
-    if neck is not None:
-        # Remove the hard cutout underneath the faded contour as well. Blend
-        # the lighting field before grain so the neck joins fresh scan texture.
-        field = field * (1 - neck) + _blur(field, cw * .065) * neck
-    # The screen field is uneven on every held scan, not a translated tile.
-    fine = rng.random((h, w))
-    coarse = Image.fromarray(rng.integers(0, 256, (max(2, h // 18), max(2, w // 28)), dtype=np.uint8)).resize((w, h), Image.Resampling.BILINEAR)
-    clumps = np.asarray(coarse, dtype=np.float32) / 255
-    lines = rng.uniform(.4, 1.3, (h, 1))
-    texture = np.maximum(0., 1 - p['grain'] + p['grain'] * (fine * 1.4 + clumps * .45) * lines)
-    field *= texture * (.4 + .6 * np.exp(-((y / max(1, h) - .49) / .6) ** 2))
-    primary = 1 - p['saturation'] + _hue(p['hue']) * p['saturation']; secondary = _hue(p['fringe_hue'])
-    body = mask[..., None] * p['body']
-    if neck is not None:
-        body *= (1 - neck)[..., None]
-    result = body + field[..., None] * primary * p['backlight']
-    result += glow[..., None] * primary * p['edge'] * 2
-    result += rim[..., None] * (primary * .75 + .25) * p['edge']
-    result += shifted[..., None] * secondary * p['edge'] * p['fringe']
-    # A rough secondary contour adds a faint recorded echo beside the face.
-    echo = _sample(rim, x - side * p['echo_distance'] * cw)
-    result += echo[..., None] * primary * p['echo'] * texture[..., None]
-    return arr * (1 - p['mix']) + result * p['mix']
+def render_edge_phosphor(arr, p, time, preset, seed, continuous_time=None):
+    from synth_source_adapters import phosphor_inputs
+    from synth_phosphor import render_phosphor
+    source, context, region, softness = phosphor_inputs(arr, p, time, preset, seed, continuous_time)
+    return render_phosphor(source, p, context, region, softness)
 
 
 def render_scan_drag(arr, p, time, preset, seed):

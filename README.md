@@ -4,9 +4,10 @@ A native Python + PySide6 desktop app for experimenting with the existing digita
 
 The project version comes from [`_version.py`](_version.py); run `python studio.py --version` to display it. See [versioning](VERSIONING.md) and the [changelog](CHANGELOG.md) for milestone history and compatibility notes.
 
-The [reusable effects proposal](docs/reusable-effects-plan.md) describes an
-incremental separation of objects, regions and treatments while preserving the
-existing starter results. It is a plan, not a change to current rendering.
+The [reusable effects plan](docs/reusable-effects-plan.md) tracks the incremental
+separation of objects, regions and treatments. The first milestone adds reusable
+directional regions and versioned compatibility, with all nine original starter
+results protected by raw-pixel regression tests.
 
 ## Launch on this Mac
 
@@ -76,8 +77,12 @@ The default view is a **composer**: sections below the preview and an **Effects*
 inspector. It opens the **Refined signal** study with its original animated recipe.
 Choose a study in **Starters**, then press **Load starter** to create an editable
 copy. The library includes Refined signal, Approved signal, Particle head,
-Expand / orbit, Original particles, Ink bloom, Mixed media / two bursts and Profile / phosphor scan. Selection alone does not replace the
+Expand / orbit, Original particles, Ink bloom, Mixed media / two bursts,
+Profile / phosphor scan, Profile / signal echoes and Profile / clear silhouette.
+Selection alone does not replace the
 current composition; loading a starter keeps the current canvas format.
+The picker shows **Choose a starter…** when opening a document, so it does not
+misidentify the open composition. Its name appears below the monitor.
 
 The native editors share a terminal-inspired interface: a system-available
 monospaced font, dark panels, phosphor-green controls and a violet playhead.
@@ -409,10 +414,17 @@ at 480 px before enlarging to the saved 960×540 canvas.
   **More controls → Canvas coverage → Extend to canvas** continues the backlight
   above and below the object when resizing reveals more space. The model and
   its contour keep their size and proportions.
-  **More controls → Neck dissolve** fades the model's bright neck edges and
+  **Region → Profile preset → Neck dissolve** fades the model's bright neck edges and
   softens the silhouette into the backlight below the jaw. It follows model
   framing, scale, roll and Object X/Y. Both profile starters enable it; set it
   to 0 for the previous outline. Saved clips keep their setting (0 if absent).
+  In **Region**, choose **Object** for a reusable fade attached to the source,
+  or **Canvas** for a fixed viewport region. Adjust Fade strength, Fade start,
+  Fade width, Fade direction and Light blending. More controls exposes the
+  object anchor, region X/Y and linear/smooth curve. Object units follow the
+  source's scale; canvas units are half its shortest edge. This blends contour,
+  fringe, echoes, fill and backlight at their original stages, before final
+  texture. Missing object anchors are identified in the inspector.
 - **Effects → Scan drag** stretches the source's bright colors into scanlines.
   Fine streak density/reach, overload strength/position/thickness/exposure,
   tracking tear count/height, irregular row groups, overload bloom, chroma slip, grain,
@@ -452,6 +464,23 @@ violet pause and a return to the initial green palette. All six sections keep th
 same fixed head pose and Signal background settings. Edit each effect at Whole
 clip or section scope; changing section durations updates the total. The
 four-second starter and saved projects remain unchanged.
+
+**Starters → Profile / clear silhouette · 8s** keeps that choreography in a
+separate variation, with a slightly larger profile, tighter glow/fringe and
+quieter scan streaks between overloads. **Object → Facial definition** emphasizes
+the nose, lips and chin before projection; 0 preserves the original geometry.
+The starter uses an explicit object region for the neck blend. Its mesh assets,
+the original Profile / signal echoes and Refined signal are unchanged.
+
+The original nine starter recipes and preset defaults are frozen in
+`presets/compat-v1.json`. Unversioned documents use rendering contract 1; new
+starter copies use contract 2, whose generic phosphor treatment matches the
+captured originals. The original phosphor code remains available for contract 1.
+These versions describe algorithms, independently of JSON schema versions.
+See `tests/fixtures/synth-baseline-v1.json` for 99 cases / 3,385 raw-frame checks
+and `requirements-render-v1.txt` for the recorded NumPy/Pillow versions. Future
+changes to shared algorithms still need compatibility implementations and visual
+regression checks; an engine version field alone does not preserve old pixels.
 
 **Starters → Particle head** opens the **Particle signal** study: dots rush into an
 anatomical head, rebound and dissolve toward a thin luminous band. Three sections

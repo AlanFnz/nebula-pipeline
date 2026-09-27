@@ -23,6 +23,8 @@ from synth_tape import render_tape_damage
 from synth_canvas import content_size, normalize_canvas, source_framing, object_offset
 from synth_print import render_ink_bloom, render_print_surface
 from synth_profile import render_silhouette, render_edge_phosphor, render_scan_drag
+from synth_profile_v1 import render_edge_phosphor as render_edge_phosphor_v1
+from synth_compat import CURRENT_RENDER_VERSION, frozen_data, frozen_defaults, render_version
 from synth_artwork import validate_artwork
 from synth_jitter import render_frame_jitter
 from synth_resolution import finish_resolution, render_resolution
@@ -178,6 +180,7 @@ MODULES = (
         P("yaw", "Head angle", -90., -180, 180, 1, "Fixed pose. -90 degrees faces left; no automatic rotation."),
         P("pitch", "Head tilt", 0., -90, 90, 1),
         P("roll", "Head roll", 0., -180, 180, 1),
+        P("definition", "Facial definition", 0., 0, 1, .01, "Gently emphasize the nose, lips and chin in the silhouette. Zero keeps the original mesh projection."),
         P("center_x", "Framing X", .60, -.5, 1.5, .01, "Model pivot within the artwork. Object Position moves the complete source group."),
         P("center_y", "Framing Y", .4, -.5, 1.5, .01),
         P("neck_fullness", "Neck fullness", .4, 0, .8, .01, "Shape the front of the neck below the jaw without altering the face."),
@@ -249,6 +252,16 @@ MODULES = (
         P("echo_distance", "Echo distance", .035, 0, .2, .005),
         P("lower_fade", "Lower contour fade", .8, 0, 1, .01),
         P("neck_dissolve", "Neck dissolve", 0., 0, 1, .01, "For Model silhouette: dissolve neck contours into the backlight below the jaw. Follows object position, scale and roll; 0 keeps the original outline."),
+        P("fade_mode", "Region space", 0, 0, 2, 1, "Profile preset preserves the original neck blend. Object follows the chosen source's root; Canvas stays fixed in the viewport.", choices=("Profile preset", "Object", "Canvas")),
+        P("fade_strength", "Fade strength", 0., 0, 1, .01, "Fade contours, fringe, echoes and fill, and blend their backlight into the region."),
+        P("fade_start", "Fade start", 0., -3, 3, .01, "Offset along the fade direction. Object units follow its size; canvas units are half its shortest edge."),
+        P("fade_width", "Fade width", .5, .01, 3, .01, "Distance from unchanged to fully faded in region units."),
+        P("fade_angle", "Fade direction", 0., -180, 180, 1, "0 fades downward; 90 fades to the right, relative to the anchor."),
+        P("fade_softness", "Light blending", .065, 0, .3, .005, "Soften the surrounding backlight inside the region before grain is applied."),
+        P("fade_anchor", "Object anchor", 0, 0, 5, 1, "Attach to the root of a source, including compound stamps or particle clouds.", choices=("Primary object", "Model silhouette", "Luminous forms", "Ink stamps", "Particles", "Rays")),
+        P("fade_x", "Region X", 0., -3, 3, .01),
+        P("fade_y", "Region Y", 0., -3, 3, .01),
+        P("fade_curve", "Fade curve", 1, 0, 1, 1, choices=("Linear", "Smooth")),
         P("body", "Silhouette fill", 0., 0, 1, .01),
         P("side", "Light side", 0, 0, 1, 1, choices=("Left", "Right")),
         P("threshold", "Source threshold", .2, .05, .95, .01),
@@ -405,6 +418,7 @@ def _defaults(module: Module):
 def default_synth_preset():
     return {
         "schema_version": SYNTH_SCHEMA_VERSION,
+        "render_version": CURRENT_RENDER_VERSION,
         "name": "Irregular blinds",
         "width": 720,
         "height": 576,
@@ -439,7 +453,9 @@ def _finite(value):
 
 def normalize_synth(raw=None):
     """Validate/upgrade a synth preset while preserving unknown future modules."""
-    base = default_synth_preset()
+    version = CURRENT_RENDER_VERSION if raw is None else render_version(raw) if isinstance(raw, dict) else 1
+    base = default_synth_preset() if version == 2 else frozen_data('default')
+    base['render_version'] = version
     if raw is None:
         return base
     if not isinstance(raw, dict):
@@ -485,6 +501,8 @@ def normalize_synth(raw=None):
             result["modules"].append(copy.deepcopy(entry))
             continue
         params = _defaults(module)
+        if version == 1:
+            params.update(frozen_defaults(module.id))
         incoming = entry.get("params", {})
         if not isinstance(incoming, dict):
             raise ValueError(f"{module.id}.params must be an object")
@@ -505,6 +523,11 @@ def normalize_synth(raw=None):
                 raise ValueError(f"{module.id}.{spec.key} is outside the supported range")
             params[spec.key] = int(value) if spec.kind == "int" else float(value)
         result["modules"].append({"id": module.id, "enabled": bool(entry.get("enabled", True)), "params": params})
+    # Selecting a new region explicitly opts the edited copy into v2. Loading
+    # an untouched v1 document never upgrades its rendering contract.
+    if any((m['id'] == 'edge_phosphor' and m.get('params', {}).get('fade_mode', 0)) or
+           (m['id'] == 'silhouette' and m.get('params', {}).get('definition', 0)) for m in result['modules']):
+        result['render_version'] = 2
     return result
 
 
@@ -1005,7 +1028,13 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None):
         # Shared ink motion owns its hold clock across recipe sections. Other
         # effects retain the scene's speed and treatment cadence.
         module_time = continuous_time if module_id == 'ink_bloom' and params.get('clock_mode', 0) else t
-        rendered = renderer(arr, params, module_time, p, index)
+        if module_id == 'edge_phosphor':
+            if p['render_version'] == 1:
+                rendered = render_edge_phosphor_v1(arr, params, module_time, p, _seed(p['seed'], 'edge-phosphor'))
+            else:
+                rendered = render_edge_phosphor(arr, params, module_time, p, _seed(p['seed'], 'edge-phosphor'), continuous_time)
+        else:
+            rendered = renderer(arr, params, module_time, p, index)
         if rendered is not None:
             arr = rendered
     image = Image.fromarray(np.clip(arr * 255, 0, 255).astype(np.uint8), "RGB")
@@ -1013,35 +1042,12 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None):
 
 
 def curated_presets():
-    base = default_synth_preset()
-    slab = copy.deepcopy(base)
-    slab["name"] = "Luminous slab"
-    for item in slab["modules"]:
-        item["enabled"] = item["id"] in {"slab", "separation", "smear", "bloom", "raster"}
-    slab["speed"], slab["seed"] = .28, 1101
-    for item in slab["modules"]:
-        if item["id"] == "slab":
-            item["params"].update({"height": .62, "position_x": .18, "position_y": .04, "width": .24, "edge_hardness": .88, "notch": .12, "intensity": .92, "ghost_width": .56, "ghost_offset": .30, "ghost_opacity": .38})
-    blinds = copy.deepcopy(base)
-    blinds["name"] = "Reference blinds"
-    for item in blinds["modules"]:
-        item["enabled"] = item["id"] in {"blinds", "warp", "separation", "smear", "bloom", "raster"}
-    blinds["seed"] = 2409
-    for item in blinds["modules"]:
-        if item["id"] == "warp":
-            item["params"].update({"amount": .018, "frequency": 2.4})
-        elif item["id"] == "separation":
-            item["params"].update({"amount": .009, "green": .7})
-        elif item["id"] == "smear":
-            item["params"].update({"amount": .06, "ghosts": 3})
-    unstable = copy.deepcopy(blinds)
-    unstable["name"] = "Unstable aperture"
-    unstable["speed"], unstable["depth"], unstable["seed"] = 1.3, 1, 7117
-    for item in unstable["modules"]:
-        if item["id"] == "blinds":
-            item["params"].update({"irregularity": .55, "row_drift": .22, "curvature": .48, "taper": .94, "swelling": 1})
-        elif item["id"] == "warp":
-            item["params"].update({"amount": .1, "frequency": 5.5, "speed": 1.8})
-        elif item["id"] == "separation":
-            item["params"]["amount"] = .05
-    return {item["name"]: normalize_synth(item) for item in (slab, blinds, unstable)}
+    """Existing named presets use their frozen defaults, including disabled modules."""
+    presets = frozen_data('presets')
+    for preset in presets.values():
+        preset['render_version'] = 1
+        for entry in preset['modules']:
+            module = MODULE_BY_ID.get(entry['id'])
+            if module:
+                entry['params'] = dict(_defaults(module), **entry['params'])
+    return presets

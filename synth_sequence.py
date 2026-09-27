@@ -15,6 +15,7 @@ from synth_canvas import normalize_canvas, object_offset
 from synth_resolution import finish_resolution, render_resolution
 from synth_ink_timing import DURATION_KEYS, stage_durations
 from synth_master import apply_master, normalize_master
+from synth_compat import render_version
 
 SEQUENCE_SCHEMA_VERSION = 1
 NEUTRAL_FIELD = {
@@ -36,7 +37,9 @@ def _reference_data(refined=False):
 
 def reference_sequence(refined=False):
     """Return an independent, editable copy of the bundled 15-second study."""
-    return copy.deepcopy(_reference_data(refined))
+    result = copy.deepcopy(_reference_data(refined))
+    result['render_version'] = 1
+    return result
 
 
 def normalize_sequence(raw=None):
@@ -47,6 +50,7 @@ def normalize_sequence(raw=None):
     if int(raw.get("schema_version", 0)) != SEQUENCE_SCHEMA_VERSION:
         raise ValueError(f"Unsupported sequence schema version: {raw.get('schema_version')}")
     result = copy.deepcopy(reference_sequence())
+    result['render_version'] = render_version(raw)
     result["name"] = str(raw.get("name", result["name"]))
     if "canvas" in raw:
         result["canvas"] = normalize_canvas(raw["canvas"])
@@ -138,6 +142,7 @@ def _apply_override(preset, path, value):
 def _state_preset(sequence, state_name):
     state = sequence["states"][state_name]
     preset = copy.deepcopy(curated_presets()[state["preset"]])
+    preset['render_version'] = render_version(sequence)
     for path, value in state.get("overrides", {}).items():
         _apply_override(preset, path, value)
     if "enabled" in state:

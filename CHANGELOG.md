@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- Freeze the nine existing starter recipes and named/default presets. Add
+  rendering versions independent of document schemas, retaining the original
+  phosphor renderer for older projects. A 3,385-frame, 99-case manifest protects
+  the current visual results across canvas formats and rendering resolutions.
+- Edge phosphor's Region tab adds a reusable directional fade with object or
+  canvas anchoring, position, width, angle, curve and light blending. The original
+  Neck dissolve remains available as Profile preset. Generic treatments receive
+  explicit render inputs instead of looking up a head source in the preset.
+- Add Profile / clear silhouette, an independent eight-second variation with
+  more readable facial contours and calmer scan streaks during holds. Object →
+  Facial definition gently emphasizes facial geometry; zero retains the original
+  mesh projection. Both prior profile starters remain unchanged.
+- Opening a document clears the starter picker to Choose a starter, so an
+  unrelated selection no longer appears to identify the current composition.
+
 - Edge phosphor adds Neck dissolve for the solid head model. It fades the
   neck's bright detached edges and blends the lower cutout into the textured
   backlight, following object placement, scale and roll. Both profile starters

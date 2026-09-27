@@ -256,9 +256,13 @@ class SynthStudio(QMainWindow):
         self.starter_combo = QComboBox(); self.starter_combo.setAccessibleName("Starters")
         for identifier, label, _factory in STARTERS:
             self.starter_combo.addItem(label, identifier)
+        self.starter_combo.setPlaceholderText('Choose a starter…')
+        self.starter_combo.setCurrentIndex(-1)
         self.starter_combo.setToolTip("Choose a built-in study, then load an editable copy in the current canvas format.")
         sequence_actions.addWidget(self.starter_combo)
         self.load_starter_button = QPushButton("Load starter"); self.load_starter_button.clicked.connect(self.load_starter)
+        self.load_starter_button.setEnabled(False)
+        self.starter_combo.currentIndexChanged.connect(lambda index: self.load_starter_button.setEnabled(index >= 0))
         sequence_actions.addWidget(self.load_starter_button)
         for text, slot in (("Save…", self.save_sequence_dialog), ("Open…", self.load_sequence_dialog)):
             button = QPushButton(text); button.clicked.connect(slot); sequence_actions.addWidget(button)
@@ -562,7 +566,8 @@ class SynthStudio(QMainWindow):
         self.load_starter_id("particle-orbit")
 
     def load_starter(self):
-        self.load_starter_id(self.starter_combo.currentData())
+        if self.starter_combo.currentData() is not None:
+            self.load_starter_id(self.starter_combo.currentData())
 
     def load_starter_id(self, identifier):
         project = starter_composition(identifier)
@@ -571,6 +576,7 @@ class SynthStudio(QMainWindow):
         self.set_composition(project)
         with QSignalBlocker(self.starter_combo):
             self.starter_combo.setCurrentIndex(self.starter_combo.findData(identifier))
+        self.load_starter_button.setEnabled(True)
         if identifier in ("particle-head", "particle-orbit", "original-particles"):
             self.composer.effects_panel.inspect_effect("particles")
         elif identifier == "ink-bloom":
@@ -629,6 +635,7 @@ class SynthStudio(QMainWindow):
         sequence = compile_composition(project)
         self.composition = project
         self.sequence = sequence
+        self.starter_combo.setCurrentIndex(-1)
         self.composition_index = 0; self.composition_scope = 0
         if self.composer:
             self.composer.index = 0; self.composer.scope = 0
