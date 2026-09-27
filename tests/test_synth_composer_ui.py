@@ -837,12 +837,13 @@ def test_local_object_position_adds_to_whole_clip_and_restores_inherited_positio
     for state in window.sequence['states'].values(): assert state['overrides']['object_x'] == 80.
 
 
-def test_profile_starter_exposes_its_model_and_independent_treatments(window, tmp_path, monkeypatch):
-    choose_starter(window, 'profile-signal'); panel = window.composer; obj = panel.object_panel
+@pytest.mark.parametrize('starter,total', [('profile-signal', 'Total 00:04.07'), ('profile-echoes', 'Total 00:08.00')])
+def test_profile_starter_exposes_its_model_and_independent_treatments(window, tmp_path, monkeypatch, starter, total):
+    choose_starter(window, starter); panel = window.composer; obj = panel.object_panel
     panel.look_tabs.setCurrentWidget(obj); QApplication.processEvents()
     assert obj.selector.currentData() == 'silhouette' and obj.position_host.isVisible()
     assert 'silhouette.yaw' in obj.controls
-    assert window.total_time_label.text() == 'Total 00:04.07'
+    assert window.total_time_label.text() == total
     first = render_sequence_frame(window.sequence, .4, (160, 90)).tobytes()
     obj.controls['silhouette.yaw'].input.setValue(-75.)
     assert render_sequence_frame(window.sequence, .4, (160, 90)).tobytes() != first

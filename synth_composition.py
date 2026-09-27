@@ -195,6 +195,90 @@ def profile_signal_composition():
     return normalize_composition(project)
 
 
+def profile_echoes_composition():
+    """Eight seconds of profile signal, followed by violet echoes and recovery."""
+    project = profile_signal_composition()
+    states = copy.deepcopy(project['source']['states'])
+    # Snapshot the borrowed Refined-signal effects, including their neutral
+    # values, so section morphs and saved documents have stable endpoints.
+    extra = {f'{module}.{param.key}': param.default for module in ('smear', 'warp', 'flare')
+             for param in MODULE_BY_ID[module].params}
+    extra.update({'smear.amount': 0., 'warp.amount': 0., 'flare.strength': 0.})
+    for state in states.values():
+        state['overrides'].update(extra)
+
+    def variation(key, origin, overrides, enabled=()):
+        state = copy.deepcopy(states[origin])
+        state['overrides'].update(overrides)
+        state['enabled'] = list(dict.fromkeys((*state['enabled'], *enabled)))
+        states[key] = state
+
+    variation('violet', 'green', {
+        'edge_phosphor.hue': .74, 'edge_phosphor.backlight': .32, 'edge_phosphor.edge': .7,
+        'edge_phosphor.fringe_hue': .84, 'edge_phosphor.fringe': .65,
+        'edge_phosphor.echo': .35, 'edge_phosphor.echo_distance': .055,
+        'scan_drag.amount': .25, 'scan_drag.density': .012, 'scan_drag.blocks': 1,
+        'scan_drag.tearing': .045,
+    })
+    variation('echo', 'violet', {
+        'smear.amount': .085, 'smear.ghosts': 3, 'smear.direction': 1.,
+        'edge_phosphor.echo': .65, 'edge_phosphor.echo_distance': .10,
+        'edge_phosphor.backlight': .44, 'scan_drag.density': .025,
+    }, ('smear',))
+    variation('echo_wide', 'echo', {
+        'smear.amount': .16, 'smear.ghosts': 4,
+        'edge_phosphor.echo_distance': .16, 'edge_phosphor.backlight': .24,
+        'scan_drag.amount': .5, 'scan_drag.tearing': .08,
+    })
+    variation('echo_dim', 'echo', {
+        'smear.amount': .025, 'edge_phosphor.backlight': .16,
+        'edge_phosphor.edge': .35, 'edge_phosphor.echo': .15,
+    })
+    variation('crest', 'violet', {
+        'flare.strength': .95, 'flare.position_y': .54, 'flare.position_x': .50,
+        'flare.spread': .055, 'flare.reach': .34, 'flare.bend': -.22,
+        'flare.asymmetry': .4, 'flare.fringe': .65,
+        'warp.amount': .014, 'warp.frequency': 4.5, 'warp.speed': 2.,
+        'scan_drag.overload': .6, 'scan_drag.center': .55, 'scan_drag.height': .11,
+        'scan_drag.tearing': .16, 'scan_drag.glow': .65,
+    }, ('flare', 'warp'))
+    variation('ripple', 'crest', {
+        'flare.strength': .10, 'flare.position_y': .72, 'flare.spread': .035,
+        'warp.amount': .025, 'warp.frequency': 6.,
+        'scan_drag.center': .72, 'scan_drag.height': .12, 'scan_drag.overload': .8,
+        'edge_phosphor.backlight': .36,
+    })
+    variation('last_tear', 'ripple', {
+        'flare.strength': 0., 'warp.amount': .004, 'scan_drag.center': .89,
+        'scan_drag.height': .08, 'scan_drag.overload': .45, 'scan_drag.tearing': .07,
+    })
+    variation('relock', 'green', {
+        'edge_phosphor.backlight': .24, 'edge_phosphor.edge': .55,
+        'scan_drag.density': .012, 'scan_drag.amount': .25, 'scan_drag.tearing': .055,
+    })
+    cue_frames = (
+        (0, 'green', 'cut', 0), (12, 'green_tear', 'morph', 3),
+        (17, 'flash', 'cut', 0), (20, 'overload', 'morph', 2),
+        (34, 'red', 'morph', 3), (46, 'lower', 'cut', 0), (55, 'tail', 'morph', 5),
+        (62, 'violet', 'cut', 0), (68, 'echo', 'morph', 5),
+        (77, 'echo_wide', 'morph', 5), (85, 'echo_dim', 'morph', 2),
+        (88, 'crest', 'cut', 0), (91, 'ripple', 'morph', 3), (98, 'last_tear', 'morph', 5),
+        (104, 'relock', 'cut', 0), (110, 'green', 'morph', 6),
+    )
+    project['name'] = 'Profile / signal echoes'
+    project['source'].update(name=project['name'], duration=8., states=states,
+        cues=[{'time': frame / 15, 'state': key, 'transition': transition, 'duration': duration / 15}
+              for frame, key, transition, duration in cue_frames])
+    intervals = (('lock', 'Green lock', 0, 17), ('overload', 'Overload', 17, 34),
+                 ('red', 'Red / falling scan', 34, 62), ('echo', 'Violet echoes', 62, 88),
+                 ('rupture', 'Flare / signal rupture', 88, 104), ('return', 'Green return', 104, 120))
+    project['phrases'] = {key: {'name': label, 'start': a / 15, 'end': b / 15} for key, label, a, b in intervals}
+    prototype = project['sections'][0]
+    project['sections'] = [dict(copy.deepcopy(prototype), id=f'section-{i + 1}', phrase=key, duration=(b - a) / 15)
+                           for i, (key, label, a, b) in enumerate(intervals)]
+    return normalize_composition(project)
+
+
 def particle_composition(refined=False):
     """One editable section; the particle module owns its assembly cycle."""
     if refined:

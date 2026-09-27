@@ -427,6 +427,15 @@ New profile starters enable Signal background across all four sections. To
 update a saved profile, choose Whole clip, then add Signal background from
 Available effects. Saved compositions and other starters retain their prior look.
 
+**Starters → Profile / signal echoes · 8s** adds a separate 120-frame variation
+at 15 fps. Six sections progress through Green lock, Overload, Red / falling scan,
+Violet echoes, Flare / signal rupture and Green return. The second half brings
+in **Ghosts / trails**, **Exposure flare** and **Signal drift**, with a brief
+violet pause and a return to the initial green palette. All six sections keep the
+same fixed head pose and Signal background settings. Edit each effect at Whole
+clip or section scope; changing section durations updates the total. The
+four-second starter and saved projects remain unchanged.
+
 **Starters → Particle head** opens the **Particle signal** study: dots rush into an
 anatomical head, rebound and dissolve toward a thin luminous band. Three sections
 (Charge & gather, Signal storm, Release & return) combine the continuous particle

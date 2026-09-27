@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Profile / signal echoes adds an eight-second variation as an independent
+  starter: green lock, overload, falling red scan, violet echoes, exposure flare
+  and signal rupture, then a green return. Six editable sections reuse Ghosts /
+  trails, Exposure flare and Signal drift alongside the fixed head and textured
+  signal background. The original four-second starter stays unchanged.
+
 - Signal background fills deep blacks with Refined signal's green-black tone,
   fine grain and horizontal noise. The profile starter enables it across all
   four sections, including the silhouette and recording margins. Background
