@@ -6,7 +6,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
 from synth_canvas import content_size, object_offset
-from synth_particle_mesh import _head_mesh
+from synth_particle_mesh import HEAD_MODELS, head_mesh
 from synth_profile_v1 import _neck_dissolve
 
 
@@ -45,7 +45,7 @@ def _extends_canvas(p, preset, width, height, cw, ch):
 
 @lru_cache(maxsize=8)
 def _projected_head(width, height, cw, ch, model, scale, yaw, pitch, roll, center_x, center_y, neck_length, neck_fullness, dx, dy, definition=0.):
-    triangles, _, _ = _head_mesh(portrait=model == 0)
+    triangles, _, _ = head_mesh(HEAD_MODELS[int(model)])
     yaw, pitch, roll = map(math.radians, (yaw, pitch, roll))
     cy, sy = math.cos(yaw), math.sin(yaw); cx, sx = math.cos(pitch), math.sin(pitch)
     cz, sz = math.cos(roll), math.sin(roll)

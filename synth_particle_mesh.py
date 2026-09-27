@@ -5,9 +5,14 @@ from pathlib import Path
 import numpy as np
 
 
-@lru_cache(maxsize=2)
-def _head_mesh(portrait=False):
-    path = Path(__file__).parent / "assets" / "models" / ("portrait-head.npz" if portrait else "human-head.npz")
+HEAD_MODELS = ('portrait-head', 'human-head', 'doryphoros-head')
+
+
+@lru_cache(maxsize=3)
+def head_mesh(model):
+    if model not in HEAD_MODELS:
+        raise ValueError(f'Unknown head model: {model}')
+    path = Path(__file__).parent / "assets" / "models" / (model + '.npz')
     with np.load(path, allow_pickle=False) as data:
         vertices, faces, normals = data["vertices"], data["faces"], data["normals"]
     triangles = vertices[faces].astype(np.float64)
@@ -20,8 +25,17 @@ def _head_mesh(portrait=False):
     return triangles, vertex_normals, cumulative
 
 
+def _head_mesh(portrait=False):
+    """Compatibility entry point for the original two assets."""
+    return head_mesh('portrait-head' if portrait else 'human-head')
+
+
 def sample_human_head(random, portrait=False):
-    triangles, vertex_normals, cumulative = _head_mesh(portrait)
+    return sample_head(random, 'portrait-head' if portrait else 'human-head')
+
+
+def sample_head(random, model):
+    triangles, vertex_normals, cumulative = head_mesh(model)
     index = np.searchsorted(cumulative, random[:, 0])
     root = np.sqrt(random[:, 1])
     barycentric = np.column_stack((1 - root, root * (1 - random[:, 2]), root * random[:, 2]))

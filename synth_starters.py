@@ -2,7 +2,7 @@
 from synth_composition import ink_bloom_composition, mixed_media_composition, particle_composition, particle_orbit_composition, reference_composition, profile_signal_composition, profile_echoes_composition
 from synth_composition import normalize_composition
 from synth_compat import starter_snapshot
-from synth_profile_recipes import clear_profile_composition
+from synth_profile_recipes import clear_profile_composition, doryphoros_composition
 
 
 STARTERS = (
@@ -15,6 +15,7 @@ STARTERS = (
     ("profile-signal", "Profile / phosphor scan · 4s", profile_signal_composition),
     ("profile-echoes", "Profile / signal echoes · 8s", profile_echoes_composition),
     ("profile-clear", "Profile / clear silhouette · 8s", clear_profile_composition),
+    ("profile-doryphoros", "Profile / Doryphoros · 8s", doryphoros_composition),
     ("mixed-media", "Mixed media / two bursts · 7s", mixed_media_composition),
 )
 
@@ -22,7 +23,7 @@ STARTERS = (
 def starter_composition(identifier):
     for key, _label, factory in STARTERS:
         if key == identifier:
-            if key == 'profile-clear':
+            if key in ('profile-clear', 'profile-doryphoros'):
                 return factory()
             project = starter_snapshot(identifier)
             project['render_version'] = 2

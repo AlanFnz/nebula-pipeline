@@ -78,7 +78,8 @@ inspector. It opens the **Refined signal** study with its original animated reci
 Choose a study in **Starters**, then press **Load starter** to create an editable
 copy. The library includes Refined signal, Approved signal, Particle head,
 Expand / orbit, Original particles, Ink bloom, Mixed media / two bursts,
-Profile / phosphor scan, Profile / signal echoes and Profile / clear silhouette.
+Profile / phosphor scan, Profile / signal echoes, Profile / clear silhouette
+and Profile / Doryphoros.
 Selection alone does not replace the
 current composition; loading a starter keeps the current canvas format.
 The picker shows **Choose a starter…** when opening a document, so it does not
@@ -471,6 +472,18 @@ quieter scan streaks between overloads. **Object → Facial definition** emphasi
 the nose, lips and chin before projection; 0 preserves the original geometry.
 The starter uses an explicit object region for the neck blend. Its mesh assets,
 the original Profile / signal echoes and Refined signal are unchanged.
+
+**Starters → Profile / Doryphoros · 8s** uses a CC0 museum scan of the classical
+Doryphoros head with the clear silhouette variation's six-section treatment.
+Facial definition and neck fullness start at zero to retain the scan's profile;
+the reusable directional region blends the neck into the signal. Select the mesh
+independently through **Object → Head model → Doryphoros**, or use it as a particle
+target through **Object → Attractor → Doryphoros** in any particle study. Pose,
+scale, Object X/Y, canvas framing and treatments remain independent controls.
+The mesh has 32,000 triangles and needs no additional runtime dependency. Source,
+CC0 license and reproducible preparation are recorded in
+[`assets/models/README.md`](assets/models/README.md). Previous starters and models
+keep their original settings.
 
 The original nine starter recipes and preset defaults are frozen in
 `presets/compat-v1.json`. Unversioned documents use rendering contract 1; new

@@ -8,7 +8,7 @@ import math
 
 import numpy as np
 
-from synth_particle_mesh import sample_human_head
+from synth_particle_mesh import sample_human_head, sample_head
 from synth_canvas import content_size, particle_framing, source_framing, object_offset
 
 
@@ -69,6 +69,8 @@ def _population(shape, count, seed):
         radial = .66 + .25 * np.cos(tube)
         points = np.column_stack((radial * np.sin(angle), .25 * np.sin(tube), radial * np.cos(angle)))
         normals = np.column_stack((np.cos(tube) * np.sin(angle), np.sin(tube), np.cos(tube) * np.cos(angle)))
+    elif shape == 5:
+        points, normals = sample_head(random, 'doryphoros-head')
     else:
         points, normals = sample_human_head(random, portrait=shape == 4)
     if shape != 0:
@@ -320,7 +322,7 @@ def render_particles(arr, p, time, preset, seed):
     light = (.35 + attributes[:, 14] * .9) * visibility * twinkle * p["intensity"]
     if p.get("released_brightness", 1.) != 1.:
         light *= p["released_brightness"] + (1 - p["released_brightness"]) * cohesion
-    if p.get("neck_fade", 0.) > 0 and int(p["attractor"]) in (0, 3, 4):
+    if p.get("neck_fade", 0.) > 0 and int(p["attractor"]) in (0, 3, 4, 5):
         target = _population(int(p["attractor"]), int(p["count"]), seed)[0]
         # Fade in model space so the soft edge turns with the head. Restore
         # those dots during release, retaining the complete expanded cloud.

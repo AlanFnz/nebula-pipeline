@@ -544,6 +544,24 @@ def test_opened_composition_does_not_display_an_unrelated_starter(window):
     assert not window.load_starter_button.isEnabled()
 
 
+def test_doryphoros_can_be_selected_for_both_source_types_and_undone(window):
+    choose_starter(window, 'profile-doryphoros')
+    obj = window.composer.object_panel
+    assert obj.controls['silhouette.model'].input.currentText() == 'Doryphoros'
+    assert obj.controls['silhouette.definition'].input.value() == 0
+    before = render_sequence_frame(window.sequence, .2, (160, 90)).tobytes()
+    obj.controls['silhouette.model'].input.setCurrentIndex(0)
+    assert render_sequence_frame(window.sequence, .2, (160, 90)).tobytes() != before
+    window.undo_composition()
+    assert obj.controls['silhouette.model'].input.currentText() == 'Doryphoros'
+    assert render_sequence_frame(window.sequence, .2, (160, 90)).tobytes() == before
+    choose_starter(window, 'particle-orbit')
+    obj = window.composer.object_panel
+    obj.controls['particles.attractor'].input.setCurrentIndex(5)
+    assert window.composition['effects']['particles']['params']['particles.attractor'] == 5
+    assert not obj.controls['particles.neck_fade'].isHidden()
+
+
 def test_ink_starter_exposes_both_effects_and_persists_customization(window, tmp_path, monkeypatch):
     window.canvas_combo.setCurrentIndex(window.canvas_combo.findData('square'))
     choose_starter(window, 'ink-bloom')

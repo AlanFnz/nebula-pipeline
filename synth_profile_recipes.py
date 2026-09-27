@@ -28,3 +28,14 @@ def clear_profile_composition():
             p['scan_drag.amount'] *= .6
             p['scan_drag.jitter'] *= .5
     return normalize_composition(project)
+
+
+def doryphoros_composition():
+    project = clear_profile_composition()
+    project['name'] = project['source']['name'] = 'Profile / Doryphoros'
+    for state in project['source']['states'].values():
+        state['overrides'].update({
+            'silhouette.model': 2, 'silhouette.definition': 0.,
+            'silhouette.yaw': -90., 'silhouette.neck_fullness': 0.,
+        })
+    return normalize_composition(project)

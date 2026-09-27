@@ -99,7 +99,7 @@ def test_particle_composition_roundtrip_overrides_and_local_bypass(tmp_path):
     assert not describe_effects(compile_composition(project)["states"].values())["particles"]["active"]
 
 
-@pytest.mark.parametrize("params", [{"count": 0}, {"attractor": 5}, {"period": 0}, {"assembly": float("nan")}, {"release": 2}, {"orbit_start": 1}, {"orbit_speed": float("inf")}, {"motion": 3}, {"expand_seconds": 0}, {"gather_seconds": 0}, {"motion_peak": 2}, {"axis_mode": 2}, {"turn_scope": 2}, {"neck_fade": -1}, {"orbit_handoff": 2}])
+@pytest.mark.parametrize("params", [{"count": 0}, {"attractor": 6}, {"period": 0}, {"assembly": float("nan")}, {"release": 2}, {"orbit_start": 1}, {"orbit_speed": float("inf")}, {"motion": 3}, {"expand_seconds": 0}, {"gather_seconds": 0}, {"motion_peak": 2}, {"axis_mode": 2}, {"turn_scope": 2}, {"neck_fade": -1}, {"orbit_handoff": 2}])
 def test_invalid_particle_controls_are_rejected(params):
     preset, settings = particle_only()
     settings.update(params)

@@ -1,4 +1,4 @@
-# Human head sampling mesh
+# Bundled head meshes
 
 `human-head.npz` is a head-and-neck extract of MakeHuman's base mesh, by the
 MakeHuman Team. It is bundled under **CC0 1.0 Universal**; the accompanying
@@ -35,3 +35,40 @@ triangles into a solid mask, with a fixed editable pose and optional neck
 extension; it does not change either mesh asset. Portrait particles receive a subdued iris brightness mask;
 optional point-depth occlusion prevents internal mouth and far-side points from
 shining through the assembled face. Mesh import through the UI is not yet supported.
+
+## Doryphoros
+
+`doryphoros-head.npz` is derived from **The head of “Doryphoros” – a plaster cast**,
+inventory **Rz 7**, Museum of the Academy of Fine Arts in Kraków. Digitisation:
+Regional Digitalisation Lab, Małopolska Institute of Culture (MIK), Virtual
+Małopolska project. The publisher releases the scan under **CC0 1.0 Universal**
+(the license text is also included in `LICENSE.CC0.txt`).
+
+- [Publisher and license](https://sketchfab.com/3d-models/the-head-of-doryphoros-a-plaster-cast-59c2a8477e0945d7817b61d5088a97fd)
+- [Museum catalogue](https://muzea.malopolska.pl/en/objects-list/2270)
+- [Public archive, DOI 10.5281/zenodo.21530396](https://zenodo.org/records/21530396),
+  sourced from Objaverse 1.0 / Sketchfab with the same model identifier.
+- [Original GLB](https://zenodo.org/records/21530396/files/59c2a8477e0945d7817b61d5088a97fd.glb?download=1)
+- Original GLB SHA-256: `48e257f61de8b4ed1402627b8b610e6cf99d0fbc7d5010c15953e642f5a10590`
+
+The preparation script reads only the three mesh primitives from this pinned
+GLB. It welds duplicate vertices at texture seams, simplifies 252,368 triangles
+to 32,000 with `fast-simplification==0.1.13`, aligns the face to +Z and up to +Y,
+and centers/uniformly scales the head to the existing source coordinate system.
+The bundled result contains 16,002 vertices. Vertex normals are recomputed;
+textures, materials and lighting are not bundled. The facial proportions are
+not procedurally exaggerated. The silhouette source can still apply its optional
+pose, facial definition and neck controls at render time.
+
+To rebuild (the simplifier is a **build-only** dependency):
+
+```sh
+.venv/bin/python -m pip install fast-simplification==0.1.13
+.venv/bin/python scripts/build_doryphoros_asset.py /path/to/59c2a8477e0945d7817b61d5088a97fd.glb assets/models/doryphoros-head.npz
+```
+
+The model is available as **Object → Head model → Doryphoros** for silhouettes
+and **Object → Attractor → Doryphoros** for particles. The separate
+**Profile / Doryphoros · 8s** starter uses the existing phosphor/scan choreography
+with facial definition and neck fullness at zero. Both MakeHuman assets and all
+previous model IDs, default settings and starter recipes remain unchanged.

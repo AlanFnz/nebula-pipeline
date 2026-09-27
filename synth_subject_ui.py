@@ -132,6 +132,6 @@ class SubjectPanel(QWidget):
             self.controls['ink_bloom.sides'].setVisible(shape[0] != shape[1] or shape[0] == 4)
         if self.kind == 'particles':
             model = summary['particles']['ranges']['particles.attractor']
-            self.controls['particles.neck_fade'].setVisible(model[0] != model[1] or model[0] in (0, 3, 4))
+            self.controls['particles.neck_fade'].setVisible(model[0] != model[1] or model[0] in (0, 3, 4, 5))
         self.details.setVisible(bool(active)); self.timing.setVisible(self.kind == 'ink')
         self.updating = False

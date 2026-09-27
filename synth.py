@@ -130,7 +130,7 @@ MODULES = (
         P("edge_bias", "Colored tail balance", 0.0, -1, 1, .01, "Moves the colored ray fringe toward the left or right tail."),
     )),
     Module("particles", "Particle attractor", "Dots assemble around an invisible 3D surface, then disperse.", (
-        P("attractor", "Attractor", 0, 0, 4, 1, "Portrait head adds smooth facial geometry and eye surfaces. Use Surface occlusion to keep the face readable. Only particles are rendered.", choices=("Stylized head", "Sphere", "Ring", "Human head", "Portrait head")),
+        P("attractor", "Attractor", 0, 0, 5, 1, "Doryphoros uses a classical sculpture scan. Use Surface occlusion to keep the face readable. Only particles are rendered.", choices=("Stylized head", "Sphere", "Ring", "Human head", "Portrait head", "Doryphoros")),
         P("motion", "Motion", 0, 0, 2, 1, "Gentle drifts; Surges adds uneven arrivals and rebound. Impulse separates quick, peaked moves from longer holds.", choices=("Gentle", "Surges", "Impulse")),
         P("release", "Release", 0, 0, 1, 1, "Cloud / band retains the original dispersion. Expand / orbit releases in every direction, then revolves around the vertical axis.", choices=("Cloud / band", "Expand / orbit")),
         P("assembly", "Assembly", 1.0, 0, 1, .01, "0 = dispersed field; 1 = assembled surface. Breathing animates below this ceiling."),
@@ -174,8 +174,8 @@ MODULES = (
         P("shimmer", "Shimmer", .45, 0, 1, .01, "Per-dot brightness fluctuation, independent of its trajectory."),
         P("jitter", "Scan registration", .0015, 0, .02, .0005, "Small held shifts across scan lines."),
     )),
-    Module("silhouette", "Model silhouette", "A solid projection of the bundled human head, with a fixed pose.", (
-        P("model", "Head model", 0, 0, 1, 1, choices=("Portrait head", "Human head")),
+    Module("silhouette", "Model silhouette", "A solid projection of a bundled head model, with a fixed pose.", (
+        P("model", "Head model", 0, 0, 2, 1, "Doryphoros is a CC0 museum scan of a classical sculpture. Facial definition at 0 preserves its natural profile.", choices=("Portrait head", "Human head", "Doryphoros")),
         P("scale", "Model scale", .4, .1, 1.5, .01, "Uniform model scale relative to the artwork height."),
         P("yaw", "Head angle", -90., -180, 180, 1, "Fixed pose. -90 degrees faces left; no automatic rotation."),
         P("pitch", "Head tilt", 0., -90, 90, 1),
