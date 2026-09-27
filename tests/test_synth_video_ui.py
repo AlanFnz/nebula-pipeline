@@ -50,6 +50,11 @@ def test_video_controls_scope_effects_before_after_undo_and_reopen(window, tmp_p
     panel.look_tabs.setCurrentWidget(panel.video_panel)
     panel.video_panel.controls['treatment_fps'].setValue(6)
     assert all(s['overrides']['treatment_fps'] == 6 for s in window.sequence['states'].values())
+    panel.video_panel.controls['motion_fps'].setValue(4)
+    assert window.composition['footage']['motion_fps'] == 4
+    assert window.sequence['footage']['motion_fps'] == 4
+    window.undo_composition()
+    assert window.composition['footage']['motion_fps'] == 0
     panel.apply_video_treatment(1)
     assert 'tape' in panel.effects_panel.applied_ids
     panel.effects_panel.inspect_effect('ghosts')

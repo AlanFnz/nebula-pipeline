@@ -7,6 +7,7 @@ metadata = plistlib.loads((root / "packaging" / "Info.plist").read_bytes())
 analysis = Analysis(
     [str(root / "mac_app.py")], pathex=[str(root)],
     datas=[(str(root / "assets"), "assets"), (str(root / "presets"), "presets")],
+    binaries=[(str(root / "build/native/nebula-mask"), "native")],
     hiddenimports=["PySide6.QtSvg"],
     excludes=["tkinter", "pytest", "PySide6.QtWebEngineCore", "PySide6.QtWebEngineWidgets"],
 )

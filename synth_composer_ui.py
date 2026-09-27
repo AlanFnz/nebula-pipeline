@@ -21,6 +21,7 @@ from synth_master_ui import MasterPanel
 from synth_subject import select_subject, restore_subject
 from synth_subject_ui import SubjectPanel
 from synth_video_ui import VideoSourcePanel
+from synth_effects import EFFECTS
 from synth_video import VIDEO_EFFECTS, apply_treatment
 
 
@@ -290,7 +291,7 @@ class CompositionPanel(QWidget):
             states = [state for name, state in compiled["states"].items() if name.startswith(prefix)] if self.scope else all_states
             label = f"SECTION {self.index + 1:02d} / {self.document['phrases'][section['phrase']]['name']}" if self.scope else "WHOLE CLIP / section overrides take priority"
             context_key = section["id"] if self.scope else None
-            self.effects_panel.set_context(target["effects"], self.document["effects"] if self.scope else {}, states, label, bool(self.scope), (self.scope, context_key), self.document['ink_timing'], all_states, VIDEO_EFFECTS if video else None)
+            self.effects_panel.set_context(target["effects"], self.document["effects"] if self.scope else {}, states, label, bool(self.scope), (self.scope, context_key), self.document['ink_timing'], all_states, VIDEO_EFFECTS if video else tuple(effect.id for effect in EFFECTS if effect.id != 'subject_cutout'))
             self.object_panel.refresh(self.effects_panel.summary, target['effects'], self.document['effects'] if self.scope else {}, bool(self.scope))
             for key, control in self.macro_controls.items():
                 control.set_value(target["macros"][key], key in target["locks"])

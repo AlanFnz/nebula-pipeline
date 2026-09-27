@@ -88,15 +88,18 @@ composition being left is backed up in
   last frame. Footage time stays continuous across section boundaries; effects
   can change without restarting the input.
 - **Effect cadence** holds procedural changes independently of footage playback.
+  **Motion cadence** holds the source image at a chosen FPS without changing
+  playback speed or duration; **Native FPS** preserves the original behavior.
   **Arrange → Export frame rate** controls delivered frames. Source playback is
   real time; this milestone does not add speed ramps or reverse playback.
 - **Effects** offers applicable image treatments: tape damage, breakup, scan
   drag, drift, ghosts, color separation, interference, exposure flare, jitter,
   bloom, raster/grain/softness, print surface, signal background and low-res
   finish. **Master** adjusts the final brightness, contrast and saturation.
-  Object generators and effects requiring object masks are not offered for video.
+  **Photocopy** and **Subject cutout** add toner printing and local foreground
+  extraction. Object generators are not offered for video.
 - **Source → Treatment presets** applies Clean, Worn tape, Printed motion or
-  Soft signal to the current footage. These replace effects and master settings
+  Soft signal or Cold photocopy to the current footage. These replace effects and master settings
   throughout the composition while retaining its source, framing and sections;
   Undo restores the previous treatment. They are separate from generated studies.
 - **Before / source** previews the same frame and framing without treatments or
@@ -125,8 +128,41 @@ versions, defaults and seeds. Pixel contracts cover all eleven studies,
 including both newer profile models. `synth_video.py` owns source identity,
 framing, clocks and decoding; `synth_video_audio.py` handles audio assembly.
 The existing renderer accepts an optional source image before the same image
-treatments. Segmentation, tracked object masks, input-driven particles and
+treatments. Tracked object identities, input-driven particles and
 multiple footage layers remain future work.
+
+### Photocopy and foreground studies
+
+**Effects → Photocopy** processes either generated artwork or imported footage.
+Ink threshold/contrast, toner amount/size, halftone coverage/dot size/angle,
+frayed edges, cold ink, uneven illumination and exposure pulses are independent
+controls. **Print FPS** controls fresh grain and exposure flutter; **Exposure
+cycle** controls the repeating dark pass and light/color movement. Set Dark
+exposure pulse to zero to remove the dark interval. Grain is generated anew
+across the entire canvas, without wrapping a tiled paper image.
+
+**Effects → Subject cutout** is an optional video source stage, before jitter
+and image treatments. Foreground detects prominent objects; People provides a
+person-specific alternative. Adjust silhouette density, original-background
+detail, mask cutoff, feathering and expansion. Optional projected shadows use
+the same mask; Subject base follows its lowest point, while Canvas plane lets
+you place the ground manually. Crowded scenes, motion blur and occlusions can
+produce imperfect edges; this is per-frame segmentation, not identity tracking
+or a hand-painted roto tool.
+
+Detection uses [Apple Vision](https://developer.apple.com/documentation/vision/vngenerateforegroundinstancemaskrequest)
+locally on macOS 14 or later, without uploading footage or downloading a model.
+The first visit to a frame takes longer; masks are cached under
+`~/Library/Caches/Nebula Studio/masks-v1/` (512 MiB budget). Detection always uses
+the same 720 px framed input, so preview and export share the mask. Changing
+source framing regenerates the affected masks; changing grain or exposure
+reuses them. An empty detection produces an empty foreground mask.
+
+The Mac app build compiles and bundles the Swift helper automatically. For
+development, run `.venv/bin/python scripts/build_mask_helper.py` with Apple's
+command-line developer tools installed. Photocopy works without this helper;
+only Subject cutout needs it. Both effects are opt-in. All prior module indices,
+seeds, defaults and visual contracts remain unchanged.
 
 The default view is a **composer**: sections below the preview and an **Effects**
 inspector. It opens the **Refined signal** study with its original animated recipe.

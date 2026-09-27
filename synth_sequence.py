@@ -240,6 +240,7 @@ def render_sequence_frame(sequence, time_seconds, size=None, frame_provider=None
         base = _state_preset(seq, cue["state"])
     output, working, sampling = render_resolution(base, size)
     source_image = None
+    source_mask = None
     if 'footage' in seq:
         from synth_video import frame_on_canvas
         footage = seq['footage']
@@ -247,10 +248,13 @@ def render_sequence_frame(sequence, time_seconds, size=None, frame_provider=None
         source = frame_provider.frame(footage, t, edge=max(*output, *source_size))
         source_image = frame_on_canvas(source, footage, base, source_size)
         if bypass: return source_image
+        cutout = next((entry for entry in base['modules'] if entry['id'] == 'subject_cutout' and entry['enabled']), None)
+        if cutout and cutout['params']['mix'] > 0:
+            source_mask = frame_provider.mask(footage, t, base, cutout['params']['mode'])
         base['treatment_fps'] = footage['treatment_fps']
     # Keep transition overlays and sequence noise on the same working raster.
     # The synth receives that exact size, so it performs no intermediate resize.
-    current = render_synth_frame(base, time_seconds=t, size=working, source_image=source_image) if source_image is not None else render_synth_frame(base, time_seconds=t, size=working)
+    current = render_synth_frame(base, time_seconds=t, size=working, source_image=source_image, source_mask=source_mask) if source_image is not None else render_synth_frame(base, time_seconds=t, size=working)
     result = np.asarray(current, dtype=np.float32) / 255
     if transition == "sweep" and amount < 1:
         direction = float(cue.get("direction", 1))

@@ -20,6 +20,7 @@ from PIL import Image, ImageFilter
 
 from synth_particles import render_particles
 from synth_tape import render_tape_damage
+from synth_photocopy import render_photocopy
 from synth_canvas import content_size, normalize_canvas, source_framing, object_offset
 from synth_print import render_ink_bloom, render_print_surface
 from synth_profile import render_silhouette, render_edge_phosphor, render_scan_drag
@@ -406,6 +407,49 @@ MODULES = (
     Module("low_res", "Low-res finish", "Render the complete image at a smaller working resolution, then scale it to the canvas. Includes grain, backgrounds and transitions.", (
         P("resolution", "Working resolution", 360, 64, 2160, 1, "Pixels on the longest edge. 360 preserves the 360 px preview look at every export size. Limited to the saved canvas size."),
         P("sampling", "Enlargement", 0, 0, 1, 1, "Soft matches the smooth preview enlargement. Crisp pixels keeps hard pixel edges.", choices=("Soft", "Crisp pixels")),
+    )),
+    Module("subject_cutout", "Subject cutout", "Local foreground masking before image treatments. Requires imported video and macOS 14 or later.", (
+        P("mode", "Detect", 0, 0, 1, 1, "Foreground isolates prominent objects; People restricts detection to people. First use analyzes and caches each frame locally.", choices=("Foreground", "People")),
+        P("silhouette", "Silhouette", .65, 0, 1, .01, "Darken the extracted subject; zero preserves its original colors."),
+        P("paper", "Backdrop brightness", 1., 0, 1, .01),
+        P("background_detail", "Original background", 0., 0, 1, .01, "Blend the source surroundings back into the backdrop."),
+        P("threshold", "Mask cutoff", .1, 0, .95, .01),
+        P("feather", "Edge softness", 1., 0, 20, .1, "Pixels at a 720 px short edge."),
+        P("expand", "Expand / shrink edge", 0., -12, 12, .5, "Pixels at a 720 px short edge."),
+        P("shadow", "Projected shadow", 0., 0, 1, .01),
+        P("shadow_anchor", "Shadow anchor", 1, 0, 1, 1, "Subject base follows the lowest point of the detected mask. Canvas plane uses Shadow ground.", choices=("Canvas plane", "Subject base")),
+        P("ground", "Shadow ground", .94, 0, 1, .01, "Ground plane as a fraction of canvas height, when Canvas plane is selected."),
+        P("shadow_length", "Shadow depth", .15, .02, 1, .01),
+        P("shadow_slant", "Shadow slant", -.65, -2, 2, .05),
+        P("invert", "Invert mask", 0, 0, 1, 1, choices=("Subject", "Surroundings")),
+        P("mix", "Mix", 1., 0, 1, .01),
+    )),
+    Module("photocopy", "Photocopy", "Crushed ink, fresh toner grain, halftone screens and uneven copy exposure. Works on any image.", (
+        P("threshold", "Ink threshold", .42, 0, 1, .01),
+        P("contrast", "Ink contrast", 4., .1, 12, .1),
+        P("grain", "Toner grain", .85, 0, 2, .01),
+        P("grain_size", "Toner size", 2.2, .5, 12, .1, "Pixels at a 720 px short edge; identical scale in preview and export."),
+        P("halftone", "Halftone ink", .25, 0, 1, .01),
+        P("tint", "Cold ink", .8, 0, 1, .01),
+        P("exposure", "Copy exposure", 0., -4, 3, .05, "Exposure in stops."),
+        P("blackout", "Dark exposure pulse", .75, 0, 1, .01, "Brief dark pass within each cycle; zero disables it."),
+        P("cadence", "Print FPS", 12., 0, 60, 1, "Fresh toner and exposure flutter per second; zero freezes the grain."),
+        P("dot_size", "Screen dot size", 8., 2, 40, .5),
+        P("screen_angle", "Screen angle", -22., -90, 90, 1),
+        P("light_depth", "Uneven illumination", .7, 0, 1, .01),
+        P("light_width", "Light width", .5, .05, 2, .01),
+        P("light_x", "Light position", .5, -1, 2, .01),
+        P("light_drift", "Light movement", .15, 0, 1, .01),
+        P("flutter", "Exposure flutter", .2, 0, 2, .01),
+        P("period", "Exposure cycle", 2., .1, 30, .1, "Seconds per illumination, tint and dark-pulse cycle."),
+        P("phase", "Cycle offset", 0., 0, 1, .01),
+        P("tint_drift", "Cold ink variation", .65, 0, 1, .01),
+        P("black", "Ink black", .015, 0, .3, .001),
+        P("white", "Paper white", .97, .3, 1, .01),
+        P("softness", "Pre-copy blur", .6, 0, 8, .1),
+        P("edge_wear", "Frayed ink edges", 1.8, 0, 8, .1),
+        P("invert", "Negative", 0., 0, 1, .01),
+        P("mix", "Mix", 1., 0, 1, .01),
     )),
 )
 MODULE_BY_ID = {module.id: module for module in MODULES}
@@ -978,6 +1022,7 @@ def _breakup(arr, p, t, preset):
 
 
 RENDERERS = {
+    "photocopy": lambda arr, params, t, preset, index: render_photocopy(arr, params, t, _seed(preset["seed"], "photocopy")),
     "signal_background": lambda arr, params, t, preset, index: _signal_background(arr, params, t, preset),
     "silhouette": lambda arr, params, t, preset, index: render_silhouette(arr, params, t, preset, _seed(preset["seed"], "silhouette")),
     "edge_phosphor": lambda arr, params, t, preset, index: render_edge_phosphor(arr, params, t, preset, _seed(preset["seed"], "edge-phosphor")),
@@ -1000,7 +1045,7 @@ RENDERERS = {
 }
 
 
-def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_image=None):
+def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_image=None, source_mask=None):
     """Render one frame at continuous time; `frame` is only a default clock."""
     p = normalize_synth(preset)
     output, (width, height), sampling = render_resolution(p, size)
@@ -1013,6 +1058,12 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
     arr[..., 0] = .055
     arr[..., 1] = .067
     arr[..., 2] = .055
+    cutout = next((entry for entry in p['modules'] if entry['id'] == 'subject_cutout' and entry['enabled'] and entry['params']['mix'] > 0), None)
+    if cutout:
+        if source_image is None or source_mask is None:
+            raise ValueError('Subject cutout needs imported video and its foreground mask')
+        from synth_cutout import render_cutout
+        source_image = render_cutout(source_image, source_mask, cutout['params'])
     if source_image is not None:
         from synth_video import VIDEO_MODULES
         if source_image.size != (width, height):
@@ -1036,7 +1087,7 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
             params = dict(params, diameter=params["diameter"] * cw / ch)
         # Shared ink motion owns its hold clock across recipe sections. Other
         # effects retain the scene's speed and treatment cadence.
-        module_time = continuous_time if module_id == 'ink_bloom' and params.get('clock_mode', 0) else t
+        module_time = continuous_time if module_id == 'photocopy' or (module_id == 'ink_bloom' and params.get('clock_mode', 0)) else t
         if module_id == 'edge_phosphor':
             if p['render_version'] == 1:
                 rendered = render_edge_phosphor_v1(arr, params, module_time, p, _seed(p['seed'], 'edge-phosphor'))
@@ -1055,6 +1106,11 @@ def curated_presets():
     presets = frozen_data('presets')
     for preset in presets.values():
         preset['render_version'] = 1
+        # Append opt-in operations so every legacy module keeps its index/seed.
+        present = {entry['id'] for entry in preset['modules']}
+        for module in MODULES:
+            if module.id not in present:
+                preset['modules'].append({'id': module.id, 'enabled': False, 'params': _defaults(module)})
         for entry in preset['modules']:
             module = MODULE_BY_ID.get(entry['id'])
             if module:

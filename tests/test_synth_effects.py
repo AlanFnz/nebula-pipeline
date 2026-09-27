@@ -16,7 +16,7 @@ def pixels(project, time=.4):
     return render_sequence_frame(compile_composition(project), time, (160, 128)).tobytes()
 
 
-@pytest.mark.parametrize("effect", EFFECTS, ids=lambda effect: effect.id)
+@pytest.mark.parametrize("effect", [effect for effect in EFFECTS if effect.id != 'subject_cutout'], ids=lambda effect: effect.id)
 def test_effects_can_be_applied_to_a_new_section_and_bypassed(effect):
     project = blank_composition()
     # Processors need a source. Generators also work from an empty field.

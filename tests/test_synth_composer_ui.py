@@ -272,7 +272,8 @@ def test_effect_groups_show_effective_use_and_navigation_does_not_edit(window):
     original = copy.deepcopy(window.composition)
     before = render_sequence_frame(window.sequence, 3.6, (120, 96)).tobytes()
     assert set(effects.applied_ids).isdisjoint(effects.available_ids)
-    assert set(effects.applied_ids + effects.available_ids) == set(EFFECT_BY_ID)
+    assert set(effects.applied_ids + effects.available_ids) == set(EFFECT_BY_ID) - {'subject_cutout'}
+    assert 'photocopy' in effects.available_ids
     assert effects.effect_choices['rays'].badge.text() == 'Intermittent'
     assert not effects.available_host.isVisible()
     for key in effects.applied_ids:

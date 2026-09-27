@@ -21,10 +21,10 @@ import threading
 from PIL import Image
 from media import Cancellation, decode_frames, dimensions, frame_count, probe
 
-VIDEO_EFFECTS = ('signal_background', 'scan_drag', 'ghosts', 'breakup', 'tape',
+VIDEO_EFFECTS = ('subject_cutout', 'photocopy', 'signal_background', 'scan_drag', 'ghosts', 'breakup', 'tape',
                  'drift', 'flare', 'separation', 'interference', 'frame_jitter',
                  'bloom', 'raster', 'print_surface', 'low_res')
-VIDEO_MODULES = frozenset(('signal_background', 'scan_drag', 'smear', 'breakup', 'tape',
+VIDEO_MODULES = frozenset(('subject_cutout', 'photocopy', 'signal_background', 'scan_drag', 'smear', 'breakup', 'tape',
                           'warp', 'flare', 'separation', 'interference', 'frame_jitter',
                           'bloom', 'raster', 'print_surface', 'low_res'))
 PROXY_EDGE = 720
@@ -62,7 +62,7 @@ def normalize_footage(raw):
         result[key] = raw.get(key, default)
         if result[key] not in choices: raise ValueError(f'Unknown video {key}')
     for key, default, low, high in (('zoom', 1., .05, 8.), ('x', 0., -100000., 100000.),
-                                   ('y', 0., -100000., 100000.), ('treatment_fps', 30., 1., 120.)):
+                                   ('y', 0., -100000., 100000.), ('treatment_fps', 30., 1., 120.), ('motion_fps', 0., 0., 120.)):
         result[key] = _number(raw.get(key, default), key, low, high)
     result['has_audio'] = bool(raw.get('has_audio', False))
     identity = raw.get('identity')
@@ -102,7 +102,7 @@ def check_source(footage):
 def relink_footage(old, new):
     """Replace media metadata, retaining valid trim and treatment controls."""
     result = copy.deepcopy(new)
-    for key in ('in', 'out', 'end_mode', 'fit', 'zoom', 'x', 'y', 'treatment_fps', 'audio'):
+    for key in ('in', 'out', 'end_mode', 'fit', 'zoom', 'x', 'y', 'treatment_fps', 'motion_fps', 'audio'):
         result[key] = old[key]
     result['in'] = min(old['in'], max(0., new['duration'] - 1 / new['sample_fps']))
     result['out'] = min(old['out'], new['duration'])
@@ -113,6 +113,8 @@ def relink_footage(old, new):
 def source_index(footage, time_seconds):
     span = footage['out'] - footage['in']
     elapsed = max(0., float(time_seconds))
+    cadence = footage.get('motion_fps', 0.)
+    if cadence: elapsed = math.floor(elapsed * cadence + 1e-8) / cadence
     elapsed = elapsed % span if footage['end_mode'] == 'loop' else min(elapsed, span)
     fps = footage['sample_fps']
     last = min(frame_count(footage, fps) - 1, math.ceil(footage['out'] * fps - 1e-8) - 1)
@@ -237,6 +239,7 @@ class VideoFrameProvider:
         self.reader_key = None
         self.next_index = 0
         self.decode_count = 0
+        self.mask_provider = None
 
     def frame(self, footage, time_seconds, edge=None):
         self.cancel.check()
@@ -273,12 +276,28 @@ class VideoFrameProvider:
         self.close_reader()
         raise ValueError('Video ended before its advertised duration. Try trimming the Out point.')
 
+    def mask(self, footage, time_seconds, canvas, mode):
+        from synth_cutout import subject_mask
+        # One canonical crop for every monitor/export size. Detection sees the
+        # same composition that the user sees, including source zoom/position.
+        if self.mask_provider is None:
+            self.mask_provider = VideoFrameProvider(preview=True, cancel=self.cancel, directory=self.directory)
+        source = self.mask_provider.frame(footage, time_seconds, edge=PROXY_EDGE)
+        ratio = PROXY_EDGE / max(canvas['width'], canvas['height'])
+        size = tuple(max(1, round(canvas[key] * ratio)) for key in ('width', 'height'))
+        framed = frame_on_canvas(source, footage, canvas, size)
+        directory = Path(self.directory) / 'masks' if self.directory else None
+        return subject_mask(framed, mode, self.cancel, directory)
+
     def close_reader(self):
         if self.reader is not None: self.reader.close()
         self.reader = None
         self.reader_key = None
 
     def close(self):
+        if self.mask_provider is not None:
+            self.mask_provider.close()
+            self.mask_provider = None
         self.close_reader()
         self.cache.clear()
         self.bytes = 0
@@ -317,6 +336,16 @@ TREATMENTS = (
     ('Soft signal', {
         'separation': {}, 'bloom': {},
         'raster': {'raster.grain': .04, 'raster.chroma': .02},
+        'low_res': {'low_res.resolution': 720}}),
+    ('Cold photocopy', {
+        'subject_cutout': {'subject_cutout.silhouette': .46},
+        'photocopy': {'photocopy.light_depth': .97, 'photocopy.light_width': .32,
+                      'photocopy.light_x': .55, 'photocopy.blackout': .57,
+                      'photocopy.tint': .75, 'photocopy.exposure': .1,
+                      'photocopy.grain_size': 2.5, 'photocopy.grain': 1.15,
+                      'photocopy.edge_wear': 2.3, 'photocopy.threshold': .43,
+                      'photocopy.halftone': .32},
+        'frame_jitter': {'frame_jitter.x': 3., 'frame_jitter.y': 2., 'frame_jitter.rotation': .2},
         'low_res': {'low_res.resolution': 720}}),
 )
 

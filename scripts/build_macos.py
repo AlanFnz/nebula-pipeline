@@ -83,6 +83,8 @@ def main():
         if not shutil.which(binary):
             parser.error(f"Install FFmpeg first; {binary} is not on PATH")
     subprocess.run([sys.executable, str(ROOT / "scripts" / "sync_version.py"), "--check"], check=True)
+    from build_mask_helper import build_mask_helper
+    build_mask_helper()
     build_icon()
     subprocess.run([
         sys.executable, "-m", "PyInstaller", "--noconfirm",
