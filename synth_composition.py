@@ -16,6 +16,7 @@ from synth_sequence import normalize_sequence, reference_sequence
 from synth_effects import apply_effects, merge_effects, normalize_effects
 from synth_canvas import normalize_canvas
 from synth_shared_timing import apply_shared_timing, normalize_shared_timing
+from synth_master import normalize_master
 
 FORMAT = "nebula-composition"
 MACROS = {
@@ -68,6 +69,7 @@ def reference_composition(refined=False):
         "name": "Refined signal" if refined else "Composite signal", "fps": source["fps"], "seed": source["seed"],
         "source": source,
         "canvas": normalize_canvas(source.get("canvas")),
+        "master": normalize_master(source.get("master")),
         "phrases": {key: {"name": name, "start": start, "end": end} for key, name, start, end in PHRASES},
         "macros": neutral_macros(), "geometry": default_geometry(), "effects": {}, "ink_timing": {}, "variation": 0, "locks": [],
         "sections": [
@@ -84,6 +86,7 @@ def composition_from_sequence(sequence):
     result = reference_composition()
     result.update(name=source["name"], source=source, fps=source["fps"], seed=source["seed"])
     result["canvas"] = normalize_canvas(source.get("canvas"))
+    result["master"] = normalize_master(source.get("master"))
     result["phrases"] = {"custom": {"name": source["name"], "start": 0., "end": source["duration"]}}
     result["sections"] = [{"id": "section-1", "phrase": "custom", "duration": source["duration"], "macros": neutral_macros(), "geometry": default_geometry(section=True), "effects": {}, "variation": 0, "locks": []}]
     return result
@@ -402,6 +405,7 @@ def normalize_composition(raw):
         raise ValueError("A composition must contain its source recipe")
     result["source"] = normalize_sequence(raw.get("source"))
     result["canvas"] = normalize_canvas(raw.get("canvas", result["source"].get("canvas")))
+    result["master"] = normalize_master(raw.get("master", result['source'].get('master')))
     result["name"] = str(raw.get("name", "Untitled composition"))
     result["fps"] = _number(raw.get("fps", 25), "FPS", 1, 120, True)
     result["seed"] = _number(raw.get("seed", 0), "Seed", 0, 2**31 - 1, True)
@@ -500,6 +504,7 @@ def compile_composition(raw):
     result = copy.deepcopy(project["source"])
     result.update(name=project["name"], fps=project["fps"], seed=project["seed"], states={}, cues=[])
     result["canvas"] = copy.deepcopy(project["canvas"])
+    result['master'] = copy.deepcopy(project['master'])
     fps = project["fps"]
     ranges = section_ranges(project)
     result["duration"] = ranges[-1][1]

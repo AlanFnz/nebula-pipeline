@@ -2,9 +2,15 @@
 
 ## Unreleased
 
+- Master tab adds composition-wide brightness, contrast and saturation after
+  effects, background and transitions. Includes bypass, individual/full reset,
+  Undo/Redo, save/load and independent detailed-copy controls. Neutral and
+  bypassed Master preserve original pixels, including low-resolution finishing.
+
 - Dropdowns, numeric fields and sliders pass wheel/trackpad input through to
   their scroll panel, including focused controls. Click selection, typing,
   keyboard arrows and dragging remain available throughout the native editors.
+
 - Ink timing is now one shared setup for every section. Existing local timing
   overrides consolidate into a complete global profile, preventing different
   loop lengths or scene clocks from causing jumps at section boundaries. Timing

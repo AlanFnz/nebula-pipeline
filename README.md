@@ -147,6 +147,21 @@ overrides. Older documents gain an empty effect rack and keep their pixels.
 The signal-breakup module is disabled in older presets; its held horizontal
 tears and dropouts are deterministic under scrubbing and export.
 
+### Master adjustments and scrolling
+
+The **Master** tab applies **Brightness**, **Contrast** and **Saturation** to the
+whole composition, regardless of the selected section. Brightness starts at 0%;
+contrast and saturation start at 100%. Saturation at 0% produces black and white.
+**Enable master** bypasses the adjustment without losing its values. Use **↶**
+to reset one control or **Reset master** to restore all neutral settings.
+
+Master affects the finished image, including backgrounds and transitions, before
+Low-res finish enlarges its working raster. Preview and MP4 export use the same
+processing. Save/open, Undo/Redo and detailed copies preserve the settings;
+the detailed sequence editor also exposes Master. Old documents remain neutral
+and retain their exact pixels. Master is independent of section effects and
+the relative recipe controls in Finishing.
+
 Closed dropdowns, numeric fields and sliders ignore the mouse wheel and trackpad
 so scrolling moves the surrounding panel, even after a control has focus. Open
 dropdowns with a click and select an option from their list. Typing, keyboard

@@ -28,6 +28,8 @@ from synth_composer_ui import CompositionPanel, SectionTimeline
 from synth_canvas import CANVAS_FORMATS, format_canvas, normalize_canvas, preview_size
 from synth_starters import STARTERS, starter_composition
 from synth_artwork_ui import ArtworkControl
+from synth_master import normalize_master
+from synth_master_ui import MasterPanel
 
 
 class SynthViewer(QWidget):
@@ -465,6 +467,11 @@ class SynthStudio(QMainWindow):
             self.panel_layout.addWidget(compose)
             self.panel_layout.addWidget(self.sequence_group())
             self.panel_layout.addWidget(self.sequence_settings_group())
+            self.sequence_master_panel = MasterPanel()
+            self.sequence_master_panel.set_values(self.sequence.get('master'))
+            self.sequence_master_panel.edited.connect(self.change_sequence_master)
+            self.sequence_master_panel.resetRequested.connect(self.reset_sequence_master)
+            self.panel_layout.addWidget(self.sequence_master_panel)
             self.panel_layout.addWidget(self.sequence_state_group())
             note = QLabel("Sequence mode uses the selected-state inspector above. Standalone preset controls are hidden to keep edits reproducible."); note.setWordWrap(True); note.setObjectName("muted"); self.panel_layout.addWidget(note)
             return
@@ -602,7 +609,7 @@ class SynthStudio(QMainWindow):
 
     def composition_changed(self, document, action):
         compiled = compile_composition(document)
-        if self.edit_key != action or not action.startswith(("macro:", "geometry:", "effect-param:")):
+        if self.edit_key != action or not action.startswith(("macro:", "geometry:", "effect-param:", 'master:')):
             self.undo_compositions.append(copy.deepcopy(self.composition))
             self.undo_compositions = self.undo_compositions[-30:]
         self.edit_key = action; self.edit_timer.start(400)
@@ -652,6 +659,15 @@ class SynthStudio(QMainWindow):
         window.setWindowTitle("Nebula · detailed copy")
         self.detail_windows.append(window)
         window.show()
+
+    def change_sequence_master(self, key, value):
+        master = normalize_master(self.sequence.get('master')); master[key] = value
+        self.sequence['master'] = normalize_master(master)
+        self.sequence_master_panel.set_values(master); self.invalidate()
+
+    def reset_sequence_master(self):
+        self.sequence['master'] = normalize_master()
+        self.sequence_master_panel.set_values(self.sequence['master']); self.invalidate()
 
     def sequence_cell_changed(self, row, column):
         if self.sequence_updating or self.sequence is None or self.sequence_table is None:

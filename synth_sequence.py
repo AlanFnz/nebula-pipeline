@@ -14,6 +14,7 @@ from synth import MODULE_BY_ID, _seed, curated_presets, normalize_synth, render_
 from synth_canvas import normalize_canvas
 from synth_resolution import finish_resolution, render_resolution
 from synth_ink_timing import DURATION_KEYS, stage_durations
+from synth_master import apply_master, normalize_master
 
 SEQUENCE_SCHEMA_VERSION = 1
 NEUTRAL_FIELD = {
@@ -49,6 +50,8 @@ def normalize_sequence(raw=None):
     result["name"] = str(raw.get("name", result["name"]))
     if "canvas" in raw:
         result["canvas"] = normalize_canvas(raw["canvas"])
+    if 'master' in raw:
+        result['master'] = normalize_master(raw['master'])
     for key, lo, hi in (("duration", .1, 3600), ("fps", 1, 120), ("seed", 0, 2**31 - 1)):
         value = raw.get(key, result[key])
         if not isinstance(value, (int, float)) or not math.isfinite(float(value)) or not lo <= float(value) <= hi:
@@ -250,4 +253,5 @@ def render_sequence_frame(sequence, time_seconds, size=None):
         cloud_mask = np.exp(-((((x / max(1, result.shape[1] - 1) - .62) / .42) ** 2) + (((y / max(1, result.shape[0] - 1) - .5) / .65) ** 2)))
         result += cloud[..., None] * cloud_mask[..., None] * np.array((.72, .82, .78), dtype=np.float32)[None, None, :]
     image = Image.fromarray(np.clip(result * 255, 0, 255).astype(np.uint8), "RGB")
+    image = apply_master(image, seq.get('master'))
     return finish_resolution(image, output, sampling)

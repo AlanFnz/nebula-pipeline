@@ -16,6 +16,8 @@ from studio_theme import COLORS
 from synth_composition import MACROS, compile_composition, default_geometry, effective_geometry, neutral_macros, normalize_composition, section_ranges, vary_composition
 from synth_effects_ui import EffectsPanel
 from synth_shared_timing import edit_shared_timing, restore_shared_timing, without_timing
+from synth_master import normalize_master
+from synth_master_ui import MasterPanel
 
 
 class SectionTimeline(QWidget):
@@ -183,6 +185,8 @@ class CompositionPanel(QWidget):
         self.scope_combo.currentIndexChanged.connect(self.change_scope); shape_layout.addWidget(self.scope_combo)
         self.timing_scope_label = QLabel('Whole clip · shared timing'); self.timing_scope_label.hide()
         shape_layout.addWidget(self.timing_scope_label)
+        self.master_scope_label = QLabel('Whole clip · master adjustments'); self.master_scope_label.hide()
+        shape_layout.addWidget(self.master_scope_label)
         self.look_tabs = QTabWidget()
         self.effects_panel = EffectsPanel()
         self.effects_panel.edited.connect(self.change_effect)
@@ -193,6 +197,10 @@ class CompositionPanel(QWidget):
         geometry_page = QWidget(); geometry_layout = QVBoxLayout(geometry_page)
         treatment_page = QWidget(); treatment_layout = QVBoxLayout(treatment_page)
         self.look_tabs.addTab(geometry_page, "Geometry"); self.look_tabs.addTab(treatment_page, "Finishing")
+        self.master_panel = MasterPanel()
+        self.master_panel.edited.connect(self.change_master)
+        self.master_panel.resetRequested.connect(self.reset_master)
+        self.look_tabs.addTab(self.master_panel, 'Master')
         self.look_tabs.currentChanged.connect(lambda _index: self.show_timing_scope(self.effects_panel.effect_id == 'ink_bloom' and self.effects_panel.parameter_tabs.currentIndex() == 1))
         treatment_hint = QLabel("Relative adjustments to the recipe. 1× keeps its original treatment; different recipes can look different at 1×.")
         treatment_hint.setWordWrap(True); treatment_hint.setObjectName("muted"); treatment_layout.addWidget(treatment_hint)
@@ -247,6 +255,7 @@ class CompositionPanel(QWidget):
             self.section_duration.setMinimum(1 / self.document["fps"])
             self.section_duration.setValue(section["duration"])
             self.scope_combo.setCurrentIndex(self.scope)
+            self.master_panel.set_values(self.document['master'])
             target = self.target()
             compiled = compile_composition(self.document)
             prefix = section["id"] + ":"
@@ -319,8 +328,22 @@ class CompositionPanel(QWidget):
 
     def show_timing_scope(self, timing):
         timing = timing and self.look_tabs.currentIndex() == 0
-        self.scope_combo.setVisible(not timing)
+        master = self.look_tabs.currentWidget() is self.master_panel
+        self.scope_combo.setVisible(not (timing or master))
         self.timing_scope_label.setVisible(timing)
+        self.master_scope_label.setVisible(master)
+        self.take_label.setVisible(not master)
+
+    def change_master(self, key, value):
+        if self.updating: return
+        document = copy.deepcopy(self.document)
+        document['master'][key] = value
+        self.commit(document, 'master-toggle' if key == 'enabled' else f'master:{key}')
+
+    def reset_master(self):
+        if self.updating: return
+        document = copy.deepcopy(self.document); document['master'] = normalize_master()
+        self.commit(document, 'master-reset')
 
     def change_ink_timing(self, path, value):
         if self.updating: return
@@ -422,6 +445,9 @@ class CompositionPanel(QWidget):
         self.commit(vary_composition(self.document, None if self.scope == 0 else self.index), "take")
 
     def reset_controls(self):
+        if self.look_tabs.currentWidget() is self.master_panel:
+            self.reset_master()
+            return
         if self.look_tabs.currentIndex() == 0 and self.effects_panel.effect_id == 'ink_bloom' and self.effects_panel.parameter_tabs.currentIndex() == 1:
             self.reset_ink_timing()
             return
@@ -429,5 +455,7 @@ class CompositionPanel(QWidget):
         target = self.target(document); target["macros"] = neutral_macros(); target["variation"] = 0
         target["geometry"] = default_geometry(section=bool(self.scope))
         target["effects"] = {}
-        if not self.scope: restore_shared_timing(document)
+        if not self.scope:
+            restore_shared_timing(document)
+            document['master'] = normalize_master()
         self.commit(document, "reset")

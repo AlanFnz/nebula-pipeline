@@ -11,7 +11,7 @@ from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QFileDialog, QTableWidget, QPushButton
 
 from synth_studio import SynthStudio
-from synth_composition import load_composition
+from synth_composition import compile_composition, load_composition
 from synth_sequence import render_sequence_frame, reference_sequence
 
 
@@ -608,6 +608,57 @@ def test_ink_timing_tabs_seconds_scope_reset_undo_and_save(window, tmp_path, mon
     assert not window.composition['ink_timing']
     assert [s['duration'] for s in window.composition['sections']] == [53 / 15] * 2
     window.undo_composition(); assert window.composition == saved
+
+
+def test_master_tab_is_global_reversible_and_preserved_in_detailed_copies(window, tmp_path, monkeypatch):
+    from synth_master import DEFAULT_MASTER
+    choose_starter(window, 'mixed-media')
+    panel = window.composer; master = panel.master_panel
+    panel.select_section(1); panel.look_tabs.setCurrentWidget(master)
+    QApplication.processEvents()
+    assert not panel.scope_combo.isVisible()
+    assert panel.master_scope_label.isVisible()
+    assert not panel.timing_scope_label.isVisible()
+    original = copy.deepcopy(window.composition)
+    master.sliders['contrast'].setValue(130)
+    master.controls['contrast'].setValue(140)
+    assert window.composition['master']['contrast'] == 1.4
+    assert master.sliders['contrast'].value() == 140
+    # A drag is one undo step, even while a section is selected.
+    window.undo_composition(); assert window.composition == original
+    window.redo_composition(); assert window.composition['master']['contrast'] == 1.4
+    master.controls['brightness'].setValue(8)
+    master.controls['saturation'].setValue(45)
+    saved = copy.deepcopy(window.composition)
+    panel.select_section(0)
+    assert master.controls['contrast'].value() == 140
+    assert window.composition['source'] == original['source']
+    assert window.composition['sections'] == original['sections']
+    for time in (1.4, 4.8):
+        original_frame = render_sequence_frame(compile_composition(original), time, (96, 96))
+        assert render_sequence_frame(window.sequence, time, (96, 96)).tobytes() != original_frame.tobytes()
+        master.enabled.click()
+        assert render_sequence_frame(window.sequence, time, (96, 96)).tobytes() == original_frame.tobytes()
+        master.enabled.click()
+    assert window.composition == saved
+    path = tmp_path / 'master.json'
+    monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *args: (str(path), ''))
+    window.save_sequence_dialog(); assert load_composition(path) == saved
+    window.open_detailed_copy()
+    child = window.detail_windows[-1]
+    assert child.sequence_master_panel.controls['contrast'].value() == 140
+    child.sequence_master_panel.controls['saturation'].setValue(0)
+    assert child.sequence['master']['saturation'] == 0
+    assert window.composition == saved
+    panel.reset_controls()
+    assert window.composition['master'] == DEFAULT_MASTER
+    assert window.composition['sections'] == saved['sections']
+    window.undo_composition(); assert window.composition == saved
+    master.resets['brightness'].click()
+    assert window.composition['master']['brightness'] == 0
+    assert window.composition['master']['contrast'] == 1.4
+    panel.look_tabs.setCurrentIndex(0)
+    assert panel.scope_combo.isVisible() and not panel.master_scope_label.isVisible()
 
 
 def test_all_native_parameter_controls_are_protected_from_wheel_edits(window):
