@@ -133,6 +133,7 @@ class EffectsPanel(QWidget):
         self.context_key = None
         self.shared_timing = {}; self.shared_summary = {}; self.context_scope_label = ''
         self.updating = False
+        self.allowed_effects = None
         layout = QVBoxLayout(self); layout.setContentsMargins(8, 8, 8, 8)
         self.scope_label = QLabel(); self.scope_label.setObjectName("sectionTitle"); self.scope_label.setWordWrap(True)
         layout.addWidget(self.scope_label)
@@ -186,27 +187,31 @@ class EffectsPanel(QWidget):
         self.note.setWordWrap(True); self.note.setObjectName("muted"); layout.addWidget(self.note)
         layout.addStretch(1)
 
-    def set_context(self, entries, parent_entries, states, scope_label, local, context_key, shared_timing=None, shared_states=None):
+    def set_context(self, entries, parent_entries, states, scope_label, local, context_key, shared_timing=None, shared_states=None, allowed_effects=None):
         self.updating = True
         self.entries = copy.deepcopy(entries); self.parent_entries = copy.deepcopy(parent_entries)
         self.summary = describe_effects(states)
+        self.allowed_effects = allowed_effects
+        visible_effects = [e for e in EFFECTS if allowed_effects is None or e.id in allowed_effects]
         self.shared_timing = copy.deepcopy(shared_timing or {})
         self.shared_summary = self.summary['ink_bloom'] if shared_states is None or shared_states is states else describe_effects(shared_states)['ink_bloom']
         self.context_scope_label = scope_label
-        active = [effect for effect in EFFECTS if self.summary[effect.id]["active"]]
+        active = [effect for effect in visible_effects if self.summary[effect.id]["active"]]
+        if allowed_effects is not None and self.effect_id not in allowed_effects:
+            self.effect_id = (active or visible_effects)[0].id
         changed_context = context_key != self.context_key
         if changed_context and not self.summary[self.effect_id]["active"] and active:
             self.effect_id = active[0].id
             with QSignalBlocker(self.more): self.more.setChecked(False)
         self.context_key = context_key
         self.applied_ids = tuple(effect.id for effect in active)
-        self.available_ids = tuple(effect.id for effect in EFFECTS if effect.id not in self.applied_ids)
+        self.available_ids = tuple(effect.id for effect in visible_effects if effect.id not in self.applied_ids)
         self.applied_title.setText(f'APPLIED EFFECTS · {len(active)}')
         self.empty_applied.setVisible(not active)
         for effect in EFFECTS:
             target = self.applied_layout if effect.id in self.applied_ids else self.available_layout
             target.addWidget(self.effect_choices[effect.id])
-            self.effect_choices[effect.id].show()
+            self.effect_choices[effect.id].setVisible(allowed_effects is None or effect.id in allowed_effects)
         if changed_context:
             self.available_button.setChecked(not active)
         self.available_button.setEnabled(bool(self.available_ids))
@@ -218,6 +223,7 @@ class EffectsPanel(QWidget):
 
     def inspect_effect(self, effect_id):
         if self.updating or effect_id not in EFFECT_BY_ID: return
+        if self.allowed_effects is not None and effect_id not in self.allowed_effects: return
         self.effect_id = effect_id
         self.available_button.setChecked(False)
         with QSignalBlocker(self.more): self.more.setChecked(False)
@@ -292,6 +298,8 @@ class EffectsPanel(QWidget):
         self.scope_label.setText('GLOBAL TIMING / all sections' if timing else self.context_scope_label)
         self.timing_selected.emit(timing)
         visible_paths = SHARED_TIMING_CONTROLS if timing else tuple(path for path in effect.paths if not ink or path not in INK_TIMING)
+        if self.allowed_effects is not None:
+            visible_paths = tuple(path for path in visible_paths if not path.startswith('slab.'))
         if phosphor:
             if region:
                 mode = self.summary['edge_phosphor']['ranges']['edge_phosphor.fade_mode']

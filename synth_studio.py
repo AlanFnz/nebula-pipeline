@@ -30,6 +30,7 @@ from synth_artwork_ui import ArtworkControl
 from synth_master import normalize_master
 from synth_master_ui import MasterPanel
 from synth_viewer import SynthViewer
+from synth_video import VideoFrameProvider, inspect_video, prepare_proxy, video_composition, relink_footage
 
 
 class SynthControl(QWidget):
@@ -99,24 +100,46 @@ class JobSignals(QObject):
     progress = Signal(int, int)
 
 
+class ImportVideoJob(QRunnable):
+    def __init__(self, path):
+        super().__init__()
+        self.path = path
+        self.cancel = Cancellation()
+        self.signals = JobSignals()
+
+    def run(self):
+        try:
+            self.cancel.check()
+            footage = inspect_video(self.path)
+            prepare_proxy(footage, self.cancel)
+            self.cancel.check()
+            self.signals.done.emit(footage)
+        except Exception as exc:
+            self.signals.failed.emit(str(exc) or 'Import cancelled')
+
+
 class RenderJob(QRunnable):
-    def __init__(self, preset, time_seconds, size, settings_generation, request_serial, sequence=None):
+    def __init__(self, preset, time_seconds, size, settings_generation, request_serial, sequence=None, frame_provider=None, bypass=False):
         super().__init__()
         self.preset, self.time_seconds, self.size = copy.deepcopy(preset), time_seconds, size
         self.settings_generation, self.request_serial = settings_generation, request_serial
         self.sequence = copy.deepcopy(sequence)
         self.signals = JobSignals()
+        self.frame_provider, self.bypass = frame_provider, bypass
 
     def run(self):
         try:
             if self.sequence is not None:
-                image = render_sequence_frame(self.sequence, self.time_seconds, self.size)
+                image = render_sequence_frame(self.sequence, self.time_seconds, self.size, self.frame_provider, self.bypass)
             else:
                 treatment_frame = round(self.time_seconds * self.preset["treatment_fps"])
                 image = render_synth_frame(self.preset, treatment_frame, self.time_seconds, self.size)
             self.signals.done.emit((self.settings_generation, self.request_serial, self.time_seconds, image.size, image.tobytes()))
         except Exception as exc:
             self.signals.failed.emit(str(exc))
+        finally:
+            if self.frame_provider and self.frame_provider.cancel.event.is_set():
+                self.frame_provider.close()
 
 
 class ExportJob(QRunnable):
@@ -174,6 +197,8 @@ class SynthStudio(QMainWindow):
         self.render_running = False
         self.render_queued = False
         self.export_job = None
+        self.import_job = None
+        self.video_frames = VideoFrameProvider(preview=True)
         self.controls = {}
         self.module_groups = []
         self.play_timer = QTimer(self)
@@ -252,6 +277,9 @@ class SynthStudio(QMainWindow):
         outer.addLayout(header)
         sequence_actions = QHBoxLayout()
         new = QPushButton("New clip"); new.clicked.connect(self.new_composition); sequence_actions.addWidget(new)
+        self.import_video_button = QPushButton('Import video…'); self.import_video_button.clicked.connect(self.import_video_dialog)
+        sequence_actions.addWidget(self.import_video_button)
+        self.cancel_import = QPushButton('Cancel import'); self.cancel_import.clicked.connect(self.cancel_video_import); self.cancel_import.hide(); sequence_actions.addWidget(self.cancel_import)
         sequence_actions.addWidget(QLabel("Starters"))
         self.starter_combo = QComboBox(); self.starter_combo.setAccessibleName("Starters")
         for identifier, label, _factory in STARTERS:
@@ -305,6 +333,9 @@ class SynthStudio(QMainWindow):
         fit = QPushButton('Fit'); fit.setAccessibleName('Fit canvas in viewer'); fit.clicked.connect(lambda: self.viewer.set_zoom(0)); view_row.addWidget(fit)
         actual = QPushButton('100%'); actual.setAccessibleName('View at 100 percent'); actual.clicked.connect(lambda: self.viewer.set_zoom(1)); view_row.addWidget(actual)
         view_row.addStretch(1); left_layout.addLayout(view_row)
+        self.source_preview = QCheckBox('Before / source'); self.source_preview.setAccessibleName('Before / source')
+        self.source_preview.setToolTip('Preview the same footage frame with its framing, before image treatments and master grade. Export always includes treatments.')
+        self.source_preview.toggled.connect(lambda _checked: self.invalidate()); view_row.addWidget(self.source_preview)
         self.viewer.zoomChanged.connect(self.refresh_view_zoom)
         self.section_timeline = SectionTimeline()
         self.section_timeline.selected.connect(lambda index: self.composer and self.composer.select_section(index))
@@ -329,7 +360,7 @@ class SynthStudio(QMainWindow):
         self.quality.addItems(["Preview · 360 px", "Preview · 720 px", "Preview · full"])
         self.quality.setToolTip("Monitor resolution only. MP4 exports use the full canvas size shown above. To keep this texture in your export, apply Effects → Low-res finish → 360 px preview feel.")
         self.quality.currentIndexChanged.connect(lambda _index: self.invalidate()); export_row.addWidget(self.quality)
-        export = QPushButton("Export MP4"); export.setObjectName("primary"); export.clicked.connect(self.export_dialog); export_row.addWidget(export)
+        self.export_button = export = QPushButton("Export MP4"); export.setObjectName("primary"); export.clicked.connect(self.export_dialog); export_row.addWidget(export)
         self.cancel_export = QPushButton("Cancel export"); self.cancel_export.setEnabled(False); self.cancel_export.clicked.connect(self.cancel_export_job); export_row.addWidget(self.cancel_export)
         left_layout.addLayout(export_row)
         split.addWidget(left)
@@ -488,6 +519,7 @@ class SynthStudio(QMainWindow):
             self.composer.failed.connect(lambda message: self.status.setText(f"Composition edit ignored: {message}"))
             self.composer.sectionSelected.connect(self.composition_section_selected)
             self.composer.detailsRequested.connect(self.open_detailed_copy)
+            self.composer.relinkRequested.connect(lambda: self.import_video_dialog(relink=True))
             self.panel_layout.addWidget(self.composer)
             self.section_timeline.set_document(self.composition, self.composer.index)
             self.update_composition_history()
@@ -593,6 +625,11 @@ class SynthStudio(QMainWindow):
 
     def refresh_canvas_controls(self):
         canvas = self.current_canvas()
+        is_video = self.sequence is not None and 'footage' in self.sequence
+        self.fit_subject.setVisible(not is_video)
+        self.source_preview.setVisible(is_video)
+        if not is_video:
+            with QSignalBlocker(self.source_preview): self.source_preview.setChecked(False)
         with QSignalBlocker(self.canvas_combo), QSignalBlocker(self.fit_subject):
             while self.canvas_combo.count() > len(CANVAS_FORMATS):
                 self.canvas_combo.removeItem(self.canvas_combo.count() - 1)
@@ -631,6 +668,7 @@ class SynthStudio(QMainWindow):
             self.refresh_canvas_controls(); self.invalidate()
 
     def set_composition(self, project):
+        self.cancel_video_import()
         project = normalize_composition(project)
         sequence = compile_composition(project)
         self.composition = project
@@ -645,9 +683,61 @@ class SynthStudio(QMainWindow):
             self.preset_combo.setCurrentText("Reference blinds")
         self.rebuild_modules(); self.update_timeline_max(); self.invalidate()
 
+    def import_video_dialog(self, checked=False, relink=False):
+        path, _ = QFileDialog.getOpenFileName(self, 'Relink video' if relink else 'Import video as a new composition', '',
+            'Video (*.mp4 *.mov *.m4v *.mkv *.avi *.webm);;All files (*)')
+        if path: self.start_video_import(path, relink)
+
+    def start_video_import(self, path, relink=False):
+        self.cancel_video_import()
+        self.play.setChecked(False)
+        job = ImportVideoJob(path)
+        self.import_job = job; self.pending_jobs.append(job)
+        self.import_video_button.setEnabled(False); self.cancel_import.show()
+        self.status.setText('Preparing video preview… You can keep editing. Original footage is used for export.')
+        job.signals.done.connect(lambda footage, j=job: self.video_imported(j, footage, relink))
+        job.signals.failed.connect(lambda error, j=job: self.video_import_failed(j, error))
+        self.jobs.start(job)
+
+    def cancel_video_import(self):
+        if self.import_job:
+            self.import_job.cancel.cancel()
+            self.import_job = None
+        if hasattr(self, 'cancel_import'):
+            self.cancel_import.hide(); self.import_video_button.setEnabled(True)
+
+    def _release_import(self, job):
+        if job in self.pending_jobs: self.pending_jobs.remove(job)
+        current = job is self.import_job
+        if current:
+            self.import_job = None; self.cancel_import.hide(); self.import_video_button.setEnabled(True)
+        return current and not self.closing
+
+    def video_import_failed(self, job, error):
+        if self._release_import(job): self.status.setText(f'Video import: {error}')
+
+    def video_imported(self, job, footage, relink):
+        if not self._release_import(job): return
+        if relink and self.composition and 'footage' in self.composition:
+            document = copy.deepcopy(self.composition)
+            document['footage'] = relink_footage(document['footage'], footage)
+            self.composer.commit(document, 'video-relink')
+        else:
+            # Import opens a new document. Preserve the composition being left,
+            # including edits made while the proxy was being prepared.
+            backup = None
+            if self.composition:
+                from datetime import datetime
+                backup = Path.home() / 'Library/Application Support/Nebula Studio/Backups' / f"before-video-{datetime.now():%Y%m%d-%H%M%S-%f}.json"
+                save_composition(backup, self.composition)
+            self.set_composition(video_composition(footage))
+            self.timeline.setValue(0)
+            if backup: self.status.setText(f'Video ready. Previous composition saved to {backup}')
+        self.composer.look_tabs.setCurrentWidget(self.composer.video_panel)
+
     def composition_changed(self, document, action):
         compiled = compile_composition(document)
-        if self.edit_key != action or not action.startswith(("macro:", "geometry:", "effect-param:", 'master:')):
+        if self.edit_key != action or not action.startswith(("macro:", "geometry:", "effect-param:", 'master:', 'video:')):
             self.undo_compositions.append(copy.deepcopy(self.composition))
             self.undo_compositions = self.undo_compositions[-30:]
         self.edit_key = action; self.edit_timer.start(400)
@@ -854,6 +944,7 @@ class SynthStudio(QMainWindow):
         path, _ = QFileDialog.getOpenFileName(self, "Open composition or sequence", "", "Nebula document (*.json)")
         if not path: return
         try:
+            self.cancel_video_import()
             with open(path) as document:
                 if json.load(document).get("format") == FORMAT:
                     self.set_composition(load_composition(path))
@@ -904,7 +995,7 @@ class SynthStudio(QMainWindow):
         edge = (360, 720, None)[self.quality.currentIndex()]
         size = preview_size(self.current_canvas(), edge)
         self.render_running = True
-        job = RenderJob(self.preset, self.current_time, size, self.settings_generation, self.request_serial, self.sequence); self.pending_jobs.append(job); job.signals.done.connect(self.frame_ready); job.signals.done.connect(lambda _result, j=job: self._release_job(j)); job.signals.failed.connect(self.render_failed); job.signals.failed.connect(lambda _error, j=job: self._release_job(j)); self.jobs.start(job)
+        job = RenderJob(self.preset, self.current_time, size, self.settings_generation, self.request_serial, self.sequence, self.video_frames, self.source_preview.isChecked()); self.pending_jobs.append(job); job.signals.done.connect(self.frame_ready); job.signals.done.connect(lambda _result, j=job: self._release_job(j)); job.signals.failed.connect(self.render_failed); job.signals.failed.connect(lambda _error, j=job: self._release_job(j)); self.jobs.start(job)
 
     def _release_job(self, job):
         if job in self.pending_jobs:
@@ -931,6 +1022,7 @@ class SynthStudio(QMainWindow):
         else: self.play_timer.stop()
     def select_curated(self, name):
         if name not in curated_presets(): return
+        self.cancel_video_import()
         self.sequence = None
         self.composition = None
         self.preset = copy.deepcopy(curated_presets()[name]); self.rebuild_modules(); self.update_timeline_max(); self.invalidate()
@@ -979,9 +1071,11 @@ class SynthStudio(QMainWindow):
             try: self.preset = load_synth(path); self.sequence = None; self.composition = None; self.rebuild_modules(); self.update_timeline_max(); self.invalidate()
             except Exception as exc: QMessageBox.critical(self, "Preset error", str(exc))
     def export_dialog(self):
+        if self.export_job: return
         default_name = self.suggested_output_path(".mp4")
         path, _ = QFileDialog.getSaveFileName(self, "Export synth sequence" if self.sequence is not None else "Export synth loop", default_name, "MP4 video (*.mp4)")
         if not path: return
+        self.export_button.setEnabled(False)
         p = copy.deepcopy(self.preset) if self.sequence is not None else self.collect()
         canvas = self.current_canvas(); size = (canvas["width"], canvas["height"])
         job = ExportJob(p, path, size, self.sequence); self.export_job = job; self.cancel_export.setEnabled(True); self.pending_jobs.append(job); job.signals.progress.connect(lambda a, b: self.status.setText(f"Exporting {a}/{b}")); job.signals.done.connect(lambda _: self.status.setText(f"Exported {path}")); job.signals.done.connect(lambda _result, j=job: self._finish_export(j)); job.signals.failed.connect(lambda error: self.status.setText(f"Export error: {error}")); job.signals.failed.connect(lambda _error, j=job: self._finish_export(j)); self.jobs.start(job)
@@ -992,6 +1086,7 @@ class SynthStudio(QMainWindow):
         if self.export_job is job:
             self.export_job = None
             self.cancel_export.setEnabled(False)
+            self.export_button.setEnabled(True)
 
     def cancel_export_job(self):
         if self.export_job:
@@ -1002,6 +1097,9 @@ class SynthStudio(QMainWindow):
         self.save_workspace()
         self.closing = True
         self.play_timer.stop()
+        self.cancel_video_import()
+        self.video_frames.cancel.cancel()
+        if not self.render_running: self.video_frames.close()
         if self.export_job:
             self.export_job.cancel.cancel()
         self.jobs.waitForDone(1500)

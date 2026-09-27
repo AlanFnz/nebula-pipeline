@@ -20,6 +20,8 @@ from synth_master import normalize_master
 from synth_master_ui import MasterPanel
 from synth_subject import select_subject, restore_subject
 from synth_subject_ui import SubjectPanel
+from synth_video_ui import VideoSourcePanel
+from synth_video import VIDEO_EFFECTS, apply_treatment
 
 
 class SectionTimeline(QWidget):
@@ -133,6 +135,7 @@ class CompositionPanel(QWidget):
     failed = Signal(str)
     sectionSelected = Signal(int)
     detailsRequested = Signal()
+    relinkRequested = Signal()
 
     def __init__(self, document, index=0, scope=0):
         super().__init__()
@@ -154,7 +157,8 @@ class CompositionPanel(QWidget):
         grid = QGridLayout(clip)
         self.duration = QDoubleSpinBox(); self.duration.setRange(.24, 3600); self.duration.setDecimals(2); self.duration.setSuffix(" s"); self.duration.setKeyboardTracking(False)
         self.fps = QSpinBox(); self.fps.setRange(1, 120); self.fps.setSuffix(" fps"); self.fps.setKeyboardTracking(False)
-        grid.addWidget(QLabel("Duration"), 0, 0); grid.addWidget(QLabel("Frame rate"), 0, 1)
+        self.fps_label = QLabel('Frame rate')
+        grid.addWidget(QLabel("Duration"), 0, 0); grid.addWidget(self.fps_label, 0, 1)
         grid.addWidget(self.duration, 1, 0); grid.addWidget(self.fps, 1, 1)
         self.duration.valueChanged.connect(self.resize_clip)
         self.fps.valueChanged.connect(self.change_fps)
@@ -211,6 +215,12 @@ class CompositionPanel(QWidget):
         self.master_panel.edited.connect(self.change_master)
         self.master_panel.resetRequested.connect(self.reset_master)
         self.look_tabs.addTab(self.master_panel, 'Master')
+        self.video_panel = VideoSourcePanel()
+        self.video_panel.edited.connect(self.change_video)
+        self.video_panel.relinkRequested.connect(self.relinkRequested.emit)
+        self.video_panel.durationRequested.connect(self.resize_clip)
+        self.video_panel.treatmentRequested.connect(self.apply_video_treatment)
+        self.look_tabs.addTab(self.video_panel, 'Source')
         self.look_tabs.currentChanged.connect(lambda _index: self.show_timing_scope(self.effects_panel.effect_id == 'ink_bloom' and self.effects_panel.parameter_tabs.currentIndex() == 1))
         treatment_hint = QLabel("Relative adjustments to the recipe. 1× keeps its original treatment; different recipes can look different at 1×.")
         treatment_hint.setWordWrap(True); treatment_hint.setObjectName("muted"); treatment_layout.addWidget(treatment_hint)
@@ -241,7 +251,7 @@ class CompositionPanel(QWidget):
         treatment_layout.addStretch(1)
         self.take_label = QLabel(); self.take_label.setObjectName("muted"); shape_layout.addWidget(self.take_label)
         layout.addWidget(shape)
-        details = QPushButton("Open detailed copy…"); details.clicked.connect(self.detailsRequested.emit); layout.addWidget(details)
+        self.details_button = details = QPushButton("Open detailed copy…"); details.clicked.connect(self.detailsRequested.emit); layout.addWidget(details)
         self.refresh()
 
     def target(self, document=None):
@@ -251,6 +261,13 @@ class CompositionPanel(QWidget):
     def refresh(self):
         self.updating = True
         try:
+            video = self.document.get('footage')
+            self.fps_label.setText('Export frame rate' if video else 'Frame rate')
+            self.look_tabs.setTabVisible(self.look_tabs.indexOf(self.video_panel), bool(video))
+            self.look_tabs.setTabVisible(self.look_tabs.indexOf(self.object_panel), not video)
+            self.look_tabs.setTabVisible(2, not video)
+            self.details_button.setVisible(not video)
+            self.video_panel.refresh(video)
             self.duration.setMinimum(len(self.document["sections"]) / self.document["fps"])
             self.duration.setValue(section_ranges(self.document)[-1][1])
             self.fps.setValue(self.document["fps"])
@@ -273,7 +290,7 @@ class CompositionPanel(QWidget):
             states = [state for name, state in compiled["states"].items() if name.startswith(prefix)] if self.scope else all_states
             label = f"SECTION {self.index + 1:02d} / {self.document['phrases'][section['phrase']]['name']}" if self.scope else "WHOLE CLIP / section overrides take priority"
             context_key = section["id"] if self.scope else None
-            self.effects_panel.set_context(target["effects"], self.document["effects"] if self.scope else {}, states, label, bool(self.scope), (self.scope, context_key), self.document['ink_timing'], all_states)
+            self.effects_panel.set_context(target["effects"], self.document["effects"] if self.scope else {}, states, label, bool(self.scope), (self.scope, context_key), self.document['ink_timing'], all_states, VIDEO_EFFECTS if video else None)
             self.object_panel.refresh(self.effects_panel.summary, target['effects'], self.document['effects'] if self.scope else {}, bool(self.scope))
             for key, control in self.macro_controls.items():
                 control.set_value(target["macros"][key], key in target["locks"])
@@ -341,10 +358,21 @@ class CompositionPanel(QWidget):
     def show_timing_scope(self, timing):
         timing = timing and self.look_tabs.currentIndex() == 0
         master = self.look_tabs.currentWidget() is self.master_panel
-        self.scope_combo.setVisible(not (timing or master))
+        source = self.look_tabs.currentWidget() is self.video_panel
+        self.scope_combo.setVisible(not (timing or master or source))
         self.timing_scope_label.setVisible(timing)
         self.master_scope_label.setVisible(master)
         self.take_label.setVisible(not master)
+
+    def change_video(self, key, value):
+        if self.updating: return
+        document = copy.deepcopy(self.document)
+        document['footage'][key] = value
+        self.commit(document, f'video:{key}')
+
+    def apply_video_treatment(self, index):
+        self.commit(apply_treatment(self.document, index), 'video-treatment')
+        self.look_tabs.setCurrentWidget(self.effects_panel)
 
     def change_object(self, kind):
         if self.updating: return

@@ -69,9 +69,64 @@ atomic MP4 loop export. The schema and renderer live in [`synth.py`](synth.py);
 new effects register one module specification and one renderer callback in
 `RENDERERS`. Unknown modules survive save/reload for forward compatibility.
 
-This first synthesis pass is source-free. Input-video modulation is reserved
-for the next phase; the existing clip workflow remains available from the same
-`studio.py` entry point.
+The composer also accepts normal video as an image source through **Import
+video…**, alongside the generated studies. The earlier Print → Scan clip editor
+remains available from the same `studio.py` entry point.
+
+### Video sources in the composer
+
+**Import video…** opens a new composition at the footage's aspect ratio and
+frame rate. Preparation runs in the background and can be cancelled. The
+composition being left is backed up in
+`~/Library/Application Support/Nebula Studio/Backups/` before switching.
+
+- **Source** controls the global In/Out range, uniform scale, X/Y position and
+  Fit / Fill-crop / Original pixel size. Changing the canvas never stretches
+  the footage. **Use trimmed duration for timeline** explicitly resizes the
+  arrangement; otherwise section durations continue to determine the total.
+- **Loop trimmed range** repeats that range. **Hold last frame** freezes its
+  last frame. Footage time stays continuous across section boundaries; effects
+  can change without restarting the input.
+- **Effect cadence** holds procedural changes independently of footage playback.
+  **Arrange → Export frame rate** controls delivered frames. Source playback is
+  real time; this milestone does not add speed ramps or reverse playback.
+- **Effects** offers applicable image treatments: tape damage, breakup, scan
+  drag, drift, ghosts, color separation, interference, exposure flare, jitter,
+  bloom, raster/grain/softness, print surface, signal background and low-res
+  finish. **Master** adjusts the final brightness, contrast and saturation.
+  Object generators and effects requiring object masks are not offered for video.
+- **Source → Treatment presets** applies Clean, Worn tape, Printed motion or
+  Soft signal to the current footage. These replace effects and master settings
+  throughout the composition while retaining its source, framing and sections;
+  Undo restores the previous treatment. They are separate from generated starters.
+- **Before / source** previews the same frame and framing without treatments or
+  master grading. Export always includes the enabled treatments.
+- **Keep source audio in export** is explicit in Source. Uncheck it for a silent
+  MP4. Audio follows the trimmed loop; Hold pads its end with silence. The preview
+  is currently silent. Export is atomic and cannot overwrite the input, including
+  a symlink or hard-link alias.
+- Save/Open keeps the source file reference and its identity. Missing or changed
+  files have a clear relink message: **Source → Relink / replace video…** retains
+  treatments and valid trim settings. The document does not embed the video;
+  keep it with the project when moving between machines.
+
+Preview uses lossless, seekable proxies up to 720 pixels under
+`~/Library/Caches/Nebula Studio/video-v1/`, with a bounded decoded-frame cache.
+Effect changes reuse decoded frames. Proxies are regenerated when needed and
+old files are evicted above a 2 GiB disk budget (the newest proxy is retained even
+if it alone exceeds that budget). Full-resolution export decodes the original.
+Variable-rate footage is sampled onto a deterministic timestamp grid, capped at
+120 fps; audio retains real-time duration. Processing and H.264 delivery use the
+studio's existing 8-bit RGB/SDR path, not an HDR mastering pipeline.
+
+Video compositions and compiled sequences use storage schema 2 so older builds
+reject them explicitly; generated documents retain schema 1 and their render
+versions, defaults and seeds. Pixel contracts cover all eleven starters,
+including both newer profile models. `synth_video.py` owns source identity,
+framing, clocks and decoding; `synth_video_audio.py` handles audio assembly.
+The existing renderer accepts an optional source image before the same image
+treatments. Segmentation, tracked object masks, input-driven particles and
+multiple footage layers remain future work.
 
 The default view is a **composer**: sections below the preview and an **Effects**
 inspector. It opens the **Refined signal** study with its original animated recipe.
