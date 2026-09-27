@@ -26,6 +26,14 @@ def export_synth_video(preset, output, start=0, count=None, cancel=None, progres
         sequence_renderer = render_sequence_frame
     cancel = cancel or Cancellation()
     output = Path(output)
+    footage = sequence_data.get('footage') if sequence_data else None
+    provider = None
+    if footage:
+        from synth_video import VideoFrameProvider, check_source
+        source_path = check_source(footage)
+        if output.resolve() == source_path.resolve() or (output.exists() and os.path.samefile(output, source_path)):
+            raise ValueError('Choose an output different from the source clip')
+        provider = VideoFrameProvider(cancel=cancel)
     canvas = sequence_data.get("canvas", p) if sequence_data else p
     width, height = size or (canvas["width"], canvas["height"])
     export_fps = int(sequence_data["fps"] if sequence_data else p["export_fps"])
@@ -39,6 +47,7 @@ def export_synth_video(preset, output, start=0, count=None, cancel=None, progres
     os.close(fd)
     temp = Path(name)
     proc = None
+    muxed = None
     try:
         with tempfile.TemporaryFile() as errors:
             proc = subprocess.Popen(
@@ -52,7 +61,7 @@ def export_synth_video(preset, output, start=0, count=None, cancel=None, progres
                 cancel.check()
                 time_seconds = index / export_fps
                 if sequence_renderer:
-                    image = sequence_renderer(sequence_data, time_seconds, size=(width, height))
+                    image = sequence_renderer(sequence_data, time_seconds, size=(width, height), frame_provider=provider) if provider else sequence_renderer(sequence_data, time_seconds, size=(width, height))
                 else:
                     treatment_frame = round(time_seconds * p["treatment_fps"])
                     image = render_synth_frame(p, frame=treatment_frame, time_seconds=time_seconds, size=(width, height))
@@ -65,12 +74,24 @@ def export_synth_video(preset, output, start=0, count=None, cancel=None, progres
             if code:
                 errors.seek(0)
                 raise ValueError(errors.read().decode(errors="replace")[-2000:] or "FFmpeg could not encode synth")
-        os.replace(temp, output)
+        if footage and footage['audio'] == 'keep' and footage['has_audio']:
+            from synth_video_audio import mux_source_audio
+            fd, name = tempfile.mkstemp(prefix='.nebula-mux-', suffix='.mp4', dir=output.parent)
+            os.close(fd); muxed = Path(name)
+            mux_source_audio(temp, muxed, footage, start / export_fps, count / export_fps, cancel)
+            cancel.check()
+            os.replace(muxed, output)
+        else:
+            cancel.check()
+            os.replace(temp, output)
         return output
-    except (BrokenPipeError, Cancelled):
-        cancel.check()
+    except Cancelled:
         raise ValueError("Synth export cancelled") from None
+    except BrokenPipeError:
+        if cancel.event.is_set(): raise ValueError('Synth export cancelled') from None
+        raise ValueError('FFmpeg stopped while encoding the export') from None
     finally:
+        if provider: provider.close()
         if proc is not None:
             if proc.poll() is None:
                 proc.terminate()
@@ -86,3 +107,4 @@ def export_synth_video(preset, output, start=0, count=None, cancel=None, progres
                     pass
             cancel.detach(proc)
         temp.unlink(missing_ok=True)
+        if muxed: muxed.unlink(missing_ok=True)

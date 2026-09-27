@@ -92,6 +92,8 @@ def composition_from_sequence(sequence):
     result["master"] = normalize_master(source.get("master"))
     result["phrases"] = {"custom": {"name": source["name"], "start": 0., "end": source["duration"]}}
     result["sections"] = [{"id": "section-1", "phrase": "custom", "duration": source["duration"], "macros": neutral_macros(), "geometry": default_geometry(section=True), "effects": {}, "variation": 0, "locks": []}]
+    if 'footage' in source:
+        result.update(schema_version=2, render_version=2, footage=copy.deepcopy(source['footage']))
     return result
 
 
@@ -526,9 +528,13 @@ def _geometry(raw, section=False):
 
 
 def normalize_composition(raw):
-    if not isinstance(raw, dict) or raw.get("format") != FORMAT or raw.get("schema_version") != 1:
+    if not isinstance(raw, dict) or raw.get("format") != FORMAT or raw.get("schema_version") not in (1, 2):
         raise ValueError("Unsupported composition document")
     result = copy.deepcopy(raw)
+    if raw.get('schema_version') == 2 or 'footage' in raw:
+        from synth_video import normalize_footage
+        result['footage'] = normalize_footage(raw.get('footage'))
+        result['schema_version'] = 2
     if not isinstance(raw.get("source"), dict):
         raise ValueError("A composition must contain its source recipe")
     result["source"] = normalize_sequence(raw.get("source"))
@@ -576,6 +582,11 @@ def normalize_composition(raw):
         raise ValueError("Composition is longer than one hour")
     normalize_shared_timing(result)
     scopes = [result, *result['sections']]
+    if 'footage' in result:
+        from synth_video import VIDEO_EFFECTS
+        for scope in scopes:
+            if set(scope['effects']) - set(VIDEO_EFFECTS):
+                raise ValueError('Video compositions support image treatments; object generators need a generated starter')
     if any(scope['effects'].get('edge_phosphor', {}).get('params', {}).get('edge_phosphor.fade_mode', 0) or
            scope['effects'].get('silhouette', {}).get('params', {}).get('silhouette.definition', 0) for scope in scopes):
         result['render_version'] = 2
@@ -643,6 +654,8 @@ def compile_composition(raw):
     result.update(name=project["name"], fps=project["fps"], seed=project["seed"], states={}, cues=[])
     result["canvas"] = copy.deepcopy(project["canvas"])
     result['master'] = copy.deepcopy(project['master'])
+    if 'footage' in project:
+        result.update(schema_version=2, footage=copy.deepcopy(project['footage']))
     fps = project["fps"]
     ranges = section_ranges(project)
     result["duration"] = ranges[-1][1]
@@ -667,6 +680,8 @@ def compile_composition(raw):
                 if state_name not in result["states"]:
                     state = _adjust_state(project["source"]["states"][cue["state"]], macros, offset, effective_geometry(project, section))
                     result["states"][state_name] = apply_shared_timing(apply_effects(state, effects), project['ink_timing'])
+                    if 'footage' in project:
+                        result['states'][state_name].setdefault('overrides', {})['treatment_fps'] = project['footage']['treatment_fps']
                 item = dict(cue, time=frame / fps, state=state_name)
                 item["duration"] = min(float(cue.get("duration", 0)) / rate, end - frame / fps)
                 if cue.get("transition") in {"flash", "sweep"}:
@@ -680,6 +695,8 @@ def vary_composition(raw, section_index=None):
     result = normalize_composition(raw)
     target = result if section_index is None else result["sections"][section_index]
     target["variation"] += 1
+    if 'footage' in result:
+        return result
     rng = random.Random(_seed(result["seed"], "composition-take", target.get("id", "whole"), target["variation"]))
     for key, (_name, low, high, _hint) in MACROS.items():
         if key in target["locks"]:
@@ -695,4 +712,8 @@ def save_composition(path, composition):
 
 
 def load_composition(path):
-    return normalize_composition(json.loads(Path(path).read_text()))
+    raw = json.loads(Path(path).read_text())
+    if isinstance(raw.get('footage'), dict) and raw['footage'].get('path'):
+        source = Path(raw['footage']['path'])
+        if not source.is_absolute(): raw['footage']['path'] = str((Path(path).resolve().parent / source).resolve())
+    return normalize_composition(raw)

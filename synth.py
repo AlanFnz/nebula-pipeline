@@ -1000,7 +1000,7 @@ RENDERERS = {
 }
 
 
-def render_synth_frame(preset, frame=0, time_seconds=None, size=None):
+def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_image=None):
     """Render one frame at continuous time; `frame` is only a default clock."""
     p = normalize_synth(preset)
     output, (width, height), sampling = render_resolution(p, size)
@@ -1013,11 +1013,20 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None):
     arr[..., 0] = .055
     arr[..., 1] = .067
     arr[..., 2] = .055
+    if source_image is not None:
+        from synth_video import VIDEO_MODULES
+        if source_image.size != (width, height):
+            raise ValueError('Video source must match the working canvas')
+        arr = np.asarray(source_image.convert('RGB'), dtype=np.float32) / 255
     treatment_frame = round(t * p["treatment_fps"])
     for index, entry in enumerate(p["modules"]):
         if not entry.get("enabled", True):
             continue
         module_id = entry.get("id")
+        if source_image is not None and module_id not in VIDEO_MODULES:
+            if module_id != 'low_res':
+                raise ValueError(f'{module_id} requires a generated object, not a video source')
+            continue
         renderer = RENDERERS.get(module_id)
         if renderer is None:
             continue

@@ -47,9 +47,12 @@ def normalize_sequence(raw=None):
         return reference_sequence()
     if not isinstance(raw, dict):
         raise ValueError("Synth sequence must be a JSON object")
-    if int(raw.get("schema_version", 0)) != SEQUENCE_SCHEMA_VERSION:
+    if raw.get("schema_version", 0) not in (1, 2):
         raise ValueError(f"Unsupported sequence schema version: {raw.get('schema_version')}")
     result = copy.deepcopy(reference_sequence())
+    if raw.get('schema_version') == 2 or 'footage' in raw:
+        from synth_video import normalize_footage
+        result.update(schema_version=2, footage=normalize_footage(raw.get('footage')))
     result['render_version'] = render_version(raw)
     result["name"] = str(raw.get("name", result["name"]))
     if "canvas" in raw:
@@ -122,7 +125,11 @@ def save_sequence(path, sequence):
 
 
 def load_sequence(path):
-    return normalize_sequence(json.loads(Path(path).read_text()))
+    raw = json.loads(Path(path).read_text())
+    if isinstance(raw.get('footage'), dict) and raw['footage'].get('path'):
+        source = Path(raw['footage']['path'])
+        if not source.is_absolute(): raw['footage']['path'] = str((Path(path).resolve().parent / source).resolve())
+    return normalize_sequence(raw)
 
 
 def _apply_override(preset, path, value):
@@ -201,8 +208,12 @@ def _interpolate_presets(first, second, amount):
     return normalize_synth(result)
 
 
-def render_sequence_frame(sequence, time_seconds, size=None):
+def render_sequence_frame(sequence, time_seconds, size=None, frame_provider=None, bypass=False):
     seq = normalize_sequence(sequence)
+    if 'footage' in seq and frame_provider is None:
+        from synth_video import VideoFrameProvider
+        with VideoFrameProvider() as provider:
+            return render_sequence_frame(seq, time_seconds, size, provider, bypass)
     t = max(0.0, min(float(seq["duration"]), float(time_seconds)))
     cue_index = 0
     for index, cue in enumerate(seq["cues"]):
@@ -228,9 +239,18 @@ def render_sequence_frame(sequence, time_seconds, size=None):
     else:
         base = _state_preset(seq, cue["state"])
     output, working, sampling = render_resolution(base, size)
+    source_image = None
+    if 'footage' in seq:
+        from synth_video import frame_on_canvas
+        footage = seq['footage']
+        source_size = output if bypass else working
+        source = frame_provider.frame(footage, t, edge=max(*output, *source_size))
+        source_image = frame_on_canvas(source, footage, base, source_size)
+        if bypass: return source_image
+        base['treatment_fps'] = footage['treatment_fps']
     # Keep transition overlays and sequence noise on the same working raster.
     # The synth receives that exact size, so it performs no intermediate resize.
-    current = render_synth_frame(base, time_seconds=t, size=working)
+    current = render_synth_frame(base, time_seconds=t, size=working, source_image=source_image) if source_image is not None else render_synth_frame(base, time_seconds=t, size=working)
     result = np.asarray(current, dtype=np.float32) / 255
     if transition == "sweep" and amount < 1:
         direction = float(cue.get("direction", 1))
