@@ -199,6 +199,30 @@ rendering. Working resolution is capped at the saved canvas size.
 
 ### Printed mixed media
 
+**Effects → Ink bloom → Timing** exposes the gesture as four durations in
+seconds: **Unfold**, **Stay unfolded**, **Fold**, and **Stay folded**. Each starts
+at its recipe value; a range means the sections use different timings. Editing
+one stage changes that stage only. Use **↶** to inherit it again. Whole-clip
+values can be overridden in individual sections, and save/open, Undo/Redo and
+detailed copies retain the settings.
+
+**Gesture speed** scales this motion independently: 2× runs twice as fast, .5×
+runs at half speed, and 0 freezes it. Durations are measured at 1×; the inspector
+shows the resulting loop length at the current speed. The turn is retimed with
+the opening and closing so the same edge-on views survive a fast unfold. The
+figure can keep turning during a fully open or closed hold. Stay folded is the
+total rest between gestures, split around the loop boundary in the recipe's
+original proportion. Zero-duration stages are instantaneous; all four at zero
+hold the closed pose.
+
+**Motion FPS** controls how often the geometry updates. **Frame jitter → Jitter
+FPS** independently controls how often the tiny positional shakes change; 6–8
+FPS gives longer holds than 15 FPS. Print/background noise also keeps its own
+clock. **Arrange** controls the section and clip lengths; increasing a gesture's
+duration does not automatically extend the timeline. **More controls** retains
+the original cycle/percentage settings, phase and manual opening-cycle control.
+Earlier documents keep their exact timing until you edit these controls.
+
 **Starters → Ink bloom** creates a 3.53-second, 15 fps study from one editable
 section. Select **Canvas → Square** for its reference framing. Seven ragged
 cyan, magenta, yellow and white impressions unfold into a rotating cluster,

@@ -11,6 +11,7 @@ import math
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 from synth_artwork import decode_artwork, project_artwork
+from synth_ink_timing import gesture_phase
 
 
 INK_PALETTES = (
@@ -31,10 +32,7 @@ def _ease(x):
 
 def bloom_phase(time, p, speed=1.):
     """One cyclic unfold/hold/refold gesture, with an optional manual spread."""
-    clock = math.floor(time * speed * p['cadence'] + 1e-8) / p['cadence']
-    phase = (clock / p['period'] + p['phase']) % 1.
-    opening = _ease((phase * 100 - p['open_start']) / p['open_duration'])
-    closing = 1 - _ease((phase * 100 - p['close_start']) / p['close_duration'])
+    clock, phase, opening, closing = gesture_phase(time, p, speed)
     return clock, phase, p['opening'] * ((1 - p['cycle']) + p['cycle'] * opening * closing)
 
 

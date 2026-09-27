@@ -13,6 +13,7 @@ from PIL import Image
 from synth import MODULE_BY_ID, _seed, curated_presets, normalize_synth, render_synth_frame
 from synth_canvas import normalize_canvas
 from synth_resolution import finish_resolution, render_resolution
+from synth_ink_timing import DURATION_KEYS, stage_durations
 
 SEQUENCE_SCHEMA_VERSION = 1
 NEUTRAL_FIELD = {
@@ -169,9 +170,16 @@ def _interpolate_presets(first, second, amount):
         other = by_id.get(entry.get("id"))
         if not other:
             continue
+        ink = entry.get('id') == 'ink_bloom'
+        first_durations = stage_durations(entry['params']) if ink else {}
+        second_durations = stage_durations(other['params']) if ink else {}
         entry["enabled"] = entry.get("enabled", True) if amount < .5 else other.get("enabled", True)
         for key, value in other.get("params", {}).items():
             original = entry.get("params", {}).get(key, value)
+            # A recipe sentinel is not a negative duration. Resolve only the
+            # stage being customized, preserving untouched legacy morphs.
+            if ink and key in DURATION_KEYS and (original >= 0 or value >= 0):
+                original, value = first_durations[key], second_durations[key]
             module = MODULE_BY_ID.get(entry.get("id"))
             spec = next((spec for spec in module.params if spec.key == key), None) if module else None
             if spec and spec.choices:

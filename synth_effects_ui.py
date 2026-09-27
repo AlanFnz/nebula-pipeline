@@ -2,16 +2,21 @@
 from __future__ import annotations
 
 import copy
+import math
 
 from PySide6.QtCore import QSignalBlocker, Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QPushButton,
-    QDoubleSpinBox, QSpinBox, QStackedWidget,
+    QDoubleSpinBox, QSpinBox, QStackedWidget, QTabBar,
 )
 
 from synth_effects import EFFECTS, EFFECT_BY_ID, describe_effects, effect_preset, parameter
 from studio_theme import COLORS
 from synth_artwork_ui import ArtworkControl
+from synth_ink_timing import DURATION_KEYS, TIMING_KEYS
+
+INK_DURATIONS = {f'ink_bloom.{key}' for key in DURATION_KEYS}
+INK_TIMING = tuple(f'ink_bloom.{key}' for key in TIMING_KEYS)
 
 
 def format_value(path, value):
@@ -41,6 +46,7 @@ class EffectParameter(QWidget):
         else:
             self.input = QSpinBox() if spec.kind == "int" else QDoubleSpinBox()
             self.input.setRange(spec.minimum, spec.maximum); self.input.setSingleStep(spec.step)
+            if path in INK_DURATIONS: self.input.setMinimum(0)
             if spec.kind != "int": self.input.setDecimals(3)
             self.input.setKeyboardTracking(False)
             self.input.valueChanged.connect(self.changed.emit)
@@ -62,6 +68,8 @@ class EffectParameter(QWidget):
 
     def refresh(self, bounds, fixed, inherited, available):
         low, high = bounds
+        if self.path in INK_DURATIONS and fixed is not None and fixed < 0:
+            fixed = None; inherited = False
         value = fixed if fixed is not None else low
         self.fixed_start = low
         animated = fixed is None and low != high and available
@@ -121,6 +129,11 @@ class EffectsPanel(QWidget):
         self.apply_button = QPushButton("+ Apply effect"); self.apply_button.clicked.connect(self.apply_look); row.addWidget(self.apply_button)
         layout.addLayout(row)
         self.status = QLabel(); self.status.setWordWrap(True); self.status.setObjectName("muted"); layout.addWidget(self.status)
+        self.parameter_tabs = QTabBar(); self.parameter_tabs.addTab('Look'); self.parameter_tabs.addTab('Timing')
+        self.parameter_tabs.currentChanged.connect(self.change_parameter_tab)
+        layout.addWidget(self.parameter_tabs)
+        self.timing_note = QLabel(); self.timing_note.setWordWrap(True); self.timing_note.setObjectName('muted')
+        layout.addWidget(self.timing_note)
         self.parameter_host = QWidget(); self.parameter_layout = QVBoxLayout(self.parameter_host); self.parameter_layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.parameter_host)
         self.more = QPushButton("More controls"); self.more.setCheckable(True); self.more.toggled.connect(self.show_more); layout.addWidget(self.more)
@@ -201,10 +214,32 @@ class EffectsPanel(QWidget):
         self.show_more(self.more.isChecked())
         self.updating = False
 
+    def change_parameter_tab(self, _index):
+        with QSignalBlocker(self.more): self.more.setChecked(False)
+        self.show_more(False)
+
     def show_more(self, checked):
         effect = EFFECT_BY_ID[self.effect_id]
-        for index, control in enumerate(self.controls.values()): control.setVisible(checked or index < effect.primary)
-        extra = len(effect.paths) - effect.primary
+        ink = effect.id == 'ink_bloom'
+        timing = ink and self.parameter_tabs.currentIndex() == 1
+        self.parameter_tabs.setVisible(ink)
+        self.timing_note.setVisible(timing)
+        visible_paths = INK_TIMING if timing else tuple(path for path in effect.paths if not ink or path not in INK_TIMING)
+        primary = 6 if timing else effect.primary
+        shown = set(visible_paths if checked else visible_paths[:primary])
+        for path, control in self.controls.items(): control.setVisible(path in shown)
+        for index, path in enumerate(visible_paths):
+            control = self.controls[path]
+            if self.parameter_layout.indexOf(control) != index:
+                self.parameter_layout.insertWidget(index, control)
+        if timing:
+            loops = self.summary['ink_bloom']['loop_seconds']
+            if not loops: loop = 'Enable Ink bloom to preview its timing.'
+            elif not math.isfinite(loops[1]): loop = 'Gesture speed is frozen in part or all of this scope.'
+            elif loops[0] == loops[1]: loop = f'Loop: {loops[0]:.2f} s at the current speed.'
+            else: loop = f'Loop varies: {loops[0]:.2f}–{loops[1]:.2f} s across this scope.'
+            self.timing_note.setText(loop + ' Durations are at 1×. Stay folded is the total rest between gestures. Extend the clip in Arrange to see longer loops.')
+        extra = len(visible_paths) - primary
         self.more.setVisible(extra > 0)
         self.more.setText("Fewer controls" if checked else f"More controls ({max(0, extra)})")
 

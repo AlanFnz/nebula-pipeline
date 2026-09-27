@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Ink bloom has Look / Timing tabs and independent Unfold, Stay unfolded, Fold
+  and Stay folded durations in seconds. Gesture speed scales its motion without
+  changing frame jitter or background clocks. Turn motion follows the retimed
+  stages; the inspector resolves recipe durations and section ranges, shows the
+  resulting loop length, and supports local overrides, reset, Undo/Redo and
+  saved/detailed editing. Earlier percentage-based gestures remain pixel-exact.
+
 - Reusable Low-res finish preserves the 360 px preview texture in full-size
   exports. Working resolution and Soft / Crisp pixels enlargement apply to the
   complete render, including backgrounds and timeline transitions. Includes

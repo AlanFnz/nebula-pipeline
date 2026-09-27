@@ -77,6 +77,8 @@ class SynthControl(QWidget):
             return
         self.spin = QSpinBox() if spec.kind == "int" else QDoubleSpinBox()
         self.spin.setRange(spec.minimum, spec.maximum)
+        if spec.key in {'unfold_seconds', 'unfolded_seconds', 'fold_seconds', 'folded_seconds'}:
+            self.spin.setSpecialValueText('Recipe')
         if spec.kind == "float":
             self.spin.setDecimals(max(2, len(str(spec.step).split(".")[-1])))
         self.spin.setSingleStep(spec.step)

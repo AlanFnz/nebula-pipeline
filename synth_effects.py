@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 from synth import MODULE_BY_ID, Param, curated_presets
 from synth_artwork import validate_artwork
+from synth_ink_timing import stage_durations
 
 
 @dataclass(frozen=True)
@@ -30,7 +31,7 @@ def paths(module, keys=None):
 
 
 EFFECTS = (
-    Effect("ink_bloom", "Ink bloom", "Overlapping stamps unfold, turn and gather again. Choose a shape or import a cutout; the motion stays the same. Artwork supplies the silhouette, and Ink palette supplies its colors.",
+    Effect("ink_bloom", "Ink bloom", "Overlapping stamps unfold, turn and gather again. Look sets the silhouette and inks. Timing sets unfold/fold durations, holds and gesture speed. Frame jitter controls the small positional shakes separately.",
            paths("ink_bloom"), ("ink_bloom",),
            looks=(("CMY unfolding cluster", {}),
                   ("Single rough stamp", {"ink_bloom.count": 1, "ink_bloom.cycle": 0., "ink_bloom.revolutions": 0., "ink_bloom.tumble": 0.}),
@@ -187,7 +188,18 @@ def effect_active(effect, values, enabled):
 
 def describe_effects(states):
     """Inspect real recipe values, including ranges across animated states."""
-    resolved = [state_values(state) for state in states]
+    resolved = []
+    # Display effective seconds, not the internal negative "follow recipe"
+    # value. Resolve each state separately to retain per-section differences.
+    for state in states:
+        values, enabled = state_values(state)
+        if 'ink_bloom' in enabled:
+            ink = {key.removeprefix('ink_bloom.'): value for key, value in values.items() if key.startswith('ink_bloom.')}
+            durations = stage_durations(ink)
+            values.update({f'ink_bloom.{key}': value for key, value in durations.items()})
+            speed = ink['motion_speed'] * (values['speed'] if 'speed' in values else curated_presets()[state['preset']]['speed'])
+            values['_ink_loop'] = sum(durations.values()) / speed if speed > 0 else float('inf')
+        resolved.append((values, enabled))
     result = {}
     for effect in EFFECTS:
         active = [(values, enabled) for values, enabled in resolved if effect_active(effect, values, enabled)]
@@ -196,5 +208,12 @@ def describe_effects(states):
             module = path.split(".")[0]
             values = [values[path] for values, enabled in active if module in enabled]
             ranges[path] = (min(values), max(values)) if values else (parameter(path).default,) * 2
+        if effect.id == 'ink_bloom' and not active:
+            defaults = {spec.key: spec.default for spec in MODULE_BY_ID['ink_bloom'].params}
+            for key, value in stage_durations(defaults).items():
+                ranges[f'ink_bloom.{key}'] = (value, value)
         result[effect.id] = {"active": bool(active), "intermittent": 0 < len(active) < len(resolved), "ranges": ranges}
+        if effect.id == 'ink_bloom':
+            loops = [values['_ink_loop'] for values, _ in active]
+            result[effect.id]['loop_seconds'] = (min(loops), max(loops)) if loops else None
     return result
