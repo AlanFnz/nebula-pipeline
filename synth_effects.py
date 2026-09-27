@@ -10,6 +10,7 @@ import math
 from dataclasses import dataclass
 
 from synth import MODULE_BY_ID, Param, curated_presets
+from synth_artwork import validate_artwork
 
 
 @dataclass(frozen=True)
@@ -29,12 +30,12 @@ def paths(module, keys=None):
 
 
 EFFECTS = (
-    Effect("ink_bloom", "Ink bloom", "Ragged ink stamps open into a rotating cluster, then fold back into one impression. Motion FPS gives held frames; Automatic cycle at 0 enables manual Opening.",
+    Effect("ink_bloom", "Ink bloom", "Overlapping stamps unfold, turn and gather again. Choose a shape or import a cutout; the motion stays the same. Artwork supplies the silhouette, and Ink palette supplies its colors.",
            paths("ink_bloom"), ("ink_bloom",),
            looks=(("CMY unfolding cluster", {}),
                   ("Single rough stamp", {"ink_bloom.count": 1, "ink_bloom.cycle": 0., "ink_bloom.revolutions": 0., "ink_bloom.tumble": 0.}),
                   ("Warm paper flowers", {"ink_bloom.palette": 1, "ink_bloom.points": 8, "ink_bloom.point_depth": .3}),
-                  ("Monochrome rosette", {"ink_bloom.palette": 2, "ink_bloom.count": 9}))),
+                  ("Monochrome rosette", {"ink_bloom.palette": 2, "ink_bloom.count": 9})), primary=8),
     Effect("forms", "Luminous forms", "Solid or hollow sources. Combine with ghosts, rays and signal effects.",
            paths("slab", "shape width height count position_x position_y diameter sides rotation spacing edge_hardness hollow intensity fill_magenta fill_gradient vertical_tint edge_softness magenta cyan jitter frame_jitter edge_ripple notch"), ("slab",),
            looks=(("Solid rectangle", {"slab.shape": 0, "slab.hollow": 0, "slab.width": .24}),
@@ -115,6 +116,9 @@ def normalize_effects(raw):
             if path not in EFFECT_BY_ID[key].paths:
                 raise ValueError(f"Unknown {key} parameter: {path}")
             spec = parameter(path)
+            if spec.kind == "artwork":
+                values[path] = validate_artwork(value)
+                continue
             if isinstance(value, bool) or not isinstance(value, (float, int)) or not math.isfinite(value) or not spec.minimum <= value <= spec.maximum:
                 raise ValueError(f"{path} must be between {spec.minimum} and {spec.maximum}")
             if spec.kind == "int" and not float(value).is_integer():

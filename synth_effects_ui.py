@@ -11,10 +11,12 @@ from PySide6.QtWidgets import (
 
 from synth_effects import EFFECTS, EFFECT_BY_ID, describe_effects, effect_preset, parameter
 from studio_theme import COLORS
+from synth_artwork_ui import ArtworkControl
 
 
 def format_value(path, value):
     spec = parameter(path)
+    if spec.kind == 'artwork': return 'Embedded artwork' if value else 'No artwork'
     if spec.choices:
         return spec.choices[int(value)]
     return f"{value:g}"
@@ -31,7 +33,9 @@ class EffectParameter(QWidget):
         layout = QVBoxLayout(self); layout.setContentsMargins(0, 0, 0, 3); layout.setSpacing(1)
         row = QHBoxLayout()
         label = QLabel(spec.label); label.setToolTip(spec.hint); row.addWidget(label, 1)
-        if spec.choices:
+        if spec.kind == 'artwork':
+            self.input = ArtworkControl(); self.input.changed.connect(self.changed.emit)
+        elif spec.choices:
             self.input = QComboBox(); self.input.addItems(spec.choices)
             self.input.currentIndexChanged.connect(self.changed.emit)
         else:
@@ -62,7 +66,7 @@ class EffectParameter(QWidget):
         self.fixed_start = low
         animated = fixed is None and low != high and available
         self.value_stack.setCurrentIndex(1 if animated else 0)
-        self.animated_value.setText("Varies" if self.spec.choices else f"{low:g} … {high:g}")
+        self.animated_value.setText("Varies" if self.spec.choices or self.spec.kind == 'artwork' else f"{low:g} … {high:g}")
         self.animated_value.setToolTip(f"Animated range. Click to set a fixed value, starting at {format_value(self.path, low)}.")
         with QSignalBlocker(self.input):
             if self.spec.choices: self.input.setCurrentIndex(int(value))
@@ -192,6 +196,8 @@ class EffectsPanel(QWidget):
         self.status.setText("Active during part of the recipe. On keeps it enabled throughout." if info["intermittent"] else
                             "Active. Unedited values keep following their recipe." if info["active"] else
                             f"{effect.label} is off in this scope. Other effects are listed above. Apply a preset to add it.")
+        if effect.id == 'ink_bloom' and self.controls['ink_bloom.shape'].input.currentIndex() == 5 and not self.controls['ink_bloom.artwork'].input.value():
+            self.status.setText('Import artwork to supply the custom silhouette, or choose a built-in shape.')
         self.show_more(self.more.isChecked())
         self.updating = False
 
@@ -212,6 +218,8 @@ class EffectsPanel(QWidget):
         if self.updating: return
         entry = copy.deepcopy(self.entries.get(self.effect_id, {"mode": "recipe", "params": {}}))
         entry["params"][path] = value
+        if path == 'ink_bloom.artwork' and value:
+            entry['params']['ink_bloom.shape'] = 5
         self.edited.emit(self.effect_id, entry, f"effect-param:{path}")
 
     def reset_parameter(self, path):

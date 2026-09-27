@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Replaceable Ink bloom silhouettes: square, circle, triangle, polygon and
+  imported artwork share the existing unfold/turn/refold animation. Custom
+  transparency or luminance masks retain holes and proportions, use the selected
+  inks and are embedded in saved documents. Native import, width/height/rotation,
+  polygon sides, Undo/Redo and detailed-editor support preserve the original
+  burst and the independent print background.
+
 - Ink bloom now uses fresh background noise on each held frame, replacing the
   visibly translated/wrapped paper field. Independent noise amount, size,
   clumping and tone controls protect the approved ink figures and motion.

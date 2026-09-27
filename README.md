@@ -214,6 +214,24 @@ retains the previous moving-sheet treatment and is the default for older saved
 documents. To update an existing clip, change only Background to Frame noise;
 the Chaotic background preset also provides a starting point for new effects.
 
+**Ink bloom → Stamp shape** replaces the figure with a square, circle, triangle,
+regular polygon or imported artwork. The original burst remains the default.
+The animation uses a stack of flat stamps: one central impression and surrounding
+copies overlap, unfold in 3D, turn and gather again. Replacing the silhouette
+keeps that motion, the selected ink palette and the independent print background.
+Shape width, height, rotation and polygon side count are under More controls.
+
+Use **Custom artwork → Import…** for a transparent PNG cutout or a contrasting
+image (PNG, WebP, TIFF, JPEG or BMP). Transparency supplies the silhouette; for
+opaque artwork, choose light areas on dark or dark areas on light. Holes and
+partial transparency are retained. Import selects Custom artwork automatically.
+The figure is recolored with Ink palette; source RGB colors are not retained.
+Empty margins are cropped, proportions are preserved, and masks over 2048 pixels
+are reduced on import. The processed silhouette is embedded in the document, so
+save/open, detailed copies and export work after moving the original file.
+Switching to a built-in shape keeps the artwork available. Imports and edits
+support Undo/Redo and section overrides; ↶ restores the inherited artwork.
+
 The shorter canvas edge controls stamp size, preserving proportions when
 switching formats. Paper covers the entire canvas. Effect overrides support
 save/open, Undo/Redo, section scope, independent starter copies and detailed

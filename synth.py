@@ -22,6 +22,7 @@ from synth_particles import render_particles
 from synth_tape import render_tape_damage
 from synth_canvas import normalize_canvas
 from synth_print import render_ink_bloom, render_print_surface
+from synth_artwork import validate_artwork
 
 SYNTH_SCHEMA_VERSION = 1
 SYNTH_PRESETS_DIR = Path.home() / ".nebula_pipeline" / "synth_presets"
@@ -168,13 +169,19 @@ MODULES = (
         P("shimmer", "Shimmer", .45, 0, 1, .01, "Per-dot brightness fluctuation, independent of its trajectory."),
         P("jitter", "Scan registration", .0015, 0, .02, .0005, "Small held shifts across scan lines."),
     )),
-    Module("ink_bloom", "Ink bloom", "Irregular printed bursts unfold as a rotating three-dimensional cluster.", (
+    Module("ink_bloom", "Ink bloom", "Printed silhouettes unfold as a rotating three-dimensional cluster.", (
+        P("shape", "Stamp shape", 0, 0, 5, 1, "Replace the silhouette while keeping the unfolding motion and ink treatment.", choices=("Original burst", "Square", "Circle", "Triangle", "Polygon", "Custom artwork")),
+        Param("artwork", "Custom artwork", "", kind="artwork", hint="Import a transparent PNG or a contrasting silhouette. Its shape is printed with the selected inks and embedded in the composition."),
         P("count", "Stamp count", 7, 1, 13, 1, "One central stamp with satellites arranged around it."),
         P("size", "Stamp size", .15, .02, .4, .005, "Radius relative to the shorter canvas edge; proportions survive format changes."),
         P("spread", "Open spread", .255, 0, .6, .005, "Distance from the center to the surrounding stamps when open."),
         P("period", "Cycle seconds", 53 / 15, .5, 60, .05, "One unfold, turn and refold gesture."),
         P("opening", "Opening", 1., 0, 1, .01, "Maximum opening. Set Automatic cycle to 0 to control the opening manually."),
         P("cadence", "Motion FPS", 15, 1, 60, 1, "Hold the geometry between frames, independently of export FPS."),
+        P("shape_width", "Shape width", 1., .1, 2, .01, "Horizontal scale of each silhouette before the cluster turns."),
+        P("shape_height", "Shape height", 1., .1, 2, .01, "Vertical scale; imported artwork keeps its proportions at width and height 1."),
+        P("sides", "Polygon sides", 6, 3, 32, 1, "Used by the Polygon shape."),
+        P("shape_rotation", "Shape rotation", 0., -180, 180, 1, "Rotate each silhouette within its own plane."),
         P("points", "Points per stamp", 12, 3, 32, 1),
         P("point_depth", "Point depth", .4, .05, .85, .01),
         P("irregularity", "Ragged shape", .72, 0, 1, .01, "Uneven tip lengths and notches; stable for a given take."),
@@ -388,6 +395,9 @@ def normalize_synth(raw=None):
             if spec.key not in incoming:
                 continue
             value = incoming[spec.key]
+            if spec.kind == "artwork":
+                params[spec.key] = validate_artwork(value)
+                continue
             if not _finite(value):
                 raise ValueError(f"{module.id}.{spec.key} must be finite")
             if spec.kind == "float" and not spec.minimum <= float(value) <= spec.maximum:

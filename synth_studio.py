@@ -26,6 +26,7 @@ from synth_composition import FORMAT, compile_composition, composition_from_sequ
 from synth_composer_ui import CompositionPanel, SectionTimeline
 from synth_canvas import CANVAS_FORMATS, format_canvas, normalize_canvas, preview_size
 from synth_starters import STARTERS, starter_composition
+from synth_artwork_ui import ArtworkControl
 
 
 class SynthViewer(QWidget):
@@ -61,6 +62,12 @@ class SynthControl(QWidget):
         self.spec = spec
         self.lock = QCheckBox("lock")
         self.lock.setToolTip("Keep this parameter fixed when Generate variation is pressed.")
+        if spec.kind == 'artwork':
+            self.spin = ArtworkControl(); self.spin.setValue(value)
+            self.spin.changed.connect(lambda _value: self.changed.emit())
+            layout = QVBoxLayout(self); layout.addWidget(QLabel(spec.label)); layout.addWidget(self.spin)
+            self.lock.setChecked(True); self.lock.hide()
+            return
         if spec.choices:
             self.spin = QComboBox(); self.spin.addItems(spec.choices); self.spin.setCurrentIndex(int(value))
             self.spin.currentIndexChanged.connect(lambda _value: self.changed.emit())
@@ -711,6 +718,10 @@ class SynthStudio(QMainWindow):
             return
         state = self.sequence["states"][self.sequence_state_name]
         state.setdefault("overrides", {})[path] = self.sequence_state_controls[path].value()
+        if path == 'ink_bloom.artwork' and state['overrides'][path]:
+            control = self.sequence_state_controls['ink_bloom.shape']
+            with QSignalBlocker(control): control.set_value(5)
+            state['overrides']['ink_bloom.shape'] = 5
         self.sequence = normalize_sequence(self.sequence); self.invalidate()
 
     def sequence_module_enabled_changed(self, module_id, checked):
@@ -798,7 +809,12 @@ class SynthStudio(QMainWindow):
         except Exception as exc:
             QMessageBox.critical(self, "Sequence error", str(exc))
 
-    def control_changed(self): self.preset = self.collect(); self.mark_custom(); self.invalidate()
+    def control_changed(self):
+        for (index, key), control in self.controls.items():
+            if key == 'artwork' and control is self.sender() and control.value():
+                shape = self.controls[(index, 'shape')]
+                with QSignalBlocker(shape): shape.set_value(5)
+        self.preset = self.collect(); self.mark_custom(); self.invalidate()
     def module_toggled(self, index, checked): self.preset["modules"][index]["enabled"] = checked; self.mark_custom(); self.invalidate()
 
     def move_module(self, index, delta):
@@ -867,7 +883,7 @@ class SynthStudio(QMainWindow):
             self.sequence_state_updating = True
             try:
                 for path, control in self.sequence_state_controls.items():
-                    if control.lock.isChecked(): continue
+                    if control.lock.isChecked() or control.spec.kind == 'artwork': continue
                     spec = control.spec
                     delta = (spec.maximum - spec.minimum) * .12
                     value = max(spec.minimum, min(spec.maximum, control.value() + rng.uniform(-delta, delta)))
@@ -885,7 +901,7 @@ class SynthStudio(QMainWindow):
         with QSignalBlocker(self.global_controls["seed"]):
             self.global_controls["seed"].setValue(self.preset["seed"])
         for (index, key), control in self.controls.items():
-            if control.lock.isChecked(): continue
+            if control.lock.isChecked() or control.spec.kind == 'artwork': continue
             spec = control.spec
             if spec.kind == "float": control.set_value(round(rng.uniform(spec.minimum, spec.maximum) / spec.step) * spec.step)
             else: control.set_value(rng.randint(int(spec.minimum), int(spec.maximum)))

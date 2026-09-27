@@ -1,7 +1,7 @@
-"""Seeded paper/ink rendering and a rotating cluster of irregular printed stamps.
+"""Seeded paper/ink rendering and a rotating cluster of replaceable stamps.
 
-All state comes from time and a seed, including held scanner registration. No
-reference frames, image assets or temporal simulation are required.
+All state comes from time and a seed, including held scanner registration.
+Built-in shapes need no assets; custom silhouettes are embedded in documents.
 """
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ import math
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
+from synth_artwork import decode_artwork, project_artwork
 
 
 INK_PALETTES = (
@@ -61,10 +62,35 @@ def _outline(seed, identity, points, depth, irregularity):
     return value
 
 
+def stamp_outline(p, seed, identity, artwork=None):
+    """Local silhouette; the common animation below owns all placement/motion."""
+    shape = int(p.get('shape', 0))
+    if shape == 0:
+        vertices = _outline(seed, identity, int(p['points']), p['point_depth'], p['irregularity']).copy()
+    elif shape in (1, 5):
+        vertices = np.array(((-1, -1, 0), (1, -1, 0), (1, 1, 0), (-1, 1, 0)), dtype=np.float32)
+        if artwork is not None:
+            vertices[:, 0] *= artwork.width / max(artwork.size)
+            vertices[:, 1] *= artwork.height / max(artwork.size)
+    else:
+        sides = 128 if shape == 2 else 3 if shape == 3 else int(p['sides'])
+        angles = np.arange(sides) * math.tau / sides - math.pi / 2
+        vertices = np.column_stack((np.cos(angles), np.sin(angles), np.zeros(sides))).astype(np.float32)
+    vertices[:, 0] *= p.get('shape_width', 1.)
+    vertices[:, 1] *= p.get('shape_height', 1.)
+    if p.get('shape_rotation', 0):
+        vertices = vertices @ _rotation(0, 0, math.radians(p['shape_rotation'])).T
+    return vertices
+
+
 def render_ink_bloom(arr, p, time, speed, seed):
     if p['opacity'] == 0:
         return arr
     h, w = arr.shape[:2]
+    artwork = None
+    if p.get('shape', 0) == 5:
+        if not p.get('artwork'): return arr
+        artwork = decode_artwork(p['artwork'])
     clock, phase, opening = bloom_phase(time, p, speed)
     # Smooth turning passes through two edge-on views while the stamps unfold.
     yaw_progress = float(np.interp(phase, (0, .15, .30, .42, .56, .68, .78, 1), (0, .05, .25, .5, .60, .75, 1, 1)))
@@ -93,7 +119,7 @@ def render_ink_bloom(arr, p, time, speed, seed):
         # A thin stack is visible before opening; this is geometric, not a fade.
         center[2] += (count - i) * radius * p['stack_spacing'] * (1 - opening)
         center = center @ matrix.T
-        vertices = _outline(seed, i, int(p['points']), p['point_depth'], p['irregularity']).copy()
+        vertices = stamp_outline(p, seed, i, artwork)
         vertices *= radius * (1 + local_offsets[i, 0] * p['disorder'] * .16) * ((.88 + .12 * opening) if i else 1.03)
         fan = math.radians(p['fan'] * local_offsets[i, 1]) if i else 0.
         fold = math.pi / 2 * math.sin(yaw) ** 2 * p['center_fold'] if i == 0 else fan * .45
@@ -108,7 +134,10 @@ def render_ink_bloom(arr, p, time, speed, seed):
     result = arr.copy()
     yy, xx = np.mgrid[:h, :w].astype(np.float32)
     for _z, i, xy in sorted(cards, key=lambda card: card[0]):
-        mask = Image.new('L', (w, h)); ImageDraw.Draw(mask).polygon([tuple(point) for point in xy], fill=255)
+        if artwork is None:
+            mask = Image.new('L', (w, h)); ImageDraw.Draw(mask).polygon([tuple(point) for point in xy], fill=255)
+        else:
+            mask = project_artwork(artwork, xy, (w, h))
         coverage = np.asarray(mask, dtype=np.float32) / 255 * p['opacity']
         first = palette[inks[i]]
         second = palette[0 if inks[i] in (2, 3) else 2 if inks[i] == 1 else 1]

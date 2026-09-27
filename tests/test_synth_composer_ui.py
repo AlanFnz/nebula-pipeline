@@ -428,3 +428,67 @@ def test_frame_noise_controls_are_editable_and_undoable(window, tmp_path, monkey
     assert load_composition(path) == changed
     panel.controls['print_surface.background_mode'].input.setCurrentIndex(0)
     assert window.composition['effects']['print_surface']['params']['print_surface.background_mode'] == 0
+
+
+def test_imported_stamp_is_undoable_portable_and_available_in_detailed_editor(window, tmp_path, monkeypatch):
+    from PIL import Image, ImageDraw
+    from synth_artwork import decode_artwork
+    choose_starter(window, 'ink-bloom')
+    panel = window.composer.effects_panel
+    panel.inspect_effect('ink_bloom')
+    before = copy.deepcopy(window.composition)
+    image = Image.new('RGBA', (100, 160))
+    ImageDraw.Draw(image).ellipse((10, 10, 89, 149), fill='white')
+    source = tmp_path / 'cutout.png'; image.save(source)
+    monkeypatch.setattr(QFileDialog, 'getOpenFileName', lambda *args: (str(source), ''))
+    panel.controls['ink_bloom.artwork'].input.import_button.click()
+    imported = copy.deepcopy(window.composition)
+    params = imported['effects']['ink_bloom']['params']
+    assert params['ink_bloom.shape'] == 5
+    assert decode_artwork(params['ink_bloom.artwork']).size == (80, 140)
+    assert panel.controls['ink_bloom.shape'].input.currentIndex() == 5
+    assert imported['source'] == before['source']
+    window.undo_composition(); assert window.composition == before
+    window.redo_composition(); assert window.composition == imported
+    source.unlink()
+    saved = tmp_path / 'portable.json'
+    monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *args: (str(saved), ''))
+    window.save_sequence_dialog()
+    assert load_composition(saved) == imported
+    window.open_detailed_copy()
+    detailed = window.detail_windows[-1]
+    assert detailed.sequence_state_controls['ink_bloom.artwork'].value() == params['ink_bloom.artwork']
+    assert detailed.sequence_state_controls['ink_bloom.shape'].value() == 5
+    # Generating variations must never try to randomize a binary asset.
+    detailed.generate_variation()
+    assert detailed.sequence_state_controls['ink_bloom.artwork'].value() == params['ink_bloom.artwork']
+    panel.controls['ink_bloom.shape'].input.setCurrentIndex(1)
+    assert panel.controls['ink_bloom.artwork'].input.value() == params['ink_bloom.artwork']
+    window.undo_composition(); assert window.composition == imported
+    panel.controls['ink_bloom.artwork'].input.clear_button.click()
+    assert not panel.controls['ink_bloom.artwork'].input.value()
+    assert 'Import artwork' in panel.status.text()
+    window.undo_composition(); assert window.composition == imported
+
+
+def test_cancelled_or_bad_artwork_import_does_not_change_document(window, tmp_path, monkeypatch):
+    from synth_artwork_ui import QMessageBox, QInputDialog
+    from PIL import Image
+    choose_starter(window, 'ink-bloom')
+    panel = window.composer.effects_panel
+    panel.inspect_effect('ink_bloom')
+    before = copy.deepcopy(window.composition)
+    importer = panel.controls['ink_bloom.artwork'].input
+    monkeypatch.setattr(QFileDialog, 'getOpenFileName', lambda *args: ('', ''))
+    importer.import_button.click()
+    assert window.composition == before
+    source = tmp_path / 'empty.png'; Image.new('RGBA', (20, 20)).save(source)
+    monkeypatch.setattr(QFileDialog, 'getOpenFileName', lambda *args: (str(source), ''))
+    errors = []
+    monkeypatch.setattr(QMessageBox, 'warning', lambda *args: errors.append(args[-1]))
+    importer.import_button.click()
+    assert errors and window.composition == before
+    Image.new('RGB', (20, 20), 'white').save(source)
+    monkeypatch.setattr(QInputDialog, 'getItem', lambda *args: ('', False))
+    importer.import_button.click()
+    assert window.composition == before
