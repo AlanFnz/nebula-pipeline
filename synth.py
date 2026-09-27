@@ -212,6 +212,8 @@ MODULES = (
         P("position_y", "Vertical position", 0., -1, 1, .01),
         P("opacity", "Ink opacity", 1., 0, 1, .01),
         P("motion_speed", "Gesture speed", 1., 0, 8, .05, "Scale the whole unfold/hold/fold motion. 2× is twice as fast; 0 freezes it. Frame jitter and background noise keep their own clocks."),
+        P("clock_mode", "Gesture clock", 0, 0, 1, 1, "Shared composition timing uses an independent clock across all sections.", choices=("Scene", "Independent")),
+        P("clock_scale", "Clock scale", 1., 0, 8, .05, "Base clock scale retained when consolidating an existing composition's timing."),
         P("unfold_seconds", "Unfold (s)", -1., -1, 60, .05, "Time to open at speed 1×. Zero opens instantly. Reset to follow the recipe."),
         P("unfolded_seconds", "Stay unfolded (s)", -1., -1, 60, .05, "Time fully open at speed 1×; the turn continues. Reset to follow the recipe."),
         P("fold_seconds", "Fold (s)", -1., -1, 60, .05, "Time to close at speed 1×. Zero closes instantly. Reset to follow the recipe."),
@@ -876,10 +878,10 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None):
     """Render one frame at continuous time; `frame` is only a default clock."""
     p = normalize_synth(preset)
     output, (width, height), sampling = render_resolution(p, size)
-    t = frame / p["treatment_fps"] if time_seconds is None else float(time_seconds)
-    # The treatment rate is a real hold rate for the complete image, not only
-    # for grain. This keeps preview, scrub and export identical at any FPS.
-    t = math.floor(t * p["treatment_fps"] + 1e-9) / p["treatment_fps"]
+    continuous_time = frame / p["treatment_fps"] if time_seconds is None else float(time_seconds)
+    # The scene treatment clock holds geometry as well as grain. Modules with
+    # independent clocks opt out below, consistently in preview and export.
+    t = math.floor(continuous_time * p["treatment_fps"] + 1e-9) / p["treatment_fps"]
     arr = np.zeros((height, width, 3), dtype=np.float32)
     # The reference has a lifted green-black field rather than zero RGB.
     arr[..., 0] = .055
@@ -896,7 +898,10 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None):
         params = entry.get("params", {})
         if p.get("framing") == "adaptive" and width < height and module_id in {"slab", "blinds"} and int(params.get("shape", 0)) in (2, 3):
             params = dict(params, diameter=params["diameter"] * width / height)
-        rendered = renderer(arr, params, t, p, index)
+        # Shared ink motion owns its hold clock across recipe sections. Other
+        # effects retain the scene's speed and treatment cadence.
+        module_time = continuous_time if module_id == 'ink_bloom' and params.get('clock_mode', 0) else t
+        rendered = renderer(arr, params, module_time, p, index)
         if rendered is not None:
             arr = rendered
     image = Image.fromarray(np.clip(arr * 255, 0, 255).astype(np.uint8), "RGB")

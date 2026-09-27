@@ -14,6 +14,7 @@ from synth import SHAPES
 from studio_theme import COLORS
 from synth_composition import MACROS, compile_composition, default_geometry, effective_geometry, neutral_macros, normalize_composition, section_ranges, vary_composition
 from synth_effects_ui import EffectsPanel
+from synth_shared_timing import edit_shared_timing, restore_shared_timing, without_timing
 
 
 class SectionTimeline(QWidget):
@@ -179,13 +180,19 @@ class CompositionPanel(QWidget):
         shape_layout = QVBoxLayout(shape)
         self.scope_combo = QComboBox(); self.scope_combo.addItems(["Whole clip", "Selected section"])
         self.scope_combo.currentIndexChanged.connect(self.change_scope); shape_layout.addWidget(self.scope_combo)
+        self.timing_scope_label = QLabel('Whole clip · shared timing'); self.timing_scope_label.hide()
+        shape_layout.addWidget(self.timing_scope_label)
         self.look_tabs = QTabWidget()
         self.effects_panel = EffectsPanel()
         self.effects_panel.edited.connect(self.change_effect)
+        self.effects_panel.timing_edited.connect(self.change_ink_timing)
+        self.effects_panel.timing_reset.connect(self.reset_ink_timing)
+        self.effects_panel.timing_selected.connect(self.show_timing_scope)
         self.look_tabs.addTab(self.effects_panel, "Effects")
         geometry_page = QWidget(); geometry_layout = QVBoxLayout(geometry_page)
         treatment_page = QWidget(); treatment_layout = QVBoxLayout(treatment_page)
         self.look_tabs.addTab(geometry_page, "Geometry"); self.look_tabs.addTab(treatment_page, "Finishing")
+        self.look_tabs.currentChanged.connect(lambda _index: self.show_timing_scope(self.effects_panel.effect_id == 'ink_bloom' and self.effects_panel.parameter_tabs.currentIndex() == 1))
         treatment_hint = QLabel("Relative adjustments to the recipe. 1× keeps its original treatment; different recipes can look different at 1×.")
         treatment_hint.setWordWrap(True); treatment_hint.setObjectName("muted"); treatment_layout.addWidget(treatment_hint)
         shape_layout.addWidget(self.look_tabs)
@@ -242,10 +249,11 @@ class CompositionPanel(QWidget):
             target = self.target()
             compiled = compile_composition(self.document)
             prefix = section["id"] + ":"
-            states = [state for name, state in compiled["states"].items() if not self.scope or name.startswith(prefix)]
+            all_states = list(compiled['states'].values())
+            states = [state for name, state in compiled["states"].items() if name.startswith(prefix)] if self.scope else all_states
             label = f"SECTION {self.index + 1:02d} / {self.document['phrases'][section['phrase']]['name']}" if self.scope else "WHOLE CLIP / section overrides take priority"
             context_key = section["id"] if self.scope else None
-            self.effects_panel.set_context(target["effects"], self.document["effects"] if self.scope else {}, states, label, bool(self.scope), (self.scope, context_key))
+            self.effects_panel.set_context(target["effects"], self.document["effects"] if self.scope else {}, states, label, bool(self.scope), (self.scope, context_key), self.document['ink_timing'], all_states)
             for key, control in self.macro_controls.items():
                 control.set_value(target["macros"][key], key in target["locks"])
             geometry = target["geometry"]
@@ -305,8 +313,24 @@ class CompositionPanel(QWidget):
         if entry is None:
             effects.pop(effect_id, None)
         else:
-            effects[effect_id] = entry
+            effects[effect_id] = without_timing(entry) if effect_id == 'ink_bloom' else entry
         self.commit(document, f"{action}:{self.scope}:{self.index}:{effect_id}")
+
+    def show_timing_scope(self, timing):
+        timing = timing and self.look_tabs.currentIndex() == 0
+        self.scope_combo.setVisible(not timing)
+        self.timing_scope_label.setVisible(timing)
+
+    def change_ink_timing(self, path, value):
+        if self.updating: return
+        document = copy.deepcopy(self.document)
+        edit_shared_timing(document, path, value)
+        self.commit(document, f'ink-timing:{path}')
+
+    def reset_ink_timing(self):
+        if self.updating: return
+        document = copy.deepcopy(self.document); restore_shared_timing(document)
+        self.commit(document, 'ink-timing-reset')
 
     def change_shape(self, index):
         if self.updating or index < 0: return
@@ -397,8 +421,12 @@ class CompositionPanel(QWidget):
         self.commit(vary_composition(self.document, None if self.scope == 0 else self.index), "take")
 
     def reset_controls(self):
+        if self.look_tabs.currentIndex() == 0 and self.effects_panel.effect_id == 'ink_bloom' and self.effects_panel.parameter_tabs.currentIndex() == 1:
+            self.reset_ink_timing()
+            return
         document = copy.deepcopy(self.document)
         target = self.target(document); target["macros"] = neutral_macros(); target["variation"] = 0
         target["geometry"] = default_geometry(section=bool(self.scope))
         target["effects"] = {}
+        if not self.scope: restore_shared_timing(document)
         self.commit(document, "reset")

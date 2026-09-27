@@ -569,31 +569,42 @@ def test_ink_timing_tabs_seconds_scope_reset_undo_and_save(window, tmp_path, mon
     effects.controls['ink_bloom.unfold_seconds'].input.setValue(.4)
     effects.controls['ink_bloom.unfolded_seconds'].input.setValue(1.5)
     changed = copy.deepcopy(window.composition)
-    assert changed['effects']['ink_bloom']['params']['ink_bloom.unfold_seconds'] == .4
+    assert changed['ink_timing']['ink_bloom.unfold_seconds'] == .4
     assert changed['source'] == before['source']
     window.undo_composition()
-    assert 'ink_bloom.unfolded_seconds' not in window.composition['effects']['ink_bloom']['params']
+    assert window.composition['ink_timing']['ink_bloom.unfolded_seconds'] == pytest.approx(53 / 15 * .16)
     window.redo_composition(); assert window.composition == changed
     panel.select_section(1)
     effects.controls['ink_bloom.folded_seconds'].input.setValue(2.)
-    assert window.composition['sections'][1]['effects']['ink_bloom']['params']['ink_bloom.folded_seconds'] == 2.
+    assert window.composition['ink_timing']['ink_bloom.folded_seconds'] == 2.
+    assert not window.composition['sections'][1]['effects']
+    assert not panel.scope_combo.isVisible()
+    assert panel.timing_scope_label.isVisible()
+    panel.select_section(0)
+    assert effects.controls['ink_bloom.folded_seconds'].input.value() == 2.
     effects.controls['ink_bloom.folded_seconds'].reset_button.click()
-    assert 'ink_bloom.folded_seconds' not in window.composition['sections'][1]['effects']['ink_bloom']['params']
-    assert effects.controls['ink_bloom.folded_seconds'].input.value() == pytest.approx(53 / 15 * .28, abs=.001)
+    assert effects.controls['ink_bloom.folded_seconds'].input.value() == pytest.approx(53 / 15 * .29, abs=.001)
     saved = copy.deepcopy(window.composition)
     path = tmp_path / 'ink-timing.json'
     monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *args: (str(path), ''))
     window.save_sequence_dialog(); assert load_composition(path) == saved
     effects.more.setChecked(True)
     QApplication.processEvents()
-    assert effects.controls['ink_bloom.period'].isVisible()
+    assert effects.controls['ink_bloom.phase'].isVisible()
+    assert not effects.controls['ink_bloom.period'].isVisible()
     effects.parameter_tabs.setCurrentIndex(0)
     assert effects.controls['ink_bloom.shape'].isVisible()
     assert not effects.controls['ink_bloom.unfold_seconds'].isVisible()
     assert not effects.more.isChecked()
+    assert panel.scope_combo.isVisible()
+    assert not panel.timing_scope_label.isVisible()
     window.open_detailed_copy()
     child = window.detail_windows[-1]
     assert 'ink_bloom.unfold_seconds' in child.sequence_state_controls
-    assert child.sequence_state_controls['ink_bloom.fold_seconds'].spin.text() == 'Recipe'
+    assert child.sequence_state_controls['ink_bloom.fold_seconds'].value() == pytest.approx(53 / 15 * .27, abs=.01)
     child.sequence_state_controls['ink_bloom.unfold_seconds'].set_value(.6)
     assert window.composition == saved
+    panel.change_scope(0); panel.reset_controls()
+    assert not window.composition['ink_timing']
+    assert [s['duration'] for s in window.composition['sections']] == [53 / 15] * 2
+    window.undo_composition(); assert window.composition == saved

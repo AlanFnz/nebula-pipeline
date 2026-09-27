@@ -200,11 +200,21 @@ rendering. Working resolution is capped at the saved canvas size.
 ### Printed mixed media
 
 **Effects → Ink bloom → Timing** exposes the gesture as four durations in
-seconds: **Unfold**, **Stay unfolded**, **Fold**, and **Stay folded**. Each starts
-at its recipe value; a range means the sections use different timings. Editing
-one stage changes that stage only. Use **↶** to inherit it again. Whole-clip
-values can be overridden in individual sections, and save/open, Undo/Redo and
-detailed copies retain the settings.
+seconds: **Unfold**, **Stay unfolded**, **Fold**, and **Stay folded**. Timing is
+**shared across all sections**, including when a section is selected. The first
+edit establishes one complete timing profile and continuous clock; changing
+sections then shows the same values. Shape, inks and other appearance effects
+keep their existing section controls. Use **↶** to restore a timing value from
+the base recipe, or **Restore recipe timing** to return the original motion.
+Save/open, Undo/Redo and detailed copies retain the settings.
+
+Sections that already span complete ink cycles resize together when timing
+changes, retaining their cycle counts. This keeps the second variation between
+gestures. Boundaries round cumulatively to export frames without adding drift.
+Manually arranged sections that do not span whole cycles keep their lengths;
+the shared motion clock continues through their boundaries. Old saved timing
+overrides are consolidated: whole-clip timing wins, otherwise the first section
+with custom timing supplies the common profile. The embedded source is retained.
 
 **Gesture speed** scales this motion independently: 2× runs twice as fast, .5×
 runs at half speed, and 0 freezes it. Durations are measured at 1×; the inspector
@@ -218,10 +228,10 @@ hold the closed pose.
 **Motion FPS** controls how often the geometry updates. **Frame jitter → Jitter
 FPS** independently controls how often the tiny positional shakes change; 6–8
 FPS gives longer holds than 15 FPS. Print/background noise also keeps its own
-clock. **Arrange** controls the section and clip lengths; increasing a gesture's
-duration does not automatically extend the timeline. **More controls** retains
-the original cycle/percentage settings, phase and manual opening-cycle control.
-Earlier documents keep their exact timing until you edit these controls.
+clock. **Arrange** controls custom section and clip lengths. **More controls**
+exposes cycle phase and automatic/manual cycling; the original percentage
+settings remain in the detailed editor. Untouched recipes keep their approved
+frames until a shared timing edit is made.
 
 **Starters → Ink bloom** creates a 3.53-second, 15 fps study from one editable
 section. Select **Canvas → Square** for its reference framing. Seven ragged

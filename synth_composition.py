@@ -15,6 +15,7 @@ from synth import MODULE_BY_ID, SHAPES, _seed, curated_presets
 from synth_sequence import normalize_sequence, reference_sequence
 from synth_effects import apply_effects, merge_effects, normalize_effects
 from synth_canvas import normalize_canvas
+from synth_shared_timing import apply_shared_timing, normalize_shared_timing
 
 FORMAT = "nebula-composition"
 MACROS = {
@@ -68,7 +69,7 @@ def reference_composition(refined=False):
         "source": source,
         "canvas": normalize_canvas(source.get("canvas")),
         "phrases": {key: {"name": name, "start": start, "end": end} for key, name, start, end in PHRASES},
-        "macros": neutral_macros(), "geometry": default_geometry(), "effects": {}, "variation": 0, "locks": [],
+        "macros": neutral_macros(), "geometry": default_geometry(), "effects": {}, "ink_timing": {}, "variation": 0, "locks": [],
         "sections": [
             {"id": f"section-{index + 1}", "phrase": key, "duration": round(end - start, 2),
              "macros": neutral_macros(), "geometry": default_geometry(section=True), "effects": {}, "variation": 0, "locks": []}
@@ -440,6 +441,7 @@ def normalize_composition(raw):
         section["locks"] = [key for key in section.get("locks", []) if key in MACROS]
     if sum(section["duration"] for section in sections) > 3600:
         raise ValueError("Composition is longer than one hour")
+    normalize_shared_timing(result)
     return result
 
 
@@ -521,7 +523,7 @@ def compile_composition(raw):
                 state_name = f"{section['id']}:{cue['state']}"
                 if state_name not in result["states"]:
                     state = _adjust_state(project["source"]["states"][cue["state"]], macros, offset, effective_geometry(project, section))
-                    result["states"][state_name] = apply_effects(state, effects)
+                    result["states"][state_name] = apply_shared_timing(apply_effects(state, effects), project['ink_timing'])
                 item = dict(cue, time=frame / fps, state=state_name)
                 item["duration"] = min(float(cue.get("duration", 0)) / rate, end - frame / fps)
                 if cue.get("transition") in {"flash", "sweep"}:

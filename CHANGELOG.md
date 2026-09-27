@@ -2,11 +2,19 @@
 
 ## Unreleased
 
+- Ink timing is now one shared setup for every section. Existing local timing
+  overrides consolidate into a complete global profile, preventing different
+  loop lengths or scene clocks from causing jumps at section boundaries. Timing
+  has an explicit global scope in the inspector. Whole-cycle ink sections resize
+  together as durations/speed change; arbitrary arrangements keep their lengths.
+  Appearance controls retain section scope, and untouched recipes keep their
+  earlier frames. Undo/Redo, save/load and detailed exports preserve the profile.
+
 - Ink bloom has Look / Timing tabs and independent Unfold, Stay unfolded, Fold
   and Stay folded durations in seconds. Gesture speed scales its motion without
   changing frame jitter or background clocks. Turn motion follows the retimed
   stages; the inspector resolves recipe durations and section ranges, shows the
-  resulting loop length, and supports local overrides, reset, Undo/Redo and
+  resulting loop length, and supports reset, Undo/Redo and
   saved/detailed editing. Earlier percentage-based gestures remain pixel-exact.
 
 - Reusable Low-res finish preserves the 360 px preview texture in full-size

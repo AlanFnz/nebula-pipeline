@@ -32,7 +32,7 @@ def paths(module, keys=None):
 
 EFFECTS = (
     Effect("ink_bloom", "Ink bloom", "Overlapping stamps unfold, turn and gather again. Look sets the silhouette and inks. Timing sets unfold/fold durations, holds and gesture speed. Frame jitter controls the small positional shakes separately.",
-           paths("ink_bloom"), ("ink_bloom",),
+           tuple(path for path in paths("ink_bloom") if path not in {'ink_bloom.clock_mode', 'ink_bloom.clock_scale'}), ("ink_bloom",),
            looks=(("CMY unfolding cluster", {}),
                   ("Single rough stamp", {"ink_bloom.count": 1, "ink_bloom.cycle": 0., "ink_bloom.revolutions": 0., "ink_bloom.tumble": 0.}),
                   ("Warm paper flowers", {"ink_bloom.palette": 1, "ink_bloom.points": 8, "ink_bloom.point_depth": .3}),
@@ -197,7 +197,8 @@ def describe_effects(states):
             ink = {key.removeprefix('ink_bloom.'): value for key, value in values.items() if key.startswith('ink_bloom.')}
             durations = stage_durations(ink)
             values.update({f'ink_bloom.{key}': value for key, value in durations.items()})
-            speed = ink['motion_speed'] * (values['speed'] if 'speed' in values else curated_presets()[state['preset']]['speed'])
+            base_speed = ink['clock_scale'] if ink['clock_mode'] else (values['speed'] if 'speed' in values else curated_presets()[state['preset']]['speed'])
+            speed = ink['motion_speed'] * base_speed
             values['_ink_loop'] = sum(durations.values()) / speed if speed > 0 else float('inf')
         resolved.append((values, enabled))
     result = {}

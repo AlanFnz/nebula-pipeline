@@ -58,7 +58,7 @@ def test_instant_stages_and_zero_holds_are_finite(durations):
     if not any(durations.values()): assert all(opening == 0 for _, _, opening in values)
 
 
-def test_one_global_duration_retains_other_stages_and_section_variations():
+def test_one_global_duration_consolidates_the_complete_timing_profile():
     project = mixed_media_composition()
     original = copy.deepcopy(project['source'])
     before = describe_effects(compile_composition(project)['states'].values())['ink_bloom']['ranges']
@@ -67,7 +67,10 @@ def test_one_global_duration_retains_other_stages_and_section_variations():
     project['effects']['ink_bloom'] = {'mode': 'recipe', 'params': {'ink_bloom.unfold_seconds': .4}}
     after = describe_effects(compile_composition(project)['states'].values())['ink_bloom']['ranges']
     assert after['ink_bloom.unfold_seconds'] == (.4, .4)
-    for key in DURATION_KEYS[1:]: assert after[f'ink_bloom.{key}'] == before[f'ink_bloom.{key}']
+    for key in DURATION_KEYS:
+        low, high = after[f'ink_bloom.{key}']
+        assert low == high
+    assert after['ink_bloom.fold_seconds'][0] == pytest.approx(53 / 15 * .27)
     assert project['source'] == original
 
 

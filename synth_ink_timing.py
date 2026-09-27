@@ -41,6 +41,8 @@ def gesture_phase(time, p, speed=1.):
     through the same edge-on views. The closed rest straddles the loop seam in
     the recipe's original proportion, keeping its initial pause.
     """
+    if p.get('clock_mode', 0):
+        speed = p.get('clock_scale', 1.)
     clock = math.floor(time * speed * p.get('motion_speed', 1.) * p['cadence'] + 1e-8) / p['cadence']
     if all(p.get(key, -1.) < 0 for key in DURATION_KEYS):
         phase = (clock / p['period'] + p['phase']) % 1.

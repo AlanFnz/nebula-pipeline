@@ -17,6 +17,7 @@ from synth_ink_timing import DURATION_KEYS, TIMING_KEYS
 
 INK_DURATIONS = {f'ink_bloom.{key}' for key in DURATION_KEYS}
 INK_TIMING = tuple(f'ink_bloom.{key}' for key in TIMING_KEYS)
+SHARED_TIMING_CONTROLS = INK_TIMING[:8]
 
 
 def format_value(path, value):
@@ -95,12 +96,16 @@ class EffectParameter(QWidget):
 
 class EffectsPanel(QWidget):
     edited = Signal(str, object, str)
+    timing_edited = Signal(str, object)
+    timing_reset = Signal()
+    timing_selected = Signal(bool)
 
     def __init__(self):
         super().__init__()
         self.entries = {}; self.parent_entries = {}; self.summary = {}
         self.effect_id = "rays"; self.controls = {}; self.rows = {}
         self.context_key = None
+        self.shared_timing = {}; self.shared_summary = {}; self.context_scope_label = ''
         self.updating = False
         layout = QVBoxLayout(self); layout.setContentsMargins(8, 8, 8, 8)
         self.scope_label = QLabel(); self.scope_label.setObjectName("sectionTitle"); self.scope_label.setWordWrap(True)
@@ -134,6 +139,9 @@ class EffectsPanel(QWidget):
         layout.addWidget(self.parameter_tabs)
         self.timing_note = QLabel(); self.timing_note.setWordWrap(True); self.timing_note.setObjectName('muted')
         layout.addWidget(self.timing_note)
+        self.restore_timing = QPushButton('Restore recipe timing')
+        self.restore_timing.clicked.connect(self.timing_reset.emit)
+        layout.addWidget(self.restore_timing)
         self.parameter_host = QWidget(); self.parameter_layout = QVBoxLayout(self.parameter_host); self.parameter_layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.parameter_host)
         self.more = QPushButton("More controls"); self.more.setCheckable(True); self.more.toggled.connect(self.show_more); layout.addWidget(self.more)
@@ -141,11 +149,13 @@ class EffectsPanel(QWidget):
         self.note.setWordWrap(True); self.note.setObjectName("muted"); layout.addWidget(self.note)
         layout.addStretch(1)
 
-    def set_context(self, entries, parent_entries, states, scope_label, local, context_key):
+    def set_context(self, entries, parent_entries, states, scope_label, local, context_key, shared_timing=None, shared_states=None):
         self.updating = True
         self.entries = copy.deepcopy(entries); self.parent_entries = copy.deepcopy(parent_entries)
         self.summary = describe_effects(states)
-        self.scope_label.setText(scope_label)
+        self.shared_timing = copy.deepcopy(shared_timing or {})
+        self.shared_summary = self.summary['ink_bloom'] if shared_states is None or shared_states is states else describe_effects(shared_states)['ink_bloom']
+        self.context_scope_label = scope_label
         active = [effect for effect in EFFECTS if self.summary[effect.id]["active"]]
         if context_key != self.context_key and not self.summary[self.effect_id]["active"] and active:
             self.effect_id = active[0].id
@@ -204,7 +214,12 @@ class EffectsPanel(QWidget):
         parent = self.parent_entries.get(effect.id, {})
         available = info["active"] or entry["mode"] in {"on", "off"} or effect.id in self.entries
         for path, control in self.controls.items():
-            control.refresh(info["ranges"][path], entry["params"].get(path), path in parent.get("params", {}), available)
+            if path in INK_TIMING:
+                control.refresh(self.shared_summary['ranges'][path], self.shared_timing.get(path), False, self.shared_summary['active'])
+                control.origin.setText('Shared across all sections' if self.shared_timing else 'Recipe timing · edits apply to all sections')
+                control.setToolTip('One timing setup for the whole composition, regardless of the selected section.')
+            else:
+                control.refresh(info["ranges"][path], entry["params"].get(path), path in parent.get("params", {}), available)
         self.apply_button.setText("Replace settings" if info["active"] else "+ Apply effect")
         self.status.setText("Active during part of the recipe. On keeps it enabled throughout." if info["intermittent"] else
                             "Active. Unedited values keep following their recipe." if info["active"] else
@@ -224,7 +239,12 @@ class EffectsPanel(QWidget):
         timing = ink and self.parameter_tabs.currentIndex() == 1
         self.parameter_tabs.setVisible(ink)
         self.timing_note.setVisible(timing)
-        visible_paths = INK_TIMING if timing else tuple(path for path in effect.paths if not ink or path not in INK_TIMING)
+        self.restore_timing.setVisible(timing)
+        self.restore_timing.setEnabled(bool(self.shared_timing))
+        for widget in (self.mode, self.restore, self.look, self.apply_button, self.status): widget.setVisible(not timing)
+        self.scope_label.setText('GLOBAL TIMING / all sections' if timing else self.context_scope_label)
+        self.timing_selected.emit(timing)
+        visible_paths = SHARED_TIMING_CONTROLS if timing else tuple(path for path in effect.paths if not ink or path not in INK_TIMING)
         primary = 6 if timing else effect.primary
         shown = set(visible_paths if checked else visible_paths[:primary])
         for path, control in self.controls.items(): control.setVisible(path in shown)
@@ -233,12 +253,12 @@ class EffectsPanel(QWidget):
             if self.parameter_layout.indexOf(control) != index:
                 self.parameter_layout.insertWidget(index, control)
         if timing:
-            loops = self.summary['ink_bloom']['loop_seconds']
+            loops = self.shared_summary['loop_seconds']
             if not loops: loop = 'Enable Ink bloom to preview its timing.'
             elif not math.isfinite(loops[1]): loop = 'Gesture speed is frozen in part or all of this scope.'
             elif loops[0] == loops[1]: loop = f'Loop: {loops[0]:.2f} s at the current speed.'
             else: loop = f'Loop varies: {loops[0]:.2f}–{loops[1]:.2f} s across this scope.'
-            self.timing_note.setText(loop + ' Durations are at 1×. Stay folded is the total rest between gestures. Extend the clip in Arrange to see longer loops.')
+            self.timing_note.setText('Changes apply to every section. ' + loop + ' Complete-cycle sections resize together to keep their boundaries aligned. Durations are at 1×; Stay folded is the total rest between gestures.')
         extra = len(visible_paths) - primary
         self.more.setVisible(extra > 0)
         self.more.setText("Fewer controls" if checked else f"More controls ({max(0, extra)})")
@@ -251,6 +271,9 @@ class EffectsPanel(QWidget):
 
     def change_parameter(self, path, value):
         if self.updating: return
+        if path in INK_TIMING:
+            self.timing_edited.emit(path, value)
+            return
         entry = copy.deepcopy(self.entries.get(self.effect_id, {"mode": "recipe", "params": {}}))
         entry["params"][path] = value
         if path == 'ink_bloom.artwork' and value:
@@ -258,6 +281,9 @@ class EffectsPanel(QWidget):
         self.edited.emit(self.effect_id, entry, f"effect-param:{path}")
 
     def reset_parameter(self, path):
+        if path in INK_TIMING:
+            self.timing_edited.emit(path, None)
+            return
         entry = copy.deepcopy(self.entries[self.effect_id]); entry["params"].pop(path, None)
         self.edited.emit(self.effect_id, entry, "effect-reset-param")
 
