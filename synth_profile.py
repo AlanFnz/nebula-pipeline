@@ -24,15 +24,22 @@ def _rng(seed, time, speed, rate):
     return np.random.default_rng(np.random.SeedSequence((seed, tick & 0xffffffffffffffff)))
 
 
-def _sample(signal, x):
-    """Horizontal bilinear sampling, black beyond the recording, never wrap."""
+def _sample(signal, x, extend=False):
+    """Horizontal bilinear sampling; optionally carry border color, never wrap."""
     h, w = signal.shape[:2]
     left = np.floor(x).astype(int); fraction = x - left
     y = np.arange(h)[:, None]
     weight = fraction if signal.ndim == 2 else fraction[..., None]
     result = signal[y, np.clip(left, 0, w - 1)] * (1 - weight) + signal[y, np.clip(left + 1, 0, w - 1)] * weight
+    if extend: return result
     inside = (x >= 0) & (x <= w - 1)
     return result * (inside if signal.ndim == 2 else inside[..., None])
+
+
+def _extends_canvas(p, preset, width, height, cw, ch):
+    """A larger viewport reveals atmosphere without enlarging the object."""
+    return bool(p.get('canvas_coverage', 1) and 'reference' in preset
+                and (width > cw + .5 or height > ch + .5))
 
 
 @lru_cache(maxsize=8)
@@ -87,8 +94,21 @@ def render_edge_phosphor(arr, p, time, preset, seed):
     glow = _blur(rim, p['glow'] * cw)
     present = (mask > .2).any(axis=1)
     boundary = np.argmax(mask > .2, axis=1) if side == -1 else w - 1 - np.argmax(mask[:, ::-1] > .2, axis=1)
-    distance = (boundary[:, None] - x) * -side / max(1., cw)
-    field = np.exp(-np.maximum(0, distance) / max(.001, p['spread'])) * (distance >= 0) * present[:, None]
+    extend = _extends_canvas(p, preset, w, h, cw, ch)
+    if extend and np.any(present):
+        rows = np.flatnonzero(present)
+        # Continue the lighting field past the source's finite height. Only the
+        # atmosphere uses this guide; the projected mesh and contour stay put.
+        guide = np.interp(np.arange(h), rows, boundary[rows])
+        distance = (guide[:, None] - x) * -side / max(1., w, cw)
+        gap = np.maximum(0, np.maximum(rows[0] - y, y - rows[-1]))
+        feather = np.maximum(1., gap * .35) / max(1., w, cw)
+        coverage = np.clip(1 + distance / feather, 0, 1)
+        coverage = coverage * coverage * (3 - 2 * coverage)
+        field = np.exp(-np.maximum(0, distance) / max(.001, p['spread'])) * coverage
+    else:
+        distance = (boundary[:, None] - x) * -side / max(1., cw)
+        field = np.exp(-np.maximum(0, distance) / max(.001, p['spread'])) * (distance >= 0) * present[:, None]
     field *= 1 - mask
     # The screen field is uneven on every held scan, not a translated tile.
     fine = rng.random((h, w))
@@ -113,6 +133,7 @@ def render_scan_drag(arr, p, time, preset, seed):
     if p['mix'] == 0: return arr
     if not any(p[key] for key in ('amount', 'jitter', 'tearing', 'overload')) and p['window'] == 1: return arr
     h, w = arr.shape[:2]; cw, ch = content_size(preset, (w, h))
+    extend = _extends_canvas(p, preset, w, h, cw, ch)
     rng = _rng(seed, time, preset['speed'], p['rate'])
     x = np.arange(w)[None, :]; y = (np.arange(h) + .5) / h
     # Broken fine rows plus one irregular overload region. Resampling stretches
@@ -141,11 +162,11 @@ def render_scan_drag(arr, p, time, preset, seed):
     direction = -1 if p['direction'] == 0 else 1
     stretch = 1 + activity[:, None] * p['length'] * 220
     source_x = peak + np.where(distance * direction >= 0, distance / stretch, distance)
-    result = _sample(arr, source_x)
+    result = _sample(arr, source_x, extend=extend)
     if p['chroma']:
         chroma = p['chroma'] * cw * activity[:, None]
-        result[..., 0] = _sample(arr[..., 0], source_x - chroma)
-        result[..., 2] = _sample(arr[..., 2], source_x + chroma)
+        result[..., 0] = _sample(arr[..., 0], source_x - chroma, extend=extend)
+        result[..., 2] = _sample(arr[..., 2], source_x + chroma, extend=extend)
     highlight = result.max(axis=2)
     after_edge = np.clip(distance * direction / max(1., cw * .03), 0, 1)
     spectral = rng.uniform(0., 1., groups)[group]
@@ -161,7 +182,7 @@ def render_scan_drag(arr, p, time, preset, seed):
         halo = np.stack([_blur(result[..., channel], cw * .018) for channel in range(3)], axis=-1)
         result += halo * p['glow'] * np.minimum(1., burst)[:, None, None] * (1 - np.minimum(result, 1.))
     result *= (1 - p['dropout'] * (rng.random(n)[row] < .12))[:, None, None]
-    if p['window'] < 1:
+    if p['window'] < 1 and not extend:
         gate = np.clip((cw * p['window'] / 2 - np.abs(x - w / 2)) / max(1., cw * .003), 0, 1)
         result *= gate[..., None]
     return arr * (1 - p['mix']) + result * p['mix']

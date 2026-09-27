@@ -252,6 +252,7 @@ MODULES = (
         P("side", "Light side", 0, 0, 1, 1, choices=("Left", "Right")),
         P("threshold", "Source threshold", .2, .05, .95, .01),
         P("rate", "Phosphor FPS", 15., 0, 60, 1, "Held texture rate. Zero freezes the texture."),
+        P("canvas_coverage", "Canvas coverage", 1, 0, 1, 1, "Extend the backlight into space revealed by a canvas resize; the head keeps its size and pose.", choices=("Artwork bounds", "Extend to canvas")),
         P("mix", "Mix", 1., 0, 1, .01),
     )),
     Module("scan_drag", "Scan drag", "Stretch and tear the source's bright edges into horizontal scan streaks.", (
@@ -277,6 +278,7 @@ MODULES = (
         P("direction", "Streak direction", 1, 0, 1, 1, choices=("Left", "Right")),
         P("window", "Recording width", .75, .1, 1, .01, "Width of the recorded signal; 1 fills the canvas. Black margins match the reference."),
         P("rate", "Scan FPS", 15., 0, 60, 1, "Held fault rate. Zero freezes the pattern."),
+        P("canvas_coverage", "Canvas coverage", 1, 0, 1, 1, "Let scan streaks reach the edges after a canvas resize. Artwork bounds retains the original recording-width crop.", choices=("Artwork bounds", "Extend to canvas")),
         P("mix", "Mix", 1., 0, 1, .01),
     )),
     Module("flare", "Signal flare", "An asymmetric horizontal exposure sweep around the source.", (

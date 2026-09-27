@@ -402,11 +402,20 @@ at 480 px before enlarging to the saved 960×540 canvas.
   grain, reach, contour width/glow, fringe color/gap, lower fade and silhouette
   fill. Light side selects a left- or right-facing contour; Source threshold
   controls the source mask. Phosphor FPS sets the held texture cadence.
+  **More controls → Canvas coverage → Extend to canvas** continues the backlight
+  above and below the object when resizing reveals more space. The model and
+  its contour keep their size and proportions.
 - **Effects → Scan drag** stretches the source's bright colors into scanlines.
   Fine streak density/reach, overload strength/position/thickness/exposure,
   tracking tear count/height, irregular row groups, overload bloom, chroma slip, grain,
   softness, direction and fault FPS are independent. Recording width controls
-  black side margins; set it to 1 for a full-width signal. A blank image never
+  black side margins in the original canvas; set it to 1 for a full-width signal.
+  **More controls → Canvas coverage → Extend to canvas** lets streaks and
+  overloads reach the resized canvas edges instead of clipping at the original
+  recording width. Choose **Artwork bounds** in either effect to retain its
+  former framing. Both effects default to extending into the newly revealed
+  canvas, including in saved profiles. Native landscape renders stay unchanged.
+  A blank image never
   gains luminous bars. Mix = 0 bypasses either treatment exactly.
 - **Effects → Signal background** fills the deepest blacks, including the
   silhouette and recording margins, with Refined signal's faint green tint,

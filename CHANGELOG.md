@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Fix the rectangular lighting/scan boundary when resizing profile starters
+  to Stories, square or other larger canvases. Edge phosphor continues its
+  textured backlight beyond the head's finite height; Scan drag carries the
+  signal to the new canvas edges. The head keeps its size, proportions and
+  placement. Canvas coverage defaults to Extend to canvas, including in saved
+  profiles; Artwork bounds retains the earlier framing. Both original native
+  profile clips keep their exact pixels.
+
 - Profile / signal echoes adds an eight-second variation as an independent
   starter: green lock, overload, falling red scan, violet echoes, exposure flare
   and signal rupture, then a green return. Six editable sections reuse Ghosts /

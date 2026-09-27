@@ -867,3 +867,24 @@ def test_profile_starter_exposes_its_model_and_independent_treatments(window, tm
     window.save_sequence_dialog(); assert load_composition(path) == window.composition
     window.open_detailed_copy()
     assert window.detail_windows[-1].sequence == window.sequence
+
+
+def test_profile_canvas_coverage_controls_survive_undo_save_and_detailed_copy(window, tmp_path, monkeypatch):
+    choose_starter(window, 'profile-echoes')
+    window.canvas_combo.setCurrentIndex(window.canvas_combo.findData('stories'))
+    panel = window.composer.effects_panel
+    before = render_sequence_frame(window.sequence, .4, (90, 160)).tobytes()
+    for effect in ('edge_phosphor', 'scan_drag'):
+        panel.inspect_effect(effect); panel.more.setChecked(True)
+        panel.controls[f'{effect}.canvas_coverage'].input.setCurrentIndex(0)
+    bounded = render_sequence_frame(window.sequence, .4, (90, 160)).tobytes()
+    assert bounded != before
+    window.undo_composition(); window.undo_composition()
+    assert render_sequence_frame(window.sequence, .4, (90, 160)).tobytes() == before
+    window.redo_composition(); window.redo_composition()
+    path = tmp_path / 'portrait-coverage.json'
+    monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *args: (str(path), ''))
+    window.save_sequence_dialog()
+    assert load_composition(path) == window.composition
+    window.open_detailed_copy()
+    assert render_sequence_frame(window.detail_windows[-1].sequence, .4, (90, 160)).tobytes() == bounded
