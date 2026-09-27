@@ -586,7 +586,7 @@ def normalize_composition(raw):
         from synth_video import VIDEO_EFFECTS
         for scope in scopes:
             if set(scope['effects']) - set(VIDEO_EFFECTS):
-                raise ValueError('Video compositions support image treatments; object generators need a generated starter')
+                raise ValueError('Video compositions support image treatments; object generators need a generated study')
     if any(scope['effects'].get('edge_phosphor', {}).get('params', {}).get('edge_phosphor.fade_mode', 0) or
            scope['effects'].get('silhouette', {}).get('params', {}).get('silhouette.definition', 0) for scope in scopes):
         result['render_version'] = 2

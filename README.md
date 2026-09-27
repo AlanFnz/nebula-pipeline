@@ -6,7 +6,7 @@ The project version comes from [`_version.py`](_version.py); run `python studio.
 
 The [reusable effects plan](docs/reusable-effects-plan.md) tracks the incremental
 separation of objects, regions and treatments. The first milestone adds reusable
-directional regions and versioned compatibility, with all nine original starter
+directional regions and versioned compatibility, with all nine original study
 results protected by raw-pixel regression tests.
 
 ## Launch on this Mac
@@ -98,7 +98,7 @@ composition being left is backed up in
 - **Source → Treatment presets** applies Clean, Worn tape, Printed motion or
   Soft signal to the current footage. These replace effects and master settings
   throughout the composition while retaining its source, framing and sections;
-  Undo restores the previous treatment. They are separate from generated starters.
+  Undo restores the previous treatment. They are separate from generated studies.
 - **Before / source** previews the same frame and framing without treatments or
   master grading. Export always includes the enabled treatments.
 - **Keep source audio in export** is explicit in Source. Uncheck it for a silent
@@ -121,7 +121,7 @@ studio's existing 8-bit RGB/SDR path, not an HDR mastering pipeline.
 
 Video compositions and compiled sequences use storage schema 2 so older builds
 reject them explicitly; generated documents retain schema 1 and their render
-versions, defaults and seeds. Pixel contracts cover all eleven starters,
+versions, defaults and seeds. Pixel contracts cover all eleven studies,
 including both newer profile models. `synth_video.py` owns source identity,
 framing, clocks and decoding; `synth_video_audio.py` handles audio assembly.
 The existing renderer accepts an optional source image before the same image
@@ -130,15 +130,32 @@ multiple footage layers remain future work.
 
 The default view is a **composer**: sections below the preview and an **Effects**
 inspector. It opens the **Refined signal** study with its original animated recipe.
-Choose a study in **Starters**, then press **Load starter** to create an editable
+Choose a study in **Studies**, then press **Load study** to create an editable
 copy. The library includes Refined signal, Approved signal, Particle head,
 Expand / orbit, Original particles, Ink bloom, Mixed media / two bursts,
 Profile / phosphor scan, Profile / signal echoes, Profile / clear silhouette
 and Profile / Doryphoros.
 Selection alone does not replace the
-current composition; loading a starter keeps the current canvas format.
-The picker shows **Choose a starter…** when opening a document, so it does not
+current composition; loading a study keeps the current canvas format.
+The picker shows **Choose a study…** when opening a document, so it does not
 misidentify the open composition. Its name appears below the monitor.
+
+**Save as study…** adds the current composition to the Studies library under a
+name you choose, without replacing the working document. A study is an
+independent snapshot of its source recipe, sections, effects, timing, master
+grade and canvas. Each load opens a fresh editable copy and retains the current
+output canvas format, just like the built-in studies.
+
+Personal studies live in
+`~/Library/Application Support/Nebula Studio/Studies/`. Video studies include a
+local copy of their source in the same folder, referenced by a relative path,
+so moving the original video does not break the saved study. Copying the whole
+study folder to another installation's Studies directory preserves it. Saving
+runs in the background and publishes the folder only after the document and
+video are complete; cancellation or a failed copy leaves the library intact.
+Personal study media is local user data and is not part of the repository or
+Mac application bundle. Existing built-in IDs and rendering contracts are
+unchanged by the UI rename from Starters to Studies.
 
 The native editors share a terminal-inspired interface: a system-available
 monospaced font, dark panels, phosphor-green controls and a violet playhead.
@@ -174,7 +191,7 @@ affects the interface only; saved compositions and exported pixels are unchanged
   **Off throughout scope** overrides those changes. **Restore** removes that
   effect's overrides from the current scope.
 - **Object** is the common place for the scene's source. It replaces the former
-  Geometry tab and opens the controls for the object actually used by the starter:
+  Geometry tab and opens the controls for the object actually used by the study:
   **Geometric signal** edits the luminous form/ray aperture, **Ink stamps** edits
   the printed silhouette, artwork, dimensions and layout, and **Particle model**
   edits the head/sphere/ring model, pose, size and point density. **Model silhouette**
@@ -186,13 +203,13 @@ affects the interface only; saved compositions and exported pixels are unchanged
   keeping treatments, canvas, timeline and durations. Whole-clip replacement also
   resets local source activation overrides, retaining their parameter values.
   Switching back to an authored source follows its original enable/disable
-  choreography. **↶** follows starter/whole-clip source activation again; object
+  choreography. **↶** follows study/whole-clip source activation again; object
   parameter edits and embedded artwork survive switching. Undo/Redo, save/open
   and detailed copies preserve the result. Existing combinations made through
   Effects remain editable; Object names additional active source families.
 - **Object → Position X / Y** moves the complete source group in output canvas
   pixels. Positive X moves right; positive Y moves down. Zero preserves the
-  starter's authored placement and movement. Stamps and their split pieces,
+  study's authored placement and movement. Stamps and their split pieces,
   particles during assembly/expansion, geometric sources and attached ghosts,
   halos and glow follow the placement; full-canvas noise and tape processing
   remain across the canvas. Whole-clip position applies to all sections; a
@@ -202,7 +219,7 @@ affects the interface only; saved compositions and exported pixels are unchanged
   its units. Existing per-effect positions remain available in More object controls.
 - **Total** beside the playback counter always shows the complete duration,
   calculated from the sum of the sections. It updates after section edits and
-  automatic timing changes, including the two-burst starter. No separate total
+  automatic timing changes, including the two-burst study. No separate total
   duration edit is needed.
 - Effects use absolute values. Whole-clip settings apply first; section
   settings override them. Fixed effect values take priority over geometric Object controls
@@ -299,15 +316,15 @@ geometry, motion or effect parameters.
 Canvas settings save in compositions, detailed sequences and standalone presets.
 Composer Undo/Redo includes canvas changes. Returning to the original artwork
 dimensions restores its framing. Earlier documents keep their saved framing and output until
-the canvas is edited. Starters are independent copies; loading one retains the
-selected output format and uses that starter's own artwork reference.
+the canvas is edited. Studies are independent copies; loading one retains the
+selected output format and uses that study's own artwork reference.
 
 **Preview quality** affects only the monitor (360 px, 720 px or full canvas).
 **Export MP4** always uses the document's full dimensions, shown beside Canvas,
 even with a fast preview selected. The export snapshots the canvas and scene so
 subsequent edits do not change an in-progress render. Custom dimensions in loaded
 documents are retained. The new format/size helpers live in `synth_canvas.py` and
-the starter registry lives in `synth_starters.py`.
+the built-in registry lives in `synth_starters.py`; `synth_studies.py` combines it with personal studies.
 
 **View zoom** below the monitor changes only the view. Choose **Fit**, **100%**,
 enter a percentage, or use **− / +**. Drag to pan a zoomed image, double-click to
@@ -376,7 +393,7 @@ exposes cycle phase and automatic/manual cycling; the original percentage
 settings remain in the detailed editor. Untouched recipes keep their approved
 frames until a shared timing edit is made.
 
-**Starters → Ink bloom** creates a 3.53-second, 15 fps study from one editable
+**Studies → Ink bloom** creates a 3.53-second, 15 fps study from one editable
 section. Select **Canvas → Square** for its reference framing. Seven ragged
 cyan, magenta, yellow and white impressions unfold into a rotating cluster,
 pass through edge-on views, and fold back into a compact stamp. The shapes and
@@ -436,24 +453,24 @@ source and print textures. Jitter strength = 0 bypasses exactly; Jitter FPS = 0
 freezes the pose. The renderer places this effect before bloom, raster and print
 finishing, so fresh print background noise retains its own frame pattern.
 
-**Starters → Mixed media / two bursts · 7s** opens a 106-frame, 15 fps composition
+**Studies → Mixed media / two bursts · 7s** opens a 106-frame, 15 fps composition
 with two editable sections and Frame jitter enabled. The second gesture opens
 wider, fans out, adds depth/tilt and turns in the opposite direction. A short
 parameter transition starts while the first gesture is closed. Replace its
 Stamp shape or import artwork to reuse the full motion. The original Ink bloom
-starter and saved clips retain their previous output.
+study and saved clips retain their previous output.
 
 The shorter canvas edge controls stamp size, preserving proportions when
 switching formats. Paper covers the entire canvas. Effect overrides support
-save/open, Undo/Redo, section scope, independent starter copies and detailed
+save/open, Undo/Redo, section scope, independent study copies and detailed
 editing. Width, Instability and Texture finishing controls also affect the new
 source/treatment; Cycle seconds and opening/closing controls set its gesture.
 Seeded identities make scrubbing and export deterministic. The original signal
-and particle starters remain unchanged. Implementation: `synth_print.py`.
+and particle studies remain unchanged. Implementation: `synth_print.py`.
 
 ### Particle attractors
 
-**Starters → Profile / phosphor scan · 4s** creates a 61-frame study at 15 fps,
+**Studies → Profile / phosphor scan · 4s** creates a 61-frame study at 15 fps,
 with a fixed left-facing human profile and four editable sections: Green lock,
 Overload, Red hold and Lower scan tear. It uses the existing CC0 head mesh;
 no frames or textures from a reference GIF are bundled. Low-res finish renders
@@ -472,7 +489,7 @@ at 480 px before enlarging to the saved 960×540 canvas.
   its contour keep their size and proportions.
   **Region → Profile preset → Neck dissolve** fades the model's bright neck edges and
   softens the silhouette into the backlight below the jaw. It follows model
-  framing, scale, roll and Object X/Y. Both profile starters enable it; set it
+  framing, scale, roll and Object X/Y. Both profile studies enable it; set it
   to 0 for the previous outline. Saved clips keep their setting (0 if absent).
   In **Region**, choose **Object** for a reusable fade attached to the source,
   or **Canvas** for a fixed viewport region. Adjust Fade strength, Fade start,
@@ -502,33 +519,33 @@ at 480 px before enlarging to the saved 960×540 canvas.
   it); Mix or Background level = 0 restores the original black. The texture
   covers the whole canvas and stays in place when the object moves.
 
-Both treatments can be applied to other sources through Effects. The starter
+Both treatments can be applied to other sources through Effects. The study
 embeds its settings, keeps the same head pose throughout its sections, and
 supports whole-clip/section edits, reset, Undo/Redo, save/open, detailed copies,
-canvas reframing and MP4 export. Other starters keep these effects disabled
+canvas reframing and MP4 export. Other studies keep these effects disabled
 and retain their original rendering.
 
-New profile starters enable Signal background across all four sections. To
+New profile studies enable Signal background across all four sections. To
 update a saved profile, choose Whole clip, then add Signal background from
-Available effects. Saved compositions and other starters retain their prior look.
+Available effects. Saved compositions and other studies retain their prior look.
 
-**Starters → Profile / signal echoes · 8s** adds a separate 120-frame variation
+**Studies → Profile / signal echoes · 8s** adds a separate 120-frame variation
 at 15 fps. Six sections progress through Green lock, Overload, Red / falling scan,
 Violet echoes, Flare / signal rupture and Green return. The second half brings
 in **Ghosts / trails**, **Exposure flare** and **Signal drift**, with a brief
 violet pause and a return to the initial green palette. All six sections keep the
 same fixed head pose and Signal background settings. Edit each effect at Whole
 clip or section scope; changing section durations updates the total. The
-four-second starter and saved projects remain unchanged.
+four-second study and saved projects remain unchanged.
 
-**Starters → Profile / clear silhouette · 8s** keeps that choreography in a
+**Studies → Profile / clear silhouette · 8s** keeps that choreography in a
 separate variation, with a slightly larger profile, tighter glow/fringe and
 quieter scan streaks between overloads. **Object → Facial definition** emphasizes
 the nose, lips and chin before projection; 0 preserves the original geometry.
-The starter uses an explicit object region for the neck blend. Its mesh assets,
+The study uses an explicit object region for the neck blend. Its mesh assets,
 the original Profile / signal echoes and Refined signal are unchanged.
 
-**Starters → Profile / Doryphoros · 8s** uses a CC0 museum scan of the classical
+**Studies → Profile / Doryphoros · 8s** uses a CC0 museum scan of the classical
 Doryphoros head with the clear silhouette variation's six-section treatment.
 Facial definition and neck fullness start at zero to retain the scan's profile;
 the reusable directional region blends the neck into the signal. Select the mesh
@@ -537,12 +554,12 @@ target through **Object → Attractor → Doryphoros** in any particle study. Po
 scale, Object X/Y, canvas framing and treatments remain independent controls.
 The mesh has 32,000 triangles and needs no additional runtime dependency. Source,
 CC0 license and reproducible preparation are recorded in
-[`assets/models/README.md`](assets/models/README.md). Previous starters and models
+[`assets/models/README.md`](assets/models/README.md). Previous studies and models
 keep their original settings.
 
-The original nine starter recipes and preset defaults are frozen in
+The original nine study recipes and preset defaults are frozen in
 `presets/compat-v1.json`. Unversioned documents use rendering contract 1; new
-starter copies use contract 2, whose generic phosphor treatment matches the
+study copies use contract 2, whose generic phosphor treatment matches the
 captured originals. The original phosphor code remains available for contract 1.
 These versions describe algorithms, independently of JSON schema versions.
 See `tests/fixtures/synth-baseline-v1.json` for 99 cases / 3,385 raw-frame checks
@@ -550,7 +567,7 @@ and `requirements-render-v1.txt` for the recorded NumPy/Pillow versions. Future
 changes to shared algorithms still need compatibility implementations and visual
 regression checks; an engine version field alone does not preserve old pixels.
 
-**Starters → Particle head** opens the **Particle signal** study: dots rush into an
+**Studies → Particle head** opens the **Particle signal** study: dots rush into an
 anatomical head, rebound and dissolve toward a thin luminous band. Three sections
 (Charge & gather, Signal storm, Release & return) combine the continuous particle
 motion with 11 signal-treatment cues. **Original particles** retains the first

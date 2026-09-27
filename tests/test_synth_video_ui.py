@@ -86,3 +86,29 @@ def test_async_import_preserves_previous_composition_and_relink_is_undoable(wind
     assert window.composition == original
     window.undo_composition()
     assert window.composition['footage']['path'].endswith('missing.mkv')
+
+
+def test_save_as_study_is_independent_and_loads_from_the_renamed_library(window, monkeypatch):
+    from PySide6.QtWidgets import QInputDialog
+    from synth_studies import study_catalogue
+    before = copy.deepcopy(window.composition)
+    assert window.starter_combo.accessibleName() == 'Studies'
+    assert window.starter_combo.placeholderText() == 'Choose a study…'
+    assert window.load_starter_button.text() == 'Load study'
+    monkeypatch.setattr(QInputDialog, 'getText', lambda *args, **kwargs: ('My tape study', True))
+    window.save_study_button.click()
+    wait_until(lambda: window.study_job is None)
+    assert window.composition == before
+    assert window.starter_combo.currentData() is None
+    personal = next(key for key, name in study_catalogue() if name.startswith('My tape study'))
+    window.composer.change_video('x', 80.)
+    window.starter_combo.setCurrentIndex(window.starter_combo.findData(personal))
+    assert window.composition['footage']['x'] == 80.
+    window.load_starter_button.click()
+    assert window.composition['footage']['x'] == before['footage']['x']
+    assert window.composition['name'] == 'My tape study'
+    assert Path(window.composition['footage']['path']).exists()
+    original_name = window.composition['name']
+    monkeypatch.setattr(QInputDialog, 'getText', lambda *args, **kwargs: ('', False))
+    window.save_study_button.click()
+    assert window.study_job is None and window.composition['name'] == original_name

@@ -13,7 +13,7 @@ from PySide6.QtCore import QEvent, QObject, QRunnable, QSettings, QSignalBlocker
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QFileDialog, QGroupBox,
     QHBoxLayout, QGridLayout, QLabel, QMainWindow, QPushButton, QScrollArea,
-    QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QMessageBox, QSizePolicy, QFrame,
+    QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QMessageBox, QSizePolicy, QFrame, QInputDialog,
 )
 from studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBox, SpinBox as QSpinBox, Slider as QSlider
 
@@ -25,7 +25,7 @@ from synth_sequence import load_sequence, normalize_sequence, reference_sequence
 from synth_composition import FORMAT, compile_composition, composition_from_sequence, load_composition, normalize_composition, reference_composition, save_composition, section_ranges
 from synth_composer_ui import CompositionPanel, SectionTimeline
 from synth_canvas import CANVAS_FORMATS, format_canvas, normalize_canvas, preview_size, resize_canvas
-from synth_starters import STARTERS, starter_composition
+from synth_studies import study_catalogue, study_composition, save_study
 from synth_artwork_ui import ArtworkControl
 from synth_master import normalize_master
 from synth_master_ui import MasterPanel
@@ -118,6 +118,20 @@ class ImportVideoJob(QRunnable):
             self.signals.failed.emit(str(exc) or 'Import cancelled')
 
 
+class SaveStudyJob(QRunnable):
+    def __init__(self, project, name):
+        super().__init__()
+        self.project, self.name = copy.deepcopy(project), name
+        self.cancel = Cancellation()
+        self.signals = JobSignals()
+
+    def run(self):
+        try:
+            self.signals.done.emit(save_study(self.project, self.name, cancel=self.cancel))
+        except Exception as exc:
+            self.signals.failed.emit(str(exc) or 'Saving study cancelled')
+
+
 class RenderJob(QRunnable):
     def __init__(self, preset, time_seconds, size, settings_generation, request_serial, sequence=None, frame_provider=None, bypass=False):
         super().__init__()
@@ -198,6 +212,7 @@ class SynthStudio(QMainWindow):
         self.render_queued = False
         self.export_job = None
         self.import_job = None
+        self.study_job = None
         self.video_frames = VideoFrameProvider(preview=True)
         self.controls = {}
         self.module_groups = []
@@ -280,20 +295,23 @@ class SynthStudio(QMainWindow):
         self.import_video_button = QPushButton('Import video…'); self.import_video_button.clicked.connect(self.import_video_dialog)
         sequence_actions.addWidget(self.import_video_button)
         self.cancel_import = QPushButton('Cancel import'); self.cancel_import.clicked.connect(self.cancel_video_import); self.cancel_import.hide(); sequence_actions.addWidget(self.cancel_import)
-        sequence_actions.addWidget(QLabel("Starters"))
-        self.starter_combo = QComboBox(); self.starter_combo.setAccessibleName("Starters")
-        for identifier, label, _factory in STARTERS:
+        sequence_actions.addWidget(QLabel("Studies"))
+        self.starter_combo = QComboBox(); self.starter_combo.setAccessibleName("Studies")
+        for identifier, label in study_catalogue():
             self.starter_combo.addItem(label, identifier)
-        self.starter_combo.setPlaceholderText('Choose a starter…')
+        self.starter_combo.setPlaceholderText('Choose a study…')
         self.starter_combo.setCurrentIndex(-1)
-        self.starter_combo.setToolTip("Choose a built-in study, then load an editable copy in the current canvas format.")
+        self.starter_combo.setToolTip("Choose a built-in or saved study, then load an editable copy in the current canvas format.")
         sequence_actions.addWidget(self.starter_combo)
-        self.load_starter_button = QPushButton("Load starter"); self.load_starter_button.clicked.connect(self.load_starter)
+        self.load_starter_button = QPushButton("Load study"); self.load_starter_button.clicked.connect(self.load_starter)
         self.load_starter_button.setEnabled(False)
         self.starter_combo.currentIndexChanged.connect(lambda index: self.load_starter_button.setEnabled(index >= 0))
         sequence_actions.addWidget(self.load_starter_button)
         for text, slot in (("Save…", self.save_sequence_dialog), ("Open…", self.load_sequence_dialog)):
             button = QPushButton(text); button.clicked.connect(slot); sequence_actions.addWidget(button)
+        self.save_study_button = QPushButton('Save as study…'); self.save_study_button.clicked.connect(self.save_study_dialog)
+        self.save_study_button.setToolTip('Keep an independent copy in Studies, including a local copy of imported video. Your working composition stays open.')
+        sequence_actions.addWidget(self.save_study_button)
         sequence_actions.addStretch(1)
         outer.addLayout(sequence_actions)
         canvas_row = QHBoxLayout(); canvas_row.addWidget(QLabel("Canvas"))
@@ -496,6 +514,7 @@ class SynthStudio(QMainWindow):
 
     def rebuild_modules(self):
         self.refresh_canvas_controls()
+        self.save_study_button.setEnabled(self.composition is not None and self.study_job is None)
         if self.composer is not None:
             self.composition_index = self.composer.index
             self.composition_scope = self.composer.scope
@@ -599,10 +618,13 @@ class SynthStudio(QMainWindow):
 
     def load_starter(self):
         if self.starter_combo.currentData() is not None:
-            self.load_starter_id(self.starter_combo.currentData())
+            try:
+                self.load_starter_id(self.starter_combo.currentData())
+            except (OSError, ValueError) as exc:
+                self.status.setText(f'Could not load study: {exc}')
 
     def load_starter_id(self, identifier):
-        project = starter_composition(identifier)
+        project = study_composition(identifier)
         current = self.current_canvas()
         project["canvas"] = resize_canvas(project['canvas'], current, fit=current['framing'] == 'fit') if 'reference' in current else current
         self.set_composition(project)
@@ -615,6 +637,43 @@ class SynthStudio(QMainWindow):
             self.composer.effects_panel.inspect_effect("ink_bloom")
         elif identifier == "mixed-media":
             self.composer.effects_panel.inspect_effect("frame_jitter")
+
+    def refresh_studies(self):
+        selected = self.starter_combo.currentData()
+        with QSignalBlocker(self.starter_combo):
+            self.starter_combo.clear()
+            for identifier, label in study_catalogue(): self.starter_combo.addItem(label, identifier)
+            self.starter_combo.setCurrentIndex(self.starter_combo.findData(selected) if selected else -1)
+        self.load_starter_button.setEnabled(self.starter_combo.currentData() is not None)
+
+    def save_study_dialog(self):
+        if self.composition is None or self.study_job is not None: return
+        name, accepted = QInputDialog.getText(self, 'Save as study', 'Study name:', text=self.composition['name'])
+        if not accepted: return
+        if not name.strip() or len(name.strip()) > 80:
+            self.status.setText('Use a study name between 1 and 80 characters.'); return
+        job = SaveStudyJob(self.composition, name.strip())
+        self.study_job = job; self.pending_jobs.append(job)
+        self.save_study_button.setEnabled(False)
+        self.status.setText('Saving study and its source video…' if 'footage' in self.composition else 'Saving study…')
+        job.signals.done.connect(lambda identifier, j=job: self.study_saved(j, identifier))
+        job.signals.failed.connect(lambda error, j=job: self.study_save_failed(j, error))
+        self.jobs.start(job)
+
+    def _finish_study_save(self, job):
+        if job in self.pending_jobs: self.pending_jobs.remove(job)
+        if self.study_job is job: self.study_job = None
+        if not self.closing: self.save_study_button.setEnabled(self.composition is not None)
+
+    def study_saved(self, job, identifier):
+        self._finish_study_save(job)
+        if self.closing: return
+        self.refresh_studies()
+        self.status.setText(f'Saved study: {job.name}. Choose it in Studies to load a fresh copy.')
+
+    def study_save_failed(self, job, error):
+        self._finish_study_save(job)
+        if not self.closing: self.status.setText(f'Could not save study: {error}')
 
     def current_canvas(self):
         if self.composition is not None:
@@ -1098,6 +1157,7 @@ class SynthStudio(QMainWindow):
         self.closing = True
         self.play_timer.stop()
         self.cancel_video_import()
+        if self.study_job: self.study_job.cancel.cancel()
         self.video_frames.cancel.cancel()
         if not self.render_running: self.video_frames.close()
         if self.export_job:
