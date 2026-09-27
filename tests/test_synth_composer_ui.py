@@ -862,6 +862,14 @@ def test_profile_starter_exposes_its_model_and_independent_treatments(window, tm
     window.undo_composition()
     assert render_sequence_frame(window.sequence, .4, (160, 90)).tobytes() == before_background_edit
     window.redo_composition()
+    panel.effects_panel.inspect_effect('edge_phosphor')
+    panel.effects_panel.more.setChecked(True)
+    with_neck = render_sequence_frame(window.sequence, .4, (160, 90)).tobytes()
+    panel.effects_panel.controls['edge_phosphor.neck_dissolve'].changed.emit(0.)
+    assert render_sequence_frame(window.sequence, .4, (160, 90)).tobytes() != with_neck
+    window.undo_composition()
+    assert render_sequence_frame(window.sequence, .4, (160, 90)).tobytes() == with_neck
+    window.redo_composition()
     path = tmp_path / 'profile.json'
     monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *args: (str(path), ''))
     window.save_sequence_dialog(); assert load_composition(path) == window.composition

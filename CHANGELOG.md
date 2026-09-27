@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Edge phosphor adds Neck dissolve for the solid head model. It fades the
+  neck's bright detached edges and blends the lower cutout into the textured
+  backlight, following object placement, scale and roll. Both profile starters
+  enable it; zero restores the previous outline and saved settings stay intact.
+
 - Fix the rectangular lighting/scan boundary when resizing profile starters
   to Stories, square or other larger canvases. Edge phosphor continues its
   textured backlight beyond the head's finite height; Scan drag carries the

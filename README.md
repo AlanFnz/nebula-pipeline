@@ -405,6 +405,10 @@ at 480 px before enlarging to the saved 960×540 canvas.
   **More controls → Canvas coverage → Extend to canvas** continues the backlight
   above and below the object when resizing reveals more space. The model and
   its contour keep their size and proportions.
+  **More controls → Neck dissolve** fades the model's bright neck edges and
+  softens the silhouette into the backlight below the jaw. It follows model
+  framing, scale, roll and Object X/Y. Both profile starters enable it; set it
+  to 0 for the previous outline. Saved clips keep their setting (0 if absent).
 - **Effects → Scan drag** stretches the source's bright colors into scanlines.
   Fine streak density/reach, overload strength/position/thickness/exposure,
   tracking tear count/height, irregular row groups, overload bloom, chroma slip, grain,

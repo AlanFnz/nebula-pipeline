@@ -42,6 +42,23 @@ def _extends_canvas(p, preset, width, height, cw, ch):
                 and (width > cw + .5 or height > ch + .5))
 
 
+def _neck_dissolve(preset, size, amount):
+    """A soft neck region attached to the projected model, not the canvas."""
+    model = next((m['params'] for m in preset.get('modules', ())
+                  if m['id'] == 'silhouette' and m.get('enabled', True)), None)
+    if not amount or model is None:
+        return None
+    w, h = size; cw, ch = content_size(preset, size); dx, dy = object_offset(preset, size)
+    y, x = np.mgrid[:h, :w]
+    roll = math.radians(model['roll']); pitch = math.radians(model['pitch'])
+    center_x = w / 2 + cw * (model['center_x'] - .5) + dx
+    center_y = h / 2 + ch * (model['center_y'] - .5) + dy
+    down = ((x - center_x) * math.sin(roll) + (y - center_y) * math.cos(roll))
+    down /= max(1., ch * model['scale'] * max(.3, math.cos(pitch)))
+    blend = np.clip((down - .9) / .38, 0, 1)
+    return blend * blend * (3 - 2 * blend) * amount
+
+
 @lru_cache(maxsize=8)
 def _projected_head(width, height, cw, ch, model, scale, yaw, pitch, roll, center_x, center_y, neck_length, neck_fullness, dx, dy):
     triangles, _, _ = _head_mesh(portrait=model == 0)
@@ -90,6 +107,9 @@ def render_edge_phosphor(arr, p, time, preset, seed):
     edge = np.maximum(mask - _sample(mask, x + side * max(.7, p['rim_width'] * cw)), 0)
     rim = _blur(edge, .5 * cw / 480)
     rim *= 1 - p['lower_fade'] * np.clip((y / h - .74) / .24, 0, 1)
+    neck = _neck_dissolve(preset, (w, h), p.get('neck_dissolve', 0.))
+    if neck is not None:
+        rim *= 1 - neck
     shifted = _sample(rim, x + side * p['separation'] * cw)
     glow = _blur(rim, p['glow'] * cw)
     present = (mask > .2).any(axis=1)
@@ -110,6 +130,10 @@ def render_edge_phosphor(arr, p, time, preset, seed):
         distance = (boundary[:, None] - x) * -side / max(1., cw)
         field = np.exp(-np.maximum(0, distance) / max(.001, p['spread'])) * (distance >= 0) * present[:, None]
     field *= 1 - mask
+    if neck is not None:
+        # Remove the hard cutout underneath the faded contour as well. Blend
+        # the lighting field before grain so the neck joins fresh scan texture.
+        field = field * (1 - neck) + _blur(field, cw * .065) * neck
     # The screen field is uneven on every held scan, not a translated tile.
     fine = rng.random((h, w))
     coarse = Image.fromarray(rng.integers(0, 256, (max(2, h // 18), max(2, w // 28)), dtype=np.uint8)).resize((w, h), Image.Resampling.BILINEAR)
@@ -119,6 +143,8 @@ def render_edge_phosphor(arr, p, time, preset, seed):
     field *= texture * (.4 + .6 * np.exp(-((y / max(1, h) - .49) / .6) ** 2))
     primary = 1 - p['saturation'] + _hue(p['hue']) * p['saturation']; secondary = _hue(p['fringe_hue'])
     body = mask[..., None] * p['body']
+    if neck is not None:
+        body *= (1 - neck)[..., None]
     result = body + field[..., None] * primary * p['backlight']
     result += glow[..., None] * primary * p['edge'] * 2
     result += rim[..., None] * (primary * .75 + .25) * p['edge']

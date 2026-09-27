@@ -163,6 +163,7 @@ def profile_signal_composition():
     settings = {f'{module}.{param.key}': param.default for module in modules for param in MODULE_BY_ID[module].params}
     settings.update(speed=1., depth=0., treatment_fps=15)
     settings['low_res.resolution'] = 480
+    settings['edge_phosphor.neck_dissolve'] = 1.
     states = {}
     for key, overrides in (
         ('green', {}),

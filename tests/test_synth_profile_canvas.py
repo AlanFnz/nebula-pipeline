@@ -70,8 +70,11 @@ def test_extended_treatments_keep_held_clocks_freeze_and_seek(module, renderer):
     (profile_signal_composition, '81fb4953db613d9ebc02b633f19499b376c007af1d05a1e83137852fcc493d31'),
     (profile_echoes_composition, '08d1c93a869cc0edd2f9bd8417aba055a7cd36ba7ad475423af27810776fab94'),
 ])
-def test_native_profile_clips_retain_every_pre_spill_frame(factory, expected):
-    project = factory(); seq = compile_composition(project); digest = hashlib.sha256()
+def test_legacy_native_profile_clips_retain_every_pre_spill_frame(factory, expected):
+    project = factory()
+    for state in project['source']['states'].values():
+        state['overrides'].pop('edge_phosphor.neck_dissolve', None)
+    seq = compile_composition(project); digest = hashlib.sha256()
     for frame in range(round(seq['duration'] * seq['fps'])):
         digest.update(render_sequence_frame(seq, frame / seq['fps'], (120, 68)).tobytes())
     assert digest.hexdigest() == expected

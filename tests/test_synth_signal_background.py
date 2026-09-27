@@ -46,6 +46,7 @@ def test_background_has_refined_green_black_tone_and_covers_canvas_independently
 def test_previous_profile_frames_are_exact_when_background_is_disabled():
     project = profile_signal_composition()
     project['effects']['signal_background'] = {'mode': 'off', 'params': {}}
+    project['effects']['edge_phosphor'] = {'mode': 'recipe', 'params': {'edge_phosphor.neck_dissolve': 0.}}
     seq = compile_composition(project); digest = hashlib.sha256()
     for frame in range(61):
         digest.update(render_sequence_frame(seq, frame / 15, (120, 68)).tobytes())

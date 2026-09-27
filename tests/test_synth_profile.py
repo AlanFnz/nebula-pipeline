@@ -11,7 +11,7 @@ from synth_canvas import resize_canvas
 from synth_composition import compile_composition, load_composition, profile_signal_composition, save_composition
 from synth_effects import describe_effects
 from synth_media import export_synth_video
-from synth_profile import render_edge_phosphor, render_scan_drag, render_silhouette
+from synth_profile import _neck_dissolve, render_edge_phosphor, render_scan_drag, render_silhouette
 from synth_sequence import _state_preset, load_sequence, render_sequence_frame, save_sequence
 from synth_subject import active_subjects, restore_subject, scope_states, select_subject
 
@@ -117,3 +117,40 @@ def test_export_encodes_the_new_source_and_both_treatments(tmp_path):
     decoded = subprocess.check_output(['ffmpeg', '-v', 'error', '-i', str(path), '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'])
     frame = np.frombuffer(decoded, dtype=np.uint8).reshape(2, 540, 960, 3)[0]
     assert np.abs(frame.astype(float) - np.asarray(render_sequence_frame(sequence, 0.), dtype=float)).mean() < 3
+
+
+@pytest.mark.parametrize('size', [(480, 270), (270, 480)])
+def test_neck_dissolve_removes_bright_tail_without_changing_the_face(size):
+    seq = compile_composition(profile_signal_composition())
+    if size[1] > size[0]:
+        seq['canvas'] = resize_canvas(seq['canvas'], {'width': 1080, 'height': 1920})
+    preset = _state_preset(seq, seq['cues'][0]['state'])
+    source = render_silhouette(np.zeros((size[1], size[0], 3), np.float32), settings('silhouette'), 0., preset, 1)
+    p = settings('edge_phosphor', grain=0.)
+    before = render_edge_phosphor(source, p, 0., preset, 3)
+    after = render_edge_phosphor(source, dict(p, neck_dissolve=1.), 0., preset, 3)
+    neck = _neck_dissolve(preset, size, 1.)
+    # Leave a small margin for the existing contour glow's blur footprint.
+    first_neck_row = np.flatnonzero(neck.max(axis=1) > 0)[0]
+    assert np.array_equal(before[:first_neck_row - 12], after[:first_neck_row - 12])
+    tail = neck == 1
+    # Green backlight has no blue; the stray violet contour must disappear.
+    assert after[..., 2][tail].sum() < before[..., 2][tail].sum() * .02
+    assert after[..., 1][tail].mean() > .015
+
+
+def test_neck_dissolve_tracks_object_position_roll_and_scale_and_ignores_other_sources():
+    seq = compile_composition(profile_signal_composition()); preset = _state_preset(seq, seq['cues'][0]['state'])
+    preset.update(width=480, height=270)
+    next(m['params'] for m in preset['modules'] if m['id'] == 'silhouette')['roll'] = 25.
+    first = _neck_dissolve(preset, (480, 270), 1.)
+    moved = _neck_dissolve(dict(preset, object_x=20., object_y=10.), (480, 270), 1.)
+    assert np.allclose(first[:-10, :-20], moved[10:, 20:])
+    larger = _neck_dissolve(preset, (960, 540), 1.)
+    assert np.allclose(first, larger[::2, ::2])
+    assert _neck_dissolve(preset, (480, 270), 0.) is None
+    for m in preset['modules']:
+        if m['id'] == 'silhouette': m['enabled'] = False
+    source = np.zeros((270, 480, 3), np.float32); source[30:200, 120:250] = 1.
+    p = settings('edge_phosphor')
+    assert np.array_equal(render_edge_phosphor(source, p, 0., preset, 1), render_edge_phosphor(source, dict(p, neck_dissolve=1.), 0., preset, 1))

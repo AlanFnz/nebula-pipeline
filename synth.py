@@ -248,6 +248,7 @@ MODULES = (
         P("echo", "Contour echo", .2, 0, 1, .01),
         P("echo_distance", "Echo distance", .035, 0, .2, .005),
         P("lower_fade", "Lower contour fade", .8, 0, 1, .01),
+        P("neck_dissolve", "Neck dissolve", 0., 0, 1, .01, "For Model silhouette: dissolve neck contours into the backlight below the jaw. Follows object position, scale and roll; 0 keeps the original outline."),
         P("body", "Silhouette fill", 0., 0, 1, .01),
         P("side", "Light side", 0, 0, 1, 1, choices=("Left", "Right")),
         P("threshold", "Source threshold", .2, .05, .95, .01),
