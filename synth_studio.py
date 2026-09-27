@@ -536,6 +536,8 @@ class SynthStudio(QMainWindow):
             self.composer.effects_panel.inspect_effect("particles")
         elif identifier == "ink-bloom":
             self.composer.effects_panel.inspect_effect("ink_bloom")
+        elif identifier == "mixed-media":
+            self.composer.effects_panel.inspect_effect("frame_jitter")
 
     def current_canvas(self):
         if self.composition is not None:

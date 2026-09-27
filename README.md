@@ -72,7 +72,7 @@ The default view is a **composer**: sections below the preview and an **Effects*
 inspector. It opens the **Refined signal** study with its original animated recipe.
 Choose a study in **Starters**, then press **Load starter** to create an editable
 copy. The library includes Refined signal, Approved signal, Particle head,
-Expand / orbit, Original particles and Ink bloom. Selection alone does not replace the
+Expand / orbit, Original particles, Ink bloom and Mixed media / two bursts. Selection alone does not replace the
 current composition; loading a starter keeps the current canvas format.
 
 The native editors share a terminal-inspired interface: a system-available
@@ -231,6 +231,24 @@ are reduced on import. The processed silhouette is embedded in the document, so
 save/open, detailed copies and export work after moving the original file.
 Switching to a built-in shape keeps the artwork available. Imports and edits
 support Undo/Redo and section overrides; ↶ restores the inherited artwork.
+
+**Frame jitter** is a reusable effect for the ink figures, particle head and
+other generated sources. Apply **Hand-positioned paper**, **Subtle scan** or
+**Loose cut-paper**, then set Horizontal/Vertical jitter, Rotation jitter,
+Scale jitter, Jitter FPS and Jitter strength. Position values are pixels at a
+720-pixel short edge and scale with the preview/export canvas. Each held frame
+gets a bounded pose around the authored position; the figure never drifts away
+over time. The advanced Jitter seed changes its movement independently of the
+source and print textures. Jitter strength = 0 bypasses exactly; Jitter FPS = 0
+freezes the pose. The renderer places this effect before bloom, raster and print
+finishing, so fresh print background noise retains its own frame pattern.
+
+**Starters → Mixed media / two bursts · 7s** opens a 106-frame, 15 fps composition
+with two editable sections and Frame jitter enabled. The second gesture opens
+wider, fans out, adds depth/tilt and turns in the opposite direction. A short
+parameter transition starts while the first gesture is closed. Replace its
+Stamp shape or import artwork to reuse the full motion. The original Ink bloom
+starter and saved clips retain their previous output.
 
 The shorter canvas edge controls stamp size, preserving proportions when
 switching formats. Paper covers the entire canvas. Effect overrides support

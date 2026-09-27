@@ -82,7 +82,7 @@ def test_export_uses_saved_story_canvas_without_an_external_size_argument(tmp_pa
 
 
 def test_starters_are_independent_documents_and_preserve_all_studies():
-    assert {entry[0] for entry in STARTERS} == {"refined", "approved", "particle-head", "particle-orbit", "original-particles", "ink-bloom"}
+    assert {entry[0] for entry in STARTERS} == {"refined", "approved", "particle-head", "particle-orbit", "original-particles", "ink-bloom", "mixed-media"}
     for identifier, _label, _factory in STARTERS:
         first = starter_composition(identifier); second = starter_composition(identifier)
         first["source"]["states"].clear()

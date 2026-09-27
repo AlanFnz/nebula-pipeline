@@ -492,3 +492,33 @@ def test_cancelled_or_bad_artwork_import_does_not_change_document(window, tmp_pa
     monkeypatch.setattr(QInputDialog, 'getItem', lambda *args: ('', False))
     importer.import_button.click()
     assert window.composition == before
+
+
+def test_frame_jitter_starter_scope_undo_save_and_detailed_controls(window, tmp_path, monkeypatch):
+    choose_starter(window, 'mixed-media')
+    panel = window.composer; effects = panel.effects_panel
+    assert effects.effect_id == 'frame_jitter'
+    assert len(window.composition['sections']) == 2
+    assert effects.controls['frame_jitter.x'].input.value() == 5.
+    before = copy.deepcopy(window.composition)
+    effects.controls['frame_jitter.x'].input.setValue(7.)
+    changed = copy.deepcopy(window.composition)
+    assert changed['source'] == before['source']
+    assert changed['effects']['frame_jitter']['params']['frame_jitter.x'] == 7.
+    window.undo_composition(); assert window.composition == before
+    window.redo_composition(); assert window.composition == changed
+    panel.select_section(1)
+    effects.controls['frame_jitter.rate'].input.setValue(10)
+    assert window.composition['sections'][1]['effects']['frame_jitter']['params']['frame_jitter.rate'] == 10
+    assert not window.composition['sections'][0]['effects']
+    saved = copy.deepcopy(window.composition)
+    path = tmp_path / 'hand-registration.json'
+    monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *args: (str(path), ''))
+    window.save_sequence_dialog()
+    assert load_composition(path) == saved
+    window.open_detailed_copy()
+    child = window.detail_windows[-1]
+    assert 'frame_jitter.x' in child.sequence_state_controls
+    assert 'frame_jitter.seed' in child.sequence_state_controls
+    child.sequence_state_controls['frame_jitter.x'].set_value(2.)
+    assert window.composition == saved

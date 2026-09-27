@@ -119,6 +119,38 @@ def ink_bloom_composition():
     return normalize_composition(project)
 
 
+def mixed_media_composition():
+    """Two editable gestures with held registration and a wider reverse turn."""
+    project = ink_bloom_composition()
+    period = project['source']['duration']
+    first = copy.deepcopy(project['source']['states']['print'])
+    first['enabled'].append('frame_jitter')
+    first['overrides'].update({f'frame_jitter.{p.key}': p.default for p in MODULE_BY_ID['frame_jitter'].params})
+    # Leave room for the widest shape and the independent frame registration.
+    first['overrides'].update({'ink_bloom.size': .15 * .84, 'ink_bloom.spread': .255 * .84})
+    second = copy.deepcopy(first)
+    second['overrides'].update({
+        'ink_bloom.revolutions': -1., 'ink_bloom.tumble': .58,
+        'ink_bloom.tilt': 27., 'ink_bloom.fan': 25., 'ink_bloom.cluster_depth': .86,
+        'ink_bloom.spread': .28 * .84, 'ink_bloom.rotation': 18.,
+        'ink_bloom.open_duration': 24., 'ink_bloom.close_start': 58., 'ink_bloom.close_duration': 26.,
+    })
+    project['name'] = 'Mixed media / two bursts'
+    project['source'].update(name=project['name'], duration=2 * period,
+                             states={'first': first, 'second': second}, cues=[
+        {'time': 0., 'state': 'first', 'transition': 'cut', 'duration': 0.},
+        {'time': period, 'state': 'second', 'transition': 'morph', 'duration': 5 / 15},
+    ])
+    project['phrases'] = {
+        'first': {'name': 'Unfold / turn / return', 'start': 0., 'end': period},
+        'second': {'name': 'Wider / reverse / return', 'start': period, 'end': 2 * period},
+    }
+    prototype = project['sections'][0]
+    project['sections'] = [dict(copy.deepcopy(prototype), id=f'section-{i + 1}', phrase=key, duration=period)
+                           for i, key in enumerate(('first', 'second'))]
+    return normalize_composition(project)
+
+
 def particle_composition(refined=False):
     """One editable section; the particle module owns its assembly cycle."""
     if refined:

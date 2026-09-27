@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Reusable Frame jitter effect adds held horizontal/vertical shifts, rotation
+  and scale variation, with independent FPS, strength and movement seed. Its
+  subpixel transform runs before finishing, preserves highlights and does not
+  move the fresh print background. A Mixed media / two bursts starter exposes
+  the wider reverse second gesture as two editable studio sections.
+
 - Replaceable Ink bloom silhouettes: square, circle, triangle, polygon and
   imported artwork share the existing unfold/turn/refold animation. Custom
   transparency or luminance masks retain holes and proportions, use the selected

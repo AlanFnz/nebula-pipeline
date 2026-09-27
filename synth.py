@@ -23,6 +23,7 @@ from synth_tape import render_tape_damage
 from synth_canvas import normalize_canvas
 from synth_print import render_ink_bloom, render_print_surface
 from synth_artwork import validate_artwork
+from synth_jitter import render_frame_jitter
 
 SYNTH_SCHEMA_VERSION = 1
 SYNTH_PRESETS_DIR = Path.home() / ".nebula_pipeline" / "synth_presets"
@@ -245,6 +246,15 @@ MODULES = (
         P("speed", "Signal speed", 1.0, 0, 6, .05),
         P("columns", "Comb columns", 130, 20, 320, 1),
         P("mix", "Mix", 1.0, 0, 1, .01),
+    )),
+    Module("frame_jitter", "Frame jitter", "Small held shifts, turns and scale changes, like repositioned paper or an unsteady scan.", (
+        P("x", "Horizontal jitter", 5., 0, 30, .25, "Maximum displacement in pixels at a 720-pixel short edge; scales with the canvas."),
+        P("y", "Vertical jitter", 4., 0, 30, .25, "Maximum vertical displacement in pixels at a 720-pixel short edge."),
+        P("rotation", "Rotation jitter", .18, 0, 3, .01, "Maximum held rotation in degrees around the canvas center."),
+        P("scale", "Scale jitter (%)", .12, 0, 3, .01, "Tiny changes in magnification, independent of the source's size control."),
+        P("rate", "Jitter FPS", 15, 0, 60, 1, "New pose per held frame at global speed 1. Zero freezes the pose."),
+        P("strength", "Jitter strength", 1., 0, 2, .01, "Scale all registration movement. Zero bypasses exactly."),
+        P("seed", "Jitter seed", 0, 0, 100000, 1, "Change the movement pattern independently of the source and print textures."),
     )),
     Module("bloom", "Bloom", "Soft overexposure around luminous regions.", (
         P("threshold", "Threshold", .42, 0, 1, .01, "Luminance threshold for glow."),
@@ -834,6 +844,7 @@ def _breakup(arr, p, t, preset):
 
 
 RENDERERS = {
+    "frame_jitter": lambda arr, params, t, preset, index: render_frame_jitter(arr, params, t, preset["speed"], _seed(preset["seed"], "frame-jitter")),
     "ink_bloom": lambda arr, params, t, preset, index: render_ink_bloom(arr, params, t, preset["speed"], _seed(preset["seed"], "ink-bloom")),
     "print_surface": lambda arr, params, t, preset, index: render_print_surface(arr, params, t, preset["speed"], _seed(preset["seed"], "print-surface")),
     "slab": lambda arr, params, t, preset, index: _render_slab(arr, params, t, preset, index),
