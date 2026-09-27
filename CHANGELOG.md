@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Ink bloom starter: a 3.53-second, 15 fps procedural mixed-media gesture with
+  seven irregular CMY/white stamps unfolding, turning and refolding in one
+  editable section. Reusable Ink bloom controls cover shape, palette, depth,
+  motion, manual opening and cycle timing.
+- Reusable Print surface treatment adds persistent charcoal-paper fibers,
+  ink grain/erosion, frayed edges, held registration, texture boil and dust to
+  any generated source. Both new effects are disabled in existing studies.
+
 - Non-destructive canvas formats: original 5:4, Stories/Reels 9:16, portrait 4:5
   and 3:4, square 1:1, landscape 1.91:1 and widescreen 16:9. Adaptive subject
   framing keeps particles proportional on narrow canvases while noise and tape

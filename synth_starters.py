@@ -1,5 +1,5 @@
 """Independent editable copies of the built-in studies."""
-from synth_composition import particle_composition, particle_orbit_composition, reference_composition
+from synth_composition import ink_bloom_composition, particle_composition, particle_orbit_composition, reference_composition
 
 
 STARTERS = (
@@ -8,6 +8,7 @@ STARTERS = (
     ("particle-head", "Particle head · 15s", lambda: particle_composition(refined=True)),
     ("particle-orbit", "Expand / orbit · 15s", particle_orbit_composition),
     ("original-particles", "Original particles · 15s", particle_composition),
+    ("ink-bloom", "Ink bloom · 3.5s", ink_bloom_composition),
 )
 
 

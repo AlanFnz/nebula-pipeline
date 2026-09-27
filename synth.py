@@ -21,6 +21,7 @@ from PIL import Image, ImageFilter
 from synth_particles import render_particles
 from synth_tape import render_tape_damage
 from synth_canvas import normalize_canvas
+from synth_print import render_ink_bloom, render_print_surface
 
 SYNTH_SCHEMA_VERSION = 1
 SYNTH_PRESETS_DIR = Path.home() / ".nebula_pipeline" / "synth_presets"
@@ -167,6 +168,41 @@ MODULES = (
         P("shimmer", "Shimmer", .45, 0, 1, .01, "Per-dot brightness fluctuation, independent of its trajectory."),
         P("jitter", "Scan registration", .0015, 0, .02, .0005, "Small held shifts across scan lines."),
     )),
+    Module("ink_bloom", "Ink bloom", "Irregular printed bursts unfold as a rotating three-dimensional cluster.", (
+        P("count", "Stamp count", 7, 1, 13, 1, "One central stamp with satellites arranged around it."),
+        P("size", "Stamp size", .15, .02, .4, .005, "Radius relative to the shorter canvas edge; proportions survive format changes."),
+        P("spread", "Open spread", .255, 0, .6, .005, "Distance from the center to the surrounding stamps when open."),
+        P("period", "Cycle seconds", 53 / 15, .5, 60, .05, "One unfold, turn and refold gesture."),
+        P("opening", "Opening", 1., 0, 1, .01, "Maximum opening. Set Automatic cycle to 0 to control the opening manually."),
+        P("cadence", "Motion FPS", 15, 1, 60, 1, "Hold the geometry between frames, independently of export FPS."),
+        P("points", "Points per stamp", 12, 3, 32, 1),
+        P("point_depth", "Point depth", .4, .05, .85, .01),
+        P("irregularity", "Ragged shape", .72, 0, 1, .01, "Uneven tip lengths and notches; stable for a given take."),
+        P("palette", "Ink palette", 0, 0, 2, 1, choices=("CMY / white", "Warm print", "Monochrome")),
+        P("split_ink", "Split ink", 1., 0, 1, .01, "A second ink color on the edge of each impression."),
+        P("back_ink", "Reverse-side ink", .9, 0, 1, .01, "Use the first palette ink on reverse faces, revealing the other colors as the cluster turns."),
+        P("saturation", "Saturation", 1., 0, 1, .01),
+        P("cycle", "Automatic cycle", 1., 0, 1, .01),
+        P("phase", "Cycle phase", 0., 0, 1, .01),
+        P("open_start", "Open at (%)", 12., 0, 90, 1, "Start opening at this percentage of the cycle."),
+        P("open_duration", "Open over (%)", 28., 1, 90, 1, "Duration of the eased opening as a percentage of the cycle."),
+        P("close_start", "Close at (%)", 56., 0, 99, 1),
+        P("close_duration", "Close over (%)", 27., 1, 90, 1),
+        P("revolutions", "Turns per cycle", 1., -3, 3, .1),
+        P("turn", "Starting turn", 0., -180, 180, 1),
+        P("rotation", "Print rotation", 0., -180, 180, 1),
+        P("tumble", "Tumble", .9, 0, 1, .01),
+        P("tilt", "Tilt", 12., 0, 80, 1),
+        P("fan", "Stamp fanning", 8., 0, 80, 1, "Individual planes open at different angles. Low values retain thin edge-on silhouettes."),
+        P("center_fold", "Middle fold", 1., 0, 1, .01, "Fold the central impression across the outer planes during edge-on turns."),
+        P("disorder", "Layout disorder", .5, 0, 1, .01),
+        P("cluster_depth", "Cluster depth", .6, 0, 1.5, .01, "Depth between alternating stamps. Zero makes a flat rosette."),
+        P("stack_spacing", "Closed stack spacing", .045, 0, .3, .005, "Separation between ink planes before they unfold."),
+        P("perspective", "Perspective", .25, 0, 1, .01),
+        P("position_x", "Horizontal position", 0., -1, 1, .01),
+        P("position_y", "Vertical position", 0., -1, 1, .01),
+        P("opacity", "Ink opacity", 1., 0, 1, .01),
+    )),
     Module("flare", "Signal flare", "An asymmetric horizontal exposure sweep around the source.", (
         P("strength", "Exposure", 0.0, 0, 3, .01, "Adds a clipped white signal flare."),
         P("position_y", "Vertical position", .5, 0, 1, .01, "Centre of the horizontal sweep."),
@@ -231,6 +267,24 @@ MODULES = (
         P("head_switch", "Head-switch error", .25, 0, 1, .01, "Distort and darken the bottom edge as the tape head changes."),
         P("rate", "Fault changes / sec", 16.0, 0, 60, .5, "Held fault rate at global speed 1; zero freezes the pattern."),
         P("mix", "Mix", .8, 0, 1, .01, "Blend tape faults with the original signal."),
+    )),
+    Module("print_surface", "Print surface", "Charcoal paper, ink erosion and held scanner registration across the whole image.", (
+        P("paper_grain", "Paper grain", .85, 0, 2, .01),
+        P("ink_grain", "Ink grain", .35, 0, 1, .01),
+        P("ink_wear", "Ink wear", .20, 0, 1, .01),
+        P("edge_wear", "Frayed edges", .65, 0, 1, .01),
+        P("registration", "Frame registration", .002, 0, .03, .001, "Small held shifts of the printed artwork."),
+        P("cadence", "Scan FPS", 15, 1, 60, 1, "Rate of registration and fresh scan noise, independent of export FPS."),
+        P("grain_size", "Grain size", 1.3, .7, 8, .1, "Paper tooth size at 720 pixels on the shorter edge."),
+        P("fibers", "Paper fibers", .75, 0, 2, .01),
+        P("mottle", "Uneven stock", .45, 0, 1, .01),
+        P("black_level", "Paper brightness", .077, 0, .25, .001),
+        P("boil", "Texture boil", .25, 0, 1, .01, "Fresh grain within each scan; the underlying sheet remains persistent."),
+        P("paper_motion", "Paper movement", .06, 0, .3, .005),
+        P("rotation_jitter", "Rotation jitter", .45, 0, 3, .05),
+        P("dust", "Dust flecks", .12, 0, 1, .01),
+        P("softness", "Scan softness", .8, 0, 3, .05),
+        P("mix", "Mix", 1., 0, 1, .01),
     )),
 )
 MODULE_BY_ID = {module.id: module for module in MODULES}
@@ -765,6 +819,8 @@ def _breakup(arr, p, t, preset):
 
 
 RENDERERS = {
+    "ink_bloom": lambda arr, params, t, preset, index: render_ink_bloom(arr, params, t, preset["speed"], _seed(preset["seed"], "ink-bloom")),
+    "print_surface": lambda arr, params, t, preset, index: render_print_surface(arr, params, t, preset["speed"], _seed(preset["seed"], "print-surface")),
     "slab": lambda arr, params, t, preset, index: _render_slab(arr, params, t, preset, index),
     "blinds": lambda arr, params, t, preset, index: _render_blinds(arr, params, t, preset, index),
     "particles": lambda arr, params, t, preset, index: render_particles(arr, params, t, preset, _seed(preset["seed"], "particles")),

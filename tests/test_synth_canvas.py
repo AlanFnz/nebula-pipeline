@@ -81,8 +81,8 @@ def test_export_uses_saved_story_canvas_without_an_external_size_argument(tmp_pa
     assert (probe["width"], probe["height"], probe["nb_frames"]) == (1080, 1920, "3")
 
 
-def test_starters_are_independent_documents_and_preserve_all_five_studies():
-    assert len(STARTERS) == 5
+def test_starters_are_independent_documents_and_preserve_all_studies():
+    assert {entry[0] for entry in STARTERS} == {"refined", "approved", "particle-head", "particle-orbit", "original-particles", "ink-bloom"}
     for identifier, _label, _factory in STARTERS:
         first = starter_composition(identifier); second = starter_composition(identifier)
         first["source"]["states"].clear()

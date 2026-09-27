@@ -27,9 +27,9 @@ MACROS = {
     "color": ("Magenta", 0., 1.8, "Violet-magenta edges and the blue falloff in dim forms."),
 }
 PATHS = {
-    "width": ("slab.width", "blinds.aperture"),
-    "motion": ("slab.frame_jitter", "slab.edge_ripple", "slab.jitter", "slab.notch", "blinds.curvature", "blinds.row_drift", "blinds.irregularity", "warp.amount", "flare.bend", "flare.asymmetry"),
-    "texture": ("raster.grain", "raster.chroma", "raster.line_noise", "slab.ghost_grain", "slab.cloud_strength", "slab.cloud_detail"),
+    "width": ("slab.width", "blinds.aperture", "ink_bloom.size", "ink_bloom.spread"),
+    "motion": ("slab.frame_jitter", "slab.edge_ripple", "slab.jitter", "slab.notch", "blinds.curvature", "blinds.row_drift", "blinds.irregularity", "warp.amount", "flare.bend", "flare.asymmetry", "ink_bloom.tumble", "print_surface.registration", "print_surface.rotation_jitter"),
+    "texture": ("raster.grain", "raster.chroma", "raster.line_noise", "slab.ghost_grain", "slab.cloud_strength", "slab.cloud_detail", "print_surface.paper_grain", "print_surface.ink_grain", "print_surface.ink_wear"),
     "glow": ("slab.intensity", "blinds.intensity", "bloom.strength"),
     "flashes": ("flare.strength",),
     "color": ("slab.fill_magenta", "slab.vertical_tint", "slab.magenta", "blinds.magenta", "flare.fringe"),
@@ -96,6 +96,26 @@ def blank_composition():
         "cues": [{"time": 0., "state": "blank", "transition": "cut"}],
     })
     return composition_from_sequence(source)
+
+
+def ink_bloom_composition():
+    """A single editable gesture with procedural motion, not frame-by-frame cues."""
+    duration = 53 / 15
+    # Embed this study's complete settings so later default/preset changes do
+    # not silently restyle saved compositions.
+    settings = {f"{module}.{param.key}": param.default
+                for module in ("ink_bloom", "print_surface") for param in MODULE_BY_ID[module].params}
+    settings.update(speed=1., depth=0., treatment_fps=60)
+    source = normalize_sequence({
+        "schema_version": 1, "name": "Ink bloom", "duration": duration, "fps": 15, "seed": 2709,
+        "canvas": {"width": 1080, "height": 1080, "framing": "adaptive"},
+        "states": {"print": {"preset": "Reference blinds", "enabled": ["ink_bloom", "print_surface"],
+                              "overrides": settings}},
+        "cues": [{"time": 0., "state": "print", "transition": "cut"}],
+    })
+    project = composition_from_sequence(source)
+    project["phrases"]["custom"]["name"] = "Unfold / turn / refold"
+    return normalize_composition(project)
 
 
 def particle_composition(refined=False):

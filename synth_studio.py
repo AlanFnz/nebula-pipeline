@@ -527,6 +527,8 @@ class SynthStudio(QMainWindow):
             self.starter_combo.setCurrentIndex(self.starter_combo.findData(identifier))
         if identifier in ("particle-head", "particle-orbit", "original-particles"):
             self.composer.effects_panel.inspect_effect("particles")
+        elif identifier == "ink-bloom":
+            self.composer.effects_panel.inspect_effect("ink_bloom")
 
     def current_canvas(self):
         if self.composition is not None:

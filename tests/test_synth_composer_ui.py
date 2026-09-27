@@ -376,3 +376,33 @@ def test_starter_menu_requires_load_and_uses_current_canvas(window):
     window.load_starter_button.click()
     assert window.composer.effects_panel.controls["particles.rotation_speed"].input.value() == 18.
     assert window.canvas_combo.currentData() == "stories"
+
+
+def test_ink_starter_exposes_both_effects_and_persists_customization(window, tmp_path, monkeypatch):
+    window.canvas_combo.setCurrentIndex(window.canvas_combo.findData('square'))
+    choose_starter(window, 'ink-bloom')
+    assert window.composition['fps'] == 15
+    assert len(window.composition['sections']) == 1
+    assert window.composer.effects_panel.effect_id == 'ink_bloom'
+    before = copy.deepcopy(window.composition)
+    panel = window.composer.effects_panel
+    panel.controls['ink_bloom.count'].input.setValue(9)
+    panel.controls['ink_bloom.size'].input.setValue(.18)
+    panel.inspect_effect('print_surface')
+    panel.controls['print_surface.ink_wear'].input.setValue(.6)
+    changed = copy.deepcopy(window.composition)
+    assert changed['effects']['ink_bloom']['params']['ink_bloom.count'] == 9
+    assert changed['effects']['print_surface']['params']['print_surface.ink_wear'] == .6
+    window.undo_composition()
+    assert 'print_surface' not in window.composition['effects']
+    window.redo_composition()
+    assert window.composition == changed
+    path = tmp_path / 'printed.json'
+    monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *args: (str(path), ''))
+    window.save_sequence_dialog()
+    assert load_composition(path) == changed
+    window.canvas_combo.setCurrentIndex(window.canvas_combo.findData('stories'))
+    assert window.composition['effects'] == changed['effects']
+    assert window.composition['source'] == before['source']
+    window.open_detailed_copy()
+    assert window.detail_windows[-1].current_canvas()['height'] == 1920

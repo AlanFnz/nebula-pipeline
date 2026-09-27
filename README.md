@@ -72,7 +72,7 @@ The default view is a **composer**: sections below the preview and an **Effects*
 inspector. It opens the **Refined signal** study with its original animated recipe.
 Choose a study in **Starters**, then press **Load starter** to create an editable
 copy. The library includes Refined signal, Approved signal, Particle head,
-Expand / orbit and Original particles. Selection alone does not replace the
+Expand / orbit, Original particles and Ink bloom. Selection alone does not replace the
 current composition; loading a starter keeps the current canvas format.
 
 The native editors share a terminal-inspired interface: a system-available
@@ -180,6 +180,37 @@ even with a fast preview selected. The export snapshots the canvas and scene so
 subsequent edits do not change an in-progress render. Custom dimensions in loaded
 documents are retained. The new format/size helpers live in `synth_canvas.py` and
 the starter registry lives in `synth_starters.py`.
+
+### Printed mixed media
+
+**Starters → Ink bloom** creates a 3.53-second, 15 fps study from one editable
+section. Select **Canvas → Square** for its reference framing. Seven ragged
+cyan, magenta, yellow and white impressions unfold into a rotating cluster,
+pass through edge-on views, and fold back into a compact stamp. The shapes and
+paper are generated procedurally; no reference footage or downloaded textures
+are needed by the app.
+
+Two independent effects are available in every composition:
+
+- **Ink bloom:** stamp count, size, spread, point count/depth, shape irregularity,
+  ink palette and split colors. More controls exposes opening/closing timing,
+  cycle phase, signed turns, tumble, tilt, individual fanning, cluster depth,
+  closed-stack spacing, middle folding, reverse-side ink, perspective and position. **Automatic cycle = 0** makes
+  **Opening** a manual control. Motion FPS holds the geometry independently of
+  export FPS; rates are measured at global speed 1.
+- **Print surface:** paper and ink grain, ink wear, frayed edges, held scan
+  registration, rotation jitter, persistent fibers, broad paper mottling, fresh
+  texture boil, dust and scan softness. It treats the combined image, so it can
+  also be applied to the head, rays and other sources. **Mix = 0** is an exact
+  bypass. Scan FPS sets its own cadence at global speed 1.
+
+The shorter canvas edge controls stamp size, preserving proportions when
+switching formats. Paper covers the entire canvas. Effect overrides support
+save/open, Undo/Redo, section scope, independent starter copies and detailed
+editing. Width, Instability and Texture finishing controls also affect the new
+source/treatment; Cycle seconds and opening/closing controls set its gesture.
+Seeded identities make scrubbing and export deterministic. The original signal
+and particle starters remain unchanged. Implementation: `synth_print.py`.
 
 ### Particle attractors
 

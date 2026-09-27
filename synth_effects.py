@@ -29,6 +29,12 @@ def paths(module, keys=None):
 
 
 EFFECTS = (
+    Effect("ink_bloom", "Ink bloom", "Ragged ink stamps open into a rotating cluster, then fold back into one impression. Motion FPS gives held frames; Automatic cycle at 0 enables manual Opening.",
+           paths("ink_bloom"), ("ink_bloom",),
+           looks=(("CMY unfolding cluster", {}),
+                  ("Single rough stamp", {"ink_bloom.count": 1, "ink_bloom.cycle": 0., "ink_bloom.revolutions": 0., "ink_bloom.tumble": 0.}),
+                  ("Warm paper flowers", {"ink_bloom.palette": 1, "ink_bloom.points": 8, "ink_bloom.point_depth": .3}),
+                  ("Monochrome rosette", {"ink_bloom.palette": 2, "ink_bloom.count": 9}))),
     Effect("forms", "Luminous forms", "Solid or hollow sources. Combine with ghosts, rays and signal effects.",
            paths("slab", "shape width height count position_x position_y diameter sides rotation spacing edge_hardness hollow intensity fill_magenta fill_gradient vertical_tint edge_softness magenta cyan jitter frame_jitter edge_ripple notch"), ("slab",),
            looks=(("Solid rectangle", {"slab.shape": 0, "slab.hollow": 0, "slab.width": .24}),
@@ -68,6 +74,11 @@ EFFECTS = (
     Effect("interference", "Signal interference", "Moving chromatic exposure bands and bent vertical strings. Processes particles, forms and rays before bloom and grain.", paths("interference"), ("interference",)),
     Effect("bloom", "Bloom", "Spread light from the brightest parts of the image.", paths("bloom"), ("bloom",)),
     Effect("raster", "Raster / grain", "Soften the signal and add scan lines, luminance grain and chroma noise.", paths("raster"), ("raster",)),
+    Effect("print_surface", "Print surface", "Treat any generated image as a worn print on textured black paper. Fibers persist while held registration and fresh scan noise vary. Applied after the signal treatments.",
+           paths("print_surface"), ("print_surface",),
+           looks=(("Gritty charcoal stock", {}),
+                  ("Rough photocopy", {"print_surface.ink_wear": .7, "print_surface.edge_wear": .9, "print_surface.grain_size": 2.8}),
+                  ("Quiet paper", {"print_surface.paper_motion": 0., "print_surface.boil": .08, "print_surface.registration": .0005}))),
 )
 EFFECT_BY_ID = {effect.id: effect for effect in EFFECTS}
 
