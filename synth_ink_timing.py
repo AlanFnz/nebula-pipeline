@@ -36,14 +36,20 @@ def stage_durations(p):
 def gesture_phase(time, p, speed=1.):
     """Return held clock, authored turn phase, opening and closing envelopes.
 
-    With no duration overrides the old arithmetic stays exact. Custom seconds
+    At the original gesture speed the legacy scene clock stays exact. Custom seconds
     retime the authored turn along with opening, so a fast unfold still passes
     through the same edge-on views. The closed rest straddles the loop seam in
     the recipe's original proportion, keeping its initial pause.
     """
     if p.get('clock_mode', 0):
-        speed = p.get('clock_scale', 1.)
-    clock = math.floor(time * speed * p.get('motion_speed', 1.) * p['cadence'] + 1e-8) / p['cadence']
+        # Sample in real time, then scale travel. Slowing a gesture must not
+        # turn 15 Motion FPS into 1.5 FPS at 0.1x speed.
+        held = math.floor(time * p['cadence'] + 1e-8) / p['cadence']
+        clock = held * p.get('clock_scale', 1.)
+    else:
+        # Preserve the authored scene hold clock for older detailed recipes.
+        clock = math.floor(time * speed * p['cadence'] + 1e-8) / p['cadence']
+    clock *= p.get('motion_speed', 1.)
     if all(p.get(key, -1.) < 0 for key in DURATION_KEYS):
         phase = (clock / p['period'] + p['phase']) % 1.
         opening = np.clip((phase * 100 - p['open_start']) / p['open_duration'], 0., 1.)

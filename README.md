@@ -245,7 +245,11 @@ total rest between gestures, split around the loop boundary in the recipe's
 original proportion. Zero-duration stages are instantaneous; all four at zero
 hold the closed pose.
 
-**Motion FPS** controls how often the geometry updates. **Frame jitter → Jitter
+**Motion FPS** controls how often the geometry updates, independently of
+**Gesture speed**: at .1× and 15 Motion FPS the figure still gets 15 poses per
+second, with smaller movement between them. For smoother motion, raise Motion
+FPS and the clip frame rate in Arrange together (for example, both to 30 fps).
+Lower Motion FPS deliberately retains the mixed-media holds. **Frame jitter → Jitter
 FPS** independently controls how often the tiny positional shakes change; 6–8
 FPS gives longer holds than 15 FPS. Print/background noise also keeps its own
 clock. **Arrange** controls custom section and clip lengths. **More controls**

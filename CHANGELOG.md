@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Slowing Gesture speed no longer lowers Motion FPS. Ink motion now samples its
+  hold clock before scaling travel, keeping smaller pose changes at the selected
+  cadence instead of increasingly long freezes. Shared clock scaling follows
+  the same rule; original-speed recipes retain their approved frames.
+
 - Master tab adds composition-wide brightness, contrast and saturation after
   effects, background and transitions. Includes bypass, individual/full reset,
   Undo/Redo, save/load and independent detailed-copy controls. Neutral and

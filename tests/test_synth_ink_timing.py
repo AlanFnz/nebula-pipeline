@@ -6,7 +6,7 @@ import pytest
 from synth import MODULE_BY_ID, default_synth_preset
 from synth_composition import compile_composition, mixed_media_composition
 from synth_effects import describe_effects
-from synth_ink_timing import DURATION_KEYS, stage_durations
+from synth_ink_timing import DURATION_KEYS, gesture_phase, stage_durations
 from synth_print import bloom_phase, render_ink_bloom
 from synth_sequence import _interpolate_presets, render_sequence_frame
 
@@ -38,13 +38,45 @@ def test_gesture_speed_cadence_freeze_manual_opening_and_repeat():
     p = timed_params()
     for time in (0., .025, .75, 1.25, 2.5, 3.75, 1000000.25):
         assert bloom_phase(time, dict(p, motion_speed=2.)) == bloom_phase(time * 2, p)
-        assert bloom_phase(time, dict(p, motion_speed=2.), .5) == bloom_phase(time, p)
+        assert bloom_phase(time, dict(p, motion_speed=2., clock_mode=1, clock_scale=.5)) == bloom_phase(time, p)
         assert bloom_phase(time, dict(p, motion_speed=0)) == bloom_phase(0, p)
     assert bloom_phase(.001, p) == bloom_phase(.024, p)
     assert bloom_phase(.75, p)[1:] == pytest.approx(bloom_phase(5.75, p)[1:])
     assert bloom_phase(.75, dict(p, cycle=0, opening=.37))[2] == .37
     source = np.zeros((120, 120, 3), np.float32)
     assert np.array_equal(render_ink_bloom(source, p, .75, 1, 4), render_ink_bloom(source, p, 5.75, 1, 4))
+
+
+@pytest.mark.parametrize('motion_speed', [.05, .1, .25, .5, 1., 2.])
+@pytest.mark.parametrize('clock_mode', [0, 1])
+def test_gesture_speed_preserves_motion_fps_and_makes_smaller_steps(motion_speed, clock_mode):
+    p = params(cadence=15, motion_speed=motion_speed, clock_mode=clock_mode)
+    # Sample at 60 export fps: every motion sample spans four output frames,
+    # even at 0.05x. Speed changes the distance between poses, not their rate.
+    clocks = [gesture_phase(frame / 60, p)[0] for frame in range(61)]
+    changes = [frame for frame in range(1, len(clocks)) if clocks[frame] != clocks[frame - 1]]
+    assert changes == list(range(4, 61, 4))
+    assert np.diff([clocks[0], *(clocks[frame] for frame in changes)]) == pytest.approx([motion_speed / 15] * 15)
+
+
+def test_independent_clock_scale_and_long_seeks_keep_the_selected_cadence():
+    p = timed_params(clock_mode=1, clock_scale=.4, motion_speed=.25)
+    # Both speed multipliers are applied after the real-time hold clock.
+    for time in (.013, .063, 10.013, 1000000.013):
+        first = gesture_phase(time, p, speed=3.)
+        assert first == gesture_phase(time + .001, p, speed=.2)
+        next_frame = gesture_phase(time + 1 / p['cadence'], p)
+        assert next_frame[0] - first[0] == pytest.approx(.4 * .25 / p['cadence'])
+    assert gesture_phase(1000000., dict(p, motion_speed=0.))[0] == 0.
+
+
+def test_slow_gesture_renders_new_poses_at_the_selected_motion_fps():
+    p = params(clock_mode=1, motion_speed=.1, cadence=15)
+    source = np.zeros((240, 240, 3), np.float32)
+    frames = [render_ink_bloom(source, p, 6. + frame / 30, 1., 7) for frame in range(30)]
+    # Fifteen distinct poses per second, with each held for two 30 fps frames.
+    assert len({frame.tobytes() for frame in frames}) == 15
+    assert all(np.array_equal(frames[i], frames[i + 1]) for i in range(0, 30, 2))
 
 
 @pytest.mark.parametrize('durations', [dict.fromkeys(DURATION_KEYS, 0.),
