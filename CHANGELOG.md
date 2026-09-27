@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Signal background fills deep blacks with Refined signal's green-black tone,
+  fine grain and horizontal noise. The profile starter enables it across all
+  four sections, including the silhouette and recording margins. Background
+  level, grain, tint, scanlines, shadow reach, FPS and mix are editable; bright
+  contours remain unchanged. Disable it to restore the original profile.
+  Other starters and saved compositions keep their previous rendering.
+
 - Profile / phosphor scan adds a fixed head silhouette study: 61 frames at
   15 fps, four editable sections, green/red backlight and clustered scan tears.
   Model silhouette reuses the bundled head mesh with pose/framing controls.

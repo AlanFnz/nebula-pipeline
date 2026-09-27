@@ -159,7 +159,7 @@ def mixed_media_composition():
 
 def profile_signal_composition():
     """A fixed profile through green lock, clipped overload and red scan loss."""
-    modules = ('silhouette', 'edge_phosphor', 'scan_drag', 'low_res')
+    modules = ('silhouette', 'edge_phosphor', 'scan_drag', 'signal_background', 'low_res')
     settings = {f'{module}.{param.key}': param.default for module in modules for param in MODULE_BY_ID[module].params}
     settings.update(speed=1., depth=0., treatment_fps=15)
     settings['low_res.resolution'] = 480

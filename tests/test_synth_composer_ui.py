@@ -852,6 +852,15 @@ def test_profile_starter_exposes_its_model_and_independent_treatments(window, tm
     assert 'scan_drag' in panel.effects_panel.applied_ids
     panel.effects_panel.controls['scan_drag.overload'].changed.emit(.8)
     assert window.composition['effects']['scan_drag']['params']['scan_drag.overload'] == .8
+    panel.effects_panel.inspect_effect('signal_background')
+    assert 'signal_background' in panel.effects_panel.applied_ids
+    before_background_edit = render_sequence_frame(window.sequence, .4, (160, 90)).tobytes()
+    panel.effects_panel.controls['signal_background.level'].changed.emit(.11)
+    assert window.composition['effects']['signal_background']['params']['signal_background.level'] == .11
+    assert render_sequence_frame(window.sequence, .4, (160, 90)).tobytes() != before_background_edit
+    window.undo_composition()
+    assert render_sequence_frame(window.sequence, .4, (160, 90)).tobytes() == before_background_edit
+    window.redo_composition()
     path = tmp_path / 'profile.json'
     monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *args: (str(path), ''))
     window.save_sequence_dialog(); assert load_composition(path) == window.composition

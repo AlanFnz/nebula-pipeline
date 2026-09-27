@@ -408,12 +408,24 @@ at 480 px before enlarging to the saved 960×540 canvas.
   softness, direction and fault FPS are independent. Recording width controls
   black side margins; set it to 1 for a full-width signal. A blank image never
   gains luminous bars. Mix = 0 bypasses either treatment exactly.
+- **Effects → Signal background** fills the deepest blacks, including the
+  silhouette and recording margins, with Refined signal's faint green tint,
+  fine grain and horizontal noise. Background level, Fine grain and Horizontal
+  grain control its presence; Green tint, Chroma noise and Scanline depth shape
+  its color and texture. Shadow reach limits it to dark pixels so bright
+  contours remain untouched. Background FPS controls its held cadence (0 freezes
+  it); Mix or Background level = 0 restores the original black. The texture
+  covers the whole canvas and stays in place when the object moves.
 
 Both treatments can be applied to other sources through Effects. The starter
 embeds its settings, keeps the same head pose throughout its sections, and
 supports whole-clip/section edits, reset, Undo/Redo, save/open, detailed copies,
-canvas reframing and MP4 export. Existing studies remain disabled for all three
-new modules and retain their original rendering.
+canvas reframing and MP4 export. Other starters keep these effects disabled
+and retain their original rendering.
+
+New profile starters enable Signal background across all four sections. To
+update a saved profile, choose Whole clip, then add Signal background from
+Available effects. Saved compositions and other starters retain their prior look.
 
 **Starters → Particle head** opens the **Particle signal** study: dots rush into an
 anatomical head, rebound and dissolve toward a thin luminous band. Three sections

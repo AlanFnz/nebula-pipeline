@@ -376,6 +376,17 @@ MODULES = (
         P("softness", "Scan softness", .8, 0, 3, .05),
         P("mix", "Mix", 1., 0, 1, .01),
     )),
+    Module("signal_background", "Signal background", "Fill deep blacks with the green-black grain of Refined signal while preserving bright artwork.", (
+        P("level", "Background level", .06, 0, .2, .001, "Brightness of the textured black. Zero restores the original image."),
+        P("grain", "Fine grain", .08, 0, .3, .005),
+        P("line_noise", "Horizontal grain", .028, 0, .2, .002),
+        P("chroma", "Chroma noise", .004, 0, .05, .001),
+        P("tint", "Green tint", 1., 0, 2, .05, "0 is neutral charcoal; 1 matches Refined signal's green-black field."),
+        P("lines", "Scanline depth", .09, 0, .5, .01),
+        P("threshold", "Shadow reach", .18, .02, .5, .01, "Fade the texture out before this signal brightness. Brighter contours remain unchanged."),
+        P("rate", "Background FPS", 15., 0, 60, 1, "New grain per held frame at speed 1. Zero freezes the texture."),
+        P("mix", "Mix", 1., 0, 1, .01),
+    )),
     Module("low_res", "Low-res finish", "Render the complete image at a smaller working resolution, then scale it to the canvas. Includes grain, backgrounds and transitions.", (
         P("resolution", "Working resolution", 360, 64, 2160, 1, "Pixels on the longest edge. 360 preserves the 360 px preview look at every export size. Limited to the saved canvas size."),
         P("sampling", "Enlargement", 0, 0, 1, 1, "Soft matches the smooth preview enlargement. Crisp pixels keeps hard pixel edges.", choices=("Soft", "Crisp pixels")),
@@ -887,6 +898,22 @@ def _raster(arr, p, seed, treatment_frame):
     return result
 
 
+def _signal_background(arr, p, t, preset):
+    if p['mix'] == 0 or p['level'] == 0:
+        return arr
+    # Reuse the reference's raster process on its lifted green-black field.
+    # Apply after source faults so the silhouette and recording margins share
+    # the same continuous canvas texture, without adding noise to highlights.
+    field = np.empty_like(arr)
+    field[:] = (np.array((.055, .067, .055), dtype=np.float32) - .06) * p['tint'] + .06
+    field *= p['level'] / .06
+    tick = math.floor(t * preset['speed'] * p['rate'] + 1e-9)
+    field = np.maximum(0., _raster(field, p, _seed(preset['seed'], 'signal-background'), tick))
+    shadows = np.clip(1 - arr.max(axis=2) / p['threshold'], 0, 1)
+    shadows = shadows * shadows * (3 - 2 * shadows)
+    return arr + field * (shadows * p['mix'])[..., None]
+
+
 def _interference(arr, p, t, preset):
     if p["mix"] == 0:
         return arr
@@ -925,6 +952,7 @@ def _breakup(arr, p, t, preset):
 
 
 RENDERERS = {
+    "signal_background": lambda arr, params, t, preset, index: _signal_background(arr, params, t, preset),
     "silhouette": lambda arr, params, t, preset, index: render_silhouette(arr, params, t, preset, _seed(preset["seed"], "silhouette")),
     "edge_phosphor": lambda arr, params, t, preset, index: render_edge_phosphor(arr, params, t, preset, _seed(preset["seed"], "edge-phosphor")),
     "scan_drag": lambda arr, params, t, preset, index: render_scan_drag(arr, params, t, preset, _seed(preset["seed"], "scan-drag")),

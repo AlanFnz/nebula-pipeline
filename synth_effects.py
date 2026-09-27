@@ -31,6 +31,8 @@ def paths(module, keys=None):
 
 
 EFFECTS = (
+    Effect("signal_background", "Signal background", "Refined signal's green-black field, fine grain and horizontal noise in the deepest shadows. Bright artwork stays intact; the texture covers the whole canvas.", paths("signal_background"), ("signal_background",),
+           looks=(("Refined signal black", {}), ("Quiet charcoal", {"signal_background.tint": 0., "signal_background.grain": .035}))),
     Effect("silhouette", "Model silhouette", "Fixed solid projection of the existing human head mesh. Combine with Edge phosphor and Scan drag.", paths("silhouette"), ("silhouette",), primary=5),
     Effect("edge_phosphor", "Edge phosphor", "Darken a source into a silhouette with a noisy backlight, colored contour and faint echo. Works on heads, forms, stamps and dense particles.", paths("edge_phosphor"), ("edge_phosphor",),
            looks=(("Green / magenta contour", {}), ("Red / blue contour", {"edge_phosphor.hue": 0., "edge_phosphor.fringe_hue": .64, "edge_phosphor.grain": .5}))),
