@@ -300,6 +300,23 @@ def test_effect_groups_follow_section_overrides_and_whole_clip_coverage(window):
     assert 'tape' in effects.applied_ids and effects.effect_choices['tape'].badge.text() == 'Intermittent'
 
 
+def test_total_duration_stays_visible_and_tracks_automatic_timing_and_sections(window):
+    choose_starter(window, 'mixed-media'); panel = window.composer
+    panel.look_tabs.setCurrentIndex(1); QApplication.processEvents()
+    assert window.total_time_label.isVisible()
+    assert window.total_time_label.text() == 'Total 00:07.07'
+    assert not panel.arrangement_button.isChecked()
+    panel.change_ink_timing('ink_bloom.unfold_seconds', 2.)
+    total = sum(section['duration'] for section in window.composition['sections'])
+    assert window.sequence['duration'] == pytest.approx(total)
+    assert f'{total:.2f}' in window.total_time_label.accessibleDescription()
+    previous = window.total_time_label.text()
+    panel.duplicate_section()
+    assert window.total_time_label.text() != previous
+    window.undo_composition()
+    assert window.total_time_label.text() == previous
+
+
 def test_particle_example_controls_undo_save_and_threaded_export(window, tmp_path, monkeypatch):
     choose_starter(window, "particle-head")
     assert len(window.composition["sections"]) == 3

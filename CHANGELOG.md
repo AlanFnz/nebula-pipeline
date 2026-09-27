@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- A persistent Total display beside playback follows the sum of all sections,
+  including automatically retimed gestures.
+
 - The Effects inspector separates Applied effects from a collapsible Available
   effects catalog. Visible rows show On, Intermittent, Off or Bypassed state and
   highlight the inspected effect. Lists follow effective section/whole-clip

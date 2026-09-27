@@ -315,6 +315,10 @@ class SynthStudio(QMainWindow):
         timeline.addWidget(self.play)
         self.timeline = QSlider(Qt.Orientation.Horizontal); self.timeline.valueChanged.connect(self.scrub); timeline.addWidget(self.timeline, 1)
         self.time_label = QLabel("00:00.00"); self.time_label.setObjectName("timecode"); timeline.addWidget(self.time_label)
+        self.total_time_label = QLabel(); self.total_time_label.setObjectName('monitorMeta')
+        self.total_time_label.setAccessibleName('Total duration')
+        self.total_time_label.setToolTip('Total duration is the sum of all sections. It updates automatically when section timing changes.')
+        timeline.addWidget(self.total_time_label)
         left_layout.addLayout(timeline)
         export_row = QHBoxLayout()
         self.quality = QComboBox(); self.quality.setAccessibleName("Preview quality")
@@ -877,6 +881,9 @@ class SynthStudio(QMainWindow):
             duration = self.sequence["duration"] if self.sequence is not None else self.preset["loop_seconds"]
             fps = self.sequence["fps"] if self.sequence is not None else self.preset["export_fps"]
             self.timeline.setMaximum(max(1, round(duration * fps)) - 1)
+            centiseconds = round(duration * 100)
+            self.total_time_label.setText(f'Total {centiseconds // 6000:02d}:{(centiseconds % 6000) / 100:05.2f}')
+            self.total_time_label.setAccessibleDescription(f'{duration:.2f} seconds · {round(duration * fps)} frames at {fps} fps')
     def request_frame(self):
         if self.closing: return
         self.request_serial += 1

@@ -150,7 +150,7 @@ class CompositionPanel(QWidget):
 
         clip = QGroupBox("CLIP / TIMING")
         grid = QGridLayout(clip)
-        self.duration = QDoubleSpinBox(); self.duration.setRange(.24, 300); self.duration.setDecimals(2); self.duration.setSuffix(" s"); self.duration.setKeyboardTracking(False)
+        self.duration = QDoubleSpinBox(); self.duration.setRange(.24, 3600); self.duration.setDecimals(2); self.duration.setSuffix(" s"); self.duration.setKeyboardTracking(False)
         self.fps = QSpinBox(); self.fps.setRange(1, 120); self.fps.setSuffix(" fps"); self.fps.setKeyboardTracking(False)
         grid.addWidget(QLabel("Duration"), 0, 0); grid.addWidget(QLabel("Frame rate"), 0, 1)
         grid.addWidget(self.duration, 1, 0); grid.addWidget(self.fps, 1, 1)

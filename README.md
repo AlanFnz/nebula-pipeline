@@ -108,6 +108,10 @@ affects the interface only; saved compositions and exported pixels are unchanged
   **Follow recipe** retains the authored enable/disable changes; **On** or
   **Off throughout scope** overrides those changes. **Restore** removes that
   effect's overrides from the current scope.
+- **Total** beside the playback counter always shows the complete duration,
+  calculated from the sum of the sections. It updates after section edits and
+  automatic timing changes, including the two-burst starter. No separate total
+  duration edit is needed.
 - Effects use absolute values. Whole-clip settings apply first; section
   settings override them. Fixed effect values take priority over Geometry
   and Finishing. A luminous form's companion ghost and granular halo require
