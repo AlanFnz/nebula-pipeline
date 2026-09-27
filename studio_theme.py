@@ -29,6 +29,12 @@ QLabel#monitorMeta { color: #94aa98; font-size: 10px; }
 QLabel#monitorState { color: #d6a3ce; font-size: 10px; }
 QLabel#timecode { color: #b5e49b; border: 1px solid #304536; padding: 5px 7px; }
 QFrame#monitorFrame { border: 1px solid #304536; background: #060a08; }
+QFrame#effectChoice { border: 1px solid #26382c; background: #0c110e; }
+QFrame#effectChoice[selected="true"] { border-color: #91b286; background: #1b2c20; }
+QPushButton#effectChoiceButton { text-align: left; padding: 4px 6px; border: none; background: transparent; }
+QPushButton#effectChoiceButton:hover, QPushButton#effectChoiceButton:focus { background: #203225; color: #e3f1dd; }
+QLabel#effectState { color: #94aa98; font-size: 10px; }
+QLabel#effectState[active="true"] { color: #b5e49b; }
 QWidget#monitorHeader { background: #101812; border-bottom: 1px solid #304536; }
 QPushButton {
     background: #111b14; border: 1px solid #3b5141;

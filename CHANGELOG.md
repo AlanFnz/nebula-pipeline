@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- The Effects inspector separates Applied effects from a collapsible Available
+  effects catalog. Visible rows show On, Intermittent, Off or Bypassed state and
+  highlight the inspected effect. Lists follow effective section/whole-clip
+  usage, including inherited recipes, local overrides and Undo/Redo. Browsing
+  effects leaves the composition unchanged; the existing preset controls add
+  them explicitly. All rows use the main inspector scroll area.
+
 - Canvas format changes preserve artwork size, proportions and center instead
   of stretching it. Optional Fit subject scales uniformly; procedural noise and
   backgrounds fill the new canvas. Saved artwork references survive repeated

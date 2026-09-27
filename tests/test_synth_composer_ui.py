@@ -79,7 +79,7 @@ def test_save_open_and_actual_composer_export(window, tmp_path, monkeypatch):
     panel.geometry_shape.setCurrentIndex(panel.geometry_shape.findData("polygon"))
     panel.geometry_controls["sides"].setValue(5)
     effects = panel.effects_panel
-    effects.selector.setCurrentIndex(effects.selector.findData("breakup"))
+    effects.inspect_effect("breakup")
     effects.apply_button.click()
     window.composer.duration.setValue(.48)
     original = copy.deepcopy(window.composition)
@@ -164,7 +164,7 @@ def test_effect_inspector_shows_animation_and_local_absolute_edits(window):
     panel = window.composer
     panel.select_section(0)
     effects = panel.effects_panel
-    effects.selector.setCurrentIndex(effects.selector.findData("rays"))
+    effects.inspect_effect("rays")
     assert "Animated" in effects.controls["blinds.rows"].origin.text()
     row = effects.controls["blinds.rows"]
     assert row.value_stack.currentWidget() is row.animated_value
@@ -175,7 +175,7 @@ def test_effect_inspector_shows_animation_and_local_absolute_edits(window):
     assert row.value_stack.currentWidget() is row.animated_value
     panel.select_section(1)
     effects.inspect_effect("rays")
-    assert "off" in effects.selector.currentText()
+    assert effects.effect_choices["rays"].badge.text() == "Off"
     assert not effects.controls["blinds.rows"].input.isEnabled()
     before = render_sequence_frame(window.sequence, 6.2, (120, 96)).tobytes()
     effects.look.setCurrentText("Venetian blinds")
@@ -197,7 +197,7 @@ def test_new_clip_supports_combining_effects_and_local_bypass(window):
     window.new_composition()
     panel = window.composer; effects = panel.effects_panel
     for effect in ("forms", "ghosts", "breakup"):
-        effects.selector.setCurrentIndex(effects.selector.findData(effect))
+        effects.inspect_effect(effect)
         effects.apply_button.click()
     assert set(window.composition["effects"]) == {"forms", "ghosts", "breakup"}
     effects.controls["breakup.bands"].input.setValue(9)
@@ -223,11 +223,11 @@ def test_timeline_click_shows_effects_used_by_blocks_and_ghosts(window):
     assert effects.summary["forms"]["active"]
     assert effects.summary["ghosts"]["active"]
     assert not effects.summary["rays"]["active"]
-    assert "Luminous forms" in effects.used_effects.text()
-    assert "Ghosts / trails" in effects.used_effects.text()
-    assert "Rays / Venetian blinds" not in effects.used_effects.text()
-    # The summary is a navigation control, not an edit to the recipe.
-    effects.used_effects.linkActivated.emit("ghosts")
+    assert "forms" in effects.applied_ids
+    assert "ghosts" in effects.applied_ids
+    assert "rays" in effects.available_ids
+    # Effect rows navigate without editing the recipe.
+    effects.effect_choices["ghosts"].button.click()
     assert effects.effect_id == "ghosts"
     assert window.composition == original
     assert window.undo_compositions == []
@@ -240,6 +240,64 @@ def test_timeline_click_shows_effects_used_by_blocks_and_ghosts(window):
     effects.mode.setCurrentIndex(effects.mode.findData("off"))
     assert effects.effect_id == "forms"
     assert not effects.summary["forms"]["active"]
+
+
+def test_effect_groups_show_effective_use_and_navigation_does_not_edit(window):
+    from synth_effects import EFFECT_BY_ID
+    effects = window.composer.effects_panel
+    original = copy.deepcopy(window.composition)
+    before = render_sequence_frame(window.sequence, 3.6, (120, 96)).tobytes()
+    assert set(effects.applied_ids).isdisjoint(effects.available_ids)
+    assert set(effects.applied_ids + effects.available_ids) == set(EFFECT_BY_ID)
+    assert effects.effect_choices['rays'].badge.text() == 'Intermittent'
+    assert not effects.available_host.isVisible()
+    for key in effects.applied_ids:
+        assert effects.effect_choices[key].parentWidget() is effects.applied_host
+    effects.available_button.click()
+    assert effects.available_host.isVisible()
+    effects.effect_choices['tape'].button.click()
+    assert effects.effect_id == 'tape' and not effects.available_host.isVisible()
+    assert effects.effect_choices['tape'].property('selected')
+    assert 'Tape damage' in effects.inspector_title.text()
+    assert window.composition == original and window.undo_compositions == []
+    assert render_sequence_frame(window.sequence, 3.6, (120, 96)).tobytes() == before
+
+
+def test_available_effect_moves_to_applied_then_bypass_keeps_settings_and_undo(window):
+    window.new_composition()
+    QApplication.processEvents()
+    effects = window.composer.effects_panel
+    assert effects.applied_ids == () and effects.empty_applied.isVisible()
+    assert effects.available_host.isVisible()
+    effects.effect_choices['rays'].button.click()
+    assert 'rays' in effects.available_ids  # Inspecting does not add it.
+    effects.look.setCurrentText('Venetian blinds'); effects.apply_button.click()
+    assert 'rays' in effects.applied_ids and 'rays' not in effects.available_ids
+    assert effects.effect_choices['rays'].parentWidget() is effects.applied_host
+    assert effects.effect_choices['rays'].badge.text() == 'On'
+    effects.controls['blinds.rows'].input.setValue(17)
+    before = render_sequence_frame(window.sequence, .4, (120, 96)).tobytes()
+    effects.mode.setCurrentIndex(effects.mode.findData('off'))
+    assert effects.effect_id == 'rays' and 'rays' in effects.available_ids
+    assert effects.effect_choices['rays'].badge.text() == 'Bypassed'
+    assert window.composition['effects']['rays']['params']['blinds.rows'] == 17
+    assert effects.effect_choices['rays'].parentWidget() is effects.available_host
+    window.undo_composition()
+    assert 'rays' in effects.applied_ids and effects.effect_choices['rays'].badge.text() == 'On'
+    assert render_sequence_frame(window.sequence, .4, (120, 96)).tobytes() == before
+
+
+def test_effect_groups_follow_section_overrides_and_whole_clip_coverage(window):
+    window.new_composition(); panel = window.composer; effects = panel.effects_panel
+    effects.inspect_effect('tape'); effects.apply_button.click()
+    panel.duplicate_section(); panel.select_section(1)
+    assert 'tape' in effects.applied_ids
+    effects.mode.setCurrentIndex(effects.mode.findData('off'))
+    assert 'tape' in effects.available_ids
+    panel.select_section(0)
+    assert 'tape' in effects.applied_ids and effects.effect_choices['tape'].badge.text() == 'On'
+    panel.scope_combo.setCurrentIndex(0)
+    assert 'tape' in effects.applied_ids and effects.effect_choices['tape'].badge.text() == 'Intermittent'
 
 
 def test_particle_example_controls_undo_save_and_threaded_export(window, tmp_path, monkeypatch):

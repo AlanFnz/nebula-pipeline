@@ -91,10 +91,17 @@ affects the interface only; saved compositions and exported pixels are unchanged
   **Apply effect** to add it with a preset. Effects can be combined in any
   section, independently of the section's source phrase. Rays and Venetian
   blinds are two starting settings of the same configurable generator.
-- Each effect shows its own parameters and whether it is active, intermittent
-  or off. **Used in this section** lists the active effects as shortcuts to
-  their controls. Selecting another section opens an active effect if the
-  previously inspected effect is unused there. Off applies only to the
+- **Applied effects** lists the effects enabled in the current scope, with
+  **On** or **Intermittent** badges. Intermittent means the effect is used during
+  part of the clip or section. Click a row to inspect its parameters; the
+  selected effect is highlighted. **Available effects** opens a separate,
+  collapsible catalog of effects that are off here. Selecting an available
+  effect opens its inspector; **+ Apply effect** adds it using the chosen preset.
+  Both lists use the panel's normal scrolling, with no nested scroll area.
+  Bypassed effects appear in Available with a **Bypassed** badge and retain their
+  settings. The lists update after edits, section/scope changes and Undo/Redo.
+  Selecting another section opens an active effect if the previously inspected
+  effect is unused there. Off applies only to the
   inspected effect, not to the section. Authored parameters that vary are shown as ranges. Click a range to
   start a fixed value at its lower bound, then edit it. **↶** restores that
   parameter's recipe or inherited value. Unedited parameters keep animating.

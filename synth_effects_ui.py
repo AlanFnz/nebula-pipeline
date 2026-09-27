@@ -6,12 +6,11 @@ import math
 
 from PySide6.QtCore import QSignalBlocker, Signal
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QStackedWidget, QTabBar,
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QStackedWidget, QTabBar, QFrame,
 )
 from studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBox, SpinBox as QSpinBox
 
 from synth_effects import EFFECTS, EFFECT_BY_ID, describe_effects, effect_preset, parameter
-from studio_theme import COLORS
 from synth_artwork_ui import ArtworkControl
 from synth_ink_timing import DURATION_KEYS, TIMING_KEYS
 
@@ -94,6 +93,30 @@ class EffectParameter(QWidget):
         self.setToolTip("Editing fixes this parameter across the scope; all other recipe changes keep playing.")
 
 
+class EffectChoice(QFrame):
+    """A compact, non-scrolling navigation row with a separate state badge."""
+    selected = Signal(str)
+
+    def __init__(self, effect):
+        super().__init__()
+        self.setObjectName('effectChoice')
+        row = QHBoxLayout(self); row.setContentsMargins(2, 0, 7, 0); row.setSpacing(4)
+        self.button = QPushButton(effect.label); self.button.setObjectName('effectChoiceButton')
+        self.button.clicked.connect(lambda: self.selected.emit(effect.id))
+        row.addWidget(self.button, 1)
+        self.badge = QLabel(); self.badge.setObjectName('effectState'); row.addWidget(self.badge)
+
+    def refresh(self, effect, info, selected, bypassed):
+        state = 'Intermittent' if info['intermittent'] else 'On' if info['active'] else 'Bypassed' if bypassed else 'Off'
+        self.badge.setText(state)
+        self.button.setAccessibleName(f'Inspect {effect.label} · {state}')
+        self.setToolTip(effect.description + (' Active during part of this scope.' if info['intermittent'] else ''))
+        self.setProperty('selected', selected)
+        self.badge.setProperty('active', info['active'])
+        for widget in (self, self.badge):
+            widget.style().unpolish(widget); widget.style().polish(widget); widget.update()
+
+
 class EffectsPanel(QWidget):
     edited = Signal(str, object, str)
     timing_edited = Signal(str, object)
@@ -110,16 +133,27 @@ class EffectsPanel(QWidget):
         layout = QVBoxLayout(self); layout.setContentsMargins(8, 8, 8, 8)
         self.scope_label = QLabel(); self.scope_label.setObjectName("sectionTitle"); self.scope_label.setWordWrap(True)
         layout.addWidget(self.scope_label)
-        self.used_effects = QLabel(); self.used_effects.setWordWrap(True)
-        self.used_effects.setObjectName("muted")
-        self.used_effects.setOpenExternalLinks(False)
-        self.used_effects.linkActivated.connect(self.inspect_effect)
-        layout.addWidget(self.used_effects)
-        inspector_label = QLabel("INSPECT EFFECT"); inspector_label.setObjectName("sectionTitle")
-        layout.addWidget(inspector_label)
-        self.selector = QComboBox(); self.selector.currentIndexChanged.connect(self.select_effect)
-        self.selector.setToolTip("Every effect can be used in any section. Select one to inspect its own parameters.")
-        layout.addWidget(self.selector)
+        self.applied_title = QLabel(); self.applied_title.setObjectName('sectionTitle')
+        self.applied_title.setToolTip('Effects enabled anywhere in the selected scope. Intermittent means they are used during only part of it.')
+        layout.addWidget(self.applied_title)
+        self.applied_host = QWidget(); self.applied_layout = QVBoxLayout(self.applied_host)
+        self.applied_layout.setContentsMargins(0, 0, 0, 0); self.applied_layout.setSpacing(2)
+        layout.addWidget(self.applied_host)
+        self.empty_applied = QLabel('No effects applied in this scope. Choose an available effect to add one.')
+        self.empty_applied.setWordWrap(True); self.empty_applied.setObjectName('muted'); layout.addWidget(self.empty_applied)
+        self.available_button = QPushButton(); self.available_button.setCheckable(True)
+        self.available_button.setAccessibleName('Show available effects')
+        self.available_button.toggled.connect(self.show_available); layout.addWidget(self.available_button)
+        self.available_host = QWidget(); self.available_layout = QVBoxLayout(self.available_host)
+        self.available_layout.setContentsMargins(0, 0, 0, 0); self.available_layout.setSpacing(2)
+        layout.addWidget(self.available_host); self.available_host.hide()
+        self.applied_ids = (); self.available_ids = ()
+        self.effect_choices = {}
+        for effect in EFFECTS:
+            choice = EffectChoice(effect); choice.selected.connect(self.inspect_effect)
+            self.available_layout.addWidget(choice); self.effect_choices[effect.id] = choice
+        self.inspector_title = QLabel(); self.inspector_title.setObjectName('sectionTitle'); self.inspector_title.setWordWrap(True)
+        layout.addWidget(self.inspector_title)
         self.description = QLabel(); self.description.setWordWrap(True); self.description.setObjectName("muted"); layout.addWidget(self.description)
         row = QHBoxLayout()
         self.mode = QComboBox()
@@ -157,41 +191,48 @@ class EffectsPanel(QWidget):
         self.shared_summary = self.summary['ink_bloom'] if shared_states is None or shared_states is states else describe_effects(shared_states)['ink_bloom']
         self.context_scope_label = scope_label
         active = [effect for effect in EFFECTS if self.summary[effect.id]["active"]]
-        if context_key != self.context_key and not self.summary[self.effect_id]["active"] and active:
+        changed_context = context_key != self.context_key
+        if changed_context and not self.summary[self.effect_id]["active"] and active:
             self.effect_id = active[0].id
             with QSignalBlocker(self.more): self.more.setChecked(False)
         self.context_key = context_key
-        links = []
-        for effect in active:
-            label = effect.label + (" (intermittent)" if self.summary[effect.id]["intermittent"] else "")
-            links.append(f'<a href="{effect.id}" style="color: {COLORS["accent"]}">{label}</a>')
-        prefix = "Used in this section: " if local else "Used across the clip: "
-        self.used_effects.setText(prefix + (" · ".join(links) if links else "none. Choose an effect below to build this section."))
-        with QSignalBlocker(self.selector), QSignalBlocker(self.mode):
-            self.selector.clear()
-            for effect in EFFECTS:
-                info = self.summary[effect.id]
-                status = "intermittent" if info["intermittent"] else "active" if info["active"] else "off"
-                self.selector.addItem(f"{effect.label} · {status}", effect.id)
-            self.selector.setCurrentIndex(self.selector.findData(self.effect_id))
+        self.applied_ids = tuple(effect.id for effect in active)
+        self.available_ids = tuple(effect.id for effect in EFFECTS if effect.id not in self.applied_ids)
+        self.applied_title.setText(f'APPLIED EFFECTS · {len(active)}')
+        self.empty_applied.setVisible(not active)
+        for effect in EFFECTS:
+            target = self.applied_layout if effect.id in self.applied_ids else self.available_layout
+            target.addWidget(self.effect_choices[effect.id])
+            self.effect_choices[effect.id].show()
+        if changed_context:
+            self.available_button.setChecked(not active)
+        self.available_button.setEnabled(bool(self.available_ids))
+        self.show_available(self.available_button.isChecked())
+        with QSignalBlocker(self.mode):
             self.mode.setItemText(0, "Follow whole clip / recipe" if local else "Follow recipe")
         self.updating = False
         self.refresh_effect()
 
     def inspect_effect(self, effect_id):
-        index = self.selector.findData(effect_id)
-        if index >= 0: self.selector.setCurrentIndex(index)
-
-    def select_effect(self, index):
-        if self.updating or index < 0: return
-        self.effect_id = self.selector.itemData(index)
+        if self.updating or effect_id not in EFFECT_BY_ID: return
+        self.effect_id = effect_id
+        self.available_button.setChecked(False)
         with QSignalBlocker(self.more): self.more.setChecked(False)
         self.refresh_effect()
+
+    def show_available(self, expanded):
+        self.available_host.setVisible(expanded and bool(self.available_ids))
+        self.available_button.setText(f'{"▾" if expanded else "▸"} Available effects · {len(self.available_ids)}')
 
     def refresh_effect(self):
         if not self.summary: return
         self.updating = True
         effect = EFFECT_BY_ID[self.effect_id]
+        self.inspector_title.setText(f'EDIT / {effect.label}')
+        for item in EFFECTS:
+            local_mode = self.entries.get(item.id, {}).get('mode', 'recipe')
+            bypassed = local_mode == 'off' or (local_mode == 'recipe' and self.parent_entries.get(item.id, {}).get('mode') == 'off')
+            self.effect_choices[item.id].refresh(item, self.summary[item.id], item.id == effect.id, bypassed)
         entry = self.entries.get(effect.id, {"mode": "recipe", "params": {}})
         with QSignalBlocker(self.mode): self.mode.setCurrentIndex(self.mode.findData(entry["mode"]))
         self.description.setText(effect.description)
