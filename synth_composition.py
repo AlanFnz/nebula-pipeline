@@ -157,6 +157,44 @@ def mixed_media_composition():
     return normalize_composition(project)
 
 
+def profile_signal_composition():
+    """A fixed profile through green lock, clipped overload and red scan loss."""
+    modules = ('silhouette', 'edge_phosphor', 'scan_drag', 'low_res')
+    settings = {f'{module}.{param.key}': param.default for module in modules for param in MODULE_BY_ID[module].params}
+    settings.update(speed=1., depth=0., treatment_fps=15)
+    settings['low_res.resolution'] = 480
+    states = {}
+    for key, overrides in (
+        ('green', {}),
+        ('green_tear', {'scan_drag.density': .06, 'scan_drag.amount': .8}),
+        ('overload', {'edge_phosphor.hue': .008, 'edge_phosphor.backlight': 1.6, 'edge_phosphor.edge': .8, 'edge_phosphor.grain': .3,
+                      'scan_drag.overload': 1., 'scan_drag.center': .66, 'scan_drag.height': .18, 'scan_drag.density': .045, 'scan_drag.tearing': .2, 'scan_drag.gain': 1.8}),
+        ('red', {'edge_phosphor.hue': 0., 'edge_phosphor.backlight': 1.7, 'edge_phosphor.fringe_hue': .64, 'edge_phosphor.grain': .22,
+                 'edge_phosphor.edge': .35, 'edge_phosphor.fringe': .3, 'scan_drag.density': .009, 'scan_drag.amount': .2}),
+        ('lower', {'edge_phosphor.hue': 0., 'edge_phosphor.backlight': .6, 'edge_phosphor.fringe_hue': .66, 'edge_phosphor.grain': .3,
+                   'edge_phosphor.edge': .65, 'scan_drag.overload': 1., 'scan_drag.center': .80, 'scan_drag.gain': 2.5,
+                   'scan_drag.height': .14, 'scan_drag.density': .012, 'scan_drag.tearing': .14, 'scan_drag.dropout': .45}),
+    ):
+        states[key] = {'preset': 'Reference blinds', 'enabled': list(modules), 'overrides': dict(settings, **overrides)}
+    states['flash'] = copy.deepcopy(states['overload'])
+    states['flash']['overrides'].update({'edge_phosphor.hue': .02, 'edge_phosphor.saturation': .8, 'edge_phosphor.backlight': 2.,
+        'scan_drag.height': .24, 'scan_drag.gain': 2.5, 'scan_drag.tearing': .23, 'scan_drag.glow': 1.4})
+    states['tail'] = copy.deepcopy(states['lower'])
+    states['tail']['overrides'].update({'scan_drag.center': .88, 'scan_drag.height': .14})
+    cues = [{'time': frame / 15, 'state': key, 'transition': transition, 'duration': duration / 15}
+            for frame, key, transition, duration in ((0, 'green', 'cut', 0), (10, 'green_tear', 'morph', 3),
+                (14, 'flash', 'cut', 0), (18, 'overload', 'morph', 2), (29, 'red', 'morph', 3), (39, 'lower', 'cut', 0), (50, 'tail', 'morph', 7))]
+    source = normalize_sequence({'schema_version': 1, 'name': 'Profile / phosphor scan', 'duration': 61 / 15,
+        'fps': 15, 'seed': 270927, 'canvas': {'width': 960, 'height': 540, 'framing': 'native'}, 'states': states, 'cues': cues})
+    project = composition_from_sequence(source); prototype = project['sections'][0]
+    intervals = (('lock', 'Green lock', 0, 14), ('overload', 'Overload', 14, 29),
+                 ('red', 'Red hold', 29, 39), ('lower', 'Lower scan tear', 39, 61))
+    project['phrases'] = {key: {'name': label, 'start': a / 15, 'end': b / 15} for key, label, a, b in intervals}
+    project['sections'] = [dict(copy.deepcopy(prototype), id=f'section-{i + 1}', phrase=key, duration=(b - a) / 15)
+                           for i, (key, label, a, b) in enumerate(intervals)]
+    return normalize_composition(project)
+
+
 def particle_composition(refined=False):
     """One editable section; the particle module owns its assembly cycle."""
     if refined:

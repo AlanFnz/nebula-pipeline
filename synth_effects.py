@@ -31,6 +31,11 @@ def paths(module, keys=None):
 
 
 EFFECTS = (
+    Effect("silhouette", "Model silhouette", "Fixed solid projection of the existing human head mesh. Combine with Edge phosphor and Scan drag.", paths("silhouette"), ("silhouette",), primary=5),
+    Effect("edge_phosphor", "Edge phosphor", "Darken a source into a silhouette with a noisy backlight, colored contour and faint echo. Works on heads, forms, stamps and dense particles.", paths("edge_phosphor"), ("edge_phosphor",),
+           looks=(("Green / magenta contour", {}), ("Red / blue contour", {"edge_phosphor.hue": 0., "edge_phosphor.fringe_hue": .64, "edge_phosphor.grain": .5}))),
+    Effect("scan_drag", "Scan drag", "Pull bright source colors into horizontal streaks and overload bursts. No luminous shapes are added to an empty signal.", paths("scan_drag"), ("scan_drag",),
+           looks=(("Fine signal streaks", {}), ("Overloaded scan", {"scan_drag.overload": 1., "scan_drag.height": .16, "scan_drag.density": .35}), ("Full canvas", {"scan_drag.window": 1.})), primary=8),
     Effect("ink_bloom", "Ink bloom", "Overlapping stamps unfold, turn and gather again. Look sets the silhouette and inks. Timing sets unfold/fold durations, holds and gesture speed. Frame jitter controls the small positional shakes separately.",
            tuple(path for path in paths("ink_bloom") if path not in {'ink_bloom.clock_mode', 'ink_bloom.clock_scale'}), ("ink_bloom",),
            looks=(("CMY unfolding cluster", {}),

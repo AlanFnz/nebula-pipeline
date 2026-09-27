@@ -22,6 +22,7 @@ from synth_particles import render_particles
 from synth_tape import render_tape_damage
 from synth_canvas import content_size, normalize_canvas, source_framing, object_offset
 from synth_print import render_ink_bloom, render_print_surface
+from synth_profile import render_silhouette, render_edge_phosphor, render_scan_drag
 from synth_artwork import validate_artwork
 from synth_jitter import render_frame_jitter
 from synth_resolution import finish_resolution, render_resolution
@@ -171,6 +172,19 @@ MODULES = (
         P("shimmer", "Shimmer", .45, 0, 1, .01, "Per-dot brightness fluctuation, independent of its trajectory."),
         P("jitter", "Scan registration", .0015, 0, .02, .0005, "Small held shifts across scan lines."),
     )),
+    Module("silhouette", "Model silhouette", "A solid projection of the bundled human head, with a fixed pose.", (
+        P("model", "Head model", 0, 0, 1, 1, choices=("Portrait head", "Human head")),
+        P("scale", "Model scale", .4, .1, 1.5, .01, "Uniform model scale relative to the artwork height."),
+        P("yaw", "Head angle", -90., -180, 180, 1, "Fixed pose. -90 degrees faces left; no automatic rotation."),
+        P("pitch", "Head tilt", 0., -90, 90, 1),
+        P("roll", "Head roll", 0., -180, 180, 1),
+        P("center_x", "Framing X", .60, -.5, 1.5, .01, "Model pivot within the artwork. Object Position moves the complete source group."),
+        P("center_y", "Framing Y", .4, -.5, 1.5, .01),
+        P("neck_fullness", "Neck fullness", .4, 0, .8, .01, "Shape the front of the neck below the jaw without altering the face."),
+        P("neck_length", "Neck extension", .7, 0, 2, .05, "Extend the mesh below its cut edge to keep the neck out of frame."),
+        P("softness", "Contour softness", .5, 0, 5, .1),
+        P("opacity", "Silhouette opacity", 1., 0, 1, .01),
+    )),
     Module("ink_bloom", "Ink bloom", "Printed silhouettes unfold as a rotating three-dimensional cluster.", (
         P("shape", "Stamp shape", 0, 0, 5, 1, "Replace the silhouette while keeping the unfolding motion and ink treatment.", choices=("Original burst", "Square", "Circle", "Triangle", "Polygon", "Custom artwork")),
         Param("artwork", "Custom artwork", "", kind="artwork", hint="Import a transparent PNG or a contrasting silhouette. Its shape is printed with the selected inks and embedded in the composition."),
@@ -218,6 +232,52 @@ MODULES = (
         P("unfolded_seconds", "Stay unfolded (s)", -1., -1, 60, .05, "Time fully open at speed 1×; the turn continues. Reset to follow the recipe."),
         P("fold_seconds", "Fold (s)", -1., -1, 60, .05, "Time to close at speed 1×. Zero closes instantly. Reset to follow the recipe."),
         P("folded_seconds", "Stay folded (s)", -1., -1, 60, .05, "Total closed rest between gestures at speed 1×. Split before and after the gesture like the original recipe. Reset to follow the recipe."),
+    )),
+    Module("edge_phosphor", "Edge phosphor", "Dark silhouettes against a noisy colored backlight with chromatic contour echoes.", (
+        P("hue", "Backlight hue", .295, 0, 1, .005, "0 = red, .33 = green, .67 = blue."),
+        P("backlight", "Backlight intensity", .7, 0, 2, .01),
+        P("saturation", "Backlight saturation", 1., 0, 1, .01),
+        P("edge", "Contour intensity", 1.1, 0, 3, .01),
+        P("fringe_hue", "Fringe hue", .83, 0, 1, .005),
+        P("fringe", "Fringe strength", 1., 0, 2, .01),
+        P("grain", "Phosphor grain", .75, 0, 1.5, .01),
+        P("spread", "Backlight reach", .36, .01, 1, .01),
+        P("rim_width", "Contour width", .006, .001, .05, .001),
+        P("separation", "Contour color gap", .012, 0, .1, .001),
+        P("glow", "Contour glow", .009, 0, .1, .001),
+        P("echo", "Contour echo", .2, 0, 1, .01),
+        P("echo_distance", "Echo distance", .035, 0, .2, .005),
+        P("lower_fade", "Lower contour fade", .8, 0, 1, .01),
+        P("body", "Silhouette fill", 0., 0, 1, .01),
+        P("side", "Light side", 0, 0, 1, 1, choices=("Left", "Right")),
+        P("threshold", "Source threshold", .2, .05, .95, .01),
+        P("rate", "Phosphor FPS", 15., 0, 60, 1, "Held texture rate. Zero freezes the texture."),
+        P("mix", "Mix", 1., 0, 1, .01),
+    )),
+    Module("scan_drag", "Scan drag", "Stretch and tear the source's bright edges into horizontal scan streaks.", (
+        P("amount", "Fine streak strength", .55, 0, 1, .01),
+        P("density", "Streak density", .025, 0, 1, .01),
+        P("length", "Streak reach", .7, 0, 1, .01),
+        P("overload", "Overload burst", 0., 0, 1, .01),
+        P("center", "Burst height position", .68, 0, 1, .01),
+        P("height", "Burst thickness", .12, .002, .5, .005),
+        P("gain", "Burst exposure", 1.2, 0, 5, .05),
+        P("blocks", "Tracking tears", 3, 0, 12, 1),
+        P("block_height", "Tracking tear height", .018, .002, .15, .002),
+        P("band_size", "Overload row groups", 7., 1, 16, .5, "Thickness of irregular groups at 270 scanlines."),
+        P("tearing", "Horizontal rupture", .12, 0, .3, .002),
+        P("jitter", "Line registration", .001, 0, .02, .0005),
+        P("chroma", "Scan color slip", .012, 0, .1, .001),
+        P("grain", "Streak grain", .12, 0, 1, .01),
+        P("glow", "Overload bloom", .25, 0, 2, .01, "Spread overload light around the affected part of the source."),
+        P("tint", "Overload color", .8, 0, 1, .01),
+        P("softness", "Scan softness", .45, 0, 3, .05),
+        P("wander", "Burst instability", .7, 0, 2, .01),
+        P("dropout", "Dark line loss", .2, 0, 1, .01),
+        P("direction", "Streak direction", 1, 0, 1, 1, choices=("Left", "Right")),
+        P("window", "Recording width", .75, .1, 1, .01, "Width of the recorded signal; 1 fills the canvas. Black margins match the reference."),
+        P("rate", "Scan FPS", 15., 0, 60, 1, "Held fault rate. Zero freezes the pattern."),
+        P("mix", "Mix", 1., 0, 1, .01),
     )),
     Module("flare", "Signal flare", "An asymmetric horizontal exposure sweep around the source.", (
         P("strength", "Exposure", 0.0, 0, 3, .01, "Adds a clipped white signal flare."),
@@ -865,6 +925,9 @@ def _breakup(arr, p, t, preset):
 
 
 RENDERERS = {
+    "silhouette": lambda arr, params, t, preset, index: render_silhouette(arr, params, t, preset, _seed(preset["seed"], "silhouette")),
+    "edge_phosphor": lambda arr, params, t, preset, index: render_edge_phosphor(arr, params, t, preset, _seed(preset["seed"], "edge-phosphor")),
+    "scan_drag": lambda arr, params, t, preset, index: render_scan_drag(arr, params, t, preset, _seed(preset["seed"], "scan-drag")),
     "frame_jitter": lambda arr, params, t, preset, index: render_frame_jitter(arr, params, t, preset["speed"], _seed(preset["seed"], "frame-jitter"), content_size(preset, (arr.shape[1], arr.shape[0])) if 'reference' in preset else None),
     "ink_bloom": lambda arr, params, t, preset, index: render_ink_bloom(arr, params, t, preset["speed"], _seed(preset["seed"], "ink-bloom"), content_size(preset, (arr.shape[1], arr.shape[0])) if 'reference' in preset else None, object_offset(preset, (arr.shape[1], arr.shape[0]))),
     "print_surface": lambda arr, params, t, preset, index: render_print_surface(arr, params, t, preset["speed"], _seed(preset["seed"], "print-surface")),

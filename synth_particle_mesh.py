@@ -1,4 +1,4 @@
-"""Area-weighted sampling of the bundled head mesh; never draws a solid mesh."""
+"""Bundled head geometry shared by particle sampling and solid silhouettes."""
 from functools import lru_cache
 from pathlib import Path
 

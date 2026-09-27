@@ -835,3 +835,25 @@ def test_local_object_position_adds_to_whole_clip_and_restores_inherited_positio
     assert 'adds to whole-clip' in obj.position_note.text()
     obj.reset_position.click()
     for state in window.sequence['states'].values(): assert state['overrides']['object_x'] == 80.
+
+
+def test_profile_starter_exposes_its_model_and_independent_treatments(window, tmp_path, monkeypatch):
+    choose_starter(window, 'profile-signal'); panel = window.composer; obj = panel.object_panel
+    panel.look_tabs.setCurrentWidget(obj); QApplication.processEvents()
+    assert obj.selector.currentData() == 'silhouette' and obj.position_host.isVisible()
+    assert 'silhouette.yaw' in obj.controls
+    assert window.total_time_label.text() == 'Total 00:04.07'
+    first = render_sequence_frame(window.sequence, .4, (160, 90)).tobytes()
+    obj.controls['silhouette.yaw'].input.setValue(-75.)
+    assert render_sequence_frame(window.sequence, .4, (160, 90)).tobytes() != first
+    window.undo_composition()
+    assert render_sequence_frame(window.sequence, .4, (160, 90)).tobytes() == first
+    panel.effects_panel.inspect_effect('scan_drag')
+    assert 'scan_drag' in panel.effects_panel.applied_ids
+    panel.effects_panel.controls['scan_drag.overload'].changed.emit(.8)
+    assert window.composition['effects']['scan_drag']['params']['scan_drag.overload'] == .8
+    path = tmp_path / 'profile.json'
+    monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *args: (str(path), ''))
+    window.save_sequence_dialog(); assert load_composition(path) == window.composition
+    window.open_detailed_copy()
+    assert window.detail_windows[-1].sequence == window.sequence

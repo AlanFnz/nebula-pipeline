@@ -1,5 +1,5 @@
 """Independent editable copies of the built-in studies."""
-from synth_composition import ink_bloom_composition, mixed_media_composition, particle_composition, particle_orbit_composition, reference_composition
+from synth_composition import ink_bloom_composition, mixed_media_composition, particle_composition, particle_orbit_composition, reference_composition, profile_signal_composition
 
 
 STARTERS = (
@@ -9,6 +9,7 @@ STARTERS = (
     ("particle-orbit", "Expand / orbit · 15s", particle_orbit_composition),
     ("original-particles", "Original particles · 15s", particle_composition),
     ("ink-bloom", "Ink bloom · 3.5s", ink_bloom_composition),
+    ("profile-signal", "Profile / phosphor scan · 4s", profile_signal_composition),
     ("mixed-media", "Mixed media / two bursts · 7s", mixed_media_composition),
 )
 

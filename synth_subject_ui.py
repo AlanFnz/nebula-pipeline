@@ -8,6 +8,7 @@ from synth_subject import SUBJECTS, SOURCE_EFFECTS, active_subjects
 
 
 OBJECT_PATHS = {
+    'silhouette': ('silhouette.model', 'silhouette.scale', 'silhouette.yaw', 'silhouette.pitch', 'silhouette.roll', 'silhouette.center_x', 'silhouette.center_y', 'silhouette.neck_length', 'silhouette.neck_fullness', 'silhouette.softness'),
     'ink': ('ink_bloom.shape', 'ink_bloom.artwork', 'ink_bloom.shape_width', 'ink_bloom.shape_height',
             'ink_bloom.sides', 'ink_bloom.shape_rotation', 'ink_bloom.size', 'ink_bloom.count',
             'ink_bloom.spread'),
@@ -88,7 +89,7 @@ class SubjectPanel(QWidget):
         if not self.updating and index >= 0: self.selected.emit(self.selector.itemData(index))
 
     def open_details(self, timing):
-        effect = {'ink': 'ink_bloom', 'particles': 'particles', 'signal': self.signal_effect}.get(self.kind)
+        effect = {'ink': 'ink_bloom', 'particles': 'particles', 'signal': self.signal_effect, 'silhouette': 'silhouette'}.get(self.kind)
         if effect: self.details_requested.emit(effect, timing)
 
     def refresh(self, summary, entries, parent_entries, local):
@@ -99,7 +100,8 @@ class SubjectPanel(QWidget):
         with QSignalBlocker(self.selector): self.selector.setCurrentIndex(self.selector.findData(self.kind))
         self.restore.setEnabled(any(entries.get(key, {}).get('mode', 'recipe') != 'recipe' for key in SOURCE_EFFECTS))
         scope = 'this section' if local else 'the whole clip'
-        notes = {'ink': 'Edit the printed silhouette here. Its unfold, turn and refold motion stays with it.',
+        notes = {'silhouette': 'A fixed human silhouette. Adjust its pose and framing here; Edge phosphor and Scan drag treat its outline.',
+                 'ink': 'Edit the printed silhouette here. Its unfold, turn and refold motion stays with it.',
                  'particles': 'The model is the target of the particles. Adjust its size, pose and point density here.',
                  'signal': 'The luminous form and ray aperture share this geometry.',
                  'none': 'Choose an object to introduce a source into the scene.'}

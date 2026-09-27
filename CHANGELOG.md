@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Profile / phosphor scan adds a fixed head silhouette study: 61 frames at
+  15 fps, four editable sections, green/red backlight and clustered scan tears.
+  Model silhouette reuses the bundled head mesh with pose/framing controls.
+  Edge phosphor and Scan drag are independent reusable treatments with held
+  grain, contour echoes, chromatic streaks, overload and tracking controls.
+  Object X/Y, scope overrides, neutral bypass, save/open, Undo/Redo, detailed
+  copies, low-resolution finishing and full-size export are supported. All new
+  modules start disabled in existing studies.
+
 - Object adds shared Position X/Y sliders and numeric inputs in canvas pixels,
   with scope-aware offsets and Reset position. Placement moves the full source
   group and attached ghosts/halos before treatments, preserving motion, canvas

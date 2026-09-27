@@ -29,7 +29,9 @@ To rebuild from the pinned source OBJ:
 ```
 
 The renderer samples triangles by surface area with stable seeded barycentric
-coordinates. The surface is never drawn; it only guides particle positions and
-their lighting. Portrait particles receive a subdued iris brightness mask;
+coordinates. The particle renderer uses the surface only to guide particle positions and
+their lighting. The separate Model silhouette source projects the same bundled
+triangles into a solid mask, with a fixed editable pose and optional neck
+extension; it does not change either mesh asset. Portrait particles receive a subdued iris brightness mask;
 optional point-depth occlusion prevents internal mouth and far-side points from
 shining through the assembled face. Mesh import through the UI is not yet supported.

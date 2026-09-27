@@ -72,7 +72,7 @@ The default view is a **composer**: sections below the preview and an **Effects*
 inspector. It opens the **Refined signal** study with its original animated recipe.
 Choose a study in **Starters**, then press **Load starter** to create an editable
 copy. The library includes Refined signal, Approved signal, Particle head,
-Expand / orbit, Original particles, Ink bloom and Mixed media / two bursts. Selection alone does not replace the
+Expand / orbit, Original particles, Ink bloom, Mixed media / two bursts and Profile / phosphor scan. Selection alone does not replace the
 current composition; loading a starter keeps the current canvas format.
 
 The native editors share a terminal-inspired interface: a system-available
@@ -112,7 +112,9 @@ affects the interface only; saved compositions and exported pixels are unchanged
   Geometry tab and opens the controls for the object actually used by the starter:
   **Geometric signal** edits the luminous form/ray aperture, **Ink stamps** edits
   the printed silhouette, artwork, dimensions and layout, and **Particle model**
-  edits the head/sphere/ring model, pose, size and point density. Irrelevant geometry
+  edits the head/sphere/ring model, pose, size and point density. **Model silhouette**
+  projects the bundled head as a fixed solid shape with angle, tilt, scale, framing
+  and neck shaping controls. Irrelevant geometry
   controls are hidden. **Motion & timing** opens the shared ink Timing controls;
   **More object controls** opens the source's complete Effects inspector.
   Choosing an object type replaces source families in the selected scope while
@@ -385,6 +387,33 @@ Seeded identities make scrubbing and export deterministic. The original signal
 and particle starters remain unchanged. Implementation: `synth_print.py`.
 
 ### Particle attractors
+
+**Starters → Profile / phosphor scan · 4s** creates a 61-frame study at 15 fps,
+with a fixed left-facing human profile and four editable sections: Green lock,
+Overload, Red hold and Lower scan tear. It uses the existing CC0 head mesh;
+no frames or textures from a reference GIF are bundled. Low-res finish renders
+at 480 px before enlarging to the saved 960×540 canvas.
+
+- **Object → Model silhouette** controls the head model, uniform scale, angle,
+  tilt, roll, framing, neck extension/fullness and contour softness. The mesh has no
+  automatic rotation. Shared Object X/Y places the complete source group.
+- **Effects → Edge phosphor** turns a source into a dark silhouette with a
+  colored backlight and contour echoes. Edit backlight hue/saturation/strength,
+  grain, reach, contour width/glow, fringe color/gap, lower fade and silhouette
+  fill. Light side selects a left- or right-facing contour; Source threshold
+  controls the source mask. Phosphor FPS sets the held texture cadence.
+- **Effects → Scan drag** stretches the source's bright colors into scanlines.
+  Fine streak density/reach, overload strength/position/thickness/exposure,
+  tracking tear count/height, irregular row groups, overload bloom, chroma slip, grain,
+  softness, direction and fault FPS are independent. Recording width controls
+  black side margins; set it to 1 for a full-width signal. A blank image never
+  gains luminous bars. Mix = 0 bypasses either treatment exactly.
+
+Both treatments can be applied to other sources through Effects. The starter
+embeds its settings, keeps the same head pose throughout its sections, and
+supports whole-clip/section edits, reset, Undo/Redo, save/open, detailed copies,
+canvas reframing and MP4 export. Existing studies remain disabled for all three
+new modules and retain their original rendering.
 
 **Starters → Particle head** opens the **Particle signal** study: dots rush into an
 anatomical head, rebound and dissolve toward a thin luminous band. Three sections
