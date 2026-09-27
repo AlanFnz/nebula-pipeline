@@ -86,6 +86,12 @@ EFFECTS = (
                   ("Rough photocopy", {"print_surface.ink_wear": .7, "print_surface.edge_wear": .9, "print_surface.grain_size": 2.8}),
                   ("Quiet paper", {"print_surface.paper_motion": 0., "print_surface.boil": .08, "print_surface.registration": .0005}),
                   ("Chaotic background", {"print_surface.background_mode": 1}))),
+    Effect("low_res", "Low-res finish", "Keep the low-resolution preview texture in a full-size export. The whole image, including grain, background and transitions, renders at Working resolution (longest edge), then scales to your canvas. Preview quality still controls the monitor size.",
+           paths("low_res"), ("low_res",),
+           looks=(("360 px preview feel", {}),
+                  ("Chunky / 180 px", {"low_res.resolution": 180}),
+                  ("Fine / 720 px", {"low_res.resolution": 720}),
+                  ("Crisp pixels / 240 px", {"low_res.resolution": 240, "low_res.sampling": 1}))),
 )
 EFFECT_BY_ID = {effect.id: effect for effect in EFFECTS}
 

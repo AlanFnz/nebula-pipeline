@@ -24,6 +24,7 @@ from synth_canvas import normalize_canvas
 from synth_print import render_ink_bloom, render_print_surface
 from synth_artwork import validate_artwork
 from synth_jitter import render_frame_jitter
+from synth_resolution import finish_resolution, render_resolution
 
 SYNTH_SCHEMA_VERSION = 1
 SYNTH_PRESETS_DIR = Path.home() / ".nebula_pipeline" / "synth_presets"
@@ -307,6 +308,10 @@ MODULES = (
         P("dust", "Dust flecks", .12, 0, 1, .01),
         P("softness", "Scan softness", .8, 0, 3, .05),
         P("mix", "Mix", 1., 0, 1, .01),
+    )),
+    Module("low_res", "Low-res finish", "Render the complete image at a smaller working resolution, then scale it to the canvas. Includes grain, backgrounds and transitions.", (
+        P("resolution", "Working resolution", 360, 64, 2160, 1, "Pixels on the longest edge. 360 preserves the 360 px preview look at every export size. Limited to the saved canvas size."),
+        P("sampling", "Enlargement", 0, 0, 1, 1, "Soft matches the smooth preview enlargement. Crisp pixels keeps hard pixel edges.", choices=("Soft", "Crisp pixels")),
     )),
 )
 MODULE_BY_ID = {module.id: module for module in MODULES}
@@ -865,7 +870,7 @@ RENDERERS = {
 def render_synth_frame(preset, frame=0, time_seconds=None, size=None):
     """Render one frame at continuous time; `frame` is only a default clock."""
     p = normalize_synth(preset)
-    width, height = size or (p["width"], p["height"])
+    output, (width, height), sampling = render_resolution(p, size)
     t = frame / p["treatment_fps"] if time_seconds is None else float(time_seconds)
     # The treatment rate is a real hold rate for the complete image, not only
     # for grain. This keeps preview, scrub and export identical at any FPS.
@@ -889,7 +894,8 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None):
         rendered = renderer(arr, params, t, p, index)
         if rendered is not None:
             arr = rendered
-    return Image.fromarray(np.clip(arr * 255, 0, 255).astype(np.uint8), "RGB")
+    image = Image.fromarray(np.clip(arr * 255, 0, 255).astype(np.uint8), "RGB")
+    return finish_resolution(image, output, sampling)
 
 
 def curated_presets():

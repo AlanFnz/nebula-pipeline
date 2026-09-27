@@ -181,6 +181,22 @@ subsequent edits do not change an in-progress render. Custom dimensions in loade
 documents are retained. The new format/size helpers live in `synth_canvas.py` and
 the starter registry lives in `synth_starters.py`.
 
+**Effects → Low-res finish → 360 px preview feel → + Apply effect** keeps
+the texture of the 360 px preview in a full-size export. Choose the whole-clip
+scope to apply it throughout, or select a section for a local treatment.
+**Working resolution** sets the longest edge of the internal raster; the saved
+canvas supplies its proportions. **Enlargement → Soft** smoothly enlarges the
+grain and softened edges, while **Crisp pixels** preserves hard pixel edges.
+The 180 px, 720 px and crisp 240 px looks provide other starting points.
+
+This renders sources, grain, backgrounds and sequence transitions at the chosen
+resolution before scaling the finished frame. Preview quality changes only the
+monitor size when the effect is on; the artistic raster stays the same in the
+preview and export. Export MP4 still writes the full canvas dimensions. The
+effect saves with the document and supports section overrides, Undo/Redo and
+detailed editing. It is off in existing studies; disable it to restore native
+rendering. Working resolution is capped at the saved canvas size.
+
 ### Printed mixed media
 
 **Starters → Ink bloom** creates a 3.53-second, 15 fps study from one editable

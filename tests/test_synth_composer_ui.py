@@ -522,3 +522,33 @@ def test_frame_jitter_starter_scope_undo_save_and_detailed_controls(window, tmp_
     assert 'frame_jitter.seed' in child.sequence_state_controls
     child.sequence_state_controls['frame_jitter.x'].set_value(2.)
     assert window.composition == saved
+
+
+def test_low_res_finish_native_controls_scope_undo_and_save(window, tmp_path, monkeypatch):
+    choose_starter(window, 'mixed-media')
+    panel = window.composer; effects = panel.effects_panel
+    before = copy.deepcopy(window.composition)
+    effects.inspect_effect('low_res')
+    effects.apply_button.click()
+    assert effects.controls['low_res.resolution'].input.value() == 360
+    assert effects.controls['low_res.sampling'].input.currentText() == 'Soft'
+    effects.controls['low_res.resolution'].input.setValue(240)
+    effects.controls['low_res.sampling'].input.setCurrentIndex(1)
+    changed = copy.deepcopy(window.composition)
+    assert changed['source'] == before['source']
+    assert changed['effects']['low_res']['params'] == {'low_res.resolution': 240, 'low_res.sampling': 1}
+    window.undo_composition()
+    assert window.composition['effects']['low_res']['params']['low_res.sampling'] == 0
+    window.redo_composition(); assert window.composition == changed
+    panel.select_section(1)
+    effects.controls['low_res.resolution'].input.setValue(180)
+    assert window.composition['sections'][1]['effects']['low_res']['params']['low_res.resolution'] == 180
+    assert not window.composition['sections'][0]['effects']
+    saved = copy.deepcopy(window.composition)
+    path = tmp_path / 'low-res.json'
+    monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *args: (str(path), ''))
+    window.save_sequence_dialog()
+    assert load_composition(path) == saved
+    window.open_detailed_copy()
+    assert 'low_res.resolution' in window.detail_windows[-1].sequence_state_controls
+    assert 'low_res.sampling' in window.detail_windows[-1].sequence_state_controls

@@ -12,6 +12,7 @@ from PIL import Image
 
 from synth import MODULE_BY_ID, _seed, curated_presets, normalize_synth, render_synth_frame
 from synth_canvas import normalize_canvas
+from synth_resolution import finish_resolution, render_resolution
 
 SEQUENCE_SCHEMA_VERSION = 1
 NEUTRAL_FIELD = {
@@ -208,9 +209,12 @@ def render_sequence_frame(sequence, time_seconds, size=None):
         # geometry is visible on the first frame of the event. Only morphs
         # spend their onset frame on the previous geometry.
         base = second if transition in {"sweep", "flash"} else _interpolate_presets(first, second, amount)
-        current = render_synth_frame(base, time_seconds=t, size=size)
     else:
-        current = render_synth_frame(_state_preset(seq, cue["state"]), time_seconds=t, size=size)
+        base = _state_preset(seq, cue["state"])
+    output, working, sampling = render_resolution(base, size)
+    # Keep transition overlays and sequence noise on the same working raster.
+    # The synth receives that exact size, so it performs no intermediate resize.
+    current = render_synth_frame(base, time_seconds=t, size=working)
     result = np.asarray(current, dtype=np.float32) / 255
     if transition == "sweep" and amount < 1:
         direction = float(cue.get("direction", 1))
@@ -237,4 +241,5 @@ def render_sequence_frame(sequence, time_seconds, size=None):
         y, x = np.mgrid[0:result.shape[0], 0:result.shape[1]]
         cloud_mask = np.exp(-((((x / max(1, result.shape[1] - 1) - .62) / .42) ** 2) + (((y / max(1, result.shape[0] - 1) - .5) / .65) ** 2)))
         result += cloud[..., None] * cloud_mask[..., None] * np.array((.72, .82, .78), dtype=np.float32)[None, None, :]
-    return Image.fromarray(np.clip(result * 255, 0, 255).astype(np.uint8), "RGB")
+    image = Image.fromarray(np.clip(result * 255, 0, 255).astype(np.uint8), "RGB")
+    return finish_resolution(image, output, sampling)

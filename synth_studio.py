@@ -294,7 +294,7 @@ class SynthStudio(QMainWindow):
         export_row = QHBoxLayout()
         self.quality = QComboBox(); self.quality.setAccessibleName("Preview quality")
         self.quality.addItems(["Preview · 360 px", "Preview · 720 px", "Preview · full"])
-        self.quality.setToolTip("Preview resolution only. MP4 exports use the full canvas size shown above.")
+        self.quality.setToolTip("Monitor resolution only. MP4 exports use the full canvas size shown above. To keep this texture in your export, apply Effects → Low-res finish → 360 px preview feel.")
         self.quality.currentIndexChanged.connect(lambda _index: self.invalidate()); export_row.addWidget(self.quality)
         export = QPushButton("Export MP4"); export.setObjectName("primary"); export.clicked.connect(self.export_dialog); export_row.addWidget(export)
         self.cancel_export = QPushButton("Cancel export"); self.cancel_export.setEnabled(False); self.cancel_export.clicked.connect(self.cancel_export_job); export_row.addWidget(self.cancel_export)

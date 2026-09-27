@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Reusable Low-res finish preserves the 360 px preview texture in full-size
+  exports. Working resolution and Soft / Crisp pixels enlargement apply to the
+  complete render, including backgrounds and timeline transitions. Includes
+  four looks, whole-clip/section scope, Undo/Redo and saved/detailed controls;
+  existing studies keep native rendering until the effect is enabled.
+
 - Reusable Frame jitter effect adds held horizontal/vertical shifts, rotation
   and scale variation, with independent FPS, strength and movement seed. Its
   subpixel transform runs before finishing, preserves highlights and does not
