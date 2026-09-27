@@ -10,6 +10,9 @@ from synth_starters import starter_composition
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = json.loads((ROOT / 'tests/fixtures/synth-baseline-v1.json').read_text())
+PROFILES = json.loads((ROOT / 'tests/fixtures/synth-baseline-profiles-v2.json').read_text())
+MANIFEST['cases'].extend(PROFILES['cases'])
+MANIFEST['assets'].update(PROFILES['assets'])
 
 
 @pytest.mark.parametrize('identifier', tuple(dict.fromkeys(c['starter'] for c in MANIFEST['cases'])))

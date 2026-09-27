@@ -24,7 +24,14 @@ def frozen_data(key):
 
 
 def starter_snapshot(identifier):
+    if identifier in ('profile-clear', 'profile-doryphoros'):
+        return copy.deepcopy(_profile_snapshot()[identifier])
     return copy.deepcopy(_snapshot()['starters'][identifier])
+
+
+@lru_cache(maxsize=1)
+def _profile_snapshot():
+    return json.loads((Path(__file__).parent / 'presets/compat-profiles-v2.json').read_text())
 
 
 def render_version(raw):

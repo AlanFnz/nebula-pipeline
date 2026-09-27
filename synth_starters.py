@@ -23,8 +23,6 @@ STARTERS = (
 def starter_composition(identifier):
     for key, _label, factory in STARTERS:
         if key == identifier:
-            if key in ('profile-clear', 'profile-doryphoros'):
-                return factory()
             project = starter_snapshot(identifier)
             project['render_version'] = 2
             project['source']['render_version'] = 2
