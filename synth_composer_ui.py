@@ -70,7 +70,8 @@ class SectionTimeline(QWidget):
             label = painter.fontMetrics().elidedText(label, Qt.TextElideMode.ElideRight, max(0, int(rect.width() - 10)))
             painter.drawText(rect.adjusted(5, 20, -5, -21), Qt.AlignmentFlag.AlignCenter, label)
             painter.setFont(small_font); painter.setPen(QColor(COLORS["muted"]))
-            painter.drawText(rect.adjusted(4, 43, -4, -3), Qt.AlignmentFlag.AlignCenter, f"{section['duration']:.2f}s")
+            loops = int(section.get('loops', 1))
+            painter.drawText(rect.adjusted(4, 43, -4, -3), Qt.AlignmentFlag.AlignCenter, f"{section['duration']:.2f}s ×{loops}")
         if self.document:
             total = section_ranges(self.document)[-1][1]
             x = max(1, min(self.width() - 1, self.time / total * self.width()))
@@ -90,7 +91,8 @@ class SectionTimeline(QWidget):
         for index, rect in enumerate(self.rectangles()):
             if rect.contains(event.position()):
                 section = self.document["sections"][index]
-                self.setToolTip(f"{index + 1}. {self.document['phrases'][section['phrase']]['name']} · click to edit this section")
+                loops = int(section.get('loops', 1))
+                self.setToolTip(f"{index + 1}. {self.document['phrases'][section['phrase']]['name']} · {loops} loop{'s' if loops != 1 else ''} · click to edit this section")
                 return
 
 
@@ -199,6 +201,11 @@ class CompositionPanel(QWidget):
         self.phrase.currentIndexChanged.connect(self.change_phrase); row.addWidget(self.phrase, 1)
         self.section_duration = QDoubleSpinBox(); self.section_duration.setRange(1 / self.document["fps"], 300); self.section_duration.setDecimals(2); self.section_duration.setSuffix(" s"); self.section_duration.setFixedWidth(95); self.section_duration.setKeyboardTracking(False)
         self.section_duration.valueChanged.connect(self.resize_section); row.addWidget(self.section_duration)
+        row.addWidget(QLabel('Loops'))
+        self.section_loops = QSpinBox(); self.section_loops.setRange(1, 32); self.section_loops.setSuffix(" ×"); self.section_loops.setFixedWidth(68); self.section_loops.setKeyboardTracking(False)
+        self.section_loops.setAccessibleName('Section loops')
+        self.section_loops.setToolTip('Repeat this timeline section. Total duration uses section duration × loops.')
+        self.section_loops.valueChanged.connect(self.resize_section_loops); row.addWidget(self.section_loops)
         section_layout.addLayout(row)
         row = QHBoxLayout()
         for label, callback in (("+ Add", self.add_section), ("Duplicate", self.duplicate_section), ("Remove", self.remove_section), ("←", lambda: self.move_section(-1)), ("→", lambda: self.move_section(1))):
@@ -303,19 +310,22 @@ class CompositionPanel(QWidget):
             self.look_tabs.setTabVisible(2, not video)
             self.details_button.setVisible(not video)
             self.video_panel.refresh(video)
-            self.duration.setMinimum(len(self.document["sections"]) / self.document["fps"])
+            minimum_frames = sum(int(section.get("loops", 1)) for section in self.document["sections"])
+            self.duration.setMinimum(minimum_frames / self.document["fps"])
             self.duration.setValue(section_ranges(self.document)[-1][1])
             self.fps.setValue(self.document["fps"])
             count = len(self.document["sections"])
             self.arrangement_button.setText(f"Arrange / {count} {'section' if count == 1 else 'sections'} · {self.duration.value():.2f}s · {self.document['fps']} fps")
             self.section_combo.clear()
             for index, section in enumerate(self.document["sections"]):
-                self.section_combo.addItem(f"{index + 1} · {self.document['phrases'][section['phrase']]['name']}")
+                loops = int(section.get('loops', 1))
+                self.section_combo.addItem(f"{index + 1} · {self.document['phrases'][section['phrase']]['name']} · ×{loops}")
             self.section_combo.setCurrentIndex(self.index)
             section = self.document["sections"][self.index]
             self.phrase.setCurrentIndex(self.phrase.findData(section["phrase"]))
             self.section_duration.setMinimum(1 / self.document["fps"])
             self.section_duration.setValue(section["duration"])
+            with QSignalBlocker(self.section_loops): self.section_loops.setValue(section.get("loops", 1))
             self.scope_combo.setCurrentIndex(self.scope)
             self.master_panel.set_values(self.document['master'])
             target = self.target()
@@ -491,13 +501,14 @@ class CompositionPanel(QWidget):
     def resize_clip(self, duration):
         if self.updating: return
         document = copy.deepcopy(self.document); fps = document["fps"]
-        frames = max(len(document["sections"]), round(duration * fps))
+        loops = [int(section.get("loops", 1)) for section in document["sections"]]
+        frames = max(sum(loops), round(duration * fps))
         # Proportional boundaries retain an exact total on the output frame grid.
         original = section_ranges(document); total = original[-1][1]; cursor = 0
         for index, section in enumerate(document["sections"]):
-            remaining = len(document["sections"]) - index - 1
-            boundary = min(frames - remaining, max(cursor + 1, round(original[index][1] / total * frames)))
-            section["duration"] = (boundary - cursor) / fps; cursor = boundary
+            remaining = sum(loops[index + 1:])
+            boundary = min(frames - remaining, max(cursor + loops[index], round(original[index][1] / total * frames)))
+            section["duration"] = max(1, round((boundary - cursor) / loops[index])) / fps; cursor += round(section["duration"] * fps) * loops[index]
         self.commit(document, "duration")
 
     def change_fps(self, fps):
@@ -511,6 +522,11 @@ class CompositionPanel(QWidget):
         if self.updating: return
         document = copy.deepcopy(self.document); document["sections"][self.index]["duration"] = duration
         self.commit(document, "section-duration")
+
+    def resize_section_loops(self, loops):
+        if self.updating: return
+        document = copy.deepcopy(self.document); document["sections"][self.index]["loops"] = int(loops)
+        self.commit(document, "section-loops")
 
     def change_phrase(self, index):
         if self.updating or index < 0: return
@@ -534,7 +550,7 @@ class CompositionPanel(QWidget):
         if len(self.document["sections"]) >= 64: return
         document = copy.deepcopy(self.document)
         phrase_key = self.phrase.currentData(); phrase = document["phrases"][phrase_key]
-        section = {"id": self._new_id(document), "phrase": phrase_key, "duration": phrase["end"] - phrase["start"], "macros": neutral_macros(), "variation": 0, "locks": []}
+        section = {"id": self._new_id(document), "phrase": phrase_key, "duration": phrase["end"] - phrase["start"], "loops": 1, "macros": neutral_macros(), "variation": 0, "locks": []}
         document["sections"].insert(self.index + 1, section); self.index += 1
         self.commit(document, "add"); self.sectionSelected.emit(self.index)
 

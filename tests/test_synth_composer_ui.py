@@ -97,6 +97,17 @@ def test_section_arrangement_and_local_take(window):
     assert window.sequence["duration"] == 20
 
 
+def test_selected_section_can_loop_in_place_and_updates_total(window):
+    panel = window.composer
+    panel.select_section(1)
+    base_duration = window.sequence["duration"]
+    panel.section_loops.setValue(2)
+    assert window.composition["sections"][1]["loops"] == 2
+    assert window.sequence["duration"] == pytest.approx(base_duration + window.composition["sections"][1]["duration"])
+    assert "00:18.00" in window.total_time_label.text()
+    assert "×2" in panel.section_combo.currentText()
+
+
 def test_save_open_and_actual_composer_export(window, tmp_path, monkeypatch):
     # A short composition makes the GUI's real threaded export inexpensive.
     panel = window.composer

@@ -295,8 +295,9 @@ Text wording appears at the top of Object; **Apply text** commits the phrase.
 
 - Select **Whole clip** to adjust the entire piece, or click a section to
   adjust it locally. Sections can be added, duplicated, removed, reordered,
-  and given different durations under **Arrange**. Their internal events are
-  generated for you.
+  and given different durations under **Arrange**. Set a section's **loops**
+  count there to repeat that clip in place; the timeline and export use the
+  repeated duration automatically. Their internal events are generated for you.
 - **Effects** exposes luminous forms, rays / Venetian blinds, particle attractors, ghosts / trails,
   signal breakup, signal drift, granular halos, exposure flares, color
   separation, signal interference, bloom, and raster / grain. Select any effect in the library and
@@ -348,9 +349,10 @@ Text wording appears at the top of Object; **Apply text** commits the phrase.
   Undo/Redo, save/open, detailed copies and export. Preview zoom does not change
   its units. Existing per-effect positions remain available in Source controls.
 - **Total** beside the playback counter always shows the complete duration,
-  calculated from the sum of the sections. It updates after section edits and
-  automatic timing changes, including the two-burst study. No separate total
-  duration edit is needed.
+  calculated from the sum of each section's duration multiplied by its loops
+  count. It updates after section edits, loop changes and automatic timing
+  changes, including the two-burst study. No separate total duration edit is
+  needed.
 - Effects use absolute values. Whole-clip settings apply first; section
   settings override them. Fixed effect values take priority over geometric Object controls
   and Finishing. A luminous form's companion ghost and granular halo require

@@ -2,7 +2,7 @@ import copy
 
 import pytest
 
-from synth_composition import compile_composition, composition_from_sequence, load_composition, normalize_composition, reference_composition, save_composition, vary_composition
+from synth_composition import compile_composition, composition_from_sequence, load_composition, normalize_composition, reference_composition, save_composition, section_ranges, vary_composition
 from synth_sequence import reference_sequence, render_sequence_frame
 
 
@@ -61,6 +61,27 @@ def test_repetition_reordering_and_import_use_regular_sequence_data():
     imported = composition_from_sequence(result)
     assert pixels(compile_composition(imported), 6.2) == pixels(result, 6.2)
     assert pixels(compile_composition(imported), 14.8) == pixels(result, 14.8)
+
+
+def test_section_loops_repeat_in_place_and_extend_the_compiled_timeline():
+    project = reference_composition(refined=True)
+    project["sections"][1]["loops"] = 3
+    normalized = normalize_composition(project)
+    ranges = section_ranges(normalized)
+    assert ranges[1] == (5.24, 14.24)
+    compiled = compile_composition(normalized)
+    assert compiled["duration"] == 21
+    repeated_times = [cue["time"] for cue in compiled["cues"] if 5.24 <= cue["time"] < 14.24]
+    assert repeated_times[0] == 5.24
+    assert sum(5.24 <= time < 8.24 for time in repeated_times) == sum(8.24 <= time < 11.24 for time in repeated_times)
+    assert sum(8.24 <= time < 11.24 for time in repeated_times) == sum(11.24 <= time < 14.24 for time in repeated_times)
+
+
+@pytest.mark.parametrize("loops", [0, 1.5, 33])
+def test_section_loops_are_bounded_in_compositions(loops):
+    project = reference_composition()
+    project["sections"][0]["loops"] = loops
+    with pytest.raises(ValueError): normalize_composition(project)
 
 
 def test_detailed_copy_and_source_snapshots_are_independent():

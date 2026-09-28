@@ -76,7 +76,7 @@ def reference_composition(refined=False):
         "phrases": {key: {"name": name, "start": start, "end": end} for key, name, start, end in PHRASES},
         "macros": neutral_macros(), "geometry": default_geometry(), "effects": {}, "ink_timing": {}, "variation": 0, "locks": [],
         "sections": [
-            {"id": f"section-{index + 1}", "phrase": key, "duration": round(end - start, 2),
+            {"id": f"section-{index + 1}", "phrase": key, "duration": round(end - start, 2), "loops": 1,
              "macros": neutral_macros(), "geometry": default_geometry(section=True), "effects": {}, "variation": 0, "locks": []}
             for index, (key, _name, start, end) in enumerate(PHRASES)
         ],
@@ -91,7 +91,7 @@ def composition_from_sequence(sequence):
     result["canvas"] = normalize_canvas(source.get("canvas"))
     result["master"] = normalize_master(source.get("master"))
     result["phrases"] = {"custom": {"name": source["name"], "start": 0., "end": source["duration"]}}
-    result["sections"] = [{"id": "section-1", "phrase": "custom", "duration": source["duration"], "macros": neutral_macros(), "geometry": default_geometry(section=True), "effects": {}, "variation": 0, "locks": []}]
+    result["sections"] = [{"id": "section-1", "phrase": "custom", "duration": source["duration"], "loops": 1, "macros": neutral_macros(), "geometry": default_geometry(section=True), "effects": {}, "variation": 0, "locks": []}]
     if 'footage' in source:
         result.update(schema_version=2, render_version=2, footage=copy.deepcopy(source['footage']))
     return result
@@ -573,12 +573,13 @@ def normalize_composition(raw):
         ids.add(identifier)
         duration = _number(section.get("duration"), "Section duration", 1 / result["fps"], 300)
         section["duration"] = max(1, round(duration * result["fps"])) / result["fps"]
+        section["loops"] = _number(section.get("loops", 1), "Section loops", 1, 32, True)
         section["macros"] = _controls(section.get("macros", {}))
         section["geometry"] = _geometry(section.get("geometry", {}), section=True)
         section["effects"] = normalize_effects(section.get("effects", {}))
         section["variation"] = _number(section.get("variation", 0), "Variation", 0, 2**31 - 1, True)
         section["locks"] = [key for key in section.get("locks", []) if key in MACROS]
-    if sum(section["duration"] for section in sections) > 3600:
+    if sum(section["duration"] * section["loops"] for section in sections) > 3600:
         raise ValueError("Composition is longer than one hour")
     normalize_shared_timing(result)
     scopes = [result, *result['sections']]
@@ -601,6 +602,7 @@ def section_ranges(composition):
     result = []
     for section in composition["sections"]:
         frames = max(1, round(section["duration"] * fps))
+        frames *= int(section.get("loops", 1))
         result.append((cursor / fps, (cursor + frames) / fps))
         cursor += frames
     return result
