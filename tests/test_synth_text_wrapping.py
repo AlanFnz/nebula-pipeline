@@ -67,7 +67,8 @@ def test_all_lost_transmission_words_are_large_centered_and_canvas_preserving():
         rows=np.asarray(render_synth_frame(p,time_seconds=t)).max(axis=(1,2)) > 100
         edges=np.diff(np.pad(rows.astype(int),(1,1)))
         line_heights=np.where(edges==-1)[0]-np.where(edges==1)[0]
-        assert line_heights.min() >= 252*.22
+        assert len(line_heights)==1
+        assert line_heights.min() >= 252*.30
         assert (before[0]+before[2])/2==pytest.approx(180,abs=3)
         assert (before[1]+before[3])/2==pytest.approx(126,abs=3)
     p.update(resize_canvas(p,{'width':540,'height':720}))

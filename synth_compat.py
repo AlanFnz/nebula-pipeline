@@ -44,7 +44,7 @@ def _pressure_snapshot():
 
 @lru_cache(maxsize=1)
 def _transmission_snapshot():
-    return json.loads((Path(__file__).parent / 'presets/text-transmission-v3.json').read_text())
+    return json.loads((Path(__file__).parent / 'presets/text-transmission-v4.json').read_text())
 
 
 @lru_cache(maxsize=1)

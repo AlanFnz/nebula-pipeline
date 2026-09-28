@@ -169,10 +169,12 @@ advance through the original words, and type-on retains the original character
 clock and stable layout. **Repeat size floor** reduces duplicate copies before
 fitting would shrink the type below the chosen fraction of Text size; zero
 keeps all copies. A single copy can still shrink to honor Line width limit.
-Lost transmission enables wrapping and readable repeats with centered placement:
-REVOLUTION occupies two large lines, while IS and NOW retain larger repetitions.
-Its updated layout is frozen in `presets/text-transmission-v3.json`; the earlier
-refined recipe remains frozen in v2 and existing saved documents are unchanged.
+Lost transmission keeps each word on one centered line, using Text size, Width
+stretch and Line width limit to give long words nearly the full canvas width.
+Repeat size floor reduces copies when needed, keeping shorter words large too.
+Automatic wrapping is off in this study. Its updated layout is frozen in
+`presets/text-transmission-v4.json`; earlier snapshots and saved documents
+retain their existing layouts.
 Three bundled fonts (Archivo Black, Anton and Space Mono Bold) render identically
 without depending on installed system fonts; their licenses and pinned source
 hashes are in [`assets/fonts`](assets/fonts/README.md).

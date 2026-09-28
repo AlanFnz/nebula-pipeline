@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Replace Lost transmission's wrapped words with large centered single-line
+  lettering. Use the existing size, width stretch, line-width limit and adaptive
+  repetition controls; retain the full phrase and previous saved layouts.
+
 - Keep all words large in Lost transmission with centered long-word wrapping
   and fewer repetitions when needed. Add editable Wrap after characters and
   Repeat size floor controls to Text; line spacing, size and width remain
