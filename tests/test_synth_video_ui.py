@@ -58,7 +58,6 @@ def test_video_controls_scope_effects_before_after_undo_and_reopen(window, tmp_p
     panel.apply_video_treatment(1)
     assert 'tape' in panel.effects_panel.applied_ids
     panel.effects_panel.inspect_effect('ghosts')
-    panel.effects_panel.more.setChecked(True)
     assert all(c.isHidden() for key, c in panel.effects_panel.controls.items() if key.startswith('slab.'))
     window.source_preview.setChecked(True)
     wait_until(lambda: not window.render_running and not window.render_queued)

@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Replace More/Fewer controls with expanded groups and a per-tab control filter.
+  Add effect sliders, compact two-decimal values and percentage display for tiny
+  quantities without rounding saved settings. Put text wording first in Object.
+- Show measured preview FPS separately from export FPS, follow wall-clock
+  playback and prepare cancellable full-loop previews in a bounded memory cache.
+  Debounce edits, reuse compiled inspector state and cache held subject masks,
+  including continuity, without changing export or study rendering.
+- Add a visible MP4 export progress bar with percentage and frame count, plus
+  clear completion, cancellation and error states.
+
 - Replace Lost transmission's wrapped words with large centered single-line
   lettering. Use the existing size, width stretch, line-width limit and adaptive
   repetition controls; retain the full phrase and previous saved layouts.

@@ -284,6 +284,15 @@ The synth monitor shows the rendered preview dimensions, RGB format and
 play/hold state. The theme lives in [`studio_theme.py`](studio_theme.py) and
 affects the interface only; saved compositions and exported pixels are unchanged.
 
+Effect controls are grouped by purpose and fully expanded within the selected
+Look, Timing, Signal, Screen or Region tab. **Find a control in this tab…**
+filters their labels; clear it to restore the complete group list. Numeric
+controls show at most two decimal places while retaining saved precision.
+Small normalized values use percentages (`0.0007` becomes `0.07%`). Sliders
+commit on release, and typed edits commit with Enter or focus change. The
+composer reuses its compiled state, and preview requests debounce rapid edits.
+Text wording appears at the top of Object; **Apply text** commits the phrase.
+
 - Select **Whole clip** to adjust the entire piece, or click a section to
   adjust it locally. Sections can be added, duplicated, removed, reordered,
   and given different durations under **Arrange**. Their internal events are
@@ -319,7 +328,7 @@ affects the interface only; saved compositions and exported pixels are unchanged
   projects the bundled head as a fixed solid shape with angle, tilt, scale, framing
   and neck shaping controls. Irrelevant geometry
   controls are hidden. **Motion & timing** opens the shared ink Timing controls;
-  **More object controls** opens the source's complete Effects inspector.
+  **Source controls** (or **Text appearance**) opens the complete Effects inspector.
   Choosing an object type replaces source families in the selected scope while
   keeping treatments, canvas, timeline and durations. Whole-clip replacement also
   resets local source activation overrides, retaining their parameter values.
@@ -337,7 +346,7 @@ affects the interface only; saved compositions and exported pixels are unchanged
   selected section adds a local offset. **Reset position** clears both offsets
   in that scope. Position survives object-type switches, canvas resizing,
   Undo/Redo, save/open, detailed copies and export. Preview zoom does not change
-  its units. Existing per-effect positions remain available in More object controls.
+  its units. Existing per-effect positions remain available in Source controls.
 - **Total** beside the playback counter always shows the complete duration,
   calculated from the sum of the sections. It updates after section edits and
   automatic timing changes, including the two-burst study. No separate total
@@ -447,6 +456,22 @@ subsequent edits do not change an in-progress render. Custom dimensions in loade
 documents are retained. The new format/size helpers live in `synth_canvas.py` and
 the built-in registry lives in `synth_starters.py`; `synth_studies.py` combines it with personal studies.
 
+The monitor reports **Preview: measured / target FPS** separately from export
+FPS. Live playback follows elapsed time, skipping preview frames when rendering
+cannot keep up. **Prepare playback** renders the full loop at the chosen preview
+quality into a 192 MB memory buffer; then **Play cached preview** plays those
+frames without re-rendering. Preparation shows progress, can be cancelled, and
+does not block editing. Completed frames are also reused when scrubbing.
+Edits, quality changes and source bypass clear the buffer and reject stale jobs.
+If a full loop exceeds the budget, choose 360 px or shorten the timeline.
+Preview remains silent and exports still render every frame independently.
+During MP4 export, the monitor shows a frame-based progress bar with percentage
+and current/total frame count; completion, cancellation and errors remain visible
+after the worker finishes.
+Subject cutout also caches held-frame masks and continuity results in 32 MB per
+video reader, keyed by source identity, framing, trim, detection and retention
+settings. Treatment-only edits can reuse those masks without changing pixels.
+
 **View zoom** below the monitor changes only the view. Choose **Fit**, **100%**,
 enter a percentage, or use **− / +**. Drag to pan a zoomed image, double-click to
 fit, or use Ctrl/⌘ + wheel to zoom around the pointer. Zoom does not change
@@ -509,8 +534,8 @@ FPS and the clip frame rate in Arrange together (for example, both to 30 fps).
 Lower Motion FPS deliberately retains the mixed-media holds. **Frame jitter → Jitter
 FPS** independently controls how often the tiny positional shakes change; 6–8
 FPS gives longer holds than 15 FPS. Print/background noise also keeps its own
-clock. **Arrange** controls custom section and clip lengths. **More controls**
-exposes cycle phase and automatic/manual cycling; the original percentage
+clock. **Arrange** controls custom section and clip lengths. **Timing**
+includes cycle phase and automatic/manual cycling; the original percentage
 settings remain in the detailed editor. Untouched recipes keep their approved
 frames until a shared timing edit is made.
 
@@ -524,7 +549,7 @@ are needed by the app.
 Two independent effects are available in every composition:
 
 - **Ink bloom:** stamp count, size, spread, point count/depth, shape irregularity,
-  ink palette and split colors. More controls exposes opening/closing timing,
+  ink palette and split colors. Grouped Look and Timing controls expose opening/closing timing,
   cycle phase, signed turns, tumble, tilt, individual fanning, cluster depth,
   closed-stack spacing, middle folding, reverse-side ink, perspective and position. **Automatic cycle = 0** makes
   **Opening** a manual control. Motion FPS holds the geometry independently of
@@ -550,7 +575,7 @@ regular polygon or imported artwork. The original burst remains the default.
 The animation uses a stack of flat stamps: one central impression and surrounding
 copies overlap, unfold in 3D, turn and gather again. Replacing the silhouette
 keeps that motion, the selected ink palette and the independent print background.
-Shape width, height, rotation and polygon side count are under More controls.
+Shape width, height, rotation and polygon side count are in the Look tab's shape controls.
 
 Use **Custom artwork → Import…** for a transparent PNG cutout or a contrasting
 image (PNG, WebP, TIFF, JPEG or BMP). Transparency supplies the silhouette; for

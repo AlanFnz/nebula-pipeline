@@ -27,6 +27,7 @@ class MasterPanel(QWidget):
             title = QLabel(label); title.setToolTip(tip); layout.addWidget(title)
             row = QHBoxLayout()
             slider = Slider(Qt.Orientation.Horizontal); slider.setRange(low, high); slider.setAccessibleName(f'Master {label.lower()} slider')
+            slider.setTracking(False)
             spin = DoubleSpinBox(); spin.setRange(low, high); spin.setDecimals(1); spin.setSingleStep(1); spin.setSuffix(' %')
             spin.setKeyboardTracking(False); spin.setFixedWidth(100); spin.setAccessibleName(f'Master {label.lower()}')
             slider.setToolTip(tip); spin.setToolTip(tip)

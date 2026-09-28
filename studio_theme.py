@@ -25,6 +25,7 @@ QLabel { background: transparent; }
 QLabel#brand { color: #b5e49b; font-size: 22px; font-weight: 700; }
 QLabel#muted { color: #94aa98; }
 QLabel#sectionTitle { color: #b5e49b; font-size: 11px; font-weight: 600; }
+QLabel#controlGroup { color: #b5e49b; font-size: 11px; font-weight: 600; border-top: 1px solid #304536; padding-top: 10px; margin-top: 10px; margin-bottom: 5px; }
 QLabel#monitorMeta { color: #94aa98; font-size: 10px; }
 QLabel#monitorState { color: #d6a3ce; font-size: 10px; }
 QLabel#timecode { color: #b5e49b; border: 1px solid #304536; padding: 5px 7px; }
@@ -47,7 +48,7 @@ QPushButton#primary { background: #b5e49b; color: #0c110e; border-color: #b5e49b
 QPushButton#primary:hover { background: #ceefbc; border-color: #ceefbc; }
 QPushButton#primary:pressed { background: #94be7d; }
 QPushButton#primary:disabled { background: #203225; color: #71856b; border-color: #304536; }
-QComboBox, QSpinBox, QDoubleSpinBox, QLineEdit {
+QComboBox, QSpinBox, QDoubleSpinBox, QLineEdit, QPlainTextEdit {
     background: #080e0a; border: 1px solid #3b5141; border-radius: 0;
     padding: 5px; selection-background-color: #b5e49b; selection-color: #0c110e;
 }

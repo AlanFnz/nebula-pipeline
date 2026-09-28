@@ -5,6 +5,7 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushBu
 from studio_widgets import ComboBox, DoubleSpinBox, Slider
 from synth_effects_ui import EffectParameter
 from synth_subject import SUBJECTS, SOURCE_EFFECTS, active_subjects
+from synth_inspector import grouped_paths
 
 
 OBJECT_PATHS = {
@@ -42,6 +43,8 @@ class SubjectPanel(QWidget):
         self.restore.setToolTip('Follow the study or whole-clip source activation again. Keep your object parameters.')
         self.restore.clicked.connect(self.restored.emit); row.addWidget(self.restore); layout.addLayout(row)
         self.note = QLabel(); self.note.setWordWrap(True); self.note.setObjectName('muted'); layout.addWidget(self.note)
+        self.wording_host = QWidget(); self.wording_layout = QVBoxLayout(self.wording_host)
+        self.wording_layout.setContentsMargins(0, 0, 0, 0); layout.addWidget(self.wording_host)
         self.position_host = QWidget(); position_layout = QVBoxLayout(self.position_host)
         position_layout.setContentsMargins(0, 4, 0, 8)
         title = QLabel('POSITION / canvas pixels'); title.setObjectName('sectionTitle'); position_layout.addWidget(title)
@@ -49,6 +52,7 @@ class SubjectPanel(QWidget):
         for axis, direction in (('x', 'right'), ('y', 'down')):
             row = QHBoxLayout(); row.addWidget(QLabel(f'Position {axis.upper()}'))
             slider = Slider(Qt.Orientation.Horizontal); slider.setAccessibleName(f'Object position {axis.upper()} slider')
+            slider.setTracking(False)
             spin = DoubleSpinBox(); spin.setRange(-4096, 4096); spin.setDecimals(1); spin.setSingleStep(1); spin.setSuffix(' px')
             spin.setKeyboardTracking(False); spin.setFixedWidth(110); spin.setAccessibleName(f'Object position {axis.upper()}')
             tip = f'Offset in output canvas pixels. Positive moves {direction}; 0 keeps the authored placement and motion.'
@@ -64,7 +68,7 @@ class SubjectPanel(QWidget):
         self.signal_layout.setContentsMargins(0, 0, 0, 0); layout.addWidget(self.signal_host)
         self.control_host = QWidget(); self.control_layout = QVBoxLayout(self.control_host)
         self.control_layout.setContentsMargins(0, 0, 0, 0); layout.addWidget(self.control_host)
-        self.details = QPushButton('More object controls…'); self.details.clicked.connect(lambda: self.open_details(False)); layout.addWidget(self.details)
+        self.details = QPushButton('Source controls…'); self.details.clicked.connect(lambda: self.open_details(False)); layout.addWidget(self.details)
         self.timing = QPushButton('Motion & timing…'); self.timing.clicked.connect(lambda: self.open_details(True)); layout.addWidget(self.timing)
         layout.addStretch(1)
 
@@ -102,7 +106,7 @@ class SubjectPanel(QWidget):
         self.restore.setEnabled(any(entries.get(key, {}).get('mode', 'recipe') != 'recipe' for key in SOURCE_EFFECTS))
         scope = 'this section' if local else 'the whole clip'
         notes = {'silhouette': 'A fixed human silhouette. Adjust its pose and framing here; Edge phosphor and Scan drag treat its outline.',
-                 'text': 'Editable type. Line breaks, spacing and font stay editable; image treatments follow the lettering. More object controls includes reveal and size motion.',
+                 'text': 'Edit your wording below and apply it. Text appearance opens background, opacity and rotation; Motion & timing controls word changes and animation.',
                  'ink': 'Edit the printed silhouette here. Its unfold, turn and refold motion stays with it.',
                  'particles': 'The model is the target of the particles. Adjust its size, pose and point density here.',
                  'signal': 'The luminous form and ray aperture share this geometry.',
@@ -114,16 +118,23 @@ class SubjectPanel(QWidget):
         self.position_host.setVisible(bool(active))
         self.signal_host.setVisible(self.kind == 'signal')
         self.control_host.setVisible(self.kind in OBJECT_PATHS)
+        self.wording_host.setVisible(self.kind == 'text')
+        self.details.setText('Text appearance…' if self.kind == 'text' else 'Source controls…')
         paths = OBJECT_PATHS.get(self.kind, ())
-        if tuple(self.controls) != paths:
+        if set(self.controls) != set(paths):
             while self.control_layout.count():
                 widget = self.control_layout.takeAt(0).widget(); widget.hide(); widget.deleteLater()
+            while self.wording_layout.count():
+                widget = self.wording_layout.takeAt(0).widget(); widget.hide(); widget.deleteLater()
             self.controls = {}
-            for path in paths:
-                control = EffectParameter(path); effect = path.split('.')[0]
-                control.changed.connect(lambda value, e=effect, p=path: self.parameter_changed.emit(e, p, value))
-                control.reset.connect(lambda e=effect, p=path: self.parameter_reset.emit(e, p))
-                self.control_layout.addWidget(control); self.controls[path] = control
+            for title, members in grouped_paths(paths):
+                label = QLabel(title.upper()); label.setObjectName('controlGroup'); self.control_layout.addWidget(label)
+                for path in members:
+                    control = EffectParameter(path); effect = path.split('.')[0]
+                    control.changed.connect(lambda value, e=effect, p=path: self.parameter_changed.emit(e, p, value))
+                    control.reset.connect(lambda e=effect, p=path: self.parameter_reset.emit(e, p))
+                    (self.wording_layout if path == 'text.content' else self.control_layout).addWidget(control)
+                    self.controls[path] = control
         for path, control in self.controls.items():
             effect = path.split('.')[0]; entry = entries.get(effect, {'params': {}})
             control.refresh(summary[effect]['ranges'][path], entry['params'].get(path),

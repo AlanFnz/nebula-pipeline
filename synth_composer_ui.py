@@ -3,11 +3,11 @@ from __future__ import annotations
 
 import copy
 
-from PySide6.QtCore import Qt, QRectF, QSignalBlocker, Signal
+from PySide6.QtCore import Qt, QRectF, QSignalBlocker, Signal, QSize
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox, QLabel,
-    QPushButton, QCheckBox, QTabWidget,
+    QPushButton, QCheckBox, QTabWidget, QSizePolicy,
 )
 from studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBox, SpinBox as QSpinBox, Slider as QSlider
 
@@ -106,6 +106,7 @@ class MacroControl(QWidget):
         name = QLabel(label); name.setFixedWidth(88)
         row.addWidget(name)
         self.slider = QSlider(Qt.Orientation.Horizontal)
+        self.slider.setTracking(False)
         self.slider.setRange(round(low * 100), round(high * 100))
         row.addWidget(self.slider, 1)
         self.lock = QCheckBox("Keep")
@@ -129,6 +130,28 @@ class MacroControl(QWidget):
     def set_value(self, value, locked):
         with QSignalBlocker(self.spin), QSignalBlocker(self.slider), QSignalBlocker(self.lock):
             self.spin.setValue(value); self.slider.setValue(round(value * 100)); self.lock.setChecked(locked)
+
+
+class InspectorTabs(QTabWidget):
+    """Only the selected page determines the inspector's scrollable height."""
+    def page_hint(self, minimum=False):
+        page = self.currentWidget()
+        if page is None: return super().minimumSizeHint() if minimum else super().sizeHint()
+        content = page.minimumSizeHint() if minimum else page.sizeHint()
+        tabs = self.tabBar().sizeHint()
+        return QSize(max(content.width(), tabs.width())+6, content.height()+tabs.height()+6)
+
+    def sizeHint(self): return self.page_hint()
+    def minimumSizeHint(self): return self.page_hint(True)
+    def hasHeightForWidth(self):
+        page = self.currentWidget()
+        return bool(page and page.hasHeightForWidth())
+
+    def heightForWidth(self, width):
+        page = self.currentWidget()
+        if page is None: return self.sizeHint().height()
+        height = page.heightForWidth(max(1, width-6)) if page.hasHeightForWidth() else page.sizeHint().height()
+        return height+self.tabBar().sizeHint().height()+6
 
 
 class CompositionPanel(QWidget):
@@ -194,7 +217,7 @@ class CompositionPanel(QWidget):
         shape_layout.addWidget(self.timing_scope_label)
         self.master_scope_label = QLabel('Whole clip · master adjustments'); self.master_scope_label.hide()
         shape_layout.addWidget(self.master_scope_label)
-        self.look_tabs = QTabWidget()
+        self.look_tabs = InspectorTabs()
         self.effects_panel = EffectsPanel()
         self.effects_panel.edited.connect(self.change_effect)
         self.effects_panel.timing_edited.connect(self.change_ink_timing)
@@ -223,6 +246,8 @@ class CompositionPanel(QWidget):
         self.video_panel.treatmentRequested.connect(self.apply_video_treatment)
         self.look_tabs.addTab(self.video_panel, 'Source')
         self.look_tabs.currentChanged.connect(lambda _index: self.show_timing_scope(self.effects_panel.effect_id == 'ink_bloom' and self.effects_panel.parameter_tabs.currentIndex() == 1))
+        self.look_tabs.currentChanged.connect(self.size_current_tab)
+        self.size_current_tab()
         treatment_hint = QLabel("Relative adjustments to the recipe. 1× keeps its original treatment; different recipes can look different at 1×.")
         treatment_hint.setWordWrap(True); treatment_hint.setObjectName("muted"); treatment_layout.addWidget(treatment_hint)
         shape_layout.addWidget(self.look_tabs)
@@ -259,6 +284,15 @@ class CompositionPanel(QWidget):
         document = self.document if document is None else document
         return document if self.scope == 0 else document["sections"][self.index]
 
+    def size_current_tab(self, _index=None):
+        # Hidden pages must not leave a tall, empty inspector below a short tab.
+        for index in range(self.look_tabs.count()):
+            page = self.look_tabs.widget(index)
+            page.setSizePolicy(QSizePolicy.Policy.Preferred,
+                               QSizePolicy.Policy.Preferred if index == self.look_tabs.currentIndex() else QSizePolicy.Policy.Ignored)
+            page.updateGeometry()
+        self.look_tabs.updateGeometry()
+
     def refresh(self):
         self.updating = True
         try:
@@ -286,6 +320,7 @@ class CompositionPanel(QWidget):
             self.master_panel.set_values(self.document['master'])
             target = self.target()
             compiled = compile_composition(self.document)
+            self.compiled = compiled
             prefix = section["id"] + ":"
             all_states = list(compiled['states'].values())
             states = [state for name, state in compiled["states"].items() if name.startswith(prefix)] if self.scope else all_states

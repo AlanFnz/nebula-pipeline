@@ -4,11 +4,13 @@ from __future__ import annotations
 import copy
 import math
 
-from PySide6.QtCore import QSignalBlocker, Signal
+from PySide6.QtCore import QSignalBlocker, Signal, Qt
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QStackedWidget, QTabBar, QFrame,
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QStackedWidget, QTabBar, QFrame, QLineEdit,
 )
 from studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBox, SpinBox as QSpinBox
+from studio_widgets import Slider, configure_parameter_spin, parameter_number
+from synth_inspector import grouped_paths
 
 from synth_effects import EFFECTS, EFFECT_BY_ID, describe_effects, effect_preset, parameter
 from synth_artwork_ui import ArtworkControl
@@ -33,7 +35,7 @@ def format_value(path, value):
     if spec.kind == 'artwork': return 'Embedded artwork' if value else 'No artwork'
     if spec.choices:
         return spec.choices[int(value)]
-    return f"{value:g}"
+    return parameter_number(spec, value)
 
 
 class EffectParameter(QWidget):
@@ -44,7 +46,8 @@ class EffectParameter(QWidget):
         super().__init__()
         self.path = path
         self.spec = spec = parameter(path)
-        layout = QVBoxLayout(self); layout.setContentsMargins(0, 0, 0, 3); layout.setSpacing(1)
+        layout = QVBoxLayout(self); layout.setContentsMargins(0, 0, 0, 8); layout.setSpacing(3)
+        self.slider = None
         row = QHBoxLayout()
         label = QLabel(spec.label); label.setToolTip(spec.hint); row.addWidget(label, 1)
         if spec.kind in ('artwork', 'text'):
@@ -54,26 +57,56 @@ class EffectParameter(QWidget):
             self.input.currentIndexChanged.connect(self.changed.emit)
         else:
             self.input = QSpinBox() if spec.kind == "int" else QDoubleSpinBox()
-            self.input.setRange(spec.minimum, spec.maximum); self.input.setSingleStep(spec.step)
+            configure_parameter_spin(self.input, spec)
             if path in INK_DURATIONS: self.input.setMinimum(0)
-            if spec.kind != "int": self.input.setDecimals(3)
-            self.input.setKeyboardTracking(False)
             self.input.valueChanged.connect(self.changed.emit)
+            self.slider = Slider(Qt.Orientation.Horizontal)
+            self.slider.setRange(0, 1000); self.slider.setTracking(False)
+            self.slider.setAccessibleName(spec.label + ' slider')
+            self.slider.setToolTip('Drag to adjust. Release to update the preview. You can also type a value.')
+            self.slider.sliderMoved.connect(self.preview_slider)
+            self.slider.valueChanged.connect(self.commit_slider)
+            self.input.valueChanged.connect(self.sync_slider)
         self.input.setMinimumWidth(110); self.input.setToolTip(spec.hint)
         self.input.setAccessibleName(spec.label)
+        if spec.kind == 'float' and spec.step < .01:
+            self.input.setToolTip(spec.hint + ' Displayed as a percentage; 100% = 1 in the saved recipe. Saved precision is preserved.')
         self.value_stack = QStackedWidget()
         self.value_stack.addWidget(self.input)
         self.animated_value = QPushButton()
         self.animated_value.setAccessibleName(f"Fix {spec.label}")
         self.animated_value.clicked.connect(lambda: self.changed.emit(self.fixed_start))
         self.value_stack.addWidget(self.animated_value)
-        row.addWidget(self.value_stack)
+        block_input = spec.kind in ('artwork', 'text')
+        if not block_input: row.addWidget(self.value_stack)
         self.reset_button = QPushButton("↶"); self.reset_button.setFixedWidth(30)
         self.reset_button.setToolTip("Follow the recipe or whole-clip value again.")
         self.reset_button.setAccessibleName(f"Reset {spec.label}")
         self.reset_button.clicked.connect(self.reset.emit); row.addWidget(self.reset_button)
         layout.addLayout(row)
+        if block_input: layout.addWidget(self.value_stack)
+        if self.slider: layout.addWidget(self.slider)
         self.origin = QLabel(); self.origin.setObjectName("muted"); layout.addWidget(self.origin)
+
+    def slider_value(self, position):
+        spec = self.spec
+        low, high = self.input.minimum(), self.input.maximum()
+        raw = low + position / 1000 * (high - low)
+        value = max(low, min(high, round(raw / spec.step) * spec.step))
+        return round(value) if spec.kind == 'int' else value
+
+    def preview_slider(self, position):
+        with QSignalBlocker(self.input): self.input.setValue(self.slider_value(position))
+
+    def commit_slider(self, position):
+        value = self.slider_value(position)
+        with QSignalBlocker(self.input): self.input.setValue(value)
+        self.changed.emit(value)
+
+    def sync_slider(self, value):
+        if self.slider:
+            with QSignalBlocker(self.slider):
+                self.slider.setValue(round(1000 * (value-self.input.minimum()) / max(1e-12, self.input.maximum()-self.input.minimum())))
 
     def refresh(self, bounds, fixed, inherited, available):
         low, high = bounds
@@ -83,12 +116,14 @@ class EffectParameter(QWidget):
         self.fixed_start = low
         animated = fixed is None and low != high and available
         self.value_stack.setCurrentIndex(1 if animated else 0)
-        self.animated_value.setText("Varies" if self.spec.choices or self.spec.kind in ('artwork', 'text') else f"{low:g} … {high:g}")
+        self.animated_value.setText("Varies" if self.spec.choices or self.spec.kind in ('artwork', 'text') else f"{format_value(self.path, low)} … {format_value(self.path, high)}")
         self.animated_value.setToolTip(f"Animated range. Click to set a fixed value, starting at {format_value(self.path, low)}.")
         with QSignalBlocker(self.input):
             if self.spec.choices: self.input.setCurrentIndex(int(value))
             else: self.input.setValue(value)
         self.input.setEnabled(available)
+        if self.slider:
+            self.sync_slider(value); self.slider.setVisible(not animated); self.slider.setEnabled(available)
         self.reset_button.setEnabled(fixed is not None)
         if fixed is not None:
             text = "Fixed in this scope"
@@ -120,10 +155,10 @@ class EffectChoice(QFrame):
         self.badge.setText(state)
         self.button.setAccessibleName(f'Inspect {effect.label} · {state}')
         self.setToolTip(effect.description + (' Active during part of this scope.' if info['intermittent'] else ''))
-        self.setProperty('selected', selected)
-        self.badge.setProperty('active', info['active'])
-        for widget in (self, self.badge):
-            widget.style().unpolish(widget); widget.style().polish(widget); widget.update()
+        for widget, name, value in ((self, 'selected', selected), (self.badge, 'active', info['active'])):
+            if widget.property(name) != value:
+                widget.setProperty(name, value)
+                widget.style().unpolish(widget); widget.style().polish(widget); widget.update()
 
 
 class EffectsPanel(QWidget):
@@ -182,6 +217,9 @@ class EffectsPanel(QWidget):
         self.parameter_tabs.addTab('Signal'); self.parameter_tabs.addTab('Screen')
         self.parameter_tabs.currentChanged.connect(self.change_parameter_tab)
         layout.addWidget(self.parameter_tabs)
+        self.filter = QLineEdit(); self.filter.setPlaceholderText('Find a control in this tab…'); self.filter.setClearButtonEnabled(True)
+        self.filter.setAccessibleName('Find effect control'); self.filter.textChanged.connect(lambda _text: self.show_controls())
+        layout.addWidget(self.filter)
         self.timing_note = QLabel(); self.timing_note.setWordWrap(True); self.timing_note.setObjectName('muted')
         layout.addWidget(self.timing_note)
         self.restore_timing = QPushButton('Restore recipe timing')
@@ -189,7 +227,8 @@ class EffectsPanel(QWidget):
         layout.addWidget(self.restore_timing)
         self.parameter_host = QWidget(); self.parameter_layout = QVBoxLayout(self.parameter_host); self.parameter_layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.parameter_host)
-        self.more = QPushButton("More controls"); self.more.setCheckable(True); self.more.toggled.connect(self.show_more); layout.addWidget(self.more)
+        self.group_labels = {}
+        self.no_matches = QLabel('No matching controls in this tab.'); self.no_matches.setObjectName('muted'); layout.addWidget(self.no_matches); self.no_matches.hide()
         self.note = QLabel("Click a range to set a fixed value. ↶ restores the recipe. Fixed effect values take priority over geometric Object controls and Finishing.")
         self.note.setWordWrap(True); self.note.setObjectName("muted"); layout.addWidget(self.note)
         layout.addStretch(1)
@@ -209,15 +248,15 @@ class EffectsPanel(QWidget):
         changed_context = context_key != self.context_key
         if changed_context and not self.summary[self.effect_id]["active"] and active:
             self.effect_id = active[0].id
-            with QSignalBlocker(self.more): self.more.setChecked(False)
         self.context_key = context_key
+        old_applied = self.applied_ids
         self.applied_ids = tuple(effect.id for effect in active)
         self.available_ids = tuple(effect.id for effect in visible_effects if effect.id not in self.applied_ids)
         self.applied_title.setText(f'APPLIED EFFECTS · {len(active)}')
         self.empty_applied.setVisible(not active)
         for effect in EFFECTS:
             target = self.applied_layout if effect.id in self.applied_ids else self.available_layout
-            target.addWidget(self.effect_choices[effect.id])
+            if old_applied != self.applied_ids: target.addWidget(self.effect_choices[effect.id])
             self.effect_choices[effect.id].setVisible(allowed_effects is None or effect.id in allowed_effects)
         if changed_context:
             self.available_button.setChecked(not active)
@@ -233,7 +272,7 @@ class EffectsPanel(QWidget):
         if self.allowed_effects is not None and effect_id not in self.allowed_effects: return
         self.effect_id = effect_id
         self.available_button.setChecked(False)
-        with QSignalBlocker(self.more): self.more.setChecked(False)
+        with QSignalBlocker(self.filter): self.filter.clear()
         self.refresh_effect()
 
     def show_available(self, expanded):
@@ -259,7 +298,7 @@ class EffectsPanel(QWidget):
                 if widget:
                     widget.hide()
                     widget.deleteLater()
-            self.controls = {}; self.rows = {}
+            self.controls = {}; self.rows = {}; self.group_labels = {}
             for path in effect.paths:
                 control = EffectParameter(path)
                 control.changed.connect(lambda value, path=path: self.change_parameter(path, value))
@@ -283,14 +322,15 @@ class EffectsPanel(QWidget):
                             f"{effect.label} is off in this scope. Other effects are listed above. Apply a preset to add it.")
         if effect.id == 'ink_bloom' and self.controls['ink_bloom.shape'].input.currentIndex() == 5 and not self.controls['ink_bloom.artwork'].input.value():
             self.status.setText('Import artwork to supply the custom silhouette, or choose a built-in shape.')
-        self.show_more(self.more.isChecked())
+        self.show_controls()
         self.updating = False
 
     def change_parameter_tab(self, _index):
-        with QSignalBlocker(self.more): self.more.setChecked(False)
-        self.show_more(False)
+        with QSignalBlocker(self.filter): self.filter.clear()
+        self.show_controls()
 
-    def show_more(self, checked):
+    def show_controls(self):
+        if not self.summary: return
         effect = EFFECT_BY_ID[self.effect_id]
         with QSignalBlocker(self.parameter_tabs):
             if effect.id != 'broadcast' and self.parameter_tabs.currentIndex() > 1:
@@ -349,13 +389,21 @@ class EffectsPanel(QWidget):
             else:
                 visible_paths = tuple(p for p in visible_paths if p not in REGION_CONTROLS)
                 self.description.setText(effect.description)
-        primary = 6 if timing else effect.primary
-        shown = set(visible_paths if checked else visible_paths[:primary])
+        query = self.filter.text().strip().casefold()
+        shown = {p for p in visible_paths if not query or query in parameter(p).label.casefold() or query in p.casefold()}
         for path, control in self.controls.items(): control.setVisible(path in shown)
-        for index, path in enumerate(visible_paths):
-            control = self.controls[path]
-            if self.parameter_layout.indexOf(control) != index:
-                self.parameter_layout.insertWidget(index, control)
+        for label in self.group_labels.values(): label.hide()
+        index = 0
+        for title, paths in grouped_paths(visible_paths):
+            matching = [p for p in paths if p in shown]
+            if not matching: continue
+            if title not in self.group_labels:
+                label = QLabel(title.upper()); label.setObjectName('controlGroup'); self.group_labels[title] = label
+            label = self.group_labels[title]; label.show()
+            for widget in (label, *(self.controls[p] for p in matching)):
+                if self.parameter_layout.indexOf(widget) != index: self.parameter_layout.insertWidget(index, widget)
+                index += 1
+        self.no_matches.setVisible(not shown)
         if timing:
             loops = self.shared_summary['loop_seconds']
             if not loops: loop = 'Enable Ink bloom to preview its timing.'
@@ -363,9 +411,6 @@ class EffectsPanel(QWidget):
             elif loops[0] == loops[1]: loop = f'Loop: {loops[0]:.2f} s at the current speed.'
             else: loop = f'Loop varies: {loops[0]:.2f}–{loops[1]:.2f} s across this scope.'
             self.timing_note.setText('Changes apply to every section. ' + loop + ' Complete-cycle sections resize together to keep their boundaries aligned. Durations are at 1×; Stay folded is the total rest between gestures.')
-        extra = len(visible_paths) - primary
-        self.more.setVisible(extra > 0)
-        self.more.setText("Fewer controls" if checked else f"More controls ({max(0, extra)})")
 
     def change_mode(self, index):
         if self.updating or index < 0: return

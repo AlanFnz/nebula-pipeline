@@ -240,6 +240,8 @@ class VideoFrameProvider:
         self.next_index = 0
         self.decode_count = 0
         self.mask_provider = None
+        self.masks = OrderedDict()
+        self.mask_bytes = 0
 
     def frame(self, footage, time_seconds, edge=None):
         self.cancel.check()
@@ -277,6 +279,22 @@ class VideoFrameProvider:
         raise ValueError('Video ended before its advertised duration. Try trimming the Out point.')
 
     def mask(self, footage, time_seconds, canvas, mode, retention=0., retention_seconds=.12):
+        self.cancel.check()
+        check_source(footage)
+        key = (footage['path'], footage['identity']['size'], footage['identity']['mtime_ns'],
+               footage['sample_fps'], source_index(footage, time_seconds), footage['in'], footage['out'],
+               footage['width'], footage['height'], footage['fit'], footage['zoom'], footage['x'], footage['y'],
+               canvas['width'], canvas['height'], mode, retention, retention_seconds)
+        if key in self.masks:
+            self.masks.move_to_end(key)
+            return self.masks[key].copy()
+        result = self._mask(footage, time_seconds, canvas, mode, retention, retention_seconds)
+        self.masks[key] = result; self.mask_bytes += result.width*result.height
+        while self.mask_bytes > 32*1024**2 and self.masks:
+            removed = self.masks.popitem(last=False)[1]; self.mask_bytes -= removed.width*removed.height
+        return result.copy()
+
+    def _mask(self, footage, time_seconds, canvas, mode, retention, retention_seconds):
         from synth_cutout import subject_mask, retain_mask
         # One canonical crop for every monitor/export size. Detection sees the
         # same composition that the user sees, including source zoom/position.
@@ -318,6 +336,7 @@ class VideoFrameProvider:
         self.close_reader()
         self.cache.clear()
         self.bytes = 0
+        self.masks.clear(); self.mask_bytes = 0
 
     def __enter__(self): return self
     def __exit__(self, *_): self.close()

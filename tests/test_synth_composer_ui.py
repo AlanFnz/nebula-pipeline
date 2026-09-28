@@ -124,6 +124,24 @@ def test_save_open_and_actual_composer_export(window, tmp_path, monkeypatch):
     assert "nb_frames=12" in probe
 
 
+def test_export_progress_reports_frames_and_completion(window):
+    class Job:
+        pass
+
+    job = Job()
+    window.export_job = job
+    window.export_progress.show()
+    window.export_progressed(job, 3, 8)
+    assert window.export_progress.value() == 38
+    assert '38%' in window.export_progress.format()
+    assert 'frame 3/8' in window.status.text()
+    window.export_finished(job, '/tmp/example.mp4')
+    assert window.export_progress.value() == 100
+    assert window.export_progress.format() == 'Export complete · 100%'
+    assert window.status.text().endswith('/tmp/example.mp4')
+    window.export_job = None
+
+
 def test_detailed_copy_can_be_edited_without_changing_composition(window):
     original = copy.deepcopy(window.composition)
     window.open_detailed_copy()
@@ -773,14 +791,12 @@ def test_ink_timing_tabs_seconds_scope_reset_undo_and_save(window, tmp_path, mon
     path = tmp_path / 'ink-timing.json'
     monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *args: (str(path), ''))
     window.save_sequence_dialog(); assert load_composition(path) == saved
-    effects.more.setChecked(True)
     QApplication.processEvents()
     assert effects.controls['ink_bloom.phase'].isVisible()
     assert not effects.controls['ink_bloom.period'].isVisible()
     effects.parameter_tabs.setCurrentIndex(0)
     assert effects.controls['ink_bloom.shape'].isVisible()
     assert not effects.controls['ink_bloom.unfold_seconds'].isVisible()
-    assert not effects.more.isChecked()
     assert panel.scope_combo.isVisible()
     assert not panel.timing_scope_label.isVisible()
     window.open_detailed_copy()
@@ -916,7 +932,6 @@ def test_profile_starter_exposes_its_model_and_independent_treatments(window, tm
     assert render_sequence_frame(window.sequence, .4, (160, 90)).tobytes() == before_background_edit
     window.redo_composition()
     panel.effects_panel.inspect_effect('edge_phosphor')
-    panel.effects_panel.more.setChecked(True)
     with_neck = render_sequence_frame(window.sequence, .4, (160, 90)).tobytes()
     panel.effects_panel.controls['edge_phosphor.neck_dissolve'].changed.emit(0.)
     assert render_sequence_frame(window.sequence, .4, (160, 90)).tobytes() != with_neck
@@ -936,7 +951,7 @@ def test_profile_canvas_coverage_controls_survive_undo_save_and_detailed_copy(wi
     panel = window.composer.effects_panel
     before = render_sequence_frame(window.sequence, .4, (90, 160)).tobytes()
     for effect in ('edge_phosphor', 'scan_drag'):
-        panel.inspect_effect(effect); panel.more.setChecked(True)
+        panel.inspect_effect(effect)
         panel.controls[f'{effect}.canvas_coverage'].input.setCurrentIndex(0)
     bounded = render_sequence_frame(window.sequence, .4, (90, 160)).tobytes()
     assert bounded != before
