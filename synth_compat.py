@@ -26,10 +26,10 @@ def frozen_data(key):
 def starter_snapshot(identifier):
     if identifier == 'text-pressure':
         return copy.deepcopy(_pressure_snapshot())
-    if identifier == 'text-pressure-original':
-        return copy.deepcopy(_text_snapshot()['text-pressure'])
+    if identifier.startswith('text-') and identifier.endswith('-original'):
+        return copy.deepcopy(_text_snapshot()[identifier.removesuffix('-original')])
     if identifier.startswith('text-'):
-        return copy.deepcopy(_text_snapshot()[identifier])
+        return copy.deepcopy(_refined_text_snapshot()[identifier])
     if identifier in ('profile-clear', 'profile-doryphoros'):
         return copy.deepcopy(_profile_snapshot()[identifier])
     return copy.deepcopy(_snapshot()['starters'][identifier])
@@ -43,6 +43,11 @@ def _pressure_snapshot():
 @lru_cache(maxsize=1)
 def _text_snapshot():
     return json.loads((Path(__file__).parent / 'presets/text-studies-v1.json').read_text())
+
+
+@lru_cache(maxsize=1)
+def _refined_text_snapshot():
+    return json.loads((Path(__file__).parent / 'presets/text-studies-v2.json').read_text())
 
 
 @lru_cache(maxsize=1)

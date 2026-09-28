@@ -19,10 +19,13 @@ STARTERS = (
     ("profile-doryphoros", "Profile / Doryphoros · 8s", doryphoros_composition),
     ("mixed-media", "Mixed media / two bursts · 7s", mixed_media_composition),
     ('text-phosphor', 'Text / phosphor drift · 6s', lambda: text_composition('phosphor')),
+    ('text-phosphor-original', 'Text / phosphor drift (first version) · 6s', lambda: starter_snapshot('text-phosphor-original')),
     ('text-pressure', 'Text / pressure · 6s', lambda: text_composition('pressure')),
     ('text-pressure-original', 'Text / pressure (first version) · 6s', lambda: starter_snapshot('text-pressure-original')),
     ('text-transmission', 'Text / lost transmission · 6s', lambda: text_composition('transmission')),
+    ('text-transmission-original', 'Text / lost transmission (first version) · 6s', lambda: starter_snapshot('text-transmission-original')),
     ('text-night', 'Text / night monitor · 6s', lambda: text_composition('night')),
+    ('text-night-original', 'Text / night monitor (first version) · 6s', lambda: starter_snapshot('text-night-original')),
 )
 
 

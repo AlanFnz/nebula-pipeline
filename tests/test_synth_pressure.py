@@ -22,7 +22,7 @@ BASELINES = json.loads((Path(__file__).parent / 'fixtures/text-studies-v1-hashes
 
 @pytest.mark.parametrize('identifier', BASELINES)
 def test_first_edition_text_studies_keep_captured_pixels(identifier):
-    sequence = compile_composition(starter_composition(identifier))
+    sequence = compile_composition(starter_composition(identifier if identifier.endswith('-original') else identifier + '-original'))
     for time, expected in BASELINES[identifier].items():
         image = render_sequence_frame(sequence, float(time), (200, 150))
         assert hashlib.sha256(image.tobytes()).hexdigest() == expected, (identifier, time)

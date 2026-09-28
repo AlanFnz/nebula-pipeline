@@ -97,6 +97,8 @@ def text_layout(p, time, speed, size):
     elif p['reveal'] == 2:
         visible = int(clock / p['word_seconds']) % (len(text) + 1)
     mask = glyph_mask(text, p['font'], p['tracking'], p['leading'], p['align'], visible)
+    if p.get('copies', 1) > 1:
+        mask = repeat_mask(mask, p['copies'], p['copy_gap'])
     # Fit is uniform. The explicit stretch controls are typography choices,
     # independent of changing the canvas aspect ratio.
     height = ch * p['size'] * max(1, text.count('\n') + 1)
@@ -105,10 +107,23 @@ def text_layout(p, time, speed, size):
         # Explicit poster lettering: fill an authored rectangle. Both axes
         # still use content_size, so changing the canvas never stretches it.
         return mask, max(.001, cw * p['block_width'] / mask.width * p['stretch_x'] * zoom), max(.001, scale * p['stretch_y'] * zoom)
-    if p['fit']: scale = min(scale, cw * .9 / max(1, mask.width * p['stretch_x']))
+    if p['fit']: scale = min(scale, cw * p.get('fit_width', .9) / max(1, mask.width * p['stretch_x']))
     sx = max(.001, scale * p['stretch_x'] * zoom)
     sy = max(.001, scale * p['stretch_y'] * zoom)
     return mask, sx, sy
+
+
+def repeat_mask(mask, copies, gap):
+    """One bounded group so placement, rotation and attached effects agree."""
+    stride = mask.width + round(mask.height * gap)
+    width = stride * (copies - 1) + mask.width
+    if width > 4096:
+        scale = 4096 / width
+        mask = mask.resize((max(1, round(mask.width * scale)), max(1, round(mask.height * scale))), Image.Resampling.LANCZOS)
+        stride = max(mask.width, int(stride * scale))
+    result = Image.new('L', (stride * (copies - 1) + mask.width, mask.height))
+    for index in range(copies): result.paste(mask, (index * stride, 0))
+    return result
 
 
 def render_text(arr, p, time, preset):

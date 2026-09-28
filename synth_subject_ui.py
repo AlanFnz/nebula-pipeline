@@ -8,7 +8,7 @@ from synth_subject import SUBJECTS, SOURCE_EFFECTS, active_subjects
 
 
 OBJECT_PATHS = {
-    'text': tuple('text.' + key for key in ('content', 'font', 'size', 'tracking', 'leading', 'align', 'fit', 'block_width', 'hue', 'saturation', 'brightness', 'stretch_x', 'stretch_y')),
+    'text': tuple('text.' + key for key in ('content', 'font', 'size', 'tracking', 'leading', 'align', 'fit', 'block_width', 'fit_width', 'copies', 'copy_gap', 'hue', 'saturation', 'brightness', 'stretch_x', 'stretch_y')),
     'silhouette': ('silhouette.model', 'silhouette.scale', 'silhouette.yaw', 'silhouette.definition', 'silhouette.pitch', 'silhouette.roll', 'silhouette.center_x', 'silhouette.center_y', 'silhouette.neck_length', 'silhouette.neck_fullness', 'silhouette.softness'),
     'ink': ('ink_bloom.shape', 'ink_bloom.artwork', 'ink_bloom.shape_width', 'ink_bloom.shape_height',
             'ink_bloom.sides', 'ink_bloom.shape_rotation', 'ink_bloom.size', 'ink_bloom.count',
@@ -138,5 +138,6 @@ class SubjectPanel(QWidget):
         if self.kind == 'text':
             fit = summary['text']['ranges']['text.fit']
             self.controls['text.block_width'].setVisible(fit[0] != fit[1] or fit[0] == 2)
+            self.controls['text.fit_width'].setVisible(fit[0] != fit[1] or fit[0] == 1)
         self.details.setVisible(bool(active)); self.timing.setVisible(self.kind in ('ink', 'text'))
         self.updating = False

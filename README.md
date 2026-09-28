@@ -137,13 +137,19 @@ Four six-second Studies use the editable phrase **REVOLUTION IS NOW**:
 **Text / phosphor drift**, **Text / pressure**, **Text / lost transmission**,
 and **Text / night monitor**. They combine the same Bloom, Raster/grain,
 Tape damage, Frame jitter, Color separation, Signal drift and Low-res finish
-operations used elsewhere in the Studio. Their recipes are frozen in
+operations used elsewhere in the Studio. Original recipes remain frozen in
 `presets/text-studies-v1.json`; all eleven earlier studies stay unchanged.
 The refined **Pressure** uses single-word, tall poster lettering, a half-second
 perspective pullback, overlapping positive/negative exposures and composite
 color fringes. It is frozen separately in `presets/text-pressure-v2.json`.
-**Pressure (first version)** retains the original stacked-title recipe, and
-saved documents keep their original rendering.
+The other three refined recipes are frozen in `presets/text-studies-v2.json`:
+Phosphor drift uses green-white lettering, changing teal/blue exposure washes
+and broken-sync interruptions; Lost transmission uses repeated word groups,
+red introductions, chromatic ghosts and cream/magenta inversions; Night monitor
+uses smaller white type, blue halation and a worn CRT aperture. Their canvas
+proportions and held frame rates follow the individual references.
+All four **(first version)** entries remain in Studies, including the original
+stacked-title Pressure. Saved documents keep their original rendering.
 
 Choose **Object → Text** to replace a generated source and retain its image
 treatments, or load a text Study. Edit **Wording**, then **Apply text**. Text
@@ -154,6 +160,9 @@ resizing uses the existing preserve/fit rules and never stretches the type.
 **Text fitting → Fill block** deliberately fits lettering into an authored
 rectangle: **Block width** and **Text size** set its proportions. This is separate
 from canvas resizing and is useful for very tall, compressed poster type.
+**Text copies** and **Copy spacing** repeat the lettering as one movable group.
+**Line width limit** uniformly shrinks long groups in Fit long lines mode,
+keeping repeated words readable within their intended part of the canvas.
 Three bundled fonts (Archivo Black, Anton and Space Mono Bold) render identically
 without depending on installed system fonts; their licenses and pinned source
 hashes are in [`assets/fonts`](assets/fonts/README.md).
@@ -176,6 +185,13 @@ misregistration. **Before finishing** reverses the source before grain and tape
 processing, so inverted frames retain their texture. **Composite fringe**,
 width and color controls follow contrast edges on any source. The earlier
 final-screen reversal and all new operations' neutral defaults remain available.
+**Look → Exposure wash** adds fresh uneven illumination, using Field hue and
+color spread. **Signal** offers the original Snow and the new Broken sync
+texture, static intensity/color, seeded Random outages and Sync tearing during
+interruptions. The existing cycle/duration and rolling band remain available.
+**Screen** controls CRT glass, inset and wear, plus highlight-driven colored
+halation, radius, hue and threshold. These controls also process imported video;
+none require a text source. New operations are off by default in older documents.
 
 Text is a generated object in this stage. Video remains a separate source;
 independent text-over-video layers and custom font imports are future work.

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Refine the Phosphor drift, Lost transmission and Night monitor text Studies
+  with exposure washes, broken-sync interruptions, repeated word groups and
+  worn CRT glass with colored halation. Preserve their first versions in the
+  Studies menu and retain the approved Pressure recipe and existing documents.
+  Text repetition and width limits remain editable; Broadcast wear's new
+  Signal and Screen tabs expose source-independent effects for generated art
+  and footage. Outages are deterministic and independent of render resolution.
+
 - Freeze the nine existing starter recipes and named/default presets. Add
   rendering versions independent of document schemas, retaining the original
   phosphor renderer for older projects. A 3,385-frame, 99-case manifest protects

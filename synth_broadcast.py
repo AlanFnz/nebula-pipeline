@@ -5,6 +5,7 @@ import numpy as np
 from PIL import Image
 
 from synth_text import color
+from synth_broadcast_detail import exposure_wash, broken_sync, glass_optics
 
 
 def render_polarity(arr, p, time, speed):
@@ -52,6 +53,7 @@ def render_broadcast(arr, p, time, speed, seed):
     h, w = arr.shape[:2]; clock = time * speed
     tick = math.floor(clock * p['rate'] + 1e-8)
     rng = np.random.default_rng(np.random.SeedSequence((seed, tick & 0xffffffffffffffff)))
+    detail_rng = np.random.default_rng(np.random.SeedSequence((seed, tick & 0xffffffffffffffff, 193)))
     y, x = np.mgrid[:h, :w].astype(np.float32)
     x = (x + .5) / w * 2 - 1; y = (y + .5) / h * 2 - 1
     out = arr.copy()
@@ -70,14 +72,20 @@ def render_broadcast(arr, p, time, speed, seed):
         out += wash * (shadows * p['field'] * (.35 + field))[..., None]
     if not p.get('reverse_stage', 0):
         out = render_broadcast_exposure(out, p, time, speed)
+    if p.get('wash', 0.): out = exposure_wash(out, p, detail_rng)
     event = (clock / p['period'] + p['phase']) % 1
     gate = float(event < p['duration'] / p['period'])
+    if p.get('outages', 0.):
+        # Event timing must not change with canvas resolution or wash/optics.
+        timing_rng = np.random.default_rng(np.random.SeedSequence((seed, tick & 0xffffffffffffffff, 194)))
+        gate = max(gate, float(timing_rng.random() < p['outages']))
     if p['static'] and (gate or p['band']):
         coarse = rng.random((max(2, round(h * .6)), max(2, round(w * .5)))).astype(np.float32)
         noise = np.asarray(Image.fromarray(coarse).resize((w, h), Image.Resampling.NEAREST))
         rows = rng.random((h, 1)).astype(np.float32)
         static = np.clip(noise * .8 + rows * .65 - .2, 0, 1)
         chroma = np.stack((np.roll(static, 2, 1), static, np.roll(static, -2, 1)), axis=2)
+        if p.get('static_style', 0): chroma = broken_sync(out, p, detail_rng)
         center = ((clock * p['roll'] + .35) % 1) * 2 - 1
         band = np.clip(1 - np.abs(y - center) / max(.001, p['band']), 0, 1)
         amount = np.maximum(gate, band) * p['static']
@@ -95,4 +103,5 @@ def render_broadcast(arr, p, time, speed, seed):
         edge = np.clip(np.minimum(1 - np.abs(sx * 2 / w - 1), 1 - np.abs(sy * 2 / h - 1)) * 60, 0, 1)
         out *= edge[..., None]
     out *= np.clip(1 - p['vignette'] * (x*x + y*y) / 2, 0, 1)[..., None]
+    if p.get('halo', 0.) or p.get('screen', 0.): out = glass_optics(out, p, detail_rng, seed)
     return arr * (1 - p['mix']) + out * p['mix']

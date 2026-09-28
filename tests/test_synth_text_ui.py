@@ -44,3 +44,25 @@ def test_pressure_exposes_block_layout_and_polarity_tab(window):
     assert panel.controls['broadcast.field_spread'].input.value()==.11
     panel.inspect_effect('text');panel.parameter_tabs.setCurrentIndex(1)
     assert panel.controls['text.ease'].isHidden()
+
+
+def test_refined_text_and_broadcast_controls_apply_and_undo(window):
+    window.set_composition(starter_composition('text-transmission'))
+    composer=window.composer;obj=composer.object_panel
+    assert not obj.controls['text.fit_width'].isHidden()
+    obj.controls['text.copies'].input.setValue(4)
+    assert window.composition['effects']['text']['params']['text.copies']==4
+    window.undo_composition()
+    composer.look_tabs.setCurrentWidget(composer.effects_panel)
+    panel=composer.effects_panel;panel.inspect_effect('broadcast');panel.parameter_tabs.setCurrentIndex(2)
+    assert not panel.controls['broadcast.static_style'].isHidden()
+    assert panel.controls['broadcast.halo'].isHidden()
+    panel.controls['broadcast.outages'].input.setValue(.4)
+    assert window.composition['effects']['broadcast']['params']['broadcast.outages']==.4
+    window.undo_composition()
+    panel.parameter_tabs.setCurrentIndex(3)
+    assert not panel.controls['broadcast.screen'].isHidden()
+    assert panel.controls['broadcast.static'].isHidden()
+    panel.inspect_effect('text')
+    assert panel.parameter_tabs.currentIndex() < 2
+    assert not panel.parameter_tabs.isTabVisible(2)

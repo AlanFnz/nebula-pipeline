@@ -20,6 +20,8 @@ INK_TIMING = tuple(f'ink_bloom.{key}' for key in TIMING_KEYS)
 SHARED_TIMING_CONTROLS = INK_TIMING[:8]
 TEXT_TIMING = tuple('text.' + key for key in ('reveal', 'word_seconds', 'motion', 'zoom_start', 'zoom_end', 'period', 'ease', 'phase', 'cadence'))
 POLARITY_CONTROLS = tuple('broadcast.' + key for key in ('reverse', 'reverse_period', 'reverse_phase', 'reverse_blend', 'field_spread', 'reverse_stage', 'reverse_hue', 'reverse_saturation'))
+SIGNAL_CONTROLS = tuple('broadcast.' + key for key in ('static_style', 'static', 'outages', 'sync_tear', 'period', 'duration', 'phase', 'rate', 'static_chroma', 'band', 'roll'))
+SCREEN_CONTROLS = tuple('broadcast.' + key for key in ('screen', 'screen_inset', 'screen_wear', 'halo', 'halo_radius', 'halo_hue', 'curve', 'vignette', 'halo_threshold'))
 REGION_CONTROLS = tuple('edge_phosphor.' + key for key in (
     'fade_mode', 'neck_dissolve', 'fade_strength', 'fade_start', 'fade_width',
     'fade_angle', 'fade_softness', 'fade_anchor', 'fade_x', 'fade_y', 'fade_curve'))
@@ -177,6 +179,7 @@ class EffectsPanel(QWidget):
         layout.addLayout(row)
         self.status = QLabel(); self.status.setWordWrap(True); self.status.setObjectName("muted"); layout.addWidget(self.status)
         self.parameter_tabs = QTabBar(); self.parameter_tabs.addTab('Look'); self.parameter_tabs.addTab('Timing')
+        self.parameter_tabs.addTab('Signal'); self.parameter_tabs.addTab('Screen')
         self.parameter_tabs.currentChanged.connect(self.change_parameter_tab)
         layout.addWidget(self.parameter_tabs)
         self.timing_note = QLabel(); self.timing_note.setWordWrap(True); self.timing_note.setObjectName('muted')
@@ -289,6 +292,10 @@ class EffectsPanel(QWidget):
 
     def show_more(self, checked):
         effect = EFFECT_BY_ID[self.effect_id]
+        with QSignalBlocker(self.parameter_tabs):
+            if effect.id != 'broadcast' and self.parameter_tabs.currentIndex() > 1:
+                self.parameter_tabs.setCurrentIndex(0)
+            for index in (2, 3): self.parameter_tabs.setTabVisible(index, effect.id == 'broadcast')
         ink = effect.id == 'ink_bloom'
         text = effect.id == 'text'
         text_timing = text and self.parameter_tabs.currentIndex() == 1
@@ -313,8 +320,12 @@ class EffectsPanel(QWidget):
                 visible_paths = tuple(path for path in visible_paths if path != 'text.ease')
             if ranges['text.fit'][0] == ranges['text.fit'][1] and ranges['text.fit'][0] != 2:
                 visible_paths = tuple(path for path in visible_paths if path != 'text.block_width')
+            if ranges['text.fit'][0] == ranges['text.fit'][1] and ranges['text.fit'][0] != 1:
+                visible_paths = tuple(path for path in visible_paths if path != 'text.fit_width')
         if broadcast:
-            visible_paths = POLARITY_CONTROLS if polarity else tuple(path for path in effect.paths if path not in POLARITY_CONTROLS)
+            groups = (tuple(path for path in effect.paths if path not in POLARITY_CONTROLS + SIGNAL_CONTROLS + SCREEN_CONTROLS),
+                      POLARITY_CONTROLS, SIGNAL_CONTROLS, SCREEN_CONTROLS)
+            visible_paths = groups[self.parameter_tabs.currentIndex()]
         if self.allowed_effects is not None:
             visible_paths = tuple(path for path in visible_paths if not path.startswith('slab.'))
         if phosphor:
