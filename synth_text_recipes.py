@@ -46,8 +46,9 @@ def text_composition(look='phosphor'):
         common['low_res'].update(resolution=500)
     elif look == 'transmission':
         name = 'Text / lost transmission'
-        common['text'].update(font=1, reveal=1, word_seconds=.65, fit_width=.62, size=.39, hue=.40,
-            saturation=.7, brightness=.72, back_brightness=.004, tracking=-.035, copies=2, copy_gap=.34)
+        common['text'].update(font=1, reveal=1, word_seconds=.65, fit_width=.84, size=.30, hue=.40,
+            saturation=.7, brightness=.72, back_brightness=.004, tracking=-.035, copies=2, copy_gap=.22,
+            wrap_columns=5, copy_floor=.92, leading=.96)
         common['bloom'].update(radius=4., strength=.22, threshold=.15)
         common['raster'].update(softness=4.1, lines=.06, grain=.06, chroma=.009, line_noise=.05)
         common['tape'].update(tracking=.013, jitter=.0012, chroma_delay=.01, bleed=.009, head_switch=.08, dropouts=.015)
@@ -78,7 +79,7 @@ def text_composition(look='phosphor'):
     fps = {'phosphor':24, 'pressure':30, 'transmission':20, 'night':30}[look]
     settings = {'speed': 1., 'depth': 0., 'treatment_fps': 12 if look == 'phosphor' else fps}
     if look == 'night': settings['object_y'] = 36.
-    if look == 'transmission': settings['object_x'] = 100.
+    if look == 'transmission': settings['object_x'] = 0.
     for module, changes in common.items():
         settings.update({f'{module}.{spec.key}': spec.default for spec in MODULE_BY_ID[module].params})
         settings.update({f'{module}.{key}': value for key, value in changes.items()})
@@ -98,9 +99,9 @@ def text_composition(look='phosphor'):
                                (3.6, 'wash', .16), (4.1, 'green', .08), (4.4, 'title', .16)):
             source['cues'].append({'time':t, 'state':state, 'transition':'morph' if span else 'cut', 'duration':span})
     if look == 'transmission':
-        variant('red', {'text.copies':1, 'text.fit_width':.28, 'text.hue':.12, 'text.saturation':.05,
+        variant('red', {'text.copies':1, 'text.fit_width':.84, 'text.hue':.12, 'text.saturation':.05,
             'text.back_hue':.975, 'text.back_brightness':.43, 'text.back_saturation':.82,
-            'broadcast.field':0., 'broadcast.outages':0., 'broadcast.halo':.5, 'object_x':170.})
+            'broadcast.field':0., 'broadcast.outages':0., 'broadcast.halo':.5, 'object_x':0.})
         variant('cream', {'text.copies':3, 'text.fit_width':.9, 'object_x':0., 'text.hue':.90, 'text.saturation':.86, 'text.brightness':.48,
             'text.back_hue':.12, 'text.back_brightness':.82, 'text.back_saturation':.08,
             'broadcast.halo':0., 'broadcast.outages':0., 'broadcast.field':0.,

@@ -66,3 +66,18 @@ def test_refined_text_and_broadcast_controls_apply_and_undo(window):
     panel.inspect_effect('text')
     assert panel.parameter_tabs.currentIndex() < 2
     assert not panel.parameter_tabs.isTabVisible(2)
+
+
+def test_text_wrapping_controls_apply_and_undo_in_native_inspector(window):
+    window.set_composition(starter_composition('text-transmission'))
+    composer=window.composer;composer.look_tabs.setCurrentWidget(composer.object_panel)
+    panel=composer.object_panel
+    assert panel.controls['text.wrap_columns'].input.value()==5
+    panel.controls['text.wrap_columns'].input.setValue(4)
+    assert window.composition['effects']['text']['params']['text.wrap_columns']==4
+    panel.controls['text.copy_floor'].input.setValue(.8)
+    assert window.composition['effects']['text']['params']['text.copy_floor']==.8
+    window.undo_composition()
+    assert panel.controls['text.copy_floor'].input.value()==.92
+    window.undo_composition()
+    assert panel.controls['text.wrap_columns'].input.value()==5

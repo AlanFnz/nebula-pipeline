@@ -3,6 +3,7 @@ from functools import lru_cache
 from pathlib import Path
 import colorsys
 import math
+import textwrap
 import unicodedata
 
 import numpy as np
@@ -42,9 +43,11 @@ def text_pose(p, time, speed):
 
 
 @lru_cache(maxsize=24)
-def glyph_mask(text, font_index, tracking, leading, alignment, visible=None):
+def glyph_mask(text, font_index, tracking, leading, alignment, visible=None, wrapped=False):
     """Bounded canonical masks keep preview/export type and spacing identical."""
-    validate_text(text)
+    # Layout can insert up to seven breaks into a valid 512-character source.
+    validate_text(text.replace('\n', '') if wrapped else text)
+    if text.count('\n') > 7: raise ValueError('Text supports up to eight lines.')
     if not text.strip(): return Image.new('L', (1, 1))
     path = Path(__file__).parent / 'assets/fonts' / FONT_FILES[font_index]
     lines = text.split('\n')
@@ -87,6 +90,29 @@ def glyph_mask(text, font_index, tracking, leading, alignment, visible=None):
     return Image.new('L', (1, 1))
 
 
+@lru_cache(maxsize=64)
+def wrapped_text(text, columns):
+    """Keep source-character indices so inserted breaks do not consume reveal beats."""
+    lines = text.split('\n')
+    while True:
+        wrapper = textwrap.TextWrapper(width=max(1, columns), replace_whitespace=False, break_on_hyphens=False)
+        pieces = [wrapper.wrap(line) or [''] for line in lines]
+        if sum(map(len, pieces)) <= 8: break
+        columns += 1
+    result = []; indices = []; offset = 0
+    for line, chunks in zip(lines, pieces):
+        cursor = 0
+        for chunk in chunks:
+            if result:
+                result.append('\n'); indices.append(None)
+            start = line.find(chunk, cursor)
+            result.append(chunk)
+            indices.extend(range(offset + start, offset + start + len(chunk)))
+            cursor = start + len(chunk)
+        offset += len(line) + 1
+    return ''.join(result), tuple(indices)
+
+
 def text_layout(p, time, speed, size):
     cw, ch = size
     clock, zoom = text_pose(p, time, speed)
@@ -96,12 +122,23 @@ def text_layout(p, time, speed, size):
         text = words[int(clock / p['word_seconds']) % len(words)] if words else ''
     elif p['reveal'] == 2:
         visible = int(clock / p['word_seconds']) % (len(text) + 1)
-    mask = glyph_mask(text, p['font'], p['tracking'], p['leading'], p['align'], visible)
-    if p.get('copies', 1) > 1:
-        mask = repeat_mask(mask, p['copies'], p['copy_gap'])
+    if p.get('wrap_columns', 0):
+        text, indices = wrapped_text(text, p['wrap_columns'])
+        if visible is not None:
+            visible = max((i+1 for i, source in enumerate(indices) if source is not None and source < visible), default=0)
+    mask = glyph_mask(text, p['font'], p['tracking'], p['leading'], p['align'], visible, bool(p.get('wrap_columns', 0)))
+    height = ch * p['size'] * max(1, text.count('\n') + 1)
+    copies = p.get('copies', 1)
+    if copies > 1:
+        original = mask
+        while True:
+            mask = repeat_mask(original, copies, p['copy_gap']) if copies > 1 else original
+            wanted = height / max(1, mask.height)
+            fitted = min(wanted, cw * p.get('fit_width', .9) / max(1, mask.width * p['stretch_x']))
+            if copies == 1 or p['fit'] != 1 or fitted >= wanted * p.get('copy_floor', 0.): break
+            copies -= 1
     # Fit is uniform. The explicit stretch controls are typography choices,
     # independent of changing the canvas aspect ratio.
-    height = ch * p['size'] * max(1, text.count('\n') + 1)
     scale = height / max(1, mask.height)
     if p['fit'] == 2:
         # Explicit poster lettering: fill an authored rectangle. Both axes

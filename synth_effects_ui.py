@@ -321,7 +321,7 @@ class EffectsPanel(QWidget):
             if ranges['text.fit'][0] == ranges['text.fit'][1] and ranges['text.fit'][0] != 2:
                 visible_paths = tuple(path for path in visible_paths if path != 'text.block_width')
             if ranges['text.fit'][0] == ranges['text.fit'][1] and ranges['text.fit'][0] != 1:
-                visible_paths = tuple(path for path in visible_paths if path != 'text.fit_width')
+                visible_paths = tuple(path for path in visible_paths if path not in ('text.fit_width', 'text.copy_floor'))
         if broadcast:
             groups = (tuple(path for path in effect.paths if path not in POLARITY_CONTROLS + SIGNAL_CONTROLS + SCREEN_CONTROLS),
                       POLARITY_CONTROLS, SIGNAL_CONTROLS, SCREEN_CONTROLS)

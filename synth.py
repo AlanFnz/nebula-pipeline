@@ -488,6 +488,8 @@ MODULES += (
         P('cadence', 'Text motion FPS', 0., 0, 60, 1, 'Zero uses continuous time. Grain and recording faults keep their own clocks.'),
         P('copies', 'Text copies', 1, 1, 6, 1, 'Repeat the current wording as one movable object. Fit long lines keeps the entire group inside the authored canvas.'),
         P('copy_gap', 'Copy spacing', .3, 0, 3, .05, 'Gap between repetitions, relative to the letter height.'),
+        P('wrap_columns', 'Wrap after characters', 0, 0, 80, 1, 'Zero keeps manual line breaks. Otherwise wrap at this width, preferring spaces and splitting long words. Reveals still follow the original wording. Very long text uses wider lines to stay within eight lines.'),
+        P('copy_floor', 'Repeat size floor', 0., 0, 1, .05, 'In Fit long lines, reduce the number of copies when fitting would shrink below this fraction of Text size. Zero always keeps all copies. One copy may still shrink to fit.'),
     )),
     Module('broadcast', 'Broadcast wear', 'Color drift in shadows, static interruptions, polarity reversals and curved CRT framing. Works on any source.', (
         P('field', 'Color field', .18, 0, 1, .01, 'Soft color variation in shadows, across the full canvas.'),

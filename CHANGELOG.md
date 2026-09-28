@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Keep all words large in Lost transmission with centered long-word wrapping
+  and fewer repetitions when needed. Add editable Wrap after characters and
+  Repeat size floor controls to Text; line spacing, size and width remain
+  adjustable. Preserve original reveal timing, canvas proportions and saved
+  layouts; both new controls default to off in existing documents.
+
 - Refine the Phosphor drift, Lost transmission and Night monitor text Studies
   with exposure washes, broken-sync interruptions, repeated word groups and
   worn CRT glass with colored halation. Preserve their first versions in the

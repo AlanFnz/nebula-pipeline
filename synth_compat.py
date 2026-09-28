@@ -26,6 +26,8 @@ def frozen_data(key):
 def starter_snapshot(identifier):
     if identifier == 'text-pressure':
         return copy.deepcopy(_pressure_snapshot())
+    if identifier == 'text-transmission':
+        return copy.deepcopy(_transmission_snapshot())
     if identifier.startswith('text-') and identifier.endswith('-original'):
         return copy.deepcopy(_text_snapshot()[identifier.removesuffix('-original')])
     if identifier.startswith('text-'):
@@ -38,6 +40,11 @@ def starter_snapshot(identifier):
 @lru_cache(maxsize=1)
 def _pressure_snapshot():
     return json.loads((Path(__file__).parent / 'presets/text-pressure-v2.json').read_text())
+
+
+@lru_cache(maxsize=1)
+def _transmission_snapshot():
+    return json.loads((Path(__file__).parent / 'presets/text-transmission-v3.json').read_text())
 
 
 @lru_cache(maxsize=1)

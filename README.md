@@ -163,6 +163,16 @@ from canvas resizing and is useful for very tall, compressed poster type.
 **Text copies** and **Copy spacing** repeat the lettering as one movable group.
 **Line width limit** uniformly shrinks long groups in Fit long lines mode,
 keeping repeated words readable within their intended part of the canvas.
+**Wrap after characters** inserts configurable line breaks, preferring spaces
+and splitting long words; zero preserves manual breaks. Word reveals still
+advance through the original words, and type-on retains the original character
+clock and stable layout. **Repeat size floor** reduces duplicate copies before
+fitting would shrink the type below the chosen fraction of Text size; zero
+keeps all copies. A single copy can still shrink to honor Line width limit.
+Lost transmission enables wrapping and readable repeats with centered placement:
+REVOLUTION occupies two large lines, while IS and NOW retain larger repetitions.
+Its updated layout is frozen in `presets/text-transmission-v3.json`; the earlier
+refined recipe remains frozen in v2 and existing saved documents are unchanged.
 Three bundled fonts (Archivo Black, Anton and Space Mono Bold) render identically
 without depending on installed system fonts; their licenses and pinned source
 hashes are in [`assets/fonts`](assets/fonts/README.md).
