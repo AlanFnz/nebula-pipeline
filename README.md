@@ -139,6 +139,11 @@ and **Text / night monitor**. They combine the same Bloom, Raster/grain,
 Tape damage, Frame jitter, Color separation, Signal drift and Low-res finish
 operations used elsewhere in the Studio. Their recipes are frozen in
 `presets/text-studies-v1.json`; all eleven earlier studies stay unchanged.
+The refined **Pressure** uses single-word, tall poster lettering, a half-second
+perspective pullback, overlapping positive/negative exposures and composite
+color fringes. It is frozen separately in `presets/text-pressure-v2.json`.
+**Pressure (first version)** retains the original stacked-title recipe, and
+saved documents keep their original rendering.
 
 Choose **Object → Text** to replace a generated source and retain its image
 treatments, or load a text Study. Edit **Wording**, then **Apply text**. Text
@@ -146,12 +151,17 @@ supports eight lines and 512 characters. Typeface, size, line/letter spacing,
 alignment, color, opacity, intentional width/height stretch and rotation remain
 editable. Object X/Y moves the lettering and its source-bound effects. Canvas
 resizing uses the existing preserve/fit rules and never stretches the type.
+**Text fitting → Fill block** deliberately fits lettering into an authored
+rectangle: **Block width** and **Text size** set its proportions. This is separate
+from canvas resizing and is useful for very tall, compressed poster type.
 Three bundled fonts (Archivo Black, Anton and Space Mono Bold) render identically
 without depending on installed system fonts; their licenses and pinned source
 hashes are in [`assets/fonts`](assets/fonts/README.md).
 
 **Effects → Text → Timing** controls word/character reveals, receding/breathing
 size motion, start/end magnification, cycle, acceleration and held motion FPS.
+**Perspective pullback** follows a camera-like depth curve, with a fast initial
+retreat that settles as the lettering gets farther away.
 Type-on preserves the full phrase's layout. Text timing uses the selected scope:
 Whole clip is the default, and section overrides are available. Image effects
 keep their own clocks. Scrubbing and export need no playback history.
@@ -161,6 +171,11 @@ objects and video: shifting color fields in shadows, full-frame static
 interruptions, rolling static bands, colored polarity reversals, CRT curvature
 and corner shading. Adjust each independently or set Mix to zero to bypass.
 It uses fresh procedural noise; there are no tiled or embedded reference frames.
+Its **Polarity** tab exposes cycle, phase, exposure overlap and field
+misregistration. **Before finishing** reverses the source before grain and tape
+processing, so inverted frames retain their texture. **Composite fringe**,
+width and color controls follow contrast edges on any source. The earlier
+final-screen reversal and all new operations' neutral defaults remain available.
 
 Text is a generated object in this stage. Video remains a separate source;
 independent text-over-video layers and custom font imports are future work.

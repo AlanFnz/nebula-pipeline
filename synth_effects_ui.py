@@ -19,6 +19,7 @@ INK_DURATIONS = {f'ink_bloom.{key}' for key in DURATION_KEYS}
 INK_TIMING = tuple(f'ink_bloom.{key}' for key in TIMING_KEYS)
 SHARED_TIMING_CONTROLS = INK_TIMING[:8]
 TEXT_TIMING = tuple('text.' + key for key in ('reveal', 'word_seconds', 'motion', 'zoom_start', 'zoom_end', 'period', 'ease', 'phase', 'cadence'))
+POLARITY_CONTROLS = tuple('broadcast.' + key for key in ('reverse', 'reverse_period', 'reverse_phase', 'reverse_blend', 'field_spread', 'reverse_stage', 'reverse_hue', 'reverse_saturation'))
 REGION_CONTROLS = tuple('edge_phosphor.' + key for key in (
     'fade_mode', 'neck_dissolve', 'fade_strength', 'fade_start', 'fade_width',
     'fade_angle', 'fade_softness', 'fade_anchor', 'fade_x', 'fade_y', 'fade_curve'))
@@ -291,11 +292,13 @@ class EffectsPanel(QWidget):
         ink = effect.id == 'ink_bloom'
         text = effect.id == 'text'
         text_timing = text and self.parameter_tabs.currentIndex() == 1
+        broadcast = effect.id == 'broadcast'
+        polarity = broadcast and self.parameter_tabs.currentIndex() == 1
         phosphor = effect.id == 'edge_phosphor'
         region = phosphor and self.parameter_tabs.currentIndex() == 1
         timing = ink and self.parameter_tabs.currentIndex() == 1
-        self.parameter_tabs.setTabText(1, 'Region' if phosphor else 'Timing')
-        self.parameter_tabs.setVisible(ink or phosphor or text)
+        self.parameter_tabs.setTabText(1, 'Region' if phosphor else 'Polarity' if broadcast else 'Timing')
+        self.parameter_tabs.setVisible(ink or phosphor or text or broadcast)
         self.timing_note.setVisible(timing)
         self.restore_timing.setVisible(timing)
         self.restore_timing.setEnabled(bool(self.shared_timing))
@@ -305,6 +308,13 @@ class EffectsPanel(QWidget):
         visible_paths = SHARED_TIMING_CONTROLS if timing else tuple(path for path in effect.paths if not ink or path not in INK_TIMING)
         if text:
             visible_paths = TEXT_TIMING if text_timing else tuple(path for path in effect.paths if path not in TEXT_TIMING)
+            ranges = self.summary['text']['ranges']
+            if ranges['text.motion'][0] == ranges['text.motion'][1] and ranges['text.motion'][0] != 1:
+                visible_paths = tuple(path for path in visible_paths if path != 'text.ease')
+            if ranges['text.fit'][0] == ranges['text.fit'][1] and ranges['text.fit'][0] != 2:
+                visible_paths = tuple(path for path in visible_paths if path != 'text.block_width')
+        if broadcast:
+            visible_paths = POLARITY_CONTROLS if polarity else tuple(path for path in effect.paths if path not in POLARITY_CONTROLS)
         if self.allowed_effects is not None:
             visible_paths = tuple(path for path in visible_paths if not path.startswith('slab.'))
         if phosphor:

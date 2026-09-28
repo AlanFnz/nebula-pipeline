@@ -20,6 +20,7 @@ STARTERS = (
     ("mixed-media", "Mixed media / two bursts · 7s", mixed_media_composition),
     ('text-phosphor', 'Text / phosphor drift · 6s', lambda: text_composition('phosphor')),
     ('text-pressure', 'Text / pressure · 6s', lambda: text_composition('pressure')),
+    ('text-pressure-original', 'Text / pressure (first version) · 6s', lambda: starter_snapshot('text-pressure-original')),
     ('text-transmission', 'Text / lost transmission · 6s', lambda: text_composition('transmission')),
     ('text-night', 'Text / night monitor · 6s', lambda: text_composition('night')),
 )

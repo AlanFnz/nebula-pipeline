@@ -26,14 +26,19 @@ def text_composition(look='phosphor'):
         common['broadcast'].update(field=.3, hue=.48, hue_spread=.19, phase=.18, drift=1.2)
     elif look == 'pressure':
         name = 'Text / pressure'
-        common['text'].update(content='REVOLUTION\nIS NOW', font=1, size=.3, stretch_y=1.65, leading=.86, tracking=.01,
-            hue=.025, saturation=.95, brightness=.98, back_brightness=.02,
-            motion=1, zoom_start=1.1, zoom_end=.24, period=1.2, ease=1.5, cadence=24.)
-        common['bloom'].update(radius=2., strength=.18)
-        common['raster'].update(softness=.9, grain=.12, lines=.15, chroma=.02)
-        common['broadcast'].update(field=0., static=0., duration=0., reverse=1., reverse_period=.6,
-            reverse_hue=.025, reverse_saturation=.95, curve=.008, vignette=.18)
-        common['drift'] = {'warp.amount': .025, 'warp.frequency': 1.8}
+        common['text'].update(font=1, size=1.05, fit=2, block_width=.62, tracking=-.035,
+            hue=.026, saturation=.88, brightness=1.04, back_saturation=.1, back_brightness=.075,
+            reveal=1, word_seconds=.48, motion=3, zoom_start=1.14, zoom_end=.34, period=.48, ease=1.4, cadence=0.)
+        common['bloom'].update(radius=2., strength=.13)
+        common['raster'].update(softness=1.1, grain=.12, lines=.18, chroma=.035, line_noise=.08)
+        common['broadcast'].update(field=0., static=0., duration=0., reverse=1.,
+            reverse_period=.12, reverse_hue=.026, reverse_saturation=.87, reverse_phase=.75,
+            reverse_blend=.85, field_spread=.11, reverse_stage=1, edge_fringe=.65, edge_width=.005, edge_hue=.7, curve=.008, vignette=.08)
+        common['tape'].update(tracking=.001, jitter=.0004, chroma_delay=.003, bleed=.004, head_switch=.05, dropouts=.04, rate=30.)
+        common['frame_jitter'].update(x=.4, y=.5, rotation=.02, rate=30.)
+        common['separation'] = {'amount': .004, 'angle': .1, 'green': .95}
+        common['signal_background'] = {'level': .065, 'grain': .11, 'chroma': .03, 'threshold': .25}
+        common['low_res'].update(resolution=500)
     elif look == 'transmission':
         name = 'Text / lost transmission'
         common['text'].update(font=2, reveal=1, word_seconds=.7, size=.25, hue=.48,
@@ -60,11 +65,12 @@ def text_composition(look='phosphor'):
     # overrides use the same values as the renderer.
     if 'drift' in common:
         values = common.pop('drift'); common['warp'] = {k.split('.')[1]: v for k,v in values.items()}
-    settings = {'speed': 1., 'depth': 0., 'treatment_fps': 24}
+    fps = 30 if look == 'pressure' else 24
+    settings = {'speed': 1., 'depth': 0., 'treatment_fps': fps}
     for module, changes in common.items():
         settings.update({f'{module}.{spec.key}': spec.default for spec in MODULE_BY_ID[module].params})
         settings.update({f'{module}.{key}': value for key, value in changes.items()})
-    source = normalize_sequence(dict(schema_version=1, render_version=2, name=name, duration=duration, fps=24, seed=2826,
+    source = normalize_sequence(dict(schema_version=1, render_version=2, name=name, duration=duration, fps=fps, seed=2826,
         canvas={'width': 720, 'height': 540, 'framing': 'native'},
         states={'title': {'preset': 'Reference blinds', 'enabled': list(common), 'overrides': settings}},
         cues=[{'time': 0., 'state': 'title', 'transition': 'cut'}]))

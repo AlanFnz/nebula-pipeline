@@ -7,6 +7,46 @@ from PIL import Image
 from synth_text import color
 
 
+def render_polarity(arr, p, time, speed):
+    """Stateless positive/negative field overlap, usable before or after wear."""
+    if not p['reverse']: return arr
+    phase = (time * speed / p['reverse_period'] + p.get('reverse_phase', 0.)) % 1
+    overlap = p.get('reverse_blend', 0.)
+    weight = float(phase < .5) if not overlap else float(np.clip(.5 + .5 * math.sin(phase * math.tau) / overlap, 0, 1))
+    if weight <= 1e-12: return arr
+    pivot = color(p['reverse_hue'], p['reverse_saturation'], 1.)
+    negative = np.maximum(0., pivot - arr)
+    spread = p.get('field_spread', 0.) * 4 * weight * (1 - weight)
+    if spread > 1e-8:
+        # Two differently registered exposures retain contours at a 50/50
+        # overlap instead of cancelling into a featureless orange field.
+        h, w = arr.shape[:2]
+        y, x = np.mgrid[:h, :w].astype(np.float32)
+        x = (x - (w-1)/2) / (1 + spread) + (w-1)/2
+        y = (y - (h-1)/2) / (1 + spread) + (h-1)/2
+        ix = x.astype(int); iy = y.astype(int)
+        fx = (x - ix)[..., None]; fy = (y - iy)[..., None]
+        rx = np.minimum(ix+1, w-1); by = np.minimum(iy+1, h-1)
+        negative = ((negative[iy, ix] * (1-fx) + negative[iy, rx] * fx) * (1-fy)
+                    + (negative[by, ix] * (1-fx) + negative[by, rx] * fx) * fy)
+    amount = p['reverse'] * weight
+    return arr * (1 - amount) + negative * amount
+
+
+def render_broadcast_exposure(arr, p, time, speed):
+    out = render_polarity(arr, p, time, speed)
+    if not p.get('edge_fringe', 0.): return out
+    h, w = out.shape[:2]
+    light = np.max(out, axis=2)
+    delay = max(1, round(w * p['edge_width']))
+    left = light[:, np.maximum(0, np.arange(w)-delay)]
+    right = light[:, np.minimum(w-1, np.arange(w)+delay)]
+    rising = np.maximum(0., light-left)
+    falling = np.maximum(0., light-right)
+    return out + p['edge_fringe'] * (rising[..., None] * color(p['edge_hue']+.5, .9, 1.)
+                                    + falling[..., None] * color(p['edge_hue'], .95, 1.))
+
+
 def render_broadcast(arr, p, time, speed, seed):
     if not p['mix']: return arr
     h, w = arr.shape[:2]; clock = time * speed
@@ -28,9 +68,8 @@ def render_broadcast(arr, p, time, speed, seed):
         wash = a + np.clip(field, 0, 1)[..., None] * (b - a)
         shadows = np.clip(1 - np.max(out, axis=2), 0, 1) ** 2
         out += wash * (shadows * p['field'] * (.35 + field))[..., None]
-    if p['reverse'] and (clock / p['reverse_period']) % 1 < .5:
-        pivot = color(p['reverse_hue'], p['reverse_saturation'], 1.)
-        out = out * (1 - p['reverse']) + np.maximum(0., pivot - out) * p['reverse']
+    if not p.get('reverse_stage', 0):
+        out = render_broadcast_exposure(out, p, time, speed)
     event = (clock / p['period'] + p['phase']) % 1
     gate = float(event < p['duration'] / p['period'])
     if p['static'] and (gate or p['band']):

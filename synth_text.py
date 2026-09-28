@@ -34,6 +34,9 @@ def text_pose(p, time, speed):
         zoom = p['zoom_end'] + (p['zoom_start'] - p['zoom_end']) * (1 - phase) ** p['ease']
     elif p['motion'] == 2:
         zoom = p['zoom_end'] + (p['zoom_start'] - p['zoom_end']) * (.5 + .5 * math.cos(phase * math.tau))
+    elif p['motion'] == 3:
+        # Constant travel in depth produces a fast initial apparent retreat.
+        zoom = 1 / ((1-phase) / p['zoom_start'] + phase / p['zoom_end'])
     else: zoom = 1.
     return clock, zoom
 
@@ -98,6 +101,10 @@ def text_layout(p, time, speed, size):
     # independent of changing the canvas aspect ratio.
     height = ch * p['size'] * max(1, text.count('\n') + 1)
     scale = height / max(1, mask.height)
+    if p['fit'] == 2:
+        # Explicit poster lettering: fill an authored rectangle. Both axes
+        # still use content_size, so changing the canvas never stretches it.
+        return mask, max(.001, cw * p['block_width'] / mask.width * p['stretch_x'] * zoom), max(.001, scale * p['stretch_y'] * zoom)
     if p['fit']: scale = min(scale, cw * .9 / max(1, mask.width * p['stretch_x']))
     sx = max(.001, scale * p['stretch_x'] * zoom)
     sy = max(.001, scale * p['stretch_y'] * zoom)

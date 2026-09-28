@@ -28,3 +28,19 @@ def test_native_wording_apply_undo_and_text_timing(window,tmp_path):
     spec=MODULE_BY_ID['text'].params[0]
     detail=SynthControl(spec,'NOW'); detail.spin.editor.setPlainText('LATER');detail.spin.apply.click()
     assert detail.value()=='LATER'
+
+
+def test_pressure_exposes_block_layout_and_polarity_tab(window):
+    window.set_composition(starter_composition('text-pressure'))
+    composer=window.composer
+    assert not composer.object_panel.controls['text.block_width'].isHidden()
+    composer.look_tabs.setCurrentWidget(composer.effects_panel)
+    panel=composer.effects_panel;panel.inspect_effect('broadcast');panel.parameter_tabs.setCurrentIndex(1)
+    assert panel.parameter_tabs.tabText(1)=='Polarity'
+    assert not panel.controls['broadcast.reverse_stage'].isHidden()
+    panel.controls['broadcast.field_spread'].input.setValue(.18)
+    assert window.composition['effects']['broadcast']['params']['broadcast.field_spread']==.18
+    window.undo_composition()
+    assert panel.controls['broadcast.field_spread'].input.value()==.11
+    panel.inspect_effect('text');panel.parameter_tabs.setCurrentIndex(1)
+    assert panel.controls['text.ease'].isHidden()

@@ -22,7 +22,7 @@ from synth_particles import render_particles
 from synth_tape import render_tape_damage
 from synth_photocopy import render_photocopy
 from synth_text import FONTS, validate_text, render_text
-from synth_broadcast import render_broadcast
+from synth_broadcast import render_broadcast, render_broadcast_exposure
 from synth_canvas import content_size, normalize_canvas, source_framing, object_offset
 from synth_print import render_ink_bloom, render_print_surface
 from synth_profile import render_silhouette, render_edge_phosphor, render_scan_drag
@@ -464,7 +464,8 @@ MODULES += (
         P('tracking', 'Letter spacing', 0., -.15, .8, .01, 'Extra spacing as a fraction of the font size.'),
         P('leading', 'Line spacing', 1., .6, 2.5, .05),
         P('align', 'Line alignment', 1, 0, 2, 1, choices=('Left', 'Center', 'Right')),
-        P('fit', 'Fit long lines', 1, 0, 1, 1, 'Uniformly reduce long lines to fit the authored width. Does not stretch the letters.', choices=('Off', 'On')),
+        P('fit', 'Text fitting', 1, 0, 2, 1, 'Fit long lines keeps proportions. Fill block deliberately stretches the lettering to the authored width and text height; changing the canvas still preserves that shape.', choices=('Off', 'Fit long lines', 'Fill block')),
+        P('block_width', 'Block width', .65, .05, 2, .01, 'Authored canvas width occupied by Fill block lettering, before size motion.'),
         P('hue', 'Text hue', .22, 0, 1, .01),
         P('saturation', 'Text saturation', .3, 0, 1, .01),
         P('brightness', 'Text brightness', 1., 0, 3, .05),
@@ -477,7 +478,7 @@ MODULES += (
         P('back_brightness', 'Backdrop brightness', .045, 0, 1, .005),
         P('reveal', 'Show', 0, 0, 2, 1, choices=('Whole phrase', 'One word at a time', 'Type on')),
         P('word_seconds', 'Word / character interval', .65, .03, 10, .05, 'Seconds between words or characters. Whole phrase ignores this control.'),
-        P('motion', 'Size motion', 0, 0, 2, 1, choices=('Still', 'Recede', 'Breathe')),
+        P('motion', 'Size motion', 0, 0, 3, 1, choices=('Still', 'Recede', 'Breathe', 'Perspective pullback')),
         P('zoom_start', 'Starting magnification', 1.7, .05, 8, .05),
         P('zoom_end', 'Ending magnification', .4, .05, 8, .05),
         P('period', 'Motion cycle', 2., .15, 30, .05),
@@ -498,9 +499,16 @@ MODULES += (
         P('roll', 'Static roll speed', .45, -3, 3, .05),
         P('rate', 'Static FPS', 24., 0, 60, 1),
         P('reverse', 'Polarity reversal', 0., 0, 1, .01),
-        P('reverse_period', 'Polarity cycle', .8, .15, 10, .05),
+        P('reverse_period', 'Polarity cycle', .8, .06, 10, .01),
         P('reverse_hue', 'Reversal ink hue', .045, 0, 1, .01),
         P('reverse_saturation', 'Reversal ink saturation', .9, 0, 1, .01),
+        P('reverse_phase', 'Polarity phase', 0., 0, 1, .01),
+        P('reverse_blend', 'Exposure overlap', 0., 0, 1, .01, 'Blend the positive and negative exposures during each reversal.'),
+        P('field_spread', 'Field misregistration', 0., 0, .3, .005, 'Different magnification of the overlapping exposures leaves offset contours.'),
+        P('reverse_stage', 'Polarity placement', 0, 0, 1, 1, 'Before finishing lets grain, tape damage and chromatic edges treat both polarities.', choices=('Final screen', 'Before finishing')),
+        P('edge_fringe', 'Composite fringe', 0., 0, 2, .01, 'Colored edge ringing follows contrast boundaries in any source.'),
+        P('edge_width', 'Fringe width', .004, .001, .03, .001, 'Horizontal signal delay as a fraction of canvas width.'),
+        P('edge_hue', 'Fringe color', .8, 0, 1, .01, 'The two sides of an edge use complementary hues.'),
         P('curve', 'Screen curvature', .07, 0, .5, .005),
         P('vignette', 'Corner shading', .4, 0, 1, .01),
         P('mix', 'Mix', 1., 0, 1, .01),
@@ -1132,7 +1140,17 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
             raise ValueError('Video source must match the working canvas')
         arr = np.asarray(source_image.convert('RGB'), dtype=np.float32) / 255
     treatment_frame = round(t * p["treatment_fps"])
+    broadcast = next((entry['params'] for entry in p['modules'] if entry['id'] == 'broadcast' and entry['enabled']), None)
+    polarity_index = None
+    if broadcast and broadcast['reverse_stage'] and (broadcast['reverse'] or broadcast['edge_fringe']) and broadcast['mix']:
+        # Preserve existing module indices/seeds. The optional early reversal
+        # follows source generators and precedes the remaining image finishes.
+        generators = {'slab', 'blinds', 'particles', 'silhouette', 'ink_bloom', 'flare'}
+        polarity_index = max((i for i, m in enumerate(p['modules']) if m.get('enabled', True) and m['id'] in generators), default=-1) + 1
     for index, entry in enumerate(p["modules"]):
+        if index == polarity_index:
+            reversed_signal = render_broadcast_exposure(arr, broadcast, continuous_time, p['speed'])
+            arr = arr * (1 - broadcast['mix']) + reversed_signal * broadcast['mix']
         if not entry.get("enabled", True):
             continue
         module_id = entry.get("id")
@@ -1159,6 +1177,9 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
             rendered = renderer(arr, params, module_time, p, index)
         if rendered is not None:
             arr = rendered
+    if polarity_index == len(p['modules']):
+        reversed_signal = render_broadcast_exposure(arr, broadcast, continuous_time, p['speed'])
+        arr = arr * (1 - broadcast['mix']) + reversed_signal * broadcast['mix']
     image = Image.fromarray(np.clip(arr * 255, 0, 255).astype(np.uint8), "RGB")
     return finish_resolution(image, output, sampling)
 
