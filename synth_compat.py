@@ -24,9 +24,16 @@ def frozen_data(key):
 
 
 def starter_snapshot(identifier):
+    if identifier.startswith('text-'):
+        return copy.deepcopy(_text_snapshot()[identifier])
     if identifier in ('profile-clear', 'profile-doryphoros'):
         return copy.deepcopy(_profile_snapshot()[identifier])
     return copy.deepcopy(_snapshot()['starters'][identifier])
+
+
+@lru_cache(maxsize=1)
+def _text_snapshot():
+    return json.loads((Path(__file__).parent / 'presets/text-studies-v1.json').read_text())
 
 
 @lru_cache(maxsize=1)

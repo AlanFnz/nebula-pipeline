@@ -131,6 +131,40 @@ The existing renderer accepts an optional source image before the same image
 treatments. Tracked object identities, input-driven particles and
 multiple footage layers remain future work.
 
+### Editable text studies
+
+Four six-second Studies use the editable phrase **REVOLUTION IS NOW**:
+**Text / phosphor drift**, **Text / pressure**, **Text / lost transmission**,
+and **Text / night monitor**. They combine the same Bloom, Raster/grain,
+Tape damage, Frame jitter, Color separation, Signal drift and Low-res finish
+operations used elsewhere in the Studio. Their recipes are frozen in
+`presets/text-studies-v1.json`; all eleven earlier studies stay unchanged.
+
+Choose **Object → Text** to replace a generated source and retain its image
+treatments, or load a text Study. Edit **Wording**, then **Apply text**. Text
+supports eight lines and 512 characters. Typeface, size, line/letter spacing,
+alignment, color, opacity, intentional width/height stretch and rotation remain
+editable. Object X/Y moves the lettering and its source-bound effects. Canvas
+resizing uses the existing preserve/fit rules and never stretches the type.
+Three bundled fonts (Archivo Black, Anton and Space Mono Bold) render identically
+without depending on installed system fonts; their licenses and pinned source
+hashes are in [`assets/fonts`](assets/fonts/README.md).
+
+**Effects → Text → Timing** controls word/character reveals, receding/breathing
+size motion, start/end magnification, cycle, acceleration and held motion FPS.
+Type-on preserves the full phrase's layout. Text timing uses the selected scope:
+Whole clip is the default, and section overrides are available. Image effects
+keep their own clocks. Scrubbing and export need no playback history.
+
+**Broadcast wear** is a reusable image treatment for text, other generated
+objects and video: shifting color fields in shadows, full-frame static
+interruptions, rolling static bands, colored polarity reversals, CRT curvature
+and corner shading. Adjust each independently or set Mix to zero to bypass.
+It uses fresh procedural noise; there are no tiled or embedded reference frames.
+
+Text is a generated object in this stage. Video remains a separate source;
+independent text-over-video layers and custom font imports are future work.
+
 ### Photocopy and foreground studies
 
 **Effects → Photocopy** processes either generated artwork or imported footage.

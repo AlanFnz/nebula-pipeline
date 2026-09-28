@@ -27,6 +27,7 @@ from synth_composer_ui import CompositionPanel, SectionTimeline
 from synth_canvas import CANVAS_FORMATS, format_canvas, normalize_canvas, preview_size, resize_canvas
 from synth_studies import study_catalogue, study_composition, save_study
 from synth_artwork_ui import ArtworkControl
+from synth_text_ui import TextControl
 from synth_master import normalize_master
 from synth_master_ui import MasterPanel
 from synth_viewer import SynthViewer
@@ -41,8 +42,8 @@ class SynthControl(QWidget):
         self.spec = spec
         self.lock = QCheckBox("lock")
         self.lock.setToolTip("Keep this parameter fixed when Generate variation is pressed.")
-        if spec.kind == 'artwork':
-            self.spin = ArtworkControl(); self.spin.setValue(value)
+        if spec.kind in ('artwork', 'text'):
+            self.spin = ArtworkControl() if spec.kind == 'artwork' else TextControl(); self.spin.setValue(value)
             self.spin.changed.connect(lambda _value: self.changed.emit())
             layout = QVBoxLayout(self); layout.addWidget(QLabel(spec.label)); layout.addWidget(self.spin)
             self.lock.setChecked(True); self.lock.hide()
@@ -1096,7 +1097,7 @@ class SynthStudio(QMainWindow):
             self.sequence_state_updating = True
             try:
                 for path, control in self.sequence_state_controls.items():
-                    if control.lock.isChecked() or control.spec.kind == 'artwork': continue
+                    if control.lock.isChecked() or control.spec.kind in ('artwork', 'text'): continue
                     spec = control.spec
                     delta = (spec.maximum - spec.minimum) * .12
                     value = max(spec.minimum, min(spec.maximum, control.value() + rng.uniform(-delta, delta)))
@@ -1114,7 +1115,7 @@ class SynthStudio(QMainWindow):
         with QSignalBlocker(self.global_controls["seed"]):
             self.global_controls["seed"].setValue(self.preset["seed"])
         for (index, key), control in self.controls.items():
-            if control.lock.isChecked() or control.spec.kind == 'artwork': continue
+            if control.lock.isChecked() or control.spec.kind in ('artwork', 'text'): continue
             spec = control.spec
             if spec.kind == "float": control.set_value(round(rng.uniform(spec.minimum, spec.maximum) / spec.step) * spec.step)
             else: control.set_value(rng.randint(int(spec.minimum), int(spec.maximum)))

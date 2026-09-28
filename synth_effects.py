@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 from synth import MODULE_BY_ID, Param, curated_presets
 from synth_artwork import validate_artwork
+from synth_text import validate_text
 from synth_ink_timing import stage_durations
 
 
@@ -31,6 +32,8 @@ def paths(module, keys=None):
 
 
 EFFECTS = (
+    Effect('text', 'Text', 'Editable wording, typeface, spacing and color. Select Text in Object to replace another source while retaining its treatments. Position uses the shared Object controls.', paths('text'), ('text',), primary=10),
+    Effect('broadcast', 'Broadcast wear', 'Colored shadow drift, static interruptions, rolling signal loss, polarity reversals and curved CRT edges. Applies to lettering, generated artwork and imported footage.', paths('broadcast'), ('broadcast',), primary=8),
     Effect("subject_cutout", "Subject cutout", "Isolate the foreground locally before applying image treatments. Crowd recovers smaller figures using individual detection regions. Mask continuity fills brief gaps where neighboring source frames agree. First use is cached locally. Available with imported video on macOS.", paths("subject_cutout"), ("subject_cutout",), primary=8),
     Effect("photocopy", "Photocopy", "Crushed black ink, fresh toner grain, cold highlights and screened dots. Exposure pulses, uneven illumination and print cadence can all be adjusted independently. Applies to videos and generated artwork.", paths("photocopy"), ("photocopy",),
            looks=(("Cold copy / pulses", {}), ("Clean monochrome", {"photocopy.tint": 0., "photocopy.blackout": 0., "photocopy.light_depth": 0., "photocopy.flutter": 0.}), ("Screen print", {"photocopy.halftone": .8, "photocopy.grain": .4, "photocopy.blackout": 0.})), primary=8),
@@ -138,6 +141,9 @@ def normalize_effects(raw):
             if path not in EFFECT_BY_ID[key].paths:
                 raise ValueError(f"Unknown {key} parameter: {path}")
             spec = parameter(path)
+            if spec.kind == 'text':
+                values[path] = validate_text(value)
+                continue
             if spec.kind == "artwork":
                 values[path] = validate_artwork(value)
                 continue

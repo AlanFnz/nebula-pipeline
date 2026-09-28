@@ -3,6 +3,7 @@ from synth_composition import ink_bloom_composition, mixed_media_composition, pa
 from synth_composition import normalize_composition
 from synth_compat import starter_snapshot
 from synth_profile_recipes import clear_profile_composition, doryphoros_composition
+from synth_text_recipes import text_composition
 
 
 STARTERS = (
@@ -17,6 +18,10 @@ STARTERS = (
     ("profile-clear", "Profile / clear silhouette · 8s", clear_profile_composition),
     ("profile-doryphoros", "Profile / Doryphoros · 8s", doryphoros_composition),
     ("mixed-media", "Mixed media / two bursts · 7s", mixed_media_composition),
+    ('text-phosphor', 'Text / phosphor drift · 6s', lambda: text_composition('phosphor')),
+    ('text-pressure', 'Text / pressure · 6s', lambda: text_composition('pressure')),
+    ('text-transmission', 'Text / lost transmission · 6s', lambda: text_composition('transmission')),
+    ('text-night', 'Text / night monitor · 6s', lambda: text_composition('night')),
 )
 
 

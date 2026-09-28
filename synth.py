@@ -21,6 +21,8 @@ from PIL import Image, ImageFilter
 from synth_particles import render_particles
 from synth_tape import render_tape_damage
 from synth_photocopy import render_photocopy
+from synth_text import FONTS, validate_text, render_text
+from synth_broadcast import render_broadcast
 from synth_canvas import content_size, normalize_canvas, source_framing, object_offset
 from synth_print import render_ink_bloom, render_print_surface
 from synth_profile import render_silhouette, render_edge_phosphor, render_scan_drag
@@ -259,7 +261,7 @@ MODULES = (
         P("fade_width", "Fade width", .5, .01, 3, .01, "Distance from unchanged to fully faded in region units."),
         P("fade_angle", "Fade direction", 0., -180, 180, 1, "0 fades downward; 90 fades to the right, relative to the anchor."),
         P("fade_softness", "Light blending", .065, 0, .3, .005, "Soften the surrounding backlight inside the region before grain is applied."),
-        P("fade_anchor", "Object anchor", 0, 0, 5, 1, "Attach to the root of a source, including compound stamps or particle clouds.", choices=("Primary object", "Model silhouette", "Luminous forms", "Ink stamps", "Particles", "Rays")),
+        P("fade_anchor", "Object anchor", 0, 0, 6, 1, "Attach to the root of a source, including compound stamps or particle clouds.", choices=("Primary object", "Model silhouette", "Luminous forms", "Ink stamps", "Particles", "Rays", "Text")),
         P("fade_x", "Region X", 0., -3, 3, .01),
         P("fade_y", "Region Y", 0., -3, 3, .01),
         P("fade_curve", "Fade curve", 1, 0, 1, 1, choices=("Linear", "Smooth")),
@@ -454,6 +456,57 @@ MODULES = (
         P("mix", "Mix", 1., 0, 1, .01),
     )),
 )
+MODULES += (
+    Module('text', 'Text', 'Editable typography rendered before the image treatments. Fonts travel with the Studio.', (
+        P('content', 'Wording', 'REVOLUTION IS NOW', kind='text', hint='Up to 512 characters and eight lines. Line breaks are preserved.'),
+        P('font', 'Typeface', 0, 0, 2, 1, choices=FONTS),
+        P('size', 'Text size', .14, .01, 1.5, .01, 'Line height relative to the authored canvas height. Canvas resizing preserves the lettering.'),
+        P('tracking', 'Letter spacing', 0., -.15, .8, .01, 'Extra spacing as a fraction of the font size.'),
+        P('leading', 'Line spacing', 1., .6, 2.5, .05),
+        P('align', 'Line alignment', 1, 0, 2, 1, choices=('Left', 'Center', 'Right')),
+        P('fit', 'Fit long lines', 1, 0, 1, 1, 'Uniformly reduce long lines to fit the authored width. Does not stretch the letters.', choices=('Off', 'On')),
+        P('hue', 'Text hue', .22, 0, 1, .01),
+        P('saturation', 'Text saturation', .3, 0, 1, .01),
+        P('brightness', 'Text brightness', 1., 0, 3, .05),
+        P('opacity', 'Text opacity', 1., 0, 1, .01),
+        P('stretch_x', 'Width stretch', 1., .15, 4, .05, 'Intentional typographic stretch, independent of canvas shape.'),
+        P('stretch_y', 'Height stretch', 1., .15, 8, .05),
+        P('rotation', 'Text rotation', 0., -180, 180, 1),
+        P('back_hue', 'Backdrop hue', .6, 0, 1, .01),
+        P('back_saturation', 'Backdrop saturation', .75, 0, 1, .01),
+        P('back_brightness', 'Backdrop brightness', .045, 0, 1, .005),
+        P('reveal', 'Show', 0, 0, 2, 1, choices=('Whole phrase', 'One word at a time', 'Type on')),
+        P('word_seconds', 'Word / character interval', .65, .03, 10, .05, 'Seconds between words or characters. Whole phrase ignores this control.'),
+        P('motion', 'Size motion', 0, 0, 2, 1, choices=('Still', 'Recede', 'Breathe')),
+        P('zoom_start', 'Starting magnification', 1.7, .05, 8, .05),
+        P('zoom_end', 'Ending magnification', .4, .05, 8, .05),
+        P('period', 'Motion cycle', 2., .15, 30, .05),
+        P('ease', 'Recede acceleration', 2., .2, 8, .1, 'One is linear; larger values travel quickly at the beginning and settle.'),
+        P('phase', 'Motion phase', 0., 0, 1, .01),
+        P('cadence', 'Text motion FPS', 0., 0, 60, 1, 'Zero uses continuous time. Grain and recording faults keep their own clocks.'),
+    )),
+    Module('broadcast', 'Broadcast wear', 'Color drift in shadows, static interruptions, polarity reversals and curved CRT framing. Works on any source.', (
+        P('field', 'Color field', .18, 0, 1, .01, 'Soft color variation in shadows, across the full canvas.'),
+        P('hue', 'Field hue', .55, 0, 1, .01),
+        P('hue_spread', 'Field color spread', .16, -.5, .5, .01),
+        P('drift', 'Field change speed', .7, 0, 5, .05),
+        P('static', 'Static intensity', .85, 0, 1, .01),
+        P('period', 'Interruption cycle', 3., .15, 30, .05),
+        P('duration', 'Interruption duration', .12, 0, 3, .01, 'Seconds of static in each cycle. Zero disables full-screen interruptions.'),
+        P('phase', 'Interruption phase', .35, 0, 1, .01),
+        P('band', 'Rolling static height', 0., 0, 1, .01, 'Zero disables the moving noise band; one spans the canvas height.'),
+        P('roll', 'Static roll speed', .45, -3, 3, .05),
+        P('rate', 'Static FPS', 24., 0, 60, 1),
+        P('reverse', 'Polarity reversal', 0., 0, 1, .01),
+        P('reverse_period', 'Polarity cycle', .8, .15, 10, .05),
+        P('reverse_hue', 'Reversal ink hue', .045, 0, 1, .01),
+        P('reverse_saturation', 'Reversal ink saturation', .9, 0, 1, .01),
+        P('curve', 'Screen curvature', .07, 0, .5, .005),
+        P('vignette', 'Corner shading', .4, 0, 1, .01),
+        P('mix', 'Mix', 1., 0, 1, .01),
+    )),
+)
+
 MODULE_BY_ID = {module.id: module for module in MODULES}
 
 
@@ -556,6 +609,9 @@ def normalize_synth(raw=None):
             if spec.key not in incoming:
                 continue
             value = incoming[spec.key]
+            if spec.kind == 'text':
+                params[spec.key] = validate_text(value)
+                continue
             if spec.kind == "artwork":
                 params[spec.key] = validate_artwork(value)
                 continue
@@ -1024,6 +1080,7 @@ def _breakup(arr, p, t, preset):
 
 
 RENDERERS = {
+    'broadcast': lambda arr, params, t, preset, index: render_broadcast(arr, params, t, preset['speed'], _seed(preset['seed'], 'broadcast')),
     "photocopy": lambda arr, params, t, preset, index: render_photocopy(arr, params, t, _seed(preset["seed"], "photocopy")),
     "signal_background": lambda arr, params, t, preset, index: _signal_background(arr, params, t, preset),
     "silhouette": lambda arr, params, t, preset, index: render_silhouette(arr, params, t, preset, _seed(preset["seed"], "silhouette")),
@@ -1060,6 +1117,9 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
     arr[..., 0] = .055
     arr[..., 1] = .067
     arr[..., 2] = .055
+    text_source = next((entry for entry in p['modules'] if entry['id'] == 'text' and entry['enabled']), None)
+    if text_source and source_image is None:
+        arr = render_text(arr, text_source['params'], continuous_time, p)
     cutout = next((entry for entry in p['modules'] if entry['id'] == 'subject_cutout' and entry['enabled'] and entry['params']['mix'] > 0), None)
     if cutout:
         if source_image is None or source_mask is None:
@@ -1089,7 +1149,7 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
             params = dict(params, diameter=params["diameter"] * cw / ch)
         # Shared ink motion owns its hold clock across recipe sections. Other
         # effects retain the scene's speed and treatment cadence.
-        module_time = continuous_time if module_id == 'photocopy' or (module_id == 'ink_bloom' and params.get('clock_mode', 0)) else t
+        module_time = continuous_time if module_id in ('photocopy', 'broadcast') or (module_id == 'ink_bloom' and params.get('clock_mode', 0)) else t
         if module_id == 'edge_phosphor':
             if p['render_version'] == 1:
                 rendered = render_edge_phosphor_v1(arr, params, module_time, p, _seed(p['seed'], 'edge-phosphor'))

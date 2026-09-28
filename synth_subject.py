@@ -7,18 +7,19 @@ from synth_shared_timing import without_timing
 
 
 SUBJECTS = {
+    'text': ('Text', ('text',)),
     'signal': ('Geometric signal', ('forms', 'rays')),
     'ink': ('Ink stamps', ('ink_bloom',)),
     'particles': ('Particle model', ('particles',)),
     'silhouette': ('Model silhouette', ('silhouette',)),
     'none': ('No object', ()),
 }
-SOURCE_EFFECTS = ('forms', 'rays', 'ink_bloom', 'particles', 'silhouette')
+SOURCE_EFFECTS = ('forms', 'rays', 'ink_bloom', 'particles', 'silhouette', 'text')
 
 
 def active_subjects(summary):
     # A head with intermittent ray accents is primarily a particle object.
-    return tuple(kind for kind in ('silhouette', 'ink', 'particles', 'signal')
+    return tuple(kind for kind in ('text', 'silhouette', 'ink', 'particles', 'signal')
                  if any(summary[key]['active'] for key in SUBJECTS[kind][1]))
 
 
@@ -72,7 +73,7 @@ def select_subject(project, kind, index=None):
         if key == 'rays':
             continue
         entry['mode'] = 'on'
-        module = {'forms': 'slab', 'ink_bloom': 'ink_bloom', 'particles': 'particles', 'silhouette': 'silhouette'}[key]
+        module = {'forms': 'slab', 'ink_bloom': 'ink_bloom', 'particles': 'particles', 'silhouette': 'silhouette', 'text': 'text'}[key]
         configured = bool(entry['params'] or (index is not None and result['effects'].get(key, {}).get('params')))
         if module not in source_enabled and not configured and key != 'forms':
             initial = without_timing(effect_preset(key))

@@ -8,6 +8,7 @@ from synth_subject import SUBJECTS, SOURCE_EFFECTS, active_subjects
 
 
 OBJECT_PATHS = {
+    'text': tuple('text.' + key for key in ('content', 'font', 'size', 'tracking', 'leading', 'align', 'fit', 'hue', 'saturation', 'brightness', 'stretch_x', 'stretch_y')),
     'silhouette': ('silhouette.model', 'silhouette.scale', 'silhouette.yaw', 'silhouette.definition', 'silhouette.pitch', 'silhouette.roll', 'silhouette.center_x', 'silhouette.center_y', 'silhouette.neck_length', 'silhouette.neck_fullness', 'silhouette.softness'),
     'ink': ('ink_bloom.shape', 'ink_bloom.artwork', 'ink_bloom.shape_width', 'ink_bloom.shape_height',
             'ink_bloom.sides', 'ink_bloom.shape_rotation', 'ink_bloom.size', 'ink_bloom.count',
@@ -89,7 +90,7 @@ class SubjectPanel(QWidget):
         if not self.updating and index >= 0: self.selected.emit(self.selector.itemData(index))
 
     def open_details(self, timing):
-        effect = {'ink': 'ink_bloom', 'particles': 'particles', 'signal': self.signal_effect, 'silhouette': 'silhouette'}.get(self.kind)
+        effect = {'ink': 'ink_bloom', 'particles': 'particles', 'signal': self.signal_effect, 'silhouette': 'silhouette', 'text': 'text'}.get(self.kind)
         if effect: self.details_requested.emit(effect, timing)
 
     def refresh(self, summary, entries, parent_entries, local):
@@ -101,6 +102,7 @@ class SubjectPanel(QWidget):
         self.restore.setEnabled(any(entries.get(key, {}).get('mode', 'recipe') != 'recipe' for key in SOURCE_EFFECTS))
         scope = 'this section' if local else 'the whole clip'
         notes = {'silhouette': 'A fixed human silhouette. Adjust its pose and framing here; Edge phosphor and Scan drag treat its outline.',
+                 'text': 'Editable type. Line breaks, spacing and font stay editable; image treatments follow the lettering. More object controls includes reveal and size motion.',
                  'ink': 'Edit the printed silhouette here. Its unfold, turn and refold motion stays with it.',
                  'particles': 'The model is the target of the particles. Adjust its size, pose and point density here.',
                  'signal': 'The luminous form and ray aperture share this geometry.',
@@ -133,5 +135,5 @@ class SubjectPanel(QWidget):
         if self.kind == 'particles':
             model = summary['particles']['ranges']['particles.attractor']
             self.controls['particles.neck_fade'].setVisible(model[0] != model[1] or model[0] in (0, 3, 4, 5))
-        self.details.setVisible(bool(active)); self.timing.setVisible(self.kind == 'ink')
+        self.details.setVisible(bool(active)); self.timing.setVisible(self.kind in ('ink', 'text'))
         self.updating = False

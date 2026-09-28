@@ -12,11 +12,13 @@ from studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBo
 
 from synth_effects import EFFECTS, EFFECT_BY_ID, describe_effects, effect_preset, parameter
 from synth_artwork_ui import ArtworkControl
+from synth_text_ui import TextControl
 from synth_ink_timing import DURATION_KEYS, TIMING_KEYS
 
 INK_DURATIONS = {f'ink_bloom.{key}' for key in DURATION_KEYS}
 INK_TIMING = tuple(f'ink_bloom.{key}' for key in TIMING_KEYS)
 SHARED_TIMING_CONTROLS = INK_TIMING[:8]
+TEXT_TIMING = tuple('text.' + key for key in ('reveal', 'word_seconds', 'motion', 'zoom_start', 'zoom_end', 'period', 'ease', 'phase', 'cadence'))
 REGION_CONTROLS = tuple('edge_phosphor.' + key for key in (
     'fade_mode', 'neck_dissolve', 'fade_strength', 'fade_start', 'fade_width',
     'fade_angle', 'fade_softness', 'fade_anchor', 'fade_x', 'fade_y', 'fade_curve'))
@@ -24,6 +26,7 @@ REGION_CONTROLS = tuple('edge_phosphor.' + key for key in (
 
 def format_value(path, value):
     spec = parameter(path)
+    if spec.kind == 'text': return value.replace('\n', ' / ')[:60] or 'Empty text'
     if spec.kind == 'artwork': return 'Embedded artwork' if value else 'No artwork'
     if spec.choices:
         return spec.choices[int(value)]
@@ -41,8 +44,8 @@ class EffectParameter(QWidget):
         layout = QVBoxLayout(self); layout.setContentsMargins(0, 0, 0, 3); layout.setSpacing(1)
         row = QHBoxLayout()
         label = QLabel(spec.label); label.setToolTip(spec.hint); row.addWidget(label, 1)
-        if spec.kind == 'artwork':
-            self.input = ArtworkControl(); self.input.changed.connect(self.changed.emit)
+        if spec.kind in ('artwork', 'text'):
+            self.input = ArtworkControl() if spec.kind == 'artwork' else TextControl(); self.input.changed.connect(self.changed.emit)
         elif spec.choices:
             self.input = QComboBox(); self.input.addItems(spec.choices)
             self.input.currentIndexChanged.connect(self.changed.emit)
@@ -77,7 +80,7 @@ class EffectParameter(QWidget):
         self.fixed_start = low
         animated = fixed is None and low != high and available
         self.value_stack.setCurrentIndex(1 if animated else 0)
-        self.animated_value.setText("Varies" if self.spec.choices or self.spec.kind == 'artwork' else f"{low:g} … {high:g}")
+        self.animated_value.setText("Varies" if self.spec.choices or self.spec.kind in ('artwork', 'text') else f"{low:g} … {high:g}")
         self.animated_value.setToolTip(f"Animated range. Click to set a fixed value, starting at {format_value(self.path, low)}.")
         with QSignalBlocker(self.input):
             if self.spec.choices: self.input.setCurrentIndex(int(value))
@@ -286,11 +289,13 @@ class EffectsPanel(QWidget):
     def show_more(self, checked):
         effect = EFFECT_BY_ID[self.effect_id]
         ink = effect.id == 'ink_bloom'
+        text = effect.id == 'text'
+        text_timing = text and self.parameter_tabs.currentIndex() == 1
         phosphor = effect.id == 'edge_phosphor'
         region = phosphor and self.parameter_tabs.currentIndex() == 1
         timing = ink and self.parameter_tabs.currentIndex() == 1
         self.parameter_tabs.setTabText(1, 'Region' if phosphor else 'Timing')
-        self.parameter_tabs.setVisible(ink or phosphor)
+        self.parameter_tabs.setVisible(ink or phosphor or text)
         self.timing_note.setVisible(timing)
         self.restore_timing.setVisible(timing)
         self.restore_timing.setEnabled(bool(self.shared_timing))
@@ -298,6 +303,8 @@ class EffectsPanel(QWidget):
         self.scope_label.setText('GLOBAL TIMING / all sections' if timing else self.context_scope_label)
         self.timing_selected.emit(timing)
         visible_paths = SHARED_TIMING_CONTROLS if timing else tuple(path for path in effect.paths if not ink or path not in INK_TIMING)
+        if text:
+            visible_paths = TEXT_TIMING if text_timing else tuple(path for path in effect.paths if path not in TEXT_TIMING)
         if self.allowed_effects is not None:
             visible_paths = tuple(path for path in visible_paths if not path.startswith('slab.'))
         if phosphor:
@@ -308,7 +315,7 @@ class EffectsPanel(QWidget):
                 if mode == (2, 2):
                     visible_paths = tuple(p for p in visible_paths if p != 'edge_phosphor.fade_anchor')
                 self.description.setText('Profile preset keeps the original neck blend. Choose Object to attach a reusable fade to a source, or Canvas to hold it in the viewport. The region affects contours, echoes, fill and surrounding light; it leaves the final background texture intact.')
-                sources = ('silhouette', 'forms', 'ink_bloom', 'particles', 'rays')
+                sources = ('silhouette', 'forms', 'ink_bloom', 'particles', 'rays', 'text')
                 anchor = self.summary['edge_phosphor']['ranges']['edge_phosphor.fade_anchor']
                 missing = mode == (1, 1) and (not any(self.summary[s]['active'] for s in sources) if anchor == (0, 0) else
                           anchor[0] == anchor[1] and not self.summary[sources[int(anchor[0]) - 1]]['active'])

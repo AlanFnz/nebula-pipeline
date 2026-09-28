@@ -9,17 +9,21 @@ from synth_canvas import content_size, object_offset, particle_framing, source_f
 from synth_regions import DirectionalRegion, LocalFrame
 from synth_render_context import RenderContext, SourceOutput
 
-ANCHORS = ('auto', 'silhouette', 'slab', 'ink_bloom', 'particles', 'blinds')
+ANCHORS = ('auto', 'silhouette', 'slab', 'ink_bloom', 'particles', 'blinds', 'text')
 
 
 def source_frame(preset, size, time, anchor='auto', continuous_time=None):
     sources = {m['id']: m['params'] for m in preset.get('modules', ()) if m.get('enabled', True)}
     if anchor == 'auto':
-        anchor = next((key for key in ('silhouette', 'ink_bloom', 'particles', 'slab', 'blinds') if key in sources), None)
+        anchor = next((key for key in ('text', 'silhouette', 'ink_bloom', 'particles', 'slab', 'blinds') if key in sources), None)
     if anchor not in sources:
         return None
     p = sources[anchor]
     w, h = size; cw, ch = content_size(preset, size); dx, dy = object_offset(preset, size)
+    if anchor == 'text':
+        from synth_text import text_layout
+        mask, sx, sy = text_layout(p, time if continuous_time is None else continuous_time, preset['speed'], (cw, ch))
+        return LocalFrame((w / 2 + dx, h / 2 + dy), max(1., mask.height * sy / 2), -p['rotation'])
     if anchor == 'silhouette':
         return LocalFrame((w / 2 + cw * (p['center_x'] - .5) + dx,
                            h / 2 + ch * (p['center_y'] - .5) + dy),
