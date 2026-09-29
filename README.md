@@ -174,6 +174,27 @@ same held clock as slice motion. **Screen mesh → Phosphor wear** adds tiny row
 registration errors and uneven phosphor points. All five controls default to
 zero so saved effects keep their previous pixels.
 
+**Portrait / fractured CRT** pushes the same source toward a filmed-screen
+look: visible vertical phosphor lines, stronger solarized facial relief, and
+irregular overlapping patches with negative exposure. **Cyan / fractured CRT**
+is also a Source treatment for other footage, retaining its framing and timing.
+The two preceding portrait Studies remain independent.
+
+- **Slice echo → Fragment width** changes full-width strips into bounded image
+  patches. **Broken edges** introduces stepped outlines that reshuffle with the
+  same seeded event clock; **Negative exposure** reverses only those fragments.
+- **Chroma print → Image softness** defocuses the image before color mapping,
+  leaving the later CRT surface intact. **Solarized highlight recovery** restores
+  white at the solarization threshold while preserving the reversed tones above
+  it. It has no effect when Solarization is zero.
+- Adjust **Screen mesh → Column spacing / Column depth / Phosphor wear** for the
+  CRT surface. High final Raster softness can blur these fine lines away; use
+  Chroma print's Image softness when the face alone should be softer.
+
+New parameters are opt-in: Fragment width defaults to one (full-width strips),
+and Broken edges, Negative exposure, Image softness and Solarized highlight
+recovery default to zero. Existing saved Studies retain their pixels.
+
 **Source → Rotation** rotates footage around its positioned center, with positive
 values clockwise. Scale stays uniform and foreground masks follow the same
 framing. Increase Scale if rotation exposes corners. Existing video documents

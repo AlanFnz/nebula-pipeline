@@ -13,6 +13,11 @@ def _color(hue, saturation, value=1.):
 def render_chroma_print(arr, p, reference_size):
     if not p['mix']: return arr
     source = np.maximum(arr, 0.)
+    if p.get('softness', 0.):
+        # Defocus the image before printing; phosphor lines are applied later
+        # and remain visible instead of being erased by the final raster blur.
+        source = np.asarray(Image.fromarray(np.uint8(np.clip(source*255,0,255))).filter(
+            ImageFilter.GaussianBlur(p['softness']*min(reference_size)/720)),dtype=np.float32)/255
     luma = source @ np.array((.2126,.7152,.0722), dtype=np.float32)
     if p['detail']:
         blurred = np.asarray(Image.fromarray(np.uint8(np.clip(luma*255,0,255))).filter(
@@ -23,6 +28,9 @@ def render_chroma_print(arr, p, reference_size):
     folded = np.where(tone > p['solarize_point'],
                       p['solarize_point'] - (tone-p['solarize_point']), tone)
     tone = np.maximum(0, tone*(1-p['solarize']) + folded*p['solarize'])
+    if p.get('solarize_lift',0.) and p['solarize']:
+        gain = 1+(1/p['solarize_point']-1)*p['solarize_lift']*p['solarize']
+        tone = np.clip(tone*gain,0,1)
     # Cyan (or any chosen hue) in the mids, near-white highlights, deep black.
     base = _color(p['mid_hue'],p['mid_saturation'])
     white = _color(p['white_hue'],p['white_saturation'])
@@ -71,6 +79,37 @@ def slice_envelope(p, time, speed):
     return edge*edge*(3-2*edge)
 
 
+def fragment_mask(p, rows, width, height, center, extent, time, speed, seed, index):
+    """Bounded, stepped image fragments, on a resolution-independent event grid.
+
+    A separate random stream leaves legacy slice positions and tint choices
+    unchanged. Neutral settings bypass this path entirely.
+    """
+    clock = time*speed
+    if p['cadence']: clock = math.floor(clock*p['cadence']+1e-8)/p['cadence']
+    tick = math.floor(clock/p['period']+p['phase'])
+    rng = np.random.default_rng(np.random.SeedSequence((seed,tick & 0xffffffffffffffff,891,index)))
+    angle = math.radians(p.get('angle',0.))
+    x = (np.arange(width,dtype=np.float32)+.5-width/2)/height
+    y = ((np.arange(height,dtype=np.float32)+.5-height/2)/height)[:,None]
+    u = x[None,:]*math.cos(angle)+y*math.sin(angle)
+    span = width/height
+    cx = rng.uniform(-.32,.32)*span
+    half = p.get('width',1.)*span*rng.uniform(.65,1.3)*.5
+    breakup = p.get('edge_breakup',0.)
+    # The steps belong to the event, not individual pixels or a moving tile.
+    columns = np.clip(((u/span+.75)/1.5*9).astype(int),0,8)
+    bands = np.clip(((rows-center)/max(extent,.001)+.75)/1.5*5,0,4).astype(int)
+    top = rng.uniform(-.5,.5,9).astype(np.float32)[columns]*extent*breakup
+    bottom = rng.uniform(-.5,.5,9).astype(np.float32)[columns]*extent*breakup
+    left = rng.uniform(-.3,.3,5).astype(np.float32)[bands]*half*breakup
+    right = rng.uniform(-.3,.3,5).astype(np.float32)[bands]*half*breakup
+    distance = np.minimum(rows-(center-extent*.5+top),center+extent*.5+bottom-rows)
+    if p.get('width',1.) < 1.:
+        distance = np.minimum(distance,np.minimum(u-(cx-half+left),cx+half+right-u))
+    return np.clip(distance/max(1/height,p['softness'])+.5,0,1)
+
+
 def render_slice_echo(arr, p, time, speed, seed, reference_size):
     if not p['mix'] or not p['opacity']: return arr
     events = slice_events(p,time,speed,seed)
@@ -86,9 +125,11 @@ def render_slice_echo(arr, p, time, speed, seed, reference_size):
     envelope = slice_envelope(p,time,speed)
     source = Image.fromarray(np.uint8(np.clip(arr*255,0,255)))
     out = arr.copy()
-    for center,height,dx,dy,zoom,tint in events:
+    for index,(center,height,dx,dy,zoom,tint) in enumerate(events):
         distance = np.abs(rows-center)
         mask = np.clip((height*.5-distance)/max(1/h,p['softness'])+.5,0,1)
+        if p.get('width',1.) < 1. or p.get('edge_breakup',0.):
+            mask = fragment_mask(p,rows,w,h,center,height,time,speed,seed,index)
         if not mask.any(): continue
         shifted = source.transform((w,h),Image.Transform.AFFINE,
             (1/zoom,0,w/2-(w/2+dx*cw)/zoom,0,1/zoom,h/2-(h/2+dy*ch)/zoom),
@@ -98,6 +139,10 @@ def render_slice_echo(arr, p, time, speed, seed, reference_size):
         if p.get('luma_mask', 0.):
             light = echo @ np.array((.2126,.7152,.0722),dtype=np.float32)
             coverage = 1-p['luma_mask']+p['luma_mask']*np.clip(light,0,1)
+        if p.get('negative',0.):
+            # Reverse the exposed image, before tinting. Coverage still comes
+            # from the original image so black gaps need not turn into plates.
+            echo = echo*(1-p['negative'])+(1-echo)*p['negative']
         if tint:
             light = echo.max(axis=2)
             color = _color(p['hue'],p['saturation'])

@@ -20,7 +20,7 @@ import threading
 
 from PIL import Image
 from media import Cancellation, decode_frames, dimensions, frame_count, probe
-from synth_portrait_recipes import PORTRAIT_EFFECTS, EXPOSURE_EFFECTS
+from synth_portrait_recipes import PORTRAIT_EFFECTS, EXPOSURE_EFFECTS, FRACTURED_EFFECTS
 
 VIDEO_EFFECTS = ('subject_cutout', 'photocopy', 'broadcast', 'stretch_echo', 'signal_etch', 'chroma_print', 'slice_echo', 'screen_mesh', 'signal_background', 'scan_drag', 'ghosts', 'breakup', 'tape',
                  'drift', 'flare', 'separation', 'interference', 'frame_jitter',
@@ -402,6 +402,7 @@ TREATMENTS = (
         'low_res': {'low_res.resolution': 720}}),
     ('Cyan / slice screen', PORTRAIT_EFFECTS),
     ('Cyan / filmed exposures', EXPOSURE_EFFECTS),
+    ('Cyan / fractured CRT', FRACTURED_EFFECTS),
 )
 
 

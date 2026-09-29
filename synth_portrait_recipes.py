@@ -47,6 +47,38 @@ for _effect, _values in {
     EXPOSURE_EFFECTS[_effect].update({f'{_effect}.{key}': value for key,value in _values.items()})
 
 
+# Stronger CRT treatment; the two earlier portrait recipes remain frozen.
+FRACTURED_EFFECTS = copy.deepcopy(EXPOSURE_EFFECTS)
+for _effect, _values in {
+    'chroma_print': {'softness': .9, 'black': .06, 'white': 1.05,
+        'detail': 2.2, 'exposure': -.2, 'gamma': 1.25, 'highlight_start': .35,
+        'mid_saturation': .95, 'warm_color': 0., 'solarize': 1.,
+        'solarize_point': .58, 'solarize_lift': 1.},
+    'slice_echo': {'count': 5, 'width': .44, 'height': .4, 'edge_breakup': .4,
+        'negative': .75, 'activity': .95, 'angle': -7., 'color_chance': .9,
+        'envelope': .07, 'highlight_protect': .5, 'luma_mask': .55,
+        'opacity': .82, 'period': .33, 'saturation': .6, 'scale': .2,
+        'screen': .35, 'shift_x': .16, 'shift_y': .1, 'softness': .022,
+        'travel': .1},
+    'screen_mesh': {'angle': 4., 'exposure': 1.15, 'grain': .03,
+        'jitter': .015, 'pitch': 4.2, 'rgb': .3, 'softness': .15,
+        'strength': .53, 'wear': .55},
+    'separation': {'amount': .001},
+    'bloom': {'radius': 2., 'strength': .3},
+    'raster': {'chroma': .004, 'grain': .025, 'line_noise': .012, 'softness': .3},
+}.items():
+    FRACTURED_EFFECTS[_effect].update({f'{_effect}.{key}': value for key,value in _values.items()})
+
+
+def fractured_composition(footage):
+    """Solarized portrait, broken negative exposures and visible CRT columns."""
+    project = portrait_composition(footage, effects=FRACTURED_EFFECTS)
+    project['name'] = 'Portrait / fractured CRT'
+    project['footage'].update(rotation=-14.,zoom=1.48,x=90.,y=-120.)
+    project['phrases']['custom']['name'] = 'Cyan / fractured CRT'
+    return project
+
+
 def exposure_composition(footage):
     """Luminous, gently misregistered exposures; the first portrait is unchanged."""
     project = portrait_composition(footage, effects=EXPOSURE_EFFECTS)

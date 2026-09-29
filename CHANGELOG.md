@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add the independent Portrait / fractured CRT recipe and Cyan / fractured CRT
+  video treatment, with stronger vertical phosphor lines, solarized tonal relief
+  and irregular negative image patches. Add opt-in fragment width, stepped
+  edges, negative exposure, pre-print softness and solarized highlight recovery.
+  Previous portrait recipes, framing, timing and defaults remain unchanged.
+
 - Refine the cyan portrait as an independent Cyan exposures Study and a Cyan /
   filmed exposures video treatment. Add optional diagonal slice seams, pale
   highlight preservation, brightness-shaped opacity, event fades and phosphor
