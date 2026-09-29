@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Show a date beside every Study name and add a date-sortable Study manager
+  with multiple selection, reversible removal and restoration. Record timestamps
+  for new saves; use original file dates for legacy local Studies and fixed
+  introduction dates for built-ins. Keep media paths and compositions intact.
+  Explain total plays and continuous footage in the timeline Loops tooltip.
+
 - Add Portrait / unstable CRT and its Source treatment: faster irregular bars,
   distinct square flashes sampled before the main slices, and existing Tape
   damage applied to the footage. Add opt-in timing scatter, nonlinear travel,

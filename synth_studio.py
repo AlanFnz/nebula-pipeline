@@ -29,7 +29,8 @@ from synth_sequence import load_sequence, normalize_sequence, reference_sequence
 from synth_composition import FORMAT, compile_composition, composition_from_sequence, load_composition, normalize_composition, reference_composition, save_composition, section_ranges
 from synth_composer_ui import CompositionPanel, SectionTimeline
 from synth_canvas import CANVAS_FORMATS, format_canvas, normalize_canvas, preview_size, resize_canvas
-from synth_studies import study_catalogue, study_composition, save_study
+from synth_studies import study_records, study_composition, save_study
+from synth_studies_ui import StudiesDialog
 from synth_artwork_ui import ArtworkControl
 from synth_text_ui import TextControl
 from synth_master import normalize_master
@@ -255,6 +256,7 @@ class SynthStudio(QMainWindow):
         self.export_job = None
         self.import_job = None
         self.study_job = None
+        self.studies_dialog = None
         self.video_frames = VideoFrameProvider(preview=True)
         self.controls = {}
         self.module_groups = []
@@ -338,18 +340,6 @@ class SynthStudio(QMainWindow):
         self.import_video_button = QPushButton('Import video…'); self.import_video_button.clicked.connect(self.import_video_dialog)
         sequence_actions.addWidget(self.import_video_button)
         self.cancel_import = QPushButton('Cancel import'); self.cancel_import.clicked.connect(self.cancel_video_import); self.cancel_import.hide(); sequence_actions.addWidget(self.cancel_import)
-        sequence_actions.addWidget(QLabel("Studies"))
-        self.starter_combo = QComboBox(); self.starter_combo.setAccessibleName("Studies")
-        for identifier, label in study_catalogue():
-            self.starter_combo.addItem(label, identifier)
-        self.starter_combo.setPlaceholderText('Choose a study…')
-        self.starter_combo.setCurrentIndex(-1)
-        self.starter_combo.setToolTip("Choose a built-in or saved study, then load an editable copy in the current canvas format.")
-        sequence_actions.addWidget(self.starter_combo)
-        self.load_starter_button = QPushButton("Load study"); self.load_starter_button.clicked.connect(self.load_starter)
-        self.load_starter_button.setEnabled(False)
-        self.starter_combo.currentIndexChanged.connect(lambda index: self.load_starter_button.setEnabled(index >= 0))
-        sequence_actions.addWidget(self.load_starter_button)
         for text, slot in (("Save…", self.save_sequence_dialog), ("Open…", self.load_sequence_dialog)):
             button = QPushButton(text); button.clicked.connect(slot); sequence_actions.addWidget(button)
         self.save_study_button = QPushButton('Save as study…'); self.save_study_button.clicked.connect(self.save_study_dialog)
@@ -357,6 +347,25 @@ class SynthStudio(QMainWindow):
         sequence_actions.addWidget(self.save_study_button)
         sequence_actions.addStretch(1)
         outer.addLayout(sequence_actions)
+        study_actions = QHBoxLayout()
+        study_actions.addWidget(QLabel("Studies"))
+        self.starter_combo = QComboBox(); self.starter_combo.setAccessibleName("Studies")
+        self.starter_combo.setPlaceholderText('Choose a study…')
+        self.starter_combo.setToolTip("Choose a built-in or saved study, then load an editable copy in the current canvas format.")
+        self.starter_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.starter_combo.setMinimumContentsLength(30)
+        study_actions.addWidget(self.starter_combo, 1)
+        self.load_starter_button = QPushButton("Load study"); self.load_starter_button.clicked.connect(self.load_starter)
+        self.load_starter_button.setEnabled(False)
+        self.starter_combo.currentIndexChanged.connect(lambda index: self.load_starter_button.setEnabled(index >= 0))
+        study_actions.addWidget(self.load_starter_button)
+        self.manage_studies_button = QPushButton('Manage…')
+        self.manage_studies_button.setAccessibleName('Manage studies')
+        self.manage_studies_button.setToolTip('Sort studies by date, remove entries from the picker, or restore removed studies.')
+        self.manage_studies_button.clicked.connect(self.manage_studies)
+        study_actions.addWidget(self.manage_studies_button)
+        outer.addLayout(study_actions)
+        self.refresh_studies()
         canvas_row = QHBoxLayout(); canvas_row.addWidget(QLabel("Canvas"))
         self.canvas_combo = QComboBox(); self.canvas_combo.setAccessibleName("Canvas aspect ratio")
         for identifier, label, _width, _height in CANVAS_FORMATS:
@@ -702,9 +711,20 @@ class SynthStudio(QMainWindow):
         selected = self.starter_combo.currentData()
         with QSignalBlocker(self.starter_combo):
             self.starter_combo.clear()
-            for identifier, label in study_catalogue(): self.starter_combo.addItem(label, identifier)
+            for entry in study_records():
+                self.starter_combo.addItem(entry.label, entry.identifier)
+                self.starter_combo.setItemData(self.starter_combo.count() - 1,
+                                              entry.date_hint, Qt.ItemDataRole.ToolTipRole)
             self.starter_combo.setCurrentIndex(self.starter_combo.findData(selected) if selected else -1)
         self.load_starter_button.setEnabled(self.starter_combo.currentData() is not None)
+
+    def manage_studies(self):
+        if self.studies_dialog is None:
+            self.studies_dialog = StudiesDialog(self)
+            self.studies_dialog.libraryChanged.connect(self.refresh_studies)
+        else:
+            self.studies_dialog.refresh()
+        self.studies_dialog.show(); self.studies_dialog.raise_(); self.studies_dialog.activateWindow()
 
     def save_study_dialog(self):
         if self.composition is None or self.study_job is not None: return
@@ -729,6 +749,7 @@ class SynthStudio(QMainWindow):
         self._finish_study_save(job)
         if self.closing: return
         self.refresh_studies()
+        if self.studies_dialog is not None: self.studies_dialog.refresh()
         self.status.setText(f'Saved study: {job.name}. Choose it in Studies to load a fresh copy.')
 
     def study_save_failed(self, job, error):

@@ -1,5 +1,6 @@
 """Personal studies preserve recipes and media independently of working edits."""
 import copy
+from datetime import datetime
 import json
 import shutil
 
@@ -8,8 +9,8 @@ import pytest
 from media import Cancellation, Cancelled
 from synth_composition import compile_composition
 from synth_sequence import render_sequence_frame
-from synth_starters import STARTERS, starter_composition
-from synth_studies import save_study, study_catalogue, study_composition
+from synth_starters import STARTERS, STARTER_DATES, starter_composition
+from synth_studies import LIBRARY_FILE, save_study, set_studies_removed, study_catalogue, study_composition, study_records
 from synth_video import apply_treatment, video_composition
 from test_synth_video import clip
 
@@ -23,7 +24,7 @@ def test_saved_video_study_survives_original_and_library_moves(clip, tmp_path):
     identifier = save_study(project, 'Ink / worn tape', root)
     assert project == before
     assert len(study_catalogue(root)) == len(STARTERS) + 1
-    assert study_catalogue(root)[-1] == (identifier, 'Ink / worn tape · 1.0s')
+    assert study_catalogue(root)[-1] == (identifier, f'Ink / worn tape · 1.0s · {datetime.now().astimezone().date()}')
     saved = root / identifier.split(':')[1] / 'study.json'
     raw = json.loads(saved.read_text())
     assert raw['footage']['path'] == 'media/source.mkv'
@@ -66,5 +67,68 @@ def test_failed_or_cancelled_save_never_publishes_partial_study(clip, tmp_path):
 def test_library_ignores_incomplete_files_and_rejects_path_traversal(tmp_path):
     folder = tmp_path / ('a' * 32); folder.mkdir()
     (folder / 'study.json').write_text('{invalid json')
-    assert study_catalogue(tmp_path) == [(key, label) for key, label, _ in STARTERS]
+    assert study_catalogue(tmp_path) == [(key, f'{label} · {STARTER_DATES[key]}') for key, label, _ in STARTERS]
     with pytest.raises(ValueError, match='Unknown'): study_composition('personal:../elsewhere', tmp_path)
+
+
+def test_dates_survive_library_moves_and_bad_legacy_metadata_has_a_fallback(tmp_path, monkeypatch):
+    import synth_studies
+    class Clock(datetime):
+        @classmethod
+        def now(cls): return cls(2021, 11, 4, 12)
+    monkeypatch.setattr(synth_studies, 'datetime', Clock)
+    root = tmp_path / 'Studies'
+    key = save_study(starter_composition('profile-doryphoros'), 'Old study', root)
+    original = study_records(root)[-1]
+    assert original.date == '2021-11-04' and not original.estimated_date
+    moved = tmp_path / 'Moved'; shutil.copytree(root, moved)
+    assert study_records(moved)[-1] == original
+    folder = moved / key.split(':')[1]
+    (folder / 'metadata.json').write_text('{"saved_at": "not a date"}')
+    legacy = study_records(moved)[-1]
+    assert legacy.date == datetime.now().date().isoformat()
+    assert legacy.estimated_date
+    assert set(STARTER_DATES) == {key for key, _, _ in STARTERS}
+
+
+def test_removing_and_restoring_multiple_studies_is_persistent_and_preserves_media(clip, tmp_path):
+    project = video_composition(clip)
+    key = save_study(project, 'My source', tmp_path)
+    loaded = study_composition(key, tmp_path)
+    source = loaded['footage']['path']
+    expected = render_sequence_frame(compile_composition(loaded), .2, (96, 72)).tobytes()
+    set_studies_removed([key, 'refined'], directory=tmp_path)
+    assert not {key, 'refined'} & {key for key, _ in study_catalogue(tmp_path)}
+    removed = {entry.identifier for entry in study_records(tmp_path, include_removed=True) if entry.removed}
+    assert removed == {key, 'refined'}
+    assert study_composition(key, tmp_path) == loaded
+    assert loaded['footage']['path'] == source
+    assert render_sequence_frame(compile_composition(loaded), .2, (96, 72)).tobytes() == expected
+    set_studies_removed([key], removed=False, directory=tmp_path)
+    assert key in dict(study_catalogue(tmp_path)) and 'refined' not in dict(study_catalogue(tmp_path))
+    set_studies_removed(['refined'], removed=False, directory=tmp_path)
+    assert len(study_catalogue(tmp_path)) == len(STARTERS) + 1
+
+
+def test_bad_ids_or_failed_atomic_write_cannot_remove_other_entries(tmp_path, monkeypatch):
+    import synth_studies
+    set_studies_removed(['approved'], directory=tmp_path)
+    before = (tmp_path / LIBRARY_FILE).read_bytes()
+    with pytest.raises(ValueError, match='Unknown'):
+        set_studies_removed(['personal:../outside', 'refined'], directory=tmp_path)
+    assert (tmp_path / LIBRARY_FILE).read_bytes() == before
+    def fail_replace(*args): raise OSError('disk full')
+    monkeypatch.setattr(synth_studies.Path, 'replace', fail_replace)
+    with pytest.raises(OSError, match='disk full'):
+        set_studies_removed(['refined'], directory=tmp_path)
+    assert (tmp_path / LIBRARY_FILE).read_bytes() == before
+    assert list(tmp_path.iterdir()) == [tmp_path / LIBRARY_FILE]
+
+
+def test_corrupt_index_does_not_block_loading_or_get_overwritten(tmp_path):
+    (tmp_path / LIBRARY_FILE).write_text('{broken')
+    assert len(study_catalogue(tmp_path)) == len(STARTERS)
+    assert study_composition('refined', tmp_path)['name']
+    with pytest.raises(ValueError, match='index'):
+        set_studies_removed(['refined'], directory=tmp_path)
+    assert (tmp_path / LIBRARY_FILE).read_text() == '{broken'

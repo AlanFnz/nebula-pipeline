@@ -377,6 +377,22 @@ current composition; loading a study keeps the current canvas format.
 The picker shows **Choose a study…** when opening a document, so it does not
 misidentify the open composition. Its name appears below the monitor.
 
+Every picker entry includes a date in `YYYY-MM-DD` format. Built-in studies use
+the date they first entered the library; new personal saves store their original
+save timestamp in a separate `metadata.json` that travels with the study folder.
+Older saves use the JSON file's creation date, falling back to modification date
+where creation time is unavailable. Hover over a date in the manager to see its
+source.
+
+**Studies → Manage…** opens a sortable library, newest dates first. Select one
+or several rows with Command-click or Shift-click, then **Remove selected**.
+They disappear from the picker; **Removed studies → Restore selected** brings
+them back. Removal is reversible and retains the saved files at their original
+paths, including video, so existing compositions keep working. Built-in entries
+can be removed from the picker in the same way. Removal does not reclaim disk
+space; the local `.library.json` records library visibility separately from the
+recipes and source media.
+
 **Save as study…** adds the current composition to the Studies library under a
 name you choose, without replacing the working document. A study is an
 independent snapshot of its source recipe, sections, effects, timing, master
@@ -411,12 +427,17 @@ Text wording appears at the top of Object; **Apply text** commits the phrase.
 
 - Select **Whole clip** to adjust the entire piece, or click a section to
   adjust it locally. Sections can be added, duplicated, removed, reordered,
-  and given different durations under **Arrange**. Set a section's **loops**
-  count there to repeat that section's edited event sequence in place; the
+  and given different durations under **Arrange**. Click a timeline section,
+  open **Arrange**, and set **Loops** under **SEQUENCE / ARRANGEMENT**. The count
+  is total plays: 1 plays once, 2 plays twice, up to 32. A three-second section
+  at 2 plays occupies six seconds and moves later sections accordingly. Loops
+  repeats that section's edited event sequence in place; the
   timeline and export use the repeated duration automatically. Each repetition
   restarts the events at the selected section duration, even after rhythm edits.
   Procedural motion/noise and imported footage keep their continuous clocks;
-  use **Source → Loop trimmed range** to repeat the source video itself.
+  use **Source → When footage ends → Loop trimmed range**, with **In** and
+  **Out** defining the range, to repeat the source video itself. The timeline
+  must be longer than that trimmed range to see another source repetition.
 - **Effects** exposes luminous forms, rays / Venetian blinds, particle attractors, ghosts / trails,
   signal breakup, signal drift, granular halos, exposure flares, color
   separation, signal interference, bloom, and raster / grain. Select any effect in the library and

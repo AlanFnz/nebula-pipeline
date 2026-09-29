@@ -176,7 +176,7 @@ class CompositionPanel(QWidget):
         hint.setWordWrap(True); hint.setObjectName("muted"); layout.addWidget(hint)
 
         self.arrangement_button = QPushButton(); self.arrangement_button.setCheckable(True)
-        self.arrangement_button.setToolTip("Show section arrangement, duration and frame-rate controls.")
+        self.arrangement_button.setToolTip("Show section arrangement, duration, loops and frame-rate controls.")
         layout.addWidget(self.arrangement_button)
 
         clip = QGroupBox("CLIP / TIMING")
@@ -204,7 +204,9 @@ class CompositionPanel(QWidget):
         row.addWidget(QLabel('Loops'))
         self.section_loops = QSpinBox(); self.section_loops.setRange(1, 32); self.section_loops.setSuffix(" ×"); self.section_loops.setFixedWidth(68); self.section_loops.setKeyboardTracking(False)
         self.section_loops.setAccessibleName('Section loops')
-        self.section_loops.setToolTip('Repeat this timeline section. Total duration uses section duration × loops.')
+        self.section_loops.setToolTip('Total plays of this section: 1 = once, 2 = twice. '
+                                     'Repeats its edited event sequence; procedural motion/noise and imported footage keep running. '
+                                     'Total duration uses section duration × loops.')
         self.section_loops.valueChanged.connect(self.resize_section_loops); row.addWidget(self.section_loops)
         section_layout.addLayout(row)
         row = QHBoxLayout()

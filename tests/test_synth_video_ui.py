@@ -132,3 +132,37 @@ def test_save_as_study_is_independent_and_loads_from_the_renamed_library(window,
     monkeypatch.setattr(QInputDialog, 'getText', lambda *args, **kwargs: ('', False))
     window.save_study_button.click()
     assert window.study_job is None and window.composition['name'] == original_name
+
+
+def test_study_manager_updates_picker_without_changing_open_video(window):
+    from PySide6.QtCore import QItemSelectionModel, Qt
+    from synth_studies import save_study, study_records
+    key = save_study(window.composition, 'My open source')
+    window.refresh_studies()
+    window.load_starter_id(key)
+    before = copy.deepcopy(window.composition)
+    window.starter_combo.setCurrentIndex(window.starter_combo.findData(key))
+    window.manage_studies_button.click()
+    manager = window.studies_dialog
+    assert manager.isVisible()
+    assert manager.table.item(0, 1).text() == max(entry.date for entry in study_records())
+    for row in range(manager.table.rowCount()):
+        if manager.table.item(row, 0).data(Qt.ItemDataRole.UserRole) in {key, 'refined'}:
+            manager.table.selectionModel().select(manager.table.model().index(row, 0),
+                QItemSelectionModel.SelectionFlag.Select | QItemSelectionModel.SelectionFlag.Rows)
+    assert len(manager.selected_identifiers()) == 2
+    manager.action.click()
+    assert window.composition == before
+    assert Path(before['footage']['path']).exists()
+    assert window.starter_combo.findData(key) == -1
+    assert window.starter_combo.findData('refined') == -1
+    assert window.starter_combo.currentData() is None
+    assert not window.load_starter_button.isEnabled()
+    manager.show_removed.setChecked(True)
+    assert manager.table.rowCount() == 2
+    manager.table.selectAll(); manager.action.click()
+    assert window.starter_combo.findData(key) >= 0
+    assert window.starter_combo.findData('refined') >= 0
+    assert window.composition == before
+    assert all(' · 20' in window.starter_combo.itemText(i) for i in range(window.starter_combo.count()))
+    manager.close()

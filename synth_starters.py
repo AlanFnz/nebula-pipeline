@@ -30,6 +30,22 @@ STARTERS = (
 )
 
 
+# First appearance in the repository, retained independently of app builds.
+STARTER_DATES = {
+    'refined': '2026-09-26', 'approved': '2026-09-26',
+    'particle-head': '2026-09-26', 'particle-orbit': '2026-09-26',
+    'original-particles': '2026-09-26',
+    'ink-bloom': '2026-09-27', 'mixed-media': '2026-09-27',
+    'profile-signal': '2026-09-27', 'profile-echoes': '2026-09-27',
+    'profile-clear': '2026-09-27', 'profile-doryphoros': '2026-09-27',
+    'text-phosphor': '2026-09-28', 'text-phosphor-original': '2026-09-28',
+    'text-pressure': '2026-09-28', 'text-pressure-original': '2026-09-28',
+    'text-transmission': '2026-09-28', 'text-transmission-original': '2026-09-28',
+    'text-night': '2026-09-28', 'text-night-original': '2026-09-28',
+    'text-opium': '2026-09-29',
+}
+
+
 def starter_composition(identifier):
     for key, _label, factory in STARTERS:
         if key == identifier:
