@@ -296,8 +296,11 @@ Text wording appears at the top of Object; **Apply text** commits the phrase.
 - Select **Whole clip** to adjust the entire piece, or click a section to
   adjust it locally. Sections can be added, duplicated, removed, reordered,
   and given different durations under **Arrange**. Set a section's **loops**
-  count there to repeat that clip in place; the timeline and export use the
-  repeated duration automatically. Their internal events are generated for you.
+  count there to repeat that section's edited event sequence in place; the
+  timeline and export use the repeated duration automatically. Each repetition
+  restarts the events at the selected section duration, even after rhythm edits.
+  Procedural motion/noise and imported footage keep their continuous clocks;
+  use **Source → Loop trimmed range** to repeat the source video itself.
 - **Effects** exposes luminous forms, rays / Venetian blinds, particle attractors, ghosts / trails,
   signal breakup, signal drift, granular halos, exposure flares, color
   separation, signal interference, bloom, and raster / grain. Select any effect in the library and

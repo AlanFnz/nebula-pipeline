@@ -674,11 +674,15 @@ def compile_composition(raw):
         cycle = (last - first) / rate
         variant = (project["variation"], section["variation"])
         offset = _seed(project["seed"], section["id"], *variant) % (2**31 - 1) if any(variant) else 0
+        loop_frames = max(1, round(section["duration"] * fps))
+        loop_end = (round(start * fps) + loop_frames) / fps
         cues_by_frame = {}
-        for repetition in range(math.ceil((end - start) / cycle)):
+        # Compile one edited section, then repeat its frame-aligned cues. Extending
+        # the source phrase here would run past a trimmed section's loop boundary.
+        for repetition in range(math.ceil((loop_end - start) / cycle)):
             for cue in events:
                 frame = round((start + repetition * cycle + (cue["time"] - first) / rate) * fps)
-                if frame >= round(end * fps):
+                if frame >= round(loop_end * fps):
                     break
                 state_name = f"{section['id']}:{cue['state']}"
                 if state_name not in result["states"]:
@@ -687,11 +691,15 @@ def compile_composition(raw):
                     if 'footage' in project:
                         result['states'][state_name].setdefault('overrides', {})['treatment_fps'] = project['footage']['treatment_fps']
                 item = dict(cue, time=frame / fps, state=state_name)
-                item["duration"] = min(float(cue.get("duration", 0)) / rate, end - frame / fps)
+                item["duration"] = min(float(cue.get("duration", 0)) / rate, loop_end - frame / fps)
                 if cue.get("transition") in {"flash", "sweep"}:
                     item["intensity"] = min(3., cue.get("intensity", .6) * macros["flashes"])
                 cues_by_frame[frame] = item
-        result["cues"].extend(cues_by_frame[frame] for frame in sorted(cues_by_frame))
+        for loop in range(section["loops"]):
+            result["cues"].extend(
+                dict(cues_by_frame[frame], time=(frame + loop * loop_frames) / fps)
+                for frame in sorted(cues_by_frame)
+            )
     return normalize_sequence(result)
 
 

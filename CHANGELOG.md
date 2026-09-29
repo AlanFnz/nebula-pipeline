@@ -13,7 +13,8 @@
   clear completion, cancellation and error states.
 - Add per-section timeline loops. A section can repeat up to 32 times in place;
   total duration, preview and export follow the repeated arrangement, while
-  older compositions default to one loop.
+  older compositions default to one loop. Each repetition restarts the edited
+  section's cues, including custom durations and rhythm changes.
 
 - Replace Lost transmission's wrapped words with large centered single-line
   lettering. Use the existing size, width stretch, line-width limit and adaptive

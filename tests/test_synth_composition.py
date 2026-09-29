@@ -84,6 +84,27 @@ def test_section_loops_are_bounded_in_compositions(loops):
     with pytest.raises(ValueError): normalize_composition(project)
 
 
+@pytest.mark.parametrize("duration,rhythm", [(.04, 1.), (1.24, .7), (4.36, 1.3)])
+def test_loops_restart_the_edited_section_at_each_boundary(duration, rhythm):
+    project = reference_composition(refined=True)
+    section = project["sections"][1]
+    section["duration"] = duration
+    section["macros"]["rhythm"] = rhythm
+    once = compile_composition(project)
+    prefix = section["id"] + ":"
+    original_cues = [cue for cue in once["cues"] if cue["state"].startswith(prefix)]
+    section["loops"] = 3
+    repeated = compile_composition(project)
+    actual_cues = [cue for cue in repeated["cues"] if cue["state"].startswith(prefix)]
+    expected_cues = [
+        dict(cue, time=(round(cue["time"] * project["fps"]) + loop * round(duration * project["fps"])) / project["fps"])
+        for loop in range(3) for cue in original_cues
+    ]
+    assert actual_cues == expected_cues
+    assert repeated["states"] == once["states"]
+    assert repeated["duration"] == pytest.approx(once["duration"] + 2 * duration)
+
+
 def test_detailed_copy_and_source_snapshots_are_independent():
     project = reference_composition()
     saved = copy.deepcopy(project)
