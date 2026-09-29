@@ -24,6 +24,7 @@ from synth_photocopy import render_photocopy
 from synth_text import FONTS, validate_text, render_text
 from synth_broadcast import render_broadcast, render_broadcast_exposure
 from synth_echo import render_stretch_echo, render_signal_etch
+from synth_chroma import render_chroma_print, render_slice_echo, render_screen_mesh
 from synth_canvas import content_size, normalize_canvas, source_framing, object_offset
 from synth_print import render_ink_bloom, render_print_surface
 from synth_profile import render_silhouette, render_edge_phosphor, render_scan_drag
@@ -574,6 +575,67 @@ MODULES += (
         P('pulse_focus', 'Pulse center focus', .8, 0, 1, .01, 'Concentrate the flash around the horizontal center of the image highlights.'),
         P('phase', 'Pulse phase', 0., 0, 1, .01),
         P('cadence', 'Texture FPS', 24., 0, 60, 1, 'Zero freezes the texture; exposure pulses keep their own clock.'),
+        P('mix', 'Mix', 1., 0, 1, .01),
+    )),
+)
+
+MODULES += (
+    Module('chroma_print', 'Chroma print', 'Map source tones to luminous color while retaining texture and optional warm accents.', (
+        P('exposure', 'Input exposure', .2, -3, 3, .05),
+        P('black', 'Black point', .12, 0, .8, .01),
+        P('white', 'White point', .8, .2, 1.5, .01),
+        P('gamma', 'Midtone lift', 1.1, .2, 3, .05),
+        P('detail', 'Local contrast', 0., 0, 4, .05, 'Recover facial or surface relief from the source before color mapping.'),
+        P('detail_radius', 'Detail radius', 35., 2, 150, 1, 'Pixels at a 720-pixel reference edge.'),
+        P('mid_hue', 'Midtone hue', .51, 0, 1, .01),
+        P('mid_saturation', 'Midtone saturation', .85, 0, 1, .01),
+        P('highlight_start', 'Highlight transition', .5, 0, .95, .01),
+        P('white_hue', 'Highlight hue', .52, 0, 1, .01),
+        P('white_saturation', 'Highlight saturation', .05, 0, 1, .01),
+        P('warm_color', 'Warm accent amount', .7, 0, 1, .01, 'Recolor red-dominant source details with a separate accent.'),
+        P('warm_threshold', 'Warm accent threshold', .16, 0, .8, .01),
+        P('warm_hue', 'Warm accent hue', .94, 0, 1, .01),
+        P('warm_saturation', 'Warm accent saturation', .85, 0, 1, .01),
+        P('solarize', 'Solarization', 0., 0, 1, .01),
+        P('solarize_point', 'Solarization threshold', .8, .1, 1, .01),
+        P('source_color', 'Original color', 0., 0, 1, .01),
+        P('mix', 'Mix', 1., 0, 1, .01),
+    )),
+    Module('slice_echo', 'Slice echo', 'Displaced strips of the source, with optional colored exposure overlap. No independent bars are drawn.', (
+        P('count', 'Slice count', 3, 1, 12, 1),
+        P('height', 'Slice height', .18, .01, 1, .01),
+        P('shift_x', 'Horizontal displacement', .2, 0, 1, .01),
+        P('shift_y', 'Vertical displacement', .18, 0, 1, .01),
+        P('scale', 'Magnification variation', .12, 0, .7, .01),
+        P('softness', 'Slice edge softness', .003, 0, .2, .001),
+        P('period', 'Reshuffle seconds', .6, .05, 10, .05),
+        P('activity', 'Active intervals', .9, 0, 1, .01),
+        P('travel', 'Slice travel', .22, 0, 2, .01),
+        P('cadence', 'Slice motion FPS', 12., 0, 60, 1, 'Zero gives continuous travel. The layout reshuffles at Reshuffle seconds.'),
+        P('phase', 'Reshuffle phase', 0., 0, 1, .01),
+        P('hue', 'Slice tint hue', .9, 0, 1, .01),
+        P('saturation', 'Slice tint saturation', .8, 0, 1, .01),
+        P('color_chance', 'Tinted slices', .65, 0, 1, .01),
+        P('color_mix', 'Tint amount', .8, 0, 1, .01),
+        P('exposure', 'Slice exposure', 0., -2, 2, .05),
+        P('screen', 'Exposure overlap', .25, 0, 1, .01, 'Zero replaces source strips; one uses Screen blending for luminous overlapping images.'),
+        P('opacity', 'Slice opacity', .85, 0, 1, .01),
+        P('mix', 'Mix', 1., 0, 1, .01),
+    )),
+    Module('screen_mesh', 'Screen mesh', 'Fine tilted phosphor columns, RGB subpixels and scan rows across the complete image.', (
+        P('pitch', 'Column spacing', 4., 1, 20, .25, 'Pixels at a 720-pixel reference edge. Subpixel patterns fade out in small previews to prevent aliasing.'),
+        P('angle', 'Screen angle', 7., -90, 90, .5),
+        P('strength', 'Column depth', .5, 0, 1, .01),
+        P('rgb', 'RGB phosphors', .35, 0, 1, .01),
+        P('row_pitch', 'Row spacing', 2.5, 1, 20, .25),
+        P('rows', 'Row depth', .15, 0, 1, .01),
+        P('exposure', 'Screen exposure', .5, -2, 2, .05),
+        P('phase', 'Column phase', 0., 0, 1, .01),
+        P('jitter', 'Column instability', .03, 0, 1, .01),
+        P('bend', 'Column curvature', 0., 0, 12, .1, 'Gently bow phosphor columns. Pixels at a 720-pixel reference edge.'),
+        P('grain', 'Screen grain', .035, 0, .3, .005),
+        P('cadence', 'Screen texture FPS', 25., 0, 60, 1, 'Zero freezes grain and column instability.'),
+        P('softness', 'Screen softness', .25, 0, 3, .05),
         P('mix', 'Mix', 1., 0, 1, .01),
     )),
 )
@@ -1151,6 +1213,7 @@ def _breakup(arr, p, t, preset):
 
 
 RENDERERS = {
+    'screen_mesh': lambda arr, params, t, preset, index: render_screen_mesh(arr, params, t, preset['speed'], _seed(preset['seed'], 'screen-mesh'), content_size(preset, (arr.shape[1], arr.shape[0]))),
     'broadcast': lambda arr, params, t, preset, index: render_broadcast(arr, params, t, preset['speed'], _seed(preset['seed'], 'broadcast')),
     "photocopy": lambda arr, params, t, preset, index: render_photocopy(arr, params, t, _seed(preset["seed"], "photocopy")),
     "signal_background": lambda arr, params, t, preset, index: _signal_background(arr, params, t, preset),
@@ -1209,9 +1272,14 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
     generators = {'slab', 'blinds', 'particles', 'silhouette', 'ink_bloom', 'flare'}
     source_end = max((i for i, m in enumerate(p['modules']) if m.get('enabled', True) and m['id'] in generators), default=-1) + 1
     source_effects = {entry['id']: entry['params'] for entry in p['modules']
-                      if entry['enabled'] and entry['id'] in ('stretch_echo', 'signal_etch')}
+                      if entry['enabled'] and entry['id'] in ('chroma_print', 'slice_echo', 'stretch_echo', 'signal_etch')}
     def treat_source(image):
         reference = content_size(p, (width, height))
+        if 'chroma_print' in source_effects:
+            image = render_chroma_print(image, source_effects['chroma_print'], reference)
+        if 'slice_echo' in source_effects:
+            image = render_slice_echo(image, source_effects['slice_echo'], continuous_time,
+                                      p['speed'], _seed(p['seed'], 'slice-echo'), reference)
         original = image
         if 'stretch_echo' in source_effects:
             dx, dy = object_offset(p, (width, height))
@@ -1255,7 +1323,7 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
             params = dict(params, diameter=params["diameter"] * cw / ch)
         # Shared ink motion owns its hold clock across recipe sections. Other
         # effects retain the scene's speed and treatment cadence.
-        module_time = continuous_time if module_id in ('photocopy', 'broadcast') or (module_id == 'ink_bloom' and params.get('clock_mode', 0)) else t
+        module_time = continuous_time if module_id in ('photocopy', 'broadcast', 'screen_mesh') or (module_id == 'ink_bloom' and params.get('clock_mode', 0)) else t
         if module_id == 'edge_phosphor':
             if p['render_version'] == 1:
                 rendered = render_edge_phosphor_v1(arr, params, module_time, p, _seed(p['seed'], 'edge-phosphor'))

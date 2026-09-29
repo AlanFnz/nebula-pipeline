@@ -92,6 +92,22 @@ def test_async_import_preserves_previous_composition_and_relink_is_undoable(wind
     assert window.composition['footage']['path'].endswith('missing.mkv')
 
 
+def test_cyan_treatment_effect_controls_edit_and_undo(window):
+    panel = window.composer
+    panel.apply_video_treatment(5)
+    effects = panel.effects_panel
+    for module,key,value in [('chroma_print','mid_saturation',.4),
+                             ('slice_echo','period',1.2),('screen_mesh','angle',12.)]:
+        assert module in effects.applied_ids
+        effects.inspect_effect(module)
+        control = effects.controls[f'{module}.{key}'].input
+        before = control.value()
+        control.setValue(value)
+        assert window.composition['effects'][module]['params'][f'{module}.{key}'] == value
+        window.undo_composition()
+        assert effects.controls[f'{module}.{key}'].input.value() == before
+
+
 def test_save_as_study_is_independent_and_loads_from_the_renamed_library(window, monkeypatch):
     from PySide6.QtWidgets import QInputDialog
     from synth_studies import study_catalogue

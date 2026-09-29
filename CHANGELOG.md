@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Add reusable Chroma print, Slice echo and Screen mesh treatments for footage,
+  objects and text, plus the Cyan / slice screen video treatment preset. Add a
+  local Portrait / cyan signal recipe with ten seconds of continuous source
+  motion, pale cyan exposure, displaced pink image fragments and tilted RGB
+  phosphors. Controls include contrast, palette, slice motion, tint and screen
+  texture. Filter subpixel patterns consistently in previews, freeze all values
+  in the local Study, and leave previous Studies and media untouched.
+
 - Add Text / opium, a 4.5-second editable monochrome Study with three exposure
   pulses, a bold word and an opening serif echo. Stretch echo and Signal etch
   are reusable treatments for generated sources and imported footage, with

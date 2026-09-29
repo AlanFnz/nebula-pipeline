@@ -98,8 +98,8 @@ composition being left is backed up in
   finish. **Master** adjusts the final brightness, contrast and saturation.
   **Photocopy** and **Subject cutout** add toner printing and local foreground
   extraction. Object generators are not offered for video.
-- **Source → Treatment presets** applies Clean, Worn tape, Printed motion or
-  Soft signal or Cold photocopy to the current footage. These replace effects and master settings
+- **Source → Treatment presets** applies Clean, Worn tape, Printed motion,
+  Soft signal, Cold photocopy or Cyan / slice screen to the current footage. These replace effects and master settings
   throughout the composition while retaining its source, framing and sections;
   Undo restores the previous treatment. They are separate from generated studies.
 - **Before / source** previews the same frame and framing without treatments or
@@ -130,6 +130,35 @@ framing, clocks and decoding; `synth_video_audio.py` handles audio assembly.
 The existing renderer accepts an optional source image before the same image
 treatments. Tracked object identities, input-driven particles and
 multiple footage layers remain future work.
+
+### Cyan portrait treatment
+
+**Source → Treatment presets → Cyan / slice screen** applies an editable cyan
+and pink display treatment to any imported clip. It combines three optional
+effects with the existing color separation, bloom, raster and frame jitter:
+
+- **Chroma print** maps source tones to colored mids and pale highlights. Black
+  and white points, exposure, local contrast, separate warm accents and optional
+  solarization control the result without requiring a face or segmentation.
+- **Slice echo** displaces horizontal pieces of the actual image. Adjust slice
+  count/height, horizontal and vertical displacement, magnification, reshuffle
+  interval, travel, independent motion FPS, tint, exposure and Screen overlap.
+  Zero motion FPS gives continuous travel between deterministic reshuffles.
+- **Screen mesh** adds tilted, gently curved phosphor columns, RGB subpixels,
+  fine rows and light-sensitive grain across the entire canvas. Spacing,
+  angle, curvature, grain, softness and texture FPS are editable; zero texture
+  FPS freezes the screen. Small previews filter subpixel lines while preserving
+  mean exposure and color balance.
+
+These effects also accept generated objects and text. All are off in previous
+Studies. Chroma print and Slice echo run on the source before image finishes;
+Screen mesh finishes the resulting image. Every effect has a neutral Mix = 0.
+The local **Portrait / cyan signal** Study uses a continuous ten-second close-up
+in a square canvas. Its framing remains editable in Source. Like other personal
+video Studies, it stores a separate local copy of the footage and all effect
+values; the user's footage is not distributed with the repository or app.
+`synth_portrait_recipes.portrait_composition(footage)` authors that recipe from
+metadata returned by `synth_video.inspect_video`, ready for `save_study`.
 
 ### Editable text studies
 

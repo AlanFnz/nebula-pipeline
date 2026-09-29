@@ -20,11 +20,12 @@ import threading
 
 from PIL import Image
 from media import Cancellation, decode_frames, dimensions, frame_count, probe
+from synth_portrait_recipes import PORTRAIT_EFFECTS
 
-VIDEO_EFFECTS = ('subject_cutout', 'photocopy', 'broadcast', 'stretch_echo', 'signal_etch', 'signal_background', 'scan_drag', 'ghosts', 'breakup', 'tape',
+VIDEO_EFFECTS = ('subject_cutout', 'photocopy', 'broadcast', 'stretch_echo', 'signal_etch', 'chroma_print', 'slice_echo', 'screen_mesh', 'signal_background', 'scan_drag', 'ghosts', 'breakup', 'tape',
                  'drift', 'flare', 'separation', 'interference', 'frame_jitter',
                  'bloom', 'raster', 'print_surface', 'low_res')
-VIDEO_MODULES = frozenset(('subject_cutout', 'photocopy', 'broadcast', 'stretch_echo', 'signal_etch', 'signal_background', 'scan_drag', 'smear', 'breakup', 'tape',
+VIDEO_MODULES = frozenset(('subject_cutout', 'photocopy', 'broadcast', 'stretch_echo', 'signal_etch', 'chroma_print', 'slice_echo', 'screen_mesh', 'signal_background', 'scan_drag', 'smear', 'breakup', 'tape',
                           'warp', 'flare', 'separation', 'interference', 'frame_jitter',
                           'bloom', 'raster', 'print_surface', 'low_res'))
 PROXY_EDGE = 720
@@ -383,6 +384,7 @@ TREATMENTS = (
                       'photocopy.halftone': .32},
         'frame_jitter': {'frame_jitter.x': 3., 'frame_jitter.y': 2., 'frame_jitter.rotation': .2},
         'low_res': {'low_res.resolution': 720}}),
+    ('Cyan / slice screen', PORTRAIT_EFFECTS),
 )
 
 

@@ -3,6 +3,16 @@
 
 def control_group(path):
     module, key = path.split('.')
+    if module == 'chroma_print':
+        if key in ('detail', 'detail_radius'): return 'Texture & detail'
+        if key != 'mix': return 'Color & light'
+    if module == 'slice_echo':
+        if key in ('shift_x', 'shift_y', 'travel', 'activity'): return 'Motion & timing'
+        if key == 'exposure': return 'Color & light'
+        if key == 'screen': return 'Output & blending'
+    if module == 'screen_mesh':
+        if key == 'exposure': return 'Color & light'
+        if key == 'angle': return 'Shape & layout'
     if module == 'broadcast' and key == 'roll': return 'Motion & timing'
     if module == 'tape' and key == 'tracking': return 'Texture & detail'
     if key in ('content', 'font', 'artwork'): return 'Wording & source' if module == 'text' else 'Source'

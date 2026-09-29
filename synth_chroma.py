@@ -1,0 +1,126 @@
+"""Source-independent color exposures, displaced slices and screen phosphors."""
+import colorsys
+import math
+
+import numpy as np
+from PIL import Image, ImageFilter
+
+
+def _color(hue, saturation, value=1.):
+    return np.array(colorsys.hsv_to_rgb(hue % 1, saturation, value), dtype=np.float32)
+
+
+def render_chroma_print(arr, p, reference_size):
+    if not p['mix']: return arr
+    source = np.maximum(arr, 0.)
+    luma = source @ np.array((.2126,.7152,.0722), dtype=np.float32)
+    if p['detail']:
+        blurred = np.asarray(Image.fromarray(np.uint8(np.clip(luma*255,0,255))).filter(
+            ImageFilter.GaussianBlur(p['detail_radius']*min(reference_size)/720)),dtype=np.float32)/255
+        luma = np.maximum(0,luma+(luma-blurred)*p['detail'])
+    tone = np.clip((luma * 2**p['exposure'] - p['black']) / max(.01,p['white']-p['black']),0,1)
+    tone = tone ** (1/p['gamma'])
+    folded = np.where(tone > p['solarize_point'],
+                      p['solarize_point'] - (tone-p['solarize_point']), tone)
+    tone = np.maximum(0, tone*(1-p['solarize']) + folded*p['solarize'])
+    # Cyan (or any chosen hue) in the mids, near-white highlights, deep black.
+    base = _color(p['mid_hue'],p['mid_saturation'])
+    white = _color(p['white_hue'],p['white_saturation'])
+    highlight = np.clip((tone-p['highlight_start'])/max(.01,1-p['highlight_start']),0,1)
+    palette = base + highlight[...,None]*(white-base)
+    warm = np.clip(((source[...,0]-source[...,1]) / np.maximum(.01,source[...,0]+source[...,1])
+                    - p['warm_threshold']) / .15,0,1) * p['warm_color']
+    accent = _color(p['warm_hue'],p['warm_saturation'])
+    palette = palette*(1-warm[...,None]) + accent*warm[...,None]
+    out = tone[...,None]*palette
+    out = out*(1-p['source_color']) + np.clip(arr,0,1)*p['source_color']
+    return arr*(1-p['mix']) + out*p['mix']
+
+
+def slice_events(p, time, speed, seed):
+    """Event layout is independent of render dimensions and request order."""
+    clock = time * speed
+    if p['cadence']: clock = math.floor(clock*p['cadence']+1e-8)/p['cadence']
+    cycle = clock/p['period'] + p['phase']
+    tick = math.floor(cycle)
+    rng = np.random.default_rng(np.random.SeedSequence((seed,tick & 0xffffffffffffffff,627)))
+    if rng.random() >= p['activity']: return ()
+    progress = cycle-tick
+    events = []
+    for _ in range(p['count']):
+        center = rng.uniform(-.1,1.1) + (progress-.5)*p['travel']*rng.choice((-1,1))
+        height = p['height']*rng.uniform(.45,1.4)
+        dx = rng.uniform(-1,1)*p['shift_x']
+        dy = rng.uniform(-1,1)*p['shift_y']
+        zoom = 1+rng.uniform(-1,1)*p['scale']
+        tint = rng.random() < p['color_chance']
+        events.append((float(center),float(height),float(dx),float(dy),float(zoom),tint))
+    return tuple(events)
+
+
+def render_slice_echo(arr, p, time, speed, seed, reference_size):
+    if not p['mix'] or not p['opacity']: return arr
+    events = slice_events(p,time,speed,seed)
+    if not events: return arr
+    h,w = arr.shape[:2]; cw,ch = reference_size
+    rows = (np.arange(h,dtype=np.float32)+.5)/h
+    source = Image.fromarray(np.uint8(np.clip(arr*255,0,255)))
+    out = arr.copy()
+    for center,height,dx,dy,zoom,tint in events:
+        distance = np.abs(rows-center)
+        mask = np.clip((height*.5-distance)/max(1/h,p['softness'])+.5,0,1)
+        if not mask.any(): continue
+        shifted = source.transform((w,h),Image.Transform.AFFINE,
+            (1/zoom,0,w/2-(w/2+dx*cw)/zoom,0,1/zoom,h/2-(h/2+dy*ch)/zoom),
+            Image.Resampling.BILINEAR)
+        echo = np.asarray(shifted,dtype=np.float32)/255
+        if tint:
+            light = echo.max(axis=2)
+            colored = light[...,None]*_color(p['hue'],p['saturation'])
+            echo = echo*(1-p['color_mix']) + colored*p['color_mix']
+        echo *= 2**p['exposure']
+        # Blend both cut slices and overlapping exposures from the actual image.
+        echo = echo*(1-p['screen']) + (1-(1-out)*(1-echo))*p['screen']
+        alpha = mask[:,None,None]*p['opacity']
+        out = out*(1-alpha)+echo*alpha
+    return arr*(1-p['mix'])+out*p['mix']
+
+
+def render_screen_mesh(arr, p, time, speed, seed, reference_size):
+    if not p['mix']: return arr
+    h,w = arr.shape[:2]; unit = min(reference_size)/720
+    y,x = np.mgrid[:h,:w].astype(np.float32)
+    angle = math.radians(p['angle'])
+    u = x*math.cos(angle) - y*math.sin(angle)
+    v = x*math.sin(angle) + y*math.cos(angle)
+    clock = time*speed
+    tick = math.floor(clock*p['cadence']+1e-8) if p['cadence'] else 0
+    held_clock = tick/p['cadence'] if p['cadence'] else 0.
+    u += p['bend']*unit*(np.sin(v/max(1,min(reference_size))*7+held_clock*.15)
+                          + .12*np.sin(v/max(.1,unit)*.075))
+    rng = np.random.default_rng(np.random.SeedSequence((seed,tick & 0xffffffffffffffff,942)))
+    pitch = max(.1,p['pitch']*unit)
+    # Fade frequencies above Nyquist in small previews, avoiding false moire.
+    visibility = float(np.clip(pitch/2-0.5,0,1))
+    phase = (u/pitch + rng.uniform(-1,1)*p['jitter'] + p['phase'])*math.tau
+    # Keep the mean absorption when suppressing subpixel detail; otherwise a
+    # small preview becomes brighter than the exported phosphor pattern.
+    luminance = 1-p['strength']*(.5-.5*visibility*np.cos(phase))
+    offsets = np.array((0.,-math.tau/3,math.tau/3),dtype=np.float32)
+    triad = np.cos(phase[...,None]+offsets)
+    phosphor = 1-p['rgb']*(.5-.5*visibility*triad)
+    # Overlapping column and RGB masks otherwise introduce a red cast at full
+    # resolution which vanishes when the fine detail is filtered for preview.
+    mean = (1-p['strength']/2)*(1-p['rgb']/2)
+    balance = mean/(mean+p['strength']*p['rgb']*visibility**2/8*np.cos(offsets))
+    row_pitch = max(.1,p['row_pitch']*unit)
+    row_visibility = float(np.clip(row_pitch/2-.5,0,1))
+    rows = 1-p['rows']*(.5+.5*row_visibility*np.cos(v/row_pitch*math.tau))
+    out = arr*(luminance*rows)[...,None]*phosphor*balance*2**p['exposure']
+    if p['grain']:
+        noise = rng.normal(0,p['grain'],(h,w,1)).astype(np.float32)
+        out += noise*np.sqrt(np.maximum(0,arr.mean(axis=2,keepdims=True)))
+    if p['softness']:
+        out = np.asarray(Image.fromarray(np.uint8(np.clip(out*255,0,255))).filter(
+            ImageFilter.GaussianBlur(p['softness']*unit)),dtype=np.float32)/255
+    return arr*(1-p['mix'])+out*p['mix']
