@@ -353,8 +353,9 @@ class SynthStudio(QMainWindow):
         self.starter_combo.setPlaceholderText('Choose a study…')
         self.starter_combo.setToolTip("Choose a built-in or saved study, then load an editable copy in the current canvas format.")
         self.starter_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
-        self.starter_combo.setMinimumContentsLength(30)
-        study_actions.addWidget(self.starter_combo, 1)
+        self.starter_combo.setMinimumContentsLength(48)
+        self.starter_combo.setMinimumWidth(420); self.starter_combo.setMaximumWidth(560)
+        study_actions.addWidget(self.starter_combo)
         self.load_starter_button = QPushButton("Load study"); self.load_starter_button.clicked.connect(self.load_starter)
         self.load_starter_button.setEnabled(False)
         self.starter_combo.currentIndexChanged.connect(lambda index: self.load_starter_button.setEnabled(index >= 0))
@@ -364,6 +365,7 @@ class SynthStudio(QMainWindow):
         self.manage_studies_button.setToolTip('Sort studies by date, remove entries from the picker, or restore removed studies.')
         self.manage_studies_button.clicked.connect(self.manage_studies)
         study_actions.addWidget(self.manage_studies_button)
+        study_actions.addStretch(1)
         outer.addLayout(study_actions)
         self.refresh_studies()
         canvas_row = QHBoxLayout(); canvas_row.addWidget(QLabel("Canvas"))
@@ -409,7 +411,16 @@ class SynthStudio(QMainWindow):
         self.viewer.zoomChanged.connect(self.refresh_view_zoom)
         self.section_timeline = SectionTimeline()
         self.section_timeline.selected.connect(lambda index: self.composer and self.composer.select_section(index))
-        left_layout.addWidget(self.section_timeline)
+        self.section_timeline.loopRequested.connect(lambda identifiers, count: self.composer and self.composer.loop_sections(identifiers, count))
+        self.section_timeline.seekRequested.connect(lambda time: self.composition and self.timeline.setValue(round(time * self.composition['fps'])))
+        self.section_scroll = QScrollArea()
+        self.section_scroll.setWidgetResizable(True); self.section_scroll.setWidget(self.section_timeline)
+        self.section_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.section_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.section_scroll.setFixedHeight(108)
+        left_layout.addWidget(self.section_scroll)
+        self.section_hint = QLabel('Timeline / Shift-click to select sections · right-click to loop')
+        self.section_hint.setObjectName('muted'); left_layout.addWidget(self.section_hint)
         self.status = QLabel("Source-free deterministic synthesis")
         self.status.setObjectName("muted"); self.status.setWordWrap(True)
         status_row = QHBoxLayout()
@@ -601,6 +612,8 @@ class SynthStudio(QMainWindow):
         for widget in self.composition_widgets:
             widget.setVisible(self.composition is not None)
         self.section_timeline.setVisible(self.composition is not None)
+        self.section_scroll.setVisible(self.composition is not None)
+        self.section_hint.setVisible(self.composition is not None)
         if self.composition is not None:
             self.composer = CompositionPanel(self.composition, self.composition_index, self.composition_scope)
             self.composer.changed.connect(self.composition_changed)
@@ -815,6 +828,7 @@ class SynthStudio(QMainWindow):
         self.sequence = sequence
         self.starter_combo.setCurrentIndex(-1)
         self.composition_index = 0; self.composition_scope = 0
+        self.section_timeline.set_document(project, 0, reset_selection=True)
         if self.composer:
             self.composer.index = 0; self.composer.scope = 0
         self.undo_compositions.clear(); self.redo_compositions.clear(); self.edit_key = None

@@ -7,13 +7,13 @@ from PySide6.QtCore import Qt, QRectF, QSignalBlocker, Signal, QSize
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox, QLabel,
-    QPushButton, QCheckBox, QTabWidget, QSizePolicy,
+    QPushButton, QCheckBox, QTabWidget, QSizePolicy, QMenu, QInputDialog,
 )
 from studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBox, SpinBox as QSpinBox, Slider as QSlider
 
 from synth import SHAPES
 from studio_theme import COLORS
-from synth_composition import MACROS, compile_composition, default_geometry, effective_geometry, neutral_macros, normalize_composition, section_ranges, vary_composition
+from synth_composition import MACROS, compile_composition, default_geometry, effective_geometry, neutral_macros, normalize_composition, section_placements, section_ranges, vary_composition
 from synth_effects_ui import EffectsPanel
 from synth_shared_timing import edit_shared_timing, restore_shared_timing, without_timing
 from synth_master import normalize_master
@@ -27,19 +27,70 @@ from synth_video import VIDEO_EFFECTS, apply_treatment
 
 class SectionTimeline(QWidget):
     selected = Signal(int)
+    loopRequested = Signal(object, int)
+    seekRequested = Signal(float)
 
     def __init__(self):
         super().__init__()
         self.document = None
         self.index = 0
+        self.selected_ids = set()
+        self.selection_anchor = None
+        self.context_menu = None
         self.time = 0
         self.setFixedHeight(90)
         self.setMouseTracking(True)
+        self.setAccessibleName('Section timeline')
 
-    def set_document(self, document, index=0):
+    def set_document(self, document, index=0, reset_selection=False):
         self.document = document
         self.index = index
+        ids = {section['id'] for section in document['sections']}
+        current = document['sections'][index]['id']
+        self.selected_ids.intersection_update(ids)
+        if reset_selection or current not in self.selected_ids:
+            self.selected_ids = {current}
+            self.selection_anchor = current
+        elif self.selection_anchor not in ids:
+            self.selection_anchor = current
+        self.setMinimumWidth(len(section_placements(document)) * 82)
         self.update()
+
+    def selected_indices(self):
+        if not self.document: return []
+        return [index for index, section in enumerate(self.document['sections'])
+                if section['id'] in self.selected_ids]
+
+    def section_at(self, position):
+        occurrence = self.occurrence_at(position)
+        return section_placements(self.document)[occurrence][0] if occurrence is not None else None
+
+    def occurrence_at(self, position):
+        return next((index for index, rect in enumerate(self.rectangles()) if rect.contains(position)), None)
+
+    def select_at(self, index, modifiers=Qt.KeyboardModifier.NoModifier, context=False):
+        identifier = self.document['sections'][index]['id']
+        if context and index == self.index and identifier in self.selected_ids: return
+        if context:
+            if identifier not in self.selected_ids:
+                self.selected_ids = {identifier}; self.selection_anchor = identifier
+        elif modifiers & Qt.KeyboardModifier.ShiftModifier:
+            anchor = next((i for i, section in enumerate(self.document['sections'])
+                           if section['id'] == self.selection_anchor), self.index)
+            self.selected_ids = {self.document['sections'][i]['id']
+                                 for i in range(min(anchor, index), max(anchor, index) + 1)}
+        elif modifiers & (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.MetaModifier):
+            if identifier in self.selected_ids and len(self.selected_ids) > 1:
+                self.selected_ids.remove(identifier)
+                index = self.selected_indices()[-1]
+            else:
+                self.selected_ids.add(identifier)
+            self.selection_anchor = self.document['sections'][index]['id']
+        else:
+            self.selected_ids = {identifier}; self.selection_anchor = identifier
+        self.index = index
+        self.update()
+        self.selected.emit(index)
 
     def set_time(self, time):
         self.time = time
@@ -48,22 +99,25 @@ class SectionTimeline(QWidget):
     def rectangles(self):
         if not self.document:
             return []
-        ranges = section_ranges(self.document)
-        total = ranges[-1][1]
-        return [QRectF(start / total * self.width() + 2, 5, (end - start) / total * self.width() - 4, 68) for start, end in ranges]
+        placements = section_placements(self.document)
+        total = placements[-1][2]
+        return [QRectF(start / total * self.width() + 2, 5, (end - start) / total * self.width() - 4, 68)
+                for _index, start, end, _repetition in placements]
 
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        for index, rect in enumerate(self.rectangles()):
+        placements = section_placements(self.document) if self.document else []
+        for (index, _start, _end, repetition), rect in zip(placements, self.rectangles()):
             section = self.document["sections"][index]
-            selected = index == self.index
+            selected = section['id'] in self.selected_ids
             painter.setBrush(QColor(COLORS["selected"] if selected else COLORS["panel"]))
             painter.setPen(QPen(QColor(COLORS["accent"] if selected else COLORS["border"]), 1))
             painter.drawRect(rect)
             small_font = self.font(); small_font.setPixelSize(10); painter.setFont(small_font)
             painter.setPen(QColor(COLORS["accent"] if selected else COLORS["muted"]))
-            painter.drawText(rect.adjusted(7, 3, -4, -47), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, f"{index + 1:02d}")
+            number = f'{index + 1:02d}' + (f' / ↻{repetition}' if repetition > 1 else '')
+            painter.drawText(rect.adjusted(7, 3, -4, -47), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, number)
             label = self.document["phrases"][section["phrase"]]["name"]
             label_font = self.font(); label_font.setPixelSize(11); painter.setFont(label_font)
             painter.setPen(QColor(COLORS["text"]))
@@ -80,20 +134,67 @@ class SectionTimeline(QWidget):
             painter.fillRect(QRectF(x - 3, 0, 6, 3), QColor(COLORS["cursor"]))
 
     def mousePressEvent(self, event):
-        if not self.document:
-            return
-        ranges = section_ranges(self.document)
-        time = event.position().x() / max(1, self.width()) * ranges[-1][1]
-        index = next((i for i, (_start, end) in enumerate(ranges) if time < end), len(ranges) - 1)
-        self.selected.emit(index)
+        if event.button() not in (Qt.MouseButton.LeftButton, Qt.MouseButton.RightButton): return
+        occurrence = self.occurrence_at(event.position())
+        if occurrence is None: return
+        index, start, _end, _repetition = section_placements(self.document)[occurrence]
+        self.select_at(index, event.modifiers(), context=event.button() == Qt.MouseButton.RightButton)
+        self.seekRequested.emit(start)
+        event.accept()
+
+    def make_context_menu(self):
+        identifiers = tuple(self.document['sections'][i]['id'] for i in self.selected_indices())
+        menu = QMenu(self)
+        menu.setTitle('Timeline loops')
+        label = 'Loop' if len(identifiers) == 1 else f'Loop {len(identifiers)} selected sections'
+        action = menu.addAction(label)
+        action.setToolTip('Add one repetition to the selected section or sections.')
+        action.triggered.connect(lambda: self.loopRequested.emit(identifiers, 0))
+        counts = menu.addMenu('Repeat count')
+        for count in (2, 3, 4, 8, 16, 32):
+            action = counts.addAction(f'{count}× total plays')
+            action.triggered.connect(lambda checked=False, count=count: self.loopRequested.emit(identifiers, count))
+        custom = counts.addAction('Custom…')
+        custom.triggered.connect(lambda: self.custom_loop_count(identifiers))
+        menu.addSeparator()
+        remove = menu.addAction('Remove loop')
+        remove.triggered.connect(lambda: self.loopRequested.emit(identifiers, 1))
+        for group in self.document.get('timeline_loops', []):
+            if set(group['sections']) & set(identifiers) and set(group['sections']) != set(identifiers):
+                action = menu.addAction(f"Remove sequence loop ({len(group['sections'])} sections)")
+                members = tuple(group['sections'])
+                action.triggered.connect(lambda checked=False, members=members: self.loopRequested.emit(members, 1))
+        return menu
+
+    def custom_loop_count(self, identifiers):
+        counts = [int(section.get('loops', 1)) for section in self.document['sections']
+                  if section['id'] in identifiers]
+        for group in self.document.get('timeline_loops', []):
+            if set(group['sections']) == set(identifiers): counts = [group['loops']]
+        count, accepted = QInputDialog.getInt(self, 'Timeline loop', 'Total plays (1 = once):',
+                                             max(counts, default=1), 1, 32)
+        if accepted: self.loopRequested.emit(identifiers, count)
+
+    def contextMenuEvent(self, event):
+        index = self.section_at(event.pos())
+        if index is None: return
+        self.select_at(index, context=True)
+        if self.context_menu is not None: self.context_menu.deleteLater()
+        self.context_menu = self.make_context_menu()
+        self.context_menu.popup(event.globalPos())
+        event.accept()
 
     def mouseMoveEvent(self, event):
-        for index, rect in enumerate(self.rectangles()):
+        placements = section_placements(self.document) if self.document else []
+        for (index, _start, _end, repetition), rect in zip(placements, self.rectangles()):
             if rect.contains(event.position()):
                 section = self.document["sections"][index]
                 loops = int(section.get('loops', 1))
-                self.setToolTip(f"{index + 1}. {self.document['phrases'][section['phrase']]['name']} · {loops} loop{'s' if loops != 1 else ''} · click to edit this section")
+                self.setToolTip(f"{index + 1}. {self.document['phrases'][section['phrase']]['name']} · {loops}× total plays · " +
+                               (f'Sequence repetition {repetition} · ' if repetition > 1 else '') +
+                               'click to edit; Shift-click to select a range; Command-click to add sections; right-click to loop')
                 return
+        self.setToolTip('')
 
 
 class MacroControl(QWidget):
@@ -312,7 +413,8 @@ class CompositionPanel(QWidget):
             self.look_tabs.setTabVisible(2, not video)
             self.details_button.setVisible(not video)
             self.video_panel.refresh(video)
-            minimum_frames = sum(int(section.get("loops", 1)) for section in self.document["sections"])
+            minimum_frames = sum(int(self.document['sections'][index].get('loops', 1))
+                                 for index, _start, _end, _pass in section_placements(self.document))
             self.duration.setMinimum(minimum_frames / self.document["fps"])
             self.duration.setValue(section_ranges(self.document)[-1][1])
             self.fps.setValue(self.document["fps"])
@@ -503,6 +605,12 @@ class CompositionPanel(QWidget):
     def resize_clip(self, duration):
         if self.updating: return
         document = copy.deepcopy(self.document); fps = document["fps"]
+        if document.get('timeline_loops'):
+            placements = section_placements(document)
+            factor = duration / placements[-1][2]
+            for section in document['sections']:
+                section['duration'] = max(1, round(section['duration'] * fps * factor)) / fps
+            self.commit(document, 'duration'); return
         loops = [int(section.get("loops", 1)) for section in document["sections"]]
         frames = max(sum(loops), round(duration * fps))
         # Proportional boundaries retain an exact total on the output frame grid.
@@ -529,6 +637,28 @@ class CompositionPanel(QWidget):
         if self.updating: return
         document = copy.deepcopy(self.document); document["sections"][self.index]["loops"] = int(loops)
         self.commit(document, "section-loops")
+
+    def loop_sections(self, identifiers, count):
+        """One undoable operation; multi-selection repeats a shared sequence."""
+        document = copy.deepcopy(self.document)
+        selected = set(identifiers)
+        members = [section['id'] for section in document['sections'] if section['id'] in selected]
+        if not members or len(members) != len(selected): return
+        groups = document.get('timeline_loops', [])
+        existing = next((group for group in groups if set(group['sections']) == selected), None)
+        if len(members) == 1 and existing is None:
+            section = next(section for section in document['sections'] if section['id'] == members[0])
+            section['loops'] = min(32, int(section.get('loops', 1)) + 1) if count == 0 else count
+        else:
+            loops = min(32, existing['loops'] + 1) if count == 0 and existing else (2 if count == 0 else count)
+            groups = [group for group in groups if not selected.intersection(group['sections'])]
+            if loops > 1: groups.append({'sections': members, 'loops': loops})
+            elif count == 1:
+                for section in document['sections']:
+                    if section['id'] in selected: section['loops'] = 1
+            if groups: document['timeline_loops'] = groups
+            else: document.pop('timeline_loops', None)
+        if document != self.document: self.commit(document, 'timeline-loop')
 
     def change_phrase(self, index):
         if self.updating or index < 0: return
@@ -558,7 +688,13 @@ class CompositionPanel(QWidget):
 
     def remove_section(self):
         if len(self.document["sections"]) <= 1: return
-        document = copy.deepcopy(self.document); del document["sections"][self.index]
+        document = copy.deepcopy(self.document)
+        removed = document['sections'][self.index]['id']
+        del document["sections"][self.index]
+        for group in document.get('timeline_loops', []):
+            group['sections'] = [key for key in group['sections'] if key != removed]
+        if 'timeline_loops' in document:
+            document['timeline_loops'] = [group for group in document['timeline_loops'] if group['sections']]
         self.commit(document, "remove"); self.sectionSelected.emit(self.index)
 
     def move_section(self, delta):

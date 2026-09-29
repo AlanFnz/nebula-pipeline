@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Keep the Studies picker compact and add timeline context-menu looping, preset
+  and custom repeat counts, removal, Shift-click ranges and Command-click toggles.
+  Multi-selection repeats the selected sequence in order, with visible shared
+  section views and correct seeking. Preserve groups through save/open, editing,
+  reordering and undo; keep legacy arrangements and continuous source clocks.
+
 - Show a date beside every Study name and add a date-sortable Study manager
   with multiple selection, reversible removal and restoration. Record timestamps
   for new saves; use original file dates for legacy local Studies and fixed

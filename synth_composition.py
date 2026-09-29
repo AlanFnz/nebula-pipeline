@@ -579,7 +579,27 @@ def normalize_composition(raw):
         section["effects"] = normalize_effects(section.get("effects", {}))
         section["variation"] = _number(section.get("variation", 0), "Variation", 0, 2**31 - 1, True)
         section["locks"] = [key for key in section.get("locks", []) if key in MACROS]
-    if sum(section["duration"] * section["loops"] for section in sections) > 3600:
+    if 'timeline_loops' in result:
+        groups = result['timeline_loops']
+        if not isinstance(groups, list) or len(groups) > 64:
+            raise ValueError('Invalid timeline loop groups')
+        positions = {section['id']: index for index, section in enumerate(sections)}
+        used = set(); normalized_groups = []
+        for group in groups:
+            if not isinstance(group, dict): raise ValueError('Invalid timeline loop group')
+            members = group.get('sections')
+            if (not isinstance(members, list) or not members or
+                not all(isinstance(key, str) and key in positions for key in members) or
+                len(set(members)) != len(members) or used.intersection(members)):
+                raise ValueError('Timeline loop groups need distinct known sections without overlaps')
+            loops = _number(group.get('loops'), 'Timeline loop count', 1, 32, True)
+            if isinstance(group.get('loops'), bool): raise ValueError('Invalid timeline loop count')
+            if loops > 1:
+                used.update(members)
+                normalized_groups.append({'sections': sorted(members, key=positions.get), 'loops': loops})
+        if normalized_groups: result['timeline_loops'] = normalized_groups
+        else: result.pop('timeline_loops')
+    if section_placements(result)[-1][2] > 3600:
         raise ValueError("Composition is longer than one hour")
     normalize_shared_timing(result)
     scopes = [result, *result['sections']]
@@ -596,15 +616,49 @@ def normalize_composition(raw):
     return result
 
 
-def section_ranges(composition):
+def section_placements(composition):
+    """Expanded timeline occurrences: (section index, start, end, group pass).
+
+    Repetitions reuse their original section and states rather than copying the
+    source or changing its seed. Selected sequences repeat after their last
+    member, in timeline order. Footage and procedural clocks remain continuous.
+    """
     fps = composition["fps"]
     cursor = 0
     result = []
-    for section in composition["sections"]:
+    positions = {section['id']: index for index, section in enumerate(composition['sections'])}
+    endings = {}
+    for group in composition.get('timeline_loops', []):
+        indices = sorted(positions[key] for key in group['sections'])
+        endings[indices[-1]] = (indices, group['loops'])
+
+    def append(index, repetition=1):
+        nonlocal cursor
+        section = composition['sections'][index]
         frames = max(1, round(section["duration"] * fps))
         frames *= int(section.get("loops", 1))
-        result.append((cursor / fps, (cursor + frames) / fps))
+        result.append((index, cursor / fps, (cursor + frames) / fps, repetition))
         cursor += frames
+
+    for index in range(len(composition['sections'])):
+        append(index)
+        if index in endings:
+            indices, loops = endings[index]
+            for repetition in range(2, loops + 1):
+                for member in indices: append(member, repetition)
+    return result
+
+
+def section_ranges(composition):
+    """First-play edit anchors; the last group member includes its repeat tail."""
+    result = [None] * len(composition['sections'])
+    for index, start, end, repetition in section_placements(composition):
+        if repetition == 1: result[index] = (start, end)
+        else:
+            group = next(group for group in composition['timeline_loops']
+                         if composition['sections'][index]['id'] in group['sections'])
+            last = next(i for i, section in enumerate(composition['sections']) if section['id'] == group['sections'][-1])
+            result[last] = (result[last][0], end)
     return result
 
 
@@ -661,10 +715,11 @@ def compile_composition(raw):
     if 'footage' in project:
         result.update(schema_version=2, footage=copy.deepcopy(project['footage']))
     fps = project["fps"]
-    ranges = section_ranges(project)
-    result["duration"] = ranges[-1][1]
+    placements = section_placements(project)
+    result["duration"] = placements[-1][2]
     # The optional field track keeps its original absolute-time contract.
-    for section, (start, end) in zip(project["sections"], ranges):
+    for index, start, end, _repetition in placements:
+        section = project['sections'][index]
         phrase = project["phrases"][section["phrase"]]
         first, last = phrase["start"], phrase["end"]
         events = phrase_events(project, section)

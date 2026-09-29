@@ -383,6 +383,7 @@ save timestamp in a separate `metadata.json` that travels with the study folder.
 Older saves use the JSON file's creation date, falling back to modification date
 where creation time is unavailable. Hover over a date in the manager to see its
 source.
+The Studies picker uses a compact, bounded width alongside Load and Manage.
 
 **Studies → Manage…** opens a sortable library, newest dates first. Select one
 or several rows with Command-click or Shift-click, then **Remove selected**.
@@ -427,13 +428,24 @@ Text wording appears at the top of Object; **Apply text** commits the phrase.
 
 - Select **Whole clip** to adjust the entire piece, or click a section to
   adjust it locally. Sections can be added, duplicated, removed, reordered,
-  and given different durations under **Arrange**. Click a timeline section,
-  open **Arrange**, and set **Loops** under **SEQUENCE / ARRANGEMENT**. The count
-  is total plays: 1 plays once, 2 plays twice, up to 32. A three-second section
-  at 2 plays occupies six seconds and moves later sections accordingly. Loops
-  repeats that section's edited event sequence in place; the
-  timeline and export use the repeated duration automatically. Each repetition
-  restarts the events at the selected section duration, even after rhythm edits.
+  and given different durations under **Arrange**.
+- **Right-click a timeline section → Loop** adds one repetition. **Repeat count**
+  sets total plays (1 = once, up to 32), with preset counts and a Custom option;
+  **Remove loop** returns to one play. The existing Arrange count is also
+  available for individual sections.
+- **Shift-click** selects a range; **Command-click** adds/removes individual
+  sections. Right-click inside the selection to loop the selected sequence in
+  timeline order: 1–2–3 becomes 1–2–3, 1–2–3. Nonadjacent selections repeat after
+  their last selected member. Repeated sequence views appear with a pass marker
+  such as `↻2` and share their original section's controls, duration, states and
+  variation seed. Clicking a repetition seeks its actual occurrence. Selecting
+  the original members again lets Repeat count adjust the entire sequence;
+  **Remove sequence loop** is also available from an individual member. Longer
+  arrangements scroll horizontally. Selection follows section IDs through edits
+  and undo, and clears when loading a new document. Loop edits are atomic and
+  undoable; Save/Open and Studies preserve the optional `timeline_loops` groups.
+- Timeline and export use the repeated duration automatically. Each repetition
+  restarts the edited events, even after duration and rhythm edits.
   Procedural motion/noise and imported footage keep their continuous clocks;
   use **Source → When footage ends → Loop trimmed range**, with **In** and
   **Out** defining the range, to repeat the source video itself. The timeline
