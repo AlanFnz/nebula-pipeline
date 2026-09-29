@@ -25,6 +25,14 @@
     "spacemono-OFL.txt": {
       "url": "https://raw.githubusercontent.com/google/fonts/23e54b51ddffbc7713c583748e3bd86f62b1fa4a/ofl/spacemono/OFL.txt",
       "sha256": "8e4ee42b2553e1e01504e61cb0d46d148cd8c9e5eacaa3622a7df2d4f2955b9f"
+    },
+    "BodoniModa.ttf": {
+      "url": "https://raw.githubusercontent.com/google/fonts/23e54b51ddffbc7713c583748e3bd86f62b1fa4a/ofl/bodonimoda/BodoniModa%5Bopsz,wght%5D.ttf",
+      "sha256": "550f5e34ee0a828d7941b1fe9bc58b34e5260d3f33a61532e6d0a0114e79a5cf"
+    },
+    "bodonimoda-OFL.txt": {
+      "url": "https://raw.githubusercontent.com/google/fonts/23e54b51ddffbc7713c583748e3bd86f62b1fa4a/ofl/bodonimoda/OFL.txt",
+      "sha256": "931dfe2e0cd3c9443295f5c1d754b8a8403bf060df50c1d5900267ade83d0046"
     }
   }
 }

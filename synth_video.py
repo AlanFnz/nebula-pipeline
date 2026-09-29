@@ -21,10 +21,10 @@ import threading
 from PIL import Image
 from media import Cancellation, decode_frames, dimensions, frame_count, probe
 
-VIDEO_EFFECTS = ('subject_cutout', 'photocopy', 'broadcast', 'signal_background', 'scan_drag', 'ghosts', 'breakup', 'tape',
+VIDEO_EFFECTS = ('subject_cutout', 'photocopy', 'broadcast', 'stretch_echo', 'signal_etch', 'signal_background', 'scan_drag', 'ghosts', 'breakup', 'tape',
                  'drift', 'flare', 'separation', 'interference', 'frame_jitter',
                  'bloom', 'raster', 'print_surface', 'low_res')
-VIDEO_MODULES = frozenset(('subject_cutout', 'photocopy', 'broadcast', 'signal_background', 'scan_drag', 'smear', 'breakup', 'tape',
+VIDEO_MODULES = frozenset(('subject_cutout', 'photocopy', 'broadcast', 'stretch_echo', 'signal_etch', 'signal_background', 'scan_drag', 'smear', 'breakup', 'tape',
                           'warp', 'flare', 'separation', 'interference', 'frame_jitter',
                           'bloom', 'raster', 'print_surface', 'low_res'))
 PROXY_EDGE = 720

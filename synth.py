@@ -23,6 +23,7 @@ from synth_tape import render_tape_damage
 from synth_photocopy import render_photocopy
 from synth_text import FONTS, validate_text, render_text
 from synth_broadcast import render_broadcast, render_broadcast_exposure
+from synth_echo import render_stretch_echo, render_signal_etch
 from synth_canvas import content_size, normalize_canvas, source_framing, object_offset
 from synth_print import render_ink_bloom, render_print_surface
 from synth_profile import render_silhouette, render_edge_phosphor, render_scan_drag
@@ -459,7 +460,7 @@ MODULES = (
 MODULES += (
     Module('text', 'Text', 'Editable typography rendered before the image treatments. Fonts travel with the Studio.', (
         P('content', 'Wording', 'REVOLUTION IS NOW', kind='text', hint='Up to 512 characters and eight lines. Line breaks are preserved.'),
-        P('font', 'Typeface', 0, 0, 2, 1, choices=FONTS),
+        P('font', 'Typeface', 0, 0, len(FONTS)-1, 1, choices=FONTS),
         P('size', 'Text size', .14, .01, 1.5, .01, 'Line height relative to the authored canvas height. Canvas resizing preserves the lettering.'),
         P('tracking', 'Letter spacing', 0., -.15, .8, .01, 'Extra spacing as a fraction of the font size.'),
         P('leading', 'Line spacing', 1., .6, 2.5, .05),
@@ -528,6 +529,51 @@ MODULES += (
         P('screen', 'CRT glass', 0., 0, 1, .01, 'Rounded screen aperture, uneven edge wear and a faint reflected rim.'),
         P('screen_inset', 'Glass inset', .045, 0, .2, .005, 'Border relative to each canvas edge. Changes the screen aperture, not the object proportions.'),
         P('screen_wear', 'Glass edge wear', .5, 0, 1, .01),
+        P('mix', 'Mix', 1., 0, 1, .01),
+    )),
+)
+
+MODULES += (
+    Module('stretch_echo', 'Stretch echo', 'Animated contours stretched around the source. Works on text, objects and footage before finishing.', (
+        P('typeface', 'Echo typeface', 0, 0, len(FONTS), 1, 'Optional alternate typeface when the source is Text. Other sources always use their own pixels.', choices=('Source pixels',) + FONTS),
+        P('stretch_y', 'Vertical stretch', 4., .1, 12, .05),
+        P('stretch_x', 'Horizontal stretch', 1., .1, 6, .05),
+        P('minimum', 'Starting stretch', 1., .1, 12, .05),
+        P('motion', 'Animation', 1, 0, 2, 1, choices=('Still', 'Open / reset', 'Breathe')),
+        P('period', 'Cycle seconds', 1.5, .1, 30, .05),
+        P('ease', 'Opening ease', 2.5, .1, 10, .1),
+        P('phase', 'Cycle phase', 0., 0, 1, .01),
+        P('cadence', 'Motion FPS', 0., 0, 60, 1, 'Zero gives continuous motion.'),
+        P('outline', 'Contour / solid', 1., 0, 1, .01),
+        P('stroke', 'Contour width', 1., .25, 8, .25, 'Pixels at a 720-pixel reference edge.'),
+        P('threshold', 'Highlight threshold', .2, 0, .95, .01),
+        P('copies', 'Echo copies', 1, 1, 6, 1),
+        P('position_x', 'Echo center X', 0., -.5, .5, .01, 'Relative to the object center and reference canvas width.'),
+        P('position_y', 'Echo center Y', 0., -.5, .5, .01, 'Relative to the object center and reference canvas height.'),
+        P('hue', 'Echo hue', 0., 0, 1, .01),
+        P('saturation', 'Echo saturation', 0., 0, 1, .01),
+        P('opacity', 'Echo brightness', .85, 0, 2, .01),
+        P('source', 'Source brightness', 1., 0, 2, .01),
+        P('mix', 'Mix', 1., 0, 1, .01),
+    )),
+    Module('signal_etch', 'Signal etch', 'Horizontal grain, eroded highlights and pulsing light scatter derived from the image itself.', (
+        P('grain', 'Grain intensity', .6, 0, 2, .01),
+        P('grain_size', 'Grain size', 1., .5, 8, .1),
+        P('streak', 'Horizontal grain stretch', 5., 1, 30, .5),
+        P('erosion', 'Highlight erosion', .5, 0, 1, .01),
+        P('core', 'Solid ink retention', 0., 0, 1, .01, 'Protect the interiors of thick strokes while fine contours and edges remain worn.'),
+        P('roughness', 'Edge displacement', 4., 0, 40, .5),
+        P('scatter', 'Light scatter', .8, 0, 5, .05),
+        P('spread_x', 'Scatter width', 12., 1, 150, 1),
+        P('spread_y', 'Scatter height', 8., 1, 150, 1),
+        P('pulse', 'Exposure pulse', 3., 0, 12, .1),
+        P('period', 'Pulse cycle seconds', 1.5, .1, 30, .05),
+        P('pulse_seconds', 'Pulse duration', .14, .01, 3, .01),
+        P('pulse_spread', 'Pulse vertical spread', 100., 1, 250, 1, 'Pixels at a 720-pixel reference edge.'),
+        P('pulse_stretch', 'Pulse vertical stretch', 1., .25, 6, .05, 'Stretch only the light scattered during the flash.'),
+        P('pulse_focus', 'Pulse center focus', .8, 0, 1, .01, 'Concentrate the flash around the horizontal center of the image highlights.'),
+        P('phase', 'Pulse phase', 0., 0, 1, .01),
+        P('cadence', 'Texture FPS', 24., 0, 60, 1, 'Zero freezes the texture; exposure pulses keep their own clock.'),
         P('mix', 'Mix', 1., 0, 1, .01),
     )),
 )
@@ -1158,16 +1204,41 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
         arr = np.asarray(source_image.convert('RGB'), dtype=np.float32) / 255
     treatment_frame = round(t * p["treatment_fps"])
     broadcast = next((entry['params'] for entry in p['modules'] if entry['id'] == 'broadcast' and entry['enabled']), None)
+    # New treatments have a stable stage without inserting modules into old
+    # serialized orders (whose indices also determine existing random seeds).
+    generators = {'slab', 'blinds', 'particles', 'silhouette', 'ink_bloom', 'flare'}
+    source_end = max((i for i, m in enumerate(p['modules']) if m.get('enabled', True) and m['id'] in generators), default=-1) + 1
+    source_effects = {entry['id']: entry['params'] for entry in p['modules']
+                      if entry['enabled'] and entry['id'] in ('stretch_echo', 'signal_etch')}
+    def treat_source(image):
+        reference = content_size(p, (width, height))
+        original = image
+        if 'stretch_echo' in source_effects:
+            dx, dy = object_offset(p, (width, height))
+            alternate = None
+            echo = source_effects['stretch_echo']
+            if echo['typeface'] and text_source and source_image is None:
+                # Source-specific typography stays in the adapter. The image
+                # effect receives pixels and remains usable with any source.
+                alternate = render_text(image, dict(text_source['params'], font=echo['typeface']-1,
+                    back_brightness=0.), continuous_time, p)
+            image = render_stretch_echo(image, source_effects['stretch_echo'], continuous_time,
+                                        p['speed'], (width / 2 + dx, height / 2 + dy), reference, alternate)
+        if 'signal_etch' in source_effects:
+            image = render_signal_etch(image, source_effects['signal_etch'], continuous_time,
+                                       p['speed'], _seed(p['seed'], 'signal-etch'), reference, original)
+        return image
     polarity_index = None
     if broadcast and broadcast['reverse_stage'] and (broadcast['reverse'] or broadcast['edge_fringe']) and broadcast['mix']:
         # Preserve existing module indices/seeds. The optional early reversal
         # follows source generators and precedes the remaining image finishes.
-        generators = {'slab', 'blinds', 'particles', 'silhouette', 'ink_bloom', 'flare'}
-        polarity_index = max((i for i, m in enumerate(p['modules']) if m.get('enabled', True) and m['id'] in generators), default=-1) + 1
+        polarity_index = source_end
     for index, entry in enumerate(p["modules"]):
         if index == polarity_index:
             reversed_signal = render_broadcast_exposure(arr, broadcast, continuous_time, p['speed'])
             arr = arr * (1 - broadcast['mix']) + reversed_signal * broadcast['mix']
+        if index == source_end and source_effects:
+            arr = treat_source(arr)
         if not entry.get("enabled", True):
             continue
         module_id = entry.get("id")
@@ -1197,6 +1268,8 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
     if polarity_index == len(p['modules']):
         reversed_signal = render_broadcast_exposure(arr, broadcast, continuous_time, p['speed'])
         arr = arr * (1 - broadcast['mix']) + reversed_signal * broadcast['mix']
+    if source_end == len(p['modules']) and source_effects:
+        arr = treat_source(arr)
     image = Image.fromarray(np.clip(arr * 255, 0, 255).astype(np.uint8), "RGB")
     return finish_resolution(image, output, sampling)
 

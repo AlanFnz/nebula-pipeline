@@ -7,8 +7,9 @@ in preview, export and another installation.
 - Archivo Black Regular — Omnibus-Type; `archivoblack-OFL.txt`.
 - Anton Regular — The Anton Project Authors; `anton-OFL.txt`.
 - Space Mono Bold — The Space Mono Project Authors; `spacemono-OFL.txt`.
+- Bodoni Moda — The Bodoni Moda Project Authors; `bodonimoda-OFL.txt`.
 
-All three ship under their included SIL Open Font License 1.1. The original
+All four ship under their included SIL Open Font License 1.1. The original
 copyright notices and licenses are retained beside the fonts. These licenses
 permit bundling the fonts with the application; the fonts are not sold separately.
 

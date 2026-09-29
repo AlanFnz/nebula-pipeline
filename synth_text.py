@@ -11,8 +11,8 @@ from PIL import Image, ImageDraw, ImageFont
 
 from synth_canvas import content_size, object_offset
 
-FONTS = ('Archivo Black', 'Anton / condensed', 'Space Mono Bold')
-FONT_FILES = ('ArchivoBlack-Regular.ttf', 'Anton-Regular.ttf', 'SpaceMono-Bold.ttf')
+FONTS = ('Archivo Black', 'Anton / condensed', 'Space Mono Bold', 'Bodoni Moda / serif')
+FONT_FILES = ('ArchivoBlack-Regular.ttf', 'Anton-Regular.ttf', 'SpaceMono-Bold.ttf', 'BodoniModa.ttf')
 
 
 def validate_text(value):

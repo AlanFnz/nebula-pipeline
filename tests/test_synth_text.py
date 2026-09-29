@@ -16,7 +16,7 @@ from synth_sequence import render_sequence_frame
 from synth_source_adapters import source_frame
 from synth_starters import starter_composition
 from synth_subject import select_subject, restore_subject
-from synth_text import glyph_mask, validate_text, text_pose
+from synth_text import FONTS, glyph_mask, validate_text, text_pose
 
 
 def source(**changes):
@@ -36,9 +36,9 @@ def test_fonts_have_pinned_bytes_and_bundled_licenses():
     root = Path('assets/fonts'); manifest = json.loads((root/'sources.json').read_text())
     for name, item in manifest['files'].items():
         assert hashlib.sha256((root/name).read_bytes()).hexdigest() == item['sha256']
-    assert len(list(root.glob('*OFL.txt'))) == 3
-    masks = [glyph_mask('REVOLUCIÓN\nis now?', font, .02, 1., 1) for font in range(3)]
-    assert len({m.tobytes() for m in masks}) == 3
+    assert len(list(root.glob('*OFL.txt'))) == len(FONTS)
+    masks = [glyph_mask('REVOLUCIÓN\nis now?', font, .02, 1., 1) for font in range(len(FONTS))]
+    assert len({m.tobytes() for m in masks}) == len(FONTS)
     assert all(m.getbbox() and max(m.size) <= 4096 for m in masks)
 
 

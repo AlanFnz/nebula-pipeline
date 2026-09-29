@@ -175,9 +175,30 @@ Repeat size floor reduces copies when needed, keeping shorter words large too.
 Automatic wrapping is off in this study. Its updated layout is frozen in
 `presets/text-transmission-v4.json`; earlier snapshots and saved documents
 retain their existing layouts.
-Three bundled fonts (Archivo Black, Anton and Space Mono Bold) render identically
+Four bundled fonts (Archivo Black, Anton, Space Mono Bold and Bodoni Moda) render identically
 without depending on installed system fonts; their licenses and pinned source
 hashes are in [`assets/fonts`](assets/fonts/README.md).
+
+**Text / opium · 4.5s** adds a monochrome study with three exposure pulses.
+Change **Object → Wording → Apply text** to replace OPIUM; the bold center and
+stretched serif copy share that wording. Its recipe is frozen independently in
+`presets/text-opium-v1.json`.
+
+- **Stretch echo** controls the vertical/horizontal stretch, contour or solid
+  fill, copies, brightness and color. Its animation can open/reset, breathe or
+  hold still. Cycle seconds, starting stretch, easing and Motion FPS control
+  the movement. For text, Echo typeface can use an alternate bundled font.
+- **Signal etch** controls horizontal grain, edge displacement, erosion and
+  scattered light. Solid ink retention protects thick strokes. Exposure pulse,
+  Pulse cycle seconds, duration, vertical stretch and spread shape each flash;
+  Texture FPS holds only the noise. Set exposure pulse to zero to stop flashes.
+
+Both treatments work on objects and footage as well as text, after the source
+generators and before finishing effects. Object position and canvas reframing
+keep the echo attached. When combined, the exposure plume follows the original
+source so it does not grow with the echo. The two cycle controls are independent;
+set both to the same duration and phase to keep opening and flashes synchronized.
+New effects are disabled in existing Studies.
 
 **Effects → Text → Timing** controls word/character reveals, receding/breathing
 size motion, start/end magnification, cycle, acceleration and held motion FPS.

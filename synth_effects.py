@@ -33,6 +33,8 @@ def paths(module, keys=None):
 
 EFFECTS = (
     Effect('text', 'Text', 'Editable wording, typeface, spacing and color. Select Text in Object to replace another source while retaining its treatments. Position uses the shared Object controls.', paths('text'), ('text',), primary=10),
+    Effect('stretch_echo', 'Stretch echo', 'Stretch luminous contours behind the source. Adjustable shape, timing and color; follows the shared Object position. Applies before finishing to text, objects and footage.', paths('stretch_echo'), ('stretch_echo',)),
+    Effect('signal_etch', 'Signal etch', 'Erode highlights with fresh horizontal grain and pulsing scattered light. The texture follows the image rather than adding an independent noise layer.', paths('signal_etch'), ('signal_etch',)),
     Effect('broadcast', 'Broadcast wear', 'Colored shadow drift, static interruptions, rolling signal loss, polarity reversals and curved CRT edges. Applies to lettering, generated artwork and imported footage.', paths('broadcast'), ('broadcast',), primary=8),
     Effect("subject_cutout", "Subject cutout", "Isolate the foreground locally before applying image treatments. Crowd recovers smaller figures using individual detection regions. Mask continuity fills brief gaps where neighboring source frames agree. First use is cached locally. Available with imported video on macOS.", paths("subject_cutout"), ("subject_cutout",), primary=8),
     Effect("photocopy", "Photocopy", "Crushed black ink, fresh toner grain, cold highlights and screened dots. Exposure pulses, uneven illumination and print cadence can all be adjusted independently. Applies to videos and generated artwork.", paths("photocopy"), ("photocopy",),

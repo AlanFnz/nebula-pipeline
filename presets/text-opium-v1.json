@@ -1,0 +1,198 @@
+{
+  "format": "nebula-composition",
+  "schema_version": 1,
+  "render_version": 2,
+  "name": "Text / opium",
+  "fps": 24,
+  "seed": 5826,
+  "source": {
+    "schema_version": 1,
+    "name": "Text / opium",
+    "duration": 4.5,
+    "fps": 24,
+    "seed": 5826,
+    "field": {
+      "valley_start": 0.0,
+      "valley_end": 0.0,
+      "valley_gain": 1.0,
+      "cloud_start": 0.0,
+      "cloud_strength": 0.0,
+      "cloud_late_start": 0.0,
+      "cloud_late_rate": 0.0
+    },
+    "states": {
+      "title": {
+        "preset": "Reference blinds",
+        "overrides": {
+          "speed": 1.0,
+          "depth": 0.0,
+          "treatment_fps": 24,
+          "text.content": "OPIUM",
+          "text.font": 0,
+          "text.size": 0.115,
+          "text.tracking": -0.01,
+          "text.leading": 1.0,
+          "text.align": 1,
+          "text.fit": 2,
+          "text.block_width": 0.7,
+          "text.fit_width": 0.9,
+          "text.hue": 0.22,
+          "text.saturation": 0.0,
+          "text.brightness": 1.05,
+          "text.opacity": 1.0,
+          "text.stretch_x": 1.0,
+          "text.stretch_y": 1.0,
+          "text.rotation": 0.0,
+          "text.back_hue": 0.6,
+          "text.back_saturation": 0.75,
+          "text.back_brightness": 0.0,
+          "text.reveal": 0,
+          "text.word_seconds": 0.65,
+          "text.motion": 0,
+          "text.zoom_start": 1.7,
+          "text.zoom_end": 0.4,
+          "text.period": 2.0,
+          "text.ease": 2.0,
+          "text.phase": 0.0,
+          "text.cadence": 0.0,
+          "text.copies": 1,
+          "text.copy_gap": 0.3,
+          "text.wrap_columns": 0,
+          "text.copy_floor": 0.0,
+          "stretch_echo.typeface": 4,
+          "stretch_echo.stretch_y": 3.85,
+          "stretch_echo.stretch_x": 1.0,
+          "stretch_echo.minimum": 1.2,
+          "stretch_echo.motion": 1,
+          "stretch_echo.period": 1.5,
+          "stretch_echo.ease": 6.0,
+          "stretch_echo.phase": 0.0,
+          "stretch_echo.cadence": 0.0,
+          "stretch_echo.outline": 0.0,
+          "stretch_echo.stroke": 1.0,
+          "stretch_echo.threshold": 0.2,
+          "stretch_echo.copies": 1,
+          "stretch_echo.position_x": 0.0,
+          "stretch_echo.position_y": 0.0,
+          "stretch_echo.hue": 0.0,
+          "stretch_echo.saturation": 0.0,
+          "stretch_echo.opacity": 0.9,
+          "stretch_echo.source": 1.0,
+          "stretch_echo.mix": 1.0,
+          "signal_etch.grain": 0.24,
+          "signal_etch.grain_size": 2.0,
+          "signal_etch.streak": 3.0,
+          "signal_etch.erosion": 0.3,
+          "signal_etch.core": 0.9,
+          "signal_etch.roughness": 6.0,
+          "signal_etch.scatter": 0.9,
+          "signal_etch.spread_x": 30.0,
+          "signal_etch.spread_y": 4.0,
+          "signal_etch.pulse": 12.0,
+          "signal_etch.period": 1.5,
+          "signal_etch.pulse_seconds": 0.17,
+          "signal_etch.pulse_spread": 35.0,
+          "signal_etch.pulse_stretch": 2.8,
+          "signal_etch.pulse_focus": 1.0,
+          "signal_etch.phase": 0.0,
+          "signal_etch.cadence": 24.0,
+          "signal_etch.mix": 1.0,
+          "raster.softness": 0.85,
+          "raster.lines": 0.0,
+          "raster.grain": 0.035,
+          "raster.chroma": 0.0,
+          "raster.line_noise": 0.05
+        },
+        "enabled": [
+          "text",
+          "stretch_echo",
+          "signal_etch",
+          "raster"
+        ]
+      }
+    },
+    "cues": [
+      {
+        "time": 0.0,
+        "state": "title",
+        "transition": "cut",
+        "duration": 0.0
+      }
+    ],
+    "render_version": 2,
+    "canvas": {
+      "width": 720,
+      "height": 900,
+      "framing": "native"
+    }
+  },
+  "canvas": {
+    "width": 720,
+    "height": 900,
+    "framing": "native"
+  },
+  "master": {
+    "enabled": true,
+    "brightness": 0.0,
+    "contrast": 1.0,
+    "saturation": 1.0
+  },
+  "phrases": {
+    "custom": {
+      "name": "Contour / open / exposure",
+      "start": 0.0,
+      "end": 4.5
+    }
+  },
+  "macros": {
+    "rhythm": 1.0,
+    "width": 1.0,
+    "motion": 1.0,
+    "texture": 1.0,
+    "glow": 1.0,
+    "flashes": 1.0,
+    "color": 1.0
+  },
+  "geometry": {
+    "shape": "original",
+    "height": 1.0,
+    "diameter": 0.6,
+    "sides": 6,
+    "rotation": 0.0,
+    "position_x": 0.0,
+    "position_y": 0.0
+  },
+  "effects": {},
+  "ink_timing": {},
+  "variation": 0,
+  "locks": [],
+  "sections": [
+    {
+      "id": "section-1",
+      "phrase": "custom",
+      "duration": 4.5,
+      "loops": 1,
+      "macros": {
+        "rhythm": 1.0,
+        "width": 1.0,
+        "motion": 1.0,
+        "texture": 1.0,
+        "glow": 1.0,
+        "flashes": 1.0,
+        "color": 1.0
+      },
+      "geometry": {
+        "shape": "inherit",
+        "height": 1.0,
+        "diameter": 0.6,
+        "sides": 6,
+        "rotation": 0.0,
+        "position_x": 0.0,
+        "position_y": 0.0
+      },
+      "effects": {},
+      "variation": 0,
+      "locks": []
+    }
+  ]
+}

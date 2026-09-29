@@ -24,6 +24,8 @@ def frozen_data(key):
 
 
 def starter_snapshot(identifier):
+    if identifier == 'text-opium':
+        return copy.deepcopy(_opium_snapshot())
     if identifier == 'text-pressure':
         return copy.deepcopy(_pressure_snapshot())
     if identifier == 'text-transmission':
@@ -35,6 +37,11 @@ def starter_snapshot(identifier):
     if identifier in ('profile-clear', 'profile-doryphoros'):
         return copy.deepcopy(_profile_snapshot()[identifier])
     return copy.deepcopy(_snapshot()['starters'][identifier])
+
+
+@lru_cache(maxsize=1)
+def _opium_snapshot():
+    return json.loads((Path(__file__).parent / 'presets/text-opium-v1.json').read_text())
 
 
 @lru_cache(maxsize=1)

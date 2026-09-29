@@ -6,6 +6,33 @@ from synth_composition import composition_from_sequence, normalize_composition
 from synth_sequence import normalize_sequence
 
 
+def opium_composition():
+    common = {
+        'text': {'content': 'OPIUM', 'font': 0, 'size': .115, 'fit': 2,
+                 'block_width': .70, 'tracking': -.01, 'saturation': 0.,
+                 'brightness': 1.05, 'back_brightness': 0.},
+        'stretch_echo': {'stretch_y': 3.85, 'minimum': 1.2, 'ease': 6.,
+                         'typeface': 4, 'outline': 0., 'opacity': .9, 'stroke': 1., 'period': 1.5},
+        'signal_etch': {'grain': .24, 'grain_size': 2., 'streak': 3., 'erosion': .3, 'roughness': 6., 'core': .9,
+                        'scatter': .9, 'spread_x': 30., 'spread_y': 4.,
+                        'pulse': 12., 'pulse_spread': 35., 'pulse_stretch': 2.8, 'pulse_focus': 1., 'pulse_seconds': .17, 'period': 1.5},
+        'raster': {'softness': .85, 'lines': 0., 'grain': .035, 'chroma': 0., 'line_noise': .05},
+    }
+    settings = {'speed': 1., 'depth': 0., 'treatment_fps': 24}
+    for module, changes in common.items():
+        settings.update({f'{module}.{spec.key}': spec.default for spec in MODULE_BY_ID[module].params})
+        settings.update({f'{module}.{key}': value for key, value in changes.items()})
+    source = normalize_sequence(dict(schema_version=1, render_version=2,
+        name='Text / opium', duration=4.5, fps=24, seed=5826,
+        canvas={'width':720, 'height':900, 'framing':'native'},
+        states={'title': {'preset':'Reference blinds', 'enabled':list(common), 'overrides':settings}},
+        cues=[{'time':0., 'state':'title', 'transition':'cut'}]))
+    project = composition_from_sequence(source)
+    project['render_version'] = 2
+    project['phrases']['custom']['name'] = 'Contour / open / exposure'
+    return normalize_composition(project)
+
+
 def text_composition(look='phosphor'):
     duration = 6.
     common = {

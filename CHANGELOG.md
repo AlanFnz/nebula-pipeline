@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Add Text / opium, a 4.5-second editable monochrome Study with three exposure
+  pulses, a bold word and an opening serif echo. Stretch echo and Signal etch
+  are reusable treatments for generated sources and imported footage, with
+  independent timing, grain, light scatter and shape controls. Add bundled
+  Bodoni Moda and an optional alternate echo typeface for text. Freeze the
+  recipe separately; existing Studies keep their approved rendering.
+
 - Replace More/Fewer controls with expanded groups and a per-tab control filter.
   Add effect sliders, compact two-decimal values and percentage display for tiny
   quantities without rounding saved settings. Put text wording first in Object.
