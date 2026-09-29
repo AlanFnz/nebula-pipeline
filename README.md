@@ -174,6 +174,20 @@ same held clock as slice motion. **Screen mesh → Phosphor wear** adds tiny row
 registration errors and uneven phosphor points. All five controls default to
 zero so saved effects keep their previous pixels.
 
+**Portrait / unstable CRT** adds faster bars with varied interval lengths and
+nonlinear travel, higher-contrast square flashes, and Tape damage that tears and
+smears the footage itself. The strong phosphor surface stays intact. Source's
+**Cyan / unstable CRT** treatment preserves framing and timing on other videos.
+
+**Slice echo → Timing scatter** varies event boundaries around the chosen
+Reshuffle seconds. **Travel turbulence** accelerates and reverses individual bars
+inside each interval. **Fragment flashes → Flash timing scatter** has its own
+rhythm; **Flash source → Before slices** samples the underlying image, including
+prior color treatment, so squares remain distinct from the main tinted bars.
+The flash duration is capped to its current randomized interval. Timing is
+seeded, held by Slice motion FPS and deterministic under arbitrary seeks.
+The new controls default to neutral values; earlier recipes retain their pixels.
+
 **Portrait / CRT bars** combines the earlier Cyan exposures bars (their width,
 count, timing, tint and displacement) with the stronger vertical phosphor surface
 and tonal treatment from Fractured CRT. Low-opacity square fragments flash over

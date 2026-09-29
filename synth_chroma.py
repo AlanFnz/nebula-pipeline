@@ -45,36 +45,65 @@ def render_chroma_print(arr, p, reference_size):
     return arr*(1-p['mix']) + out*p['mix']
 
 
+def slice_clock(p, time, speed, seed):
+    """Seeded event boundaries, with exact legacy timing at zero scatter.
+
+    Each boundary moves by less than half an interval, so intervals stay
+    ordered. Only adjacent boundaries are needed for an arbitrary seek.
+    """
+    clock = time*speed
+    if p['cadence']: clock = math.floor(clock*p['cadence']+1e-8)/p['cadence']
+    cycle = clock/p['period']+p['phase']
+    tick = math.floor(cycle)
+    scatter = p.get('timing_scatter',0.)
+    if not scatter:
+        progress = cycle-tick
+        return tick,progress,progress*p['period'],p['period']
+    def boundary(index):
+        rng = np.random.default_rng(np.random.SeedSequence((seed,index & 0xffffffffffffffff,1387)))
+        return index+float(rng.uniform(-.45,.45))*scatter
+    left,right = boundary(tick),boundary(tick+1)
+    if cycle < left:
+        tick -= 1
+        left,right = boundary(tick),left
+    elif cycle >= right:
+        tick += 1
+        left,right = right,boundary(tick+1)
+    span = right-left
+    return tick,(cycle-left)/span,(cycle-left)*p['period'],span*p['period']
+
+
 def slice_events(p, time, speed, seed):
     """Event layout is independent of render dimensions and request order."""
-    clock = time * speed
-    if p['cadence']: clock = math.floor(clock*p['cadence']+1e-8)/p['cadence']
-    cycle = clock/p['period'] + p['phase']
-    tick = math.floor(cycle)
+    tick,progress,_,_ = slice_clock(p,time,speed,seed)
     rng = np.random.default_rng(np.random.SeedSequence((seed,tick & 0xffffffffffffffff,627)))
     if rng.random() >= p['activity']: return ()
-    progress = cycle-tick
     events = []
-    for _ in range(p['count']):
+    for index in range(p['count']):
         center = rng.uniform(-.1,1.1) + (progress-.5)*p['travel']*rng.choice((-1,1))
         height = p['height']*rng.uniform(.45,1.4)
         dx = rng.uniform(-1,1)*p['shift_x']
         dy = rng.uniform(-1,1)*p['shift_y']
         zoom = 1+rng.uniform(-1,1)*p['scale']
         tint = rng.random() < p['color_chance']
+        chaos = p.get('motion_chaos',0.)
+        if chaos:
+            movement = np.random.default_rng(np.random.SeedSequence((seed,tick & 0xffffffffffffffff,1523,index)))
+            frequency,phase = movement.uniform(.35,1.2),movement.uniform(0,math.tau)
+            drive = math.sin(progress*math.tau*frequency+phase)-math.sin(phase)
+            center += chaos*height*.65*drive
+            dx += chaos*p['shift_x']*.55*drive
+            dy += chaos*p['shift_y']*.35*drive
         events.append((float(center),float(height),float(dx),float(dy),float(zoom),tint))
     return tuple(events)
 
 
-def slice_envelope(p, time, speed):
+def slice_envelope(p, time, speed, seed=0):
     """Fade event edges on the same held clock that drives slice travel."""
     fade = min(.5, max(0., p.get('envelope', 0.)))
     if not fade:
         return 1.
-    clock = time * speed
-    if p['cadence']: clock = math.floor(clock*p['cadence']+1e-8)/p['cadence']
-    cycle = clock/p['period'] + p['phase']
-    progress = cycle-math.floor(cycle)
+    _,progress,_,_ = slice_clock(p,time,speed,seed)
     edge = min(1., progress/fade, (1-progress)/fade)
     return edge*edge*(3-2*edge)
 
@@ -85,9 +114,7 @@ def fragment_mask(p, rows, width, height, center, extent, time, speed, seed, ind
     A separate random stream leaves legacy slice positions and tint choices
     unchanged. Neutral settings bypass this path entirely.
     """
-    clock = time*speed
-    if p['cadence']: clock = math.floor(clock*p['cadence']+1e-8)/p['cadence']
-    tick = math.floor(clock/p['period']+p['phase'])
+    tick,_,_,_ = slice_clock(p,time,speed,seed)
     rng = np.random.default_rng(np.random.SeedSequence((seed,tick & 0xffffffffffffffff,891,index)))
     angle = math.radians(p.get('angle',0.))
     x = (np.arange(width,dtype=np.float32)+.5-width/2)/height
@@ -115,24 +142,24 @@ def render_slice_echo(arr, p, time, speed, seed, reference_size):
     if not p.get('flash_opacity',0.) or not p['mix']:
         return _render_slice_pass(arr,p,time,speed,seed,reference_size)
     out = _render_slice_pass(arr,dict(p,mix=1.),time,speed,seed,reference_size)
-    clock = time*speed
-    if p['cadence']: clock = math.floor(clock*p['cadence']+1e-8)/p['cadence']
-    cycle = clock/p['flash_period']+p['phase']
-    elapsed = (cycle-math.floor(cycle))*p['flash_period']
-    duration = min(p['flash_period'],p['flash_seconds'])
+    flash_seed = int(np.random.SeedSequence((seed,1763)).generate_state(1)[0])
+    flash_clock = dict(p,period=p['flash_period'],timing_scatter=p.get('flash_scatter',0.))
+    _,_,elapsed,interval = slice_clock(flash_clock,time,speed,flash_seed)
+    duration = min(interval,p['flash_seconds'])
     if elapsed < duration:
         fade = 1-elapsed/duration
         fade = fade*fade*(3-2*fade)
         flashes = dict(p, mix=1., opacity=p['flash_opacity']*fade,
-            period=p['flash_period'], envelope=0., travel=0.,
+            period=p['flash_period'], timing_scatter=p.get('flash_scatter',0.),
+            envelope=0., travel=0., motion_chaos=0.,
             count=p['flash_count'], width=p['flash_width'], height=p['flash_height'],
             edge_breakup=p['flash_breakup'], negative=p['flash_negative'])
-        flash_seed = int(np.random.SeedSequence((seed,1763)).generate_state(1)[0])
-        out = _render_slice_pass(out,flashes,time,speed,flash_seed,reference_size)
+        out = _render_slice_pass(out,flashes,time,speed,flash_seed,reference_size,
+                                 source_arr=arr if p.get('flash_source',0) else None)
     return arr*(1-p['mix'])+out*p['mix']
 
 
-def _render_slice_pass(arr, p, time, speed, seed, reference_size):
+def _render_slice_pass(arr, p, time, speed, seed, reference_size, source_arr=None):
     if not p['mix'] or not p['opacity']: return arr
     events = slice_events(p,time,speed,seed)
     if not events: return arr
@@ -144,8 +171,8 @@ def _render_slice_pass(arr, p, time, speed, seed, reference_size):
         # square and landscape canvases. This tilts the seam, not the source.
         columns = (np.arange(w,dtype=np.float32)+.5-w/2)/h
         rows = .5+(rows-.5)*math.cos(angle)-columns[None,:]*math.sin(angle)
-    envelope = slice_envelope(p,time,speed)
-    source = Image.fromarray(np.uint8(np.clip(arr*255,0,255)))
+    envelope = slice_envelope(p,time,speed,seed)
+    source = Image.fromarray(np.uint8(np.clip((arr if source_arr is None else source_arr)*255,0,255)))
     out = arr.copy()
     for index,(center,height,dx,dy,zoom,tint) in enumerate(events):
         distance = np.abs(rows-center)

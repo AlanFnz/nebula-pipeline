@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add Portrait / unstable CRT and its Source treatment: faster irregular bars,
+  distinct square flashes sampled before the main slices, and existing Tape
+  damage applied to the footage. Add opt-in timing scatter, nonlinear travel,
+  independent flash scatter and flash-source selection. Previous recipes keep
+  their exact regular timing and rendering.
+
 - Add Portrait / CRT bars and the Cyan / CRT bars Source treatment: restore the
   earlier full-width bar animation while keeping the stronger vertical CRT
   texture and tonal treatment. Add faint square flashes with independent opacity,

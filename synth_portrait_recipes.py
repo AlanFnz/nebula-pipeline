@@ -81,6 +81,34 @@ CRT_BARS_EFFECTS['slice_echo'].update({
     'slice_echo.flash_breakup': .2, 'slice_echo.flash_negative': .35})
 
 
+UNSTABLE_CRT_EFFECTS = copy.deepcopy(CRT_BARS_EFFECTS)
+UNSTABLE_CRT_EFFECTS['slice_echo'].update({
+    'slice_echo.count': 3, 'slice_echo.height': .23,
+    'slice_echo.period': .2, 'slice_echo.timing_scatter': .9,
+    'slice_echo.motion_chaos': .6, 'slice_echo.travel': .55,
+    'slice_echo.shift_x': .12, 'slice_echo.shift_y': .13, 'slice_echo.scale': .15,
+    'slice_echo.activity': .94, 'slice_echo.envelope': .05,
+    'slice_echo.color_chance': .8, 'slice_echo.opacity': .83,
+    'slice_echo.flash_opacity': .72, 'slice_echo.flash_source': 1,
+    'slice_echo.flash_period': .24,
+    'slice_echo.flash_seconds': .12, 'slice_echo.flash_scatter': .6,
+    'slice_echo.flash_width': .34, 'slice_echo.flash_height': .32,
+    'slice_echo.flash_breakup': .08, 'slice_echo.flash_negative': .9})
+UNSTABLE_CRT_EFFECTS['tape'] = {
+    'tape.tracking': .065, 'tape.jitter': .0012, 'tape.dropouts': .24,
+    'tape.chroma_delay': .007, 'tape.bleed': .009, 'tape.head_switch': .14,
+    'tape.rate': 18., 'tape.mix': .8}
+
+
+def unstable_crt_composition(footage):
+    """Fast irregular bars, legible square flashes and faults inside the footage."""
+    project = portrait_composition(footage, effects=UNSTABLE_CRT_EFFECTS)
+    project['name'] = 'Portrait / unstable CRT'
+    project['footage'].update(rotation=-14.,zoom=1.48,x=90.,y=-120.)
+    project['phrases']['custom']['name'] = 'Cyan / unstable CRT'
+    return project
+
+
 def crt_bars_composition(footage):
     """Earlier bars and strong vertical CRT, with faint, independently timed flashes."""
     project = portrait_composition(footage, effects=CRT_BARS_EFFECTS)
