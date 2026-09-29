@@ -25,7 +25,8 @@ class VideoSourcePanel(QWidget):
         for key, label, low, high, step, suffix in (
             ('in', 'In', 0., 86400., .1, ' s'), ('out', 'Out', 0., 86400., .1, ' s'),
             ('zoom', 'Scale', .05, 8., .05, ' ×'), ('x', 'Position X', -100000., 100000., 10., ' px'),
-            ('y', 'Position Y', -100000., 100000., 10., ' px'), ('motion_fps', 'Motion cadence', 0., 120., 1., ' fps'), ('treatment_fps', 'Effect cadence', 1., 120., 1., ' fps')):
+            ('y', 'Position Y', -100000., 100000., 10., ' px'), ('rotation', 'Rotation', -180., 180., .5, ' °'),
+            ('motion_fps', 'Motion cadence', 0., 120., 1., ' fps'), ('treatment_fps', 'Effect cadence', 1., 120., 1., ' fps')):
             row = QHBoxLayout(); row.addWidget(QLabel(label))
             control = DoubleSpinBox(); control.setRange(low, high); control.setSingleStep(step); control.setDecimals(3 if key in ('in', 'out') else 2)
             control.setSuffix(suffix); control.setKeyboardTracking(False); control.setAccessibleName(f'Video {label}')
@@ -34,6 +35,7 @@ class VideoSourcePanel(QWidget):
         self.controls['motion_fps'].setSpecialValueText('Native FPS')
         self.controls['motion_fps'].setToolTip('Hold source frames at this rate without slowing the clip. Zero keeps native motion. Texture and export cadence stay independent.')
         self.controls['treatment_fps'].setToolTip('How often procedural treatment changes. Footage keeps playing at its own speed; export frame rate stays independent.')
+        self.controls['rotation'].setToolTip('Rotate the source around its positioned center. Positive values turn clockwise; proportions and subject masks stay aligned. Increase Scale to fill any exposed corners.')
         self.fit = ComboBox(); self.fit.setAccessibleName('Video framing')
         for label, value in (('Fit inside canvas', 'contain'), ('Fill canvas / crop edges', 'cover'), ('Original pixel size', 'original')): self.fit.addItem(label, value)
         self.fit.currentIndexChanged.connect(lambda _: self.change('fit', self.fit.currentData()))

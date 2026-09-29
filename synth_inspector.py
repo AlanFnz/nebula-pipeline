@@ -8,7 +8,10 @@ def control_group(path):
         if key != 'mix': return 'Color & light'
     if module == 'slice_echo':
         if key in ('shift_x', 'shift_y', 'travel', 'activity'): return 'Motion & timing'
-        if key == 'exposure': return 'Color & light'
+        if key in ('exposure', 'highlight_protect'): return 'Color & light'
+        if key == 'angle': return 'Shape & layout'
+        if key == 'envelope': return 'Motion & timing'
+        if key == 'luma_mask': return 'Output & blending'
         if key == 'screen': return 'Output & blending'
     if module == 'screen_mesh':
         if key == 'exposure': return 'Color & light'

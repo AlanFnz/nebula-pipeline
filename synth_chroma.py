@@ -58,12 +58,32 @@ def slice_events(p, time, speed, seed):
     return tuple(events)
 
 
+def slice_envelope(p, time, speed):
+    """Fade event edges on the same held clock that drives slice travel."""
+    fade = min(.5, max(0., p.get('envelope', 0.)))
+    if not fade:
+        return 1.
+    clock = time * speed
+    if p['cadence']: clock = math.floor(clock*p['cadence']+1e-8)/p['cadence']
+    cycle = clock/p['period'] + p['phase']
+    progress = cycle-math.floor(cycle)
+    edge = min(1., progress/fade, (1-progress)/fade)
+    return edge*edge*(3-2*edge)
+
+
 def render_slice_echo(arr, p, time, speed, seed, reference_size):
     if not p['mix'] or not p['opacity']: return arr
     events = slice_events(p,time,speed,seed)
     if not events: return arr
     h,w = arr.shape[:2]; cw,ch = reference_size
-    rows = (np.arange(h,dtype=np.float32)+.5)/h
+    rows = ((np.arange(h,dtype=np.float32)+.5)/h)[:,None]
+    if p.get('angle', 0.):
+        angle = math.radians(p['angle'])
+        # Rotate in pixel space, so the same angle stays the same in Stories,
+        # square and landscape canvases. This tilts the seam, not the source.
+        columns = (np.arange(w,dtype=np.float32)+.5-w/2)/h
+        rows = .5+(rows-.5)*math.cos(angle)-columns[None,:]*math.sin(angle)
+    envelope = slice_envelope(p,time,speed)
     source = Image.fromarray(np.uint8(np.clip(arr*255,0,255)))
     out = arr.copy()
     for center,height,dx,dy,zoom,tint in events:
@@ -74,14 +94,25 @@ def render_slice_echo(arr, p, time, speed, seed, reference_size):
             (1/zoom,0,w/2-(w/2+dx*cw)/zoom,0,1/zoom,h/2-(h/2+dy*ch)/zoom),
             Image.Resampling.BILINEAR)
         echo = np.asarray(shifted,dtype=np.float32)/255
+        coverage = None
+        if p.get('luma_mask', 0.):
+            light = echo @ np.array((.2126,.7152,.0722),dtype=np.float32)
+            coverage = 1-p['luma_mask']+p['luma_mask']*np.clip(light,0,1)
         if tint:
             light = echo.max(axis=2)
-            colored = light[...,None]*_color(p['hue'],p['saturation'])
+            color = _color(p['hue'],p['saturation'])
+            if p.get('highlight_protect', 0.):
+                highlight = np.clip((light-.35)/.65,0,1)
+                highlight = highlight*highlight*(3-2*highlight)*p['highlight_protect']
+                color = color + highlight[...,None]*(1-color)
+            colored = light[...,None]*color
             echo = echo*(1-p['color_mix']) + colored*p['color_mix']
         echo *= 2**p['exposure']
         # Blend both cut slices and overlapping exposures from the actual image.
         echo = echo*(1-p['screen']) + (1-(1-out)*(1-echo))*p['screen']
-        alpha = mask[:,None,None]*p['opacity']
+        alpha = mask[...,None]*p['opacity']
+        if p.get('envelope', 0.): alpha *= envelope
+        if coverage is not None: alpha = alpha*coverage[...,None]
         out = out*(1-alpha)+echo*alpha
     return arr*(1-p['mix'])+out*p['mix']
 
@@ -103,6 +134,12 @@ def render_screen_mesh(arr, p, time, speed, seed, reference_size):
     # Fade frequencies above Nyquist in small previews, avoiding false moire.
     visibility = float(np.clip(pitch/2-0.5,0,1))
     phase = (u/pitch + rng.uniform(-1,1)*p['jitter'] + p['phase'])*math.tau
+    wear = p.get('wear', 0.)
+    if wear:
+        # Small row registration errors and uneven phosphor points create a
+        # filmed surface. Zero preserves the original pattern and RNG sequence.
+        phase += wear*(.6*rng.normal(size=(h,1)).astype(np.float32)
+                       + .5*rng.normal(size=(h,w)).astype(np.float32))
     # Keep the mean absorption when suppressing subpixel detail; otherwise a
     # small preview becomes brighter than the exported phosphor pattern.
     luminance = 1-p['strength']*(.5-.5*visibility*np.cos(phase))
@@ -117,6 +154,9 @@ def render_screen_mesh(arr, p, time, speed, seed, reference_size):
     row_visibility = float(np.clip(row_pitch/2-.5,0,1))
     rows = 1-p['rows']*(.5+.5*row_visibility*np.cos(v/row_pitch*math.tau))
     out = arr*(luminance*rows)[...,None]*phosphor*balance*2**p['exposure']
+    if wear:
+        emission = rng.normal(1.,.16*wear,(h,w,1)).astype(np.float32)
+        out *= np.clip(emission,0.,2.)
     if p['grain']:
         noise = rng.normal(0,p['grain'],(h,w,1)).astype(np.float32)
         out += noise*np.sqrt(np.maximum(0,arr.mean(axis=2,keepdims=True)))

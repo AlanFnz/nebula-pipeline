@@ -20,7 +20,7 @@ import threading
 
 from PIL import Image
 from media import Cancellation, decode_frames, dimensions, frame_count, probe
-from synth_portrait_recipes import PORTRAIT_EFFECTS
+from synth_portrait_recipes import PORTRAIT_EFFECTS, EXPOSURE_EFFECTS
 
 VIDEO_EFFECTS = ('subject_cutout', 'photocopy', 'broadcast', 'stretch_echo', 'signal_etch', 'chroma_print', 'slice_echo', 'screen_mesh', 'signal_background', 'scan_drag', 'ghosts', 'breakup', 'tape',
                  'drift', 'flare', 'separation', 'interference', 'frame_jitter',
@@ -63,7 +63,8 @@ def normalize_footage(raw):
         result[key] = raw.get(key, default)
         if result[key] not in choices: raise ValueError(f'Unknown video {key}')
     for key, default, low, high in (('zoom', 1., .05, 8.), ('x', 0., -100000., 100000.),
-                                   ('y', 0., -100000., 100000.), ('treatment_fps', 30., 1., 120.), ('motion_fps', 0., 0., 120.)):
+                                   ('y', 0., -100000., 100000.), ('rotation', 0., -180., 180.),
+                                   ('treatment_fps', 30., 1., 120.), ('motion_fps', 0., 0., 120.)):
         result[key] = _number(raw.get(key, default), key, low, high)
     result['has_audio'] = bool(raw.get('has_audio', False))
     identity = raw.get('identity')
@@ -105,6 +106,7 @@ def relink_footage(old, new):
     result = copy.deepcopy(new)
     for key in ('in', 'out', 'end_mode', 'fit', 'zoom', 'x', 'y', 'treatment_fps', 'motion_fps', 'audio'):
         result[key] = old[key]
+    result['rotation'] = old.get('rotation', 0.)
     result['in'] = min(old['in'], max(0., new['duration'] - 1 / new['sample_fps']))
     result['out'] = min(old['out'], new['duration'])
     if result['out'] <= result['in']: result['out'] = new['duration']
@@ -123,7 +125,7 @@ def source_index(footage, time_seconds):
 
 
 def frame_on_canvas(image, footage, canvas, size):
-    """Uniform scale and translation: canvas changes can never stretch footage."""
+    """Uniform scale, rotation and translation without stretching the footage."""
     width, height = size
     cw, ch = canvas['width'], canvas['height']
     sw, sh = footage['width'], footage['height']
@@ -135,6 +137,20 @@ def frame_on_canvas(image, footage, canvas, size):
     y = (height - h) / 2 + footage['y'] * height / ch
     # Transform directly to the viewport so zooming an 8K source never allocates
     # an enormous intermediate image. Black margins belong to the image stage.
+    if footage.get('rotation', 0.):
+        angle = math.radians(footage['rotation'])
+        cosine, sine = math.cos(angle), math.sin(angle)
+        anchor_x, anchor_y = x+w/2, y+h/2
+        sx, sy = image.width/w, image.height/h
+        # Inverse sampling for a clockwise output rotation about the source's
+        # positioned center. The proxy's rounded dimensions retain the original
+        # footage proportions, exactly as in the neutral framing path below.
+        affine = (cosine*sx, sine*sx,
+                  image.width/2-(cosine*anchor_x+sine*anchor_y)*sx,
+                  -sine*sy, cosine*sy,
+                  image.height/2+(sine*anchor_x-cosine*anchor_y)*sy)
+        return image.transform(size,Image.Transform.AFFINE,affine,
+                               Image.Resampling.BICUBIC,fillcolor=(0,0,0))
     return image.transform(size, Image.Transform.AFFINE,
         (image.width / w, 0, -x * image.width / w, 0, image.height / h, -y * image.height / h),
         Image.Resampling.BICUBIC, fillcolor=(0, 0, 0))
@@ -284,7 +300,7 @@ class VideoFrameProvider:
         check_source(footage)
         key = (footage['path'], footage['identity']['size'], footage['identity']['mtime_ns'],
                footage['sample_fps'], source_index(footage, time_seconds), footage['in'], footage['out'],
-               footage['width'], footage['height'], footage['fit'], footage['zoom'], footage['x'], footage['y'],
+               footage['width'], footage['height'], footage['fit'], footage['zoom'], footage['x'], footage['y'], footage.get('rotation', 0.),
                canvas['width'], canvas['height'], mode, retention, retention_seconds)
         if key in self.masks:
             self.masks.move_to_end(key)
@@ -298,7 +314,7 @@ class VideoFrameProvider:
     def _mask(self, footage, time_seconds, canvas, mode, retention, retention_seconds):
         from synth_cutout import subject_mask, retain_mask
         # One canonical crop for every monitor/export size. Detection sees the
-        # same composition that the user sees, including source zoom/position.
+        # same composition that the user sees, including scale, position and rotation.
         if self.mask_provider is None:
             self.mask_provider = VideoFrameProvider(preview=True, cancel=self.cancel, directory=self.directory)
         source = self.mask_provider.frame(footage, time_seconds, edge=PROXY_EDGE)
@@ -385,6 +401,7 @@ TREATMENTS = (
         'frame_jitter': {'frame_jitter.x': 3., 'frame_jitter.y': 2., 'frame_jitter.rotation': .2},
         'low_res': {'low_res.resolution': 720}}),
     ('Cyan / slice screen', PORTRAIT_EFFECTS),
+    ('Cyan / filmed exposures', EXPOSURE_EFFECTS),
 )
 
 

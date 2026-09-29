@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Refine the cyan portrait as an independent Cyan exposures Study and a Cyan /
+  filmed exposures video treatment. Add optional diagonal slice seams, pale
+  highlight preservation, brightness-shaped opacity, event fades and phosphor
+  wear. Add global video-source rotation with uniform scaling and aligned
+  foreground masks. New controls default to zero; the first portrait recipe
+  and previous Studies retain their rendering.
+
 - Add reusable Chroma print, Slice echo and Screen mesh treatments for footage,
   objects and text, plus the Cyan / slice screen video treatment preset. Add a
   local Portrait / cyan signal recipe with ten seconds of continuous source

@@ -80,7 +80,7 @@ frame rate. Preparation runs in the background and can be cancelled. The
 composition being left is backed up in
 `~/Library/Application Support/Nebula Studio/Backups/` before switching.
 
-- **Source** controls the global In/Out range, uniform scale, X/Y position and
+- **Source** controls the global In/Out range, uniform scale, X/Y position, rotation and
   Fit / Fill-crop / Original pixel size. Changing the canvas never stretches
   the footage. **Use trimmed duration for timeline** explicitly resizes the
   arrangement; otherwise section durations continue to determine the total.
@@ -99,7 +99,7 @@ composition being left is backed up in
   **Photocopy** and **Subject cutout** add toner printing and local foreground
   extraction. Object generators are not offered for video.
 - **Source → Treatment presets** applies Clean, Worn tape, Printed motion,
-  Soft signal, Cold photocopy or Cyan / slice screen to the current footage. These replace effects and master settings
+  Soft signal, Cold photocopy, Cyan / slice screen or Cyan / filmed exposures to the current footage. These replace effects and master settings
   throughout the composition while retaining its source, framing and sections;
   Undo restores the previous treatment. They are separate from generated studies.
 - **Before / source** previews the same frame and framing without treatments or
@@ -159,6 +159,25 @@ video Studies, it stores a separate local copy of the footage and all effect
 values; the user's footage is not distributed with the repository or app.
 `synth_portrait_recipes.portrait_composition(footage)` authors that recipe from
 metadata returned by `synth_video.inspect_video`, ready for `save_study`.
+
+**Portrait / cyan exposures** is a separate refinement with brighter cyan/white
+highlights, gentler slanted fragments, short exposure fades and an imperfect
+phosphor surface. The first Portrait / cyan signal remains independently
+available. **Cyan / filmed exposures** applies the refined treatment to other
+footage while keeping its framing and timing.
+
+**Slice echo** additionally offers **Slice angle**, **Keep bright highlights**,
+**Image-shaped opacity** and **Event fade**. The angle changes only the seams;
+the brightness mask lets dark fragments reveal the image underneath. Event fade
+is the fraction of each reshuffle interval spent fading at either end, on the
+same held clock as slice motion. **Screen mesh → Phosphor wear** adds tiny row
+registration errors and uneven phosphor points. All five controls default to
+zero so saved effects keep their previous pixels.
+
+**Source → Rotation** rotates footage around its positioned center, with positive
+values clockwise. Scale stays uniform and foreground masks follow the same
+framing. Increase Scale if rotation exposes corners. Existing video documents
+use zero rotation; source relinking preserves the chosen angle.
 
 ### Editable text studies
 
