@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add Portrait / CRT bars and the Cyan / CRT bars Source treatment: restore the
+  earlier full-width bar animation while keeping the stronger vertical CRT
+  texture and tonal treatment. Add faint square flashes with independent opacity,
+  interval, duration and shape controls in Slice echo. Flash opacity defaults to
+  zero; existing recipes and saved Studies are unchanged.
+
 - Add the independent Portrait / fractured CRT recipe and Cyan / fractured CRT
   video treatment, with stronger vertical phosphor lines, solarized tonal relief
   and irregular negative image patches. Add opt-in fragment width, stepped

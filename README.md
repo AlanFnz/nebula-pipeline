@@ -174,6 +174,18 @@ same held clock as slice motion. **Screen mesh → Phosphor wear** adds tiny row
 registration errors and uneven phosphor points. All five controls default to
 zero so saved effects keep their previous pixels.
 
+**Portrait / CRT bars** combines the earlier Cyan exposures bars (their width,
+count, timing, tint and displacement) with the stronger vertical phosphor surface
+and tonal treatment from Fractured CRT. Low-opacity square fragments flash over
+the bars on their own faster rhythm. **Slice echo → Fragment flashes** exposes
+opacity, interval, fade-out duration, count, dimensions, broken edges and negative
+exposure. Flashes share the main tint/displacement and held motion FPS, but use an
+independent random stream and event clock. Duration is capped at the interval;
+very short flashes may fall between sampled frames. Flash opacity defaults to
+zero, preserving previous pixels. **Cyan / CRT bars** applies the combination to
+other footage without changing its framing or timing. Previous saved versions
+remain available.
+
 **Portrait / fractured CRT** pushes the same source toward a filmed-screen
 look: visible vertical phosphor lines, stronger solarized facial relief, and
 irregular overlapping patches with negative exposure. **Cyan / fractured CRT**

@@ -7,6 +7,7 @@ def control_group(path):
         if key in ('detail', 'detail_radius', 'softness'): return 'Texture & detail'
         if key != 'mix': return 'Color & light'
     if module == 'slice_echo':
+        if key.startswith('flash_'): return 'Fragment flashes'
         if key in ('shift_x', 'shift_y', 'travel', 'activity'): return 'Motion & timing'
         if key in ('exposure', 'highlight_protect', 'negative'): return 'Color & light'
         if key in ('angle','width','edge_breakup'): return 'Shape & layout'

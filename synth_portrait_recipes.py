@@ -70,6 +70,26 @@ for _effect, _values in {
     FRACTURED_EFFECTS[_effect].update({f'{_effect}.{key}': value for key,value in _values.items()})
 
 
+# Restore the earlier full-width bars while retaining the stronger CRT finish.
+CRT_BARS_EFFECTS = copy.deepcopy(FRACTURED_EFFECTS)
+CRT_BARS_EFFECTS['slice_echo'] = copy.deepcopy(EXPOSURE_EFFECTS['slice_echo'])
+CRT_BARS_EFFECTS['slice_echo'].update({
+    'slice_echo.width': 1., 'slice_echo.edge_breakup': 0., 'slice_echo.negative': 0.,
+    'slice_echo.flash_opacity': .27, 'slice_echo.flash_period': .18,
+    'slice_echo.flash_seconds': .06, 'slice_echo.flash_count': 2,
+    'slice_echo.flash_width': .32, 'slice_echo.flash_height': .24,
+    'slice_echo.flash_breakup': .2, 'slice_echo.flash_negative': .35})
+
+
+def crt_bars_composition(footage):
+    """Earlier bars and strong vertical CRT, with faint, independently timed flashes."""
+    project = portrait_composition(footage, effects=CRT_BARS_EFFECTS)
+    project['name'] = 'Portrait / CRT bars'
+    project['footage'].update(rotation=-14.,zoom=1.48,x=90.,y=-120.)
+    project['phrases']['custom']['name'] = 'Cyan / CRT bars'
+    return project
+
+
 def fractured_composition(footage):
     """Solarized portrait, broken negative exposures and visible CRT columns."""
     project = portrait_composition(footage, effects=FRACTURED_EFFECTS)

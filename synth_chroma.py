@@ -111,6 +111,28 @@ def fragment_mask(p, rows, width, height, center, extent, time, speed, seed, ind
 
 
 def render_slice_echo(arr, p, time, speed, seed, reference_size):
+    """Main slices plus an optional, independently timed set of image flashes."""
+    if not p.get('flash_opacity',0.) or not p['mix']:
+        return _render_slice_pass(arr,p,time,speed,seed,reference_size)
+    out = _render_slice_pass(arr,dict(p,mix=1.),time,speed,seed,reference_size)
+    clock = time*speed
+    if p['cadence']: clock = math.floor(clock*p['cadence']+1e-8)/p['cadence']
+    cycle = clock/p['flash_period']+p['phase']
+    elapsed = (cycle-math.floor(cycle))*p['flash_period']
+    duration = min(p['flash_period'],p['flash_seconds'])
+    if elapsed < duration:
+        fade = 1-elapsed/duration
+        fade = fade*fade*(3-2*fade)
+        flashes = dict(p, mix=1., opacity=p['flash_opacity']*fade,
+            period=p['flash_period'], envelope=0., travel=0.,
+            count=p['flash_count'], width=p['flash_width'], height=p['flash_height'],
+            edge_breakup=p['flash_breakup'], negative=p['flash_negative'])
+        flash_seed = int(np.random.SeedSequence((seed,1763)).generate_state(1)[0])
+        out = _render_slice_pass(out,flashes,time,speed,flash_seed,reference_size)
+    return arr*(1-p['mix'])+out*p['mix']
+
+
+def _render_slice_pass(arr, p, time, speed, seed, reference_size):
     if not p['mix'] or not p['opacity']: return arr
     events = slice_events(p,time,speed,seed)
     if not events: return arr
