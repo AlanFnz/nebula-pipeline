@@ -274,6 +274,9 @@ class SynthStudio(QMainWindow):
         self.import_job = None
         self.study_job = None
         self.studies_dialog = None
+        self.study_browser_priority_timer = QTimer(self)
+        self.study_browser_priority_timer.setInterval(100)
+        self.study_browser_priority_timer.timeout.connect(self.update_study_browser_priority)
         self.video_frames = VideoFrameProvider(preview=True)
         self.controls = {}
         self.module_groups = []
@@ -502,9 +505,9 @@ class SynthStudio(QMainWindow):
         self.load_starter_button.setEnabled(False)
         self.starter_combo.currentIndexChanged.connect(lambda index: self.load_starter_button.setEnabled(index >= 0))
         study_actions.addWidget(self.load_starter_button)
-        self.manage_studies_button = QPushButton('Manage…')
-        self.manage_studies_button.setAccessibleName('Manage studies')
-        self.manage_studies_button.setToolTip('Sort studies by date, remove entries from the picker, or restore removed studies.')
+        self.manage_studies_button = QPushButton('Browse studies…')
+        self.manage_studies_button.setAccessibleName('Browse studies')
+        self.manage_studies_button.setToolTip('Browse still previews, search, filter, favorite, remove or restore Studies.')
         self.manage_studies_button.clicked.connect(self.manage_studies)
         study_actions.addWidget(self.manage_studies_button)
         study_actions.addStretch(1)
@@ -919,9 +922,20 @@ class SynthStudio(QMainWindow):
         if self.studies_dialog is None:
             self.studies_dialog = StudiesDialog(self)
             self.studies_dialog.libraryChanged.connect(self.refresh_studies)
+            self.studies_dialog.studyRequested.connect(self.load_starter_id)
+            self.studies_dialog.finished.connect(self.study_browser_priority_timer.stop)
         else:
             self.studies_dialog.refresh()
+        self.update_study_browser_priority()
         self.studies_dialog.show(); self.studies_dialog.raise_(); self.studies_dialog.activateWindow()
+        self.study_browser_priority_timer.start()
+
+    def update_study_browser_priority(self):
+        if self.studies_dialog is None: return
+        busy = bool(self.closing or self.export_job or self.render_running or self.render_queued
+                    or self.preparation_explicit or self.play.isChecked() or self.preview_debounce.isActive())
+        if busy != self.studies_dialog._rendering_paused:
+            self.studies_dialog.set_rendering_paused(busy)
 
     def save_study_dialog(self):
         if self.composition is None or self.study_job is not None: return
@@ -1799,6 +1813,8 @@ class SynthStudio(QMainWindow):
             return
         self.save_workspace()
         self.closing = True
+        self.study_browser_priority_timer.stop()
+        if self.studies_dialog is not None: self.studies_dialog.close()
         QApplication.instance().removeEventFilter(self)
         self.play_timer.stop()
         self.preview_debounce.stop(); self.cancel_preparation()
