@@ -573,6 +573,11 @@ def normalize_composition(raw):
         ids.add(identifier)
         duration = _number(section.get("duration"), "Section duration", 1 / result["fps"], 300)
         section["duration"] = max(1, round(duration * result["fps"])) / result["fps"]
+        for key in ('effects_rate', 'video_rate'):
+            if key in section:
+                if isinstance(section[key], bool): raise ValueError(f'Invalid {key}')
+                section[key] = _number(section[key], key, 1e-6, 1e6)
+                if math.isclose(section[key], 1., rel_tol=1e-12): section.pop(key)
         section["loops"] = _number(section.get("loops", 1), "Section loops", 1, 32, True)
         section["macros"] = _controls(section.get("macros", {}))
         section["geometry"] = _geometry(section.get("geometry", {}), section=True)
@@ -649,6 +654,32 @@ def section_placements(composition):
     return result
 
 
+def stretch_section(raw, identifier, duration, mode='effects'):
+    """Frame-snapped ripple stretch; untouched section clocks retain their phase."""
+    if mode not in ('effects', 'video'):
+        raise ValueError('Resize mode must be effects or video')
+    if isinstance(duration, bool) or not isinstance(duration, (int, float)) or not math.isfinite(duration):
+        raise ValueError('Section duration must be finite')
+    result = normalize_composition(raw)
+    section = next((item for item in result['sections'] if item['id'] == identifier), None)
+    if section is None: raise ValueError('Unknown section to resize')
+    fps = result['fps']
+    placements = section_placements(result)
+    index = result['sections'].index(section)
+    plays = sum(section['loops'] for i, *_ in placements if i == index)
+    old_frames = round(section['duration'] * fps)
+    other_frames = round(placements[-1][2] * fps) - old_frames * plays
+    maximum = min(300 * fps, (3600 * fps - other_frames) // plays)
+    frames = max(1, min(maximum, round(duration * fps)))
+    if frames == old_frames: return result
+    factor = old_frames / frames
+    keys = ('effects_rate', 'video_rate') if mode == 'video' and 'footage' in result else ('effects_rate',)
+    for key in keys:
+        section[key] = section.get(key, 1.) * factor
+    section['duration'] = frames / fps
+    return normalize_composition(result)
+
+
 def section_ranges(composition):
     """First-play edit anchors; the last group member includes its repeat tail."""
     result = [None] * len(composition['sections'])
@@ -717,7 +748,9 @@ def compile_composition(raw):
     fps = project["fps"]
     placements = section_placements(project)
     result["duration"] = placements[-1][2]
-    # The optional field track keeps its original absolute-time contract.
+    from synth_retime import compose_time_maps
+    clocks = []
+    effects_time = video_time = 0.
     for index, start, end, _repetition in placements:
         section = project['sections'][index]
         phrase = project["phrases"][section["phrase"]]
@@ -725,7 +758,13 @@ def compile_composition(raw):
         events = phrase_events(project, section)
         effects = merge_effects(project["effects"], section["effects"])
         macros = {key: project["macros"][key] * section["macros"][key] for key in MACROS}
-        rate = macros["rhythm"]
+        effects_rate = section.get('effects_rate', 1.)
+        video_rate = section.get('video_rate', 1.)
+        clocks.append(dict(start=start, end=end, effects_start=effects_time,
+                           effects_rate=effects_rate, video_start=video_time, video_rate=video_rate))
+        effects_time += (end - start) * effects_rate
+        video_time += (end - start) * video_rate
+        rate = macros["rhythm"] * effects_rate
         cycle = (last - first) / rate
         variant = (project["variation"], section["variation"])
         offset = _seed(project["seed"], section["id"], *variant) % (2**31 - 1) if any(variant) else 0
@@ -755,6 +794,8 @@ def compile_composition(raw):
                 dict(cues_by_frame[frame], time=(frame + loop * loop_frames) / fps)
                 for frame in sorted(cues_by_frame)
             )
+    if project['source'].get('time_map') or any(s.get('effects_rate', 1.) != 1 or s.get('video_rate', 1.) != 1 for s in project['sections']):
+        result['time_map'] = compose_time_maps(clocks, project['source'].get('time_map'))
     return normalize_sequence(result)
 
 

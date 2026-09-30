@@ -411,6 +411,7 @@ class SynthStudio(QMainWindow):
         self.viewer.zoomChanged.connect(self.refresh_view_zoom)
         self.section_timeline = SectionTimeline()
         self.section_timeline.selected.connect(lambda index: self.composer and self.composer.select_section(index))
+        self.section_timeline.durationRequested.connect(lambda identifier, duration: self.composer and self.composer.stretch_section(identifier, duration))
         self.section_timeline.loopRequested.connect(lambda identifiers, count: self.composer and self.composer.loop_sections(identifiers, count))
         self.section_timeline.seekRequested.connect(lambda time: self.composition and self.timeline.setValue(round(time * self.composition['fps'])))
         self.section_scroll = QScrollArea()
@@ -419,8 +420,19 @@ class SynthStudio(QMainWindow):
         self.section_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.section_scroll.setFixedHeight(108)
         left_layout.addWidget(self.section_scroll)
-        self.section_hint = QLabel('Timeline / Shift-click to select sections · right-click to loop')
-        self.section_hint.setObjectName('muted'); left_layout.addWidget(self.section_hint)
+        self.section_tools = QWidget()
+        section_tools = QHBoxLayout(self.section_tools); section_tools.setContentsMargins(0, 0, 0, 0)
+        self.section_hint = QLabel('Drag an edge to stretch · Shift-click to select · right-click to loop')
+        self.section_hint.setObjectName('muted'); self.section_hint.setWordWrap(True)
+        section_tools.addWidget(self.section_hint, 1)
+        self.section_resize_mode = QComboBox()
+        self.section_resize_mode.addItem('Resize: Effects only', 'effects')
+        self.section_resize_mode.addItem('Resize: Video + effects', 'video')
+        self.section_resize_mode.setAccessibleName('Section resize mode')
+        self.section_resize_mode.setToolTip('Effects only stretches transitions and effect animation while footage keeps its current speed. Video + effects also retimes footage and its audio. Applies to the next section resize; Escape cancels a drag.')
+        self.section_resize_mode.currentIndexChanged.connect(lambda _index: self.composer and setattr(self.composer, 'resize_mode', self.section_resize_mode.currentData()))
+        section_tools.addWidget(self.section_resize_mode)
+        left_layout.addWidget(self.section_tools)
         self.status = QLabel("Source-free deterministic synthesis")
         self.status.setObjectName("muted"); self.status.setWordWrap(True)
         status_row = QHBoxLayout()
@@ -530,7 +542,7 @@ class SynthStudio(QMainWindow):
         self.sequence_updating = True
         self.sequence_field_controls = {}
         timing = QGridLayout()
-        for column, (key, label, minimum, maximum, step, integer) in enumerate((("duration", "seconds", .1, 3600, .1, False), ("fps", "FPS", 1, 120, 1, True), ("seed", "seed", 0, 2**31 - 1, 1, True))):
+        for column, (key, label, minimum, maximum, step, integer) in enumerate((("duration", "seconds", min(self.sequence["duration"], 1 / self.sequence["fps"]), 3600, 1 / self.sequence["fps"], False), ("fps", "FPS", 1, 120, 1, True), ("seed", "seed", 0, 2**31 - 1, 1, True))):
             timing.addWidget(QLabel(label), 0, column)
             spin = QSpinBox() if integer else QDoubleSpinBox()
             spin.setRange(minimum, maximum); spin.setSingleStep(step); spin.setValue(self.sequence[key]); spin.setKeyboardTracking(False)
@@ -613,9 +625,11 @@ class SynthStudio(QMainWindow):
             widget.setVisible(self.composition is not None)
         self.section_timeline.setVisible(self.composition is not None)
         self.section_scroll.setVisible(self.composition is not None)
-        self.section_hint.setVisible(self.composition is not None)
+        self.section_tools.setVisible(self.composition is not None)
+        self.section_resize_mode.setVisible(self.composition is not None and 'footage' in self.composition)
         if self.composition is not None:
             self.composer = CompositionPanel(self.composition, self.composition_index, self.composition_scope)
+            self.composer.resize_mode = self.section_resize_mode.currentData()
             self.composer.changed.connect(self.composition_changed)
             self.composer.failed.connect(lambda message: self.status.setText(f"Composition edit ignored: {message}"))
             self.composer.sectionSelected.connect(self.composition_section_selected)
@@ -1043,6 +1057,10 @@ class SynthStudio(QMainWindow):
             return
         edited = copy.deepcopy(self.sequence)
         edited[key] = int(value) if key in {"fps", "seed"} else float(value)
+        if key == 'fps': edited['duration'] = max(edited['duration'], 1 / edited['fps'])
+        if key in {'fps', 'duration'} and edited.get('time_map'):
+            from synth_retime import resize_time_map
+            edited['time_map'] = resize_time_map(edited['time_map'], edited['duration'])
         try:
             self.sequence = normalize_sequence(edited)
         except ValueError as exc:
@@ -1050,6 +1068,12 @@ class SynthStudio(QMainWindow):
                 self.sequence_field_controls[key].setValue(self.sequence[key])
             self.status.setText(f"Sequence edit ignored: {exc}")
             return
+        if key == 'fps':
+            control = self.sequence_field_controls['duration']
+            with QSignalBlocker(control):
+                control.setMinimum(1 / self.sequence['fps'])
+                control.setSingleStep(1 / self.sequence['fps'])
+                control.setValue(self.sequence['duration'])
         self.update_timeline_max(); self.invalidate()
 
     def sequence_field_changed(self, key, value):

@@ -472,6 +472,23 @@ Text wording appears at the top of Object; **Apply text** commits the phrase.
 - Select **Whole clip** to adjust the entire piece, or click a section to
   adjust it locally. Sections can be added, duplicated, removed, reordered,
   and given different durations under **Arrange**.
+- **Drag a section's right edge** to stretch or compress it. Transitions,
+  procedural motion, noise and every timed effect scale together. Following
+  sections move automatically, keeping their effect clocks continuous. The drag
+  shows seconds per play and the length multiplier; it snaps to frames and
+  applies one undoable edit on release. **Escape** cancels. The final edge can
+  autoscroll beyond the viewport. Resizing a repeated section updates all its
+  occurrences, including sequence loops.
+- For imported footage, **Resize: Effects only** below the timeline keeps the
+  source video's current speed. **Resize: Video + effects** also retimes the
+  source video and any retained audio, preserving audio pitch. Choose the mode
+  before dragging; it also applies to the section duration field in Arrange.
+  The mode affects the next resize, so switching it does not undo previous
+  speed changes. Generated studies always stretch their effects. Saved studies,
+  detailed copies, preview and export retain the resulting timing.
+- The whole-clip Duration control remains an extend/trim control; it does not
+  stretch animation. Use section edges or section duration for proportional
+  retiming. Timeline FPS changes sampling cadence, not animation speed.
 - **Right-click a timeline section → Loop** adds one repetition. **Repeat count**
   sets total plays (1 = once, up to 32), with preset counts and a Custom option;
   **Remove loop** returns to one play. The existing Arrange count is also

@@ -16,6 +16,7 @@ from synth_resolution import finish_resolution, render_resolution
 from synth_ink_timing import DURATION_KEYS, stage_durations
 from synth_master import apply_master, normalize_master
 from synth_compat import render_version
+from synth_retime import mapped_time, normalize_time_map
 
 SEQUENCE_SCHEMA_VERSION = 1
 NEUTRAL_FIELD = {
@@ -59,11 +60,13 @@ def normalize_sequence(raw=None):
         result["canvas"] = normalize_canvas(raw["canvas"])
     if 'master' in raw:
         result['master'] = normalize_master(raw['master'])
-    for key, lo, hi in (("duration", .1, 3600), ("fps", 1, 120), ("seed", 0, 2**31 - 1)):
+    for key, lo, hi in (("duration", 1 / 120, 3600), ("fps", 1, 120), ("seed", 0, 2**31 - 1)):
         value = raw.get(key, result[key])
         if not isinstance(value, (int, float)) or not math.isfinite(float(value)) or not lo <= float(value) <= hi:
             raise ValueError(f"{key} is outside the supported range")
         result[key] = int(value) if key in {"fps", "seed"} else float(value)
+    if 'time_map' in raw:
+        result['time_map'] = normalize_time_map(raw['time_map'], result['duration'])
     field = copy.deepcopy(raw.get("field", NEUTRAL_FIELD))
     if not isinstance(field, dict):
         raise ValueError("field must be an object")
@@ -215,6 +218,8 @@ def render_sequence_frame(sequence, time_seconds, size=None, frame_provider=None
         with VideoFrameProvider() as provider:
             return render_sequence_frame(seq, time_seconds, size, provider, bypass)
     t = max(0.0, min(float(seq["duration"]), float(time_seconds)))
+    effect_time = mapped_time(seq.get('time_map'), t, 'effects')
+    video_time = mapped_time(seq.get('time_map'), t, 'video')
     cue_index = 0
     for index, cue in enumerate(seq["cues"]):
         if cue["time"] <= t:
@@ -245,18 +250,18 @@ def render_sequence_frame(sequence, time_seconds, size=None, frame_provider=None
         from synth_video import frame_on_canvas
         footage = seq['footage']
         source_size = output if bypass else working
-        source = frame_provider.frame(footage, t, edge=max(*output, *source_size))
+        source = frame_provider.frame(footage, video_time, edge=max(*output, *source_size))
         source_image = frame_on_canvas(source, footage, base, source_size)
         if bypass: return source_image
         cutout = next((entry for entry in base['modules'] if entry['id'] == 'subject_cutout' and entry['enabled']), None)
         if cutout and cutout['params']['mix'] > 0:
             p = cutout['params']
             continuity = {'retention': p['retention'], 'retention_seconds': p['retention_seconds']} if p['retention'] > 0 else {}
-            source_mask = frame_provider.mask(footage, t, base, p['mode'], **continuity)
+            source_mask = frame_provider.mask(footage, video_time, base, p['mode'], **continuity)
         base['treatment_fps'] = footage['treatment_fps']
     # Keep transition overlays and sequence noise on the same working raster.
     # The synth receives that exact size, so it performs no intermediate resize.
-    current = render_synth_frame(base, time_seconds=t, size=working, source_image=source_image, source_mask=source_mask) if source_image is not None else render_synth_frame(base, time_seconds=t, size=working)
+    current = render_synth_frame(base, time_seconds=effect_time, size=working, source_image=source_image, source_mask=source_mask) if source_image is not None else render_synth_frame(base, time_seconds=effect_time, size=working)
     result = np.asarray(current, dtype=np.float32) / 255
     if transition == "sweep" and amount < 1:
         direction = float(cue.get("direction", 1))
@@ -273,6 +278,7 @@ def render_sequence_frame(sequence, time_seconds, size=None, frame_provider=None
         flash_color = np.array((1.0, .985, .98), dtype=np.float32)[None, None, :]
         result = result * (1 - .90 * intensity) + flash_color * (.90 * intensity)
         result += intensity * .12 * sweep[..., None] * flash_color
+    t = effect_time
     field = seq.get("field", NEUTRAL_FIELD)
     if field["valley_start"] <= t <= field["valley_end"] and field["valley_end"] > field["valley_start"]:
         result *= field["valley_gain"]

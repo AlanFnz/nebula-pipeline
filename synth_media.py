@@ -78,7 +78,7 @@ def export_synth_video(preset, output, start=0, count=None, cancel=None, progres
             from synth_video_audio import mux_source_audio
             fd, name = tempfile.mkstemp(prefix='.nebula-mux-', suffix='.mp4', dir=output.parent)
             os.close(fd); muxed = Path(name)
-            mux_source_audio(temp, muxed, footage, start / export_fps, count / export_fps, cancel)
+            mux_source_audio(temp, muxed, footage, start / export_fps, count / export_fps, cancel, time_map=sequence_data.get('time_map'))
             cancel.check()
             os.replace(muxed, output)
         else:
