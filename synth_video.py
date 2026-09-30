@@ -180,6 +180,38 @@ def proxy_directory():
     return Path.home() / 'Library/Caches/Nebula Studio/video-v1'
 
 
+def _proxy_use_path(path):
+    return Path(path).with_suffix('.used')
+
+
+def _record_proxy_use(path):
+    # The media is immutable after publication; usage timestamps belong to a
+    # tiny sidecar so cache validity can rely on cheap media stat fingerprints.
+    try: _proxy_use_path(path).touch()
+    except OSError: pass  # Readable legacy caches remain usable without metadata.
+
+
+def _proxy_last_used(path):
+    try: return _proxy_use_path(path).stat().st_mtime_ns
+    except OSError: return path.stat().st_mtime_ns
+
+
+def _prune_proxies(root, active, budget=2 * 1024**3):
+    """Keep the active proxy and most recently used clips; accept legacy caches."""
+    files = []
+    for path in root.glob('*.mkv'):
+        try: files.append((path, _proxy_last_used(path), path.stat().st_size))
+        except FileNotFoundError: continue
+    files.sort(key=lambda item: (item[0] == active, item[1]), reverse=True)
+    total = 0
+    for path, _used, size in files:
+        if path == active or total + size <= budget:
+            total += size
+        else:
+            path.unlink(missing_ok=True)
+            _proxy_use_path(path).unlink(missing_ok=True)
+
+
 def prepare_proxy(footage, cancel=None, directory=None):
     cancel = cancel or Cancellation()
     check_source(footage)
@@ -192,7 +224,7 @@ def prepare_proxy(footage, cancel=None, directory=None):
     try:
         cancel.check()
         if target.exists():
-            target.touch()
+            _record_proxy_use(target)
             return target
         fd, name = tempfile.mkstemp(prefix='.building-', suffix='.mkv', dir=root)
         os.close(fd)
@@ -203,12 +235,9 @@ def prepare_proxy(footage, cancel=None, directory=None):
                 f"fps={footage['sample_fps']},scale={w}:{h}:flags=lanczos,setsar=1", '-c:v', 'ffv1', '-pix_fmt', 'bgr0', str(temporary)], cancel)
             check_source(footage)
             os.replace(temporary, target)
+            _record_proxy_use(target)
             # A regenerable disk cache; retain the most recent clips up to 2 GiB.
-            files = sorted(root.glob('*.mkv'), key=lambda p: p.stat().st_mtime, reverse=True)
-            total = 0
-            for path in files:
-                total += path.stat().st_size
-                if total > 2 * 1024**3 and path != target: path.unlink(missing_ok=True)
+            _prune_proxies(root, target)
         finally:
             temporary.unlink(missing_ok=True)
     finally:

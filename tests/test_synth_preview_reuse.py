@@ -79,16 +79,16 @@ def test_dimensions_bypass_or_media_identity_clear(context):
     assert retained_frame_predicate(validity(project, identity), validity(project, object())) is None
 
 
-def test_proxy_fingerprint_ignores_touch_but_detects_middle_overwrite(tmp_path):
+def test_proxy_stat_fingerprint_detects_middle_overwrite_with_restored_mtime(tmp_path):
     path = tmp_path/'proxy.mkv'; path.write_bytes(b'a'*300000)
-    original = _file_fingerprint(path, content=True)
-    os.utime(path, None)
-    assert _file_fingerprint(path, content=True) == original
+    original = _file_fingerprint(path)
+    stat = path.stat()
     with path.open('r+b') as stream:
         stream.seek(150000); stream.write(b'b')
-    assert _file_fingerprint(path, content=True) != original
+    os.utime(path, ns=(stat.st_atime_ns, stat.st_mtime_ns))
+    assert _file_fingerprint(path) != original
     path.unlink()
-    assert _file_fingerprint(path, content=True)[-1] == 'unavailable'
+    assert _file_fingerprint(path)[-1] == 'unavailable'
 
 
 def test_window_retains_unaffected_rgb_and_rejects_old_generation_after_edit_and_undo(window, monkeypatch):

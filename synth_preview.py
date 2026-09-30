@@ -129,30 +129,11 @@ import json
 from pathlib import Path
 
 
-_PROXY_FINGERPRINTS = OrderedDict()
-
-
-def _file_fingerprint(path, content=False):
+def _file_fingerprint(path):
     path = Path(path).expanduser().resolve()
     try:
         stat = path.stat()
-        identity = (str(path), stat.st_dev, stat.st_ino, stat.st_size)
-        if content:
-            # Proxies are touched on use. A full byte digest distinguishes that
-            # harmless timestamp change from an actual overwrite anywhere in a
-            # proxy. Rehash only when its stat signature changes; reads are bounded.
-            signature = identity + (stat.st_mtime_ns, stat.st_ctime_ns)
-            cached = _PROXY_FINGERPRINTS.get(str(path))
-            if cached is None or cached[0] != signature:
-                digest = hashlib.blake2b(digest_size=16)
-                with path.open('rb') as stream:
-                    while chunk := stream.read(1024**2): digest.update(chunk)
-                cached = (signature, digest.digest())
-                _PROXY_FINGERPRINTS[str(path)] = cached
-                _PROXY_FINGERPRINTS.move_to_end(str(path))
-                while len(_PROXY_FINGERPRINTS) > 16: _PROXY_FINGERPRINTS.popitem(last=False)
-            return identity + (cached[1],)
-        return identity + (stat.st_mtime_ns, stat.st_ctime_ns)
+        return (str(path), stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
     except OSError:
         return (str(path), 'unavailable')
 
@@ -165,7 +146,7 @@ def preview_context(sequence, size, bypass, proxy_root=None):
         footage = sequence['footage']
         key = hashlib.sha256(json.dumps([footage['path'], footage['identity'], footage['sample_fps'], PROXY_EDGE, 1], sort_keys=True).encode()).hexdigest()
         proxy = (Path(proxy_root) if proxy_root else proxy_directory()) / (key + '.mkv')
-        media = (_file_fingerprint(footage['path']), _file_fingerprint(proxy, content=True))
+        media = (_file_fingerprint(footage['path']), _file_fingerprint(proxy))
     return (tuple(size), bool(bypass), media)
 
 
