@@ -14,11 +14,12 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
 from PySide6.QtCore import QEvent, QObject, QRunnable, QSettings, QSignalBlocker, Qt, QThreadPool, QTimer, Signal
+from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QFileDialog, QGroupBox,
     QHBoxLayout, QGridLayout, QLabel, QMainWindow, QPushButton, QScrollArea,
     QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QMessageBox, QSizePolicy, QFrame, QInputDialog,
-    QProgressBar,
+    QProgressBar, QLineEdit, QPlainTextEdit, QTextEdit, QAbstractSpinBox, QAbstractSlider, QAbstractButton, QComboBox as NativeComboBox,
 )
 from studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBox, SpinBox as QSpinBox, Slider as QSlider
 from studio_widgets import configure_parameter_spin, PlaybackButton
@@ -271,10 +272,58 @@ class SynthStudio(QMainWindow):
         self.play_timer.setTimerType(Qt.TimerType.PreciseTimer)
         self.play_timer.timeout.connect(self.advance)
         self.build_ui()
+        self.build_actions()
+        QApplication.instance().installEventFilter(self)
         self.rebuild_modules()
         self.update_timeline_max()
         self.mark_document_clean()
         self.request_frame()
+
+    def build_actions(self):
+        file_menu = self.menuBar().addMenu('File')
+        edit_menu = self.menuBar().addMenu('Edit')
+        transport_menu = self.menuBar().addMenu('Preview')
+        def action(menu, label, shortcut, callback):
+            item = QAction(label, self)
+            item.setShortcut(shortcut)
+            item.setShortcutContext(Qt.ShortcutContext.WindowShortcut)
+            item.triggered.connect(callback)
+            menu.addAction(item)
+            item.setToolTip(f'{label} ({item.shortcut().toString(QKeySequence.SequenceFormat.NativeText)})')
+            return item
+        self.save_action = action(file_menu, 'Save', QKeySequence.StandardKey.Save, self.save_sequence_dialog)
+        self.save_as_action = action(file_menu, 'Save As…', QKeySequence.StandardKey.SaveAs, self.save_as_dialog)
+        self.open_action = action(file_menu, 'Open…', QKeySequence.StandardKey.Open, self.load_sequence_dialog)
+        self.undo_action = action(edit_menu, 'Undo composition', QKeySequence.StandardKey.Undo, self.undo_composition)
+        self.redo_action = action(edit_menu, 'Redo composition', QKeySequence.StandardKey.Redo, self.redo_composition)
+        action(transport_menu, 'Play / pause', QKeySequence('Space'), lambda: self.play.setChecked(not self.play.isChecked()))
+        for label, key, delta in (('Previous frame', 'Left', -1), ('Next frame', 'Right', 1),
+                                  ('Back ten frames', 'Shift+Left', -10), ('Forward ten frames', 'Shift+Right', 10)):
+            action(transport_menu, label, QKeySequence(key), lambda _checked=False, d=delta: self.step_frame(d))
+        self.composition_undo_button.setToolTip(self.undo_action.toolTip())
+        self.composition_redo_button.setToolTip(self.redo_action.toolTip())
+        self.viewer.setToolTip(self.viewer.toolTip() + ' Space: play/pause. Arrows: step frames; Shift: ten frames.')
+        self.timeline.setToolTip('Scrub preview. Space: play/pause. Arrows: one frame; Shift + arrows: ten frames.')
+
+    def eventFilter(self, watched, event):
+        if event.type() == QEvent.Type.ShortcutOverride and isinstance(watched, QWidget) and watched.window() is self:
+            focus = self.focusWidget()
+            transport = event.key() in (Qt.Key.Key_Space, Qt.Key.Key_Left, Qt.Key.Key_Right)
+            undo = event.matches(QKeySequence.StandardKey.Undo) or event.matches(QKeySequence.StandardKey.Redo)
+            local_editor = False
+            widget = focus
+            while widget and widget is not self:
+                if isinstance(widget, (QLineEdit, QPlainTextEdit, QTextEdit, QAbstractSpinBox, NativeComboBox, QAbstractSlider)):
+                    if widget is not self.timeline: local_editor = True
+                if transport and isinstance(widget, QAbstractButton): local_editor = True
+                widget = widget.parentWidget()
+            if (transport or undo) and (local_editor or QApplication.activePopupWidget() or QApplication.activeModalWidget()):
+                event.accept(); return True
+        return super().eventFilter(watched, event)
+
+    def step_frame(self, delta):
+        self.play.setChecked(False)
+        self.timeline.setValue(max(0, min(self.timeline.maximum(), self.timeline.value() + delta)))
 
     def document_state(self):
         if self.composition is not None:
@@ -687,6 +736,7 @@ class SynthStudio(QMainWindow):
 
     def rebuild_modules(self):
         self._rebuild_modules()
+        self.update_composition_history()
         for control in self.findChildren(TextControl):
             if not getattr(control, "_title_connected", False):
                 control.editor.textChanged.connect(self.update_document_title)
@@ -1036,6 +1086,9 @@ class SynthStudio(QMainWindow):
         self.timeline.setValue(round(section_ranges(self.composition)[index][0] * self.composition["fps"]))
 
     def update_composition_history(self):
+        if hasattr(self, "undo_action"):
+            self.undo_action.setEnabled(self.composition is not None and bool(self.undo_compositions))
+            self.redo_action.setEnabled(self.composition is not None and bool(self.redo_compositions))
         if self.composer:
             self.composition_undo_button.setEnabled(bool(self.undo_compositions))
             self.composition_redo_button.setEnabled(bool(self.redo_compositions))
@@ -1560,6 +1613,7 @@ class SynthStudio(QMainWindow):
             return
         self.save_workspace()
         self.closing = True
+        QApplication.instance().removeEventFilter(self)
         self.play_timer.stop()
         self.preview_debounce.stop(); self.cancel_preparation()
         self.cancel_video_import()
