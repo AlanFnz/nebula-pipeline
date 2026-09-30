@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
     QApplication, QCheckBox, QFileDialog, QGroupBox,
     QHBoxLayout, QGridLayout, QLabel, QMainWindow, QPushButton, QScrollArea,
     QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QMessageBox, QSizePolicy, QFrame, QInputDialog,
-    QProgressBar, QLineEdit, QPlainTextEdit, QTextEdit, QAbstractSpinBox, QAbstractSlider, QAbstractButton, QComboBox as NativeComboBox,
+    QProgressBar, QLineEdit, QPlainTextEdit, QTextEdit, QAbstractSpinBox, QAbstractSlider, QAbstractButton, QStackedWidget, QComboBox as NativeComboBox,
 )
 from studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBox, SpinBox as QSpinBox, Slider as QSlider
 from studio_widgets import configure_parameter_spin, PlaybackButton
@@ -362,10 +362,8 @@ class SynthStudio(QMainWindow):
 
     def pending_text_edits(self):
         if self.composer is not None:
-            controls = [control.input for panel in (self.composer.object_panel, self.composer.effects_panel)
-                        for control in panel.controls.values()]
-        else:
-            controls = [control.spin for control in (self.sequence_state_controls if self.sequence is not None else self.controls).values()]
+            return self.composer.pending_text_edits()
+        controls = [control.spin for control in (self.sequence_state_controls if self.sequence is not None else self.controls).values()]
         return [(control, control.editor.toPlainText()) for control in controls
                 if isinstance(control, TextControl) and control.editor.toPlainText() != control.value()]
 
@@ -378,12 +376,12 @@ class SynthStudio(QMainWindow):
             focus.clearFocus()
 
     def prepare_document_save(self):
-        drafts = self.pending_text_edits()
         try:
+            if self.composer is not None:
+                return self.composer.prepare_text_save()
+            drafts = self.pending_text_edits()
             for _control, value in drafts:
                 validate_text(value)
-            if self.composer is not None and len({value for _control, value in drafts}) > 1:
-                raise ValueError('The text editors contain different unapplied wording. Apply the text you want before saving.')
             for control, value in drafts:
                 control.editor.setPlainText(value)
                 control.commit()
@@ -464,6 +462,7 @@ class SynthStudio(QMainWindow):
         for text, callback in (("New take", self.generate_variation), ("Reset controls", lambda: self.composer and self.composer.reset_controls()), ("Undo", self.undo_composition), ("Redo", self.redo_composition)):
             button = QPushButton(text); button.clicked.connect(callback)
             if text == "New take": button.setObjectName("primary")
+            if text == "Reset controls": self.reset_controls_button = button
             if text == "Undo": self.composition_undo_button = button
             if text == "Redo": self.composition_redo_button = button
             header.addWidget(button); self.composition_widgets.append(button)
@@ -665,9 +664,29 @@ class SynthStudio(QMainWindow):
         self.preview_splitter.setSizes([520, 140])
         self.preview_splitter.handle(1).setToolTip('Drag up or down to resize the monitor and timeline controls.')
         split.addWidget(left)
-        self.inspector_scroll = scroll = QScrollArea(); scroll.setMinimumWidth(380); scroll.setWidgetResizable(True); scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff); panel = QWidget(); panel.setMinimumWidth(0); self.panel_layout = QVBoxLayout(panel); self.panel_layout.setContentsMargins(8, 0, 0, 0); self.panel_layout.setAlignment(Qt.AlignmentFlag.AlignTop); scroll.setWidget(panel); split.addWidget(scroll); split.setSizes([750, 490]); outer.addWidget(split, 1)
+        self.inspector_host = QStackedWidget(); self.inspector_host.setMinimumWidth(380)
+        self.inspector_scroll = scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        panel = QWidget(); panel.setMinimumWidth(0)
+        self.panel_layout = QVBoxLayout(panel); self.panel_layout.setContentsMargins(8, 0, 0, 0)
+        self.panel_layout.setAlignment(Qt.AlignmentFlag.AlignTop); scroll.setWidget(panel)
+        self.inspector_host.addWidget(scroll)
+        self.composer_host = QWidget(); self.composer_host.setMinimumWidth(0)
+        self.composer_layout = QVBoxLayout(self.composer_host)
+        self.composer_layout.setContentsMargins(8, 0, 0, 0)
+        self.inspector_host.addWidget(self.composer_host)
+        split.addWidget(self.inspector_host); split.setSizes([750, 490]); outer.addWidget(split, 1)
         split.handle(1).setToolTip('Drag to resize the monitor and controls column.')
         self.setCentralWidget(root)
+
+    def update_contextual_reset(self, label):
+        self.reset_controls_button.setText(label or 'Restore effect')
+        self.reset_controls_button.setAccessibleName(label or 'Restore effect')
+        self.reset_controls_button.setEnabled(bool(label) and self.composer is not None)
+        self.reset_controls_button.setToolTip(
+            'Restore the current panel in the shown editing scope. Other panels keep their settings.'
+            if label else 'Select an effect to restore its settings.')
 
     def refresh_view_zoom(self, percent):
         with QSignalBlocker(self.view_zoom): self.view_zoom.setValue(percent)
@@ -798,6 +817,9 @@ class SynthStudio(QMainWindow):
     def rebuild_modules(self):
         self._rebuild_modules()
         self.update_composition_history()
+        self.bind_pending_text_titles()
+
+    def bind_pending_text_titles(self, *_args):
         for control in self.findChildren(TextControl):
             if not getattr(control, "_title_connected", False):
                 control.editor.textChanged.connect(self.update_document_title)
@@ -810,7 +832,10 @@ class SynthStudio(QMainWindow):
         if self.composer is not None:
             self.composition_index = self.composer.index
             self.composition_scope = self.composer.scope
+            self.composer_layout.removeWidget(self.composer)
+            self.composer.hide(); self.composer.deleteLater()
         self.composer = None
+        self.inspector_host.setCurrentWidget(self.inspector_scroll)
         while self.panel_layout.count():
             item = self.panel_layout.takeAt(0); widget = item.widget()
             if widget:
@@ -831,11 +856,16 @@ class SynthStudio(QMainWindow):
             self.composer = CompositionPanel(self.composition, self.composition_index, self.composition_scope)
             self.composer.resize_mode = self.section_resize_mode.currentData()
             self.composer.changed.connect(self.composition_changed)
+            self.composer.changed.connect(self.bind_pending_text_titles)
+            self.composer.effects_panel.navigation_changed.connect(self.bind_pending_text_titles)
             self.composer.failed.connect(lambda message: self.status.setText(f"Composition edit ignored: {message}"))
             self.composer.sectionSelected.connect(self.composition_section_selected)
             self.composer.detailsRequested.connect(self.open_detailed_copy)
             self.composer.relinkRequested.connect(lambda: self.import_video_dialog(relink=True))
-            self.panel_layout.addWidget(self.composer)
+            self.composer_layout.addWidget(self.composer)
+            self.inspector_host.setCurrentWidget(self.composer_host)
+            self.composer.reset_context_changed.connect(self.update_contextual_reset)
+            self.update_contextual_reset(self.composer.reset_label())
             self.section_timeline.set_document(self.composition, self.composer.index)
             self.update_composition_history()
             self.status.setText(f"{self.composition['name']} · {len(self.composition['sections'])} sections")

@@ -31,7 +31,7 @@ class SubjectPanel(QWidget):
 
     def __init__(self):
         super().__init__()
-        self.kind = 'none'; self.updating = False; self.controls = {}
+        self.kind = 'none'; self.updating = False; self.controls = {}; self.control_cache = {}; self.group_labels = {}
         layout = QVBoxLayout(self)
         title = QLabel('OBJECT / source'); title.setObjectName('sectionTitle'); layout.addWidget(title)
         row = QHBoxLayout()
@@ -97,7 +97,7 @@ class SubjectPanel(QWidget):
         effect = {'ink': 'ink_bloom', 'particles': 'particles', 'signal': self.signal_effect, 'silhouette': 'silhouette', 'text': 'text'}.get(self.kind)
         if effect: self.details_requested.emit(effect, timing)
 
-    def refresh(self, summary, entries, parent_entries, local):
+    def refresh(self, summary, entries, parent_entries, local, *, context_key=None, scope_label=None):
         self.updating = True
         active = active_subjects(summary)
         self.kind = active[0] if active else 'none'
@@ -122,23 +122,31 @@ class SubjectPanel(QWidget):
         self.details.setText('Text appearance…' if self.kind == 'text' else 'Source controls…')
         paths = OBJECT_PATHS.get(self.kind, ())
         if set(self.controls) != set(paths):
-            while self.control_layout.count():
-                widget = self.control_layout.takeAt(0).widget(); widget.hide(); widget.deleteLater()
-            while self.wording_layout.count():
-                widget = self.wording_layout.takeAt(0).widget(); widget.hide(); widget.deleteLater()
+            for host_layout in (self.control_layout, self.wording_layout):
+                while host_layout.count():
+                    widget = host_layout.takeAt(0).widget()
+                    if widget: widget.hide()
             self.controls = {}
             for title, members in grouped_paths(paths):
-                label = QLabel(title.upper()); label.setObjectName('controlGroup'); self.control_layout.addWidget(label)
+                if title not in self.group_labels:
+                    label = QLabel(title.upper()); label.setObjectName('controlGroup')
+                    self.group_labels[title] = label
+                label = self.group_labels[title]; self.control_layout.addWidget(label); label.show()
                 for path in members:
-                    control = EffectParameter(path); effect = path.split('.')[0]
-                    control.changed.connect(lambda value, e=effect, p=path: self.parameter_changed.emit(e, p, value))
-                    control.reset.connect(lambda e=effect, p=path: self.parameter_reset.emit(e, p))
+                    if path not in self.control_cache:
+                        control = EffectParameter(path); effect = path.split('.')[0]
+                        control.changed.connect(lambda value, e=effect, p=path: self.parameter_changed.emit(e, p, value))
+                        control.reset.connect(lambda e=effect, p=path: self.parameter_reset.emit(e, p))
+                        self.control_cache[path] = control
+                    control = self.control_cache[path]
                     (self.wording_layout if path == 'text.content' else self.control_layout).addWidget(control)
-                    self.controls[path] = control
+                    control.show(); self.controls[path] = control
         for path, control in self.controls.items():
             effect = path.split('.')[0]; entry = entries.get(effect, {'params': {}})
+            parent_params = parent_entries.get(effect, {}).get('params', {})
             control.refresh(summary[effect]['ranges'][path], entry['params'].get(path),
-                            path in parent_entries.get(effect, {}).get('params', {}), True)
+                            path in parent_params, True, parent_value=parent_params.get(path),
+                            context_key=context_key, scope_label=scope_label)
         if self.kind == 'ink':
             shape = summary['ink_bloom']['ranges']['ink_bloom.shape']
             self.controls['ink_bloom.artwork'].setVisible(shape[0] == shape[1] == 5)

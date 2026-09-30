@@ -6,7 +6,7 @@ import math
 
 from PySide6.QtCore import QSignalBlocker, Signal, Qt
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QStackedWidget, QTabBar, QFrame, QLineEdit,
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QStackedWidget, QTabBar, QFrame, QLineEdit, QScrollArea, QSizePolicy,
 )
 from studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBox, SpinBox as QSpinBox
 from studio_widgets import Slider, configure_parameter_spin, parameter_number
@@ -16,6 +16,7 @@ from synth_effects import EFFECTS, EFFECT_BY_ID, describe_effects, effect_preset
 from synth_artwork_ui import ArtworkControl
 from synth_text_ui import TextControl
 from synth_ink_timing import DURATION_KEYS, TIMING_KEYS
+from synth_subject import SOURCE_EFFECTS
 
 INK_DURATIONS = {f'ink_bloom.{key}' for key in DURATION_KEYS}
 INK_TIMING = tuple(f'ink_bloom.{key}' for key in TIMING_KEYS)
@@ -35,6 +36,7 @@ from synth_effect_parameter_ui import EffectParameter, format_value
 class EffectChoice(QFrame):
     """A compact, non-scrolling navigation row with a separate state badge."""
     selected = Signal(str)
+    bypassRequested = Signal(str)
 
     def __init__(self, effect):
         super().__init__()
@@ -44,10 +46,14 @@ class EffectChoice(QFrame):
         self.button.clicked.connect(lambda: self.selected.emit(effect.id))
         row.addWidget(self.button, 1)
         self.badge = QLabel(); self.badge.setObjectName('effectState'); row.addWidget(self.badge)
+        self.bypass = QPushButton('Bypass'); self.bypass.setVisible(effect.id not in SOURCE_EFFECTS)
+        self.bypass.clicked.connect(lambda: self.bypassRequested.emit(effect.id)); row.addWidget(self.bypass)
 
     def refresh(self, effect, info, selected, bypassed):
-        state = 'Intermittent' if info['intermittent'] else 'On' if info['active'] else 'Bypassed' if bypassed else 'Off'
+        state = 'Bypassed' if bypassed else 'Intermittent' if info['intermittent'] else 'On' if info['active'] else 'Off'
         self.badge.setText(state)
+        self.bypass.setText("Resume" if bypassed else "Bypass")
+        self.bypass.setAccessibleName(f'{self.bypass.text()} {effect.label}')
         self.button.setAccessibleName(f'Inspect {effect.label} · {state}')
         self.setToolTip(effect.description + (' Active during part of this scope.' if info['intermittent'] else ''))
         for widget, name, value in ((self, 'selected', selected), (self.badge, 'active', info['active'])):
@@ -61,168 +67,250 @@ class EffectsPanel(QWidget):
     timing_edited = Signal(str, object)
     timing_reset = Signal()
     timing_selected = Signal(bool)
+    navigation_changed = Signal()
+    object_requested = Signal()
 
     def __init__(self):
         super().__init__()
-        self.entries = {}; self.parent_entries = {}; self.summary = {}
-        self.effect_id = "rays"; self.controls = {}; self.rows = {}
-        self.context_key = None
+        self.entries = {}; self.parent_entries = {}; self.summary = {}; self.authored_summary = {}
+        self.effect_id = "rays"; self.controls = {}; self.rows = {}; self.control_cache = {}
+        self.context_key = None; self.local = False; self.focused = True
         self.shared_timing = {}; self.shared_summary = {}; self.context_scope_label = ''
-        self.updating = False
-        self.allowed_effects = None
-        layout = QVBoxLayout(self); layout.setContentsMargins(8, 8, 8, 8)
+        self.updating = False; self.allowed_effects = None; self.browser = None
+        self.applied_ids = (); self.available_ids = (); self.effect_choices = {}; self.group_labels = {}
+        layout = QVBoxLayout(self); layout.setContentsMargins(8, 4, 8, 4); layout.setSpacing(4)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.scope_label = QLabel(); self.scope_label.setObjectName("sectionTitle"); self.scope_label.setWordWrap(True)
         layout.addWidget(self.scope_label)
-        self.applied_title = QLabel(); self.applied_title.setObjectName('sectionTitle')
-        self.applied_title.setToolTip('Effects enabled anywhere in the selected scope. Intermittent means they are used during only part of it.')
-        layout.addWidget(self.applied_title)
+        self.pages = QStackedWidget(); layout.addWidget(self.pages, 1)
+        self.overview = QWidget(); overview_layout = QVBoxLayout(self.overview); overview_layout.setContentsMargins(0, 0, 0, 0)
+        self.applied_title = QLabel(); self.applied_title.setObjectName('sectionTitle'); overview_layout.addWidget(self.applied_title)
+        self.available_button = QPushButton('Add effect…'); self.available_button.clicked.connect(self.open_browser)
+        overview_layout.addWidget(self.available_button)
+        rack_scroll = QScrollArea(); rack_scroll.setWidgetResizable(True); rack_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        rack = QWidget(); rack_layout = QVBoxLayout(rack); rack_layout.setContentsMargins(0, 0, 0, 0)
         self.applied_host = QWidget(); self.applied_layout = QVBoxLayout(self.applied_host)
-        self.applied_layout.setContentsMargins(0, 0, 0, 0); self.applied_layout.setSpacing(2)
-        layout.addWidget(self.applied_host)
-        self.empty_applied = QLabel('No effects applied in this scope. Choose an available effect to add one.')
-        self.empty_applied.setWordWrap(True); self.empty_applied.setObjectName('muted'); layout.addWidget(self.empty_applied)
-        self.available_button = QPushButton(); self.available_button.setCheckable(True)
-        self.available_button.setAccessibleName('Show available effects')
-        self.available_button.toggled.connect(self.show_available); layout.addWidget(self.available_button)
-        self.available_host = QWidget(); self.available_layout = QVBoxLayout(self.available_host)
-        self.available_layout.setContentsMargins(0, 0, 0, 0); self.available_layout.setSpacing(2)
-        layout.addWidget(self.available_host); self.available_host.hide()
-        self.applied_ids = (); self.available_ids = ()
-        self.effect_choices = {}
+        self.applied_layout.setContentsMargins(0, 0, 0, 0); self.applied_layout.setSpacing(3)
+        rack_layout.addWidget(self.applied_host)
+        self.empty_applied = QLabel('No image effects applied. Add an effect to treat the source.'); self.empty_applied.setWordWrap(True)
+        self.empty_applied.setObjectName('muted'); rack_layout.addWidget(self.empty_applied)
+        self.source_title = QLabel('OBJECT / sources'); self.source_title.setObjectName('sectionTitle'); rack_layout.addWidget(self.source_title)
+        self.source_host = QWidget(); self.source_layout = QVBoxLayout(self.source_host); self.source_layout.setContentsMargins(0, 0, 0, 0)
+        rack_layout.addWidget(self.source_host)
+        self.object_button = QPushButton('Choose or edit object…'); self.object_button.clicked.connect(self.object_requested.emit)
+        rack_layout.addWidget(self.object_button); rack_layout.addStretch(1)
+        rack_scroll.setWidget(rack); overview_layout.addWidget(rack_scroll, 1); self.pages.addWidget(self.overview)
+        # Retain the public row lookup for programmatic inspection. Discovery is in the dialog.
+        self.available_host = QWidget(); self.available_host.hide(); self.available_layout = QVBoxLayout(self.available_host)
         for effect in EFFECTS:
-            choice = EffectChoice(effect); choice.selected.connect(self.inspect_effect)
+            choice = EffectChoice(effect); choice.selected.connect(self.inspect_choice)
+            choice.bypassRequested.connect(self.toggle_bypass)
             self.available_layout.addWidget(choice); self.effect_choices[effect.id] = choice
-        self.inspector_title = QLabel(); self.inspector_title.setObjectName('sectionTitle'); self.inspector_title.setWordWrap(True)
-        layout.addWidget(self.inspector_title)
-        self.description = QLabel(); self.description.setWordWrap(True); self.description.setObjectName("muted"); layout.addWidget(self.description)
+        self.editor = QWidget(); editor_layout = QVBoxLayout(self.editor); editor_layout.setContentsMargins(0, 0, 0, 0); editor_layout.setSpacing(4)
+        row = QHBoxLayout()
+        self.back_button = QPushButton('← Back to effects'); self.back_button.clicked.connect(self.show_overview); row.addWidget(self.back_button)
+        self.add_button = QPushButton('Add effect…'); self.add_button.clicked.connect(self.open_browser); row.addWidget(self.add_button)
+        editor_layout.addLayout(row)
+        row = QHBoxLayout()
+        self.inspector_title = QLabel(); self.inspector_title.setObjectName('sectionTitle'); self.inspector_title.setWordWrap(True); row.addWidget(self.inspector_title, 1)
+        self.bypass_button = QPushButton('Bypass'); self.bypass_button.clicked.connect(lambda: self.toggle_bypass(self.effect_id)); row.addWidget(self.bypass_button)
+        editor_layout.addLayout(row)
+        self.description = QLabel(); self.description.hide()
         row = QHBoxLayout()
         self.mode = QComboBox()
-        for label, value in (("Follow recipe", "recipe"), ("On throughout scope", "on"), ("Off throughout scope", "off")):
-            self.mode.addItem(label, value)
+        for label, value in (("Follow study", "recipe"), ("On throughout scope", "on"), ("Off throughout scope", "off")): self.mode.addItem(label, value)
         self.mode.currentIndexChanged.connect(self.change_mode); row.addWidget(self.mode, 1)
-        self.restore = QPushButton("Restore"); self.restore.setToolTip("Remove this scope's overrides for this effect.")
-        self.restore.clicked.connect(self.restore_effect); row.addWidget(self.restore)
-        layout.addLayout(row)
+        self.restore = QPushButton("Restore this effect"); self.restore.clicked.connect(self.restore_effect); row.addWidget(self.restore)
+        self.activation_row = row; editor_layout.addLayout(row)
         row = QHBoxLayout()
         self.look = QComboBox(); row.addWidget(self.look, 1)
-        self.apply_button = QPushButton("+ Apply effect"); self.apply_button.clicked.connect(self.apply_look); row.addWidget(self.apply_button)
-        layout.addLayout(row)
-        self.status = QLabel(); self.status.setWordWrap(True); self.status.setObjectName("muted"); layout.addWidget(self.status)
-        self.parameter_tabs = QTabBar(); self.parameter_tabs.addTab('Look'); self.parameter_tabs.addTab('Timing')
-        self.parameter_tabs.addTab('Signal'); self.parameter_tabs.addTab('Screen')
-        self.parameter_tabs.currentChanged.connect(self.change_parameter_tab)
-        layout.addWidget(self.parameter_tabs)
-        self.filter = QLineEdit(); self.filter.setPlaceholderText('Find a control in this tab…'); self.filter.setClearButtonEnabled(True)
-        self.filter.setAccessibleName('Find effect control'); self.filter.textChanged.connect(lambda _text: self.show_controls())
-        layout.addWidget(self.filter)
-        self.timing_note = QLabel(); self.timing_note.setWordWrap(True); self.timing_note.setObjectName('muted')
-        layout.addWidget(self.timing_note)
-        self.restore_timing = QPushButton('Restore recipe timing')
-        self.restore_timing.clicked.connect(self.timing_reset.emit)
-        layout.addWidget(self.restore_timing)
-        self.parameter_host = QWidget(); self.parameter_layout = QVBoxLayout(self.parameter_host); self.parameter_layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(self.parameter_host)
-        self.group_labels = {}
-        self.no_matches = QLabel('No matching controls in this tab.'); self.no_matches.setObjectName('muted'); layout.addWidget(self.no_matches); self.no_matches.hide()
-        self.note = QLabel("Click a range to set a fixed value. ↶ restores the recipe. Fixed effect values take priority over geometric Object controls and Finishing.")
-        self.note.setWordWrap(True); self.note.setObjectName("muted"); layout.addWidget(self.note)
-        layout.addStretch(1)
+        self.apply_button = QPushButton("Replace with preset"); self.apply_button.clicked.connect(self.apply_look); row.addWidget(self.apply_button)
+        self.preset_row = row; editor_layout.addLayout(row)
+        self.status = QLabel(); self.status.setWordWrap(True); self.status.setObjectName('muted'); editor_layout.addWidget(self.status)
+        self.parameter_tabs = QTabBar()
+        for title in ('Look', 'Timing', 'Signal', 'Screen'): self.parameter_tabs.addTab(title)
+        self.parameter_tabs.currentChanged.connect(self.change_parameter_tab); editor_layout.addWidget(self.parameter_tabs)
+        row = QHBoxLayout()
+        self.group = QComboBox(); self.group.setAccessibleName('Effect control group'); self.group.currentIndexChanged.connect(lambda _index: self.show_controls()); row.addWidget(self.group, 1)
+        self.filter = QLineEdit(); self.filter.setPlaceholderText('Find a control…'); self.filter.setClearButtonEnabled(True)
+        self.filter.setAccessibleName('Find effect control'); self.filter.textChanged.connect(lambda _text: self.show_controls()); row.addWidget(self.filter, 1)
+        editor_layout.addLayout(row)
+        self.parameter_scroll = QScrollArea(); self.parameter_scroll.setWidgetResizable(True); self.parameter_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.parameter_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.parameter_scroll.setMinimumHeight(100); editor_layout.addWidget(self.parameter_scroll, 1)
+        body = QWidget(); body_layout = QVBoxLayout(body); body_layout.setContentsMargins(0, 0, 2, 0)
+        self.activation_button = QPushButton('Activation && preset ▸'); self.activation_button.setCheckable(True)
+        self.activation_button.setToolTip('Choose activation timing, restore this effect or replace its settings with a preset.')
+        body_layout.addWidget(self.activation_button)
+        self.activation_host = QWidget(); activation_layout = QVBoxLayout(self.activation_host)
+        activation_layout.setContentsMargins(0, 0, 0, 6)
+        editor_layout.removeItem(self.activation_row); editor_layout.removeItem(self.preset_row); editor_layout.removeWidget(self.status)
+        activation_layout.addLayout(self.activation_row); activation_layout.addLayout(self.preset_row); activation_layout.addWidget(self.status)
+        self.description.setParent(self.activation_host); self.description.setWordWrap(True); self.description.setObjectName('muted')
+        activation_layout.addWidget(self.description); self.description.show()
+        body_layout.addWidget(self.activation_host); self.activation_host.hide()
+        self.activation_button.toggled.connect(self.show_activation)
+        self.timing_note = QLabel(); self.timing_note.setWordWrap(True); self.timing_note.setObjectName('muted'); body_layout.addWidget(self.timing_note)
+        self.restore_timing = QPushButton('Restore shared timing'); self.restore_timing.clicked.connect(self.timing_reset.emit); body_layout.addWidget(self.restore_timing)
+        self.parameter_host = QWidget(); self.parameter_layout = QVBoxLayout(self.parameter_host); self.parameter_layout.setContentsMargins(0, 0, 0, 0); body_layout.addWidget(self.parameter_host)
+        self.no_matches = QLabel('No matching controls in this tab.'); self.no_matches.setObjectName('muted'); body_layout.addWidget(self.no_matches); self.no_matches.hide()
+        self.note = QLabel('Use fixed value to override an animated control. Restore follows the whole clip or study again.')
+        self.note.setWordWrap(True); self.note.setObjectName('muted'); body_layout.addWidget(self.note); body_layout.addStretch(1)
+        self.parameter_scroll.setWidget(body); self.pages.addWidget(self.editor); self.pages.setCurrentWidget(self.editor)
 
-    def set_context(self, entries, parent_entries, states, scope_label, local, context_key, shared_timing=None, shared_states=None, allowed_effects=None):
+    def show_activation(self, expanded):
+        self.activation_host.setVisible(expanded)
+        self.activation_button.setText('Activation && preset ' + ('▾' if expanded else '▸'))
+
+    def is_bypassed(self, effect_id):
+        return self.entries.get(effect_id, {}).get('bypassed', self.parent_entries.get(effect_id, {}).get('bypassed', False))
+
+    def show_overview(self):
+        self.focused = False; self.pages.setCurrentWidget(self.overview)
+        self.scope_label.setText(self.context_scope_label); self.timing_selected.emit(False); self.navigation_changed.emit()
+
+    def inspect_choice(self, effect_id):
+        if effect_id in SOURCE_EFFECTS: self.object_requested.emit()
+        else: self.inspect_effect(effect_id)
+
+    def browser_applied_ids(self):
+        # Authored disabled entries are still duplicates; Inspect preserves them.
+        return tuple(dict.fromkeys((*self.applied_ids, *self.parent_entries, *self.entries)))
+
+    def open_browser(self):
+        from synth_effect_browser import EffectBrowserDialog
+        if self.browser is None:
+            self.browser = EffectBrowserDialog(self.allowed_effects, self.browser_applied_ids(), self)
+            self.browser.effectRequested.connect(self.add_effect)
+            self.browser.effectInspected.connect(self.inspect_effect)
+            self.browser.objectRequested.connect(self.object_requested.emit)
+        self.browser.set_context(self.allowed_effects, self.browser_applied_ids())
+        self.browser.open()
+
+    def add_effect(self, effect_id, preset_index):
+        if effect_id in self.browser_applied_ids():
+            self.inspect_effect(effect_id); return
+        if effect_id not in EFFECT_BY_ID or effect_id in SOURCE_EFFECTS: return
+        if self.allowed_effects is not None and effect_id not in self.allowed_effects: return
+        self.inspect_effect(effect_id)
+        self.edited.emit(effect_id, effect_preset(effect_id, preset_index), 'effect-add')
+
+    def toggle_bypass(self, effect_id):
+        if self.updating or effect_id in SOURCE_EFFECTS: return
+        entry = copy.deepcopy(self.entries.get(effect_id, {'mode': 'recipe', 'params': {}}))
+        entry['bypassed'] = not self.is_bypassed(effect_id)
+        self.edited.emit(effect_id, entry, 'effect-bypass')
+
+    def set_context(self, entries, parent_entries, states, scope_label, local, context_key, shared_timing=None, shared_states=None, allowed_effects=None, authored_states=None):
         self.updating = True
-        self.entries = copy.deepcopy(entries); self.parent_entries = copy.deepcopy(parent_entries)
-        self.summary = describe_effects(states)
+        self.entries = copy.deepcopy(entries); self.parent_entries = copy.deepcopy(parent_entries); self.local = local
+        self.summary = describe_effects(states); self.authored_summary = describe_effects(authored_states) if authored_states is not None else self.summary
         self.allowed_effects = allowed_effects
         visible_effects = [e for e in EFFECTS if allowed_effects is None or e.id in allowed_effects]
         self.shared_timing = copy.deepcopy(shared_timing or {})
-        self.shared_summary = self.summary['ink_bloom'] if shared_states is None or shared_states is states else describe_effects(shared_states)['ink_bloom']
-        self.context_scope_label = scope_label
-        active = [effect for effect in visible_effects if self.summary[effect.id]["active"]]
-        if allowed_effects is not None and self.effect_id not in allowed_effects:
-            self.effect_id = (active or visible_effects)[0].id
+        self.shared_summary = describe_effects(shared_states)['ink_bloom'] if shared_states is not None else self.authored_summary['ink_bloom']
+        self.context_scope_label = scope_label if scope_label.startswith('Editing:') else 'Editing: ' + scope_label
+        active = [effect for effect in visible_effects if self.summary[effect.id]['active'] or self.is_bypassed(effect.id)]
+        initial_context = self.context_key is None
         changed_context = context_key != self.context_key
-        if changed_context and not self.summary[self.effect_id]["active"] and active:
-            self.effect_id = active[0].id
+        if visible_effects and (self.effect_id not in {e.id for e in visible_effects} or
+                (changed_context and not self.summary[self.effect_id]['active'] and not self.is_bypassed(self.effect_id) and active)):
+            self.effect_id = (active or visible_effects)[0].id
         self.context_key = context_key
-        old_applied = self.applied_ids
         self.applied_ids = tuple(effect.id for effect in active)
         self.available_ids = tuple(effect.id for effect in visible_effects if effect.id not in self.applied_ids)
-        self.applied_title.setText(f'APPLIED EFFECTS · {len(active)}')
-        self.empty_applied.setVisible(not active)
+        treatments = [e for e in active if e.id not in SOURCE_EFFECTS]
+        sources = [e for e in active if e.id in SOURCE_EFFECTS]
+        self.applied_title.setText(f'IMAGE EFFECTS · {len(treatments)}'); self.empty_applied.setVisible(not treatments)
+        self.source_title.setVisible(bool(sources)); self.source_host.setVisible(bool(sources))
+        self.object_button.setVisible(allowed_effects is None or any(key in allowed_effects for key in SOURCE_EFFECTS))
         for effect in EFFECTS:
-            target = self.applied_layout if effect.id in self.applied_ids else self.available_layout
-            if old_applied != self.applied_ids: target.addWidget(self.effect_choices[effect.id])
-            self.effect_choices[effect.id].setVisible(allowed_effects is None or effect.id in allowed_effects)
-        if changed_context:
-            self.available_button.setChecked(not active)
-        self.available_button.setEnabled(bool(self.available_ids))
-        self.show_available(self.available_button.isChecked())
-        with QSignalBlocker(self.mode):
-            self.mode.setItemText(0, "Follow whole clip / recipe" if local else "Follow recipe")
+            target = self.source_layout if effect.id in SOURCE_EFFECTS else self.applied_layout
+            target.addWidget(self.effect_choices[effect.id])
+            self.effect_choices[effect.id].setVisible(effect.id in self.applied_ids)
+        with QSignalBlocker(self.mode): self.mode.setItemText(0, 'Follow whole clip / study' if local else 'Follow study')
         self.updating = False
         self.refresh_effect()
+        if changed_context: self.parameter_scroll.verticalScrollBar().setValue(0)
+        if initial_context and not active: self.show_overview()
 
     def inspect_effect(self, effect_id):
         if self.updating or effect_id not in EFFECT_BY_ID: return
         if self.allowed_effects is not None and effect_id not in self.allowed_effects: return
-        self.effect_id = effect_id
-        self.available_button.setChecked(False)
+        switched = self.effect_id != effect_id
+        self.effect_id = effect_id; self.focused = True; self.pages.setCurrentWidget(self.editor)
         with QSignalBlocker(self.filter): self.filter.clear()
-        self.refresh_effect()
+        with QSignalBlocker(self.group): self.group.setCurrentIndex(0)
+        if switched:
+            self.activation_button.setChecked(False)
+            with QSignalBlocker(self.parameter_tabs): self.parameter_tabs.setCurrentIndex(0)
+        self.refresh_effect(); self.parameter_scroll.verticalScrollBar().setValue(0); self.navigation_changed.emit()
 
     def show_available(self, expanded):
-        self.available_host.setVisible(expanded and bool(self.available_ids))
-        self.available_button.setText(f'{"▾" if expanded else "▸"} Available effects · {len(self.available_ids)}')
+        if expanded: self.open_browser()
 
     def refresh_effect(self):
         if not self.summary: return
         self.updating = True
         effect = EFFECT_BY_ID[self.effect_id]
-        self.inspector_title.setText(f'EDIT / {effect.label}')
+        self.inspector_title.setText(f'{"SOURCE" if effect.id in SOURCE_EFFECTS else "EDIT"} / {effect.label}')
+        self.inspector_title.setToolTip(effect.description)
         for item in EFFECTS:
-            local_mode = self.entries.get(item.id, {}).get('mode', 'recipe')
-            bypassed = local_mode == 'off' or (local_mode == 'recipe' and self.parent_entries.get(item.id, {}).get('mode') == 'off')
-            self.effect_choices[item.id].refresh(item, self.summary[item.id], item.id == effect.id, bypassed)
+            self.effect_choices[item.id].refresh(item, self.authored_summary[item.id], item.id == effect.id, self.is_bypassed(item.id))
         entry = self.entries.get(effect.id, {"mode": "recipe", "params": {}})
         with QSignalBlocker(self.mode): self.mode.setCurrentIndex(self.mode.findData(entry["mode"]))
         self.description.setText(effect.description)
         self.restore.setEnabled(effect.id in self.entries)
+        self.restore.setToolTip("Remove only this effect's overrides in the selected scope. Follow the whole clip or study again.")
+        self.bypass_button.setVisible(effect.id not in SOURCE_EFFECTS)
+        self.bypass_button.setText('Resume' if self.is_bypassed(effect.id) else 'Bypass')
+        self.bypass_button.setToolTip('Temporarily disable this effect while retaining its activation timing and parameters.')
         if tuple(self.controls) != effect.paths:
             while self.parameter_layout.count():
                 widget = self.parameter_layout.takeAt(0).widget()
-                if widget:
-                    widget.hide()
-                    widget.deleteLater()
-            self.controls = {}; self.rows = {}; self.group_labels = {}
-            for path in effect.paths:
-                control = EffectParameter(path)
-                control.changed.connect(lambda value, path=path: self.change_parameter(path, value))
-                control.reset.connect(lambda path=path: self.reset_parameter(path))
-                self.parameter_layout.addWidget(control); self.controls[path] = control
-            self.look.clear()
-            for label, _ in effect.looks or (("Default settings", {}),): self.look.addItem(label)
-        info = self.summary[effect.id]
+                if widget: widget.hide()
+            for label in self.group_labels.values(): label.deleteLater()
+            self.group_labels = {}
+            self.controls = self.control_cache.get(effect.id, {})
+            if not self.controls:
+                for path in effect.paths:
+                    control = EffectParameter(path)
+                    control.changed.connect(lambda value, path=path, effect_id=effect.id: self.change_parameter(path, value, effect_id))
+                    control.reset.connect(lambda path=path, effect_id=effect.id: self.reset_parameter(path, effect_id))
+                    self.controls[path] = control
+                self.control_cache[effect.id] = self.controls
+            for control in self.controls.values(): self.parameter_layout.addWidget(control)
+            with QSignalBlocker(self.look):
+                self.look.clear()
+                for label, _ in effect.looks or (("Default settings", {}),): self.look.addItem(label)
+            with QSignalBlocker(self.group): self.group.clear()
+        info = self.authored_summary[effect.id]
         parent = self.parent_entries.get(effect.id, {})
         available = info["active"] or entry["mode"] in {"on", "off"} or effect.id in self.entries
         for path, control in self.controls.items():
             if path in INK_TIMING:
-                control.refresh(self.shared_summary['ranges'][path], self.shared_timing.get(path), False, self.shared_summary['active'])
+                control.refresh(self.shared_summary['ranges'][path], self.shared_timing.get(path), False, True, scope_label='Whole clip', origin_label='Whole clip · shared timing', context_key=('shared-timing',))
                 control.origin.setText('Shared across all sections' if self.shared_timing else 'Recipe timing · edits apply to all sections')
                 control.setToolTip('One timing setup for the whole composition, regardless of the selected section.')
             else:
-                control.refresh(info["ranges"][path], entry["params"].get(path), path in parent.get("params", {}), available)
-        self.apply_button.setText("Replace settings" if info["active"] else "+ Apply effect")
+                control.refresh(info["ranges"][path], entry["params"].get(path), path in parent.get("params", {}), available, parent_value=parent.get("params", {}).get(path), scope_label=self.context_scope_label.removeprefix("Editing: "), context_key=self.context_key)
+        self.apply_button.setText("Replace with preset" if effect.id in self.applied_ids else "Apply preset")
         self.status.setText("Active during part of the recipe. On keeps it enabled throughout." if info["intermittent"] else
                             "Active. Unedited values keep following their recipe." if info["active"] else
-                            f"{effect.label} is off in this scope. Other effects are listed above. Apply a preset to add it.")
+                            f"{effect.label} is off in this scope. Open Activation & preset to apply settings, or return to the effects overview.")
+        if self.is_bypassed(effect.id): self.status.setText('Bypassed · edits are retained. Resume restores the original activation timing.')
+        elif self.local: self.status.setText(self.status.text() + ' Unedited controls follow the whole clip or study.')
+        else: self.status.setText(self.status.text() + ' Section overrides take priority.')
         if effect.id == 'ink_bloom' and self.controls['ink_bloom.shape'].input.currentIndex() == 5 and not self.controls['ink_bloom.artwork'].input.value():
             self.status.setText('Import artwork to supply the custom silhouette, or choose a built-in shape.')
         self.show_controls()
         self.updating = False
+        self.navigation_changed.emit()
 
     def change_parameter_tab(self, _index):
         with QSignalBlocker(self.filter): self.filter.clear()
-        self.show_controls()
+        with QSignalBlocker(self.group): self.group.clear()
+        self.show_controls(); self.parameter_scroll.verticalScrollBar().setValue(0); self.navigation_changed.emit()
 
     def show_controls(self):
         if not self.summary: return
@@ -241,12 +329,15 @@ class EffectsPanel(QWidget):
         timing = ink and self.parameter_tabs.currentIndex() == 1
         self.parameter_tabs.setTabText(1, 'Region' if phosphor else 'Polarity' if broadcast else 'Timing')
         self.parameter_tabs.setVisible(ink or phosphor or text or broadcast)
+        self.activation_button.setVisible(not timing)
+        self.activation_host.setVisible(not timing and self.activation_button.isChecked())
         self.timing_note.setVisible(timing)
         self.restore_timing.setVisible(timing)
         self.restore_timing.setEnabled(bool(self.shared_timing))
         for widget in (self.mode, self.restore, self.look, self.apply_button, self.status): widget.setVisible(not timing)
-        self.scope_label.setText('GLOBAL TIMING / all sections' if timing else self.context_scope_label)
-        self.timing_selected.emit(timing)
+        self.scope_label.setText('Editing: Whole clip · shared timing' if timing else self.context_scope_label)
+        if not self.focused: self.scope_label.setText(self.context_scope_label)
+        self.timing_selected.emit(timing and self.focused)
         visible_paths = SHARED_TIMING_CONTROLS if timing else tuple(path for path in effect.paths if not ink or path not in INK_TIMING)
         if text:
             visible_paths = TEXT_TIMING if text_timing else tuple(path for path in effect.paths if path not in TEXT_TIMING)
@@ -284,6 +375,16 @@ class EffectsPanel(QWidget):
             else:
                 visible_paths = tuple(p for p in visible_paths if p not in REGION_CONTROLS)
                 self.description.setText(effect.description)
+        groups = grouped_paths(visible_paths)
+        titles = tuple(title for title, _paths in groups)
+        if tuple(self.group.itemText(i) for i in range(1, self.group.count())) != titles:
+            with QSignalBlocker(self.group):
+                self.group.clear(); self.group.addItem('All groups', None)
+                for title in titles: self.group.addItem(title, title)
+        self.group.setVisible(len(titles) > 1)
+        selected_group = self.group.currentData()
+        if selected_group:
+            visible_paths = next(paths for title, paths in groups if title == selected_group)
         query = self.filter.text().strip().casefold()
         shown = {p for p in visible_paths if not query or query in parameter(p).label.casefold() or query in p.casefold()}
         for path, control in self.controls.items(): control.setVisible(path in shown)
@@ -313,12 +414,13 @@ class EffectsPanel(QWidget):
         entry["mode"] = self.mode.itemData(index)
         self.edited.emit(self.effect_id, entry, "effect-mode")
 
-    def change_parameter(self, path, value):
+    def change_parameter(self, path, value, effect_id=None):
+        effect_id = effect_id or self.effect_id
         if self.updating: return
         if path in INK_TIMING:
             self.timing_edited.emit(path, value)
             return
-        entry = copy.deepcopy(self.entries.get(self.effect_id, {"mode": "recipe", "params": {}}))
+        entry = copy.deepcopy(self.entries.get(effect_id, {"mode": "recipe", "params": {}}))
         entry["params"][path] = value
         if path == 'edge_phosphor.fade_mode' and value and 'edge_phosphor.fade_strength' not in entry['params']:
             info = self.summary['edge_phosphor']['ranges']
@@ -329,17 +431,21 @@ class EffectsPanel(QWidget):
                 entry['params'].setdefault('edge_phosphor.fade_width', .38)
         if path == 'ink_bloom.artwork' and value:
             entry['params']['ink_bloom.shape'] = 5
-        self.edited.emit(self.effect_id, entry, f"effect-param:{path}")
+        self.edited.emit(effect_id, entry, f"effect-param:{path}")
 
-    def reset_parameter(self, path):
+    def reset_parameter(self, path, effect_id=None):
+        effect_id = effect_id or self.effect_id
         if path in INK_TIMING:
             self.timing_edited.emit(path, None)
             return
-        entry = copy.deepcopy(self.entries[self.effect_id]); entry["params"].pop(path, None)
-        self.edited.emit(self.effect_id, entry, "effect-reset-param")
+        entry = copy.deepcopy(self.entries.get(effect_id, {"mode": "recipe", "params": {}})); entry["params"].pop(path, None)
+        self.edited.emit(effect_id, entry, "effect-reset-param")
 
     def restore_effect(self):
         self.edited.emit(self.effect_id, None, "effect-restore")
 
     def apply_look(self):
-        self.edited.emit(self.effect_id, effect_preset(self.effect_id, self.look.currentIndex()), "effect-apply")
+        entry = effect_preset(self.effect_id, self.look.currentIndex())
+        previous = self.entries.get(self.effect_id, {})
+        if 'bypassed' in previous: entry['bypassed'] = previous['bypassed']
+        self.edited.emit(self.effect_id, entry, "effect-apply")

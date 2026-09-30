@@ -64,10 +64,11 @@ def test_short_inspector_tab_has_no_hidden_page_blank_scroll_tail(window):
     panel=composer.effects_panel;panel.inspect_effect('broadcast');panel.parameter_tabs.setCurrentIndex(2)
     panel.filter.setText('static');composer.look_tabs.setCurrentWidget(panel)
     QTest.qWait(30)
-    scroll=window.inspector_scroll
+    scroll=panel.parameter_scroll
     scroll.verticalScrollBar().setValue(scroll.verticalScrollBar().maximum())
     QTest.qWait(30)
-    bottom_control=panel.controls['broadcast.roll']
+    bottom_control=max((control for control in panel.controls.values() if control.isVisible()),
+                       key=lambda control: control.mapTo(scroll.viewport(), QPoint()).y())
     point=bottom_control.mapTo(scroll.viewport(),QPoint(0,0))
     assert 0 <= point.y() < scroll.viewport().height()
 

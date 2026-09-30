@@ -197,6 +197,7 @@ def test_geometry_controls_inherit_override_and_undo(window):
     assert window.composition["sections"][1]["geometry"]["sides"] == 6
     window.redo_composition()
     assert render_sequence_frame(window.sequence, 5.8, (120, 96)).tobytes() == triangle
+    panel.look_tabs.setCurrentWidget(panel.object_panel)
     panel.reset_controls()
     assert render_sequence_frame(window.sequence, 5.8, (120, 96)).tobytes() == circle
     panel.change_scope(0); panel.reset_controls()
@@ -221,7 +222,7 @@ def test_effect_inspector_shows_animation_and_local_absolute_edits(window):
     assert "Animated" in effects.controls["blinds.rows"].origin.text()
     row = effects.controls["blinds.rows"]
     assert row.value_stack.currentWidget() is row.animated_value
-    row.animated_value.click()
+    row.use_fixed.click()
     assert row.value_stack.currentWidget() is row.input
     assert "Fixed" in row.origin.text()
     row.reset_button.click()
@@ -257,7 +258,7 @@ def test_new_clip_supports_combining_effects_and_local_bypass(window):
     assert window.composition["effects"]["breakup"]["params"]["breakup.bands"] == 9
     panel.select_section(0)
     assert effects.controls["breakup.bands"].input.value() == 9
-    assert "whole clip" in effects.controls["breakup.bands"].origin.text()
+    assert "whole clip" in effects.controls["breakup.bands"].origin.text().lower()
     effects.mode.setCurrentIndex(effects.mode.findData("off"))
     assert window.composition["effects"]["breakup"]["mode"] == "on"
     assert window.composition["sections"][0]["effects"]["breakup"]["mode"] == "off"
@@ -297,6 +298,7 @@ def test_timeline_click_shows_effects_used_by_blocks_and_ghosts(window):
 
 def test_effect_groups_show_effective_use_and_navigation_does_not_edit(window):
     from synth_effects import EFFECT_BY_ID
+    from synth_subject import SOURCE_EFFECTS
     effects = window.composer.effects_panel
     original = copy.deepcopy(window.composition)
     before = render_sequence_frame(window.sequence, 3.6, (120, 96)).tobytes()
@@ -304,40 +306,51 @@ def test_effect_groups_show_effective_use_and_navigation_does_not_edit(window):
     assert set(effects.applied_ids + effects.available_ids) == set(EFFECT_BY_ID) - {'subject_cutout'}
     assert 'photocopy' in effects.available_ids
     assert effects.effect_choices['rays'].badge.text() == 'Intermittent'
-    assert not effects.available_host.isVisible()
+    effects.show_overview()
     for key in effects.applied_ids:
-        assert effects.effect_choices[key].parentWidget() is effects.applied_host
-    effects.available_button.click()
-    assert effects.available_host.isVisible()
-    effects.effect_choices['tape'].button.click()
-    assert effects.effect_id == 'tape' and not effects.available_host.isVisible()
-    assert effects.effect_choices['tape'].property('selected')
-    assert 'Tape damage' in effects.inspector_title.text()
+        expected = effects.source_host if key in SOURCE_EFFECTS else effects.applied_host
+        assert effects.effect_choices[key].parentWidget() is expected
+    effects.available_button.click(); QApplication.processEvents()
+    browser = effects.browser
+    assert browser.isVisible()
+    browser.search.setText('tape damage')
+    assert browser.action.text() == 'Add effect'
+    assert window.composition == original
+    browser.search.setText('ghosts')
+    assert browser.action.text() == 'Inspect effect'
+    browser.action.click(); QApplication.processEvents()
+    assert effects.effect_id == 'ghosts' and not browser.isVisible()
+    assert effects.effect_choices['ghosts'].property('selected')
+    assert 'Ghosts' in effects.inspector_title.text()
     assert window.composition == original and window.undo_compositions == []
     assert render_sequence_frame(window.sequence, 3.6, (120, 96)).tobytes() == before
 
 
 def test_available_effect_moves_to_applied_then_bypass_keeps_settings_and_undo(window):
-    window.new_composition()
-    QApplication.processEvents()
+    window.new_composition(); QApplication.processEvents()
     effects = window.composer.effects_panel
+    effects.show_overview()
     assert effects.applied_ids == () and effects.empty_applied.isVisible()
-    assert effects.available_host.isVisible()
-    effects.effect_choices['rays'].button.click()
-    assert 'rays' in effects.available_ids  # Inspecting does not add it.
-    effects.look.setCurrentText('Venetian blinds'); effects.apply_button.click()
-    assert 'rays' in effects.applied_ids and 'rays' not in effects.available_ids
-    assert effects.effect_choices['rays'].parentWidget() is effects.applied_host
-    assert effects.effect_choices['rays'].badge.text() == 'On'
-    effects.controls['blinds.rows'].input.setValue(17)
+    effects.available_button.click(); QApplication.processEvents()
+    effects.browser.search.setText('tape damage')
+    assert 'tape' in effects.available_ids
+    effects.browser.action.click()
+    assert 'tape' in effects.applied_ids and 'tape' not in effects.available_ids
+    assert effects.effect_choices['tape'].parentWidget() is effects.applied_host
+    assert effects.effect_choices['tape'].badge.text() == 'On'
+    effects.inspect_effect('forms'); effects.apply_button.click()
+    effects.inspect_effect('tape'); effects.controls['tape.mix'].input.setValue(.65)
+    params = copy.deepcopy(window.composition['effects']['tape']['params'])
     before = render_sequence_frame(window.sequence, .4, (120, 96)).tobytes()
-    effects.mode.setCurrentIndex(effects.mode.findData('off'))
-    assert effects.effect_id == 'rays' and 'rays' in effects.available_ids
-    assert effects.effect_choices['rays'].badge.text() == 'Bypassed'
-    assert window.composition['effects']['rays']['params']['blinds.rows'] == 17
-    assert effects.effect_choices['rays'].parentWidget() is effects.available_host
+    effects.bypass_button.click()
+    assert effects.effect_id == 'tape' and 'tape' in effects.applied_ids
+    assert effects.effect_choices['tape'].badge.text() == 'Bypassed'
+    assert window.composition['effects']['tape']['params'] == params
+    assert window.composition['effects']['tape']['mode'] == 'on'
+    assert window.composition['effects']['tape']['bypassed'] is True
+    assert effects.effect_choices['tape'].parentWidget() is effects.applied_host
     window.undo_composition()
-    assert 'rays' in effects.applied_ids and effects.effect_choices['rays'].badge.text() == 'On'
+    assert 'tape' in effects.applied_ids and effects.effect_choices['tape'].badge.text() == 'On'
     assert render_sequence_frame(window.sequence, .4, (120, 96)).tobytes() == before
 
 
@@ -816,7 +829,8 @@ def test_ink_timing_tabs_seconds_scope_reset_undo_and_save(window, tmp_path, mon
     assert child.sequence_state_controls['ink_bloom.fold_seconds'].value() == pytest.approx(53 / 15 * .27, abs=.01)
     child.sequence_state_controls['ink_bloom.unfold_seconds'].set_value(.6)
     assert window.composition == saved
-    panel.change_scope(0); panel.reset_controls()
+    panel.change_scope(0); effects.parameter_tabs.setCurrentIndex(1)
+    panel.reset_controls()
     assert not window.composition['ink_timing']
     assert [s['duration'] for s in window.composition['sections']] == [53 / 15] * 2
     window.undo_composition(); assert window.composition == saved
