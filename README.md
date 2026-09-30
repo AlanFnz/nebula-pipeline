@@ -426,10 +426,22 @@ save timestamp in a separate `metadata.json` that travels with the study folder.
 Older saves use the JSON file's creation date, falling back to modification date
 where creation time is unavailable. Hover over a date in the manager to see its
 source.
-The Studies picker uses a compact, bounded width alongside Load and Manage.
+The Studies picker uses a compact, bounded width alongside Load and Browse.
 
-**Studies → Manage…** opens a sortable library, newest dates first. Select one
-or several rows with Command-click or Shift-click, then **Remove selected**.
+**Studies → Browse studies…** opens the visual library, newest dates first.
+Select a row to inspect its still preview; **Load study** or a double-click opens
+an editable copy through the unsaved-changes check. Search by name, filter by
+category, or mark favorites with the star and enable **Favorites only**. Name,
+date, category and origin columns can be sorted. Favorites remain independent
+of the artwork and stay marked if a removed Study is restored.
+
+Still previews render only for the selected Study and visible rows. They keep
+each Study's aspect ratio, use a bounded cache outside the saved recipes, and
+pause while the browser is hidden or the editor is busy. A failed thumbnail
+shows a placeholder and does not prevent using the library.
+
+Select one or several rows with Command-click or Shift-click, then
+**Remove selected**.
 They disappear from the picker; **Removed studies → Restore selected** brings
 them back. Removal is reversible and retains the saved files at their original
 paths, including video, so existing compositions keep working. Built-in entries
@@ -469,12 +481,27 @@ commit on release, and typed edits commit with Enter or focus change. The
 composer reuses its compiled state, and preview requests debounce rapid edits.
 Text wording appears at the top of Object; **Apply text** commits the phrase.
 
-Closing a window with unsaved edits offers **Save**, **Discard**, and **Cancel**.
-Cancelling either dialog or encountering a save error keeps the window open.
-The check includes unapplied text; Save validates and applies that wording before
-writing the document. Undoing back to the saved version clears the warning.
+The header and window title identify the current document; an asterisk marks
+unsaved changes. **Save** (Command-S) writes to its associated file, asking for
+a location on the first save. **Save As…** (Command-Shift-S) always asks for a
+new location. Loading a Study or importing a video starts an editable document
+without binding Save to the original library recipe or footage. Writes are
+atomic, and source footage, proxies and bundled assets are protected.
+
+Closing, opening another document, loading a Study, starting a new composition
+or replacing it with imported footage offers **Save**, **Discard**, and
+**Cancel** when needed. Cancellation or a failed save preserves the working
+document. The check includes unapplied text; Save validates and applies that
+wording before writing. Undoing back to saved content clears the warning.
 Saving a Study also records that snapshot as saved, while edits made during an
 asynchronous save remain unsaved. MP4 export does not save the editable document.
+
+Command-O opens a document. Command-Z and Command-Shift-Z undo and redo
+composition edits; text fields retain their local undo. With focus on the
+viewer or timeline, Space toggles playback, Left/Right steps one output frame,
+and Shift-Left/Right steps ten. Text, numeric fields and sliders retain their
+normal keys. The File, Edit and Preview menus show the available shortcuts;
+detailed sequence/preset windows disable composition Undo/Redo.
 
 - Select **Whole clip** to adjust the entire piece, or click a section to
   adjust it locally. Sections can be added, duplicated, removed, reordered,
@@ -687,13 +714,27 @@ the built-in registry lives in `synth_starters.py`; `synth_studies.py` combines 
 
 The monitor reports **Preview: measured / target FPS** separately from export
 FPS. Live playback follows elapsed time, skipping preview frames when rendering
-cannot keep up. **Prepare playback** renders the full loop at the chosen preview
-quality into a 192 MB memory buffer; then **Play cached preview** plays those
-frames without re-rendering. Preparation shows progress, can be cancelled, and
-does not block editing. Completed frames are also reused when scrubbing.
-Edits, quality changes and source bypass clear the buffer and reject stale jobs.
-If a full loop exceeds the budget, choose 360 px or shorten the timeline.
-Preview remains silent and exports still render every frame independently.
+cannot keep up. **Auto prepare** warms a small window after editing or scrubbing
+settles: roughly two seconds ahead and half a second behind. **Prepare preview**
+prepares the active scope explicitly and can be cancelled. Neither action starts
+playback. The thin strip beneath the transport highlights cached frame ranges;
+those frames are reused during playback and scrubbing.
+
+Choose **Entire timeline** or **Selected sections** for preview. Selected sections
+play every occurrence of their section IDs in timeline order, including repeats,
+and skip unselected gaps. The occurrence count and duration explain the scope.
+Original absolute source/effect clocks are retained; this does not change the
+composition, its authored loops, or export. Scope changes pause playback, keeping
+the current frame when it belongs to the new selection.
+
+The preview cache and pending frame deliveries share a 192 MiB budget. Long
+scopes prepare a bounded window and report the limit instead of requiring the
+entire clip to fit. Foreground seeks take priority, and export suspends warming.
+Local visual edits retain unaffected frames when compiled cue dependencies prove
+it safe, including transitions and repeated sections. Global, timing, canvas,
+quality, source and bypass changes rebuild the preview; stale workers cannot
+restore old pixels. Preview preferences are workspace settings. Preview remains
+silent and exports still render every frame independently.
 During MP4 export, the monitor shows a frame-based progress bar with percentage
 and current/total frame count; completion, cancellation and errors remain visible
 after the worker finishes.
@@ -705,6 +746,12 @@ settings. Treatment-only edits can reuse those masks without changing pixels.
 enter a percentage, or use **− / +**. Drag to pan a zoomed image, double-click to
 fit, or use Ctrl/⌘ + wheel to zoom around the pointer. Zoom does not change
 preview quality, export resolution or the composition.
+
+Drag the horizontal divider below the playback/FPS controls up or down to
+resize the monitor vertically. The lower pane keeps the timeline first and lets
+you scroll to preparation and export controls. Zoom, playback and performance
+feedback remain beside the monitor. The app remembers this vertical split
+separately from the composition.
 
 Drag the divider between the monitor and inspector to adjust the effects
 column's width. The app remembers this split, view zoom, window position, size

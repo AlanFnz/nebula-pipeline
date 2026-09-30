@@ -132,3 +132,70 @@ def test_corrupt_index_does_not_block_loading_or_get_overwritten(tmp_path):
     with pytest.raises(ValueError, match='index'):
         set_studies_removed(['refined'], directory=tmp_path)
     assert (tmp_path / LIBRARY_FILE).read_text() == '{broken'
+
+
+def test_favorites_preserve_removal_dates_documents_and_duplicate_identity(tmp_path):
+    from synth_studies import set_studies_favorite
+    project = starter_composition('profile-doryphoros')
+    first = save_study(project, 'Duplicate', tmp_path)
+    second = save_study(project, 'Duplicate', tmp_path)
+    original = {entry.identifier: entry for entry in study_records(tmp_path)}
+    recipes = {path: path.read_bytes() for path in tmp_path.glob('*/study.json')}
+    set_studies_favorite([first, 'refined'], directory=tmp_path)
+    set_studies_removed([first], directory=tmp_path)
+    records = {entry.identifier: entry for entry in study_records(tmp_path, include_removed=True)}
+    assert records[first].favorite and records[first].removed
+    assert not records[second].favorite
+    assert records[first].date == original[first].date
+    set_studies_removed([first], False, tmp_path)
+    assert next(entry for entry in study_records(tmp_path) if entry.identifier == first).favorite
+    set_studies_favorite(['refined'], False, tmp_path)
+    assert {entry.identifier for entry in study_records(tmp_path) if entry.favorite} == {first}
+    assert all(path.read_bytes() == data for path, data in recipes.items())
+    moved = tmp_path.parent / (tmp_path.name + '-moved'); shutil.copytree(tmp_path, moved)
+    assert study_records(moved) == study_records(tmp_path)
+
+
+def test_legacy_preferences_unknown_fields_and_corruption_are_preserved(tmp_path):
+    from synth_studies import set_studies_favorite
+    index = tmp_path / LIBRARY_FILE
+    index.write_text(json.dumps({'schema_version': 1, 'removed': ['approved'], 'future': {'color': 'green'}}))
+    assert not any(entry.favorite for entry in study_records(tmp_path, include_removed=True))
+    set_studies_favorite(['refined'], directory=tmp_path)
+    raw = json.loads(index.read_text())
+    assert raw['removed'] == ['approved'] and raw['favorites'] == ['refined']
+    assert raw['future'] == {'color': 'green'}
+    for broken in ('{broken', '{"schema_version":1,"removed":[],"favorites":"refined"}'):
+        index.write_text(broken)
+        assert study_catalogue(tmp_path)
+        with pytest.raises(ValueError, match='index'): set_studies_favorite(['refined'], directory=tmp_path)
+        with pytest.raises(ValueError, match='index'): set_studies_removed(['refined'], directory=tmp_path)
+        assert index.read_text() == broken
+
+
+@pytest.mark.parametrize('identifier,category', [('refined', 'Signals'), ('profile-doryphoros', 'Profiles'),
+    ('particle-head', 'Particles'), ('text-phosphor', 'Text'), ('ink-bloom', 'Mixed media')])
+def test_saved_categories_follow_source_capabilities(identifier, category, tmp_path):
+    from synth_studies import composition_category
+    project = starter_composition(identifier)
+    assert composition_category(project) == category
+    key = save_study(project, 'Name does not imply its category', tmp_path)
+    assert next(entry for entry in study_records(tmp_path) if entry.identifier == key).category == category
+
+
+def test_categories_respect_source_replacement_and_ignore_treatment_rays(tmp_path):
+    from synth_studies import composition_category
+    project = starter_composition('profile-doryphoros')
+    project['effects']['rays'] = {'mode': 'on', 'params': {}}
+    assert composition_category(project) == 'Profiles'
+    project['effects']['silhouette'] = {'mode': 'off', 'params': {}}
+    project['effects']['text'] = {'mode': 'on', 'params': {}}
+    assert composition_category(project) == 'Text'
+    project['sections'][0]['effects']['text'] = {'mode': 'off', 'params': {}}
+    project['sections'][0]['effects']['particles'] = {'mode': 'on', 'params': {}}
+    assert composition_category(project) == 'Mixed media'
+    for section in project['sections']:
+        section['effects']['text'] = {'mode': 'off', 'params': {}}
+        section['effects']['particles'] = {'mode': 'on', 'params': {}}
+    assert composition_category(project) == 'Particles'
+    assert composition_category({'source': {'states': {}}}) == 'Other'

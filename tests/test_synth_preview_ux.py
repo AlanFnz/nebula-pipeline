@@ -111,9 +111,10 @@ def test_stale_preparation_and_render_cannot_replace_newer_settings(window):
     # Simulate an old packet arriving after cancellation and an edit.
     window.prepare_job=None;window.invalidate()
     old_packet=window.viewer.packet
+    retained = dict(window.preview_frames.items)
     window.prepared_frame(job,(old,0,((1,1),b'old')))
     window.frame_ready((old,999,0,(1,1),b'old',.01))
-    assert not window.preview_frames.items and window.viewer.packet==old_packet
+    assert dict(window.preview_frames.items) == retained and window.viewer.packet==old_packet
 
 
 def test_playback_clock_skips_to_wall_time_instead_of_slowing_clip(window,monkeypatch):
@@ -129,7 +130,7 @@ def test_playback_clock_skips_to_wall_time_instead_of_slowing_clip(window,monkey
 def test_memory_limit_and_cancellation_are_visible(window):
     window.preview_frames.budget=1
     window.prepare_playback()
-    assert window.prepare_job is None and '192 MB' in window.preview_status.text()
+    assert window.prepare_job is None and 'Limited by rendering' in window.preview_status.text()
     assert '360 px' in window.preview_status.text()
 
 
@@ -150,3 +151,33 @@ def test_held_mask_cache_reuses_results_but_tracks_framing_and_retention(clip,tm
                            (footage,canvas,2,.8,.2),(dict(footage,out=.8),canvas,2,.8,.12)):
             provider.mask(f,.1,c,m,r,s)
         assert len(calls)==7
+
+
+def test_uncached_slow_renderer_keeps_displaying_during_wall_clock_playback(window, monkeypatch):
+    import synth_studio
+    window.auto_prepare.setChecked(False)
+    window.composer.duration.setValue(2.)
+    wait_until(lambda: not window.render_running and not window.render_queued)
+    original = synth_studio.render_sequence_frame
+    def delayed(*args, **kwargs):
+        time.sleep(.12)
+        return original(*args, **kwargs)
+    monkeypatch.setattr(synth_studio, 'render_sequence_frame', delayed)
+    window.preview_frames.clear()
+    window.play.setChecked(True); window.request_frame()
+    wait_until(lambda: len(window.display_times) >= 3, seconds=5)
+    assert window.timeline.value() > 1 and window.last_render_seconds >= .12
+    assert 'Preview:' in window.preview_status.text()
+    window.play.setChecked(False)
+
+
+def test_older_render_cannot_overwrite_newer_cached_seek(window):
+    window.auto_prepare.setChecked(False)
+    wait_until(lambda: not window.render_running and not window.render_queued)
+    generation = window.settings_generation; serial = window.request_serial
+    packet = window.viewer.packet
+    window.preview_frames.put(10, packet)
+    window.timeline.setValue(10)
+    shown = window.viewer.packet
+    window.frame_ready((generation, serial, 0., (1, 1), b'old', .01))
+    assert window.viewer.packet == shown and window.timeline.value() == 10
