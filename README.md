@@ -9,6 +9,11 @@ separation of objects, regions and treatments. The first milestone adds reusable
 directional regions and versioned compatibility, with all nine original study
 results protected by raw-pixel regression tests.
 
+The [creative controls and audio-reactivity roadmap](docs/creative-controls-audio-roadmap.md)
+records future work on independent experimentation, meaningful effect controls,
+comparison tools and synchronized audio-driven animation. These milestones are
+planned; they are not current app features.
+
 ## Launch on this Mac
 
 The installed **Nebula Studio.app** lives in `~/Applications`. Open it in Finder
