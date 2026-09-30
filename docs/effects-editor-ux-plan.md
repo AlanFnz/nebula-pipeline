@@ -1,6 +1,6 @@
 # Effects editor UX
 
-Status: implemented and packaged 2026-09-30; installed-app update waits for the running app to close.
+Status: implemented and packaged 2026-09-30; merged into main and installed on 2026-10-01.
 Base: 4ba6a63 on codex/studio-editing-library (draft PR #9, itself based on #8).
 Delivery branch: codex/effects-editor-ux. Version remains 0.2.0.
 
@@ -181,3 +181,9 @@ Commits are split into planning/extraction, discovery, persistent bypass,
 parameter UX, numeric sizing, focused-editor integration and documentation.
 The feature branch is stacked on draft PR #9. The installer refuses to replace
 an app that is still running; no force quit or composition backup was performed.
+
+PRs #8, #9 and #10 were merged into main in dependency order on 2026-10-01.
+The merged source matched the tested feature branch. The Mac app was rebuilt
+from main, installed in ~/Applications and launched; strict signature verification
+passed and no new startup traceback was logged. The previous app bundle was
+preserved by the installer. Version remains 0.2.0; no release tag was created.
