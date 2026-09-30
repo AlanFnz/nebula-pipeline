@@ -118,3 +118,114 @@ class PreviewScheduler:
 
     def batch(self, target, cache):
         return tuple(frame for frame in target if frame not in cache.items)[:self.batch_size]
+
+
+# Cache validity is independent of the generation used to reject worker results.
+# A conservative classifier can retain pixels while the generation still changes.
+from bisect import bisect_right
+import copy
+import hashlib
+import json
+from pathlib import Path
+
+
+_PROXY_FINGERPRINTS = OrderedDict()
+
+
+def _file_fingerprint(path, content=False):
+    path = Path(path).expanduser().resolve()
+    try:
+        stat = path.stat()
+        identity = (str(path), stat.st_dev, stat.st_ino, stat.st_size)
+        if content:
+            # Proxies are touched on use. A full byte digest distinguishes that
+            # harmless timestamp change from an actual overwrite anywhere in a
+            # proxy. Rehash only when its stat signature changes; reads are bounded.
+            signature = identity + (stat.st_mtime_ns, stat.st_ctime_ns)
+            cached = _PROXY_FINGERPRINTS.get(str(path))
+            if cached is None or cached[0] != signature:
+                digest = hashlib.blake2b(digest_size=16)
+                with path.open('rb') as stream:
+                    while chunk := stream.read(1024**2): digest.update(chunk)
+                cached = (signature, digest.digest())
+                _PROXY_FINGERPRINTS[str(path)] = cached
+                _PROXY_FINGERPRINTS.move_to_end(str(path))
+                while len(_PROXY_FINGERPRINTS) > 16: _PROXY_FINGERPRINTS.popitem(last=False)
+            return identity + (cached[1],)
+        return identity + (stat.st_mtime_ns, stat.st_ctime_ns)
+    except OSError:
+        return (str(path), 'unavailable')
+
+
+def preview_context(sequence, size, bypass, proxy_root=None):
+    """Actual source/proxy identity, dimensions and source-only renderer inputs."""
+    media = ()
+    if sequence and 'footage' in sequence:
+        from synth_video import PROXY_EDGE, proxy_directory
+        footage = sequence['footage']
+        key = hashlib.sha256(json.dumps([footage['path'], footage['identity'], footage['sample_fps'], PROXY_EDGE, 1], sort_keys=True).encode()).hexdigest()
+        proxy = (Path(proxy_root) if proxy_root else proxy_directory()) / (key + '.mkv')
+        media = (_file_fingerprint(footage['path']), _file_fingerprint(proxy, content=True))
+    return (tuple(size), bool(bypass), media)
+
+
+@dataclass(frozen=True)
+class RenderValidity:
+    identity: object
+    composition: object
+    sequence: object
+    preset: object
+    context: tuple
+
+    @classmethod
+    def capture(cls, identity, composition, sequence, preset, context):
+        return cls(identity, copy.deepcopy(composition), copy.deepcopy(sequence),
+                   copy.deepcopy(preset) if sequence is None else None, context)
+
+
+def retained_frame_predicate(previous, current):
+    """Return None for full-clear; otherwise decide each absolute cached frame.
+
+    Only section visual edits with identical compiled clocks/cues/global inputs
+    qualify. Dependencies are derived from compiled cues, including each repeat
+    and the previous state consumed by a transition into a neighboring section.
+    """
+    if previous is None or previous.identity is not current.identity or previous.context != current.context:
+        return None
+    if previous.sequence == current.sequence and previous.preset == current.preset and previous.composition == current.composition:
+        return lambda _frame: True
+    before, after = previous.composition, current.composition
+    old, new = previous.sequence, current.sequence
+    if before is None or after is None or old is None or new is None: return None
+    if {k: v for k, v in before.items() if k != 'sections'} != {k: v for k, v in after.items() if k != 'sections'}:
+        return None
+    visual = {'effects', 'geometry', 'macros'}
+    if len(before['sections']) != len(after['sections']): return None
+    changed_sections = set()
+    for first, second in zip(before['sections'], after['sections']):
+        if {k: v for k, v in first.items() if k not in visual} != {k: v for k, v in second.items() if k not in visual}:
+            return None
+        if first != second: changed_sections.add(second['id'])
+    if not changed_sections: return None
+    if {k: v for k, v in old.items() if k != 'states'} != {k: v for k, v in new.items() if k != 'states'}:
+        return None
+    if old['states'].keys() != new['states'].keys(): return None
+    changed_states = {key for key in new['states'] if old['states'][key] != new['states'][key]}
+    if not changed_states or any(key.split(':', 1)[0] not in changed_sections for key in changed_states): return None
+    clocks = {'seed', 'treatment_fps', 'export_fps', 'loop_seconds', 'variation_fps', 'variation_mode', 'animation'}
+    for state in changed_states:
+        first, second = old['states'][state], new['states'][state]
+        if first.get('preset') != second.get('preset'): return None
+        if any(first.get('overrides', {}).get(key) != second.get('overrides', {}).get(key) for key in clocks): return None
+    cues = new['cues']; times = [cue['time'] for cue in cues]; fps = new['fps']
+
+    def valid(frame):
+        t = frame / fps
+        index = max(0, bisect_right(times, t) - 1)
+        cue = cues[index]
+        if cue['state'] in changed_states: return False
+        if index and cue.get('transition', 'cut') != 'cut' and t < cue['time'] + cue.get('duration', 0):
+            if cues[index - 1]['state'] in changed_states: return False
+        return True
+
+    return valid

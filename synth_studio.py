@@ -41,7 +41,7 @@ from synth_master import normalize_master
 from synth_master_ui import MasterPanel
 from synth_viewer import SynthViewer
 from synth_video import VideoFrameProvider, inspect_video, prepare_proxy, video_composition, relink_footage, check_source
-from synth_preview import PreviewFrames, PreviewScheduler, resolve_scope
+from synth_preview import PreviewFrames, PreviewScheduler, resolve_scope, RenderValidity, preview_context, retained_frame_predicate
 
 
 class SynthControl(QWidget):
@@ -256,6 +256,7 @@ class SynthStudio(QMainWindow):
         self.render_running = False
         self.render_queued = False
         self.preview_frames = PreviewFrames()
+        self.preview_validity = None
         self.prepare_job = None
         self.warming_job = None
         self.preview_scheduler = PreviewScheduler()
@@ -1396,10 +1397,31 @@ class SynthStudio(QMainWindow):
         if 0 <= new < len(self.preset["modules"]):
             self.preset = self.collect(); self.preset["modules"][index], self.preset["modules"][new] = self.preset["modules"][new], self.preset["modules"][index]; self.mark_custom(); self.rebuild_modules(); self.invalidate()
 
-    def invalidate(self):
+    def current_preview_context(self):
+        return preview_context(self.sequence, self.preview_size(), self.source_preview.isChecked(), self.video_frames.directory)
+
+    def capture_preview_validity(self):
+        return RenderValidity.capture(self.document_identity, self.composition, self.sequence,
+                                      self.collect() if self.sequence is None else self.preset, self.current_preview_context())
+
+    def ensure_preview_context(self):
+        context = self.current_preview_context()
+        if self.preview_validity is None:
+            self.preview_validity = self.capture_preview_validity()
+        elif self.preview_validity.context != context:
+            self.invalidate(force_clear=True)
+            return False
+        return True
+
+    def invalidate(self, *, force_clear=False):
         self.update_document_title()
-        self.settings_generation += 1
-        self.preview_frames.clear(); self.display_times.clear()
+        current = self.capture_preview_validity()
+        retain = None if force_clear else retained_frame_predicate(self.preview_validity, current)
+        self.settings_generation += 1  # Worker rejection changes even when pixels can be retained.
+        if retain is None: self.preview_frames.clear()
+        else: self.preview_frames.retain(retain)
+        self.preview_validity = current
+        self.display_times.clear()
         if self.play.isChecked():
             self.play_origin = self.active_preview_scope().position(self.timeline.value()); self.play_started = time.monotonic()
         self.cancel_preparation()
@@ -1484,6 +1506,7 @@ class SynthStudio(QMainWindow):
 
     def _start_warm_batch(self):
         if self.closing or self.export_job: return
+        if not self.ensure_preview_context(): return
         if not self.preparation_target:
             self._preparation_ready(); return
         if self.warming_job: return
@@ -1508,6 +1531,7 @@ class SynthStudio(QMainWindow):
     def prepared_frame(self, job, result):
         generation, frame, packet = result
         if self.closing or job is not self.prepare_job or generation != self.settings_generation: return
+        if not self.ensure_preview_context(): return
         self.preview_frames.put(frame, packet)
         self.cached_ranges.set_ranges(self.preview_frames.ranges())
         if frame == self.timeline.value(): self.display_frame(frame/self.preview_fps(), packet, cached=True)
@@ -1544,9 +1568,11 @@ class SynthStudio(QMainWindow):
             self.refresh_preview_scope()
     def request_frame(self):
         if self.closing: return
+        if not self.ensure_preview_context(): return
         if self.sequence and 'footage' in self.sequence:
             try: check_source(self.sequence['footage'])
             except (ValueError, OSError) as exc:
+                self.settings_generation += 1
                 self.preview_frames.clear(); self.cached_ranges.set_ranges([]); self.cancel_preparation(); self.render_queued = False
                 self.preview_status.setText(f'Preview unavailable: {exc}'); return
         self.request_serial += 1
@@ -1597,6 +1623,7 @@ class SynthStudio(QMainWindow):
         elif not self.warm_debounce.isActive(): self.schedule_auto_preparation()
 
     def frame_ready(self, result):
+        if self.closing or not self.ensure_preview_context(): return
         settings_generation, request_serial, time_seconds, size, raw, elapsed = result
         if settings_generation != self.settings_generation or request_serial < self.last_displayed_request: return
         if self.closing: return
@@ -1605,10 +1632,11 @@ class SynthStudio(QMainWindow):
         self.preview_frames.put(round(time_seconds*self.preview_fps()), (size, raw))
         self.cached_ranges.set_ranges(self.preview_frames.ranges())
         # A prepared/cached newer frame must not jump backwards to an older job.
-        if abs(time_seconds-self.current_time) > .5/self.preview_fps(): return
+        if not self.play.isChecked() and abs(time_seconds-self.current_time) > .5/self.preview_fps(): return
         self.display_frame(time_seconds, (size, raw))
 
     def display_frame(self, time_seconds, packet, cached=False):
+        if cached: self.last_displayed_request = max(self.last_displayed_request, self.request_serial)
         size, raw = packet
         self.viewer.set_packet((size, raw)); self.time_label.setText(f"{int(time_seconds) // 60:02d}:{time_seconds % 60:05.2f}")
         self.monitor_meta.setText(f"{size[0]}×{size[1]} / RGB")
