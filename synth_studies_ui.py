@@ -1,10 +1,11 @@
 """Visual, sortable Study browser with independent, lazy still previews."""
 from collections import OrderedDict
-from PySide6.QtCore import QEvent, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QIcon, QPainter, QPixmap
+from PySide6.QtCore import QEvent, QItemSelectionModel, QSize, Qt, QTimer, Signal
+from PySide6.QtGui import QIcon, QPainter, QPalette, QPixmap
 from PySide6.QtWidgets import (
-    QAbstractItemView, QCheckBox, QDialog, QDialogButtonBox, QHeaderView,
-    QHBoxLayout, QLabel, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout,
+    QAbstractItemView, QApplication, QCheckBox, QDialog, QDialogButtonBox, QHeaderView,
+    QHBoxLayout, QLabel, QLineEdit, QPushButton, QStyle, QStyledItemDelegate, QStyleOptionViewItem,
+    QTableWidget, QTableWidgetItem, QVBoxLayout,
 )
 
 from studio_widgets import ComboBox
@@ -22,12 +23,48 @@ class _StudyNameItem(QTableWidgetItem):
 
 
 class _FavoriteItem(QTableWidgetItem):
-    def __init__(self, favorite):
+    def __init__(self, entry):
         super().__init__('')
-        self.favorite = favorite
+        self.setFlags(self.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+        self.setCheckState(Qt.CheckState.Checked if entry.favorite else Qt.CheckState.Unchecked)
+        self.setData(Qt.ItemDataRole.UserRole, entry.identifier)
+        self.setData(Qt.ItemDataRole.AccessibleTextRole, f'Favorite {entry.name}')
+        self.setData(Qt.ItemDataRole.AccessibleDescriptionRole, 'Press Space to toggle favorite.')
+        self.setToolTip('Remove from favorites' if entry.favorite else 'Add to favorites')
 
     def __lt__(self, other):
-        return self.favorite < other.favorite
+        return self.checkState().value < other.checkState().value
+
+
+class _FavoriteDelegate(QStyledItemDelegate):
+    """Native checkable table cells without per-row QWidget/deferred-delete churn."""
+    def paint(self, painter, option, index):
+        appearance = QStyleOptionViewItem(option)
+        self.initStyleOption(appearance, index)
+        appearance.features &= ~QStyleOptionViewItem.ViewItemFeature.HasCheckIndicator
+        appearance.text = ''
+        widget = appearance.widget
+        style = widget.style() if widget is not None else QApplication.style()
+        style.drawControl(QStyle.ControlElement.CE_ItemViewItem, appearance, painter, widget)
+        painter.save()
+        font = painter.font(); font.setPixelSize(20); painter.setFont(font)
+        role = QPalette.ColorRole.HighlightedText if option.state & QStyle.StateFlag.State_Selected else QPalette.ColorRole.Text
+        painter.setPen(option.palette.color(role))
+        checked = index.data(Qt.ItemDataRole.CheckStateRole) == Qt.CheckState.Checked.value
+        painter.drawText(option.rect, Qt.AlignmentFlag.AlignCenter, '★' if checked else '☆')
+        painter.restore()
+
+    def editorEvent(self, event, model, option, index):
+        if not index.flags() & Qt.ItemFlag.ItemIsEnabled: return False
+        mouse = event.type() == QEvent.Type.MouseButtonRelease and event.button() == Qt.MouseButton.LeftButton
+        keyboard = event.type() == QEvent.Type.KeyPress and event.key() in (Qt.Key.Key_Space, Qt.Key.Key_Select)
+        if event.type() == QEvent.Type.MouseButtonDblClick: return True
+        if not mouse and not keyboard: return False
+        if mouse and not option.rect.contains(event.position().toPoint()): return False
+        checked = index.data(Qt.ItemDataRole.CheckStateRole) == Qt.CheckState.Checked.value
+        model.setData(index, Qt.CheckState.Unchecked.value if checked else Qt.CheckState.Checked.value,
+                      Qt.ItemDataRole.CheckStateRole)
+        return True
 
 
 class StudiesDialog(QDialog):
@@ -63,6 +100,8 @@ class StudiesDialog(QDialog):
         content = QHBoxLayout()
         self.table = QTableWidget(0, 5); self.table.setAccessibleName('Study library')
         self.table.setHorizontalHeaderLabels(['Study', 'Date', 'Category', 'Origin', 'Favorite'])
+        self.favorite_delegate = _FavoriteDelegate(self.table)
+        self.table.setItemDelegateForColumn(4, self.favorite_delegate)
         self.table.setIconSize(QSize(*ROW_BOUNDS))
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
@@ -71,6 +110,7 @@ class StudiesDialog(QDialog):
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         for column in (1, 2, 3, 4): header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
+        self.table.itemChanged.connect(self._favorite_item_changed)
         self.table.itemSelectionChanged.connect(self.update_action)
         self.table.itemDoubleClicked.connect(self._double_click)
         self.table.verticalScrollBar().valueChanged.connect(self._schedule_visible)
@@ -125,6 +165,9 @@ class StudiesDialog(QDialog):
 
     def apply_filters(self, *_args):
         selected = set(self.selected_identifiers())
+        current_column = self.table.currentColumn()
+        current_item = self.table.item(self.table.currentRow(), 0)
+        current_identifier = current_item.data(Qt.ItemDataRole.UserRole) if current_item else None
         self.thumbnails.reset()
         removed = self.show_removed.isChecked(); query = self.search.text().strip().casefold()
         category = self.category.currentData()
@@ -145,18 +188,14 @@ class StudiesDialog(QDialog):
             date = QTableWidgetItem(entry.date); date.setToolTip(entry.date_hint)
             for column_index, item in enumerate((name, date, QTableWidgetItem(entry.category),
                                                 QTableWidgetItem('Saved' if entry.personal else 'Built-in'),
-                                                _FavoriteItem(entry.favorite))):
+                                                _FavoriteItem(entry))):
                 self.table.setItem(row, column_index, item)
-            star = QPushButton('★' if entry.favorite else '☆'); star.setCheckable(True); star.setChecked(entry.favorite)
-            star.setStyleSheet('QPushButton { border: none; background: transparent; font-size: 20px; } '
-                                'QPushButton:hover, QPushButton:focus { border: 1px solid palette(highlight); }')
-            star.setAccessibleName(f'Favorite {entry.name}'); star.setToolTip('Remove from favorites' if entry.favorite else 'Add to favorites')
-            star.clicked.connect(lambda checked, key=entry.identifier: self.change_favorite(key, checked))
-            self.table.setCellWidget(row, 4, star)
         self.table.setSortingEnabled(True); self.table.sortItems(column, order)
         for row in range(self.table.rowCount()):
             if self.table.item(row, 0).data(Qt.ItemDataRole.UserRole) in selected:
                 for column_index in range(self.table.columnCount()): self.table.item(row, column_index).setSelected(True)
+            if self.table.item(row, 0).data(Qt.ItemDataRole.UserRole) == current_identifier:
+                self.table.setCurrentCell(row, max(0, current_column), QItemSelectionModel.SelectionFlag.NoUpdate)
         self.table.blockSignals(False)
         self.action.setText('Restore selected' if removed else 'Remove selected')
         self.action.setToolTip('Return selected entries to the Studies picker.' if removed else
@@ -165,6 +204,14 @@ class StudiesDialog(QDialog):
                             'Use Command-click or Shift-click to select several.' if records else
                             'No studies match these filters. Clear search or change the filters.')
         self.update_action()
+
+    def _favorite_item_changed(self, item):
+        if item.column() != 4: return
+        identifier = item.data(Qt.ItemDataRole.UserRole)
+        favorite = item.checkState() == Qt.CheckState.Checked
+        if identifier not in self._records or favorite == self._records[identifier].favorite: return
+        # Finish native selection/check-state dispatch before filters replace the model items.
+        QTimer.singleShot(0, lambda key=identifier, checked=favorite: self.change_favorite(key, checked))
 
     def change_favorite(self, identifier, favorite):
         try: set_studies_favorite([identifier], favorite, self.directory)
