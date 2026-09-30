@@ -347,3 +347,33 @@ def test_import_final_replacement_checks_latest_edits_and_identity(make_window, 
     window.new_composition(); before = copy.deepcopy(window.composition)
     window.video_imported(old, footage, False)
     assert window.composition == before
+
+
+@pytest.mark.parametrize('alias', [False, True])
+def test_save_as_rejects_source_media_including_symlink_alias(make_window, monkeypatch, tmp_path, alias):
+    window = make_window(); edit(window)
+    source = tmp_path / 'source.mov'; source.write_bytes(b'original video bytes')
+    window.sequence['footage'] = {'path': str(source)}
+    target = source
+    if alias:
+        target = tmp_path / 'alias.json'; target.symlink_to(source)
+    before = copy.deepcopy(window.composition); errors = []
+    monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *args: (str(target), ''))
+    monkeypatch.setattr(QMessageBox, 'critical', lambda *args: errors.append(args[2]))
+    assert not window.save_as_dialog()
+    assert source.read_bytes() == b'original video bytes' and window.document_path is None
+    assert window.composition == before and window.has_unsaved_changes() and errors
+
+
+def test_save_rejects_bundled_resources_and_open_does_not_bind_them(make_window, monkeypatch):
+    from pathlib import Path
+    window = make_window()
+    resource = Path(synth_studio.__file__).parent / 'presets/composite-study-15s.json'
+    before = resource.read_bytes()
+    monkeypatch.setattr(QFileDialog, 'getOpenFileName', lambda *args: (str(resource), ''))
+    assert window.load_sequence_dialog() and window.document_path is None
+    edit(window)
+    monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *args: (str(resource), ''))
+    monkeypatch.setattr(QMessageBox, 'critical', lambda *args: None)
+    assert not window.save_sequence_dialog() and resource.read_bytes() == before
+    assert window.has_unsaved_changes()

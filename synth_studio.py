@@ -343,7 +343,7 @@ class SynthStudio(QMainWindow):
         title = f"{name}{' *' if self.has_unsaved_changes() else ''}"
         if self.detailed_copy: title += " · detailed copy"
         self.setWindowTitle(f"Nebula · {title}")
-        self.document_title.setText(self.document_title.fontMetrics().elidedText(title, Qt.TextElideMode.ElideRight, 220))
+        self.document_title.setText(('* ' if self.has_unsaved_changes() else '') + self.document_title.fontMetrics().elidedText(name + (' · detailed copy' if self.detailed_copy else ''), Qt.TextElideMode.ElideRight, 200))
         self.document_title.setToolTip(title)
         self.document_title.setAccessibleDescription(title)
 
@@ -990,7 +990,7 @@ class SynthStudio(QMainWindow):
         if guard and not self.confirm_replacement(): return False
         self.cancel_video_import()
         self.play.setChecked(False)
-        self.document_path = Path(path) if path else None
+        self.document_path = self.associated_document_path(path)
         self.composition = project
         self.sequence = sequence
         self.document_identity = object()
@@ -1267,13 +1267,41 @@ class SynthStudio(QMainWindow):
         folder = Path.home() / ("Movies" if suffix == ".mp4" else "Documents")
         return str((folder if folder.is_dir() else Path.home()) / (name[:80] + suffix))
 
+    def protected_document_destination(self, path):
+        """Documents may never replace recipe resources, footage or preview proxies."""
+        from synth_video import proxy_directory
+        from synth_studies import studies_directory
+        resolved = Path(path).expanduser().resolve()
+        root = Path(__file__).resolve().parent
+        directories = (root / 'presets', root / 'assets', proxy_directory(), studies_directory())
+        if self.video_frames.directory: directories += (Path(self.video_frames.directory),)
+        if any(resolved.is_relative_to(directory.resolve()) for directory in directories): return True
+        documents = (self.composition, self.sequence, self.preset)
+        for document in documents:
+            if not document: continue
+            footage = document.get('footage', document.get('source', {}).get('footage', {}))
+            if footage.get('path'):
+                source = Path(footage['path']).expanduser()
+                if resolved == source.resolve(): return True
+                try:
+                    if resolved.exists() and source.exists() and os.path.samefile(resolved, source): return True
+                except OSError: pass
+        return False
+
+    def associated_document_path(self, path):
+        return Path(path) if path and not self.protected_document_destination(path) else None
+
     def save_sequence_dialog(self, checked=False, *, save_as=False):
         self.finish_focused_edit()
         path = str(self.document_path) if self.document_path and not save_as else None
         if path is None:
             kind = self.document_state()[0]
             path, _ = QFileDialog.getSaveFileName(self, f"Save {kind}", self.suggested_output_path('.json'), "Nebula document (*.json)")
-        if not path or not self.prepare_document_save(): return False
+        if not path: return False
+        if self.protected_document_destination(path):
+            QMessageBox.critical(self, 'Save error', 'Choose a document file outside bundled resources, the Study library and source/proxy media.')
+            return False
+        if not self.prepare_document_save(): return False
         temporary = None
         try:
             target = Path(path).expanduser()
@@ -1287,7 +1315,9 @@ class SynthStudio(QMainWindow):
         except Exception as exc:
             QMessageBox.critical(self, 'Save error', str(exc)); return False
         finally:
-            if temporary and Path(temporary).exists(): Path(temporary).unlink()
+            if temporary:
+                try: Path(temporary).unlink(missing_ok=True)
+                except OSError: pass
         self.document_path = target
         self.mark_document_clean()
         return True
@@ -1298,7 +1328,7 @@ class SynthStudio(QMainWindow):
     def install_sequence(self, loaded, *, path=None):
         self.cancel_video_import(); self.play.setChecked(False)
         self.composition = None; self.sequence = loaded
-        self.document_identity = object(); self.document_path = Path(path) if path else None
+        self.document_identity = object(); self.document_path = self.associated_document_path(path)
         self.undo_compositions.clear(); self.redo_compositions.clear(); self.edit_key = None
         base_name = next(iter(loaded['states'].values()))['preset']
         self.preset = normalize_synth(curated_presets()[base_name])
@@ -1500,7 +1530,7 @@ class SynthStudio(QMainWindow):
     def install_preset(self, preset, *, path=None):
         self.cancel_video_import(); self.play.setChecked(False)
         self.sequence = None; self.composition = None; self.preset = preset
-        self.document_identity = object(); self.document_path = Path(path) if path else None
+        self.document_identity = object(); self.document_path = self.associated_document_path(path)
         self.undo_compositions.clear(); self.redo_compositions.clear(); self.edit_key = None
         self.rebuild_modules(); self.update_timeline_max(); self.invalidate(); self.mark_document_clean()
 
