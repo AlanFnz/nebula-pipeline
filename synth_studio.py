@@ -30,7 +30,7 @@ from synth import MODULE_BY_ID, curated_presets, default_synth_preset, load_synt
 from synth_media import export_synth_video
 from synth_sequence import load_sequence, normalize_sequence, reference_sequence, render_sequence_frame, save_sequence
 from synth_composition import FORMAT, compile_composition, composition_from_sequence, load_composition, normalize_composition, reference_composition, save_composition, section_ranges
-from synth_composer_ui import CompositionPanel, SectionTimeline
+from synth_composer_ui import CompositionPanel, SectionTimeline, CachedRangeStrip
 from synth_canvas import CANVAS_FORMATS, format_canvas, normalize_canvas, preview_size, resize_canvas
 from synth_studies import study_records, study_composition, save_study
 from synth_studies_ui import StudiesDialog
@@ -41,7 +41,7 @@ from synth_master import normalize_master
 from synth_master_ui import MasterPanel
 from synth_viewer import SynthViewer
 from synth_video import VideoFrameProvider, inspect_video, prepare_proxy, video_composition, relink_footage, check_source
-from synth_preview import PreviewFrames
+from synth_preview import PreviewFrames, PreviewScheduler, resolve_scope
 
 
 class SynthControl(QWidget):
@@ -181,6 +181,7 @@ class PreparePreviewJob(QRunnable):
 
     def run(self):
         try:
+            packets = []
             with VideoFrameProvider(preview=True, cancel=self.cancel) as provider:
                 for done, frame in enumerate(self.frames, 1):
                     self.cancel.check(); seconds = frame / self.fps
@@ -189,9 +190,9 @@ class PreparePreviewJob(QRunnable):
                     else:
                         image = render_synth_frame(self.preset, round(seconds*self.preset['treatment_fps']), seconds, self.size)
                     self.cancel.check()
-                    self.signals.frame.emit((self.generation, frame, (image.size, image.tobytes())))
-                    self.signals.progress.emit(done, len(self.frames))
-            self.signals.done.emit(self.generation)
+                    packets.append((frame, (image.size, image.tobytes())))
+            self.cancel.check()
+            self.signals.done.emit((self.generation, packets))
         except Exception as exc:
             self.signals.failed.emit(str(exc) or 'Preview preparation cancelled')
 
@@ -256,6 +257,13 @@ class SynthStudio(QMainWindow):
         self.render_queued = False
         self.preview_frames = PreviewFrames()
         self.prepare_job = None
+        self.warming_job = None
+        self.preview_scheduler = PreviewScheduler()
+        self.preparation_target = ()
+        self.preparation_explicit = False
+        self.preparation_limited = False
+        self.warm_debounce = QTimer(self); self.warm_debounce.setSingleShot(True)
+        self.warm_debounce.timeout.connect(self._automatic_preparation)
         self.preview_debounce = QTimer(self); self.preview_debounce.setSingleShot(True)
         self.preview_debounce.timeout.connect(self.request_frame)
         self.display_times = deque(maxlen=60)
@@ -323,7 +331,8 @@ class SynthStudio(QMainWindow):
 
     def step_frame(self, delta):
         self.play.setChecked(False)
-        self.timeline.setValue(max(0, min(self.timeline.maximum(), self.timeline.value() + delta)))
+        scope = self.active_preview_scope()
+        self.timeline.setValue(scope.step(self.timeline.value(), delta))
 
     def document_state(self):
         if self.composition is not None:
@@ -417,6 +426,9 @@ class SynthStudio(QMainWindow):
         settings.setValue('window/mode', 'fullscreen' if self.isFullScreen() else 'maximized' if self.isMaximized() else 'normal')
         settings.setValue('window/splitter', self.splitter.saveState())
         settings.setValue('viewer/zoom', self.viewer.zoom)
+        settings.setValue('preview/auto_prepare', self.auto_prepare.isChecked())
+        settings.setValue('preview/scope', self.preview_scope.currentIndex())
+        settings.setValue('preview/quality', self.quality.currentIndex())
         settings.sync()
 
     def toggle_fullscreen(self):
@@ -540,6 +552,7 @@ class SynthStudio(QMainWindow):
         self.viewer.zoomChanged.connect(self.refresh_view_zoom)
         self.section_timeline = SectionTimeline()
         self.section_timeline.selected.connect(lambda index: self.composer and self.composer.select_section(index))
+        self.section_timeline.selectionChanged.connect(self.preview_scope_changed)
         self.section_timeline.durationRequested.connect(lambda identifier, duration: self.composer and self.composer.stretch_section(identifier, duration))
         self.section_timeline.reorderRequested.connect(lambda identifiers, before: self.composer and self.composer.reorder_sections(identifiers, before))
         self.section_timeline.loopRequested.connect(lambda identifiers, count: self.composer and self.composer.loop_sections(identifiers, count))
@@ -578,19 +591,34 @@ class SynthStudio(QMainWindow):
         self.total_time_label.setToolTip('Total duration is the sum of all sections. It updates automatically when section timing changes.')
         timeline.addWidget(self.total_time_label)
         left_layout.addLayout(timeline)
+        self.cached_ranges = CachedRangeStrip(self.timeline); left_layout.addWidget(self.cached_ranges)
         self.preview_status = QLabel('Preview renders on demand. Export uses the clip frame rate.')
         self.preview_status.setObjectName('muted'); self.preview_status.setWordWrap(True)
         self.preview_status.setAccessibleName('Preview performance')
         left_layout.addWidget(self.preview_status)
-        self.prepare_preview = QPushButton('Prepare playback')
-        self.prepare_preview.setToolTip('Render the full loop into a bounded memory cache at the selected preview quality. Then play without rendering each frame again. Editing invalidates the buffer; export is unchanged.')
+        preparation_row = QHBoxLayout()
+        self.preview_scope = QComboBox(); self.preview_scope.addItems(['Entire timeline', 'Selected sections'])
+        self.preview_scope.setAccessibleName('Preview scope')
+        self.preview_scope.setToolTip('Selected section IDs play their rendered occurrences in timeline order, with original absolute clocks.')
+        self.preview_scope.currentIndexChanged.connect(self.preview_scope_changed)
+        preparation_row.addWidget(self.preview_scope)
+        self.scope_summary = QLabel(); self.scope_summary.setObjectName('muted'); preparation_row.addWidget(self.scope_summary)
+        self.auto_prepare = QCheckBox('Auto prepare'); self.auto_prepare.setChecked(True)
+        self.auto_prepare.setToolTip('After 400 ms idle, warm about two seconds ahead and half a second behind the playhead.')
+        self.auto_prepare.toggled.connect(self.auto_prepare_changed); preparation_row.addWidget(self.auto_prepare)
+        self.prepare_preview = QPushButton('Prepare preview')
+        self.prepare_preview.setToolTip('Prepare the active preview scope. Long scopes warm a bounded window; completion never starts playback.')
         self.prepare_preview.clicked.connect(self.prepare_playback)
-        left_layout.addWidget(self.prepare_preview)
+        preparation_row.addWidget(self.prepare_preview); left_layout.addLayout(preparation_row)
         export_row = QHBoxLayout()
         self.quality = QComboBox(); self.quality.setAccessibleName("Preview quality")
         self.quality.addItems(["Preview · 360 px", "Preview · 720 px", "Preview · full"])
         self.quality.setToolTip("Monitor resolution only. MP4 exports use the full canvas size shown above. To keep this texture in your export, apply Effects → Low-res finish → 360 px preview feel.")
         self.quality.currentIndexChanged.connect(lambda _index: self.invalidate()); export_row.addWidget(self.quality)
+        if self.workspace_settings:
+            self.auto_prepare.setChecked(self.workspace_settings.value('preview/auto_prepare', True, type=bool))
+            self.preview_scope.setCurrentIndex(int(self.workspace_settings.value('preview/scope', 0)))
+            self.quality.setCurrentIndex(int(self.workspace_settings.value('preview/quality', 0)))
         self.export_button = export = QPushButton("Export MP4"); export.setObjectName("primary"); export.clicked.connect(self.export_dialog); export_row.addWidget(export)
         self.cancel_export = QPushButton("Cancel export"); self.cancel_export.setEnabled(False); self.cancel_export.clicked.connect(self.cancel_export_job); export_row.addWidget(self.cancel_export)
         left_layout.addLayout(export_row)
@@ -1083,7 +1111,8 @@ class SynthStudio(QMainWindow):
     def composition_section_selected(self, index):
         self.composition_index = index
         self.section_timeline.set_document(self.composition, index)
-        self.timeline.setValue(round(section_ranges(self.composition)[index][0] * self.composition["fps"]))
+        if not self.preview_scope.currentIndex():
+            self.timeline.setValue(round(section_ranges(self.composition)[index][0] * self.composition["fps"]))
 
     def update_composition_history(self):
         if hasattr(self, "undo_action"):
@@ -1372,9 +1401,11 @@ class SynthStudio(QMainWindow):
         self.settings_generation += 1
         self.preview_frames.clear(); self.display_times.clear()
         if self.play.isChecked():
-            self.play_origin = self.timeline.value(); self.play_started = time.monotonic()
+            self.play_origin = self.active_preview_scope().position(self.timeline.value()); self.play_started = time.monotonic()
         self.cancel_preparation()
-        self.prepare_preview.setText('Prepare playback')
+        self.cached_ranges.set_ranges(self.preview_frames.ranges())
+        self.prepare_preview.setText('Prepare preview')
+        self.schedule_auto_preparation()
         self.preview_status.setText(f'Updating preview… Export: {self.preview_fps()} fps. Changes do not alter export quality.')
         self.render_queued = True
         self.preview_debounce.start(100)
@@ -1385,29 +1416,92 @@ class SynthStudio(QMainWindow):
     def preview_size(self):
         return preview_size(self.current_canvas(), (360, 720, None)[self.quality.currentIndex()])
 
-    def cancel_preparation(self):
+    def active_preview_scope(self):
+        return resolve_scope(self.composition, self.section_timeline.selected_ids, self.timeline.maximum(), bool(self.preview_scope.currentIndex()))
+
+    def refresh_preview_scope(self):
+        if not hasattr(self, 'scope_summary'): return
+        scope = self.active_preview_scope()
+        self.preview_scope.setEnabled(self.composition is not None)
+        self.scope_summary.setText(f'{scope.occurrences} occurrences · {scope.count/self.preview_fps():.2f}s' if self.preview_scope.currentIndex() and self.composition else '')
+
+    def preview_scope_changed(self, *_args):
+        if not hasattr(self, 'preview_scope') or not hasattr(self, 'quality'): return
+        self.play.setChecked(False)
+        self.cancel_preparation()
+        self.refresh_preview_scope()
+        scope = self.active_preview_scope()
+        if not scope.contains(self.timeline.value()): self.timeline.setValue(scope.frame_at(0))
+        self.schedule_auto_preparation()
+
+    def auto_prepare_changed(self, checked):
+        if not checked:
+            self.warm_debounce.stop()
+            if not self.preparation_explicit: self.cancel_preparation()
+        else: self.schedule_auto_preparation()
+
+    def schedule_auto_preparation(self):
+        if self.closing or not hasattr(self, 'auto_prepare') or not self.auto_prepare.isChecked() or self.export_job: return
+        self.warm_debounce.start(400)
+
+    def _automatic_preparation(self):
+        if self.closing or self.export_job: return
+        if self.preparation_explicit:
+            self._start_warm_batch(); return
+        if not self.auto_prepare.isChecked(): return
+        self.preparation_target, self.preparation_limited = self.preview_scheduler.plan(
+            self.active_preview_scope(), self.timeline.value(), self.preview_fps(), self.preview_size(), self.preview_frames.budget)
+        self._start_warm_batch()
+
+    def _obsolete_preparation(self):
         if self.prepare_job:
             self.prepare_job.cancel.cancel(); self.prepare_job = None
-            self.prepare_preview.setText('Prepare playback')
 
-    def prepare_playback(self):
-        if self.prepare_job:
-            self.cancel_preparation(); self.preview_status.setText('Preparation cancelled. Completed frames remain cached.'); return
-        count = self.timeline.maximum()+1
-        if self.preview_frames.complete(count): self.play.setChecked(True); return
+    def cancel_preparation(self):
+        self._obsolete_preparation()
+        self.warm_debounce.stop()
+        self.preparation_target = (); self.preparation_explicit = False
+        self.prepare_preview.setText('Prepare preview')
+
+    def prepare_playback(self, checked=False):
+        if self.preparation_explicit:
+            self.cancel_preparation(); self.preview_status.setText('Ready · preparation cancelled; completed frames remain cached.'); return
+        self._obsolete_preparation(); self.warm_debounce.stop()
+        self.preparation_explicit = True
+        self.preparation_target, self.preparation_limited = self.preview_scheduler.plan(
+            self.active_preview_scope(), self.timeline.value(), self.preview_fps(), self.preview_size(), self.preview_frames.budget, explicit=True)
+        self._start_warm_batch()
+
+    def _preparation_ready(self):
+        self.prepare_preview.setText('Prepare preview')
+        self.preparation_explicit = False
+        scope = self.active_preview_scope()
+        if self.preparation_limited:
+            megabytes = self.preview_frames.budget / 1024**2
+            self.preview_status.setText(f'Limited by rendering · {len(self.preparation_target)} / {scope.count} frames in the bounded {megabytes:g} MB window. Choose 360 px for more cached frames; export is unaffected.')
+        else:
+            self.preview_status.setText(f'Ready · {len(self.preparation_target)} cached frames · Export: {self.preview_fps()} fps. Press Play.')
+
+    def _start_warm_batch(self):
+        if self.closing or self.export_job: return
+        if not self.preparation_target:
+            self._preparation_ready(); return
+        if self.warming_job: return
+        if self.render_running or self.render_queued or self.preview_debounce.isActive():
+            if not self.warm_debounce.isActive(): self.warm_debounce.start(100)
+            return
+        frames = self.preview_scheduler.batch(self.preparation_target, self.preview_frames)
+        if not frames:
+            self._preparation_ready(); return
         size = self.preview_size()
-        if count*size[0]*size[1]*3 > self.preview_frames.budget:
-            self.preview_status.setText('This full loop exceeds the 192 MB preview buffer. Choose 360 px or a shorter clip; export is unaffected.'); return
-        self.play.setChecked(False)
-        current = self.timeline.value()
-        frames = [i for i in (*range(current, count), *range(current)) if i not in self.preview_frames.items]
         job = PreparePreviewJob(self.preset, self.sequence, size, frames, self.preview_fps(), self.settings_generation, self.source_preview.isChecked())
-        self.prepare_job = job; self.pending_jobs.append(job)
-        self.prepare_preview.setText('Cancel preparation')
-        self.preview_status.setText(f'Preparing playback · 0 / {len(frames)} frames. You can keep editing.')
-        job.signals.frame.connect(lambda packet, j=job: self.prepared_frame(j, packet))
-        job.signals.progress.connect(lambda done, total, j=job: self.preparation_progress(j, done, total))
-        job.signals.done.connect(lambda _result, j=job: self.preparation_finished(j))
+        job.reserved_bytes = len(frames)*size[0]*size[1]*3
+        self.preview_frames.reserve(job.reserved_bytes, self.preparation_target)
+        self.cached_ranges.set_ranges(self.preview_frames.ranges())
+        self.prepare_job = self.warming_job = job; self.pending_jobs.append(job)
+        self.prepare_preview.setText('Cancel preparation' if self.preparation_explicit else 'Prepare preview')
+        self.preview_status.setText(f'Preparing · {sum(i in self.preview_frames.items for i in self.preparation_target)} / {len(self.preparation_target)} frames · Export: {self.preview_fps()} fps')
+        job.signals.done.connect(lambda result, j=job: self.preparation_finished(j, result=result))
         job.signals.failed.connect(lambda error, j=job: self.preparation_finished(j, error))
         self.jobs.start(job)
 
@@ -1415,19 +1509,30 @@ class SynthStudio(QMainWindow):
         generation, frame, packet = result
         if self.closing or job is not self.prepare_job or generation != self.settings_generation: return
         self.preview_frames.put(frame, packet)
+        self.cached_ranges.set_ranges(self.preview_frames.ranges())
         if frame == self.timeline.value(): self.display_frame(frame/self.preview_fps(), packet, cached=True)
 
     def preparation_progress(self, job, done, total):
         if job is self.prepare_job and not self.closing:
-            self.preview_status.setText(f'Preparing playback · {done} / {total} frames. You can keep editing.')
+            self.preview_status.setText(f'Preparing · {done} / {total} frames')
 
-    def preparation_finished(self, job, error=None):
+    def preparation_finished(self, job, error=None, *, result=None):
         if job in self.pending_jobs: self.pending_jobs.remove(job)
-        if self.closing or job is not self.prepare_job: return
-        self.prepare_job = None
-        complete = self.preview_frames.complete(self.timeline.maximum()+1)
-        self.prepare_preview.setText('Play cached preview' if complete else 'Prepare playback')
-        self.preview_status.setText(f'Preview error: {error}' if error else f'Ready · full loop cached at {self.preview_fps()} fps. Press Play.')
+        self.preview_frames.release(getattr(job, 'reserved_bytes', 0)); job.reserved_bytes = 0
+        if self.warming_job is job: self.warming_job = None
+        valid = not self.closing and job is self.prepare_job and job.generation == self.settings_generation
+        if valid and result is not None:
+            generation, packets = result
+            for frame, packet in packets: self.prepared_frame(job, (generation, frame, packet))
+        if job is self.prepare_job: self.prepare_job = None
+        if self.closing: return
+        if valid and error:
+            self.preparation_explicit = False; self.preparation_target = ()
+            self.prepare_preview.setText('Prepare preview'); self.preview_status.setText(f'Limited by rendering · {error}'); return
+        if self.render_queued and not self.render_running and not self.preview_debounce.isActive(): QTimer.singleShot(0, self.request_frame)
+        if self.preparation_target: QTimer.singleShot(0, self._start_warm_batch)
+        else: self.schedule_auto_preparation()
+
     def update_timeline_max(self):
         if hasattr(self, "timeline"):
             duration = self.sequence["duration"] if self.sequence is not None else self.preset["loop_seconds"]
@@ -1436,12 +1541,13 @@ class SynthStudio(QMainWindow):
             centiseconds = round(duration * 100)
             self.total_time_label.setText(f'Total {centiseconds // 6000:02d}:{(centiseconds % 6000) / 100:05.2f}')
             self.total_time_label.setAccessibleDescription(f'{duration:.2f} seconds · {round(duration * fps)} frames at {fps} fps')
+            self.refresh_preview_scope()
     def request_frame(self):
         if self.closing: return
         if self.sequence and 'footage' in self.sequence:
             try: check_source(self.sequence['footage'])
             except (ValueError, OSError) as exc:
-                self.preview_frames.clear(); self.cancel_preparation(); self.render_queued = False
+                self.preview_frames.clear(); self.cached_ranges.set_ranges([]); self.cancel_preparation(); self.render_queued = False
                 self.preview_status.setText(f'Preview unavailable: {exc}'); return
         self.request_serial += 1
         fps = self.sequence["fps"] if self.sequence is not None else self.preset["export_fps"]
@@ -1455,27 +1561,40 @@ class SynthStudio(QMainWindow):
             self.render_queued = False
             self.display_frame(self.current_time, packet, cached=True)
             return
+        self._obsolete_preparation()
         if self.render_running:
             self.render_queued = True
             return
         self.render_queued = False
         size = self.preview_size()
+        if self.warming_job and self.preview_frames.reserved + size[0]*size[1]*3 > self.preview_frames.budget:
+            self.render_queued = True; return
         self.render_running = True
         job = RenderJob(self.preset, self.current_time, size, self.settings_generation, self.request_serial, self.sequence, self.video_frames, self.source_preview.isChecked())
+        job.reserved_bytes = size[0]*size[1]*3 if size[0]*size[1]*3 <= self.preview_frames.budget else 0
+        self.preview_frames.reserve(job.reserved_bytes, (self.timeline.value(),))
+        self.cached_ranges.set_ranges(self.preview_frames.ranges())
         self.pending_jobs.append(job)
-        job.signals.done.connect(self.frame_ready)
+        job.signals.done.connect(lambda result, j=job: self._receive_foreground_frame(j, result))
         job.signals.done.connect(lambda _result, j=job: self._release_job(j))
         job.signals.failed.connect(lambda error, j=job: self.render_failed(error) if j.settings_generation == self.settings_generation and not self.closing else None)
         job.signals.failed.connect(lambda _error, j=job: self._release_job(j))
         self.jobs.start(job)
 
+    def _receive_foreground_frame(self, job, result):
+        self.preview_frames.release(getattr(job, 'reserved_bytes', 0)); job.reserved_bytes = 0
+        self.frame_ready(result)
+
     def _release_job(self, job):
+        self.preview_frames.release(getattr(job, 'reserved_bytes', 0)); job.reserved_bytes = 0
         if job in self.pending_jobs:
             self.pending_jobs.remove(job)
         self.render_running = False
         if self.render_queued and not self.closing and not self.preview_debounce.isActive():
             self.render_queued = False
             QTimer.singleShot(0, self.request_frame)
+        if self.preparation_target: QTimer.singleShot(0, self._start_warm_batch)
+        elif not self.warm_debounce.isActive(): self.schedule_auto_preparation()
 
     def frame_ready(self, result):
         settings_generation, request_serial, time_seconds, size, raw, elapsed = result
@@ -1484,8 +1603,9 @@ class SynthStudio(QMainWindow):
         self.last_displayed_request = request_serial
         self.last_render_seconds = elapsed
         self.preview_frames.put(round(time_seconds*self.preview_fps()), (size, raw))
+        self.cached_ranges.set_ranges(self.preview_frames.ranges())
         # A prepared/cached newer frame must not jump backwards to an older job.
-        if self.preview_frames.get(self.timeline.value()) is not None and abs(time_seconds-self.current_time) > .5/self.preview_fps(): return
+        if abs(time_seconds-self.current_time) > .5/self.preview_fps(): return
         self.display_frame(time_seconds, (size, raw))
 
     def display_frame(self, time_seconds, packet, cached=False):
@@ -1502,27 +1622,33 @@ class SynthStudio(QMainWindow):
             self.preview_status.setText(f'Preview: {speed} / {fps} fps{note} · Export: {fps} fps' + (' · cached' if cached else ''))
         elif not self.prepare_job:
             self.preview_status.setText(f'Preview paused · {"cached frame" if cached else f"rendered in {self.last_render_seconds*1000:.0f} ms"} · Export: {fps} fps')
-        if self.preview_frames.complete(self.timeline.maximum()+1) and not self.prepare_job:
-            self.prepare_preview.setText('Play cached preview')
+        if self.play.isChecked() and not self.warm_debounce.isActive() and not self.preparation_explicit:
+            self.schedule_auto_preparation()
     def render_failed(self, message):
         self.status.setText(f"Render error: {message}")
         self.preview_status.setText('Preview unavailable. Check the render error above; no frames were substituted.')
     def scrub(self, value):
+        if not self.advancing:
+            self.cancel_preparation(); self.schedule_auto_preparation()
         if self.play.isChecked() and not self.advancing:
-            self.play_origin = value; self.play_started = time.monotonic(); self.display_times.clear()
+            self.play_origin = self.active_preview_scope().position(value); self.play_started = time.monotonic(); self.display_times.clear()
         self.request_frame()
 
     def advance(self):
         frame = int(self.play_origin + (time.monotonic()-self.play_started)*self.preview_fps()+1e-8)
         self.advancing = True
-        try: self.timeline.setValue(frame % max(1, self.timeline.maximum()+1))
+        try:
+            scope = self.active_preview_scope()
+            self.timeline.setValue(scope.frame_at(frame % max(1, scope.count)))
         finally: self.advancing = False
     def toggle_play(self, checked):
         self.monitor_state.setText("[ PLAY ]" if checked else "[ HOLD ]")
         fps = self.sequence["fps"] if self.sequence is not None else self.preset["export_fps"]
         if checked:
             self.cancel_preparation()
-            self.play_origin = self.timeline.value(); self.play_started = time.monotonic(); self.display_times.clear()
+            scope = self.active_preview_scope()
+            if not scope.contains(self.timeline.value()): self.timeline.setValue(scope.frame_at(0))
+            self.play_origin = scope.position(self.timeline.value()); self.play_started = time.monotonic(); self.display_times.clear()
             self.preview_status.setText(f'Preview: measuring / {fps} fps · Export: {fps} fps')
             self.play_timer.start(max(5, round(1000 / fps)))
         else:
@@ -1585,6 +1711,7 @@ class SynthStudio(QMainWindow):
         default_name = self.suggested_output_path(".mp4")
         path, _ = QFileDialog.getSaveFileName(self, "Export synth sequence" if self.sequence is not None else "Export synth loop", default_name, "MP4 video (*.mp4)")
         if not path: return
+        self.cancel_preparation()
         self.export_button.setEnabled(False)
         self.export_progress.setValue(0)
         self.export_progress.setFormat('Exporting… 0%')
@@ -1630,6 +1757,7 @@ class SynthStudio(QMainWindow):
             self.export_job = None
             self.cancel_export.setEnabled(False)
             self.export_button.setEnabled(True)
+            self.schedule_auto_preparation()
 
     def cancel_export_job(self):
         if self.export_job:

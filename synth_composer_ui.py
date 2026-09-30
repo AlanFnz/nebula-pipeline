@@ -4,7 +4,7 @@ from __future__ import annotations
 import copy
 import math
 
-from PySide6.QtCore import Qt, QRectF, QSignalBlocker, Signal, QSize, QTimer
+from PySide6.QtCore import Qt, QRectF, QPoint, QSignalBlocker, Signal, QSize, QTimer
 from PySide6.QtGui import QColor, QPainter, QPen, QCursor
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox, QLabel,
@@ -28,6 +28,7 @@ from synth_video import VIDEO_EFFECTS, apply_treatment
 
 class SectionTimeline(QWidget):
     selected = Signal(int)
+    selectionChanged = Signal()
     loopRequested = Signal(object, int)
     seekRequested = Signal(float)
     durationRequested = Signal(str, float)
@@ -59,6 +60,7 @@ class SectionTimeline(QWidget):
     def set_document(self, document, index=0, reset_selection=False):
         if self._resize is not None: self._finish_resize(False)
         if self._reorder is not None: self._finish_reorder(False)
+        old_ids = set(self.selected_ids)
         self.document = document
         self.index = index
         ids = {section['id'] for section in document['sections']}
@@ -72,6 +74,7 @@ class SectionTimeline(QWidget):
         self.setMinimumWidth(len(section_placements(document)) * 82)
         self._hover_edge = None
         self.update()
+        if old_ids != self.selected_ids: self.selectionChanged.emit()
 
     def display_document(self):
         """The drag preview is private; only release requests a document edit."""
@@ -267,6 +270,7 @@ class SectionTimeline(QWidget):
         self.index = index
         self.update()
         self.selected.emit(index)
+        self.selectionChanged.emit()
 
     def set_time(self, time):
         self.time = time
@@ -1059,3 +1063,28 @@ class CompositionPanel(QWidget):
             restore_shared_timing(document)
             document['master'] = normalize_master()
         self.commit(document, "reset")
+
+
+class CachedRangeStrip(QWidget):
+    """Cached absolute frame ranges aligned with the transport slider."""
+    def __init__(self, slider):
+        super().__init__()
+        self.slider = slider
+        self.ranges = []
+        self.setFixedHeight(5)
+        self.setAccessibleName('Cached preview ranges')
+        self.setToolTip('Highlighted ranges are cached at the current preview quality.')
+
+    def set_ranges(self, ranges):
+        self.ranges = list(ranges)
+        self.setAccessibleDescription(f'{sum(b-a for a,b in self.ranges)} frames cached')
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        origin = self.mapFromGlobal(self.slider.mapToGlobal(QPoint(0, 0))).x()
+        width = self.slider.width()
+        count = max(1, self.slider.maximum() + 1)
+        painter.fillRect(QRectF(origin, 1, width, 3), QColor(COLORS['border']))
+        for start, end in self.ranges:
+            painter.fillRect(QRectF(origin + width*start/count, 1, max(1, width*(end-start)/count), 3), QColor(COLORS['accent']))
