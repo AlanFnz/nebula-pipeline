@@ -5,6 +5,8 @@ from __future__ import annotations
 import copy
 import json
 import random
+import os
+import tempfile
 import sys
 import time
 from collections import deque
@@ -233,6 +235,8 @@ class SynthStudio(QMainWindow):
         self.detail_windows = []
         self.closing = False
         self.document_identity = object()
+        self.document_path = None
+        self.detailed_copy = False
         self.clean_revision = 0
         self.sequence_table = None
         self.sequence_updating = False
@@ -282,6 +286,17 @@ class SynthStudio(QMainWindow):
     def mark_document_clean(self):
         self.clean_document = copy.deepcopy(self.document_state())
         self.clean_revision += 1
+        self.update_document_title()
+
+    def update_document_title(self):
+        if not hasattr(self, "clean_document"): return
+        name = self.document_state()[1].get("name", "Untitled")
+        title = f"{name}{' *' if self.has_unsaved_changes() else ''}"
+        if self.detailed_copy: title += " · detailed copy"
+        self.setWindowTitle(f"Nebula · {title}")
+        self.document_title.setText(self.document_title.fontMetrics().elidedText(title, Qt.TextElideMode.ElideRight, 220))
+        self.document_title.setToolTip(title)
+        self.document_title.setAccessibleDescription(title)
 
     def pending_text_edits(self):
         if self.composer is not None:
@@ -315,12 +330,15 @@ class SynthStudio(QMainWindow):
             return False
         return True
 
-    def confirm_close(self):
+    def confirm_replacement(self, purpose="replacing this document"):
+        return self.confirm_close(purpose)
+
+    def confirm_close(self, purpose="closing"):
         self.finish_focused_edit()
         if not self.has_unsaved_changes():
             return True
         choice = QMessageBox.warning(self, 'Unsaved changes',
-            'Save your changes before closing?\nIf you discard them, your changes will be lost.',
+            f'Save your changes before {purpose}?\nIf you discard them, your changes will be lost.',
             QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
             QMessageBox.StandardButton.Cancel)
         if choice == QMessageBox.StandardButton.Discard:
@@ -369,6 +387,7 @@ class SynthStudio(QMainWindow):
         brand.setObjectName("brand")
         header.addWidget(brand)
         mode = QLabel("/ SIGNAL SYNTH"); mode.setObjectName("muted"); header.addWidget(mode)
+        self.document_title = QLabel(); self.document_title.setAccessibleName("Document name and unsaved status"); self.document_title.setMaximumWidth(240); self.document_title.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred); header.addWidget(self.document_title)
         header.addStretch(1)
         fullscreen = QPushButton('Full screen')
         fullscreen.clicked.connect(self.toggle_fullscreen); header.addWidget(fullscreen)
@@ -401,7 +420,7 @@ class SynthStudio(QMainWindow):
         self.import_video_button = QPushButton('Import video…'); self.import_video_button.clicked.connect(self.import_video_dialog)
         sequence_actions.addWidget(self.import_video_button)
         self.cancel_import = QPushButton('Cancel import'); self.cancel_import.clicked.connect(self.cancel_video_import); self.cancel_import.hide(); sequence_actions.addWidget(self.cancel_import)
-        for text, slot in (("Save…", self.save_sequence_dialog), ("Open…", self.load_sequence_dialog)):
+        for text, slot in (("Save", self.save_sequence_dialog), ("Save As…", self.save_as_dialog), ("Open…", self.load_sequence_dialog)):
             button = QPushButton(text); button.clicked.connect(slot); sequence_actions.addWidget(button)
         self.save_study_button = QPushButton('Save as study…'); self.save_study_button.clicked.connect(self.save_study_dialog)
         self.save_study_button.setToolTip('Keep an independent copy in Studies, including a local copy of imported video. Your working composition stays open.')
@@ -667,6 +686,14 @@ class SynthStudio(QMainWindow):
         return group
 
     def rebuild_modules(self):
+        self._rebuild_modules()
+        for control in self.findChildren(TextControl):
+            if not getattr(control, "_title_connected", False):
+                control.editor.textChanged.connect(self.update_document_title)
+                control._title_connected = True
+        self.update_document_title()
+
+    def _rebuild_modules(self):
         self.refresh_canvas_controls()
         self.save_study_button.setEnabled(self.composition is not None and self.study_job is None)
         if self.composer is not None:
@@ -782,10 +809,12 @@ class SynthStudio(QMainWindow):
                 self.status.setText(f'Could not load study: {exc}')
 
     def load_starter_id(self, identifier):
-        project = study_composition(identifier)
+        try: project = study_composition(identifier)
+        except (OSError, ValueError) as exc:
+            self.status.setText(f"Could not load study: {exc}"); return False
         current = self.current_canvas()
         project["canvas"] = resize_canvas(project['canvas'], current, fit=current['framing'] == 'fit') if 'reference' in current else current
-        self.set_composition(project)
+        if not self.set_composition(project): return False
         with QSignalBlocker(self.starter_combo):
             self.starter_combo.setCurrentIndex(self.starter_combo.findData(identifier))
         self.load_starter_button.setEnabled(True)
@@ -845,6 +874,7 @@ class SynthStudio(QMainWindow):
                 and getattr(job, 'clean_revision', None) == self.clean_revision):
             self.clean_document = ('composition', copy.deepcopy(job.project))
             self.clean_revision += 1
+        self.update_document_title()
         self.refresh_studies()
         if self.studies_dialog is not None: self.studies_dialog.refresh()
         self.status.setText(f'Saved study: {job.name}. Choose it in Studies to load a fresh copy.')
@@ -904,10 +934,13 @@ class SynthStudio(QMainWindow):
             self.preset.update(canvas); self.mark_custom()
             self.refresh_canvas_controls(); self.invalidate()
 
-    def set_composition(self, project, *, clean=True):
-        self.cancel_video_import()
+    def set_composition(self, project, *, clean=True, path=None, guard=True):
         project = normalize_composition(project)
         sequence = compile_composition(project)
+        if guard and not self.confirm_replacement(): return False
+        self.cancel_video_import()
+        self.play.setChecked(False)
+        self.document_path = Path(path) if path else None
         self.composition = project
         self.sequence = sequence
         self.document_identity = object()
@@ -922,6 +955,8 @@ class SynthStudio(QMainWindow):
             self.preset_combo.setCurrentText("Reference blinds")
         self.rebuild_modules(); self.update_timeline_max(); self.invalidate()
         if clean: self.mark_document_clean()
+        self.update_document_title()
+        return True
 
     def import_video_dialog(self, checked=False, relink=False):
         path, _ = QFileDialog.getOpenFileName(self, 'Relink video' if relink else 'Import video as a new composition', '',
@@ -932,6 +967,7 @@ class SynthStudio(QMainWindow):
         self.cancel_video_import()
         self.play.setChecked(False)
         job = ImportVideoJob(path)
+        job.document_identity = self.document_identity
         self.import_job = job; self.pending_jobs.append(job)
         self.import_video_button.setEnabled(False); self.cancel_import.show()
         self.status.setText('Preparing video preview… You can keep editing. Original footage is used for export.')
@@ -958,21 +994,17 @@ class SynthStudio(QMainWindow):
 
     def video_imported(self, job, footage, relink):
         if not self._release_import(job): return
+        if getattr(job, "document_identity", None) is not self.document_identity: return
         if relink and self.composition and 'footage' in self.composition:
             document = copy.deepcopy(self.composition)
             document['footage'] = relink_footage(document['footage'], footage)
             self.composer.commit(document, 'video-relink')
         else:
-            # Import opens a new document. Preserve the composition being left,
-            # including edits made while the proxy was being prepared.
-            backup = None
-            if self.composition:
-                from datetime import datetime
-                backup = Path.home() / 'Library/Application Support/Nebula Studio/Backups' / f"before-video-{datetime.now():%Y%m%d-%H%M%S-%f}.json"
-                save_composition(backup, self.composition)
-            self.set_composition(video_composition(footage), clean=False)
+            if getattr(job, 'document_identity', None) is not self.document_identity: return
+            project = video_composition(footage)
+            if not self.set_composition(project, clean=False): return
             self.timeline.setValue(0)
-            if backup: self.status.setText(f'Video ready. Previous composition saved to {backup}')
+            self.status.setText('Video ready. Save to keep this new composition.')
         self.composer.look_tabs.setCurrentWidget(self.composer.video_panel)
 
     def composition_changed(self, document, action):
@@ -1026,7 +1058,7 @@ class SynthStudio(QMainWindow):
 
     def open_detailed_copy(self):
         window = SynthStudio(preset=self.preset, sequence=copy.deepcopy(self.sequence))
-        window.setWindowTitle("Nebula · detailed copy")
+        window.detailed_copy = True; window.update_document_title()
         self.detail_windows.append(window)
         window.show()
 
@@ -1182,44 +1214,62 @@ class SynthStudio(QMainWindow):
         folder = Path.home() / ("Movies" if suffix == ".mp4" else "Documents")
         return str((folder if folder.is_dir() else Path.home()) / (name[:80] + suffix))
 
-    def save_sequence_dialog(self):
-        if self.composition is None and self.sequence is None:
-            return self.save_preset_dialog()
+    def save_sequence_dialog(self, checked=False, *, save_as=False):
         self.finish_focused_edit()
-        if self.composition is not None:
-            path, _ = QFileDialog.getSaveFileName(self, "Save composition", self.suggested_output_path(".json"), "Nebula composition (*.json)")
-        else:
-            path, _ = QFileDialog.getSaveFileName(self, "Save synth sequence", self.suggested_output_path(".json"), "Nebula sequence (*.json)")
+        path = str(self.document_path) if self.document_path and not save_as else None
+        if path is None:
+            kind = self.document_state()[0]
+            path, _ = QFileDialog.getSaveFileName(self, f"Save {kind}", self.suggested_output_path('.json'), "Nebula document (*.json)")
         if not path or not self.prepare_document_save(): return False
+        temporary = None
         try:
-            if self.composition is not None: save_composition(path, self.composition)
-            else: save_sequence(path, self.sequence)
+            target = Path(path).expanduser()
+            target.parent.mkdir(parents=True, exist_ok=True)
+            fd, temporary = tempfile.mkstemp(prefix=f'.{target.name}.', suffix='.json', dir=target.parent)
+            os.close(fd)
+            kind, document = self.document_state()
+            writer = {'composition': save_composition, 'sequence': save_sequence, 'preset': save_synth}[kind]
+            writer(temporary, document)
+            os.replace(temporary, target)
         except Exception as exc:
-            QMessageBox.critical(self, 'Save error', str(exc))
-            return False
+            QMessageBox.critical(self, 'Save error', str(exc)); return False
+        finally:
+            if temporary and Path(temporary).exists(): Path(temporary).unlink()
+        self.document_path = target
         self.mark_document_clean()
         return True
 
-    def load_sequence_dialog(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Open composition or sequence", "", "Nebula document (*.json)")
-        if not path: return
+    def save_as_dialog(self, checked=False):
+        return self.save_sequence_dialog(save_as=True)
+
+    def install_sequence(self, loaded, *, path=None):
+        self.cancel_video_import(); self.play.setChecked(False)
+        self.composition = None; self.sequence = loaded
+        self.document_identity = object(); self.document_path = Path(path) if path else None
+        self.undo_compositions.clear(); self.redo_compositions.clear(); self.edit_key = None
+        base_name = next(iter(loaded['states'].values()))['preset']
+        self.preset = normalize_synth(curated_presets()[base_name])
+        with QSignalBlocker(self.preset_combo): self.preset_combo.setCurrentText(base_name)
+        self.rebuild_modules(); self.update_timeline_max(); self.invalidate(); self.mark_document_clean()
+
+    def load_sequence_dialog(self, checked=False):
+        path, _ = QFileDialog.getOpenFileName(self, "Open composition, sequence or preset", "", "Nebula document (*.json)")
+        if not path: return False
         try:
-            self.cancel_video_import()
-            with open(path) as document:
-                if json.load(document).get("format") == FORMAT:
-                    self.set_composition(load_composition(path))
-                    return
-            loaded = load_sequence(path)
-            self.composition = None
-            self.sequence = loaded
-            self.document_identity = object()
-            base_name = next(iter(self.sequence["states"].values()))["preset"]
-            self.preset = normalize_synth(curated_presets()[base_name])
-            with QSignalBlocker(self.preset_combo): self.preset_combo.setCurrentText("Reference blinds" if base_name == "Reference blinds" else base_name)
-            self.rebuild_modules(); self.update_timeline_max(); self.invalidate()
-            self.mark_document_clean()
+            with open(path) as document: raw = json.load(document)
+            if raw.get('format') == FORMAT:
+                return self.set_composition(load_composition(path), path=path)
+            if 'states' in raw:
+                loaded = load_sequence(path)
+                if not self.confirm_replacement(): return False
+                self.install_sequence(loaded, path=path)
+            else:
+                loaded = load_synth(path)
+                if not self.confirm_replacement(): return False
+                self.install_preset(loaded, path=path)
+            return True
         except Exception as exc:
-            QMessageBox.critical(self, "Sequence error", str(exc))
+            QMessageBox.critical(self, "Document error", str(exc)); return False
 
     def control_changed(self):
         for (index, key), control in self.controls.items():
@@ -1235,6 +1285,7 @@ class SynthStudio(QMainWindow):
             self.preset = self.collect(); self.preset["modules"][index], self.preset["modules"][new] = self.preset["modules"][new], self.preset["modules"][index]; self.mark_custom(); self.rebuild_modules(); self.invalidate()
 
     def invalidate(self):
+        self.update_document_title()
         self.settings_generation += 1
         self.preview_frames.clear(); self.display_times.clear()
         if self.play.isChecked():
@@ -1393,13 +1444,19 @@ class SynthStudio(QMainWindow):
             self.play_timer.start(max(5, round(1000 / fps)))
         else:
             self.play_timer.stop(); self.preview_status.setText(f'Preview paused · Export: {fps} fps')
+    def install_preset(self, preset, *, path=None):
+        self.cancel_video_import(); self.play.setChecked(False)
+        self.sequence = None; self.composition = None; self.preset = preset
+        self.document_identity = object(); self.document_path = Path(path) if path else None
+        self.undo_compositions.clear(); self.redo_compositions.clear(); self.edit_key = None
+        self.rebuild_modules(); self.update_timeline_max(); self.invalidate(); self.mark_document_clean()
+
     def select_curated(self, name):
         if name not in curated_presets(): return
-        self.cancel_video_import()
-        self.sequence = None
-        self.composition = None
-        self.preset = copy.deepcopy(curated_presets()[name]); self.rebuild_modules(); self.update_timeline_max(); self.invalidate()
-        self.document_identity = object(); self.mark_document_clean()
+        if not self.confirm_replacement():
+            with QSignalBlocker(self.preset_combo): self.preset_combo.setCurrentText(self.preset.get('name', 'Custom'))
+            return
+        self.install_preset(copy.deepcopy(curated_presets()[name]))
     def generate_variation(self):
         if self.composition is not None:
             self.composer.new_take()
@@ -1434,27 +1491,12 @@ class SynthStudio(QMainWindow):
             if spec.kind == "float": control.set_value(round(rng.uniform(spec.minimum, spec.maximum) / spec.step) * spec.step)
             else: control.set_value(rng.randint(int(spec.minimum), int(spec.maximum)))
         self.preset = self.collect(); self.invalidate()
-    def save_preset_dialog(self):
-        if self.sequence is not None:
-            return self.save_sequence_dialog()
-        self.finish_focused_edit()
-        path, _ = QFileDialog.getSaveFileName(self, "Save synth preset", self.suggested_output_path('.json'), "Nebula synth (*.json)")
-        if not path or not self.prepare_document_save(): return False
-        try:
-            save_synth(path, self.collect())
-        except Exception as exc:
-            QMessageBox.critical(self, 'Save error', str(exc))
-            return False
-        self.mark_document_clean()
-        return True
-    def load_preset_dialog(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Load synth preset", "", "Nebula synth (*.json)")
-        if path:
-            try:
-                self.preset = load_synth(path); self.sequence = None; self.composition = None
-                self.rebuild_modules(); self.update_timeline_max(); self.invalidate()
-                self.document_identity = object(); self.mark_document_clean()
-            except Exception as exc: QMessageBox.critical(self, "Preset error", str(exc))
+    def save_preset_dialog(self, checked=False):
+        return self.save_sequence_dialog()
+
+    def load_preset_dialog(self, checked=False):
+        return self.load_sequence_dialog()
+
     def export_dialog(self):
         if self.export_job: return
         default_name = self.suggested_output_path(".mp4")

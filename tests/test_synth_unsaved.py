@@ -262,3 +262,88 @@ def test_duplicate_text_drafts_are_saved_only_if_they_agree(make_window, monkeyp
         assert not path.exists() and errors and window.has_unsaved_changes()
         assert object_control.editor.toPlainText() == 'Object wording'
         assert effect_control.editor.toPlainText() == 'Effect wording'
+
+
+@pytest.mark.parametrize('mode', ['composition', 'sequence', 'preset'])
+def test_save_reuses_file_and_save_as_moves_identity(make_window, monkeypatch, tmp_path, mode):
+    window = make_window(mode)
+    first, second = tmp_path / 'first.json', tmp_path / 'second.json'
+    paths = iter([first, second])
+    calls = []
+    monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *args: calls.append(args) or (str(next(paths)), ''))
+    assert window.save_sequence_dialog() and window.document_path == first
+    edit(window)
+    assert window.save_sequence_dialog() and len(calls) == 1
+    assert window.save_as_dialog() and window.document_path == second and len(calls) == 2
+    assert first.exists() and second.exists() and not window.has_unsaved_changes()
+
+
+@pytest.mark.parametrize('replacement', ['new', 'study', 'open', 'preset'])
+def test_cancel_replacement_preserves_document_session(make_window, monkeypatch, tmp_path, replacement):
+    window = make_window(); edit(window)
+    path = tmp_path / 'saved.json'
+    monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *args: (str(path), ''))
+    assert window.save_sequence_dialog()
+    edit(window)
+    before = copy.deepcopy(window.composition)
+    history = copy.deepcopy(window.undo_compositions)
+    identity = window.document_identity
+    generation = window.settings_generation
+    window.play.setChecked(True)
+    monkeypatch.setattr(QMessageBox, 'warning', lambda *args: QMessageBox.StandardButton.Cancel)
+    monkeypatch.setattr(QFileDialog, 'getOpenFileName', lambda *args: (str(path), ''))
+    if replacement == 'new': window.new_composition()
+    elif replacement == 'study': window.load_starter_id('text-transmission')
+    elif replacement == 'open': window.load_sequence_dialog()
+    else: window.select_curated('Reference blinds')
+    assert window.composition == before and window.undo_compositions == history
+    assert window.document_identity is identity and window.document_path == path
+    assert window.settings_generation == generation and window.play.isChecked()
+    assert not window.video_frames.cancel.event.is_set()
+
+
+def test_failed_atomic_replace_preserves_existing_file_and_path(make_window, monkeypatch, tmp_path):
+    window = make_window()
+    path = tmp_path / 'old.json'
+    monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *args: (str(path), ''))
+    assert window.save_sequence_dialog()
+    previous = path.read_bytes(); edit(window)
+    monkeypatch.setattr(QMessageBox, 'critical', lambda *args: None)
+    def fail(*args): raise OSError('replace failed')
+    monkeypatch.setattr(synth_studio.os, 'replace', fail)
+    assert not window.save_sequence_dialog()
+    assert path.read_bytes() == previous and window.document_path == path
+    assert window.has_unsaved_changes() and list(tmp_path.iterdir()) == [path]
+
+
+def test_title_tracks_drafts_undo_and_detailed_copy(make_window):
+    window = make_window(); window.load_starter_id('text-transmission')
+    initial = window.windowTitle()
+    control = window.composer.object_panel.controls['text.content'].input
+    control.editor.setPlainText('Draft wording')
+    assert '*' in window.windowTitle() and '*' in window.document_title.text()
+    control.editor.setPlainText(control.value())
+    assert window.windowTitle() == initial
+    edit(window); assert '*' in window.windowTitle()
+    window.undo_composition(); assert window.windowTitle() == initial
+    window.open_detailed_copy()
+    detail = window.detail_windows[-1]
+    assert 'detailed copy' in detail.windowTitle() and detail.document_path is None
+    detail.close()
+
+
+def test_import_final_replacement_checks_latest_edits_and_identity(make_window, monkeypatch):
+    window = make_window()
+    monkeypatch.setattr(window.jobs, 'start', lambda job: None)
+    footage = {'path': '/tmp/video.mp4'}
+    monkeypatch.setattr(synth_studio, 'video_composition', lambda _footage: copy.deepcopy(window.composition))
+    window.start_video_import('/tmp/video.mp4'); job = window.import_job
+    edit(window); before = copy.deepcopy(window.composition)
+    monkeypatch.setattr(QMessageBox, 'warning', lambda *args: QMessageBox.StandardButton.Cancel)
+    window.video_imported(job, footage, False)
+    assert window.composition == before
+    monkeypatch.setattr(QMessageBox, 'warning', lambda *args: QMessageBox.StandardButton.Discard)
+    window.start_video_import('/tmp/video.mp4'); old = window.import_job
+    window.new_composition(); before = copy.deepcopy(window.composition)
+    window.video_imported(old, footage, False)
+    assert window.composition == before

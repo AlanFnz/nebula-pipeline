@@ -74,14 +74,19 @@ def test_video_controls_scope_effects_before_after_undo_and_reopen(window, tmp_p
     assert window.composer.look_tabs.isTabVisible(window.composer.look_tabs.indexOf(window.composer.object_panel))
 
 
-def test_async_import_preserves_previous_composition_and_relink_is_undoable(window, clip, tmp_path):
+def test_async_import_saves_previous_composition_and_relink_is_undoable(window, clip, tmp_path, monkeypatch):
     window.load_starter_id('profile-doryphoros')
+    from PySide6.QtWidgets import QFileDialog, QMessageBox
+    window.composer.duration.setValue(window.sequence['duration'] + 1)
     previous = copy.deepcopy(window.composition)
+    saved = tmp_path / 'previous.json'
+    monkeypatch.setattr(QMessageBox, 'warning', lambda *args: QMessageBox.StandardButton.Save)
+    monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *args: (str(saved), ''))
     window.start_video_import(clip['path'])
     wait_until(lambda: window.import_job is None)
     assert window.composition['footage']['path'] == clip['path']
-    backups = list((tmp_path / 'Library/Application Support/Nebula Studio/Backups').glob('before-video-*.json'))
-    assert len(backups) == 1 and load_composition(backups[0]) == previous
+    assert load_composition(saved) == previous and window.document_path is None
+    assert not (tmp_path / 'Library/Application Support/Nebula Studio/Backups').exists()
     window.composer.video_panel.controls['in'].setValue(.25)
     original = copy.deepcopy(window.composition)
     window.composer.change_video('path', str(tmp_path / 'missing.mkv'))
