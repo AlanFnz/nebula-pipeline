@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Use compact play/pause icons in the playback controls, with state-aware
+  tooltips and accessible labels in both native editors.
+
 - Keep the Studies picker compact and add timeline context-menu looping, preset
   and custom repeat counts, removal, Shift-click ranges and Command-click toggles.
   Multi-selection repeats the selected sequence in order, with visible shared

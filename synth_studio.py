@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
     QProgressBar,
 )
 from studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBox, SpinBox as QSpinBox, Slider as QSlider
-from studio_widgets import configure_parameter_spin
+from studio_widgets import configure_parameter_spin, PlaybackButton
 
 from media import Cancellation
 from studio_theme import COLORS, apply_theme, terminal_font
@@ -501,7 +501,7 @@ class SynthStudio(QMainWindow):
         prompt = QLabel(">"); prompt.setObjectName("sectionTitle"); status_row.addWidget(prompt); status_row.addWidget(self.status, 1)
         left_layout.addLayout(status_row)
         timeline = QHBoxLayout()
-        self.play = QPushButton("Play"); self.play.setCheckable(True); self.play.toggled.connect(self.toggle_play)
+        self.play = PlaybackButton(); self.play.toggled.connect(self.toggle_play)
         timeline.addWidget(self.play)
         self.timeline = QSlider(Qt.Orientation.Horizontal); self.timeline.valueChanged.connect(self.scrub); timeline.addWidget(self.timeline, 1)
         self.time_label = QLabel("00:00.00"); self.time_label.setObjectName("timecode"); timeline.addWidget(self.time_label)
@@ -1384,7 +1384,6 @@ class SynthStudio(QMainWindow):
         try: self.timeline.setValue(frame % max(1, self.timeline.maximum()+1))
         finally: self.advancing = False
     def toggle_play(self, checked):
-        self.play.setText("Pause" if checked else "Play")
         self.monitor_state.setText("[ PLAY ]" if checked else "[ HOLD ]")
         fps = self.sequence["fps"] if self.sequence is not None else self.preset["export_fps"]
         if checked:
