@@ -159,7 +159,12 @@ def normalize_effects(raw):
             if spec.kind == "int" and not float(value).is_integer():
                 raise ValueError(f"{path} must be an integer")
             values[path] = int(value) if spec.kind == "int" else float(value)
-        result[key] = {"mode": mode, "params": values}
+        normalized = {"mode": mode, "params": values}
+        if "bypassed" in entry:
+            if not isinstance(entry["bypassed"], bool):
+                raise ValueError(f"{key} bypassed must be a boolean")
+            normalized["bypassed"] = entry["bypassed"]
+        result[key] = normalized
     return result
 
 
@@ -170,6 +175,8 @@ def merge_effects(global_effects, local_effects):
         if entry["mode"] != "recipe":
             target["mode"] = entry["mode"]
         target["params"].update(entry["params"])
+        if "bypassed" in entry:
+            target["bypassed"] = entry["bypassed"]
     return result
 
 
@@ -192,9 +199,10 @@ def apply_effects(state, effects):
         if not entry:
             continue
         overrides.update(entry["params"])
-        if entry["mode"] == "on":
+        mode = "off" if entry.get("bypassed", False) else entry["mode"]
+        if mode == "on":
             enabled.update(effect.modules)
-        elif entry["mode"] == "off":
+        elif mode == "off":
             enabled.difference_update(effect.modules)
             overrides.update(effect.off)
     result["enabled"] = [module for module in MODULE_BY_ID if module in enabled]

@@ -23,6 +23,14 @@ def _has_timing(effects):
     return any(path in effects.get('ink_bloom', {}).get('params', {}) for path in TIMING_PATHS)
 
 
+def _timing_effects(project, section):
+    """Bypass hides a source without replacing its authored clock profile."""
+    effects = merge_effects(project['effects'], section['effects'])
+    if 'ink_bloom' in effects:
+        effects['ink_bloom'].pop('bypassed', None)
+    return effects
+
+
 def _profile(project, preferred_section=None, include_edits=True):
     """Use the first relevant ink state as the common motion path."""
     sections = project['sections']
@@ -33,7 +41,7 @@ def _profile(project, preferred_section=None, include_edits=True):
         phrase = project['phrases'][section['phrase']]
         active = next((cue for cue in reversed(source['cues']) if cue['time'] <= phrase['start']), source['cues'][0])
         cues = [active, *(cue for cue in source['cues'] if phrase['start'] < cue['time'] < phrase['end'])]
-        effects = merge_effects(project['effects'], section['effects'])
+        effects = _timing_effects(project, section)
         if not include_edits and 'ink_bloom' in effects:
             effects['ink_bloom'] = without_timing(effects['ink_bloom'])
         for cue in cues:
@@ -128,7 +136,7 @@ def retime_cycle_sections(project, previous, profile):
         if any(phrase['start'] < cue['time'] < phrase['end'] for cue in source['cues']):
             return
         cue = next((cue for cue in reversed(source['cues']) if cue['time'] <= phrase['start']), source['cues'][0])
-        state = apply_effects(source['states'][cue['state']], merge_effects(project['effects'], section['effects']))
+        state = apply_effects(source['states'][cue['state']], _timing_effects(project, section))
         if 'ink_bloom' not in state_values(state)[1]:
             return
         counts.append(count)
