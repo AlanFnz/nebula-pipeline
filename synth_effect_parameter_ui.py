@@ -4,7 +4,7 @@ from __future__ import annotations
 from PySide6.QtCore import QSignalBlocker, Signal, Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                               QPushButton, QStackedWidget, QSizePolicy)
+                               QPushButton, QStackedWidget, QSizePolicy, QLayout)
 from studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBox, SpinBox as QSpinBox
 from studio_widgets import Slider, configure_parameter_spin, parameter_number
 from synth_effects import parameter
@@ -40,6 +40,7 @@ class EffectParameter(QWidget):
         self._text_drafts = {}
         self.fixed_start = spec.default
         layout = QVBoxLayout(self); layout.setContentsMargins(0, 0, 0, 8); layout.setSpacing(3)
+        layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
         self.slider = None
         row = QHBoxLayout(); row.setSpacing(5)
         self.label = QLabel(spec.label); self.label.setWordWrap(True)
@@ -81,6 +82,12 @@ class EffectParameter(QWidget):
         self.value_stack = QStackedWidget()
         self.value_stack.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self.value_stack.addWidget(self.input)
+        if not block_input:
+            # The read-only label gives this stack height-for-width behavior.
+            # Qt may otherwise shrink a fixed spin/combo page to label height,
+            # clipping its themed padding and text inside a short inspector.
+            self.input.ensurePolished()
+            self.value_stack.setMinimumHeight(self.input.minimumSizeHint().height())
         self.animated_value = QLabel()
         self.animated_value.setWordWrap(True); self.animated_value.setMinimumWidth(0)
         self.animated_value.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)

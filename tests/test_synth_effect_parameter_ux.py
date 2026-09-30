@@ -178,3 +178,31 @@ def test_equal_wording_scopes_keep_separate_drafts_and_save_acknowledgement(app)
     control.acknowledge_text_draft('section-two', 'Draft two')
     assert control.pending_text_drafts() == () and changes == []
     control.close()
+
+
+def test_themed_inactive_broadcast_inputs_keep_text_and_slider_geometry(app):
+    import copy
+    from studio_theme import apply_theme
+    from synth_composition import reference_composition
+    from synth_composer_ui import CompositionPanel
+
+    old_style, old_sheet = app.style().objectName(), app.styleSheet()
+    old_font, old_palette = app.font(), app.palette()
+    panel = None
+    try:
+        apply_theme(app)
+        panel = CompositionPanel(reference_composition(True)); panel.resize(391, 605)
+        before = copy.deepcopy(panel.document)
+        panel.show(); panel.effects_panel.inspect_effect('broadcast'); app.processEvents()
+        for path in ('broadcast.field', 'broadcast.hue', 'broadcast.hue_spread', 'broadcast.drift'):
+            control = panel.effects_panel.controls[path]
+            assert not control.input.isEnabled()
+            assert control.input.height() >= control.input.minimumSizeHint().height()
+            assert control.input.lineEdit().height() >= control.input.fontMetrics().height()
+            assert control.slider.y() > control.value_stack.geometry().bottom()
+            assert control.origin.y() > control.slider.geometry().bottom()
+        assert panel.document == before
+    finally:
+        if panel: panel.close(); panel.deleteLater(); app.processEvents()
+        app.setStyle(old_style); app.setFont(old_font); app.setPalette(old_palette)
+        app.setStyleSheet(old_sheet)
