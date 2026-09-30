@@ -498,7 +498,7 @@ class SynthStudio(QMainWindow):
         study_actions.addWidget(QLabel("Studies"))
         self.starter_combo = QComboBox(); self.starter_combo.setAccessibleName("Studies")
         self.starter_combo.setPlaceholderText('Choose a study…')
-        self.starter_combo.setToolTip("Choose a built-in or saved study, then load an editable copy in the current canvas format.")
+        self.starter_combo.setToolTip("Choose a built-in or saved study, then load an editable copy with its saved canvas.")
         self.starter_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.starter_combo.setMinimumContentsLength(48)
         self.starter_combo.setMinimumWidth(420); self.starter_combo.setMaximumWidth(560)
@@ -953,8 +953,6 @@ class SynthStudio(QMainWindow):
         try: project = study_composition(identifier)
         except (OSError, ValueError) as exc:
             self.status.setText(f"Could not load study: {exc}"); return False
-        current = self.current_canvas()
-        project["canvas"] = resize_canvas(project['canvas'], current, fit=current['framing'] == 'fit') if 'reference' in current else current
         if not self.set_composition(project): return False
         with QSignalBlocker(self.starter_combo):
             self.starter_combo.setCurrentIndex(self.starter_combo.findData(identifier))

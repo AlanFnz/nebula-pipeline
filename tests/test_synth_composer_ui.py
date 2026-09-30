@@ -562,7 +562,7 @@ def test_canvas_switch_is_undoable_and_preserves_scene_and_playhead(window, tmp_
     assert output.exists(), window.status.text()
 
 
-def test_starter_menu_requires_load_and_uses_current_canvas(window):
+def test_starter_menu_loads_saved_canvas_and_cancel_keeps_current_canvas(window, monkeypatch, tmp_path):
     assert window.starter_combo.currentData() is None
     assert not window.load_starter_button.isEnabled()
     before = copy.deepcopy(window.composition)
@@ -571,11 +571,41 @@ def test_starter_menu_requires_load_and_uses_current_canvas(window):
     window.canvas_combo.setCurrentIndex(window.canvas_combo.findData("stories"))
     window.load_starter_button.click()
     assert len(window.composition["sections"]) == 2
-    assert window.canvas_combo.currentData() == "stories"
-    assert window.composition["canvas"]["height"] == 1920
-    window.composer.effects_panel.controls["particles.rotation_speed"].input.setValue(45.)
-    window.load_starter_button.click()
-    assert window.composer.effects_panel.controls["particles.rotation_speed"].input.value() == 18.
+    from synth_studies import study_composition
+    saved_canvas = study_composition("particle-orbit")["canvas"]
+    assert window.current_canvas() == saved_canvas
+    assert window.canvas_combo.currentData() == "original"
+
+    # Personal snapshots retain their own custom canvas framing metadata too.
+    import synth_studies
+    from synth_canvas import resize_canvas
+    personal = copy.deepcopy(study_composition("approved"))
+    personal["canvas"] = resize_canvas(personal["canvas"], {"width": 777, "height": 999})
+    monkeypatch.setattr(synth_studies, "studies_directory", lambda: tmp_path)
+    identifier = synth_studies.save_study(personal, "Custom canvas")
+    window.refresh_studies()
+    assert window.load_starter_id(identifier) is not False
+    assert window.current_canvas() == personal["canvas"]
+    assert window.current_canvas()["reference"] == personal["canvas"]["reference"]
+
+    # Older documents without canvas data continue through normal defaults.
+    import synth_studio
+    legacy = copy.deepcopy(personal)
+    legacy.pop("canvas")
+    legacy["source"].pop("canvas", None)
+    with monkeypatch.context() as legacy_patch:
+        legacy_patch.setattr(synth_studio, "study_composition", lambda _identifier: legacy)
+        window.load_starter_id("legacy-study")
+    assert window.current_canvas() == {"width": 720, "height": 576, "framing": "native"}
+
+    # A canceled replacement must leave the active canvas and document intact.
+    window.canvas_combo.setCurrentIndex(window.canvas_combo.findData("stories"))
+    active = copy.deepcopy(window.composition)
+    from synth_studio import QMessageBox
+    with monkeypatch.context() as cancel_patch:
+        cancel_patch.setattr(QMessageBox, "warning", lambda *args: QMessageBox.StandardButton.Cancel)
+        assert window.load_starter_id("particle-orbit") is False
+    assert window.composition == active
     assert window.canvas_combo.currentData() == "stories"
 
 

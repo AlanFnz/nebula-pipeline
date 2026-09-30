@@ -421,7 +421,7 @@ Expand / orbit, Original particles, Ink bloom, Mixed media / two bursts,
 Profile / phosphor scan, Profile / signal echoes, Profile / clear silhouette
 and Profile / Doryphoros.
 Selection alone does not replace the
-current composition; loading a study keeps the current canvas format.
+current composition; loading a study restores its saved canvas dimensions and framing.
 The picker shows **Choose a study…** when opening a document, so it does not
 misidentify the open composition. Its name appears below the monitor.
 
@@ -457,8 +457,8 @@ recipes and source media.
 **Save as study…** adds the current composition to the Studies library under a
 name you choose, without replacing the working document. A study is an
 independent snapshot of its source recipe, sections, effects, timing, master
-grade and canvas. Each load opens a fresh editable copy and retains the current
-output canvas format, just like the built-in studies.
+grade and canvas. Each load opens a fresh editable copy with that study's saved
+canvas dimensions, framing and artwork reference, just like the built-in studies.
 
 Personal studies live in
 `~/Library/Application Support/Nebula Studio/Studies/`. Video studies include a
@@ -718,8 +718,9 @@ geometry, motion or effect parameters.
 Canvas settings save in compositions, detailed sequences and standalone presets.
 Composer Undo/Redo includes canvas changes. Returning to the original artwork
 dimensions restores its framing. Earlier documents keep their saved framing and output until
-the canvas is edited. Studies are independent copies; loading one retains the
-selected output format and uses that study's own artwork reference.
+the canvas is edited. Studies are independent copies; loading one restores its
+saved output dimensions, framing and artwork reference. You can reframe the
+loaded copy afterward with the Canvas controls.
 
 **Preview quality** affects only the monitor (360 px, 720 px or full canvas).
 **Export MP4** always uses the document's full dimensions, shown beside Canvas,
