@@ -469,6 +469,13 @@ commit on release, and typed edits commit with Enter or focus change. The
 composer reuses its compiled state, and preview requests debounce rapid edits.
 Text wording appears at the top of Object; **Apply text** commits the phrase.
 
+Closing a window with unsaved edits offers **Save**, **Discard**, and **Cancel**.
+Cancelling either dialog or encountering a save error keeps the window open.
+The check includes unapplied text; Save validates and applies that wording before
+writing the document. Undoing back to the saved version clears the warning.
+Saving a Study also records that snapshot as saved, while edits made during an
+asynchronous save remain unsaved. MP4 export does not save the editable document.
+
 - Select **Whole clip** to adjust the entire piece, or click a section to
   adjust it locally. Sections can be added, duplicated, removed, reordered,
   and given different durations under **Arrange**.
