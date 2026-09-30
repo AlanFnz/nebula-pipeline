@@ -78,8 +78,11 @@ def test_detailed_editor_disables_composition_undo(make_window):
     assert window.save_action.isEnabled() and window.open_action.isEnabled()
 
 
-def test_multiple_windows_route_transport_to_focus_owner(make_window):
+def test_multiple_windows_route_transport_to_focus_owner(make_window, monkeypatch):
     first = make_window(); second = make_window()
+    # Route keys independently of how much wall-clock time a busy test host
+    # takes to activate the second window while the first is playing.
+    monkeypatch.setattr('synth_studio.time.monotonic', lambda: 100.)
     first.activateWindow(); QApplication.processEvents()
     key(first.viewer, Qt.Key.Key_Space)
     assert first.play.isChecked() and not second.play.isChecked()
