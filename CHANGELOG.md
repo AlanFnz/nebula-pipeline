@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+- Give the monitor a vertically resizable workspace with a saved divider position.
+  Keep zoom, playback and FPS visible above expanded, scrollable timeline/export
+  controls; improve default viewport space and keep small windows usable.
+
+- Add automatic preview warming, explicit scoped preparation, cached-range display
+  and selected-section playback with original absolute clocks. Bound pending
+  deliveries together with cached frames, prioritize seeks and pause warming for
+  export. Retain proven-unaffected frames across local visual edits while clearing
+  conservatively for global changes. Keep slow uncached playback updating.
+
+- Add a visual Study browser with lazy still thumbnails, a larger selected preview,
+  search, source categories and persistent favorites. Keep the compact picker,
+  dates and reversible removal. Library preferences and caches stay separate
+  from recipes and footage; loading uses the document replacement guard.
+- Add document identity, visible unsaved status, Save/Save As and atomic JSON
+  writes. Protect source media and bundled recipes, and guard document replacement
+  through Open, Studies, presets and completed imports. Add window-scoped editing
+  and transport shortcuts while preserving text and parameter keyboard behavior.
+
 - Use compact play/pause icons in the playback controls, with state-aware
   tooltips and accessible labels in both native editors.
 

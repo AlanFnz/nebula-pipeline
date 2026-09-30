@@ -1,6 +1,6 @@
 # Visual Study browser
 
-Status: ready for implementation in parallel with editing/preview improvements.
+Status: implemented, validated, and installed on 2026-09-30; draft review pending.
 Prepared: 2026-09-30.
 Baseline: 167636b plus playback-icons commit dee20f4 (PR #8).
 
@@ -117,3 +117,29 @@ root owns those steps after reviewing completed changes.
 Keep the visual browser independent of the current-document preview cache. Its
 bounded thumbnail queue should not require renderer changes or the scheduler
 from the other agent. Notify root when the signal contract is ready.
+
+## Implementation record
+
+The browser uses one independent thumbnail worker, at most 12 queued jobs, one
+pending delivery, a 64-entry memory cache and a 64 MiB/256-file disk cache.
+Selection and visible rows drive requests. Editor rendering, playback, explicit
+preparation and export take priority. Loading resolves the current Study ID and
+uses the main window's Save/Discard/Cancel guard. Inspection and favorites do
+not alter the current composition.
+
+With 30 local entries, metadata/browser construction took about 43 ms and filter
+changes 1–7 ms before thumbnail rendering. These are local observations, not
+performance guarantees; large-library behavior has separate bounded-work tests.
+
+Favorites use native checkable table items painted as stars, with keyboard and
+accessible checked state. Rebuilding embedded buttons during filtering exposed
+a Qt deferred-deletion crash; removing those per-row widgets fixed it. A
+regression repeatedly filters and toggles persisted favorites, releases dialog
+ownership, then flushes deferred events; the following popup interaction test
+checks the event-loop path that previously crashed.
+The focused browser/library/widget gate passed 33 tests in 3.50 s.
+
+Final integrated editor/browser/preview/timeline/video/layout gate: 235 passed
+in 268.37 s. The signed Mac bundle was installed with these changes. Native
+computer-control verification remains unavailable because that runtime exits
+before connecting; Qt interactions and screenshots were checked offscreen.

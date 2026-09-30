@@ -1,6 +1,6 @@
 # Editing and preview improvements
 
-Status: planned; no implementation started.
+Status: implemented, validated, and installed on 2026-09-30; draft review pending.
 Prepared: 2026-09-30.
 Repository: AlanFnz/nebula-pipeline.
 Baseline: main at 167636b; the separate playback-icons change is dee20f4 / PR #8.
@@ -10,15 +10,16 @@ Baseline: main at 167636b; the separate playback-icons change is dee20f4 / PR #8
 Make the existing Studio easier to edit, safer to leave, and quicker to preview.
 This milestone covers everyday editing and preview responsiveness. Preserve the
 terminal visual style, the single toggling playback button, and approved Study
-pixels. Layers, new effects, timeline split/copy tools, and the visual Study
-browser are subsequent milestones, not dependencies of this work.
+pixels. Layers, new effects and timeline split/copy tools remain subsequent milestones.
+The visual Study browser is a separate parallel package, documented in
+`study-browser-plan.md`.
 
 Deliver four separately reviewable changes, in the order below. Do not change
 rendering algorithms, recipe defaults, source/effect clocks, export FPS, or
 saved composition schemas to implement editor behavior. Preview preferences
 belong in workspace settings, not artistic documents.
 
-## Current implementation
+## Starting implementation (before this milestone)
 
 - `synth_studio.py` owns document operations, composition history, transport,
   foreground rendering and full-loop preparation. The main synth editor does
@@ -223,10 +224,8 @@ stale callback after replacement, undo and source changes.
   before branching: use main if merged, otherwise base the work on its commit
   and document that dependency. Do not merge or retag as part of execution
   without the user's instruction. Version remains 0.2.0 until a release task.
-- Rebuild/sign/install the Mac app after verification. The previous icon build
-  is ready but not installed: computer-control startup failed and the user has
-  not yet confirmed closing Studio. Recheck this at execution time; preserve
-  any current work and do not force-quit to install.
+- Rebuild/sign/install the Mac app after verification. Recheck whether Studio
+  is running before installation; preserve current work and do not force-quit.
 
 ## Execution handoff
 
@@ -249,8 +248,45 @@ introducing layers or renderer changes.
 
 1. Timeline editing: duplicate/delete/rename, split semantics, effect copy/paste,
    and timeline zoom, all with loop/retime-aware undo.
-2. Visual Studies browser: thumbnails, favorites and categories; effect presets
-   reusable independently of a whole Study.
+2. Effect presets reusable independently of a whole Study. The visual Studies
+   browser is now implemented alongside this milestone.
 3. Layers: treated video plus independently animated text first, then opacity,
    transforms and per-layer timing/effects with master adjustments after the
    composite. Existing Studies require a pixel-preserving single-layer adapter.
+
+## Added viewport layout
+
+The monitor and its transport now occupy the upper pane of a vertical splitter.
+The lower pane contains an expanded timeline followed by scrollable preparation
+and export controls. Dragging the divider changes workspace layout only, and
+its position persists independently of the document and inspector width.
+
+At the same window sizes, themed offscreen checks measured monitor height
+increasing from 240 to 309 px at 1280×800 and from 326 to 409 px at 1440×900.
+Regression coverage checks actual dragging, a 720 px tall window, narrow columns,
+control reachability, restoration and unchanged document/render generation.
+
+## Validation record
+
+- Integrated editor/browser/preview/timeline/video/layout gate: 235 passed in
+  268.37 s. This includes the former browser deferred-deletion crash path.
+
+- The complete frozen-pixel suite passed: 12 tests covering 121 render scenarios
+  across 11 bundled Studies, plus bundled model identities (163.06 s).
+- Twelve additional RGB samples from Refined Signal and the local grain/CRT video Study at
+  360 and 720 px match the pre-change snapshot exactly. Frozen Study manifests
+  and rendering defaults were not regenerated or changed.
+- Preview tests compare retained frames with fresh rendering at transitions and
+  repeated occurrences, verify source-only playback retains absolute clocks,
+  and cover cancellation, bounded deliveries and late foreground results.
+- Proxy cache hits now touch a small usage sidecar instead of changing published
+  media timestamps. GUI validation uses stat identity instead of reading entire
+  video files; tests cover replacement, same-size edits and LRU eviction.
+- Measured cached seeks were approximately 0.2–10 ms in the local harness. Host
+  load differed substantially between runs, so cold-render and preparation
+  timings do not establish a renderer speedup.
+- The macOS bundle built, passed deep/strict signature verification, and was
+  installed after confirming Studio was closed. Version metadata remains 0.2.0.
+- Native interaction verification is still limited: the computer-control runtime
+  exits before connecting. Offscreen Qt checks and a signed build do not establish
+  that native Mac menus were exercised.
