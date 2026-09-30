@@ -18,6 +18,43 @@ from synth_video import check_source
 
 PERSONAL_PREFIX = 'personal:'
 LIBRARY_FILE = '.library.json'
+CATEGORIES = ('Signals', 'Profiles', 'Particles', 'Mixed media', 'Text', 'Video', 'Other')
+BUILTIN_CATEGORIES = {
+    'refined': 'Signals', 'approved': 'Signals',
+    'particle-head': 'Particles', 'particle-orbit': 'Particles', 'original-particles': 'Particles',
+    'ink-bloom': 'Mixed media', 'mixed-media': 'Mixed media',
+    'profile-signal': 'Profiles', 'profile-echoes': 'Profiles', 'profile-clear': 'Profiles',
+    'profile-doryphoros': 'Profiles',
+    **{key: 'Text' for key, _label, _factory in STARTERS if key.startswith('text-')},
+}
+
+
+def composition_category(project):
+    """Classify actual source modules without compiling or rendering a recipe."""
+    if 'footage' in project or 'footage' in project.get('source', {}): return 'Video'
+    from synth_effects import EFFECTS, merge_effects
+    from synth import curated_presets
+    from synth_composition import phrase_events
+    kinds = set()
+    for section in project.get('sections', []):
+        effects = merge_effects(project.get('effects', {}), section.get('effects', {}))
+        for name in dict.fromkeys(cue['state'] for cue in phrase_events(project, section)):
+            state = project['source']['states'][name]
+            enabled = state.get('enabled')
+            if enabled is None:
+                enabled = [module['id'] for module in curated_presets().get(state.get('preset'), {}).get('modules', [])
+                           if module.get('enabled', True)]
+            modules = set(enabled)
+            for effect in EFFECTS:
+                mode = effects.get(effect.id, {}).get('mode')
+                if mode == 'on': modules.update(effect.modules)
+                elif mode == 'off': modules.difference_update(effect.modules)
+            primary = {category for module, category in (
+                ('text', 'Text'), ('silhouette', 'Profiles'), ('particles', 'Particles'),
+                ('ink_bloom', 'Mixed media')) if module in modules}
+            # Rays, forms and flare also treat named primary objects.
+            kinds.update(primary or ({'Signals'} if modules & {'slab', 'blinds', 'flare'} else set()))
+    return 'Mixed media' if len(kinds) > 1 else next(iter(kinds), 'Other')
 
 
 @dataclass(frozen=True)
@@ -28,6 +65,8 @@ class Study:
     personal: bool = False
     removed: bool = False
     estimated_date: bool = False
+    category: str = 'Other'
+    favorite: bool = False
 
     @property
     def label(self):
@@ -44,20 +83,25 @@ def studies_directory():
     return Path.home() / 'Library/Application Support/Nebula Studio/Studies'
 
 
-def _removed_ids(root, strict=False):
+def _preferences(root, strict=False):
     try:
         raw = json.loads((root / LIBRARY_FILE).read_text())
         if not isinstance(raw, dict) or raw.get('schema_version') != 1:
             raise ValueError('Invalid study library index')
-        removed = raw.get('removed')
-        if not isinstance(removed, list) or not all(isinstance(key, str) for key in removed):
-            raise ValueError('Invalid removed study IDs')
-        return set(removed)
+        for field in ('removed', 'favorites'):
+            value = raw.get(field, [] if field == 'favorites' else None)
+            if not isinstance(value, list) or not all(isinstance(key, str) for key in value):
+                raise ValueError(f'Invalid {field} study IDs')
+        return raw
     except FileNotFoundError:
-        return set()
+        return {'schema_version': 1, 'removed': [], 'favorites': []}
     except (OSError, ValueError, TypeError) as error:
         if strict: raise ValueError(f'Could not read the study library index: {error}') from error
-        return set()
+        return {'schema_version': 1, 'removed': [], 'favorites': []}
+
+
+def _removed_ids(root, strict=False):
+    return set(_preferences(root, strict).get('removed', []))
 
 
 def _saved_date(folder):
@@ -73,8 +117,11 @@ def _saved_date(folder):
 def study_records(directory=None, include_removed=False):
     """Read library metadata without changing compositions or media paths."""
     root = Path(directory) if directory else studies_directory()
-    removed = _removed_ids(root)
-    entries = [Study(key, label, STARTER_DATES[key], removed=key in removed)
+    preferences = _preferences(root)
+    removed = set(preferences['removed'])
+    favorites = set(preferences.get('favorites', []))
+    entries = [Study(key, label, STARTER_DATES[key], removed=key in removed,
+                     category=BUILTIN_CATEGORIES.get(key, 'Other'), favorite=key in favorites)
                for key, label, _factory in STARTERS]
     personal = []
     if root.exists():
@@ -86,7 +133,8 @@ def study_records(directory=None, include_removed=False):
                 identifier = PERSONAL_PREFIX + folder.name
                 date, estimated = _saved_date(folder)
                 personal.append(Study(identifier, f"{project['name']} · {duration:.1f}s",
-                                      date, True, identifier in removed, estimated))
+                                      date, True, identifier in removed, estimated,
+                                      composition_category(project), identifier in favorites))
             except (OSError, ValueError, TypeError, KeyError):
                 # An incomplete or manually edited local file must not prevent
                 # the rest of the library or the app from opening.
@@ -112,15 +160,29 @@ def set_studies_removed(identifiers, removed=True, directory=None):
     available = {entry.identifier for entry in study_records(root, include_removed=True)}
     if identifiers - available: raise ValueError('Unknown study')
     if not identifiers: return
-    hidden = _removed_ids(root, strict=True)
-    hidden = hidden | identifiers if removed else hidden - identifiers
+    _set_preference(root, identifiers, 'removed', removed)
+
+
+def set_studies_favorite(identifiers, favorite=True, directory=None):
+    """Persist preferences independently of artistic documents and removal."""
+    root = Path(directory) if directory else studies_directory()
+    identifiers = set(identifiers)
+    available = {entry.identifier for entry in study_records(root, include_removed=True)}
+    if identifiers - available: raise ValueError('Unknown study')
+    if identifiers: _set_preference(root, identifiers, 'favorites', favorite)
+
+
+def _set_preference(root, identifiers, field, enabled):
+    preferences = _preferences(root, strict=True)
+    values = set(preferences.get(field, []))
+    preferences[field] = sorted(values | identifiers if enabled else values - identifiers)
     root.mkdir(parents=True, exist_ok=True)
     temporary = None
     try:
         with tempfile.NamedTemporaryFile(mode='w', prefix='.library-', suffix='.tmp', dir=root,
                                          encoding='utf-8', delete=False) as stream:
             temporary = Path(stream.name)
-            json.dump({'schema_version': 1, 'removed': sorted(hidden)}, stream, indent=2)
+            json.dump(preferences, stream, indent=2)
             stream.write('\n')
         temporary.replace(root / LIBRARY_FILE)
     finally:
