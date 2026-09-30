@@ -33,6 +33,7 @@ def _follow_sources(effects):
     for key in SOURCE_EFFECTS:
         if key in effects:
             effects[key]['mode'] = 'recipe'
+            effects[key].pop('bypassed', None)
             if not effects[key]['params']:
                 del effects[key]
 

@@ -35,7 +35,8 @@ def window(clip, tmp_path, monkeypatch):
 def test_video_controls_scope_effects_before_after_undo_and_reopen(window, tmp_path):
     panel = window.composer
     panel.look_tabs.setCurrentWidget(panel.video_panel)
-    assert panel.object_panel.isHidden()
+    assert not panel.object_panel.isVisible()
+    assert not panel.look_tabs.isTabVisible(panel.look_tabs.indexOf(panel.object_panel))
     assert panel.scope_combo.isHidden()
     assert window.fit_subject.isHidden()
     assert not window.source_preview.isHidden()

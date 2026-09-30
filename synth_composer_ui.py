@@ -8,7 +8,7 @@ from PySide6.QtCore import Qt, QRectF, QPoint, QSignalBlocker, Signal, QSize, QT
 from PySide6.QtGui import QColor, QPainter, QPen, QCursor
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox, QLabel,
-    QPushButton, QCheckBox, QTabWidget, QSizePolicy, QMenu, QInputDialog, QAbstractScrollArea, QApplication,
+    QPushButton, QCheckBox, QTabWidget, QSizePolicy, QMenu, QInputDialog, QAbstractScrollArea, QApplication, QScrollArea, QFrame, QStackedWidget,
 )
 from studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBox, SpinBox as QSpinBox, Slider as QSlider
 
@@ -541,25 +541,36 @@ class MacroControl(QWidget):
 
 
 class InspectorTabs(QTabWidget):
-    """Only the selected page determines the inspector's scrollable height."""
-    def page_hint(self, minimum=False):
-        page = self.currentWidget()
-        if page is None: return super().minimumSizeHint() if minimum else super().sizeHint()
-        content = page.minimumSizeHint() if minimum else page.sizeHint()
-        tabs = self.tabBar().sizeHint()
-        return QSize(max(content.width(), tabs.width())+6, content.height()+tabs.height()+6)
+    """Pinned tabs with one bounded scroll area per content page.
 
-    def sizeHint(self): return self.page_hint()
-    def minimumSizeHint(self): return self.page_hint(True)
-    def hasHeightForWidth(self):
-        page = self.currentWidget()
-        return bool(page and page.hasHeightForWidth())
+    Public page lookup keeps returning the original inspector widget so existing
+    navigation code does not need to know which pages have a scroll wrapper.
+    """
+    def __init__(self):
+        super().__init__()
+        self._scroll_pages = {}
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
-    def heightForWidth(self, width):
-        page = self.currentWidget()
-        if page is None: return self.sizeHint().height()
-        height = page.heightForWidth(max(1, width-6)) if page.hasHeightForWidth() else page.sizeHint().height()
-        return height+self.tabBar().sizeHint().height()+6
+    def addTab(self, page, label):
+        if isinstance(page, EffectsPanel): return super().addTab(page, label)
+        scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setWidget(page); self._scroll_pages[page] = scroll
+        return super().addTab(scroll, label)
+
+    def widget(self, index):
+        wrapper = super().widget(index)
+        return wrapper.widget() if isinstance(wrapper, QScrollArea) else wrapper
+
+    def currentWidget(self): return self.widget(self.currentIndex())
+    def indexOf(self, page): return super().indexOf(self._scroll_pages.get(page, page))
+    def setCurrentWidget(self, page): super().setCurrentWidget(self._scroll_pages.get(page, page))
+    def sizeHint(self): return QSize(320, 420)
+    def minimumSizeHint(self):
+        page = super().currentWidget()
+        content = page.minimumSizeHint() if page else QSize(0, 0)
+        return QSize(min(320, content.width())+6, content.height()+self.tabBar().sizeHint().height()+6)
+    def hasHeightForWidth(self): return False
 
 
 class CompositionPanel(QWidget):
@@ -568,6 +579,7 @@ class CompositionPanel(QWidget):
     sectionSelected = Signal(int)
     detailsRequested = Signal()
     relinkRequested = Signal()
+    reset_context_changed = Signal(str)
 
     def __init__(self, document, index=0, scope=0):
         super().__init__()
@@ -579,11 +591,18 @@ class CompositionPanel(QWidget):
         title = QLabel("02 / COMPOSER"); title.setObjectName("sectionTitle")
         layout.addWidget(title)
         hint = QLabel("Combine effects. Arrange their changes in sections.")
-        hint.setWordWrap(True); hint.setObjectName("muted"); layout.addWidget(hint)
+        hint.setWordWrap(True); hint.setObjectName("muted"); hint.hide(); title.setToolTip(hint.text())
 
         self.arrangement_button = QPushButton(); self.arrangement_button.setCheckable(True)
         self.arrangement_button.setToolTip("Show section arrangement, duration, loops and frame-rate controls.")
         layout.addWidget(self.arrangement_button)
+        self.content_stack = QStackedWidget(); layout.addWidget(self.content_stack, 1)
+        self.arrangement_scroll = QScrollArea(); self.arrangement_scroll.setWidgetResizable(True)
+        self.arrangement_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.arrangement_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        arrangement_host = QWidget(); arrangement_layout = QVBoxLayout(arrangement_host)
+        arrangement_layout.setContentsMargins(0, 0, 0, 0)
+        self.arrangement_scroll.setWidget(arrangement_host); self.content_stack.addWidget(self.arrangement_scroll)
 
         clip = QGroupBox("CLIP / TIMING")
         grid = QGridLayout(clip)
@@ -596,7 +615,7 @@ class CompositionPanel(QWidget):
         grid.addWidget(self.duration, 1, 0); grid.addWidget(self.fps, 1, 1)
         self.duration.valueChanged.connect(self.resize_clip)
         self.fps.valueChanged.connect(self.change_fps)
-        layout.addWidget(clip)
+        arrangement_layout.addWidget(clip)
 
         section_box = QGroupBox("SEQUENCE / ARRANGEMENT")
         section_layout = QVBoxLayout(section_box)
@@ -623,25 +642,28 @@ class CompositionPanel(QWidget):
         for label, callback in (("+ Add", self.add_section), ("Duplicate", self.duplicate_section), ("Remove", self.remove_section), ("←", lambda: self.move_section(-1)), ("→", lambda: self.move_section(1))):
             button = QPushButton(label); button.clicked.connect(callback); row.addWidget(button)
         section_layout.addLayout(row)
-        layout.addWidget(section_box)
-        clip.hide(); section_box.hide()
-        self.arrangement_button.toggled.connect(clip.setVisible)
-        self.arrangement_button.toggled.connect(section_box.setVisible)
+        arrangement_layout.addWidget(section_box); arrangement_layout.addStretch(1)
 
         shape = QGroupBox("PARAMETERS / SCOPE")
         shape_layout = QVBoxLayout(shape)
         self.scope_combo = QComboBox(); self.scope_combo.addItems(["Whole clip", "Selected section"])
         self.scope_combo.currentIndexChanged.connect(self.change_scope); shape_layout.addWidget(self.scope_combo)
-        self.timing_scope_label = QLabel('Whole clip · shared timing'); self.timing_scope_label.hide()
+        self.timing_scope_label = QLabel('Editing: Whole clip · shared timing'); self.timing_scope_label.hide()
         shape_layout.addWidget(self.timing_scope_label)
-        self.master_scope_label = QLabel('Whole clip · master adjustments'); self.master_scope_label.hide()
+        self.master_scope_label = QLabel('Editing: Whole clip · master adjustments'); self.master_scope_label.hide()
         shape_layout.addWidget(self.master_scope_label)
+        self.source_scope_label = QLabel('Editing: Whole clip · source video'); self.source_scope_label.hide()
+        shape_layout.addWidget(self.source_scope_label)
         self.look_tabs = InspectorTabs()
         self.effects_panel = EffectsPanel()
+        # The composer owns the persistent scope selector for every page.
+        self.effects_panel.scope_label.hide()
         self.effects_panel.edited.connect(self.change_effect)
         self.effects_panel.timing_edited.connect(self.change_ink_timing)
         self.effects_panel.timing_reset.connect(self.reset_ink_timing)
         self.effects_panel.timing_selected.connect(self.show_timing_scope)
+        self.effects_panel.navigation_changed.connect(self.emit_reset_context)
+        self.effects_panel.object_requested.connect(lambda: self.look_tabs.setCurrentWidget(self.object_panel))
         self.look_tabs.addTab(self.effects_panel, "Effects")
         self.object_panel = SubjectPanel(); geometry_page = self.object_panel
         geometry_layout = self.object_panel.signal_layout
@@ -666,6 +688,7 @@ class CompositionPanel(QWidget):
         self.look_tabs.addTab(self.video_panel, 'Source')
         self.look_tabs.currentChanged.connect(lambda _index: self.show_timing_scope(self.effects_panel.effect_id == 'ink_bloom' and self.effects_panel.parameter_tabs.currentIndex() == 1))
         self.look_tabs.currentChanged.connect(self.size_current_tab)
+        self.look_tabs.currentChanged.connect(self.emit_reset_context)
         self.size_current_tab()
         treatment_hint = QLabel("Relative adjustments to the recipe. 1× keeps its original treatment; different recipes can look different at 1×.")
         treatment_hint.setWordWrap(True); treatment_hint.setObjectName("muted"); treatment_layout.addWidget(treatment_hint)
@@ -695,13 +718,23 @@ class CompositionPanel(QWidget):
         geometry_layout.addWidget(self.geometry_hint); geometry_layout.addStretch(1)
         treatment_layout.addStretch(1)
         self.take_label = QLabel(); self.take_label.setObjectName("muted"); shape_layout.addWidget(self.take_label)
-        layout.addWidget(shape)
+        self.parameters_group = shape; self.content_stack.addWidget(shape)
+        self.content_stack.setCurrentWidget(shape)
+        self.arrangement_button.toggled.connect(self.show_arrangement)
         self.details_button = details = QPushButton("Open detailed copy…"); details.clicked.connect(self.detailsRequested.emit); layout.addWidget(details)
         self.refresh()
+
+    def show_arrangement(self, expanded):
+        self.content_stack.setCurrentWidget(self.arrangement_scroll if expanded else self.parameters_group)
+        self.arrangement_button.setText('← Back to parameters' if expanded else 'Arrange / ' + self.arrangement_summary)
+        self.emit_reset_context()
 
     def target(self, document=None):
         document = self.document if document is None else document
         return document if self.scope == 0 else document["sections"][self.index]
+
+    def emit_reset_context(self, *_args):
+        self.reset_context_changed.emit(self.reset_label())
 
     def size_current_tab(self, _index=None):
         # Hidden pages must not leave a tall, empty inspector below a short tab.
@@ -709,6 +742,8 @@ class CompositionPanel(QWidget):
             page = self.look_tabs.widget(index)
             page.setSizePolicy(QSizePolicy.Policy.Preferred,
                                QSizePolicy.Policy.Preferred if index == self.look_tabs.currentIndex() else QSizePolicy.Policy.Ignored)
+            wrapper = self.look_tabs._scroll_pages.get(page)
+            if wrapper: wrapper.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding if index == self.look_tabs.currentIndex() else QSizePolicy.Policy.Ignored)
             page.updateGeometry()
         self.look_tabs.updateGeometry()
 
@@ -727,7 +762,8 @@ class CompositionPanel(QWidget):
             self.duration.setValue(section_ranges(self.document)[-1][1])
             self.fps.setValue(self.document["fps"])
             count = len(self.document["sections"])
-            self.arrangement_button.setText(f"Arrange / {count} {'section' if count == 1 else 'sections'} · {self.duration.value():.2f}s · {self.document['fps']} fps")
+            self.arrangement_summary = f"{count} {'section' if count == 1 else 'sections'} · {self.duration.value():.2f}s · {self.document['fps']} fps"
+            self.arrangement_button.setText('← Back to parameters' if self.arrangement_button.isChecked() else 'Arrange / ' + self.arrangement_summary)
             self.section_combo.clear()
             for index, section in enumerate(self.document["sections"]):
                 loops = int(section.get('loops', 1))
@@ -738,7 +774,10 @@ class CompositionPanel(QWidget):
             self.section_duration.setMinimum(1 / self.document["fps"])
             self.section_duration.setValue(section["duration"])
             with QSignalBlocker(self.section_loops): self.section_loops.setValue(section.get("loops", 1))
+            self.scope_combo.setItemText(0, 'Editing: Whole clip')
+            self.scope_combo.setItemText(1, f"Editing: Section {self.index + 1} — {self.document['phrases'][section['phrase']]['name']}")
             self.scope_combo.setCurrentIndex(self.scope)
+            self.scope_combo.setToolTip(self.scope_combo.currentText() + ('. Unedited controls follow the whole clip or study.' if self.scope else '. Explicit section overrides take priority.'))
             self.master_panel.set_values(self.document['master'])
             target = self.target()
             compiled = compile_composition(self.document)
@@ -746,10 +785,18 @@ class CompositionPanel(QWidget):
             prefix = section["id"] + ":"
             all_states = list(compiled['states'].values())
             states = [state for name, state in compiled["states"].items() if name.startswith(prefix)] if self.scope else all_states
-            label = f"SECTION {self.index + 1:02d} / {self.document['phrases'][section['phrase']]['name']}" if self.scope else "WHOLE CLIP / section overrides take priority"
+            label = f"Editing: Section {self.index + 1} — {self.document['phrases'][section['phrase']]['name']}" if self.scope else "Editing: Whole clip"
             context_key = section["id"] if self.scope else None
-            self.effects_panel.set_context(target["effects"], self.document["effects"] if self.scope else {}, states, label, bool(self.scope), (self.scope, context_key), self.document['ink_timing'], all_states, VIDEO_EFFECTS if video else tuple(effect.id for effect in EFFECTS if effect.id != 'subject_cutout'))
-            self.object_panel.refresh(self.effects_panel.summary, target['effects'], self.document['effects'] if self.scope else {}, bool(self.scope))
+            authored_states = None
+            if any('bypassed' in entry for effects in [self.document['effects'], *(s['effects'] for s in self.document['sections'])] for entry in effects.values()):
+                authored = copy.deepcopy(self.document)
+                for effects in [authored['effects'], *(s['effects'] for s in authored['sections'])]:
+                    for entry in effects.values(): entry.pop('bypassed', None)
+                authored_sequence = compile_composition(authored)
+                authored_all = list(authored_sequence['states'].values())
+                authored_states = [state for name, state in authored_sequence['states'].items() if name.startswith(prefix)] if self.scope else authored_all
+            self.effects_panel.set_context(target["effects"], self.document["effects"] if self.scope else {}, states, label, bool(self.scope), (self.scope, context_key), self.document['ink_timing'], all_states, VIDEO_EFFECTS if video else tuple(effect.id for effect in EFFECTS if effect.id != 'subject_cutout'), authored_states=authored_states)
+            self.object_panel.refresh(self.effects_panel.summary, target['effects'], self.document['effects'] if self.scope else {}, bool(self.scope), context_key=(self.scope, context_key), scope_label=label.removeprefix('Editing: '))
             for key, control in self.macro_controls.items():
                 control.set_value(target["macros"][key], key in target["locks"])
             geometry = target["geometry"]
@@ -773,6 +820,7 @@ class CompositionPanel(QWidget):
             self.take_label.setText("Default controls in this scope" if pristine else (f"Take {target['variation']}" if target["variation"] else "Custom adjustments"))
         finally:
             self.updating = False
+        self.emit_reset_context()
 
     def commit(self, document, action):
         try:
@@ -814,12 +862,13 @@ class CompositionPanel(QWidget):
         self.commit(document, f"{action}:{self.scope}:{self.index}:{effect_id}")
 
     def show_timing_scope(self, timing):
-        timing = timing and self.look_tabs.currentIndex() == 0
+        timing = timing and self.effects_panel.focused and self.look_tabs.currentIndex() == 0
         master = self.look_tabs.currentWidget() is self.master_panel
         source = self.look_tabs.currentWidget() is self.video_panel
         self.scope_combo.setVisible(not (timing or master or source))
         self.timing_scope_label.setVisible(timing)
         self.master_scope_label.setVisible(master)
+        self.source_scope_label.setVisible(source)
         self.take_label.setVisible(not master)
 
     def change_video(self, key, value):
@@ -1048,21 +1097,102 @@ class CompositionPanel(QWidget):
     def new_take(self):
         self.commit(vary_composition(self.document, None if self.scope == 0 else self.index), "take")
 
-    def reset_controls(self):
-        if self.look_tabs.currentWidget() is self.master_panel:
-            self.reset_master()
-            return
-        if self.look_tabs.currentIndex() == 0 and self.effects_panel.effect_id == 'ink_bloom' and self.effects_panel.parameter_tabs.currentIndex() == 1:
-            self.reset_ink_timing()
-            return
+    def _pending_text_records(self):
+        controls = list(self.object_panel.control_cache.values())
+        controls += [control for members in self.effects_panel.control_cache.values() for control in members.values()]
+        section_ids = {section['id'] for section in self.document['sections']}
+        return [(control, context, draft) for control in controls
+                for context, draft in control.pending_text_drafts()
+                if not (isinstance(context, tuple) and len(context) == 2 and
+                        context[0] == 1 and context[1] not in section_ids)]
+
+    def pending_text_edits(self):
+        """Visible and hidden unapplied wording, across retained editing scopes."""
+        return [(control.input, draft['text']) for control, _context, draft in self._pending_text_records()]
+
+    def prepare_text_save(self):
+        """Validate all drafts, then author them together in their original scopes."""
+        from synth_text import validate_text
+        from synth_effects import state_values
+        records = self._pending_text_records()
+        if not records: return True
+        grouped = {}
+        for control, context, draft in records:
+            value = validate_text(draft['text'])
+            if not isinstance(context, tuple) or len(context) != 2 or context[0] not in (0, 1):
+                raise ValueError('The wording draft no longer has an editing scope. Apply it before saving.')
+            previous = grouped.get(context)
+            if previous is not None and previous != value:
+                raise ValueError('The text editors contain different unapplied wording in the same scope. Apply the text you want before saving.')
+            grouped[context] = value
+        compiled = compile_composition(self.document)
+        for _control, context, draft in records:
+            scope, identifier = context
+            if scope and not any(section['id'] == identifier for section in self.document['sections']):
+                raise ValueError('A wording draft belongs to a removed section. Apply or discard it before saving.')
+            states = [state for name, state in compiled['states'].items() if not scope or name.startswith(identifier + ':')]
+            original_target = next(section for section in self.document['sections'] if section['id'] == identifier) if scope else self.document
+            baseline = original_target['effects'].get('text', {}).get('params', {}).get('text.content')
+            if baseline is None and scope: baseline = self.document['effects'].get('text', {}).get('params', {}).get('text.content')
+            if baseline is None:
+                values = [state_values(state)[0]['text.content'] for state in states]
+                baseline = draft['value'] if draft['value'] in values else values[0]
+            if baseline != draft['value']:
+                raise ValueError('The authored wording changed while a draft was pending. Apply the wording you want before saving.')
         document = copy.deepcopy(self.document)
-        target = self.target(document); target["macros"] = neutral_macros(); target["variation"] = 0
-        target["geometry"] = default_geometry(section=bool(self.scope))
-        target["effects"] = {}
-        if not self.scope:
-            restore_shared_timing(document)
-            document['master'] = normalize_master()
-        self.commit(document, "reset")
+        for (scope, identifier), value in grouped.items():
+            target = next(section for section in document['sections'] if section['id'] == identifier) if scope else document
+            entry = target['effects'].setdefault('text', {'mode': 'recipe', 'params': {}})
+            entry['params']['text.content'] = value
+        self.commit(document, 'text-save')
+        for control, context, draft in records: control.acknowledge_text_draft(context, draft['text'])
+        return True
+
+    def reset_label(self):
+        if self.arrangement_button.isChecked(): return ''
+        page = self.look_tabs.currentWidget()
+        if page is self.master_panel: return 'Reset master'
+        if page is self.object_panel: return 'Restore object controls'
+        if page is self.video_panel: return 'Reset source controls'
+        if page is self.effects_panel:
+            if self.effects_panel.focused:
+                if self.effects_panel.effect_id == 'ink_bloom' and self.effects_panel.parameter_tabs.currentIndex() == 1:
+                    return 'Restore shared timing'
+                return 'Restore this effect'
+            return ''
+        return 'Reset finishing'
+
+    def reset_controls(self):
+        if self.arrangement_button.isChecked(): return
+        page = self.look_tabs.currentWidget()
+        if page is self.master_panel:
+            self.reset_master(); return
+        if page is self.effects_panel and self.effects_panel.focused:
+            if self.effects_panel.effect_id == 'ink_bloom' and self.effects_panel.parameter_tabs.currentIndex() == 1:
+                self.reset_ink_timing()
+            else: self.effects_panel.restore_effect()
+            return
+        if page is self.effects_panel: return
+        document = copy.deepcopy(self.document); target = self.target(document)
+        if page is self.object_panel:
+            from synth_subject import SOURCE_EFFECTS
+            for key in SOURCE_EFFECTS: target['effects'].pop(key, None)
+            target['geometry'] = default_geometry(section=bool(self.scope))
+            target['macros']['width'] = 1.
+            action = 'object-reset'
+        elif page is self.video_panel:
+            from synth_video import normalize_footage
+            raw = copy.deepcopy(document['footage'])
+            for key in self.video_panel.controls:
+                if key not in ('in', 'out'): raw.pop(key, None)
+            for key in ('fit', 'end_mode', 'audio'): raw.pop(key, None)
+            document['footage'] = normalize_footage(raw)
+            action = 'video-reset'
+        else:
+            for key in MACROS:
+                if key != 'width': target['macros'][key] = 1.
+            action = 'finishing-reset'
+        self.commit(document, action)
 
 
 class CachedRangeStrip(QWidget):
