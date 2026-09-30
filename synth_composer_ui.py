@@ -1,0 +1,1061 @@
+"""Native composition controls: sections and a small set of musical macros."""
+from __future__ import annotations
+
+import copy
+import math
+
+from PySide6.QtCore import Qt, QRectF, QSignalBlocker, Signal, QSize, QTimer
+from PySide6.QtGui import QColor, QPainter, QPen, QCursor
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox, QLabel,
+    QPushButton, QCheckBox, QTabWidget, QSizePolicy, QMenu, QInputDialog, QAbstractScrollArea, QApplication,
+)
+from studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBox, SpinBox as QSpinBox, Slider as QSlider
+
+from synth import SHAPES
+from studio_theme import COLORS
+from synth_composition import MACROS, compile_composition, default_geometry, effective_geometry, neutral_macros, normalize_composition, section_placements, section_ranges, vary_composition
+from synth_effects_ui import EffectsPanel
+from synth_shared_timing import edit_shared_timing, restore_shared_timing, without_timing
+from synth_master import normalize_master
+from synth_master_ui import MasterPanel
+from synth_subject import select_subject, restore_subject
+from synth_subject_ui import SubjectPanel
+from synth_video_ui import VideoSourcePanel
+from synth_effects import EFFECTS
+from synth_video import VIDEO_EFFECTS, apply_treatment
+
+
+class SectionTimeline(QWidget):
+    selected = Signal(int)
+    loopRequested = Signal(object, int)
+    seekRequested = Signal(float)
+    durationRequested = Signal(str, float)
+    reorderRequested = Signal(object, object)
+
+    def __init__(self):
+        super().__init__()
+        self.document = None
+        self.index = 0
+        self.selected_ids = set()
+        self.selection_anchor = None
+        self.context_menu = None
+        self.time = 0
+        self._hover_edge = None
+        self._resize = None
+        self._reorder = None
+        self._preview_document = None
+        self._resize_scroll_timer = QTimer(self)
+        self._resize_scroll_timer.setInterval(30)
+        self._resize_scroll_timer.timeout.connect(self._auto_scroll_resize)
+        self._reorder_scroll_timer = QTimer(self)
+        self._reorder_scroll_timer.setInterval(30)
+        self._reorder_scroll_timer.timeout.connect(self._auto_scroll_reorder)
+        self.setFixedHeight(90)
+        self.setMouseTracking(True)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setAccessibleName('Section timeline')
+
+    def set_document(self, document, index=0, reset_selection=False):
+        if self._resize is not None: self._finish_resize(False)
+        if self._reorder is not None: self._finish_reorder(False)
+        self.document = document
+        self.index = index
+        ids = {section['id'] for section in document['sections']}
+        current = document['sections'][index]['id']
+        self.selected_ids.intersection_update(ids)
+        if reset_selection or current not in self.selected_ids:
+            self.selected_ids = {current}
+            self.selection_anchor = current
+        elif self.selection_anchor not in ids:
+            self.selection_anchor = current
+        self.setMinimumWidth(len(section_placements(document)) * 82)
+        self._hover_edge = None
+        self.update()
+
+    def display_document(self):
+        """The drag preview is private; only release requests a document edit."""
+        return self._preview_document if self._preview_document is not None else self.document
+
+    def pixels_per_second(self):
+        if self._resize is not None: return self._resize['pixels_per_second']
+        placements = section_placements(self.document) if self.document else []
+        return self.width()/placements[-1][2] if placements else 1.
+
+    def edge_at(self, position):
+        if not self.document or not 5 <= position.y() <= 73: return None
+        placements = section_placements(self.display_document())
+        scale = self.pixels_per_second()
+        candidates = []
+        for occurrence, (_index, start, end, _repetition) in enumerate(placements):
+            # Keep a draggable body even on short sections. A neighboring
+            # section's handle must not consume the entire narrow block.
+            left = min(6., (end - start) * scale / 4)
+            right = min(6., (placements[occurrence + 1][2] - end) * scale / 4) if occurrence + 1 < len(placements) else 6.
+            distance = position.x() - end * scale
+            if -left <= distance <= right: candidates.append((abs(distance), occurrence))
+        # A shared border always belongs to the view on its left.
+        return min(candidates)[1] if candidates else None
+
+    def _scroll_area(self):
+        parent = self.parentWidget()
+        while parent is not None:
+            if isinstance(parent, QAbstractScrollArea): return parent
+            parent = parent.parentWidget()
+        return None
+
+    def _begin_resize(self, occurrence, position):
+        placements = section_placements(self.document)
+        index, _start, end, _repetition = placements[occurrence]
+        section = self.document['sections'][index]
+        fps = self.document['fps']
+        loops = int(section.get('loops', 1))
+        occurrences = sum(item[0] == index for item in placements)
+        total_factor = loops*occurrences
+        # Earlier occurrences of the same section also ripple this edge. Divide
+        # by their contribution so even a repeated view follows the pointer.
+        edge_factor = loops*sum(item[0] == index for item in placements[:occurrence+1])
+        original_frames = max(1, round(section['duration']*fps))
+        other_frames = round(placements[-1][2]*fps)-original_frames*total_factor
+        max_frames = min(math.floor(300*fps+1e-8),
+                         math.floor((3600*fps-other_frames)/total_factor+1e-8))
+        scroll = self._scroll_area()
+        self._resize = dict(identifier=section['id'], index=index, occurrence=occurrence,
+                            press_x=position.x(), pixels_per_second=self.width()/placements[-1][2],
+                            original_frames=original_frames, frames=original_frames, fps=fps,
+                            max_frames=max(1,max_frames), edge_factor=edge_factor,
+                            original_edge=end*self.width()/placements[-1][2],
+                            original_minimum=self.minimumWidth(), moved=False,
+                            gutter=max(100,scroll.viewport().width()//4) if scroll else 0)
+        self._preview_document = copy.deepcopy(self.document)
+        self._preview_document['sections'][index]['duration'] = original_frames/fps
+        self._grow_resize_canvas()
+        self.setFocus(Qt.FocusReason.MouseFocusReason)
+        self.setCursor(Qt.CursorShape.SizeHorCursor)
+        self.setToolTip('Drag to retime this section and ripple later sections. Release to apply; Escape to cancel.')
+        self.update()
+
+    def _grow_resize_canvas(self):
+        drag = self._resize
+        if drag is None: return
+        total = section_placements(self._preview_document)[-1][2]
+        self.setMinimumWidth(max(drag['original_minimum'],
+                                 math.ceil(total*drag['pixels_per_second'])+drag['gutter']))
+
+    def _update_resize(self, x):
+        drag = self._resize
+        if drag is None: return
+        delta = (x-drag['press_x'])/drag['pixels_per_second']/drag['edge_factor']
+        frames = max(1,min(drag['max_frames'],round(drag['original_frames']+delta*drag['fps'])))
+        if frames == drag['frames']: return
+        drag['frames'] = frames
+        self._preview_document['sections'][drag['index']]['duration'] = frames/drag['fps']
+        self._grow_resize_canvas()
+        self.update()
+
+    def _auto_scroll_resize(self):
+        drag = self._resize
+        if drag is None or not drag['moved']: return
+        scroll = self._scroll_area()
+        if scroll is None: return
+        point = scroll.viewport().mapFromGlobal(QCursor.pos())
+        edge = 24
+        distance = point.x()-edge if point.x() < edge else point.x()-(scroll.viewport().width()-edge) if point.x() > scroll.viewport().width()-edge else 0
+        if not distance: return
+        step = min(32,max(1,abs(distance)//2+1))*(1 if distance > 0 else -1)
+        bar = scroll.horizontalScrollBar()
+        before = bar.value()
+        bar.setValue(before+step)
+        if bar.value() != before:
+            self._update_resize(self.mapFromGlobal(QCursor.pos()).x())
+
+    def _finish_resize(self, commit):
+        drag = self._resize
+        if drag is None: return
+        self._resize_scroll_timer.stop()
+        self._resize = None
+        self._preview_document = None
+        self._hover_edge = None
+        self.setMinimumWidth(drag['original_minimum'])
+        self.unsetCursor()
+        self.setToolTip('')
+        self.update()
+        if commit and drag['frames'] != drag['original_frames']:
+            self.durationRequested.emit(drag['identifier'],drag['frames']/drag['fps'])
+
+    def selected_indices(self):
+        if not self.document: return []
+        return [index for index, section in enumerate(self.document['sections'])
+                if section['id'] in self.selected_ids]
+
+    def _update_reorder(self, position):
+        drag = self._reorder
+        drag['position'] = position
+        drag['valid'] = 0 <= position.y() < self.height()
+        self.setCursor(Qt.CursorShape.ClosedHandCursor if drag['valid'] else Qt.CursorShape.ForbiddenCursor)
+        if not drag['valid']:
+            self.update(); return
+        sections = self.document['sections']
+        placements = section_placements(self.document)
+        scale = self.pixels_per_second()
+        # Repeated views share their original section. Only first-play
+        # boundaries are legal insertion slots; repeats follow their owners.
+        starts = {index: start * scale for index, start, _end, repeat in placements if repeat == 1}
+        slots = [starts[index] for index in range(len(sections))] + [placements[-1][2] * scale]
+        slot = min(range(len(slots)), key=lambda index: abs(slots[index] - position.x()))
+        selected = set(drag['identifiers'])
+        next_index = next((i for i in range(slot, len(sections)) if sections[i]['id'] not in selected), len(sections))
+        before = sections[next_index]['id'] if next_index < len(sections) else None
+        remaining = [section['id'] for section in sections if section['id'] not in selected]
+        insertion = remaining.index(before) if before is not None else len(remaining)
+        order = remaining[:insertion] + list(drag['identifiers']) + remaining[insertion:]
+        drag.update(before=before, marker=slots[next_index],
+                    changed=order != [section['id'] for section in sections])
+        self.update()
+
+    def _auto_scroll_reorder(self):
+        drag = self._reorder
+        if drag is None or not drag['active']: return
+        scroll = self._scroll_area()
+        if scroll is None: return
+        position = scroll.viewport().mapFromGlobal(QCursor.pos())
+        if not 0 <= position.y() < scroll.viewport().height(): return
+        distance = position.x() - 24 if position.x() < 24 else position.x() - (scroll.viewport().width() - 24) if position.x() > scroll.viewport().width() - 24 else 0
+        if not distance: return
+        bar = scroll.horizontalScrollBar()
+        step = min(32, max(1, abs(distance) // 2 + 1)) * (1 if distance > 0 else -1)
+        bar.setValue(bar.value() + step)
+        self._update_reorder(self.mapFromGlobal(QCursor.pos()))
+
+    def _finish_reorder(self, commit):
+        drag = self._reorder
+        if drag is None: return
+        self._reorder_scroll_timer.stop()
+        self._reorder = None
+        self._hover_edge = None
+        self.unsetCursor(); self.setToolTip(''); self.update()
+        if commit and drag['active'] and drag['valid'] and drag['changed']:
+            self.reorderRequested.emit(drag['identifiers'], drag['before'])
+
+    def section_at(self, position):
+        occurrence = self.occurrence_at(position)
+        return section_placements(self.document)[occurrence][0] if occurrence is not None else None
+
+    def occurrence_at(self, position):
+        return next((index for index, rect in enumerate(self.rectangles()) if rect.contains(position)), None)
+
+    def select_at(self, index, modifiers=Qt.KeyboardModifier.NoModifier, context=False):
+        identifier = self.document['sections'][index]['id']
+        if context and index == self.index and identifier in self.selected_ids: return
+        if context:
+            if identifier not in self.selected_ids:
+                self.selected_ids = {identifier}; self.selection_anchor = identifier
+        elif modifiers & Qt.KeyboardModifier.ShiftModifier:
+            anchor = next((i for i, section in enumerate(self.document['sections'])
+                           if section['id'] == self.selection_anchor), self.index)
+            self.selected_ids = {self.document['sections'][i]['id']
+                                 for i in range(min(anchor, index), max(anchor, index) + 1)}
+        elif modifiers & (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.MetaModifier):
+            if identifier in self.selected_ids and len(self.selected_ids) > 1:
+                self.selected_ids.remove(identifier)
+                index = self.selected_indices()[-1]
+            else:
+                self.selected_ids.add(identifier)
+            self.selection_anchor = self.document['sections'][index]['id']
+        else:
+            self.selected_ids = {identifier}; self.selection_anchor = identifier
+        self.index = index
+        self.update()
+        self.selected.emit(index)
+
+    def set_time(self, time):
+        self.time = time
+        self.update()
+
+    def rectangles(self):
+        document = self.display_document()
+        if not document:
+            return []
+        placements = section_placements(document)
+        scale = self.pixels_per_second()
+        return [QRectF(start*scale+2, 5, max(1,(end-start)*scale-4), 68)
+                for _index, start, end, _repetition in placements]
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        document = self.display_document()
+        placements = section_placements(document) if document else []
+        for occurrence, ((index, _start, _end, repetition), rect) in enumerate(zip(placements, self.rectangles())):
+            section = document["sections"][index]
+            selected = section['id'] in self.selected_ids
+            painter.save()
+            if self._reorder and self._reorder['active'] and selected: painter.setOpacity(.45)
+            painter.setBrush(QColor(COLORS["selected"] if selected else COLORS["panel"]))
+            painter.setPen(QPen(QColor(COLORS["accent"] if selected else COLORS["border"]), 1))
+            painter.drawRect(rect)
+            small_font = self.font(); small_font.setPixelSize(10); painter.setFont(small_font)
+            painter.setPen(QColor(COLORS["accent"] if selected else COLORS["muted"]))
+            number = f'{index + 1:02d}' + (f' / ↻{repetition}' if repetition > 1 else '')
+            painter.drawText(rect.adjusted(7, 3, -4, -47), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, number)
+            label = document["phrases"][section["phrase"]]["name"]
+            label_font = self.font(); label_font.setPixelSize(11); painter.setFont(label_font)
+            painter.setPen(QColor(COLORS["text"]))
+            label = painter.fontMetrics().elidedText(label, Qt.TextElideMode.ElideRight, max(0, int(rect.width() - 10)))
+            painter.drawText(rect.adjusted(5, 20, -5, -21), Qt.AlignmentFlag.AlignCenter, label)
+            painter.setFont(small_font); painter.setPen(QColor(COLORS["muted"]))
+            loops = int(section.get('loops', 1))
+            painter.drawText(rect.adjusted(4, 43, -4, -3), Qt.AlignmentFlag.AlignCenter, f"{section['duration']:.2f}s ×{loops}")
+            if selected or occurrence == self._hover_edge:
+                painter.setPen(QPen(QColor(COLORS['accent'] if occurrence == self._hover_edge else COLORS['muted']),2))
+                edge = min(self.width()-2,round(_end*self.pixels_per_second()-3))
+                painter.drawLine(edge,25,edge,52)
+            painter.restore()
+        if self.document:
+            x = max(1, min(self.width()-1,self.time*self.pixels_per_second()))
+            painter.setPen(QPen(QColor(COLORS["cursor"]), 1))
+            painter.drawLine(int(x), 2, int(x), 77)
+            painter.fillRect(QRectF(x - 3, 0, 6, 3), QColor(COLORS["cursor"]))
+        if self._resize is not None:
+            drag = self._resize
+            painter.setPen(QPen(QColor(COLORS['cursor']),1,Qt.PenStyle.DashLine))
+            painter.drawLine(round(drag['original_edge']),5,round(drag['original_edge']),73)
+            font = self.font(); font.setPixelSize(10); painter.setFont(font)
+            painter.setPen(QColor(COLORS['accent']))
+            visible = self.visibleRegion().boundingRect()
+            readout = f"{drag['frames']/drag['fps']:.2f}s per play · {drag['frames']/drag['original_frames']:.2f}× length · release to apply · Esc cancel"
+            painter.drawText(QRectF(visible.left()+6,75,max(0,visible.width()-12),14),Qt.AlignmentFlag.AlignLeft|Qt.AlignmentFlag.AlignVCenter,readout)
+        if self._reorder is not None and self._reorder['active']:
+            drag = self._reorder
+            visible = self.visibleRegion().boundingRect()
+            count = len(drag['identifiers'])
+            font = self.font(); font.setPixelSize(10); painter.setFont(font)
+            color = QColor(COLORS['accent'] if drag['valid'] and drag['changed'] else COLORS['muted'])
+            if drag['valid']:
+                x = max(2, min(self.width() - 3, round(drag['marker'])))
+                painter.setPen(QPen(color, 3)); painter.drawLine(x, 3, x, 73)
+                painter.fillRect(QRectF(x - 4, 2, 9, 4), color)
+                painter.fillRect(QRectF(x - 4, 70, 9, 4), color)
+            before = next((i + 1 for i, section in enumerate(document['sections']) if section['id'] == drag.get('before')), None)
+            destination = f'before section {before:02d}' if before is not None else 'to the end'
+            readout = (f'Move {count} section' + ('s' if count > 1 else '') + f' {destination} · repetitions follow · Esc cancels') if drag['valid'] else 'Move back over the timeline to drop · Esc cancels'
+            if drag['valid'] and not drag['changed']: readout = 'Current order · Esc cancels'
+            painter.setPen(color)
+            readout = painter.fontMetrics().elidedText(readout, Qt.TextElideMode.ElideRight, max(0, visible.width() - 12))
+            painter.drawText(QRectF(visible.left()+6,75,max(0,visible.width()-12),14),Qt.AlignmentFlag.AlignLeft|Qt.AlignmentFlag.AlignVCenter,readout)
+            label = f'{count} sections' if count > 1 else document['phrases'][document['sections'][self.index]['phrase']]['name']
+            width = min(200, max(70, painter.fontMetrics().horizontalAdvance(label) + 20))
+            x = max(visible.left(), min(drag['position'].x() + 12, visible.right() - width))
+            ghost = QRectF(x, 24, width, 26)
+            painter.setOpacity(.9); painter.setPen(QPen(color, 1)); painter.setBrush(QColor(COLORS['selected']))
+            painter.drawRoundedRect(ghost, 3, 3)
+            painter.drawText(ghost.adjusted(8, 0, -8, 0), Qt.AlignmentFlag.AlignCenter,
+                             painter.fontMetrics().elidedText(label, Qt.TextElideMode.ElideRight, width - 16))
+
+    def mousePressEvent(self, event):
+        if event.button() not in (Qt.MouseButton.LeftButton, Qt.MouseButton.RightButton): return
+        if self._resize is not None or self._reorder is not None: return
+        edge = self.edge_at(event.position())
+        if event.button() == Qt.MouseButton.LeftButton and event.modifiers() == Qt.KeyboardModifier.NoModifier and edge is not None:
+            index, start, _end, _repetition = section_placements(self.document)[edge]
+            self.select_at(index)
+            self.seekRequested.emit(start)
+            self._begin_resize(edge,event.position())
+            event.accept()
+            return
+        occurrence = self.occurrence_at(event.position())
+        if occurrence is None: occurrence = edge
+        if occurrence is None: return
+        index, start, _end, _repetition = section_placements(self.document)[occurrence]
+        can_drag = event.button() == Qt.MouseButton.LeftButton and event.modifiers() == Qt.KeyboardModifier.NoModifier
+        preserve_selection = can_drag and self.document['sections'][index]['id'] in self.selected_ids
+        self.select_at(index, event.modifiers(), context=event.button() == Qt.MouseButton.RightButton or preserve_selection)
+        self.seekRequested.emit(start)
+        if can_drag:
+            self._reorder = dict(press=event.position(), start=start, active=False, valid=False, changed=False,
+                                 identifiers=tuple(self.document['sections'][i]['id'] for i in self.selected_indices()))
+            self.setFocus(Qt.FocusReason.MouseFocusReason)
+        event.accept()
+
+    def mouseReleaseEvent(self, event):
+        if self._reorder is not None and event.button() == Qt.MouseButton.LeftButton:
+            active = self._reorder['active']
+            start = self._reorder['start']
+            if active: self._update_reorder(event.position())
+            self._finish_reorder(True)
+            if not active:
+                self.select_at(self.index)
+                self.seekRequested.emit(start)
+            event.accept(); return
+        if self._resize is not None and event.button() == Qt.MouseButton.LeftButton:
+            self._update_resize(event.position().x())
+            self._finish_resize(True)
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
+
+    def keyPressEvent(self, event):
+        if self._reorder is not None and event.key() == Qt.Key.Key_Escape:
+            self._finish_reorder(False)
+            event.accept(); return
+        if self._resize is not None and event.key() == Qt.Key.Key_Escape:
+            self._finish_resize(False)
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
+    def leaveEvent(self, event):
+        if self._resize is None and self._reorder is None:
+            self._hover_edge = None
+            self.unsetCursor()
+            self.update()
+        super().leaveEvent(event)
+
+    def hideEvent(self, event):
+        if self._resize is not None: self._finish_resize(False)
+        if self._reorder is not None: self._finish_reorder(False)
+        super().hideEvent(event)
+
+    def make_context_menu(self):
+        identifiers = tuple(self.document['sections'][i]['id'] for i in self.selected_indices())
+        menu = QMenu(self)
+        menu.setTitle('Timeline loops')
+        label = 'Loop' if len(identifiers) == 1 else f'Loop {len(identifiers)} selected sections'
+        action = menu.addAction(label)
+        action.setToolTip('Add one repetition to the selected section or sections.')
+        action.triggered.connect(lambda: self.loopRequested.emit(identifiers, 0))
+        counts = menu.addMenu('Repeat count')
+        for count in (2, 3, 4, 8, 16, 32):
+            action = counts.addAction(f'{count}× total plays')
+            action.triggered.connect(lambda checked=False, count=count: self.loopRequested.emit(identifiers, count))
+        custom = counts.addAction('Custom…')
+        custom.triggered.connect(lambda: self.custom_loop_count(identifiers))
+        menu.addSeparator()
+        remove = menu.addAction('Remove loop')
+        remove.triggered.connect(lambda: self.loopRequested.emit(identifiers, 1))
+        for group in self.document.get('timeline_loops', []):
+            if set(group['sections']) & set(identifiers) and set(group['sections']) != set(identifiers):
+                action = menu.addAction(f"Remove sequence loop ({len(group['sections'])} sections)")
+                members = tuple(group['sections'])
+                action.triggered.connect(lambda checked=False, members=members: self.loopRequested.emit(members, 1))
+        return menu
+
+    def custom_loop_count(self, identifiers):
+        counts = [int(section.get('loops', 1)) for section in self.document['sections']
+                  if section['id'] in identifiers]
+        for group in self.document.get('timeline_loops', []):
+            if set(group['sections']) == set(identifiers): counts = [group['loops']]
+        count, accepted = QInputDialog.getInt(self, 'Timeline loop', 'Total plays (1 = once):',
+                                             max(counts, default=1), 1, 32)
+        if accepted: self.loopRequested.emit(identifiers, count)
+
+    def contextMenuEvent(self, event):
+        index = self.section_at(event.pos())
+        if index is None: return
+        self.select_at(index, context=True)
+        if self.context_menu is not None: self.context_menu.deleteLater()
+        self.context_menu = self.make_context_menu()
+        self.context_menu.popup(event.globalPos())
+        event.accept()
+
+    def mouseMoveEvent(self, event):
+        if self._reorder is not None:
+            drag = self._reorder
+            if not drag['active'] and (event.position() - drag['press']).manhattanLength() >= QApplication.startDragDistance():
+                drag['active'] = True
+                self._hover_edge = None
+                self.setToolTip('')
+                self._reorder_scroll_timer.start()
+            if drag['active']: self._update_reorder(event.position())
+            event.accept(); return
+        if self._resize is not None:
+            if abs(event.position().x()-self._resize['press_x']) >= 2:
+                self._resize['moved'] = True
+                if not self._resize_scroll_timer.isActive(): self._resize_scroll_timer.start()
+            self._update_resize(event.position().x())
+            event.accept()
+            return
+        edge = self.edge_at(event.position())
+        if edge != self._hover_edge:
+            self._hover_edge = edge
+            self.update()
+        self.setCursor(Qt.CursorShape.SizeHorCursor if edge is not None else Qt.CursorShape.ArrowCursor)
+        if edge is not None:
+            index = section_placements(self.document)[edge][0]
+            duration = self.document['sections'][index]['duration']
+            self.setToolTip(f'Drag right edge to retime section {index+1} · {duration:.2f}s per play · later sections ripple · Escape cancels')
+            return
+        placements = section_placements(self.document) if self.document else []
+        for (index, _start, _end, repetition), rect in zip(placements, self.rectangles()):
+            if rect.contains(event.position()):
+                self.setCursor(Qt.CursorShape.OpenHandCursor)
+                section = self.document["sections"][index]
+                loops = int(section.get('loops', 1))
+                self.setToolTip(f"{index + 1}. {self.document['phrases'][section['phrase']]['name']} · {loops}× total plays · " +
+                               (f'Sequence repetition {repetition} · ' if repetition > 1 else '') +
+                               'drag body to reorder; drag right edge to stretch; Shift-click to select a range; Command-click to add sections; right-click to loop')
+                return
+        self.setToolTip('')
+
+
+class MacroControl(QWidget):
+    changed = Signal(float)
+    locked = Signal(bool)
+
+    def __init__(self, label, low, high, hint):
+        super().__init__()
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 2)
+        row = QHBoxLayout()
+        name = QLabel(label); name.setFixedWidth(88)
+        row.addWidget(name)
+        self.slider = QSlider(Qt.Orientation.Horizontal)
+        self.slider.setTracking(False)
+        self.slider.setRange(round(low * 100), round(high * 100))
+        row.addWidget(self.slider, 1)
+        self.lock = QCheckBox("Keep")
+        self.lock.setToolTip("Keep this control when generating a new take.")
+        self.spin = QDoubleSpinBox()
+        self.spin.setRange(low, high); self.spin.setSingleStep(.05); self.spin.setDecimals(2)
+        self.spin.setSuffix(" ×"); self.spin.setFixedWidth(76); self.spin.setKeyboardTracking(False)
+        row.addWidget(self.spin)
+        row.addWidget(self.lock)
+        layout.addLayout(row)
+        self.setToolTip(hint)
+        self.spin.valueChanged.connect(self._spin_changed)
+        self.slider.valueChanged.connect(lambda value: self.spin.setValue(value / 100))
+        self.lock.toggled.connect(self.locked.emit)
+
+    def _spin_changed(self, value):
+        with QSignalBlocker(self.slider):
+            self.slider.setValue(round(value * 100))
+        self.changed.emit(value)
+
+    def set_value(self, value, locked):
+        with QSignalBlocker(self.spin), QSignalBlocker(self.slider), QSignalBlocker(self.lock):
+            self.spin.setValue(value); self.slider.setValue(round(value * 100)); self.lock.setChecked(locked)
+
+
+class InspectorTabs(QTabWidget):
+    """Only the selected page determines the inspector's scrollable height."""
+    def page_hint(self, minimum=False):
+        page = self.currentWidget()
+        if page is None: return super().minimumSizeHint() if minimum else super().sizeHint()
+        content = page.minimumSizeHint() if minimum else page.sizeHint()
+        tabs = self.tabBar().sizeHint()
+        return QSize(max(content.width(), tabs.width())+6, content.height()+tabs.height()+6)
+
+    def sizeHint(self): return self.page_hint()
+    def minimumSizeHint(self): return self.page_hint(True)
+    def hasHeightForWidth(self):
+        page = self.currentWidget()
+        return bool(page and page.hasHeightForWidth())
+
+    def heightForWidth(self, width):
+        page = self.currentWidget()
+        if page is None: return self.sizeHint().height()
+        height = page.heightForWidth(max(1, width-6)) if page.hasHeightForWidth() else page.sizeHint().height()
+        return height+self.tabBar().sizeHint().height()+6
+
+
+class CompositionPanel(QWidget):
+    changed = Signal(object, str)
+    failed = Signal(str)
+    sectionSelected = Signal(int)
+    detailsRequested = Signal()
+    relinkRequested = Signal()
+
+    def __init__(self, document, index=0, scope=0):
+        super().__init__()
+        self.document = normalize_composition(document)
+        self.index = min(index, len(document["sections"]) - 1)
+        self.scope = scope
+        self.updating = False
+        layout = QVBoxLayout(self); layout.setContentsMargins(0, 0, 0, 0)
+        title = QLabel("02 / COMPOSER"); title.setObjectName("sectionTitle")
+        layout.addWidget(title)
+        hint = QLabel("Combine effects. Arrange their changes in sections.")
+        hint.setWordWrap(True); hint.setObjectName("muted"); layout.addWidget(hint)
+
+        self.arrangement_button = QPushButton(); self.arrangement_button.setCheckable(True)
+        self.arrangement_button.setToolTip("Show section arrangement, duration, loops and frame-rate controls.")
+        layout.addWidget(self.arrangement_button)
+
+        clip = QGroupBox("CLIP / TIMING")
+        grid = QGridLayout(clip)
+        self.duration = QDoubleSpinBox(); self.duration.setRange(.24, 3600); self.duration.setDecimals(2); self.duration.setSuffix(" s"); self.duration.setKeyboardTracking(False)
+        self.fps = QSpinBox(); self.fps.setRange(1, 120); self.fps.setSuffix(" fps"); self.fps.setKeyboardTracking(False)
+        self.fps_label = QLabel('Timeline FPS')
+        self.fps.setAccessibleName('Timeline FPS')
+        self.fps.setToolTip('Frame rate of the complete image in preview and export, across all sections. Lower it for a stepped cadence without slowing the action. Section durations round to the nearest frame. Source and effect cadence controls can hold individual parts longer.')
+        grid.addWidget(QLabel("Duration"), 0, 0); grid.addWidget(self.fps_label, 0, 1)
+        grid.addWidget(self.duration, 1, 0); grid.addWidget(self.fps, 1, 1)
+        self.duration.valueChanged.connect(self.resize_clip)
+        self.fps.valueChanged.connect(self.change_fps)
+        layout.addWidget(clip)
+
+        section_box = QGroupBox("SEQUENCE / ARRANGEMENT")
+        section_layout = QVBoxLayout(section_box)
+        self.section_combo = QComboBox(); self.section_combo.currentIndexChanged.connect(self.select_section)
+        section_layout.addWidget(self.section_combo)
+        row = QHBoxLayout()
+        self.phrase = QComboBox()
+        for key, phrase in self.document["phrases"].items():
+            self.phrase.addItem(phrase["name"], key)
+        self.phrase.currentIndexChanged.connect(self.change_phrase); row.addWidget(self.phrase, 1)
+        self.section_duration = QDoubleSpinBox(); self.section_duration.setRange(1 / self.document["fps"], 300); self.section_duration.setDecimals(2); self.section_duration.setSuffix(" s"); self.section_duration.setFixedWidth(95); self.section_duration.setKeyboardTracking(False)
+        self.resize_mode = 'effects'
+        self.section_duration.setToolTip('Stretch this section and all its effects. The Resize menu below the timeline chooses whether imported video also changes speed.')
+        self.section_duration.valueChanged.connect(self.resize_section); row.addWidget(self.section_duration)
+        row.addWidget(QLabel('Loops'))
+        self.section_loops = QSpinBox(); self.section_loops.setRange(1, 32); self.section_loops.setSuffix(" ×"); self.section_loops.setFixedWidth(68); self.section_loops.setKeyboardTracking(False)
+        self.section_loops.setAccessibleName('Section loops')
+        self.section_loops.setToolTip('Total plays of this section: 1 = once, 2 = twice. '
+                                     'Repeats its edited event sequence; procedural motion/noise and imported footage keep running. '
+                                     'Total duration uses section duration × loops.')
+        self.section_loops.valueChanged.connect(self.resize_section_loops); row.addWidget(self.section_loops)
+        section_layout.addLayout(row)
+        row = QHBoxLayout()
+        for label, callback in (("+ Add", self.add_section), ("Duplicate", self.duplicate_section), ("Remove", self.remove_section), ("←", lambda: self.move_section(-1)), ("→", lambda: self.move_section(1))):
+            button = QPushButton(label); button.clicked.connect(callback); row.addWidget(button)
+        section_layout.addLayout(row)
+        layout.addWidget(section_box)
+        clip.hide(); section_box.hide()
+        self.arrangement_button.toggled.connect(clip.setVisible)
+        self.arrangement_button.toggled.connect(section_box.setVisible)
+
+        shape = QGroupBox("PARAMETERS / SCOPE")
+        shape_layout = QVBoxLayout(shape)
+        self.scope_combo = QComboBox(); self.scope_combo.addItems(["Whole clip", "Selected section"])
+        self.scope_combo.currentIndexChanged.connect(self.change_scope); shape_layout.addWidget(self.scope_combo)
+        self.timing_scope_label = QLabel('Whole clip · shared timing'); self.timing_scope_label.hide()
+        shape_layout.addWidget(self.timing_scope_label)
+        self.master_scope_label = QLabel('Whole clip · master adjustments'); self.master_scope_label.hide()
+        shape_layout.addWidget(self.master_scope_label)
+        self.look_tabs = InspectorTabs()
+        self.effects_panel = EffectsPanel()
+        self.effects_panel.edited.connect(self.change_effect)
+        self.effects_panel.timing_edited.connect(self.change_ink_timing)
+        self.effects_panel.timing_reset.connect(self.reset_ink_timing)
+        self.effects_panel.timing_selected.connect(self.show_timing_scope)
+        self.look_tabs.addTab(self.effects_panel, "Effects")
+        self.object_panel = SubjectPanel(); geometry_page = self.object_panel
+        geometry_layout = self.object_panel.signal_layout
+        self.object_panel.selected.connect(self.change_object)
+        self.object_panel.restored.connect(self.restore_object)
+        self.object_panel.parameter_changed.connect(self.change_object_parameter)
+        self.object_panel.parameter_reset.connect(self.reset_object_parameter)
+        self.object_panel.details_requested.connect(self.open_object_details)
+        self.object_panel.position_changed.connect(self.change_geometry)
+        self.object_panel.position_reset.connect(self.reset_object_position)
+        treatment_page = QWidget(); treatment_layout = QVBoxLayout(treatment_page)
+        self.look_tabs.addTab(geometry_page, "Object"); self.look_tabs.addTab(treatment_page, "Finishing")
+        self.master_panel = MasterPanel()
+        self.master_panel.edited.connect(self.change_master)
+        self.master_panel.resetRequested.connect(self.reset_master)
+        self.look_tabs.addTab(self.master_panel, 'Master')
+        self.video_panel = VideoSourcePanel()
+        self.video_panel.edited.connect(self.change_video)
+        self.video_panel.relinkRequested.connect(self.relinkRequested.emit)
+        self.video_panel.durationRequested.connect(self.resize_clip)
+        self.video_panel.treatmentRequested.connect(self.apply_video_treatment)
+        self.look_tabs.addTab(self.video_panel, 'Source')
+        self.look_tabs.currentChanged.connect(lambda _index: self.show_timing_scope(self.effects_panel.effect_id == 'ink_bloom' and self.effects_panel.parameter_tabs.currentIndex() == 1))
+        self.look_tabs.currentChanged.connect(self.size_current_tab)
+        self.size_current_tab()
+        treatment_hint = QLabel("Relative adjustments to the recipe. 1× keeps its original treatment; different recipes can look different at 1×.")
+        treatment_hint.setWordWrap(True); treatment_hint.setObjectName("muted"); treatment_layout.addWidget(treatment_hint)
+        shape_layout.addWidget(self.look_tabs)
+        self.geometry_shape = QComboBox()
+        self.geometry_shape.currentIndexChanged.connect(self.change_shape)
+        geometry_layout.addWidget(self.geometry_shape)
+        self.macro_controls = {}
+        for key, (label, low, high, tip) in MACROS.items():
+            control = MacroControl(label, low, high, tip)
+            control.changed.connect(lambda value, key=key: self.change_macro(key, value))
+            control.locked.connect(lambda value, key=key: self.lock_macro(key, value))
+            (geometry_layout if key == "width" else treatment_layout).addWidget(control)
+            self.macro_controls[key] = control
+        self.geometry_controls = {}; self.geometry_rows = {}
+        for key, label, low, high, step, suffix in (("height", "Height", .25, 2., .05, " ×"), ("diameter", "Diameter", 5., 150., 1., " %"), ("sides", "Sides", 3, 32, 1, ""), ("rotation", "Rotation", -180., 180., 1., "°")):
+            row_widget = QWidget(); row = QHBoxLayout(row_widget); row.setContentsMargins(0, 0, 0, 0)
+            row.addWidget(QLabel(label)); row.addStretch(1)
+            control = QSpinBox() if key == "sides" else QDoubleSpinBox()
+            control.setRange(low, high); control.setSingleStep(step); control.setSuffix(suffix); control.setKeyboardTracking(False)
+            control.setFixedWidth(110)
+            if key != "sides": control.setDecimals(2 if key == "height" else 1)
+            control.valueChanged.connect(lambda value, key=key: self.change_geometry(key, value / 100 if key == "diameter" else value))
+            row.addWidget(control); geometry_layout.addWidget(row_widget)
+            self.geometry_controls[key] = control; self.geometry_rows[key] = row_widget
+        self.geometry_hint = QLabel(); self.geometry_hint.setWordWrap(True); self.geometry_hint.setObjectName("muted")
+        geometry_layout.addWidget(self.geometry_hint); geometry_layout.addStretch(1)
+        treatment_layout.addStretch(1)
+        self.take_label = QLabel(); self.take_label.setObjectName("muted"); shape_layout.addWidget(self.take_label)
+        layout.addWidget(shape)
+        self.details_button = details = QPushButton("Open detailed copy…"); details.clicked.connect(self.detailsRequested.emit); layout.addWidget(details)
+        self.refresh()
+
+    def target(self, document=None):
+        document = self.document if document is None else document
+        return document if self.scope == 0 else document["sections"][self.index]
+
+    def size_current_tab(self, _index=None):
+        # Hidden pages must not leave a tall, empty inspector below a short tab.
+        for index in range(self.look_tabs.count()):
+            page = self.look_tabs.widget(index)
+            page.setSizePolicy(QSizePolicy.Policy.Preferred,
+                               QSizePolicy.Policy.Preferred if index == self.look_tabs.currentIndex() else QSizePolicy.Policy.Ignored)
+            page.updateGeometry()
+        self.look_tabs.updateGeometry()
+
+    def refresh(self):
+        self.updating = True
+        try:
+            video = self.document.get('footage')
+            self.look_tabs.setTabVisible(self.look_tabs.indexOf(self.video_panel), bool(video))
+            self.look_tabs.setTabVisible(self.look_tabs.indexOf(self.object_panel), not video)
+            self.look_tabs.setTabVisible(2, not video)
+            self.details_button.setVisible(not video)
+            self.video_panel.refresh(video)
+            minimum_frames = sum(int(self.document['sections'][index].get('loops', 1))
+                                 for index, _start, _end, _pass in section_placements(self.document))
+            self.duration.setMinimum(minimum_frames / self.document["fps"])
+            self.duration.setValue(section_ranges(self.document)[-1][1])
+            self.fps.setValue(self.document["fps"])
+            count = len(self.document["sections"])
+            self.arrangement_button.setText(f"Arrange / {count} {'section' if count == 1 else 'sections'} · {self.duration.value():.2f}s · {self.document['fps']} fps")
+            self.section_combo.clear()
+            for index, section in enumerate(self.document["sections"]):
+                loops = int(section.get('loops', 1))
+                self.section_combo.addItem(f"{index + 1} · {self.document['phrases'][section['phrase']]['name']} · ×{loops}")
+            self.section_combo.setCurrentIndex(self.index)
+            section = self.document["sections"][self.index]
+            self.phrase.setCurrentIndex(self.phrase.findData(section["phrase"]))
+            self.section_duration.setMinimum(1 / self.document["fps"])
+            self.section_duration.setValue(section["duration"])
+            with QSignalBlocker(self.section_loops): self.section_loops.setValue(section.get("loops", 1))
+            self.scope_combo.setCurrentIndex(self.scope)
+            self.master_panel.set_values(self.document['master'])
+            target = self.target()
+            compiled = compile_composition(self.document)
+            self.compiled = compiled
+            prefix = section["id"] + ":"
+            all_states = list(compiled['states'].values())
+            states = [state for name, state in compiled["states"].items() if name.startswith(prefix)] if self.scope else all_states
+            label = f"SECTION {self.index + 1:02d} / {self.document['phrases'][section['phrase']]['name']}" if self.scope else "WHOLE CLIP / section overrides take priority"
+            context_key = section["id"] if self.scope else None
+            self.effects_panel.set_context(target["effects"], self.document["effects"] if self.scope else {}, states, label, bool(self.scope), (self.scope, context_key), self.document['ink_timing'], all_states, VIDEO_EFFECTS if video else tuple(effect.id for effect in EFFECTS if effect.id != 'subject_cutout'))
+            self.object_panel.refresh(self.effects_panel.summary, target['effects'], self.document['effects'] if self.scope else {}, bool(self.scope))
+            for key, control in self.macro_controls.items():
+                control.set_value(target["macros"][key], key in target["locks"])
+            geometry = target["geometry"]
+            self.object_panel.refresh_position(geometry, self.document["geometry"], self.document["canvas"], bool(self.scope))
+            self.geometry_shape.clear()
+            if self.scope: self.geometry_shape.addItem("From whole clip", "inherit")
+            self.geometry_shape.addItem("Original geometry", "original")
+            for label in SHAPES: self.geometry_shape.addItem(label, label.lower())
+            self.geometry_shape.setCurrentIndex(self.geometry_shape.findData(geometry["shape"]))
+            inherited = geometry["shape"] == "inherit"
+            resolved = effective_geometry(self.document, section) if self.scope else geometry
+            radial = resolved["shape"] in {"circle", "polygon"}
+            self.macro_controls["width"].setVisible(not radial)
+            for key, control in self.geometry_controls.items():
+                value = geometry[key] if key == "height" else resolved[key]
+                control.setValue(value * 100 if key == "diameter" else value)
+                control.setEnabled(key == "height" or (not inherited and geometry["shape"] != "original"))
+                self.geometry_rows[key].setVisible({"height": not radial, "diameter": radial, "sides": resolved["shape"] == "polygon", "rotation": resolved["shape"] not in {"original", "circle"}}[key])
+            self.geometry_hint.setText("Diameter is a percentage of image height. The source and ray aperture share the same shape." if radial else "Width and height scale the source and ray aperture. 1× preserves their authored proportions.")
+            pristine = not target["effects"] and not target["variation"] and all(value == 1 for value in target["macros"].values()) and geometry == default_geometry(section=bool(self.scope))
+            self.take_label.setText("Default controls in this scope" if pristine else (f"Take {target['variation']}" if target["variation"] else "Custom adjustments"))
+        finally:
+            self.updating = False
+
+    def commit(self, document, action):
+        try:
+            normalized = normalize_composition(document)
+        except ValueError as exc:
+            self.index = min(self.index, len(self.document["sections"]) - 1)
+            self.refresh(); self.failed.emit(str(exc))
+            return
+        self.document = normalized
+        self.index = min(self.index, len(self.document["sections"]) - 1)
+        self.refresh()
+        self.changed.emit(self.document, action)
+
+    def select_section(self, index):
+        if self.updating or index < 0: return
+        self.index = index
+        self.scope = 1
+        self.refresh()
+        self.sectionSelected.emit(index)
+
+    def change_scope(self, index):
+        if self.updating: return
+        self.scope = index; self.refresh()
+
+    def change_macro(self, key, value):
+        if self.updating: return
+        document = copy.deepcopy(self.document)
+        self.target(document)["macros"][key] = value
+        self.commit(document, f"macro:{self.scope}:{self.index}:{key}")
+
+    def change_effect(self, effect_id, entry, action):
+        if self.updating: return
+        document = copy.deepcopy(self.document)
+        effects = self.target(document)["effects"]
+        if entry is None:
+            effects.pop(effect_id, None)
+        else:
+            effects[effect_id] = without_timing(entry) if effect_id == 'ink_bloom' else entry
+        self.commit(document, f"{action}:{self.scope}:{self.index}:{effect_id}")
+
+    def show_timing_scope(self, timing):
+        timing = timing and self.look_tabs.currentIndex() == 0
+        master = self.look_tabs.currentWidget() is self.master_panel
+        source = self.look_tabs.currentWidget() is self.video_panel
+        self.scope_combo.setVisible(not (timing or master or source))
+        self.timing_scope_label.setVisible(timing)
+        self.master_scope_label.setVisible(master)
+        self.take_label.setVisible(not master)
+
+    def change_video(self, key, value):
+        if self.updating: return
+        document = copy.deepcopy(self.document)
+        document['footage'][key] = value
+        self.commit(document, f'video:{key}')
+
+    def apply_video_treatment(self, index):
+        self.commit(apply_treatment(self.document, index), 'video-treatment')
+        self.look_tabs.setCurrentWidget(self.effects_panel)
+
+    def change_object(self, kind):
+        if self.updating: return
+        document = select_subject(self.document, kind, self.index if self.scope else None)
+        self.commit(document, f'object:{self.scope}:{self.index}')
+
+    def reset_object_position(self):
+        if self.updating: return
+        document = copy.deepcopy(self.document)
+        self.target(document)['geometry'].update(position_x=0., position_y=0.)
+        self.commit(document, 'object-position-reset')
+
+    def restore_object(self):
+        if self.updating: return
+        self.commit(restore_subject(self.document, self.index if self.scope else None), 'object-restore')
+
+    def change_object_parameter(self, effect, path, value):
+        if self.updating: return
+        entry = copy.deepcopy(self.target()['effects'].get(effect, {'mode': 'recipe', 'params': {}}))
+        entry['params'][path] = value
+        if path == 'ink_bloom.artwork' and value:
+            entry['params']['ink_bloom.shape'] = 5
+        self.change_effect(effect, entry, f'effect-param:{path}')
+
+    def reset_object_parameter(self, effect, path):
+        if self.updating: return
+        entry = copy.deepcopy(self.target()['effects'][effect]); entry['params'].pop(path, None)
+        self.change_effect(effect, entry, 'effect-reset-param')
+
+    def open_object_details(self, effect, timing):
+        self.effects_panel.inspect_effect(effect)
+        self.effects_panel.parameter_tabs.setCurrentIndex(1 if timing else 0)
+        self.look_tabs.setCurrentWidget(self.effects_panel)
+
+    def change_master(self, key, value):
+        if self.updating: return
+        document = copy.deepcopy(self.document)
+        document['master'][key] = value
+        self.commit(document, 'master-toggle' if key == 'enabled' else f'master:{key}')
+
+    def reset_master(self):
+        if self.updating: return
+        document = copy.deepcopy(self.document); document['master'] = normalize_master()
+        self.commit(document, 'master-reset')
+
+    def change_ink_timing(self, path, value):
+        if self.updating: return
+        document = copy.deepcopy(self.document)
+        edit_shared_timing(document, path, value)
+        self.commit(document, f'ink-timing:{path}')
+
+    def reset_ink_timing(self):
+        if self.updating: return
+        document = copy.deepcopy(self.document); restore_shared_timing(document)
+        self.commit(document, 'ink-timing-reset')
+
+    def change_shape(self, index):
+        if self.updating or index < 0: return
+        document = copy.deepcopy(self.document)
+        geometry = self.target(document)["geometry"]
+        if geometry["shape"] == "inherit":
+            for key in ("diameter", "sides", "rotation"):
+                geometry[key] = document["geometry"][key]
+        geometry["shape"] = self.geometry_shape.itemData(index)
+        self.commit(document, "shape")
+
+    def change_geometry(self, key, value):
+        if self.updating: return
+        document = copy.deepcopy(self.document)
+        self.target(document)["geometry"][key] = value
+        self.commit(document, f"geometry:{self.scope}:{self.index}:{key}")
+
+    def lock_macro(self, key, locked):
+        if self.updating: return
+        document = copy.deepcopy(self.document)
+        target = self.target(document)
+        target["locks"] = [item for item in target["locks"] if item != key] + ([key] if locked else [])
+        self.commit(document, "lock")
+
+    def resize_clip(self, duration):
+        if self.updating: return
+        document = copy.deepcopy(self.document); fps = document["fps"]
+        if document.get('timeline_loops'):
+            placements = section_placements(document)
+            factor = duration / placements[-1][2]
+            for section in document['sections']:
+                section['duration'] = max(1, round(section['duration'] * fps * factor)) / fps
+            self.commit(document, 'duration'); return
+        loops = [int(section.get("loops", 1)) for section in document["sections"]]
+        frames = max(sum(loops), round(duration * fps))
+        # Proportional boundaries retain an exact total on the output frame grid.
+        original = section_ranges(document); total = original[-1][1]; cursor = 0
+        for index, section in enumerate(document["sections"]):
+            remaining = sum(loops[index + 1:])
+            boundary = min(frames - remaining, max(cursor + loops[index], round(original[index][1] / total * frames)))
+            section["duration"] = max(1, round((boundary - cursor) / loops[index])) / fps; cursor += round(section["duration"] * fps) * loops[index]
+        self.commit(document, "duration")
+
+    def change_fps(self, fps):
+        if self.updating: return
+        document = copy.deepcopy(self.document); document["fps"] = fps
+        for section in document["sections"]:
+            section["duration"] = max(1, round(section["duration"] * fps)) / fps
+        self.commit(document, "fps")
+
+    def resize_section(self, duration):
+        self.stretch_section(self.document['sections'][self.index]['id'], duration)
+
+    def stretch_section(self, identifier, duration):
+        if self.updating: return
+        from synth_composition import stretch_section
+        try:
+            document = stretch_section(self.document, identifier, duration, self.resize_mode)
+        except ValueError as exc:
+            self.refresh(); self.failed.emit(str(exc)); return
+        if document != self.document:
+            self.commit(document, 'section-stretch')
+
+    def resize_section_loops(self, loops):
+        if self.updating: return
+        document = copy.deepcopy(self.document); document["sections"][self.index]["loops"] = int(loops)
+        self.commit(document, "section-loops")
+
+    def loop_sections(self, identifiers, count):
+        """One undoable operation; multi-selection repeats a shared sequence."""
+        document = copy.deepcopy(self.document)
+        selected = set(identifiers)
+        members = [section['id'] for section in document['sections'] if section['id'] in selected]
+        if not members or len(members) != len(selected): return
+        groups = document.get('timeline_loops', [])
+        existing = next((group for group in groups if set(group['sections']) == selected), None)
+        if len(members) == 1 and existing is None:
+            section = next(section for section in document['sections'] if section['id'] == members[0])
+            section['loops'] = min(32, int(section.get('loops', 1)) + 1) if count == 0 else count
+        else:
+            loops = min(32, existing['loops'] + 1) if count == 0 and existing else (2 if count == 0 else count)
+            groups = [group for group in groups if not selected.intersection(group['sections'])]
+            if loops > 1: groups.append({'sections': members, 'loops': loops})
+            elif count == 1:
+                for section in document['sections']:
+                    if section['id'] in selected: section['loops'] = 1
+            if groups: document['timeline_loops'] = groups
+            else: document.pop('timeline_loops', None)
+        if document != self.document: self.commit(document, 'timeline-loop')
+
+    def change_phrase(self, index):
+        if self.updating or index < 0: return
+        document = copy.deepcopy(self.document); document["sections"][self.index]["phrase"] = self.phrase.itemData(index)
+        self.commit(document, "phrase")
+
+    def _new_id(self, document):
+        ids = {section["id"] for section in document["sections"]}
+        index = 1
+        while f"section-{index}" in ids: index += 1
+        return f"section-{index}"
+
+    def duplicate_section(self):
+        if len(self.document["sections"]) >= 64: return
+        document = copy.deepcopy(self.document)
+        section = copy.deepcopy(document["sections"][self.index]); section["id"] = self._new_id(document)
+        document["sections"].insert(self.index + 1, section); self.index += 1
+        self.commit(document, "duplicate"); self.sectionSelected.emit(self.index)
+
+    def add_section(self):
+        if len(self.document["sections"]) >= 64: return
+        document = copy.deepcopy(self.document)
+        phrase_key = self.phrase.currentData(); phrase = document["phrases"][phrase_key]
+        section = {"id": self._new_id(document), "phrase": phrase_key, "duration": phrase["end"] - phrase["start"], "loops": 1, "macros": neutral_macros(), "variation": 0, "locks": []}
+        document["sections"].insert(self.index + 1, section); self.index += 1
+        self.commit(document, "add"); self.sectionSelected.emit(self.index)
+
+    def remove_section(self):
+        if len(self.document["sections"]) <= 1: return
+        document = copy.deepcopy(self.document)
+        removed = document['sections'][self.index]['id']
+        del document["sections"][self.index]
+        for group in document.get('timeline_loops', []):
+            group['sections'] = [key for key in group['sections'] if key != removed]
+        if 'timeline_loops' in document:
+            document['timeline_loops'] = [group for group in document['timeline_loops'] if group['sections']]
+        self.commit(document, "remove"); self.sectionSelected.emit(self.index)
+
+    def reorder_sections(self, identifiers, before_id):
+        """Move a stable-ID selection as one block, retaining document order."""
+        if self.updating or isinstance(identifiers, (str, bytes)): return
+        try:
+            selected = set(identifiers)
+        except TypeError:
+            return
+        sections = self.document['sections']
+        known = {section['id'] for section in sections}
+        if not selected or not selected.issubset(known): return
+        if before_id is not None and (not isinstance(before_id, str) or
+                before_id not in known or before_id in selected): return
+        moved = [section for section in sections if section['id'] in selected]
+        remaining = [section for section in sections if section['id'] not in selected]
+        position = len(remaining) if before_id is None else next(
+            index for index, section in enumerate(remaining) if section['id'] == before_id)
+        reordered = remaining[:position]+moved+remaining[position:]
+        if [section['id'] for section in reordered] == [section['id'] for section in sections]: return
+        current = sections[self.index]['id']
+        document = copy.deepcopy(self.document)
+        document['sections'] = copy.deepcopy(reordered)
+        self.index = next(index for index, section in enumerate(reordered) if section['id'] == current)
+        self.commit(document, 'section-reorder')
+        self.sectionSelected.emit(self.index)
+
+    def move_section(self, delta):
+        target = self.index + delta
+        if not 0 <= target < len(self.document["sections"]): return
+        document = copy.deepcopy(self.document)
+        document["sections"][self.index], document["sections"][target] = document["sections"][target], document["sections"][self.index]
+        self.index = target; self.commit(document, "move"); self.sectionSelected.emit(self.index)
+
+    def new_take(self):
+        self.commit(vary_composition(self.document, None if self.scope == 0 else self.index), "take")
+
+    def reset_controls(self):
+        if self.look_tabs.currentWidget() is self.master_panel:
+            self.reset_master()
+            return
+        if self.look_tabs.currentIndex() == 0 and self.effects_panel.effect_id == 'ink_bloom' and self.effects_panel.parameter_tabs.currentIndex() == 1:
+            self.reset_ink_timing()
+            return
+        document = copy.deepcopy(self.document)
+        target = self.target(document); target["macros"] = neutral_macros(); target["variation"] = 0
+        target["geometry"] = default_geometry(section=bool(self.scope))
+        target["effects"] = {}
+        if not self.scope:
+            restore_shared_timing(document)
+            document['master'] = normalize_master()
+        self.commit(document, "reset")

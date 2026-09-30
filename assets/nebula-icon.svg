@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#203326"/><stop offset="1" stop-color="#070c09"/>
+    </linearGradient>
+    <linearGradient id="signal" x1="0" y1="0" x2="1" y2="0">
+      <stop stop-color="#cb5cef"/><stop offset=".38" stop-color="#f3d9ff"/>
+      <stop offset=".56" stop-color="#ffffff"/><stop offset="1" stop-color="#addec0"/>
+    </linearGradient>
+  </defs>
+  <rect x="64" y="64" width="896" height="896" rx="192" fill="url(#body)" stroke="#415a43" stroke-width="8"/>
+  <rect x="152" y="174" width="720" height="620" rx="44" fill="#080d0b" stroke="#37533c" stroke-width="6"/>
+  <g fill="none" stroke="#73298b" stroke-linecap="round" opacity=".45">
+    <path d="M242 314 H746 M226 414 H774 M248 514 H752 M222 614 H770" stroke-width="56"/>
+    <path d="M500 290 V636" stroke-width="172"/>
+  </g>
+  <path d="M462 274 H572 V658 H462 Z" fill="url(#signal)"/>
+  <g fill="none" stroke="url(#signal)" stroke-linecap="round" stroke-width="22">
+    <path d="M242 314 Q498 308 746 314"/>
+    <path d="M226 414 Q496 430 774 414"/>
+    <path d="M248 514 Q492 502 752 514"/>
+    <path d="M222 614 Q496 628 770 614"/>
+  </g>
+  <path d="m192 838 22 18-22 18 M244 875h42" fill="none" stroke="#b5e49b" stroke-width="10" stroke-linecap="square"/>
+  <rect x="753" y="845" width="58" height="14" fill="#b5e49b"/>
+</svg>

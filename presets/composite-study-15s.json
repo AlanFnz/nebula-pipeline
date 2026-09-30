@@ -1,0 +1,2873 @@
+{
+  "schema_version": 1,
+  "name": "Composite signal \u00b7 15-second study",
+  "duration": 15.0,
+  "fps": 25,
+  "seed": 15025,
+  "field": {
+    "valley_start": 11.4,
+    "valley_end": 13.2,
+    "valley_gain": 1.0,
+    "cloud_start": 8.2,
+    "cloud_strength": 0.0,
+    "cloud_late_start": 14.2,
+    "cloud_late_rate": 0.2
+  },
+  "states": {
+    "blinds": {
+      "preset": "Reference blinds",
+      "overrides": {
+        "blinds.aperture": 0.26,
+        "blinds.aperture_position": 0.4,
+        "blinds.aperture_height": 0.68,
+        "blinds.thickness": 0.02,
+        "blinds.swelling": 0.98,
+        "blinds.taper": 0.3,
+        "blinds.curvature": 0.002,
+        "warp.amount": 0.001,
+        "separation.amount": 0.002,
+        "smear.amount": 0.015,
+        "bloom.strength": 0.16,
+        "raster.grain": 0.13,
+        "raster.chroma": 0.004,
+        "raster.lines": 0.09,
+        "bloom.radius": 4,
+        "blinds.row_drift": 0.015,
+        "blinds.irregularity": 0.14,
+        "blinds.edge_softness": 0.075,
+        "blinds.magenta": 0.95,
+        "raster.softness": 2.2
+      }
+    },
+    "burst": {
+      "preset": "Reference blinds",
+      "overrides": {
+        "blinds.aperture": 0.26,
+        "blinds.aperture_position": 0.4,
+        "blinds.thickness": 0.02,
+        "blinds.swelling": 0.98,
+        "blinds.taper": 0.3,
+        "warp.amount": 0.001,
+        "separation.amount": 0.002,
+        "smear.amount": 0.015,
+        "bloom.strength": 0.16,
+        "raster.chroma": 0.004,
+        "raster.lines": 0.09,
+        "raster.grain": 0.13,
+        "bloom.radius": 4,
+        "blinds.aperture_height": 0.68,
+        "blinds.row_drift": 0.015,
+        "blinds.curvature": 0.002,
+        "blinds.irregularity": 0.14,
+        "blinds.edge_softness": 0.075,
+        "blinds.magenta": 0.95,
+        "raster.softness": 2.2
+      }
+    },
+    "slab": {
+      "preset": "Luminous slab",
+      "overrides": {
+        "slab.height": 0.59,
+        "slab.position_x": 0.24,
+        "slab.position_y": 0.02,
+        "slab.width": 0.34,
+        "slab.edge_softness": 0.008,
+        "slab.edge_hardness": 0.94,
+        "slab.notch": 0,
+        "slab.intensity": 0.91,
+        "slab.ghost_width": 0.82,
+        "slab.ghost_offset": 0.28,
+        "slab.ghost_opacity": 0.28,
+        "smear.amount": 0.035,
+        "separation.amount": 0.002,
+        "raster.chroma": 0.004,
+        "raster.lines": 0.09,
+        "raster.grain": 0.045,
+        "bloom.strength": 0.23,
+        "bloom.radius": 6,
+        "slab.frame_jitter": 0.026,
+        "slab.ghost_grain": 0.86,
+        "slab.cloud_strength": 1,
+        "slab.cloud_tint": 0.9,
+        "slab.magenta": 0.65,
+        "slab.cyan": 0.08,
+        "slab.jitter": 0.035,
+        "raster.softness": 2.2,
+        "slab.cloud_position": -0.15
+      }
+    },
+    "double": {
+      "preset": "Luminous slab",
+      "overrides": {
+        "slab.count": 1,
+        "slab.height": 0.59,
+        "slab.position_x": 0.24,
+        "slab.spacing": 0.32,
+        "slab.width": 0.38,
+        "slab.edge_softness": 0.008,
+        "slab.position_y": 0.02,
+        "slab.notch": 0,
+        "slab.intensity": 0.91,
+        "slab.ghost_width": 0.82,
+        "slab.ghost_offset": 0.28,
+        "slab.ghost_opacity": 0.8,
+        "smear.amount": 0.035,
+        "separation.amount": 0.002,
+        "slab.edge_hardness": 0.94,
+        "raster.chroma": 0.004,
+        "raster.lines": 0.09,
+        "raster.grain": 0.045,
+        "bloom.strength": 0.23,
+        "bloom.radius": 6,
+        "slab.frame_jitter": 0.026,
+        "slab.ghost_grain": 0.86,
+        "slab.cloud_strength": 1,
+        "slab.cloud_tint": 0.9,
+        "slab.magenta": 0.65,
+        "slab.cyan": 0.08,
+        "slab.jitter": 0.035,
+        "raster.softness": 2.2,
+        "slab.cloud_position": -0.15
+      }
+    },
+    "magenta": {
+      "preset": "Luminous slab",
+      "overrides": {
+        "slab.count": 1,
+        "slab.height": 0.59,
+        "slab.position_x": 0.24,
+        "slab.position_y": 0.02,
+        "slab.width": 0.31,
+        "slab.edge_softness": 0.008,
+        "slab.notch": 0,
+        "slab.intensity": 0.95,
+        "slab.fill_magenta": 0.9,
+        "slab.magenta": 0.65,
+        "slab.ghost_width": 0.82,
+        "slab.ghost_offset": 0.28,
+        "slab.ghost_opacity": 0.32,
+        "bloom.strength": 0.23,
+        "smear.amount": 0.035,
+        "separation.amount": 0.002,
+        "slab.edge_hardness": 0.94,
+        "raster.chroma": 0.004,
+        "raster.lines": 0.09,
+        "raster.grain": 0.045,
+        "bloom.radius": 6,
+        "slab.frame_jitter": 0.026,
+        "slab.ghost_grain": 0.86,
+        "slab.cloud_strength": 1,
+        "slab.cloud_tint": 0.9,
+        "slab.cyan": 0.08,
+        "slab.jitter": 0.035,
+        "slab.fill_gradient": 0.96,
+        "raster.softness": 2.2,
+        "slab.cloud_position": -0.15
+      }
+    },
+    "outline": {
+      "preset": "Luminous slab",
+      "overrides": {
+        "slab.height": 0.58,
+        "slab.position_x": 0.24,
+        "slab.position_y": 0.02,
+        "slab.width": 0.255,
+        "slab.edge_softness": 0.008,
+        "slab.hollow": 0.99,
+        "slab.edge_hardness": 0.98,
+        "slab.notch": 0,
+        "slab.intensity": 0.52,
+        "slab.ghost_width": 0.82,
+        "slab.ghost_offset": 0.28,
+        "slab.ghost_opacity": 0.035,
+        "bloom.strength": 0.23,
+        "smear.amount": 0.035,
+        "separation.amount": 0.002,
+        "raster.chroma": 0.004,
+        "raster.lines": 0.13,
+        "raster.grain": 0.024,
+        "bloom.radius": 6,
+        "slab.frame_jitter": 0.026,
+        "slab.ghost_grain": 0.86,
+        "slab.cloud_strength": 0.03,
+        "slab.cloud_tint": 0.9,
+        "slab.magenta": 0.65,
+        "slab.cyan": 0.08,
+        "slab.jitter": 0.035,
+        "raster.softness": 2.2,
+        "slab.cloud_position": -0.15
+      }
+    },
+    "noisy": {
+      "preset": "Luminous slab",
+      "overrides": {
+        "slab.height": 0.59,
+        "slab.position_x": 0.24,
+        "slab.position_y": 0.02,
+        "slab.width": 0.34,
+        "slab.edge_softness": 0.008,
+        "slab.notch": 0,
+        "slab.intensity": 0.91,
+        "slab.ghost_width": 0.82,
+        "slab.ghost_offset": 0.28,
+        "slab.ghost_opacity": 0.55,
+        "bloom.strength": 0.23,
+        "raster.grain": 0.045,
+        "raster.chroma": 0.004,
+        "smear.amount": 0.035,
+        "separation.amount": 0.002,
+        "slab.edge_hardness": 0.94,
+        "raster.lines": 0.09,
+        "bloom.radius": 6,
+        "slab.frame_jitter": 0.026,
+        "slab.ghost_grain": 0.86,
+        "slab.cloud_strength": 1,
+        "slab.cloud_tint": 0,
+        "slab.magenta": 0.65,
+        "slab.cyan": 0.08,
+        "slab.jitter": 0.035,
+        "raster.softness": 2.2,
+        "slab.cloud_position": -0.15
+      }
+    },
+    "dimfilled": {
+      "preset": "Luminous slab",
+      "overrides": {
+        "slab.height": 0.58,
+        "slab.position_x": 0.24,
+        "slab.position_y": 0.02,
+        "slab.width": 0.255,
+        "slab.edge_softness": 0.008,
+        "slab.hollow": 0.02,
+        "slab.notch": 0,
+        "slab.intensity": 0.61,
+        "slab.ghost_width": 0.82,
+        "slab.ghost_offset": 0.28,
+        "slab.ghost_opacity": 0.035,
+        "bloom.strength": 0.23,
+        "raster.grain": 0.024,
+        "raster.chroma": 0.004,
+        "smear.amount": 0.035,
+        "separation.amount": 0.002,
+        "slab.edge_hardness": 0.94,
+        "slab.fill_magenta": 0.85,
+        "raster.lines": 0.13,
+        "bloom.radius": 6,
+        "slab.frame_jitter": 0.026,
+        "slab.ghost_grain": 0.86,
+        "slab.cloud_strength": 0.03,
+        "slab.cloud_tint": 0.9,
+        "slab.magenta": 0.65,
+        "slab.cyan": 0.08,
+        "slab.jitter": 0.035,
+        "slab.fill_gradient": 0.23,
+        "raster.softness": 2.2,
+        "slab.cloud_position": -0.15
+      }
+    },
+    "one": {
+      "preset": "Reference blinds",
+      "overrides": {
+        "blinds.rows": 1,
+        "blinds.thickness": 0.055,
+        "blinds.aperture": 0.26,
+        "blinds.aperture_height": 1,
+        "blinds.swelling": 0.045,
+        "blinds.taper": 0.3,
+        "separation.amount": 0.002,
+        "smear.amount": 0.015,
+        "raster.chroma": 0.004,
+        "raster.lines": 0.09,
+        "raster.grain": 0.13,
+        "bloom.strength": 0.16,
+        "bloom.radius": 4,
+        "blinds.aperture_position": 0.4,
+        "blinds.row_drift": 0.015,
+        "blinds.curvature": 0.004,
+        "blinds.irregularity": 0.14,
+        "blinds.edge_softness": 0.4,
+        "warp.amount": 0.001,
+        "blinds.magenta": 0.95,
+        "slab.width": 0.3,
+        "slab.height": 0.58,
+        "slab.position_x": 0.24,
+        "slab.intensity": 0.7,
+        "slab.hollow": 0.5,
+        "slab.fill_magenta": 1,
+        "slab.ghost_opacity": 0,
+        "slab.edge_softness": 0.007,
+        "slab.cloud_strength": 0.2,
+        "raster.softness": 2.2,
+        "slab.magenta": 0.9,
+        "slab.fill_gradient": 1,
+        "slab.position_y": 0.04
+      },
+      "enabled": [
+        "slab",
+        "blinds",
+        "separation",
+        "smear",
+        "bloom",
+        "raster"
+      ]
+    },
+    "two": {
+      "preset": "Reference blinds",
+      "overrides": {
+        "blinds.rows": 2,
+        "blinds.thickness": 0.025,
+        "blinds.aperture": 0.26,
+        "blinds.swelling": 0.24,
+        "blinds.taper": 0.3,
+        "separation.amount": 0.002,
+        "smear.amount": 0.015,
+        "raster.chroma": 0.004,
+        "raster.lines": 0.09,
+        "raster.grain": 0.13,
+        "bloom.strength": 0.16,
+        "bloom.radius": 4,
+        "blinds.aperture_position": 0.4,
+        "blinds.aperture_height": 1,
+        "blinds.row_drift": 0.015,
+        "blinds.curvature": 0.002,
+        "blinds.irregularity": 0.14,
+        "blinds.edge_softness": 0.28,
+        "warp.amount": 0.001,
+        "blinds.magenta": 0.95,
+        "raster.softness": 2.2
+      }
+    },
+    "four": {
+      "preset": "Reference blinds",
+      "overrides": {
+        "blinds.rows": 4,
+        "blinds.thickness": 0.025,
+        "blinds.aperture": 0.26,
+        "blinds.swelling": 0.46,
+        "blinds.taper": 0.3,
+        "separation.amount": 0.002,
+        "smear.amount": 0.015,
+        "raster.chroma": 0.004,
+        "raster.lines": 0.09,
+        "raster.grain": 0.13,
+        "bloom.strength": 0.16,
+        "bloom.radius": 4,
+        "blinds.aperture_position": 0.4,
+        "blinds.aperture_height": 1,
+        "blinds.row_drift": 0.015,
+        "blinds.curvature": 0.002,
+        "blinds.irregularity": 0.14,
+        "blinds.edge_softness": 0.28,
+        "warp.amount": 0.001,
+        "blinds.magenta": 0.95,
+        "raster.softness": 2.2
+      }
+    },
+    "eight": {
+      "preset": "Reference blinds",
+      "overrides": {
+        "blinds.rows": 8,
+        "blinds.thickness": 0.02,
+        "blinds.aperture": 0.26,
+        "blinds.swelling": 0.98,
+        "blinds.taper": 0.3,
+        "separation.amount": 0.002,
+        "smear.amount": 0.015,
+        "raster.chroma": 0.004,
+        "raster.lines": 0.09,
+        "raster.grain": 0.13,
+        "bloom.strength": 0.16,
+        "bloom.radius": 4,
+        "blinds.aperture_position": 0.4,
+        "blinds.aperture_height": 0.68,
+        "blinds.row_drift": 0.015,
+        "blinds.curvature": 0.002,
+        "blinds.irregularity": 0.14,
+        "blinds.edge_softness": 0.075,
+        "warp.amount": 0.001,
+        "blinds.magenta": 0.95,
+        "raster.softness": 2.2
+      }
+    },
+    "dense": {
+      "preset": "Reference blinds",
+      "overrides": {
+        "blinds.rows": 18,
+        "blinds.thickness": 0.02,
+        "blinds.aperture": 0.26,
+        "blinds.swelling": 0.98,
+        "blinds.taper": 0.3,
+        "warp.amount": 0.001,
+        "separation.amount": 0.002,
+        "smear.amount": 0.015,
+        "raster.chroma": 0.004,
+        "raster.lines": 0.09,
+        "raster.grain": 0.13,
+        "bloom.strength": 0.16,
+        "bloom.radius": 4,
+        "blinds.aperture_position": 0.4,
+        "blinds.aperture_height": 0.68,
+        "blinds.row_drift": 0.015,
+        "blinds.curvature": 0.002,
+        "blinds.irregularity": 0.14,
+        "blinds.edge_softness": 0.075,
+        "blinds.magenta": 0.95,
+        "raster.softness": 2.2
+      }
+    },
+    "fullflash": {
+      "preset": "Luminous slab",
+      "overrides": {
+        "slab.height": 0.59,
+        "slab.position_x": 0.24,
+        "slab.position_y": 0.02,
+        "slab.width": 0.28,
+        "slab.edge_softness": 0.008,
+        "slab.edge_hardness": 0.94,
+        "slab.notch": 0,
+        "slab.intensity": 1.12,
+        "slab.ghost_width": 0.82,
+        "slab.ghost_offset": 0.28,
+        "slab.ghost_opacity": 0.28,
+        "smear.amount": 0.035,
+        "separation.amount": 0.002,
+        "raster.chroma": 0.004,
+        "raster.lines": 0.09,
+        "raster.grain": 0.045,
+        "bloom.strength": 0.23,
+        "bloom.radius": 6,
+        "slab.frame_jitter": 0.026,
+        "slab.ghost_grain": 0.86,
+        "slab.cloud_strength": 1,
+        "slab.cloud_tint": 0.9,
+        "slab.magenta": 0.65,
+        "slab.cyan": 0.08,
+        "slab.jitter": 0.035,
+        "flare.position_y": 0.3,
+        "flare.spread": 1.6,
+        "flare.strength": 0.77,
+        "flare.reach": 2,
+        "flare.fringe": 0.8,
+        "raster.softness": 2.2,
+        "slab.cloud_position": -0.15
+      },
+      "enabled": [
+        "slab",
+        "flare",
+        "separation",
+        "bloom",
+        "raster"
+      ]
+    },
+    "late_slab": {
+      "preset": "Luminous slab",
+      "overrides": {
+        "slab.height": 0.59,
+        "slab.position_x": 0.24,
+        "slab.position_y": 0.02,
+        "slab.width": 0.4,
+        "slab.intensity": 0.91,
+        "slab.ghost_width": 0.82,
+        "slab.ghost_offset": 0.28,
+        "slab.ghost_opacity": 0.87,
+        "slab.notch": 0,
+        "bloom.strength": 0.23,
+        "smear.amount": 0.035,
+        "separation.amount": 0.002,
+        "slab.edge_softness": 0.008,
+        "slab.edge_hardness": 0.94,
+        "slab.fill_magenta": 0,
+        "raster.chroma": 0.004,
+        "raster.lines": 0.09,
+        "raster.grain": 0.045,
+        "bloom.radius": 6,
+        "slab.frame_jitter": 0.026,
+        "slab.ghost_grain": 0.42,
+        "slab.cloud_strength": 1,
+        "slab.cloud_tint": 0,
+        "slab.magenta": 0.65,
+        "slab.cyan": 0.08,
+        "slab.jitter": 0.035,
+        "raster.softness": 2.2,
+        "slab.cloud_position": -0.15
+      }
+    },
+    "fragment": {
+      "preset": "Luminous slab",
+      "overrides": {
+        "slab.count": 1,
+        "slab.height": 0.59,
+        "slab.position_x": 0.24,
+        "slab.spacing": 0.32,
+        "slab.width": 0.34,
+        "slab.edge_softness": 0.008,
+        "slab.position_y": 0.02,
+        "slab.notch": 1,
+        "slab.intensity": 0.86,
+        "slab.ghost_width": 0.82,
+        "slab.ghost_offset": 0.28,
+        "slab.ghost_opacity": 0.7,
+        "smear.amount": 0.035,
+        "separation.amount": 0.002,
+        "slab.edge_hardness": 0.94,
+        "slab.fill_magenta": 0.3,
+        "raster.chroma": 0.004,
+        "raster.lines": 0.09,
+        "raster.grain": 0.045,
+        "bloom.strength": 0.23,
+        "bloom.radius": 6,
+        "slab.frame_jitter": 0.026,
+        "slab.ghost_grain": 0.86,
+        "slab.cloud_strength": 0.9099999999999999,
+        "slab.cloud_tint": 0.9,
+        "slab.magenta": 0.65,
+        "slab.cyan": 0.08,
+        "slab.jitter": 0.035,
+        "raster.softness": 2.2,
+        "slab.cloud_position": -0.15
+      }
+    },
+    "dim_fragment": {
+      "preset": "Luminous slab",
+      "overrides": {
+        "slab.height": 0.58,
+        "slab.position_x": 0.24,
+        "slab.position_y": 0.02,
+        "slab.width": 0.255,
+        "slab.edge_softness": 0.008,
+        "slab.hollow": 0.02,
+        "slab.notch": 1,
+        "slab.intensity": 0.6,
+        "slab.ghost_width": 0.82,
+        "slab.ghost_offset": 0.28,
+        "slab.ghost_opacity": 0.035,
+        "bloom.strength": 0.23,
+        "raster.grain": 0.024,
+        "raster.chroma": 0.004,
+        "smear.amount": 0.035,
+        "separation.amount": 0.002,
+        "slab.edge_hardness": 0.94,
+        "slab.fill_magenta": 0.78,
+        "raster.lines": 0.13,
+        "bloom.radius": 6,
+        "slab.frame_jitter": 0.026,
+        "slab.ghost_grain": 0.86,
+        "slab.cloud_strength": 0.03,
+        "slab.cloud_tint": 0.9,
+        "slab.magenta": 0.65,
+        "slab.cyan": 0.08,
+        "slab.jitter": 0.035,
+        "raster.softness": 2.2,
+        "slab.cloud_position": -0.15
+      }
+    },
+    "dark_outline": {
+      "preset": "Luminous slab",
+      "overrides": {
+        "slab.height": 0.58,
+        "slab.position_x": 0.24,
+        "slab.position_y": 0.02,
+        "slab.width": 0.255,
+        "slab.edge_softness": 0.008,
+        "slab.hollow": 0.98,
+        "slab.edge_hardness": 0.98,
+        "slab.notch": 0,
+        "slab.intensity": 0.14,
+        "slab.ghost_width": 0.82,
+        "slab.ghost_offset": 0.28,
+        "slab.ghost_opacity": 0.035,
+        "bloom.strength": 0.23,
+        "smear.amount": 0.035,
+        "separation.amount": 0.002,
+        "slab.magenta": 0.65,
+        "raster.chroma": 0.004,
+        "raster.lines": 0.13,
+        "raster.grain": 0.024,
+        "bloom.radius": 6,
+        "slab.frame_jitter": 0.026,
+        "slab.ghost_grain": 0.86,
+        "slab.cloud_strength": 0.03,
+        "slab.cloud_tint": 0.9,
+        "slab.cyan": 0.08,
+        "slab.jitter": 0.035,
+        "raster.softness": 2.2,
+        "slab.cloud_position": -0.15
+      }
+    },
+    "three": {
+      "preset": "Reference blinds",
+      "overrides": {
+        "blinds.rows": 3,
+        "blinds.thickness": 0.025,
+        "blinds.aperture": 0.26,
+        "blinds.swelling": 0.3,
+        "blinds.taper": 0.3,
+        "separation.amount": 0.002,
+        "smear.amount": 0.015,
+        "raster.chroma": 0.004,
+        "raster.lines": 0.09,
+        "raster.grain": 0.13,
+        "bloom.strength": 0.16,
+        "bloom.radius": 4,
+        "blinds.aperture_position": 0.4,
+        "blinds.aperture_height": 1,
+        "blinds.row_drift": 0.015,
+        "blinds.curvature": 0.002,
+        "blinds.irregularity": 0.14,
+        "blinds.edge_softness": 0.28,
+        "warp.amount": 0.001,
+        "blinds.magenta": 0.95,
+        "raster.softness": 2.2
+      }
+    },
+    "upper": {
+      "preset": "Luminous slab",
+      "overrides": {
+        "slab.height": 0.59,
+        "slab.position_x": 0.24,
+        "slab.position_y": 0.02,
+        "slab.width": 0.28,
+        "slab.edge_softness": 0.008,
+        "slab.edge_hardness": 0.94,
+        "slab.notch": 0,
+        "slab.intensity": 1.12,
+        "slab.ghost_width": 0.82,
+        "slab.ghost_offset": 0.28,
+        "slab.ghost_opacity": 0.28,
+        "smear.amount": 0.035,
+        "separation.amount": 0.002,
+        "raster.chroma": 0.004,
+        "raster.lines": 0.09,
+        "raster.grain": 0.045,
+        "bloom.strength": 0.23,
+        "bloom.radius": 6,
+        "slab.frame_jitter": 0.026,
+        "slab.ghost_grain": 0.86,
+        "slab.cloud_strength": 1,
+        "slab.cloud_tint": 0.9,
+        "slab.magenta": 0.65,
+        "slab.cyan": 0.08,
+        "slab.jitter": 0.035,
+        "flare.position_y": 0.13,
+        "flare.spread": 0.26,
+        "flare.strength": 1.9,
+        "flare.reach": 0.5,
+        "flare.fringe": 0.8,
+        "raster.softness": 2.2,
+        "slab.cloud_position": -0.15
+      },
+      "enabled": [
+        "slab",
+        "flare",
+        "separation",
+        "bloom",
+        "raster"
+      ]
+    },
+    "lower": {
+      "preset": "Luminous slab",
+      "overrides": {
+        "slab.height": 0.59,
+        "slab.position_x": 0.24,
+        "slab.position_y": 0.02,
+        "slab.width": 0.28,
+        "slab.edge_softness": 0.008,
+        "slab.edge_hardness": 0.94,
+        "slab.notch": 0,
+        "slab.intensity": 1.12,
+        "slab.ghost_width": 0.82,
+        "slab.ghost_offset": 0.28,
+        "slab.ghost_opacity": 0.28,
+        "smear.amount": 0.035,
+        "separation.amount": 0.002,
+        "raster.chroma": 0.004,
+        "raster.lines": 0.09,
+        "raster.grain": 0.045,
+        "bloom.strength": 0.23,
+        "bloom.radius": 6,
+        "slab.frame_jitter": 0.026,
+        "slab.ghost_grain": 0.86,
+        "slab.cloud_strength": 1,
+        "slab.cloud_tint": 0.9,
+        "slab.magenta": 0.65,
+        "slab.cyan": 0.08,
+        "slab.jitter": 0.035,
+        "flare.position_y": 0.89,
+        "flare.spread": 0.3,
+        "flare.strength": 1.65,
+        "flare.reach": 0.5,
+        "flare.fringe": 0.8,
+        "raster.softness": 2.2,
+        "slab.cloud_position": -0.15
+      },
+      "enabled": [
+        "slab",
+        "flare",
+        "separation",
+        "bloom",
+        "raster"
+      ]
+    },
+    "upperflash": {
+      "preset": "Luminous slab",
+      "overrides": {
+        "slab.height": 0.59,
+        "slab.position_x": 0.24,
+        "slab.position_y": 0.02,
+        "slab.width": 0.33,
+        "slab.edge_softness": 0.008,
+        "slab.edge_hardness": 0.94,
+        "slab.notch": 0,
+        "slab.intensity": 1.12,
+        "slab.ghost_width": 0.82,
+        "slab.ghost_offset": 0.28,
+        "slab.ghost_opacity": 0.7,
+        "smear.amount": 0.035,
+        "separation.amount": 0.002,
+        "raster.chroma": 0.004,
+        "raster.lines": 0.09,
+        "raster.grain": 0.045,
+        "bloom.strength": 0.23,
+        "bloom.radius": 6,
+        "slab.frame_jitter": 0.026,
+        "slab.ghost_grain": 0.86,
+        "slab.cloud_strength": 1,
+        "slab.cloud_tint": 0.9,
+        "slab.magenta": 0.65,
+        "slab.cyan": 0.08,
+        "slab.jitter": 0.035,
+        "flare.position_y": 0.05,
+        "flare.spread": 0.36,
+        "flare.strength": 1.6,
+        "flare.reach": 0.85,
+        "flare.fringe": 0.8,
+        "raster.softness": 2.2,
+        "slab.cloud_position": -0.15
+      },
+      "enabled": [
+        "slab",
+        "flare",
+        "separation",
+        "bloom",
+        "raster"
+      ]
+    },
+    "midflash": {
+      "preset": "Luminous slab",
+      "overrides": {
+        "slab.height": 0.59,
+        "slab.position_x": 0.24,
+        "slab.position_y": 0.02,
+        "slab.width": 0.28,
+        "slab.edge_softness": 0.008,
+        "slab.edge_hardness": 0.94,
+        "slab.notch": 0,
+        "slab.intensity": 1.12,
+        "slab.ghost_width": 0.82,
+        "slab.ghost_offset": 0.28,
+        "slab.ghost_opacity": 0.28,
+        "smear.amount": 0.035,
+        "separation.amount": 0.002,
+        "raster.chroma": 0.004,
+        "raster.lines": 0.09,
+        "raster.grain": 0.045,
+        "bloom.strength": 0.23,
+        "bloom.radius": 6,
+        "slab.frame_jitter": 0.026,
+        "slab.ghost_grain": 0.86,
+        "slab.cloud_strength": 1,
+        "slab.cloud_tint": 0.9,
+        "slab.magenta": 0.65,
+        "slab.cyan": 0.08,
+        "slab.jitter": 0.035,
+        "flare.position_y": 0.48,
+        "flare.spread": 0.42,
+        "flare.strength": 1.8,
+        "flare.reach": 0.45,
+        "flare.fringe": 0.8,
+        "raster.softness": 2.2,
+        "slab.cloud_position": -0.15
+      },
+      "enabled": [
+        "slab",
+        "flare",
+        "separation",
+        "bloom",
+        "raster"
+      ]
+    },
+    "thin_lower": {
+      "preset": "Luminous slab",
+      "overrides": {
+        "slab.height": 0.59,
+        "slab.position_x": 0.24,
+        "slab.position_y": 0.02,
+        "slab.width": 0.28,
+        "slab.edge_softness": 0.008,
+        "slab.edge_hardness": 0.94,
+        "slab.notch": 0,
+        "slab.intensity": 0.15,
+        "slab.ghost_width": 0.82,
+        "slab.ghost_offset": 0.28,
+        "slab.ghost_opacity": 0.28,
+        "smear.amount": 0.035,
+        "separation.amount": 0.002,
+        "raster.chroma": 0.004,
+        "raster.lines": 0.09,
+        "raster.grain": 0.045,
+        "bloom.strength": 0.23,
+        "bloom.radius": 6,
+        "slab.frame_jitter": 0.026,
+        "slab.ghost_grain": 0.86,
+        "slab.cloud_strength": 1,
+        "slab.cloud_tint": 0.9,
+        "slab.magenta": 0.65,
+        "slab.cyan": 0.08,
+        "slab.jitter": 0.035,
+        "flare.position_y": 0.89,
+        "flare.spread": 0.025,
+        "flare.strength": 0.32,
+        "flare.reach": 0.5,
+        "flare.fringe": 0.8,
+        "slab.hollow": 0.9,
+        "raster.softness": 2.2,
+        "slab.cloud_position": -0.15
+      },
+      "enabled": [
+        "slab",
+        "flare",
+        "separation",
+        "bloom",
+        "raster"
+      ]
+    },
+    "lower_soft": {
+      "preset": "Luminous slab",
+      "overrides": {
+        "slab.height": 0.59,
+        "slab.position_x": 0.24,
+        "slab.position_y": 0.02,
+        "slab.width": 0.28,
+        "slab.edge_softness": 0.008,
+        "slab.edge_hardness": 0.94,
+        "slab.notch": 0,
+        "slab.intensity": 1.12,
+        "slab.ghost_width": 0.82,
+        "slab.ghost_offset": 0.28,
+        "slab.ghost_opacity": 0.28,
+        "smear.amount": 0.035,
+        "separation.amount": 0.002,
+        "raster.chroma": 0.004,
+        "raster.lines": 0.09,
+        "raster.grain": 0.045,
+        "bloom.strength": 0.23,
+        "bloom.radius": 6,
+        "slab.frame_jitter": 0.026,
+        "slab.ghost_grain": 0.86,
+        "slab.cloud_strength": 1,
+        "slab.cloud_tint": 0.9,
+        "slab.magenta": 0.65,
+        "slab.cyan": 0.08,
+        "slab.jitter": 0.035,
+        "flare.position_y": 0.89,
+        "flare.spread": 0.26,
+        "flare.strength": 0.75,
+        "flare.reach": 0.5,
+        "flare.fringe": 0.8,
+        "raster.softness": 2.2,
+        "slab.cloud_position": -0.15
+      },
+      "enabled": [
+        "slab",
+        "flare",
+        "separation",
+        "bloom",
+        "raster"
+      ]
+    },
+    "wideflash": {
+      "preset": "Luminous slab",
+      "overrides": {
+        "slab.height": 0.59,
+        "slab.position_x": 0.24,
+        "slab.position_y": 0.02,
+        "slab.width": 0.33,
+        "slab.edge_softness": 0.008,
+        "slab.edge_hardness": 0.94,
+        "slab.notch": 0,
+        "slab.intensity": 1.12,
+        "slab.ghost_width": 0.82,
+        "slab.ghost_offset": 0.28,
+        "slab.ghost_opacity": 0.7,
+        "smear.amount": 0.035,
+        "separation.amount": 0.002,
+        "raster.chroma": 0.004,
+        "raster.lines": 0.09,
+        "raster.grain": 0.045,
+        "bloom.strength": 0.23,
+        "bloom.radius": 6,
+        "slab.frame_jitter": 0.026,
+        "slab.ghost_grain": 0.86,
+        "slab.cloud_strength": 1,
+        "slab.cloud_tint": 0.9,
+        "slab.magenta": 0.65,
+        "slab.cyan": 0.08,
+        "slab.jitter": 0.035,
+        "flare.position_y": 0.09,
+        "flare.spread": 0.45,
+        "flare.strength": 1.95,
+        "flare.reach": 0.9,
+        "flare.fringe": 0.8,
+        "raster.softness": 2.2,
+        "slab.cloud_position": -0.15
+      },
+      "enabled": [
+        "slab",
+        "flare",
+        "separation",
+        "bloom",
+        "raster"
+      ]
+    }
+  },
+  "cues": [
+    {
+      "time": 0.0,
+      "state": "blinds",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 0.36,
+      "state": "upperflash",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 0.4,
+      "state": "outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 0.44,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 0.48,
+      "state": "wideflash",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 0.52,
+      "state": "outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 0.56,
+      "state": "upper",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 0.6,
+      "state": "lower",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 0.64,
+      "state": "one",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 0.68,
+      "state": "two",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 0.72,
+      "state": "four",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 0.76,
+      "state": "eight",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 0.8,
+      "state": "dense",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 0.88,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 1.12,
+      "state": "dense",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 1.16,
+      "state": "eight",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 1.2,
+      "state": "two",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 1.24,
+      "state": "midflash",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 1.28,
+      "state": "upper",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 1.32,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 1.36,
+      "state": "fullflash",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 1.4,
+      "state": "outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 1.44,
+      "state": "lower",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 1.48,
+      "state": "four",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 1.52,
+      "state": "eight",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 1.56,
+      "state": "dense",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 1.6,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 1.72,
+      "state": "eight",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 1.76,
+      "state": "upper",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 1.84,
+      "state": "upperflash",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 1.88,
+      "state": "two",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 1.92,
+      "state": "dense",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 1.96,
+      "state": "fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 2.0,
+      "state": "dense",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 2.08,
+      "state": "lower",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 2.12,
+      "state": "lower",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 2.16,
+      "state": "dense",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 2.2,
+      "state": "double",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 2.24,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 2.28,
+      "state": "double",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 2.32,
+      "state": "fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 2.36,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 2.4,
+      "state": "double",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 2.44,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 2.48,
+      "state": "fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 2.52,
+      "state": "double",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 2.56,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 2.6,
+      "state": "double",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 2.64,
+      "state": "fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 2.68,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 2.72,
+      "state": "double",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 2.76,
+      "state": "blinds",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 3.16,
+      "state": "dense",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 3.24,
+      "state": "blinds",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 3.28,
+      "state": "double",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 3.32,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 3.36,
+      "state": "double",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 3.4,
+      "state": "fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 3.44,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 3.48,
+      "state": "double",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 3.52,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 3.56,
+      "state": "fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 3.6,
+      "state": "double",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 3.64,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 3.68,
+      "state": "double",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 3.72,
+      "state": "fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 3.76,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 3.8,
+      "state": "double",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 3.84,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 3.88,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 3.92,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 3.96,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 4.0,
+      "state": "outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 4.04,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 4.08,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 4.12,
+      "state": "dense",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 4.52,
+      "state": "eight",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 4.64,
+      "state": "eight",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 4.68,
+      "state": "four",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 4.72,
+      "state": "two",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 4.76,
+      "state": "one",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 4.8,
+      "state": "two",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 4.84,
+      "state": "eight",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 4.88,
+      "state": "two",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 4.92,
+      "state": "lower",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 4.96,
+      "state": "three",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 5.0,
+      "state": "lower",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 5.04,
+      "state": "dark_outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 5.08,
+      "state": "lower",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 5.12,
+      "state": "four",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 5.16,
+      "state": "dense",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 5.2,
+      "state": "eight",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 5.24,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 5.28,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 5.32,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 5.36,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 5.4,
+      "state": "outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 5.44,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 5.48,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 5.52,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 5.56,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 5.6,
+      "state": "double",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 5.64,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 5.68,
+      "state": "double",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 5.72,
+      "state": "fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 5.76,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 5.8,
+      "state": "double",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 5.84,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 5.88,
+      "state": "fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 5.92,
+      "state": "double",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 5.96,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 6.0,
+      "state": "double",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 6.04,
+      "state": "lower_soft",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 6.08,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 6.12,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 6.16,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 6.2,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 6.24,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 6.28,
+      "state": "outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 6.32,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 6.36,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 6.4,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 6.44,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 6.48,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 6.52,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 6.56,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 6.6,
+      "state": "outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 6.64,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 6.68,
+      "state": "double",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 6.72,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 6.76,
+      "state": "double",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 6.8,
+      "state": "fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 6.84,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 6.88,
+      "state": "double",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 6.92,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 6.96,
+      "state": "fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 7.0,
+      "state": "double",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 7.04,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 7.08,
+      "state": "double",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 7.12,
+      "state": "fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 7.16,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 7.2,
+      "state": "lower_soft",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 7.24,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 7.28,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 7.32,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 7.36,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 7.4,
+      "state": "outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 7.44,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 7.48,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 7.52,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 7.56,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 7.6,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 7.64,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 7.68,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 7.72,
+      "state": "outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 7.76,
+      "state": "double",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 7.8,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 7.84,
+      "state": "double",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 7.88,
+      "state": "fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 7.92,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 7.96,
+      "state": "double",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 8.0,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 8.04,
+      "state": "fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 8.08,
+      "state": "double",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 8.12,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 8.16,
+      "state": "double",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 8.2,
+      "state": "fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 8.24,
+      "state": "noisy",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 8.28,
+      "state": "noisy",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 8.32,
+      "state": "fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 8.36,
+      "state": "noisy",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 8.4,
+      "state": "outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 8.44,
+      "state": "noisy",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 8.48,
+      "state": "noisy",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 8.52,
+      "state": "double",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 8.56,
+      "state": "noisy",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 8.6,
+      "state": "noisy",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 8.64,
+      "state": "fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 8.68,
+      "state": "noisy",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 8.72,
+      "state": "outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 8.76,
+      "state": "noisy",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 8.8,
+      "state": "noisy",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 8.84,
+      "state": "double",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 8.88,
+      "state": "noisy",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 8.92,
+      "state": "noisy",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 8.96,
+      "state": "fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 9.0,
+      "state": "noisy",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 9.04,
+      "state": "outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 9.08,
+      "state": "noisy",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 9.12,
+      "state": "noisy",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 9.16,
+      "state": "double",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 9.2,
+      "state": "noisy",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 9.24,
+      "state": "noisy",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 9.28,
+      "state": "fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 9.32,
+      "state": "noisy",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 9.36,
+      "state": "outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 9.4,
+      "state": "noisy",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 9.44,
+      "state": "noisy",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 9.48,
+      "state": "dense",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 9.52,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 9.56,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 9.6,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 9.64,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 9.68,
+      "state": "outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 9.72,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 9.76,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 9.8,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 9.84,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 9.88,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 9.92,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 9.96,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 10.0,
+      "state": "outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 10.04,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 10.08,
+      "state": "eight",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 10.12,
+      "state": "eight",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 10.16,
+      "state": "four",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 10.2,
+      "state": "four",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 10.24,
+      "state": "two",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 10.28,
+      "state": "four",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 10.32,
+      "state": "four",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 10.4,
+      "state": "three",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 10.44,
+      "state": "two",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 10.48,
+      "state": "one",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 10.52,
+      "state": "two",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 10.68,
+      "state": "upper",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 10.72,
+      "state": "outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 10.76,
+      "state": "lower",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 10.84,
+      "state": "upper",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 10.88,
+      "state": "one",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 10.92,
+      "state": "dark_outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 10.96,
+      "state": "outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 11.2,
+      "state": "thin_lower",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 11.28,
+      "state": "dense",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 11.4,
+      "state": "dimfilled",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 11.44,
+      "state": "outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 11.48,
+      "state": "dimfilled",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 11.52,
+      "state": "dimfilled",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 11.56,
+      "state": "dark_outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 11.6,
+      "state": "dimfilled",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 11.64,
+      "state": "outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 11.68,
+      "state": "dimfilled",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 11.72,
+      "state": "dimfilled",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 11.76,
+      "state": "outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 11.8,
+      "state": "dimfilled",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 11.84,
+      "state": "dimfilled",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 11.88,
+      "state": "dark_outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 11.92,
+      "state": "dimfilled",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 11.96,
+      "state": "outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 12.0,
+      "state": "dimfilled",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 12.04,
+      "state": "dimfilled",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 12.08,
+      "state": "outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 12.12,
+      "state": "dimfilled",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 12.16,
+      "state": "dimfilled",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 12.2,
+      "state": "dark_outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 12.24,
+      "state": "dimfilled",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 12.28,
+      "state": "outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 12.32,
+      "state": "dimfilled",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 12.36,
+      "state": "dimfilled",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 12.4,
+      "state": "outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 12.44,
+      "state": "thin_lower",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 12.48,
+      "state": "dimfilled",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 12.52,
+      "state": "dim_fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 12.56,
+      "state": "dimfilled",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 12.6,
+      "state": "dim_fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 12.64,
+      "state": "dim_fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 12.68,
+      "state": "dim_fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 12.72,
+      "state": "dim_fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 12.76,
+      "state": "dim_fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 12.8,
+      "state": "dimfilled",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 12.84,
+      "state": "dim_fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 12.88,
+      "state": "dimfilled",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 12.92,
+      "state": "dim_fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 12.96,
+      "state": "dim_fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 13.0,
+      "state": "dark_outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 13.04,
+      "state": "dark_outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 13.08,
+      "state": "outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 13.12,
+      "state": "dark_outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 13.16,
+      "state": "dark_outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 13.2,
+      "state": "dimfilled",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 13.24,
+      "state": "outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 13.28,
+      "state": "dimfilled",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 13.32,
+      "state": "dimfilled",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 13.36,
+      "state": "dark_outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 13.4,
+      "state": "dimfilled",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 13.44,
+      "state": "outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 13.48,
+      "state": "dimfilled",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 13.52,
+      "state": "dimfilled",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 13.56,
+      "state": "outline",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 13.6,
+      "state": "dimfilled",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 13.64,
+      "state": "dimfilled",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 13.68,
+      "state": "fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 13.72,
+      "state": "dimfilled",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 13.76,
+      "state": "dim_fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 13.8,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 13.84,
+      "state": "fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 13.88,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 13.92,
+      "state": "dim_fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 13.96,
+      "state": "slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 14.0,
+      "state": "fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 14.04,
+      "state": "dimfilled",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 14.08,
+      "state": "dim_fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 14.12,
+      "state": "magenta",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 14.16,
+      "state": "late_slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 14.2,
+      "state": "noisy",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 14.24,
+      "state": "late_slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 14.28,
+      "state": "fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 14.32,
+      "state": "late_slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 14.36,
+      "state": "late_slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 14.4,
+      "state": "noisy",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 14.44,
+      "state": "late_slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 14.48,
+      "state": "late_slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 14.52,
+      "state": "noisy",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 14.56,
+      "state": "late_slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 14.6,
+      "state": "fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 14.64,
+      "state": "late_slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 14.68,
+      "state": "late_slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 14.72,
+      "state": "three",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 14.76,
+      "state": "late_slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 14.8,
+      "state": "late_slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 14.84,
+      "state": "noisy",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 14.88,
+      "state": "late_slab",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 14.92,
+      "state": "fragment",
+      "transition": "cut",
+      "duration": 0.0
+    },
+    {
+      "time": 14.96,
+      "state": "late_slab",
+      "transition": "cut",
+      "duration": 0.0
+    }
+  ]
+}

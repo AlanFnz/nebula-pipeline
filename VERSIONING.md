@@ -1,6 +1,6 @@
 # Versioning
 
-Nebula uses one project version for its desktop app and existing pipeline. The canonical value is `__version__` in [`_version.py`](_version.py). The desktop CLI (`python studio.py --version`), Qt application metadata and window title read it directly. Both macOS bundle version fields are derived copies, maintained by `scripts/sync_version.py`.
+Nebula uses one project version for its desktop app and existing pipeline. The canonical value is `__version__` in [`_version.py`](_version.py). The desktop CLI (`python studio.py --version`), Qt application metadata and window title read it directly. Both macOS bundle version fields are derived copies in `packaging/Info.plist`, maintained by `scripts/sync_version.py` and read by the app build.
 
 ## Convention
 
