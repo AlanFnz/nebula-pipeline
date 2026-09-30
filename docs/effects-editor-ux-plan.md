@@ -1,6 +1,6 @@
 # Effects editor UX
 
-Status: planned, implementation starting 2026-09-30.
+Status: implemented and packaged 2026-09-30; installed-app update waits for the running app to close.
 Base: 4ba6a63 on codex/studio-editing-library (draft PR #9, itself based on #8).
 Delivery branch: codex/effects-editor-ux. Version remains 0.2.0.
 
@@ -99,11 +99,14 @@ Maintain source/object editing as a distinct action from adding image effects.
 - GPT-6.1 Sol, parameters: synth_effect_parameter_ui.py, a new presentation-only
   metadata helper if needed, and new focused parameter tests. Own explicit
   animation/fixed flow, provenance labels, units and hue swatches.
-- GPT-6 Luna, library: new synth_effect_catalog.py / synth_effect_browser.py and
+- Library agent (reused idle reviewer): new synth_effect_catalog.py / synth_effect_browser.py and
   focused library tests. Own categories, search, compatibility, preset choice and
   keyboard-accessible dialog. No edits to shared EffectsPanel or compiler.
 - Root: documentation, synth_studio.py embedding/header integration, review,
   shared-test adjustments, final verification, commits, packaging and PR.
+
+A new GPT-6 Luna library agent was requested, but the chat reached its agent-thread
+limit. The idle review agent was reused for that bounded task instead.
 
 Agents share this checkout. No branch switches, commits, pushes, builds, restart
 or edits outside the assigned files. Signal contract for library:
@@ -130,3 +133,51 @@ on #9 unless that dependency has merged. Do not merge or tag. Build and verify
 the Mac app. Install only when the running app is closed; do not force-quit or
 assume permission to discard current unsaved work. Record native automation
 limitations honestly if the computer-control runtime remains unavailable.
+
+## Delivery notes
+
+All five items are implemented. The focused editor keeps navigation and scope
+above a bounded parameter scroll. Activation and preset replacement have their
+own named disclosure inside that scroll. Arrange has a separate bounded view
+and returns to the previous effect, scope and scroll position. The overview
+routes source rows to Object; the library lists compatible image treatments.
+
+Bypass retains authored activation and settings, including intermittent studies
+and inherited section behavior. Shared ink clocks ignore presentation bypass so
+section duration cannot change accidentally. Contextual restore affects only
+the current panel; source reset retains the imported file and In/Out trim.
+
+Parameter widgets retain drafts in their original section. Save validates and
+commits hidden drafts together. Drafts for removed sections stop participating
+in Save, while Undo can restore them. Conflicting drafts for one scope block
+Save with an explanation. Text-source changes preserve wording without
+re-enabling the old source.
+
+Themed screenshots at 1280×800 use a 391×605 inspector, with 245–260 px for the
+parameter viewport and the first control at y347–362. Narrow 380 px inspectors
+and 1280×720 windows are covered; Arrange remains scrollable at both 720 and
+800 px heights. Inspection caught and fixed clipped inactive numeric fields.
+Review captures and measurements are in the ignored output/effects-ux-final
+folder. These are offscreen Qt checks; native Mac interaction automation was
+unavailable in this session.
+
+Validation completed before delivery:
+
+- Frozen study pixel contracts: 12 tests passed, covering 121 render scenarios
+  and bundled model identity; no baseline updates.
+- Bypass/shared-timing gate: 16 passed, including saved/reopened resume pixels
+  and identical section durations while timing controls are edited.
+- Parameter, widget, core and window/save gate: 55 passed after the themed
+  numeric sizing fix. Arrange delta: 5 passed; scoped window/save checks: 6 passed.
+- Integrated gate: 365 passed; two assertions depended on the old widget layout
+  (dictionary row order and direct-page hidden state). Updated them to check the
+  actual bottom visible control and hidden Object tab. Final 52-test gate passed
+  in 194.75s, covering both assertions, scoped save/window integration, all
+  parameter UX checks, core bypass/navigation and the final Arrange changes.
+- macOS build and deep strict code-signature verification passed. Version
+  metadata remains 0.2.0; no merge, release tag or version bump.
+
+Commits are split into planning/extraction, discovery, persistent bypass,
+parameter UX, numeric sizing, focused-editor integration and documentation.
+The feature branch is stacked on draft PR #9. The installer refuses to replace
+an app that is still running; no force quit or composition backup was performed.

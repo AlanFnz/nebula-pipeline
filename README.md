@@ -505,7 +505,8 @@ detailed sequence/preset windows disable composition Undo/Redo.
 
 - Select **Whole clip** to adjust the entire piece, or click a section to
   adjust it locally. Sections can be added, duplicated, removed, reordered,
-  and given different durations under **Arrange**.
+  and given different durations under **Arrange**. Arrange uses its own scrollable
+  view; **Back to parameters** restores the selected effect, scope and scroll position.
 - **Drag the body of a timeline section** to reorder it. A floating label and
   insertion marker show the destination; release to apply one undoable move.
   Shift-click a range or Command-click individual sections, then drag a selected
@@ -552,29 +553,36 @@ detailed sequence/preset windows disable composition Undo/Redo.
   use **Source → When footage ends → Loop trimmed range**, with **In** and
   **Out** defining the range, to repeat the source video itself. The timeline
   must be longer than that trimmed range to see another source repetition.
-- **Effects** exposes luminous forms, rays / Venetian blinds, particle attractors, ghosts / trails,
-  signal breakup, signal drift, granular halos, exposure flares, color
-  separation, signal interference, bloom, and raster / grain. Select any effect in the library and
-  **Apply effect** to add it with a preset. Effects can be combined in any
-  section, independently of the section's source phrase. Rays and Venetian
-  blinds are two starting settings of the same configurable generator.
-- **Applied effects** lists the effects enabled in the current scope, with
-  **On** or **Intermittent** badges. Intermittent means the effect is used during
-  part of the clip or section. Click a row to inspect its parameters; the
-  selected effect is highlighted. **Available effects** opens a separate,
-  collapsible catalog of effects that are off here. Selecting an available
-  effect opens its inspector; **+ Apply effect** adds it using the chosen preset.
-  Both lists use the panel's normal scrolling, with no nested scroll area.
-  Bypassed effects appear in Available with a **Bypassed** badge and retain their
-  settings. The lists update after edits, section/scope changes and Undo/Redo.
-  Selecting another section opens an active effect if the previously inspected
-  effect is unused there. Off applies only to the
-  inspected effect, not to the section. Authored parameters that vary are shown as ranges. Click a range to
-  start a fixed value at its lower bound, then edit it. **↶** restores that
-  parameter's recipe or inherited value. Unedited parameters keep animating.
-  **Follow recipe** retains the authored enable/disable changes; **On** or
-  **Off throughout scope** overrides those changes. **Restore** removes that
-  effect's overrides from the current scope.
+- **Effects** opens an overview of image treatments used in the selected scope,
+  with **On**, **Intermittent** and **Bypassed** badges. Sources appear in a separate
+  **Object / sources** group. Click an entry to open its focused editor;
+  **Back to effects** returns to the overview. Scope, effect navigation and
+  parameter search stay visible while the parameter body scrolls.
+- **Add effect…** opens a searchable library with categories, descriptions and
+  starting presets. Search or inspect candidates without changing the composition,
+  then choose **Add effect**. Already applied effects offer **Inspect effect**;
+  **Choose object…** takes you to source selection. Imported videos show only
+  compatible image treatments. Effects can be combined per section in the
+  renderer's established order.
+- **Bypass / Resume** temporarily disables an image effect while retaining its
+  parameters and authored activation timing, including after Save/Open and
+  Undo/Redo. Bypassed effects remain in the applied overview. A section can resume
+  an inherited bypass without copying the whole clip's parameter values.
+- **Editing: Whole clip / Section …** identifies the scope of parameter edits.
+  **Animated**, **Fixed** and **Following** labels distinguish study values from
+  whole-clip inheritance and section overrides. Animated ranges are read-only;
+  **Use fixed value** explicitly starts from the displayed proposal. **↶** removes
+  only that parameter's local override. Unedited parameters keep animating.
+  Numeric controls retain saved precision while displaying two decimal places;
+  known units and small hue indications help identify values.
+- **Activation & preset** inside the focused editor controls **Follow study**,
+  **On throughout scope** and **Off throughout scope**. **Replace with preset**
+  explicitly replaces that effect's settings; **Restore this effect** removes
+  its overrides from the current scope. Shared ink **Timing**, video **Source**
+  and **Master** controls remain whole-clip controls and identify that scope.
+  Pending text stays with its original section when navigating; Save validates
+  and applies retained drafts together. Conflicting wording in the Object and
+  Effects editors must be resolved before saving.
 - **Object** is the common place for the scene's source. It replaces the former
   Geometry tab and opens the controls for the object actually used by the study:
   **Geometric signal** edits the luminous form/ray aperture, **Ink stamps** edits
@@ -631,8 +639,11 @@ detailed sequence/preset windows disable composition Undo/Redo.
   **Rhythm** controls how quickly their internal changes happen.
 - **New take** makes a reproducible variation in the current scope. **Keep**
   locks a macro value during variation. Fixed effect values stay fixed.
-  **Reset controls** clears the scope's effect overrides and returns it to
-  1×, its original geometry and variation; **Undo / Redo** recover composition edits.
+  The toolbar's restore action follows the current panel: **Restore this effect**,
+  **Restore object controls**, **Reset finishing**, **Reset master** or
+  **Restore shared timing**. It keeps unrelated panels unchanged and is disabled
+  in the effects overview. **Reset source controls** preserves the imported file
+  and its In/Out trim. **Undo / Redo** recover composition edits.
 - **Save…** keeps effects, arrangement, macros, locks, variations and a snapshot of
   the source recipe together in a versioned composition document. **Open…**
   accepts compositions and existing detailed sequence files.
@@ -759,7 +770,7 @@ and fullscreen/maximized state. On first launch it opens fullscreen; the header'
 **Full screen / Exit full screen** button switches modes. Detailed-copy windows keep
 their own temporary layout without overwriting the main workspace preferences.
 
-**Effects → Low-res finish → 360 px preview feel → + Apply effect** keeps
+**Effects → Add effect… → Low-res finish → 360 px preview feel → Add effect** keeps
 the texture of the 360 px preview in a full-size export. Choose the whole-clip
 scope to apply it throughout, or select a section for a local treatment.
 **Working resolution** sets the longest edge of the internal raster; the saved
@@ -949,7 +960,7 @@ and retain their original rendering.
 
 New profile studies enable Signal background across all four sections. To
 update a saved profile, choose Whole clip, then add Signal background from
-Available effects. Saved compositions and other studies retain their prior look.
+**Add effect…**. Saved compositions and other studies retain their prior look.
 
 **Studies → Profile / signal echoes · 8s** adds a separate 120-frame variation
 at 15 fps. Six sections progress through Green lock, Overload, Red / falling scan,
@@ -1008,7 +1019,7 @@ bleed deform the existing image. The strongest faults follow the main outward
 move so it stays visible. Existing saved orbit clips retain their earlier motion
 and colors; Particle head and Original particles also retain their pixels.
 The default startup study and **Refined signal / Approved signal** remain unchanged.
-You can also apply **Particle attractor** from Effects to any composition.
+You can also choose **Object → Particle model** in any generated composition.
 
 - **Motion → Surges** adds **Acceleration**, **Arrival disorder** and
   **Overshoot**. Groups hesitate, arrive on curved paths at different times and
