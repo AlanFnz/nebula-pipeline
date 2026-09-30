@@ -3,6 +3,16 @@
 
 def control_group(path):
     module, key = path.split('.')
+    if module == 'scan_modulation':
+        if key in ('input', 'region', 'show_key') or key.startswith('key_'): return 'Signal selection'
+        if key.startswith('fade'): return 'Selection fade'
+        if key.startswith('spark') or key == 'sparks': return 'Bright points'
+        if key in ('row_pitch', 'irregularity', 'wave', 'tear', 'streak', 'depth', 'dropout'): return 'Scan structure'
+        if key in ('black', 'white', 'exposure', 'fragment_width'): return 'Color & light'
+    if module == 'crt_capture':
+        if key in ('pitch', 'phosphor', 'moire', 'moire_pitch', 'angle', 'curvature', 'weave', 'field', 'bend', 'drift'): return 'Screen interference'
+        if key in ('softness', 'focus_drift', 'halation', 'threshold', 'radius'): return 'Lens & light spill'
+        if key in ('exposure', 'flicker'): return 'Color & light'
     if module == 'chroma_print':
         if key in ('detail', 'detail_radius', 'softness'): return 'Texture & detail'
         if key != 'mix': return 'Color & light'

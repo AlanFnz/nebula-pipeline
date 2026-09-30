@@ -32,6 +32,8 @@ def paths(module, keys=None):
 
 
 EFFECTS = (
+    Effect('scan_modulation', 'Scan modulation', 'Interrupt source rows with coupled oscillators, color-lock failures and bright points. Apply to the whole picture, highlights or a color range; Selection view helps tune the key. Works with footage, text and generated objects.', paths('scan_modulation'), ('scan_modulation',)),
+    Effect('crt_capture', 'CRT capture', 'Film the signal through curved phosphor interference, lens softness, focus breathing and emitted-light noise. Covers the entire canvas.', paths('crt_capture'), ('crt_capture',)),
     Effect('text', 'Text', 'Editable wording, typeface, spacing and color. Select Text in Object to replace another source while retaining its treatments. Position uses the shared Object controls.', paths('text'), ('text',), primary=10),
     Effect('stretch_echo', 'Stretch echo', 'Stretch luminous contours behind the source. Adjustable shape, timing and color; follows the shared Object position. Applies before finishing to text, objects and footage.', paths('stretch_echo'), ('stretch_echo',)),
     Effect('signal_etch', 'Signal etch', 'Erode highlights with fresh horizontal grain and pulsing scattered light. The texture follows the image rather than adding an independent noise layer.', paths('signal_etch'), ('signal_etch',)),

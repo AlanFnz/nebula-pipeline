@@ -21,6 +21,7 @@ import threading
 from PIL import Image
 from media import Cancellation, decode_frames, dimensions, frame_count, probe
 from synth_portrait_recipes import PORTRAIT_EFFECTS, EXPOSURE_EFFECTS, FRACTURED_EFFECTS, CRT_BARS_EFFECTS, UNSTABLE_CRT_EFFECTS
+from synth_modulation_recipes import MODULATED_CRT_EFFECTS
 
 VIDEO_EFFECTS = ('subject_cutout', 'photocopy', 'broadcast', 'stretch_echo', 'signal_etch', 'chroma_print', 'slice_echo', 'screen_mesh', 'signal_background', 'scan_drag', 'ghosts', 'breakup', 'tape',
                  'drift', 'flare', 'separation', 'interference', 'frame_jitter',
@@ -29,6 +30,8 @@ VIDEO_MODULES = frozenset(('subject_cutout', 'photocopy', 'broadcast', 'stretch_
                           'warp', 'flare', 'separation', 'interference', 'frame_jitter',
                           'bloom', 'raster', 'print_surface', 'low_res'))
 PROXY_EDGE = 720
+VIDEO_EFFECTS += ('scan_modulation', 'crt_capture')
+VIDEO_MODULES |= {'scan_modulation', 'crt_capture'}
 _PROXY_LOCK = threading.Lock()
 
 
@@ -405,6 +408,7 @@ TREATMENTS = (
     ('Cyan / fractured CRT', FRACTURED_EFFECTS),
     ('Cyan / CRT bars', CRT_BARS_EFFECTS),
     ('Cyan / unstable CRT', UNSTABLE_CRT_EFFECTS),
+    ('Cyan / modulated CRT', MODULATED_CRT_EFFECTS),
 )
 
 

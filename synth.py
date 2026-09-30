@@ -25,6 +25,8 @@ from synth_text import FONTS, validate_text, render_text
 from synth_broadcast import render_broadcast, render_broadcast_exposure
 from synth_echo import render_stretch_echo, render_signal_etch
 from synth_chroma import render_chroma_print, render_slice_echo, render_screen_mesh
+from synth_modulation import render_scan_modulation, render_crt_capture
+from synth_modulation_controls import modules as modulation_modules
 from synth_canvas import content_size, normalize_canvas, source_framing, object_offset
 from synth_print import render_ink_bloom, render_print_surface
 from synth_profile import render_silhouette, render_edge_phosphor, render_scan_drag
@@ -662,6 +664,8 @@ MODULES += (
     )),
 )
 
+# Append-only: legacy module indices also determine existing random seeds.
+MODULES += modulation_modules(Module, P)
 MODULE_BY_ID = {module.id: module for module in MODULES}
 
 
@@ -1235,6 +1239,7 @@ def _breakup(arr, p, t, preset):
 
 
 RENDERERS = {
+    'crt_capture': lambda arr, params, t, preset, index: render_crt_capture(arr, params, t, preset['speed'], _seed(preset['seed'], 'crt-capture'), content_size(preset, (arr.shape[1], arr.shape[0]))),
     'screen_mesh': lambda arr, params, t, preset, index: render_screen_mesh(arr, params, t, preset['speed'], _seed(preset['seed'], 'screen-mesh'), content_size(preset, (arr.shape[1], arr.shape[0]))),
     'broadcast': lambda arr, params, t, preset, index: render_broadcast(arr, params, t, preset['speed'], _seed(preset['seed'], 'broadcast')),
     "photocopy": lambda arr, params, t, preset, index: render_photocopy(arr, params, t, _seed(preset["seed"], "photocopy")),
@@ -1276,6 +1281,10 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
     text_source = next((entry for entry in p['modules'] if entry['id'] == 'text' and entry['enabled']), None)
     if text_source and source_image is None:
         arr = render_text(arr, text_source['params'], continuous_time, p)
+    scan = next((entry['params'] for entry in p['modules'] if entry['id'] == 'scan_modulation' and entry['enabled'] and entry['params']['mix']), None)
+    untreated = None
+    if scan and scan['input'] and source_image is not None:
+        untreated = np.asarray(source_image.convert('RGB'), dtype=np.float32)/255
     cutout = next((entry for entry in p['modules'] if entry['id'] == 'subject_cutout' and entry['enabled'] and entry['params']['mix'] > 0), None)
     if cutout:
         if source_image is None or source_mask is None:
@@ -1294,9 +1303,10 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
     generators = {'slab', 'blinds', 'particles', 'silhouette', 'ink_bloom', 'flare'}
     source_end = max((i for i, m in enumerate(p['modules']) if m.get('enabled', True) and m['id'] in generators), default=-1) + 1
     source_effects = {entry['id']: entry['params'] for entry in p['modules']
-                      if entry['enabled'] and entry['id'] in ('chroma_print', 'slice_echo', 'stretch_echo', 'signal_etch')}
+                      if entry['enabled'] and entry['id'] in ('chroma_print', 'slice_echo', 'stretch_echo', 'signal_etch', 'scan_modulation')}
     def treat_source(image):
         reference = content_size(p, (width, height))
+        source_pixels = untreated if untreated is not None else image
         if 'chroma_print' in source_effects:
             image = render_chroma_print(image, source_effects['chroma_print'], reference)
         if 'slice_echo' in source_effects:
@@ -1317,6 +1327,9 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
         if 'signal_etch' in source_effects:
             image = render_signal_etch(image, source_effects['signal_etch'], continuous_time,
                                        p['speed'], _seed(p['seed'], 'signal-etch'), reference, original)
+        if 'scan_modulation' in source_effects:
+            image = render_scan_modulation(image, source_effects['scan_modulation'], continuous_time,
+                                           p['speed'], _seed(p['seed'], 'scan-modulation'), reference, source_pixels)
         return image
     polarity_index = None
     if broadcast and broadcast['reverse_stage'] and (broadcast['reverse'] or broadcast['edge_fringe']) and broadcast['mix']:
@@ -1345,7 +1358,7 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
             params = dict(params, diameter=params["diameter"] * cw / ch)
         # Shared ink motion owns its hold clock across recipe sections. Other
         # effects retain the scene's speed and treatment cadence.
-        module_time = continuous_time if module_id in ('photocopy', 'broadcast', 'screen_mesh') or (module_id == 'ink_bloom' and params.get('clock_mode', 0)) else t
+        module_time = continuous_time if module_id in ('photocopy', 'broadcast', 'screen_mesh', 'crt_capture') or (module_id == 'ink_bloom' and params.get('clock_mode', 0)) else t
         if module_id == 'edge_phosphor':
             if p['render_version'] == 1:
                 rendered = render_edge_phosphor_v1(arr, params, module_time, p, _seed(p['seed'], 'edge-phosphor'))

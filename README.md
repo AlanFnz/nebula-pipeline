@@ -133,6 +133,35 @@ multiple footage layers remain future work.
 
 ### Cyan portrait treatment
 
+**Portrait / modulated CRT** uses a continuous ten-second source in a 3:2
+canvas: a dark silhouette, broken cyan facial signal, intermittent color-lock
+faults, bright points and a softly photographed screen. Its source footage and
+saved Study stay local. `synth_modulation_recipes.modulated_crt_composition`
+builds the recipe from imported video metadata. **Source → Treatment presets →
+Cyan / modulated CRT** applies it to other footage while preserving framing and
+timing. A new source may need its signal selection adjusted.
+
+Two reusable effects are available with footage, text and generated objects:
+
+- **Scan modulation** selects the whole image, highlights or a color range.
+  **Signal selection → View → Selection** displays the key; hue tolerance,
+  minimum brightness/saturation, softness, inversion and a directional fade
+  control its coverage. **Original source** samples pixels before cutout and
+  color treatment. Scan structure controls row spacing, irregularity, oscillator
+  displacement, tearing and trails. Signal colors, color failures and bright
+  points are independently editable. Modulation speed zero freezes the effect
+  while the footage continues; Modulation FPS zero gives continuous oscillators.
+- **CRT capture** adds full-canvas phosphor columns, curved and uneven camera
+  moiré, raster instability, lens softness, focus breathing, light spill and
+  light-dependent grain. Capture drift speed zero freezes the screen behavior;
+  Capture FPS zero gives continuous drift. Interference uses reference-space
+  distances and fades subpixel phosphors in small previews.
+
+These are image treatments inspired by analog signal manipulation and filming a
+CRT, rather than a circuit-level simulation of a particular television. Both
+are opt-in, have an exact Mix = 0 bypass, and reproduce the same state on seeks.
+Previous Studies retain their module order, seeds and pixels.
+
 **Source → Treatment presets → Cyan / slice screen** applies an editable cyan
 and pink display treatment to any imported clip. It combines three optional
 effects with the existing color separation, bloom, raster and frame jitter:
