@@ -472,6 +472,14 @@ Text wording appears at the top of Object; **Apply text** commits the phrase.
 - Select **Whole clip** to adjust the entire piece, or click a section to
   adjust it locally. Sections can be added, duplicated, removed, reordered,
   and given different durations under **Arrange**.
+- **Drag the body of a timeline section** to reorder it. A floating label and
+  insertion marker show the destination; release to apply one undoable move.
+  Shift-click a range or Command-click individual sections, then drag a selected
+  section to move them together in their existing order. Escape or releasing
+  outside the timeline vertically cancels. Long timelines scroll at the edges.
+  Moving a repeated view moves its shared section; insertion markers identify
+  the original section boundaries, and loop sequences update with the new order.
+  Durations, effect settings and resize speeds travel with their sections.
 - **Drag a section's right edge** to stretch or compress it. Transitions,
   procedural motion, noise and every timed effect scale together. Following
   sections move automatically, keeping their effect clocks continuous. The drag

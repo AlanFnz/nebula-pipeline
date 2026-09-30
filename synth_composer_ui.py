@@ -8,7 +8,7 @@ from PySide6.QtCore import Qt, QRectF, QSignalBlocker, Signal, QSize, QTimer
 from PySide6.QtGui import QColor, QPainter, QPen, QCursor
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox, QLabel,
-    QPushButton, QCheckBox, QTabWidget, QSizePolicy, QMenu, QInputDialog, QAbstractScrollArea,
+    QPushButton, QCheckBox, QTabWidget, QSizePolicy, QMenu, QInputDialog, QAbstractScrollArea, QApplication,
 )
 from studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBox, SpinBox as QSpinBox, Slider as QSlider
 
@@ -31,6 +31,7 @@ class SectionTimeline(QWidget):
     loopRequested = Signal(object, int)
     seekRequested = Signal(float)
     durationRequested = Signal(str, float)
+    reorderRequested = Signal(object, object)
 
     def __init__(self):
         super().__init__()
@@ -42,10 +43,14 @@ class SectionTimeline(QWidget):
         self.time = 0
         self._hover_edge = None
         self._resize = None
+        self._reorder = None
         self._preview_document = None
         self._resize_scroll_timer = QTimer(self)
         self._resize_scroll_timer.setInterval(30)
         self._resize_scroll_timer.timeout.connect(self._auto_scroll_resize)
+        self._reorder_scroll_timer = QTimer(self)
+        self._reorder_scroll_timer.setInterval(30)
+        self._reorder_scroll_timer.timeout.connect(self._auto_scroll_reorder)
         self.setFixedHeight(90)
         self.setMouseTracking(True)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
@@ -53,6 +58,7 @@ class SectionTimeline(QWidget):
 
     def set_document(self, document, index=0, reset_selection=False):
         if self._resize is not None: self._finish_resize(False)
+        if self._reorder is not None: self._finish_reorder(False)
         self.document = document
         self.index = index
         ids = {section['id'] for section in document['sections']}
@@ -80,9 +86,14 @@ class SectionTimeline(QWidget):
         if not self.document or not 5 <= position.y() <= 73: return None
         placements = section_placements(self.display_document())
         scale = self.pixels_per_second()
-        candidates = [(abs(position.x()-end*scale), occurrence)
-                      for occurrence, (_index, _start, end, _repetition) in enumerate(placements)
-                      if abs(position.x()-end*scale) <= 6]
+        candidates = []
+        for occurrence, (_index, start, end, _repetition) in enumerate(placements):
+            # Keep a draggable body even on short sections. A neighboring
+            # section's handle must not consume the entire narrow block.
+            left = min(6., (end - start) * scale / 4)
+            right = min(6., (placements[occurrence + 1][2] - end) * scale / 4) if occurrence + 1 < len(placements) else 6.
+            distance = position.x() - end * scale
+            if -left <= distance <= right: candidates.append((abs(distance), occurrence))
         # A shared border always belongs to the view on its left.
         return min(candidates)[1] if candidates else None
 
@@ -177,6 +188,55 @@ class SectionTimeline(QWidget):
         return [index for index, section in enumerate(self.document['sections'])
                 if section['id'] in self.selected_ids]
 
+    def _update_reorder(self, position):
+        drag = self._reorder
+        drag['position'] = position
+        drag['valid'] = 0 <= position.y() < self.height()
+        self.setCursor(Qt.CursorShape.ClosedHandCursor if drag['valid'] else Qt.CursorShape.ForbiddenCursor)
+        if not drag['valid']:
+            self.update(); return
+        sections = self.document['sections']
+        placements = section_placements(self.document)
+        scale = self.pixels_per_second()
+        # Repeated views share their original section. Only first-play
+        # boundaries are legal insertion slots; repeats follow their owners.
+        starts = {index: start * scale for index, start, _end, repeat in placements if repeat == 1}
+        slots = [starts[index] for index in range(len(sections))] + [placements[-1][2] * scale]
+        slot = min(range(len(slots)), key=lambda index: abs(slots[index] - position.x()))
+        selected = set(drag['identifiers'])
+        next_index = next((i for i in range(slot, len(sections)) if sections[i]['id'] not in selected), len(sections))
+        before = sections[next_index]['id'] if next_index < len(sections) else None
+        remaining = [section['id'] for section in sections if section['id'] not in selected]
+        insertion = remaining.index(before) if before is not None else len(remaining)
+        order = remaining[:insertion] + list(drag['identifiers']) + remaining[insertion:]
+        drag.update(before=before, marker=slots[next_index],
+                    changed=order != [section['id'] for section in sections])
+        self.update()
+
+    def _auto_scroll_reorder(self):
+        drag = self._reorder
+        if drag is None or not drag['active']: return
+        scroll = self._scroll_area()
+        if scroll is None: return
+        position = scroll.viewport().mapFromGlobal(QCursor.pos())
+        if not 0 <= position.y() < scroll.viewport().height(): return
+        distance = position.x() - 24 if position.x() < 24 else position.x() - (scroll.viewport().width() - 24) if position.x() > scroll.viewport().width() - 24 else 0
+        if not distance: return
+        bar = scroll.horizontalScrollBar()
+        step = min(32, max(1, abs(distance) // 2 + 1)) * (1 if distance > 0 else -1)
+        bar.setValue(bar.value() + step)
+        self._update_reorder(self.mapFromGlobal(QCursor.pos()))
+
+    def _finish_reorder(self, commit):
+        drag = self._reorder
+        if drag is None: return
+        self._reorder_scroll_timer.stop()
+        self._reorder = None
+        self._hover_edge = None
+        self.unsetCursor(); self.setToolTip(''); self.update()
+        if commit and drag['active'] and drag['valid'] and drag['changed']:
+            self.reorderRequested.emit(drag['identifiers'], drag['before'])
+
     def section_at(self, position):
         occurrence = self.occurrence_at(position)
         return section_placements(self.document)[occurrence][0] if occurrence is not None else None
@@ -229,6 +289,8 @@ class SectionTimeline(QWidget):
         for occurrence, ((index, _start, _end, repetition), rect) in enumerate(zip(placements, self.rectangles())):
             section = document["sections"][index]
             selected = section['id'] in self.selected_ids
+            painter.save()
+            if self._reorder and self._reorder['active'] and selected: painter.setOpacity(.45)
             painter.setBrush(QColor(COLORS["selected"] if selected else COLORS["panel"]))
             painter.setPen(QPen(QColor(COLORS["accent"] if selected else COLORS["border"]), 1))
             painter.drawRect(rect)
@@ -248,6 +310,7 @@ class SectionTimeline(QWidget):
                 painter.setPen(QPen(QColor(COLORS['accent'] if occurrence == self._hover_edge else COLORS['muted']),2))
                 edge = min(self.width()-2,round(_end*self.pixels_per_second()-3))
                 painter.drawLine(edge,25,edge,52)
+            painter.restore()
         if self.document:
             x = max(1, min(self.width()-1,self.time*self.pixels_per_second()))
             painter.setPen(QPen(QColor(COLORS["cursor"]), 1))
@@ -262,10 +325,36 @@ class SectionTimeline(QWidget):
             visible = self.visibleRegion().boundingRect()
             readout = f"{drag['frames']/drag['fps']:.2f}s per play · {drag['frames']/drag['original_frames']:.2f}× length · release to apply · Esc cancel"
             painter.drawText(QRectF(visible.left()+6,75,max(0,visible.width()-12),14),Qt.AlignmentFlag.AlignLeft|Qt.AlignmentFlag.AlignVCenter,readout)
+        if self._reorder is not None and self._reorder['active']:
+            drag = self._reorder
+            visible = self.visibleRegion().boundingRect()
+            count = len(drag['identifiers'])
+            font = self.font(); font.setPixelSize(10); painter.setFont(font)
+            color = QColor(COLORS['accent'] if drag['valid'] and drag['changed'] else COLORS['muted'])
+            if drag['valid']:
+                x = max(2, min(self.width() - 3, round(drag['marker'])))
+                painter.setPen(QPen(color, 3)); painter.drawLine(x, 3, x, 73)
+                painter.fillRect(QRectF(x - 4, 2, 9, 4), color)
+                painter.fillRect(QRectF(x - 4, 70, 9, 4), color)
+            before = next((i + 1 for i, section in enumerate(document['sections']) if section['id'] == drag.get('before')), None)
+            destination = f'before section {before:02d}' if before is not None else 'to the end'
+            readout = (f'Move {count} section' + ('s' if count > 1 else '') + f' {destination} · repetitions follow · Esc cancels') if drag['valid'] else 'Move back over the timeline to drop · Esc cancels'
+            if drag['valid'] and not drag['changed']: readout = 'Current order · Esc cancels'
+            painter.setPen(color)
+            readout = painter.fontMetrics().elidedText(readout, Qt.TextElideMode.ElideRight, max(0, visible.width() - 12))
+            painter.drawText(QRectF(visible.left()+6,75,max(0,visible.width()-12),14),Qt.AlignmentFlag.AlignLeft|Qt.AlignmentFlag.AlignVCenter,readout)
+            label = f'{count} sections' if count > 1 else document['phrases'][document['sections'][self.index]['phrase']]['name']
+            width = min(200, max(70, painter.fontMetrics().horizontalAdvance(label) + 20))
+            x = max(visible.left(), min(drag['position'].x() + 12, visible.right() - width))
+            ghost = QRectF(x, 24, width, 26)
+            painter.setOpacity(.9); painter.setPen(QPen(color, 1)); painter.setBrush(QColor(COLORS['selected']))
+            painter.drawRoundedRect(ghost, 3, 3)
+            painter.drawText(ghost.adjusted(8, 0, -8, 0), Qt.AlignmentFlag.AlignCenter,
+                             painter.fontMetrics().elidedText(label, Qt.TextElideMode.ElideRight, width - 16))
 
     def mousePressEvent(self, event):
         if event.button() not in (Qt.MouseButton.LeftButton, Qt.MouseButton.RightButton): return
-        if self._resize is not None: return
+        if self._resize is not None or self._reorder is not None: return
         edge = self.edge_at(event.position())
         if event.button() == Qt.MouseButton.LeftButton and event.modifiers() == Qt.KeyboardModifier.NoModifier and edge is not None:
             index, start, _end, _repetition = section_placements(self.document)[edge]
@@ -278,11 +367,26 @@ class SectionTimeline(QWidget):
         if occurrence is None: occurrence = edge
         if occurrence is None: return
         index, start, _end, _repetition = section_placements(self.document)[occurrence]
-        self.select_at(index, event.modifiers(), context=event.button() == Qt.MouseButton.RightButton)
+        can_drag = event.button() == Qt.MouseButton.LeftButton and event.modifiers() == Qt.KeyboardModifier.NoModifier
+        preserve_selection = can_drag and self.document['sections'][index]['id'] in self.selected_ids
+        self.select_at(index, event.modifiers(), context=event.button() == Qt.MouseButton.RightButton or preserve_selection)
         self.seekRequested.emit(start)
+        if can_drag:
+            self._reorder = dict(press=event.position(), start=start, active=False, valid=False, changed=False,
+                                 identifiers=tuple(self.document['sections'][i]['id'] for i in self.selected_indices()))
+            self.setFocus(Qt.FocusReason.MouseFocusReason)
         event.accept()
 
     def mouseReleaseEvent(self, event):
+        if self._reorder is not None and event.button() == Qt.MouseButton.LeftButton:
+            active = self._reorder['active']
+            start = self._reorder['start']
+            if active: self._update_reorder(event.position())
+            self._finish_reorder(True)
+            if not active:
+                self.select_at(self.index)
+                self.seekRequested.emit(start)
+            event.accept(); return
         if self._resize is not None and event.button() == Qt.MouseButton.LeftButton:
             self._update_resize(event.position().x())
             self._finish_resize(True)
@@ -291,6 +395,9 @@ class SectionTimeline(QWidget):
         super().mouseReleaseEvent(event)
 
     def keyPressEvent(self, event):
+        if self._reorder is not None and event.key() == Qt.Key.Key_Escape:
+            self._finish_reorder(False)
+            event.accept(); return
         if self._resize is not None and event.key() == Qt.Key.Key_Escape:
             self._finish_resize(False)
             event.accept()
@@ -298,7 +405,7 @@ class SectionTimeline(QWidget):
         super().keyPressEvent(event)
 
     def leaveEvent(self, event):
-        if self._resize is None:
+        if self._resize is None and self._reorder is None:
             self._hover_edge = None
             self.unsetCursor()
             self.update()
@@ -306,6 +413,7 @@ class SectionTimeline(QWidget):
 
     def hideEvent(self, event):
         if self._resize is not None: self._finish_resize(False)
+        if self._reorder is not None: self._finish_reorder(False)
         super().hideEvent(event)
 
     def make_context_menu(self):
@@ -351,6 +459,15 @@ class SectionTimeline(QWidget):
         event.accept()
 
     def mouseMoveEvent(self, event):
+        if self._reorder is not None:
+            drag = self._reorder
+            if not drag['active'] and (event.position() - drag['press']).manhattanLength() >= QApplication.startDragDistance():
+                drag['active'] = True
+                self._hover_edge = None
+                self.setToolTip('')
+                self._reorder_scroll_timer.start()
+            if drag['active']: self._update_reorder(event.position())
+            event.accept(); return
         if self._resize is not None:
             if abs(event.position().x()-self._resize['press_x']) >= 2:
                 self._resize['moved'] = True
@@ -371,11 +488,12 @@ class SectionTimeline(QWidget):
         placements = section_placements(self.document) if self.document else []
         for (index, _start, _end, repetition), rect in zip(placements, self.rectangles()):
             if rect.contains(event.position()):
+                self.setCursor(Qt.CursorShape.OpenHandCursor)
                 section = self.document["sections"][index]
                 loops = int(section.get('loops', 1))
                 self.setToolTip(f"{index + 1}. {self.document['phrases'][section['phrase']]['name']} · {loops}× total plays · " +
                                (f'Sequence repetition {repetition} · ' if repetition > 1 else '') +
-                               'click to edit; Shift-click to select a range; Command-click to add sections; right-click to loop')
+                               'drag body to reorder; drag right edge to stretch; Shift-click to select a range; Command-click to add sections; right-click to loop')
                 return
         self.setToolTip('')
 
@@ -890,6 +1008,31 @@ class CompositionPanel(QWidget):
         if 'timeline_loops' in document:
             document['timeline_loops'] = [group for group in document['timeline_loops'] if group['sections']]
         self.commit(document, "remove"); self.sectionSelected.emit(self.index)
+
+    def reorder_sections(self, identifiers, before_id):
+        """Move a stable-ID selection as one block, retaining document order."""
+        if self.updating or isinstance(identifiers, (str, bytes)): return
+        try:
+            selected = set(identifiers)
+        except TypeError:
+            return
+        sections = self.document['sections']
+        known = {section['id'] for section in sections}
+        if not selected or not selected.issubset(known): return
+        if before_id is not None and (not isinstance(before_id, str) or
+                before_id not in known or before_id in selected): return
+        moved = [section for section in sections if section['id'] in selected]
+        remaining = [section for section in sections if section['id'] not in selected]
+        position = len(remaining) if before_id is None else next(
+            index for index, section in enumerate(remaining) if section['id'] == before_id)
+        reordered = remaining[:position]+moved+remaining[position:]
+        if [section['id'] for section in reordered] == [section['id'] for section in sections]: return
+        current = sections[self.index]['id']
+        document = copy.deepcopy(self.document)
+        document['sections'] = copy.deepcopy(reordered)
+        self.index = next(index for index, section in enumerate(reordered) if section['id'] == current)
+        self.commit(document, 'section-reorder')
+        self.sectionSelected.emit(self.index)
 
     def move_section(self, delta):
         target = self.index + delta

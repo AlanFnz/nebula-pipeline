@@ -412,6 +412,7 @@ class SynthStudio(QMainWindow):
         self.section_timeline = SectionTimeline()
         self.section_timeline.selected.connect(lambda index: self.composer and self.composer.select_section(index))
         self.section_timeline.durationRequested.connect(lambda identifier, duration: self.composer and self.composer.stretch_section(identifier, duration))
+        self.section_timeline.reorderRequested.connect(lambda identifiers, before: self.composer and self.composer.reorder_sections(identifiers, before))
         self.section_timeline.loopRequested.connect(lambda identifiers, count: self.composer and self.composer.loop_sections(identifiers, count))
         self.section_timeline.seekRequested.connect(lambda time: self.composition and self.timeline.setValue(round(time * self.composition['fps'])))
         self.section_scroll = QScrollArea()
@@ -422,7 +423,7 @@ class SynthStudio(QMainWindow):
         left_layout.addWidget(self.section_scroll)
         self.section_tools = QWidget()
         section_tools = QHBoxLayout(self.section_tools); section_tools.setContentsMargins(0, 0, 0, 0)
-        self.section_hint = QLabel('Drag an edge to stretch · Shift-click to select · right-click to loop')
+        self.section_hint = QLabel('Drag body to reorder · edge to stretch · Shift-click to select · right-click to loop')
         self.section_hint.setObjectName('muted'); self.section_hint.setWordWrap(True)
         section_tools.addWidget(self.section_hint, 1)
         self.section_resize_mode = QComboBox()
@@ -938,10 +939,12 @@ class SynthStudio(QMainWindow):
 
     def _restore_composition_history(self, source, destination):
         if not source: return
+        selected_id = self.composer.document['sections'][self.composer.index]['id']
         destination.append(copy.deepcopy(self.composition))
         self.composition = source.pop(); self.sequence = compile_composition(self.composition)
         self.composer.document = copy.deepcopy(self.composition)
-        self.composer.index = min(self.composer.index, len(self.composition["sections"]) - 1)
+        self.composer.index = next((i for i, section in enumerate(self.composition['sections']) if section['id'] == selected_id),
+                                   min(self.composer.index, len(self.composition['sections']) - 1))
         self.composer.refresh(); self.edit_key = None; self.refresh_composition()
 
     def undo_composition(self):
