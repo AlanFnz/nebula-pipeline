@@ -2,8 +2,9 @@
 
 Recorded: 2026-10-01.
 Status: agreed direction, saved for later; these features are not implemented.
+Expanded: 2026-10-01 with selectable frequency ranges and future multitrack routing.
 Order: independent visual experimentation first, imported-audio reactivity next,
-then optional live input. No implementation or scheduled work is started by this plan.
+then multiple imported tracks and optional live input. No implementation or scheduled work is started by this plan.
 
 Related work: [effects editor UX](effects-editor-ux-plan.md),
 [reusable effects](reusable-effects-plan.md), and
@@ -140,20 +141,30 @@ are additional work; existing audio export is not an audio-reactivity system.
 ### B2. Analysis and visual connections
 
 Analyze the imported file once, in cancellable background work. Initial signals:
-overall loudness, low/mid/high frequency-band energy, and transient/onset strength.
+overall loudness, frequency-band energy, and transient/onset strength. Low/mid/high
+presets provide starting points; users can choose arbitrary lower and upper
+frequency limits in Hz, either numerically or through a selection on a spectrum.
+Show the selected band and its response. Validate limits against the source's
+available spectrum and make out-of-range or silent bands understandable.
 Sharp-hit detection should not be presented as reliable instrument separation
 or perfect beat/BPM detection.
 
 Offer useful mapping presets, followed by editable connections:
 
-| Audio feature | Example visual target |
-| --- | --- |
-| Bass energy | Particle expansion or object scale |
-| Sharp hits | Tape faults, flashes or sudden displacement |
-| High-frequency energy | Grain or jitter |
-| Overall loudness | Glow or brightness |
+The routing model is: **audio track → frequency range or full spectrum →
+energy/onset response → visual control**. A range does not identify an instrument;
+separate drum/vocal examples below assume the user supplies separate tracks.
 
-Each connection shows its audio feature, target, input meter and resulting value.
+| Source | Example analysis range | Example visual target |
+| --- | --- | --- |
+| Drum track | 40–150 Hz energy | Particle expansion or object scale |
+| Drum track | 2–8 kHz energy or transients | Grain, jitter or brief glitches |
+| Vocal track | 300 Hz–3 kHz energy | Glow intensity |
+| Any selected track | Full-spectrum loudness | Brightness or future word-morph progression |
+
+Each connection shows its source track, frequency range, response type, target,
+input meter and resulting value. One track can feed multiple independent
+mappings; each mapping retains its own selected range and response settings.
 Expose amount, sensitivity, attack and release, plus appropriate output limits.
 Attack controls how quickly the visual responds; release controls how gradually
 it settles. Provide individual mapping bypass and a global audio-modulation bypass.
@@ -164,6 +175,17 @@ Start with continuous targets with clear semantics. Triggering a complete
 expansion/glitch gesture from a hit requires event/envelope behavior; merely
 scaling its distance must not be labeled as triggering a burst. Add such targets
 incrementally after deterministic continuous modulation works.
+
+For future word morphing, distinguish Trigger (a detected hit advances to the
+next word and starts its transition) from Continuous (audio energy controls
+progress between shapes). Trigger timing must remain deterministic when seeking;
+define retrigger/hold behavior so bursts of hits do not accidentally skip words.
+These are future mapping targets and depend on implementing word morphing.
+
+Design saved mappings around stable track IDs from the first single-track
+release. Reordering, renaming or relinking a track must not redirect its mappings.
+Spectrum selections and mappings belong to the document and participate in
+Undo/Redo, Save/Open and snapshots.
 
 ### B3. Deterministic time and export
 
@@ -185,7 +207,33 @@ Acceptance: create a bass-driven expansion/intensity example and a loudness-driv
 brightness example; verify repeatable frames at selected timestamps, seek behavior,
 audio/video alignment and matching results after Save/Open. Cover silence, short
 tracks, trim/offset changes, section loops, range exports, missing media and
-cancelled analysis. Bypass returns the original study exactly.
+cancelled analysis. Also verify selected-band isolation with known test signals,
+independent responses from two mappings on the same track, persisted frequency
+limits and reproducibility after changing attack/release. Bypass returns the
+original study exactly.
+
+### B4. Multiple imported tracks, after the single-track release
+
+Allow several independently aligned audio tracks to drive different effects.
+Each track has its own trim, timeline offset and audio level. Give it separate
+controls for audible output and visual modulation, so a silent control track
+can still drive the image. Distinguish monitor mute from export inclusion;
+changing an output level must not silently change modulation sensitivity.
+
+Keep analysis and mapping controls per source track, with visible routing and
+per-connection bypass. A track can drive several effects, and an effect can
+receive several tracks through the explicitly defined combination rule. Keep
+independent track clocks aligned to the composition timeline. Add soundtrack
+mixing/export only with explicit levels and inclusion settings, preserving the
+existing video-source-audio path and avoiding accidental double playback.
+
+Acceptance: import two tracks, route different frequency bands to different
+visual controls, offset one track, and compare/bypass each connection. Muting a
+track's audible output must leave its visual response intact; disabling its
+visual drive must leave its audible output intact. Save/Open, snapshots, rename,
+reorder, relink, missing-media recovery and export preserve track identities,
+routing and synchronization. This milestone does not require a general-purpose
+DAW, instrument separation or live capture.
 
 ## Phase C: live input, later
 
@@ -218,6 +266,7 @@ control signal. No hardware is required for the imported-file milestone.
 - [ ] First release: A1 starting flow + A2 creative-control pilot + A3 snapshots/A/B.
 - [ ] Extend independent experimentation with A4 previews/explanations and A5 motion.
 - [ ] Add B1 imported audio/transport, then B2 mappings and B3 export verification.
+- [ ] Extend to B4 multiple imported tracks with independent routing and explicit audio output.
 - [ ] Consider C live input after the file-based workflow is established.
 
 Audio depends on stable creative targets, reversible adjustments and deterministic
@@ -227,7 +276,8 @@ creative release is reviewed.
 
 Resolve before the relevant milestone: exact pilot mappings and useful ranges;
 snapshot scope/persistence; how direct parameter edits combine with creative
-adjustments; multiple-connection composition; soundtrack selection/end behavior;
+adjustments; multiple-connection composition; initial frequency ranges and band filtering;
+trigger/retrigger behavior; per-track soundtrack selection/end behavior;
 and the asset portability policy. Keep these explicit rather than treating
 suggested UI labels or example mappings as finished specifications.
 
