@@ -17,6 +17,8 @@ from PySide6.QtWidgets import (
 )
 from studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBox, SpinBox as QSpinBox, Slider as QSlider
 
+from studio_widgets import PlaybackButton
+
 from media import Cancellation, Cancelled, probe, frame_count, export_video
 from parameters import DEFAULTS, LIMITS, RANGES, STAGES, PRESETS_DIR, normalize, load, save
 from preview_jobs import Events, PreviewWorker
@@ -265,8 +267,7 @@ class Studio(QMainWindow):
         self.timeline.valueChanged.connect(self.scrub)
         work.addWidget(self.timeline)
         transport = QHBoxLayout()
-        self.play = QPushButton("▶ Play loop")
-        self.play.setCheckable(True)
+        self.play = PlaybackButton(loop=True)
         self.play.toggled.connect(self.toggle_play)
         transport.addWidget(self.play)
         self.time_label = QLabel("00:00.00 / 00:00.00")
@@ -446,7 +447,6 @@ class Studio(QMainWindow):
         self.submit_preview(full=True)
 
     def toggle_play(self, playing):
-        self.play.setText("Ⅱ Pause" if playing else "▶ Play loop")
         if playing and self.info:
             start, count = self.loop_bounds()
             if not start <= self.timeline.value() < start + count:

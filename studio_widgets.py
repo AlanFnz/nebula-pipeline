@@ -3,8 +3,11 @@
 Click, typing, keyboard arrows and dragging still edit values. An open combo's
 popup owns its own scrolling; passing over a closed control never edits it.
 """
-from PySide6.QtGui import QValidator
-from PySide6.QtWidgets import QComboBox, QDoubleSpinBox, QSlider, QSpinBox
+from pathlib import Path
+
+from PySide6.QtCore import QSize
+from PySide6.QtGui import QIcon, QValidator
+from PySide6.QtWidgets import QComboBox, QDoubleSpinBox, QPushButton, QSlider, QSpinBox
 
 
 class ScrollThrough:
@@ -62,3 +65,24 @@ class SpinBox(ScrollThrough, QSpinBox):
 
 class Slider(ScrollThrough, QSlider):
     pass
+
+
+class PlaybackButton(QPushButton):
+    """Compact transport with explicit accessible names for either state."""
+    def __init__(self, *, loop=False):
+        super().__init__()
+        self.loop = loop
+        assets = Path(__file__).parent / 'assets'
+        self.play_icon = QIcon(str(assets / 'play.svg'))
+        self.pause_icon = QIcon(str(assets / 'pause.svg'))
+        self.setCheckable(True)
+        self.setIconSize(QSize(18, 18))
+        self.setFixedSize(38, 32)
+        self.toggled.connect(self.update_transport)
+        self.update_transport(False)
+
+    def update_transport(self, playing):
+        label = 'Pause preview' if playing else ('Play loop' if self.loop else 'Play preview')
+        self.setIcon(self.pause_icon if playing else self.play_icon)
+        self.setAccessibleName(label)
+        self.setToolTip(label)
