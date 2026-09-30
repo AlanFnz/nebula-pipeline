@@ -34,7 +34,9 @@ class VideoSourcePanel(QWidget):
             self.controls[key] = control
         self.controls['motion_fps'].setSpecialValueText('Native FPS')
         self.controls['motion_fps'].setToolTip('Hold source frames at this rate without slowing the clip. Zero keeps native motion. Texture and export cadence stay independent.')
-        self.controls['treatment_fps'].setToolTip('How often procedural treatment changes. Footage keeps playing at its own speed; export frame rate stays independent.')
+        self.controls['treatment_fps'].setToolTip('Base cadence for shared image treatments. Effects with their own FPS controls keep independent clocks. Use Arrange → Timeline FPS to change the frame rate of the whole image.')
+        cadence_note = QLabel('For the whole image, use Arrange → Timeline FPS. These source controls can hold the video or shared treatments independently.')
+        cadence_note.setWordWrap(True); cadence_note.setObjectName('muted'); layout.addWidget(cadence_note)
         self.controls['rotation'].setToolTip('Rotate the source around its positioned center. Positive values turn clockwise; proportions and subject masks stay aligned. Increase Scale to fill any exposed corners.')
         self.fit = ComboBox(); self.fit.setAccessibleName('Video framing')
         for label, value in (('Fit inside canvas', 'contain'), ('Fill canvas / crop edges', 'cover'), ('Original pixel size', 'original')): self.fit.addItem(label, value)

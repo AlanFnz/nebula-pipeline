@@ -35,7 +35,33 @@ MODULATED_CRT_EFFECTS = {
 }
 
 
-def modulated_crt_composition(footage):
+# Separate recipe: saved and generated copies of the first modulation Study
+# retain their quieter scan structure and original curved screen field.
+GRAIN_CRT_EFFECTS = copy.deepcopy(MODULATED_CRT_EFFECTS)
+GRAIN_CRT_EFFECTS['crt_capture'].update({
+    'crt_capture.moire': 0., 'crt_capture.field': 0.,
+    'crt_capture.weave': 0., 'crt_capture.curvature': 0.,
+    'crt_capture.bend': .1, 'crt_capture.phosphor': 0.,
+    'crt_capture.exposure': .35, 'crt_capture.grain': .1,
+    'crt_capture.softness': .45, 'crt_capture.focus_drift': .7})
+GRAIN_CRT_EFFECTS['screen_mesh'] = {
+    'screen_mesh.pitch': 7., 'screen_mesh.strength': .16,
+    'screen_mesh.rgb': .05, 'screen_mesh.row_pitch': 7.5,
+    'screen_mesh.rows': .6, 'screen_mesh.angle': 0.,
+    'screen_mesh.exposure': .25, 'screen_mesh.jitter': .025,
+    'screen_mesh.bend': 0., 'screen_mesh.wear': .28,
+    'screen_mesh.grain': .08, 'screen_mesh.softness': 0.}
+GRAIN_CRT_EFFECTS['raster'] = {
+    'raster.softness': 0., 'raster.lines': 0.,
+    'raster.grain': .1, 'raster.chroma': .01, 'raster.line_noise': .05}
+GRAIN_CRT_EFFECTS['signal_background'] = {
+    'signal_background.level': .035, 'signal_background.grain': .07,
+    'signal_background.line_noise': .028, 'signal_background.chroma': .004,
+    'signal_background.tint': .9, 'signal_background.lines': .09,
+    'signal_background.rate': 25., 'signal_background.threshold': .15}
+
+
+def modulated_crt_composition(footage, *, effects=None):
     from synth_composition import normalize_composition
     from synth_effects import effect_preset
     from synth_video import video_composition
@@ -48,8 +74,15 @@ def modulated_crt_composition(footage):
         end_mode='hold', audio='mute', motion_fps=0., treatment_fps=25.)
     project['seed'] = 4297
     project['phrases']['custom']['name'] = 'Cyan / modulated CRT'
-    for effect, changes in MODULATED_CRT_EFFECTS.items():
+    for effect, changes in (MODULATED_CRT_EFFECTS if effects is None else effects).items():
         entry = effect_preset(effect)
         entry['params'].update(changes)
         project['effects'][effect] = entry
     return normalize_composition(project)
+
+
+def grain_crt_composition(footage):
+    project = modulated_crt_composition(footage, effects=GRAIN_CRT_EFFECTS)
+    project['name'] = 'Portrait / grain CRT'
+    project['phrases']['custom']['name'] = 'Cyan / grain / scanlines'
+    return project

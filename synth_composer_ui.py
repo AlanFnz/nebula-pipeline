@@ -284,7 +284,9 @@ class CompositionPanel(QWidget):
         grid = QGridLayout(clip)
         self.duration = QDoubleSpinBox(); self.duration.setRange(.24, 3600); self.duration.setDecimals(2); self.duration.setSuffix(" s"); self.duration.setKeyboardTracking(False)
         self.fps = QSpinBox(); self.fps.setRange(1, 120); self.fps.setSuffix(" fps"); self.fps.setKeyboardTracking(False)
-        self.fps_label = QLabel('Frame rate')
+        self.fps_label = QLabel('Timeline FPS')
+        self.fps.setAccessibleName('Timeline FPS')
+        self.fps.setToolTip('Frame rate of the complete image in preview and export, across all sections. Lower it for a stepped cadence without slowing the action. Section durations round to the nearest frame. Source and effect cadence controls can hold individual parts longer.')
         grid.addWidget(QLabel("Duration"), 0, 0); grid.addWidget(self.fps_label, 0, 1)
         grid.addWidget(self.duration, 1, 0); grid.addWidget(self.fps, 1, 1)
         self.duration.valueChanged.connect(self.resize_clip)
@@ -407,7 +409,6 @@ class CompositionPanel(QWidget):
         self.updating = True
         try:
             video = self.document.get('footage')
-            self.fps_label.setText('Export frame rate' if video else 'Frame rate')
             self.look_tabs.setTabVisible(self.look_tabs.indexOf(self.video_panel), bool(video))
             self.look_tabs.setTabVisible(self.look_tabs.indexOf(self.object_panel), not video)
             self.look_tabs.setTabVisible(2, not video)

@@ -87,11 +87,15 @@ composition being left is backed up in
 - **Loop trimmed range** repeats that range. **Hold last frame** freezes its
   last frame. Footage time stays continuous across section boundaries; effects
   can change without restarting the input.
-- **Effect cadence** holds procedural changes independently of footage playback.
+- **Effect cadence** holds shared procedural changes independently of footage playback;
+  effects with their own FPS controls retain their independent clocks.
   **Motion cadence** holds the source image at a chosen FPS without changing
   playback speed or duration; **Native FPS** preserves the original behavior.
-  **Arrange → Export frame rate** controls delivered frames. Source playback is
-  real time; this milestone does not add speed ramps or reverse playback.
+  **Arrange → Timeline FPS** sets the frame rate of the complete image in both
+  preview and export, across every section. Try 12 or 15 fps for a stepped look;
+  it changes sampling rather than slowing the action. Section durations round
+  to the nearest frame. Source playback is real time; this milestone does not
+  add speed ramps or reverse playback.
 - **Effects** offers applicable image treatments: tape damage, breakup, scan
   drag, drift, ghosts, color separation, interference, exposure flare, jitter,
   bloom, raster/grain/softness, print surface, signal background and low-res
@@ -140,6 +144,16 @@ saved Study stay local. `synth_modulation_recipes.modulated_crt_composition`
 builds the recipe from imported video metadata. **Source → Treatment presets →
 Cyan / modulated CRT** applies it to other footage while preserving framing and
 timing. A new source may need its signal selection adjusted.
+
+**Portrait / grain CRT** retains the same ten-second scan modulation and cyan
+palette, with fresh grain, stronger horizontal scanlines and faint vertical
+phosphors. Broad moiré and the uneven curved field are disabled. The existing
+**Screen mesh → Row depth / Row spacing** controls the visible CRT lines;
+**Raster / grain → Fine grain / Horizontal grain** controls the bright image's texture.
+**Signal background** brings the profile Study's green-black grain into the
+dark silhouette. **Cyan / grain CRT** applies this recipe to other footage;
+`synth_modulation_recipes.grain_crt_composition` authors its local Study. The
+original Modulated CRT Study and treatment remain independently available.
 
 Two reusable effects are available with footage, text and generated objects:
 
