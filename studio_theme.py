@@ -109,7 +109,7 @@ def apply_theme(app):
     app.setApplicationName("Nebula Studio")
     app.setApplicationDisplayName("Nebula Studio")
     app.setApplicationVersion(__version__)
-    app.setWindowIcon(QIcon(str(Path(__file__).parent / "assets" / "nebula-icon.svg")))
+    app.setWindowIcon(QIcon(str(Path(__file__).parent / "assets" / "nebula-icon.png")))
     app.setStyle("Fusion")
     app.setFont(terminal_font())
     palette = QPalette()

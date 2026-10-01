@@ -1,0 +1,16 @@
+{
+  "time_seconds": 11.4,
+  "canvas": [
+    1080,
+    1920
+  ],
+  "crop": [
+    212,
+    632,
+    656,
+    656
+  ],
+  "icon_size": 1024,
+  "inset": 64,
+  "corner_radius": 192
+}
