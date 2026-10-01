@@ -267,7 +267,8 @@ def test_arrange_has_bounded_real_window_page_and_returns_same_scope(panel, heig
         assert window.height() == height
         assert composer.content_stack.currentWidget() is composer.arrangement_scroll
         assert not composer.parameters_group.isVisible() and composer.reset_label() == ''
-        for control in (composer.duration, composer.fps, composer.section_combo, composer.section_duration, composer.section_loops):
+        assert composer.fps.isVisible() and not composer.arrangement_scroll.isAncestorOf(composer.fps)
+        for control in (composer.duration, composer.section_combo, composer.section_duration, composer.section_loops):
             composer.arrangement_scroll.ensureWidgetVisible(control); QApplication.processEvents()
             viewport = composer.arrangement_scroll.viewport()
             assert viewport.rect().contains(control.mapTo(viewport, control.rect().center()))
@@ -279,3 +280,26 @@ def test_arrange_has_bounded_real_window_page_and_returns_same_scope(panel, heig
         assert window.composition == original and window.height() == height
     finally:
         window.close(); QThreadPool.globalInstance().waitForDone(10000); QApplication.processEvents()
+
+
+def test_timeline_fps_stays_visible_and_global_while_editing_a_section(panel, tmp_path):
+    panel.change_scope(1)
+    panel.effects_panel.inspect_effect('broadcast')
+    original = copy.deepcopy(panel.document)
+    for page in (panel.effects_panel, panel.object_panel, panel.master_panel):
+        panel.look_tabs.setCurrentWidget(page); QApplication.processEvents()
+        assert panel.fps.isVisible()
+        assert panel.rect().contains(panel.fps.mapTo(panel, panel.fps.rect().topLeft()))
+        assert panel.rect().contains(panel.arrangement_button.mapTo(panel, panel.arrangement_button.rect().bottomRight()))
+    assert panel.document == original
+    panel.fps.setValue(12)
+    assert panel.scope == 1 and panel.document['fps'] == 12
+    assert compile_composition(panel.document)['fps'] == 12
+    for before, after in zip(original['sections'], panel.document['sections']):
+        assert after['duration'] == max(1, round(before['duration'] * 12)) / 12
+        assert after['effects'] == before['effects']
+    path = tmp_path / 'global-fps.json'
+    save_composition(path, panel.document)
+    assert load_composition(path)['fps'] == 12
+    panel.arrangement_button.click(); QApplication.processEvents()
+    assert panel.fps.isVisible()

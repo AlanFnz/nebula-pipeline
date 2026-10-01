@@ -589,13 +589,24 @@ class CompositionPanel(QWidget):
         self.updating = False
         layout = QVBoxLayout(self); layout.setContentsMargins(0, 0, 0, 0)
         title = QLabel("02 / COMPOSER"); title.setObjectName("sectionTitle")
-        layout.addWidget(title)
+        title_row = QHBoxLayout(); title_row.addWidget(title); title_row.addStretch(1)
+        self.timeline_summary = QLabel(); self.timeline_summary.setObjectName('muted')
+        self.timeline_summary.setToolTip('Total duration and section count for the whole timeline, including loops.')
+        title_row.addWidget(self.timeline_summary); layout.addLayout(title_row)
         hint = QLabel("Combine effects. Arrange their changes in sections.")
         hint.setWordWrap(True); hint.setObjectName("muted"); hint.hide(); title.setToolTip(hint.text())
 
-        self.arrangement_button = QPushButton(); self.arrangement_button.setCheckable(True)
-        self.arrangement_button.setToolTip("Show section arrangement, duration, loops and frame-rate controls.")
-        layout.addWidget(self.arrangement_button)
+        timeline_row = QHBoxLayout()
+        self.fps_label = QLabel('Timeline FPS')
+        self.fps = QSpinBox(); self.fps.setRange(1, 120); self.fps.setSuffix(" fps"); self.fps.setKeyboardTracking(False)
+        self.fps.setAccessibleName('Timeline FPS')
+        self.fps_label.setBuddy(self.fps)
+        self.fps.setToolTip('Global frame rate for preview and export, across every section, regardless of editing scope. Lower it for a stepped cadence without slowing the action. Section durations round to the nearest frame. Source and effect cadence controls can hold individual parts longer.')
+        self.fps_label.setToolTip(self.fps.toolTip())
+        timeline_row.addWidget(self.fps_label); timeline_row.addWidget(self.fps); timeline_row.addStretch(1)
+        self.arrangement_button = QPushButton('Arrange sections…'); self.arrangement_button.setCheckable(True)
+        self.arrangement_button.setToolTip("Edit section durations, order and loops.")
+        timeline_row.addWidget(self.arrangement_button); layout.addLayout(timeline_row)
         self.content_stack = QStackedWidget(); layout.addWidget(self.content_stack, 1)
         self.arrangement_scroll = QScrollArea(); self.arrangement_scroll.setWidgetResizable(True)
         self.arrangement_scroll.setFrameShape(QFrame.Shape.NoFrame)
@@ -607,12 +618,8 @@ class CompositionPanel(QWidget):
         clip = QGroupBox("CLIP / TIMING")
         grid = QGridLayout(clip)
         self.duration = QDoubleSpinBox(); self.duration.setRange(.24, 3600); self.duration.setDecimals(2); self.duration.setSuffix(" s"); self.duration.setKeyboardTracking(False)
-        self.fps = QSpinBox(); self.fps.setRange(1, 120); self.fps.setSuffix(" fps"); self.fps.setKeyboardTracking(False)
-        self.fps_label = QLabel('Timeline FPS')
-        self.fps.setAccessibleName('Timeline FPS')
-        self.fps.setToolTip('Frame rate of the complete image in preview and export, across all sections. Lower it for a stepped cadence without slowing the action. Section durations round to the nearest frame. Source and effect cadence controls can hold individual parts longer.')
-        grid.addWidget(QLabel("Duration"), 0, 0); grid.addWidget(self.fps_label, 0, 1)
-        grid.addWidget(self.duration, 1, 0); grid.addWidget(self.fps, 1, 1)
+        grid.addWidget(QLabel("Total duration"), 0, 0)
+        grid.addWidget(self.duration, 1, 0)
         self.duration.valueChanged.connect(self.resize_clip)
         self.fps.valueChanged.connect(self.change_fps)
         arrangement_layout.addWidget(clip)
@@ -726,7 +733,8 @@ class CompositionPanel(QWidget):
 
     def show_arrangement(self, expanded):
         self.content_stack.setCurrentWidget(self.arrangement_scroll if expanded else self.parameters_group)
-        self.arrangement_button.setText('← Back to parameters' if expanded else 'Arrange / ' + self.arrangement_summary)
+        self.arrangement_button.setText('← Back to editing' if expanded else 'Arrange sections…')
+        self.arrangement_button.setToolTip('Return to effects, object and source controls.' if expanded else 'Edit section durations, order and loops.')
         self.emit_reset_context()
 
     def target(self, document=None):
@@ -762,8 +770,7 @@ class CompositionPanel(QWidget):
             self.duration.setValue(section_ranges(self.document)[-1][1])
             self.fps.setValue(self.document["fps"])
             count = len(self.document["sections"])
-            self.arrangement_summary = f"{count} {'section' if count == 1 else 'sections'} · {self.duration.value():.2f}s · {self.document['fps']} fps"
-            self.arrangement_button.setText('← Back to parameters' if self.arrangement_button.isChecked() else 'Arrange / ' + self.arrangement_summary)
+            self.timeline_summary.setText(f"{count} {'section' if count == 1 else 'sections'} · {self.duration.value():.2f}s total")
             self.section_combo.clear()
             for index, section in enumerate(self.document["sections"]):
                 loops = int(section.get('loops', 1))

@@ -114,3 +114,18 @@ def test_detailed_editor_keeps_its_scroll_host(make_window):
     assert window.inspector_host.currentWidget() is window.inspector_scroll
     assert window.inspector_scroll.widget() is not None
     assert not window.has_unsaved_changes()
+
+
+def test_pinned_timeline_fps_updates_preview_export_and_undo(make_window):
+    window = make_window(); panel = window.composer
+    panel.change_scope(1)
+    before = copy.deepcopy(window.composition)
+    panel.fps.setValue(12)
+    assert window.composition['fps'] == window.sequence['fps'] == 12
+    assert window.has_unsaved_changes()
+    panel.arrangement_button.click(); QApplication.processEvents()
+    assert panel.fps.isVisible()
+    window.undo_composition()
+    assert window.composition == before
+    assert window.composer.fps.value() == before['fps']
+    assert not window.has_unsaved_changes()

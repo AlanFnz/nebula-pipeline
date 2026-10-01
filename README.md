@@ -96,7 +96,7 @@ composition being left is backed up in
   effects with their own FPS controls retain their independent clocks.
   **Motion cadence** holds the source image at a chosen FPS without changing
   playback speed or duration; **Native FPS** preserves the original behavior.
-  **Arrange → Timeline FPS** sets the frame rate of the complete image in both
+  **Timeline FPS**, always visible at the top of the Composer, sets the frame rate of the complete image in both
   preview and export, across every section. Try 12 or 15 fps for a stepped look;
   it changes sampling rather than slowing the action. Section durations round
   to the nearest frame. Source playback is real time; this milestone does not
@@ -510,8 +510,11 @@ detailed sequence/preset windows disable composition Undo/Redo.
 
 - Select **Whole clip** to adjust the entire piece, or click a section to
   adjust it locally. Sections can be added, duplicated, removed, reordered,
-  and given different durations under **Arrange**. Arrange uses its own scrollable
-  view; **Back to parameters** restores the selected effect, scope and scroll position.
+  and given different durations under **Arrange sections…**. Arrange uses its own scrollable
+  view; **Back to editing** restores the selected effect, scope and scroll position.
+  **Timeline FPS** stays visible above both views and always affects the whole clip,
+  even when editing a selected section. The Composer header also shows total duration,
+  including loops, and section count.
 - **Drag the body of a timeline section** to reorder it. A floating label and
   insertion marker show the destination; release to apply one undoable move.
   Shift-click a range or Command-click individual sections, then drag a selected
@@ -823,7 +826,7 @@ hold the closed pose.
 **Motion FPS** controls how often the geometry updates, independently of
 **Gesture speed**: at .1× and 15 Motion FPS the figure still gets 15 poses per
 second, with smaller movement between them. For smoother motion, raise Motion
-FPS and the clip frame rate in Arrange together (for example, both to 30 fps).
+FPS and **Timeline FPS** at the top of the Composer together (for example, both to 30 fps).
 Lower Motion FPS deliberately retains the mixed-media holds. **Frame jitter → Jitter
 FPS** independently controls how often the tiny positional shakes change; 6–8
 FPS gives longer holds than 15 FPS. Print/background noise also keeps its own
