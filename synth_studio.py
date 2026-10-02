@@ -34,6 +34,8 @@ from synth_composer_ui import CompositionPanel, SectionTimeline, CachedRangeStri
 from synth_canvas import CANVAS_FORMATS, format_canvas, normalize_canvas, preview_size, resize_canvas
 from synth_studies import study_records, study_composition, save_study
 from synth_studies_ui import StudiesDialog
+from synth_new_piece_ui import NewPieceDialog
+from synth_starting_points import new_piece
 from synth_artwork_ui import ArtworkControl
 from synth_text_ui import TextControl
 from synth_text import validate_text
@@ -303,6 +305,7 @@ class SynthStudio(QMainWindow):
             menu.addAction(item)
             item.setToolTip(f'{label} ({item.shortcut().toString(QKeySequence.SequenceFormat.NativeText)})')
             return item
+        self.new_piece_action = action(file_menu, 'New piece…', QKeySequence.StandardKey.New, self.new_piece_dialog)
         self.save_action = action(file_menu, 'Save', QKeySequence.StandardKey.Save, self.save_sequence_dialog)
         self.save_as_action = action(file_menu, 'Save As…', QKeySequence.StandardKey.SaveAs, self.save_as_dialog)
         self.open_action = action(file_menu, 'Open…', QKeySequence.StandardKey.Open, self.load_sequence_dialog)
@@ -483,7 +486,9 @@ class SynthStudio(QMainWindow):
             self.preset_widgets.append(button)
         outer.addLayout(header)
         sequence_actions = QHBoxLayout()
-        new = QPushButton("New clip"); new.clicked.connect(self.new_composition); sequence_actions.addWidget(new)
+        self.new_piece_button = QPushButton('New piece…'); self.new_piece_button.clicked.connect(self.new_piece_dialog)
+        self.new_piece_button.setToolTip('Start with Text, Shape, Model, Video, or remix an existing study.')
+        sequence_actions.addWidget(self.new_piece_button)
         self.import_video_button = QPushButton('Import video…'); self.import_video_button.clicked.connect(self.import_video_dialog)
         sequence_actions.addWidget(self.import_video_button)
         self.cancel_import = QPushButton('Cancel import'); self.cancel_import.clicked.connect(self.cancel_video_import); self.cancel_import.hide(); sequence_actions.addWidget(self.cancel_import)
@@ -935,6 +940,30 @@ class SynthStudio(QMainWindow):
         from synth_composition import blank_composition
         project = blank_composition(); project["canvas"] = self.current_canvas()
         self.set_composition(project)
+
+    def new_piece_dialog(self):
+        dialog = NewPieceDialog(self.current_canvas(), self.preview_fps(), study_records(),
+                                self.starter_combo.currentData(), self)
+        request = dialog.request() if dialog.exec() == dialog.DialogCode.Accepted else None
+        dialog.deleteLater()
+        if request is not None: self.create_piece(**request)
+
+    def create_piece(self, kind, *, text=None, shape='rectangle', model='silhouette', study=None):
+        if kind == 'video':
+            self.import_video_dialog(); return
+        if kind == 'remix':
+            return self.load_starter_id(study) if study is not None else False
+        options = dict(shape=shape, model=model)
+        if text is not None: options['text'] = text
+        try:
+            project = new_piece(kind, self.current_canvas(), self.preview_fps(), **options)
+        except ValueError as exc:
+            self.status.setText(f'Could not create piece: {exc}'); return False
+        if not self.set_composition(project, clean=False): return False
+        self.timeline.setValue(0)
+        self.composer.look_tabs.setCurrentWidget(self.composer.object_panel)
+        self.status.setText('Edit your object, then open Effects → Add effect… to build its treatment. Save to keep this piece.')
+        return True
 
     def load_particle_composition(self, refined=True):
         self.load_starter_id("particle-head" if refined else "original-particles")
