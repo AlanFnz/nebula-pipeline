@@ -12,7 +12,8 @@ results protected by raw-pixel regression tests.
 The [creative controls and audio-reactivity roadmap](docs/creative-controls-audio-roadmap.md)
 tracks independent experimentation, meaningful effect controls, comparison tools
 and synchronized audio-driven animation. A1 adds the New piece starting flow;
-creative-control mappings, snapshots and audio reactivity remain planned.
+A2 adds the first creative-control pilot. Snapshots and audio reactivity remain
+planned.
 
 ## Launch on this Mac
 
@@ -623,9 +624,22 @@ detailed sequence/preset windows disable composition Undo/Redo.
   count. It updates after section edits, loop changes and automatic timing
   changes, including the two-burst study. No separate total duration edit is
   needed.
-- Effects use absolute values. Whole-clip settings apply first; section
-  settings override them. Fixed effect values take priority over geometric Object controls
-  and Finishing. A luminous form's companion ghost and granular halo require
+- **Creative** in Tape damage, Frame jitter, Ghosts and Particles adjusts the
+  existing animation. 100% keeps original distances, brightness or durations;
+  Ghosts adds/removes copies instead (zero keeps the count). Each control explains
+  what it changes and its limits. Tape and pose change speeds control pattern
+  cadence, independently of Timeline FPS. Particle Outward/Return time require
+  Impulse motion; **Object → Creative motion…** opens these controls.
+  **Parameters** edits the underlying values and shows which creative adjustments
+  still apply. Use fixed value remains available for an intentional constant.
+  Local creative settings override whole-clip settings; local 100%/zero cancels
+  an inherited adjustment. **↶** or **Restore creative controls** follows the
+  parent again and keeps fixed values. Bypass, history, save/open, detailed copies
+  and export preserve the result. Existing studies start neutral.
+- Fixed effect parameters use absolute values. Whole-clip settings apply first;
+  section settings override them. Fixed effect values take priority over
+  geometric Object controls and Finishing; creative adjustments act after those
+  fixed values. A luminous form's companion ghost and granular halo require
   that form; ghost trails also apply to rays. Exposure flares are independent
   of the timeline's flash/sweep transitions. There is one instance per effect
   family, in the renderer's established order.
