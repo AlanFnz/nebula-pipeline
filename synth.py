@@ -327,6 +327,7 @@ MODULES = (
         P("amount", "Trail length", .12, 0, .7, .01, "Normalized horizontal trail length."),
         P("direction", "Direction", .2, -1, 1, .01, "Left/right balance of the trails."),
         P("ghosts", "Ghost count", 4, 1, 10, 1, "Number of shifted translucent copies", kind="int"),
+        P("opacity", "Trail brightness", 1., 0, 3, .01, "Brightness of shifted copies. 1 preserves the original trail fading; zero removes these copies."),
     )),
     Module("interference", "Signal interference", "Moving chromatic bands and a bent vertical scan comb across the sources.", (
         P("chroma", "Chromatic bands", .65, 0, 1, .01, "Mix broad moving violet, green and blue interference into the signal."),
@@ -1153,7 +1154,9 @@ def _smear(arr, p):
     for index in range(1, ghosts + 1):
         shift = direction * int(p["amount"] * w * index / ghosts)
         if shift:
-            out += _zero_roll(arr, shift, 1) * (.22 / index)
+            gain = .22 / index
+            if p.get('opacity', 1.) != 1.: gain *= p['opacity']
+            out += _zero_roll(arr, shift, 1) * gain
     return out
 
 
