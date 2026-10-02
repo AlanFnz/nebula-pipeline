@@ -43,7 +43,9 @@ from synth_master import normalize_master
 from synth_master_ui import MasterPanel
 from synth_viewer import SynthViewer
 from synth_video import VideoFrameProvider, inspect_video, prepare_proxy, video_composition, relink_footage, check_source
-from synth_preview import PreviewFrames, PreviewScheduler, resolve_scope, RenderValidity, preview_context, retained_frame_predicate
+from synth_preview import PreviewScheduler, resolve_scope, RenderValidity, preview_context, retained_frame_predicate
+from synth_comparison_preview import ComparisonFrames
+from synth_exploration_studio import ExplorationStudio
 
 
 class SynthControl(QWidget):
@@ -215,10 +217,11 @@ class ExportJob(QRunnable):
             self.signals.failed.emit(str(exc))
 
 
-class SynthStudio(QMainWindow):
+class SynthStudio(ExplorationStudio, QMainWindow):
     def __init__(self, preset=None, sequence=None, composition=None, settings=None):
         super().__init__()
         self.workspace_settings = settings
+        self.comparison = None
         self.setWindowTitle("Nebula Synth")
         self.setFont(terminal_font())
         self.resize(1280, 800)
@@ -257,7 +260,7 @@ class SynthStudio(QMainWindow):
         self.pending_jobs = []
         self.render_running = False
         self.render_queued = False
-        self.preview_frames = PreviewFrames()
+        self.preview_frames = ComparisonFrames()
         self.preview_validity = None
         self.prepare_job = None
         self.warming_job = None
@@ -371,7 +374,7 @@ class SynthStudio(QMainWindow):
                 if isinstance(control, TextControl) and control.editor.toPlainText() != control.value()]
 
     def has_unsaved_changes(self):
-        return bool(self.pending_text_edits()) or self.document_state() != self.clean_document
+        return self.audition_pending() or bool(self.pending_text_edits()) or self.document_state() != self.clean_document
 
     def finish_focused_edit(self):
         focus = self.focusWidget()
@@ -397,6 +400,13 @@ class SynthStudio(QMainWindow):
         return self.confirm_close(purpose)
 
     def confirm_close(self, purpose="closing"):
+        if self.audition_pending():
+            choice = QMessageBox.question(self, 'Temporary variation', f'Keep this audition before {purpose}?',
+                QMessageBox.StandardButton.Apply | QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Cancel)
+            if choice == QMessageBox.StandardButton.Cancel: return False
+            if choice == QMessageBox.StandardButton.Apply: self.keep_audition()
+            else: self.end_comparison()
         self.finish_focused_edit()
         if not self.has_unsaved_changes():
             return True
@@ -578,6 +588,7 @@ class SynthStudio(QMainWindow):
         self.source_preview = QCheckBox('Before / source'); self.source_preview.setAccessibleName('Before / source')
         self.source_preview.setToolTip('Preview the same footage frame with its framing, before image treatments and master grade. Export always includes treatments.')
         self.source_preview.toggled.connect(lambda _checked: self.invalidate()); view_row.addWidget(self.source_preview)
+        self.build_exploration_controls(view_row, monitor_row)
         self.viewer.zoomChanged.connect(self.refresh_view_zoom)
         self.section_timeline = SectionTimeline()
         self.section_timeline.selected.connect(lambda index: self.composer and self.composer.select_section(index))
@@ -866,6 +877,7 @@ class SynthStudio(QMainWindow):
             self.composer.failed.connect(lambda message: self.status.setText(f"Composition edit ignored: {message}"))
             self.composer.sectionSelected.connect(self.composition_section_selected)
             self.composer.detailsRequested.connect(self.open_detailed_copy)
+            self.composer.effects_panel.variation_requested.connect(self.open_effect_variation)
             self.composer.relinkRequested.connect(lambda: self.import_video_dialog(relink=True))
             self.composer_layout.addWidget(self.composer)
             self.inspector_host.setCurrentWidget(self.composer_host)
@@ -1024,6 +1036,8 @@ class SynthStudio(QMainWindow):
             self.studies_dialog.set_rendering_paused(busy)
 
     def save_study_dialog(self):
+        if self.audition_pending():
+            self.status.setText('Keep or discard the temporary variation before saving a study.'); return
         if self.composition is None or self.study_job is not None: return
         self.finish_focused_edit()
         name, accepted = QInputDialog.getText(self, 'Save as study', 'Study name:', text=self.composition['name'])
@@ -1117,6 +1131,7 @@ class SynthStudio(QMainWindow):
         project = normalize_composition(project)
         sequence = compile_composition(project)
         if guard and not self.confirm_replacement(): return False
+        self.end_comparison()
         self.cancel_video_import()
         self.play.setChecked(False)
         self.document_path = self.associated_document_path(path)
@@ -1199,6 +1214,7 @@ class SynthStudio(QMainWindow):
 
     def refresh_composition(self):
         self.refresh_canvas_controls()
+        self.reconcile_comparison()
         old_time = self.current_time
         self.update_timeline_max()
         with QSignalBlocker(self.timeline):
@@ -1406,7 +1422,7 @@ class SynthStudio(QMainWindow):
         directories = (root / 'presets', root / 'assets', proxy_directory(), studies_directory())
         if self.video_frames.directory: directories += (Path(self.video_frames.directory),)
         if any(resolved.is_relative_to(directory.resolve()) for directory in directories): return True
-        documents = (self.composition, self.sequence, self.preset)
+        documents = (self.composition, self.sequence, self.preset, *(item['document'] for item in (self.composition or {}).get('snapshots', [])))
         for document in documents:
             if not document: continue
             footage = document.get('footage', document.get('source', {}).get('footage', {}))
@@ -1422,6 +1438,8 @@ class SynthStudio(QMainWindow):
         return Path(path) if path and not self.protected_document_destination(path) else None
 
     def save_sequence_dialog(self, checked=False, *, save_as=False):
+        if self.audition_pending():
+            self.status.setText('Keep or discard the temporary variation before saving.'); return False
         self.finish_focused_edit()
         path = str(self.document_path) if self.document_path and not save_as else None
         if path is None:
@@ -1456,6 +1474,7 @@ class SynthStudio(QMainWindow):
         return self.save_sequence_dialog(save_as=True)
 
     def install_sequence(self, loaded, *, path=None):
+        self.end_comparison()
         self.cancel_video_import(); self.play.setChecked(False)
         self.composition = None; self.sequence = loaded
         self.document_identity = object(); self.document_path = self.associated_document_path(path)
@@ -1498,28 +1517,33 @@ class SynthStudio(QMainWindow):
             self.preset = self.collect(); self.preset["modules"][index], self.preset["modules"][new] = self.preset["modules"][new], self.preset["modules"][index]; self.mark_custom(); self.rebuild_modules(); self.invalidate()
 
     def current_preview_context(self):
-        return preview_context(self.sequence, self.preview_size(), self.source_preview.isChecked(), self.video_frames.directory)
+        return (*preview_context(self.preview_sequence(), self.preview_size(), self.preview_bypass(), self.video_frames.directory), self.comparison_context())
 
     def capture_preview_validity(self):
-        return RenderValidity.capture(self.document_identity, self.composition, self.sequence,
+        from synth_exploration import content
+        document = self.preview_document()
+        return RenderValidity.capture(self.document_identity, content(document) if document else None, self.preview_sequence(),
                                       self.collect() if self.sequence is None else self.preset, self.current_preview_context())
 
     def ensure_preview_context(self):
         context = self.current_preview_context()
         if self.preview_validity is None:
             self.preview_validity = self.capture_preview_validity()
+            self.preview_frames.switch(context)
         elif self.preview_validity.context != context:
             self.invalidate(force_clear=True)
             return False
         return True
 
-    def invalidate(self, *, force_clear=False):
+    def invalidate(self, *, force_clear=False, comparison_switch=False):
         self.update_document_title()
         current = self.capture_preview_validity()
         retain = None if force_clear else retained_frame_predicate(self.preview_validity, current)
         self.settings_generation += 1  # Worker rejection changes even when pixels can be retained.
-        if retain is None: self.preview_frames.clear()
-        else: self.preview_frames.retain(retain)
+        if not comparison_switch:
+            if retain is None: self.preview_frames.clear()
+            else: self.preview_frames.retain(retain)
+        self.preview_frames.switch(current.context)
         self.preview_validity = current
         self.display_times.clear()
         if self.play.isChecked():
@@ -1572,7 +1596,7 @@ class SynthStudio(QMainWindow):
             self._start_warm_batch(); return
         if not self.auto_prepare.isChecked(): return
         self.preparation_target, self.preparation_limited = self.preview_scheduler.plan(
-            self.active_preview_scope(), self.timeline.value(), self.preview_fps(), self.preview_size(), self.preview_frames.budget)
+            self.active_preview_scope(), self.timeline.value(), self.preview_fps(), self.preview_size(), self.preparation_budget())
         self._start_warm_batch()
 
     def _obsolete_preparation(self):
@@ -1591,7 +1615,7 @@ class SynthStudio(QMainWindow):
         self._obsolete_preparation(); self.warm_debounce.stop()
         self.preparation_explicit = True
         self.preparation_target, self.preparation_limited = self.preview_scheduler.plan(
-            self.active_preview_scope(), self.timeline.value(), self.preview_fps(), self.preview_size(), self.preview_frames.budget, explicit=True)
+            self.active_preview_scope(), self.timeline.value(), self.preview_fps(), self.preview_size(), self.preparation_budget(), explicit=True)
         self._start_warm_batch()
 
     def _preparation_ready(self):
@@ -1599,7 +1623,7 @@ class SynthStudio(QMainWindow):
         self.preparation_explicit = False
         scope = self.active_preview_scope()
         if self.preparation_limited:
-            megabytes = self.preview_frames.budget / 1024**2
+            megabytes = self.preparation_budget() / 1024**2
             self.preview_status.setText(f'Limited by rendering · {len(self.preparation_target)} / {scope.count} frames in the bounded {megabytes:g} MB window. Choose 360 px for more cached frames; export is unaffected.')
         else:
             self.preview_status.setText(f'Ready · {len(self.preparation_target)} cached frames · Export: {self.preview_fps()} fps. Press Play.')
@@ -1617,7 +1641,7 @@ class SynthStudio(QMainWindow):
         if not frames:
             self._preparation_ready(); return
         size = self.preview_size()
-        job = PreparePreviewJob(self.preset, self.sequence, size, frames, self.preview_fps(), self.settings_generation, self.source_preview.isChecked())
+        job = PreparePreviewJob(self.preset, self.preview_sequence(), size, frames, self.preview_fps(), self.settings_generation, self.preview_bypass())
         job.reserved_bytes = len(frames)*size[0]*size[1]*3
         self.preview_frames.reserve(job.reserved_bytes, self.preparation_target)
         self.cached_ranges.set_ranges(self.preview_frames.ranges())
@@ -1669,8 +1693,9 @@ class SynthStudio(QMainWindow):
     def request_frame(self):
         if self.closing: return
         if not self.ensure_preview_context(): return
-        if self.sequence and 'footage' in self.sequence:
-            try: check_source(self.sequence['footage'])
+        sequence = self.preview_sequence()
+        if sequence and 'footage' in sequence:
+            try: check_source(sequence['footage'])
             except (ValueError, OSError) as exc:
                 self.settings_generation += 1
                 self.preview_frames.clear(); self.cached_ranges.set_ranges([]); self.cancel_preparation(); self.render_queued = False
@@ -1682,6 +1707,7 @@ class SynthStudio(QMainWindow):
             self.section_timeline.set_time(self.current_time)
         if self.preview_debounce.isActive():
             self.render_queued = True; return
+        self.preview_frames.anchor(self.timeline.value())
         packet = self.preview_frames.get(self.timeline.value())
         if packet is not None:
             self.render_queued = False
@@ -1696,7 +1722,7 @@ class SynthStudio(QMainWindow):
         if self.warming_job and self.preview_frames.reserved + size[0]*size[1]*3 > self.preview_frames.budget:
             self.render_queued = True; return
         self.render_running = True
-        job = RenderJob(self.preset, self.current_time, size, self.settings_generation, self.request_serial, self.sequence, self.video_frames, self.source_preview.isChecked())
+        job = RenderJob(self.preset, self.current_time, size, self.settings_generation, self.request_serial, sequence, self.video_frames, self.preview_bypass())
         job.reserved_bytes = size[0]*size[1]*3 if size[0]*size[1]*3 <= self.preview_frames.budget else 0
         self.preview_frames.reserve(job.reserved_bytes, (self.timeline.value(),))
         self.cached_ranges.set_ranges(self.preview_frames.ranges())
@@ -1736,6 +1762,8 @@ class SynthStudio(QMainWindow):
         self.display_frame(time_seconds, (size, raw))
 
     def display_frame(self, time_seconds, packet, cached=False):
+        if self.comparison:
+            self.comparison['pending'] = False; self.refresh_comparison_controls()
         if cached: self.last_displayed_request = max(self.last_displayed_request, self.request_serial)
         size, raw = packet
         self.viewer.set_packet((size, raw)); self.time_label.setText(f"{int(time_seconds) // 60:02d}:{time_seconds % 60:05.2f}")
@@ -1782,6 +1810,7 @@ class SynthStudio(QMainWindow):
         else:
             self.play_timer.stop(); self.preview_status.setText(f'Preview paused · Export: {fps} fps')
     def install_preset(self, preset, *, path=None):
+        self.end_comparison()
         self.cancel_video_import(); self.play.setChecked(False)
         self.sequence = None; self.composition = None; self.preset = preset
         self.document_identity = object(); self.document_path = self.associated_document_path(path)
@@ -1835,6 +1864,8 @@ class SynthStudio(QMainWindow):
         return self.load_sequence_dialog()
 
     def export_dialog(self):
+        if self.audition_pending():
+            self.status.setText('Keep or discard the temporary variation before exporting.'); return
         if self.export_job: return
         default_name = self.suggested_output_path(".mp4")
         path, _ = QFileDialog.getSaveFileName(self, "Export synth sequence" if self.sequence is not None else "Export synth loop", default_name, "MP4 video (*.mp4)")

@@ -72,6 +72,7 @@ class CreativeValue(QWidget):
 class CreativeControlsPanel(QWidget):
     changed = Signal(str, object)
     restored = Signal(object)
+    variation_requested = Signal(str)
 
     def __init__(self):
         super().__init__()
@@ -85,6 +86,9 @@ class CreativeControlsPanel(QWidget):
         layout.addWidget(self.host)
         self.restore = QPushButton('Restore creative controls'); self.restore.clicked.connect(lambda: self.restored.emit(None))
         layout.addWidget(self.restore)
+        self.vary = QPushButton('Vary this effect…'); self.vary.clicked.connect(lambda: self.variation_requested.emit(self.effect_id))
+        self.vary.setToolTip('Audition Subtle, Moderate or Strong variations of selected creative controls. Keep or discard without changing other effects.')
+        layout.addWidget(self.vary)
 
     def refresh(self, effect_id, entry, parent, info, available, local):
         notes = {
@@ -107,6 +111,7 @@ class CreativeControlsPanel(QWidget):
         values = entry.get('creative', {}).get('values', {})
         inherited = parent.get('creative', {}).get('values', {})
         self.restore.setEnabled(bool(values))
+        self.vary.setEnabled(available and info['active'] and not entry.get('bypassed', parent.get('bypassed', False)))
         for spec in CREATIVE_CONTROLS.get(effect_id, ()):
             enabled = available
             if effect_id == 'particles' and spec.key in ('outward', 'return'):
