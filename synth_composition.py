@@ -530,6 +530,10 @@ def _geometry(raw, section=False):
 def normalize_composition(raw):
     if not isinstance(raw, dict) or raw.get("format") != FORMAT or raw.get("schema_version") not in (1, 2):
         raise ValueError("Unsupported composition document")
+    snapshots = None
+    if 'snapshots' in raw:
+        from synth_exploration import normalize_snapshots
+        snapshots = normalize_snapshots(raw['snapshots'])
     result = copy.deepcopy(raw)
     if raw.get('schema_version') == 2 or 'footage' in raw:
         from synth_video import normalize_footage
@@ -618,6 +622,9 @@ def normalize_composition(raw):
     if any(scope['effects'].get('edge_phosphor', {}).get('params', {}).get('edge_phosphor.fade_mode', 0) or
            scope['effects'].get('silhouette', {}).get('params', {}).get('silhouette.definition', 0) for scope in scopes):
         result['render_version'] = 2
+    if snapshots is not None:
+        if snapshots: result['snapshots'] = snapshots
+        else: result.pop('snapshots', None)
     return result
 
 
@@ -740,8 +747,9 @@ def compile_composition(raw, *, base_states=None):
 
     Base states exclude creative adjustments and bypass, retaining fixed edits.
     The collector is presentation data and never changes the exported sequence.
+    The editor's snapshot library is excluded from rendering and base collection.
     """
-    project = normalize_composition(raw)
+    project = normalize_composition({key: value for key, value in raw.items() if key != 'snapshots'} if isinstance(raw, dict) else raw)
     if base_states is not None: base_states.clear()
     result = copy.deepcopy(project["source"])
     result['render_version'] = project['render_version']
@@ -831,7 +839,13 @@ def save_composition(path, composition):
 
 def load_composition(path):
     raw = json.loads(Path(path).read_text())
-    if isinstance(raw.get('footage'), dict) and raw['footage'].get('path'):
-        source = Path(raw['footage']['path'])
-        if not source.is_absolute(): raw['footage']['path'] = str((Path(path).resolve().parent / source).resolve())
+    documents = [raw]
+    if isinstance(raw, dict) and isinstance(raw.get('snapshots'), list):
+        documents += [item['document'] for item in raw['snapshots'] if isinstance(item, dict) and isinstance(item.get('document'), dict)]
+    for document in documents:
+        if not isinstance(document, dict): continue
+        for holder in (document, document.get('source', {})):
+            if isinstance(holder, dict) and isinstance(holder.get('footage'), dict) and holder['footage'].get('path'):
+                source = Path(holder['footage']['path'])
+                if not source.is_absolute(): holder['footage']['path'] = str((Path(path).resolve().parent / source).resolve())
     return normalize_composition(raw)

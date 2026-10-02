@@ -71,6 +71,7 @@ class EffectsPanel(QWidget):
     timing_selected = Signal(bool)
     navigation_changed = Signal()
     object_requested = Signal()
+    variation_requested = Signal(str)
 
     def __init__(self):
         super().__init__()
@@ -157,6 +158,7 @@ class EffectsPanel(QWidget):
         self.creative_panel = CreativeControlsPanel()
         self.creative_panel.changed.connect(self.change_creative)
         self.creative_panel.restored.connect(self.restore_creative)
+        self.creative_panel.variation_requested.connect(self.variation_requested.emit)
         body_layout.addWidget(self.creative_panel)
         self.creative_notice = QLabel(); self.creative_notice.setWordWrap(True)
         self.creative_notice.setObjectName('muted'); body_layout.addWidget(self.creative_notice)
@@ -446,6 +448,7 @@ class EffectsPanel(QWidget):
         if self.updating: return
         entry = copy.deepcopy(self.entries.get(self.effect_id, {'mode': 'recipe', 'params': {}}))
         creative = entry.setdefault('creative', {'version': 1, 'values': {}})
+        creative.pop('variation', None)
         creative['values'][key] = value
         self.edited.emit(self.effect_id, entry, f'effect-creative:{self.context_key}:{self.effect_id}:{key}')
 
@@ -454,6 +457,7 @@ class EffectsPanel(QWidget):
         entry = copy.deepcopy(self.entries.get(self.effect_id, {'mode': 'recipe', 'params': {}}))
         if key is None: entry.pop('creative', None)
         elif 'creative' in entry:
+            entry['creative'].pop('variation', None)
             entry['creative']['values'].pop(key, None)
             if not entry['creative']['values']: entry.pop('creative')
         if entry['mode'] == 'recipe' and not entry['params'] and set(entry) == {'mode', 'params'}:
