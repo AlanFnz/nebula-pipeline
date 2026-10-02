@@ -80,6 +80,10 @@ class EffectAuditionDialog(EffectBrowserDialog):
         if not hasattr(self, 'debounce'): return
         self.transport.stop(); self.preview_play.setChecked(False)
         self.session.ready = False
+        self.session.candidate = None; self.session.owner = None
+        self.session.effect_id = None
+        self.studio.cancel_preparation()
+        if self.studio.comparison: self.studio.end_comparison()
         self.action.setEnabled(False)
         self.studio.viewer.set_packet(None)
         self.preview_note.setText('Loading selected preset…')
@@ -114,7 +118,8 @@ class EffectAuditionDialog(EffectBrowserDialog):
             self.transport.stop()
             self.studio.viewer.set_packet(None)
         applied = self.selected_effect_id() in self.applied_ids
-        self.action.setEnabled(applied or (session.ready and not session.error and not self.debounce.isActive()))
+        matching = session.effect_id == self.selected_effect_id() and session.preset == self.preset.currentIndex()
+        self.action.setEnabled(applied or (matching and session.ready and not session.error and not self.debounce.isActive()))
         self.selected_section.setVisible(session.section_id is not None and not session.target_scope.contains(self.studio.timeline.value()))
         self.prepare.setVisible(self.selected_effect_id() == 'subject_cutout')
         self.retry.setVisible(bool(session.error))
@@ -158,6 +163,7 @@ class EffectAuditionDialog(EffectBrowserDialog):
         identifier = self.selected_effect_id()
         if identifier in self.applied_ids:
             self.effectInspected.emit(identifier); self.accept(); return
+        if self.session.effect_id != identifier or self.session.preset != self.preset.currentIndex(): return
         try: self.session.apply()
         except ValueError as exc: self.session.fail(exc); self.refresh_preview(); return
         self.accept()

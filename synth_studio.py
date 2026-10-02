@@ -883,6 +883,8 @@ class SynthStudio(ExplorationStudio, QMainWindow):
             self.composer.effects_panel.variation_requested.connect(self.open_effect_variation)
             self.composer.effects_panel.discovery_enabled = True
             self.composer.effects_panel.discovery_requested.connect(self.open_effect_discovery)
+            self.composer.effects_panel.navigation_changed.connect(self.refresh_effect_explanations)
+            self.composer.effects_panel.source_requested.connect(lambda: self.composer.look_tabs.setCurrentWidget(self.composer.video_panel))
             self.composer.relinkRequested.connect(lambda: self.import_video_dialog(relink=True))
             self.composer_layout.addWidget(self.composer)
             self.inspector_host.setCurrentWidget(self.composer_host)
@@ -1041,6 +1043,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
             self.studies_dialog.set_rendering_paused(busy)
 
     def save_study_dialog(self):
+        if self.discovery_session: self.discovery_session.close(restore=False)
         if self.audition_pending():
             self.status.setText('Keep or discard the temporary variation before saving a study.'); return
         if self.composition is None or self.study_job is not None: return
@@ -1443,6 +1446,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         return Path(path) if path and not self.protected_document_destination(path) else None
 
     def save_sequence_dialog(self, checked=False, *, save_as=False):
+        if self.discovery_session: self.discovery_session.close(restore=False)
         if self.audition_pending():
             self.status.setText('Keep or discard the temporary variation before saving.'); return False
         self.finish_focused_edit()
@@ -1769,6 +1773,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         self.display_frame(time_seconds, (size, raw))
 
     def display_frame(self, time_seconds, packet, cached=False):
+        self.refresh_effect_explanations(time_seconds)
         if self.discovery_session: self.discovery_session.accept_packet()
         if self.comparison:
             self.comparison['pending'] = False; self.refresh_comparison_controls()
@@ -1873,6 +1878,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         return self.load_sequence_dialog()
 
     def export_dialog(self):
+        if self.discovery_session: self.discovery_session.close(restore=False)
         if self.audition_pending():
             self.status.setText('Keep or discard the temporary variation before exporting.'); return
         if self.export_job: return
@@ -1954,11 +1960,25 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         super().closeEvent(event)
 
 
+    def refresh_effect_explanations(self, seconds=None):
+        if not self.composition or not self.composer or not self.sequence: return
+        import time
+        now = time.monotonic()
+        if isinstance(seconds, (int, float)) and now-getattr(self, '_explanation_time', 0)<.2: return
+        self._explanation_time = now
+        from synth_effect_diagnostics import explain_effect
+        panel = self.composer.effects_panel
+        sid = self.composer.target()['id'] if self.composer.scope else None
+        panel.set_explanations(explain_effect(self.composition, self.sequence, panel.effect_id,
+                               self.timeline.value()/self.preview_fps(), sid))
+
+
 def run_synth_app(preset=None):
     app = QApplication.instance() or QApplication(sys.argv)
     apply_theme(app)
     window = SynthStudio(preset, settings=QSettings('AlanFnz', 'Nebula Studio')); window.show_workspace()
     return app.exec()
+
 
 
 if __name__ == "__main__":

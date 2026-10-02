@@ -71,6 +71,7 @@ class EffectsPanel(QWidget):
     timing_selected = Signal(bool)
     navigation_changed = Signal()
     object_requested = Signal()
+    source_requested = Signal()
     variation_requested = Signal(str)
     discovery_requested = Signal(str, int, str)
 
@@ -120,6 +121,10 @@ class EffectsPanel(QWidget):
         self.inspector_title = QLabel(); self.inspector_title.setObjectName('sectionTitle'); self.inspector_title.setWordWrap(True); row.addWidget(self.inspector_title, 1)
         self.bypass_button = QPushButton('Bypass'); self.bypass_button.clicked.connect(lambda: self.toggle_bypass(self.effect_id)); row.addWidget(self.bypass_button)
         editor_layout.addLayout(row)
+        self.frame_status = QLabel(); self.frame_status.setWordWrap(True); self.frame_status.setObjectName('muted')
+        editor_layout.addWidget(self.frame_status)
+        self.explanation_link = QPushButton('Open relevant control'); self.explanation_link.hide()
+        self.explanation_link.clicked.connect(self.navigate_explanation); editor_layout.addWidget(self.explanation_link)
         self.description = QLabel(); self.description.hide()
         row = QHBoxLayout()
         self.mode = QComboBox()
@@ -310,7 +315,7 @@ class EffectsPanel(QWidget):
             else:
                 control.refresh(info["ranges"][path], entry["params"].get(path), path in parent.get("params", {}), available, parent_value=parent.get("params", {}).get(path), scope_label=self.context_scope_label.removeprefix("Editing: "), context_key=self.context_key)
             control.base_origin = control.origin.text()
-        self.apply_button.setText("Replace with preset" if effect.id in self.applied_ids else "Apply preset")
+        self.apply_button.setText("Preview preset…" if self.discovery_enabled else "Replace with preset" if effect.id in self.applied_ids else "Apply preset")
         self.status.setText("Active during part of the recipe. On keeps it enabled throughout." if info["intermittent"] else
                             "Active. Unedited values keep following their recipe." if info["active"] else
                             f"{effect.label} is off in this scope. Open Activation & preset to apply settings, or return to the effects overview.")
@@ -499,9 +504,27 @@ class EffectsPanel(QWidget):
         self.edited.emit(self.effect_id, None, "effect-restore")
 
     def apply_look(self):
-        if self.discovery_enabled:
+        if self.discovery_enabled and self.effect_id not in SOURCE_EFFECTS:
             self.discovery_requested.emit(self.effect_id, self.look.currentIndex(), 'replace'); return
         from synth_effect_discovery import preset_entry
         entry = preset_entry(self.effect_id, self.look.currentIndex(), self.entries.get(self.effect_id),
                              self.parent_entries.get(self.effect_id), self.local)
         self.edited.emit(self.effect_id, entry, "effect-apply")
+
+    def set_explanations(self, explanations):
+        self.explanations = explanations
+        self.frame_status.setText('\n'.join(item.scope + ': ' + item.message for item in explanations))
+        self.explanation_target = next((item.target for item in explanations if item.target), None)
+        self.explanation_link.setVisible(bool(self.explanation_target))
+
+    def navigate_explanation(self):
+        target = getattr(self, 'explanation_target', None)
+        if target == 'source': self.source_requested.emit(); return
+        if target == 'object': self.object_requested.emit(); return
+        if target in ('activation', 'resume'):
+            self.activation_button.setChecked(True)
+            (self.bypass_button if target == 'resume' else self.mode).setFocus(); return
+        if target in self.controls:
+            self.parameter_tabs.setCurrentIndex(1 if self.effect_id in CREATIVE_CONTROLS else 0)
+            self.filter.setText(parameter(target).label)
+            self.parameter_scroll.ensureWidgetVisible(self.controls[target])
