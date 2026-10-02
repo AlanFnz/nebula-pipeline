@@ -12,8 +12,8 @@ results protected by raw-pixel regression tests.
 The [creative controls and audio-reactivity roadmap](docs/creative-controls-audio-roadmap.md)
 tracks independent experimentation, meaningful effect controls, comparison tools
 and synchronized audio-driven animation. A1 adds the New piece starting flow;
-A2 adds the first creative-control pilot. Snapshots and audio reactivity remain
-planned.
+A2 adds the first creative-control pilot; A3 adds named snapshots, A/B comparison
+and effect-scoped auditions. Audio reactivity remains planned.
 
 ## Launch on this Mac
 
@@ -643,6 +643,19 @@ detailed sequence/preset windows disable composition Undo/Redo.
   that form; ghost trails also apply to rays. Exposure flares are independent
   of the timeline's flash/sweep transitions. There is one instance per effect
   family, in the renderer's established order.
+- **Snapshots…** beside View zoom captures a complete named composition. Use
+  **Compare with B** to switch saved A and working B at the same playhead and
+  preview quality, or **Restore as working B** to recover its source, canvas,
+  effects and timing. The library is saved in the document; removal/restoration
+  supports Undo. Incompatible canvas, FPS or timing has an explanation and can
+  still be restored. A/B caches share one memory limit. Export B MP4 exports
+  the working composition even when viewing A; real edits return to B.
+- **Creative → Vary this effect…** offers Subtle, Moderate and Strong auditions
+  for the four creative-control pilots. Check which controls may vary; timing
+  starts unchecked, and object, palette, noise seed and other effects stay fixed.
+  Try previews a temporary B, with A/B and playback controls. Keep creates one
+  undoable edit; Discard leaves the piece unchanged. Keep/discard before saving
+  or exporting. The values and exploration seed travel with the saved effect.
 - In **Object → Geometric signal**, choose a rectangle, ellipse, circle or regular polygon.
   Width and height scale rectangular/elliptical forms; circles and polygons
   use a diameter measured as a percentage of image height. Polygons have

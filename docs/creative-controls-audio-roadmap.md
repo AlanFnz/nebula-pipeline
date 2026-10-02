@@ -1,8 +1,9 @@
 # Creative controls and audio reactivity
 
 Recorded: 2026-10-01.
-Status: A1 starting points and the A2 creative-control pilot implemented for
-review on 2026-10-02. A3–A5 and audio reactivity remain planned.
+Status: A1 starting points, A2 creative-control pilot and A3 snapshots/controlled
+exploration implemented for review on 2026-10-02. A4–A5 and audio reactivity remain
+planned.
 Expanded: 2026-10-01 with selectable frequency ranges and future multitrack routing.
 Order: independent visual experimentation first, imported-audio reactivity next,
 then multiple imported tracks and optional live input. Future milestones do not
@@ -133,6 +134,44 @@ pattern; restore neutral and recover the original pixels. Whole-clip and section
 scope, inherited values, reset, bypass, Undo/Redo and Save/Open stay coherent.
 
 ### A3. Comparison and controlled exploration
+
+Implemented: **Snapshots…** beside View zoom captures complete named compositions
+inside the current document (up to 32, without nesting libraries). The library
+supports comparison, restoration and removal. Restore retains the library and
+is undoable; removal is also undoable. Save/Open retains all source settings,
+effects, canvas, timing and seeds. Save as study packages the video dependencies
+of both the working piece and its snapshots, copying shared files only once.
+
+**Compare with B** previews the selected snapshot as A. Compact A/B buttons beside
+the viewer switch versions at the same absolute playhead, canvas and preview
+quality, including selected-section loops. An updating label prevents the old
+branch's image being presented as the new branch. Both branches share one bounded
+frame cache; preparing each reserves at most half its capacity. Worker generation
+checks and media fingerprints prevent stale or cross-branch delivery. Zoom and
+comparison do not edit the piece; a real edit returns to working B. Export is
+explicitly labelled **Export B MP4** during comparison and uses working B.
+
+Different canvas/framing, Timeline FPS, duration or source/effect time maps make
+direct comparison unavailable, with an explanation. Restoration remains
+available and recovers that snapshot's own coordinates and timing. Comparison
+does not resample, reseed or silently retime either version.
+
+**Creative → Vary this effect…** in the four pilot effects offers
+Subtle/Moderate/Strong exploration and a checklist of the controls that may vary.
+Timing controls start unchecked; object identity, palette, source settings, noise
+seed and other effects are protected. Scope follows the current whole-clip or
+selected-section setting. Each Try starts from the captured base rather than
+accumulating changes. The dialog stays beside the inspector, keeping the monitor
+visible, and supplies A/B and play/pause controls for short-loop auditions.
+
+Try renders a temporary B without editing the composition. **Keep variation**
+commits one Undo/Redo step; **Discard / close** restores the working piece. Save,
+Save as study and export require keeping or discarding a pending audition;
+closing/replacing checks the audition before the ordinary unsaved-document guard.
+The chosen values, amount, affected controls and exploration seed are saved in
+the effect's optional creative variation record. Manual creative edits clear that
+record. Existing New take/Keep controls continue their established broader
+Finishing variation behavior.
 
 - Add named snapshots and A/B comparison at the same playhead time, quality and
   deterministic noise state, so differences reflect the edits being compared.
@@ -324,7 +363,7 @@ control signal. No hardware is required for the imported-file milestone.
 
 - [x] A1: visible starting flow, existing editor integration and save/open.
 - [x] A2: creative-control pilot with reversible, bounded per-state adjustments.
-- [ ] Complete the first creative release with A3 snapshots/A/B.
+- [x] A3: named snapshots/A/B and controlled, effect-scoped Keep/Discard auditions.
 - [ ] Extend independent experimentation with A4 previews/explanations and A5 motion.
 - [ ] Add B1 imported audio/transport, then B2 mappings and B3 export verification.
 - [ ] Extend to B4 multiple imported tracks with independent routing and explicit audio output.

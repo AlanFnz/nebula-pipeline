@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Add named composition snapshots, same-frame A/B preview, undoable restoration
+  and removal, and video dependency packaging for saved studies. Reuse A/B
+  packets within one bounded cache with stale-worker rejection. Add
+  Subtle/Moderate/Strong effect-scoped auditions with selected creative controls,
+  protected timing defaults, recorded exploration seeds and explicit
+  Keep/Discard. A/B is preview-only; export uses working B. Existing studies
+  remain visually unchanged.
+
 - Add Creative controls for Tape damage, Frame jitter, Ghosts and Particles.
   Preserve animated recipe values through bounded relative adjustments and
   additive copy-count offsets. Keep fixed base edits in Parameters with visible
