@@ -1,10 +1,12 @@
 # Creative controls and audio reactivity
 
 Recorded: 2026-10-01.
-Status: agreed direction, saved for later; these features are not implemented.
+Status: A1 starting points implemented for review on 2026-10-02. A2–A5 and audio
+reactivity remain planned.
 Expanded: 2026-10-01 with selectable frequency ranges and future multitrack routing.
 Order: independent visual experimentation first, imported-audio reactivity next,
-then multiple imported tracks and optional live input. No implementation or scheduled work is started by this plan.
+then multiple imported tracks and optional live input. Future milestones do not
+start automatically; no scheduled work is configured.
 
 Related work: [effects editor UX](effects-editor-ux-plan.md),
 [reusable effects](reusable-effects-plan.md), and
@@ -25,6 +27,21 @@ It must retain the terminal visual style and space for the viewport.
 ## Phase A: independent creative experimentation
 
 ### A1. Starting points
+
+Implemented: **New piece…** in the toolbar and **File → New piece…** (Command-N)
+opens a compact material chooser. Text accepts wording; Shape offers a rectangle,
+ellipse, circle or polygon; Model offers a solid Doryphoros silhouette or particle
+head. Generated pieces use the current canvas dimensions and Timeline FPS,
+start with one six-second section and open Object controls immediately. Their
+source values are embedded in the ordinary composition document; no renderer
+or study defaults change. These pieces have no added image treatments: use
+Effects → Add effect… to begin building them, then resize/add sections as usual.
+
+Video uses the existing import flow, including the footage's native canvas/FPS
+and Source controls. Remix opens an editable copy with the study's saved canvas
+and timing. Cancel leaves the current document intact, and replacement retains
+the existing Save/Discard/Cancel guard. New generated pieces remain unsaved
+until Save; remix edits never overwrite the library study.
 
 - Offer New piece choices: Text, Shape, Model, Video, or Remix a study.
 - A fresh generated piece starts with visible material and one simple section.
@@ -263,7 +280,8 @@ control signal. No hardware is required for the imported-file milestone.
 
 ## Delivery order and open decisions
 
-- [ ] First release: A1 starting flow + A2 creative-control pilot + A3 snapshots/A/B.
+- [x] A1: visible starting flow, existing editor integration and save/open.
+- [ ] Complete the first creative release with A2 creative-control pilot + A3 snapshots/A/B.
 - [ ] Extend independent experimentation with A4 previews/explanations and A5 motion.
 - [ ] Add B1 imported audio/transport, then B2 mappings and B3 export verification.
 - [ ] Extend to B4 multiple imported tracks with independent routing and explicit audio output.
@@ -283,5 +301,5 @@ suggested UI labels or example mappings as finished specifications.
 
 Deliver each milestone in reviewable commits with targeted behavior tests,
 existing frozen-study regressions and visual checks at narrow/normal window
-sizes. No version bump, implementation branch, release date, live-input commitment
-or automatic follow-up is part of this documentation request.
+sizes. Release dates, version bumps, live input and automatic follow-ups require
+their own decisions as the work progresses.

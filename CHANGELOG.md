@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add New piece… in the toolbar and File menu with Text, Shape, Model, Video
+  and Remix a study choices. Generated pieces start with visible material,
+  one six-second section, the current canvas/FPS and Object controls ready.
+  Reuse existing effects, import, save/open and unsaved replacement flows;
+  preserve original studies and rendering defaults.
+
 - Give the monitor a vertically resizable workspace with a saved divider position.
   Keep zoom, playback and FPS visible above expanded, scrollable timeline/export
   controls; improve default viewport space and keep small windows usable.
