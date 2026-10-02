@@ -17,6 +17,8 @@ from synth_artwork_ui import ArtworkControl
 from synth_text_ui import TextControl
 from synth_ink_timing import DURATION_KEYS, TIMING_KEYS
 from synth_subject import SOURCE_EFFECTS
+from synth_creative import CREATIVE_CONTROLS
+from synth_creative_ui import CreativeControlsPanel
 
 INK_DURATIONS = {f'ink_bloom.{key}' for key in DURATION_KEYS}
 INK_TIMING = tuple(f'ink_bloom.{key}' for key in TIMING_KEYS)
@@ -152,6 +154,12 @@ class EffectsPanel(QWidget):
         self.activation_button.toggled.connect(self.show_activation)
         self.timing_note = QLabel(); self.timing_note.setWordWrap(True); self.timing_note.setObjectName('muted'); body_layout.addWidget(self.timing_note)
         self.restore_timing = QPushButton('Restore shared timing'); self.restore_timing.clicked.connect(self.timing_reset.emit); body_layout.addWidget(self.restore_timing)
+        self.creative_panel = CreativeControlsPanel()
+        self.creative_panel.changed.connect(self.change_creative)
+        self.creative_panel.restored.connect(self.restore_creative)
+        body_layout.addWidget(self.creative_panel)
+        self.creative_notice = QLabel(); self.creative_notice.setWordWrap(True)
+        self.creative_notice.setObjectName('muted'); body_layout.addWidget(self.creative_notice)
         self.parameter_host = QWidget(); self.parameter_layout = QVBoxLayout(self.parameter_host); self.parameter_layout.setContentsMargins(0, 0, 0, 0); body_layout.addWidget(self.parameter_host)
         self.no_matches = QLabel('No matching controls in this tab.'); self.no_matches.setObjectName('muted'); body_layout.addWidget(self.no_matches); self.no_matches.hide()
         self.note = QLabel('Use fixed value to override an animated control. Restore follows the whole clip or study again.')
@@ -287,6 +295,7 @@ class EffectsPanel(QWidget):
         info = self.authored_summary[effect.id]
         parent = self.parent_entries.get(effect.id, {})
         available = info["active"] or entry["mode"] in {"on", "off"} or effect.id in self.entries
+        self.creative_panel.refresh(effect.id, entry, parent, info, available, self.local)
         for path, control in self.controls.items():
             if path in INK_TIMING:
                 control.refresh(self.shared_summary['ranges'][path], self.shared_timing.get(path), False, True, scope_label='Whole clip', origin_label='Whole clip · shared timing', context_key=('shared-timing',))
@@ -294,6 +303,7 @@ class EffectsPanel(QWidget):
                 control.setToolTip('One timing setup for the whole composition, regardless of the selected section.')
             else:
                 control.refresh(info["ranges"][path], entry["params"].get(path), path in parent.get("params", {}), available, parent_value=parent.get("params", {}).get(path), scope_label=self.context_scope_label.removeprefix("Editing: "), context_key=self.context_key)
+            control.base_origin = control.origin.text()
         self.apply_button.setText("Replace with preset" if effect.id in self.applied_ids else "Apply preset")
         self.status.setText("Active during part of the recipe. On keeps it enabled throughout." if info["intermittent"] else
                             "Active. Unedited values keep following their recipe." if info["active"] else
@@ -315,10 +325,12 @@ class EffectsPanel(QWidget):
     def show_controls(self):
         if not self.summary: return
         effect = EFFECT_BY_ID[self.effect_id]
+        pilot = effect.id in CREATIVE_CONTROLS
         with QSignalBlocker(self.parameter_tabs):
             if effect.id != 'broadcast' and self.parameter_tabs.currentIndex() > 1:
                 self.parameter_tabs.setCurrentIndex(0)
             for index in (2, 3): self.parameter_tabs.setTabVisible(index, effect.id == 'broadcast')
+        creative = pilot and self.parameter_tabs.currentIndex() == 0
         ink = effect.id == 'ink_bloom'
         text = effect.id == 'text'
         text_timing = text and self.parameter_tabs.currentIndex() == 1
@@ -327,8 +339,24 @@ class EffectsPanel(QWidget):
         phosphor = effect.id == 'edge_phosphor'
         region = phosphor and self.parameter_tabs.currentIndex() == 1
         timing = ink and self.parameter_tabs.currentIndex() == 1
-        self.parameter_tabs.setTabText(1, 'Region' if phosphor else 'Polarity' if broadcast else 'Timing')
-        self.parameter_tabs.setVisible(ink or phosphor or text or broadcast)
+        self.parameter_tabs.setTabText(0, 'Creative' if pilot else 'Look')
+        self.parameter_tabs.setTabText(1, 'Parameters' if pilot else 'Region' if phosphor else 'Polarity' if broadcast else 'Timing')
+        self.parameter_tabs.setVisible(pilot or ink or phosphor or text or broadcast)
+        self.creative_panel.setVisible(creative)
+        self.parameter_host.setVisible(not creative)
+        self.filter.setVisible(not creative)
+        self.note.setVisible(not creative)
+        adjustments = dict(self.parent_entries.get(effect.id, {}).get('creative', {}).get('values', {}))
+        adjustments.update(self.entries.get(effect.id, {}).get('creative', {}).get('values', {}))
+        adjusted = [spec for spec in CREATIVE_CONTROLS.get(effect.id, ()) if adjustments.get(spec.key, spec.neutral) != spec.neutral]
+        labels = ', '.join(f'{spec.label} {adjustments[spec.key]:+g} copies' if spec.operation == 'offset'
+                           else f'{spec.label} {adjustments[spec.key] * 100:.0f}%' for spec in adjusted)
+        self.creative_notice.setText('Creative adjustments still act after these base values: ' + labels + '. Open Creative to change or restore them.' if adjusted else '')
+        self.creative_notice.setVisible(pilot and not creative and bool(adjusted))
+        for path, control in self.controls.items():
+            influences = [spec.label for spec in adjusted if path in spec.paths]
+            origin = getattr(control, 'base_origin', control.origin.text())
+            control.origin.setText(origin + (' · adjusted by ' + ', '.join(influences) if influences else ''))
         self.activation_button.setVisible(not timing)
         self.activation_host.setVisible(not timing and self.activation_button.isChecked())
         self.timing_note.setVisible(timing)
@@ -381,7 +409,7 @@ class EffectsPanel(QWidget):
             with QSignalBlocker(self.group):
                 self.group.clear(); self.group.addItem('All groups', None)
                 for title in titles: self.group.addItem(title, title)
-        self.group.setVisible(len(titles) > 1)
+        self.group.setVisible(not creative and len(titles) > 1)
         selected_group = self.group.currentData()
         if selected_group:
             visible_paths = next(paths for title, paths in groups if title == selected_group)
@@ -399,7 +427,7 @@ class EffectsPanel(QWidget):
             for widget in (label, *(self.controls[p] for p in matching)):
                 if self.parameter_layout.indexOf(widget) != index: self.parameter_layout.insertWidget(index, widget)
                 index += 1
-        self.no_matches.setVisible(not shown)
+        self.no_matches.setVisible(not creative and not shown)
         if timing:
             loops = self.shared_summary['loop_seconds']
             if not loops: loop = 'Enable Ink bloom to preview its timing.'
@@ -413,6 +441,24 @@ class EffectsPanel(QWidget):
         entry = copy.deepcopy(self.entries.get(self.effect_id, {"mode": "recipe", "params": {}}))
         entry["mode"] = self.mode.itemData(index)
         self.edited.emit(self.effect_id, entry, "effect-mode")
+
+    def change_creative(self, key, value):
+        if self.updating: return
+        entry = copy.deepcopy(self.entries.get(self.effect_id, {'mode': 'recipe', 'params': {}}))
+        creative = entry.setdefault('creative', {'version': 1, 'values': {}})
+        creative['values'][key] = value
+        self.edited.emit(self.effect_id, entry, f'effect-creative:{self.context_key}:{self.effect_id}:{key}')
+
+    def restore_creative(self, key):
+        if self.updating: return
+        entry = copy.deepcopy(self.entries.get(self.effect_id, {'mode': 'recipe', 'params': {}}))
+        if key is None: entry.pop('creative', None)
+        elif 'creative' in entry:
+            entry['creative']['values'].pop(key, None)
+            if not entry['creative']['values']: entry.pop('creative')
+        if entry['mode'] == 'recipe' and not entry['params'] and set(entry) == {'mode', 'params'}:
+            entry = None
+        self.edited.emit(self.effect_id, entry, 'effect-creative-restore')
 
     def change_parameter(self, path, value, effect_id=None):
         effect_id = effect_id or self.effect_id
@@ -448,4 +494,6 @@ class EffectsPanel(QWidget):
         entry = effect_preset(self.effect_id, self.look.currentIndex())
         previous = self.entries.get(self.effect_id, {})
         if 'bypassed' in previous: entry['bypassed'] = previous['bypassed']
+        if self.local and 'creative' in self.parent_entries.get(self.effect_id, {}):
+            entry['creative'] = {'version': 1, 'values': {spec.key: spec.neutral for spec in CREATIVE_CONTROLS.get(self.effect_id, ())}}
         self.edited.emit(self.effect_id, entry, "effect-apply")

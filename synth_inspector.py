@@ -3,6 +3,8 @@
 
 def control_group(path):
     module, key = path.split('.')
+    if module == 'particles' and key in ('assembly', 'breathing', 'motion', 'release', 'turn_scope', 'orbit_start', 'orbit_handoff'):
+        return 'Motion & timing'
     if module == 'scan_modulation':
         if key in ('input', 'region', 'show_key') or key.startswith('key_'): return 'Signal selection'
         if key.startswith('fade'): return 'Selection fade'

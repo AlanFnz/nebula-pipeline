@@ -1188,7 +1188,7 @@ class SynthStudio(QMainWindow):
 
     def composition_changed(self, document, action):
         compiled = self.composer.compiled if self.composer and document is self.composer.document else compile_composition(document)
-        if self.edit_key != action or not action.startswith(("macro:", "geometry:", "effect-param:", 'master:', 'video:')):
+        if self.edit_key != action or not action.startswith(("macro:", "geometry:", "effect-param:", 'effect-creative:', 'master:', 'video:')):
             self.undo_compositions.append(copy.deepcopy(self.composition))
             self.undo_compositions = self.undo_compositions[-30:]
         self.edit_key = action; self.edit_timer.start(400)
