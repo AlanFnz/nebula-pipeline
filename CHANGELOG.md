@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.4.0 — 2026-10-02
+
 - Add effect and inspector preset replacement now audition on the complete
   current piece before an explicit, undoable Apply. Before/Preview, sampled
   playback and scrub stay temporary; Cancel and Escape create no edits.
@@ -12,7 +14,8 @@
   preparation remains explicit; slow studies can take seconds per new frame.
 - Use a compact native list and floating macOS audition window with pinned
   transport/actions. See `docs/visual-effect-discovery-delivery.md` for native
-  findings, preservation checks, measurements and limits. Version remains 0.3.0.
+  findings, preservation checks, measurements and limits. Existing study
+  rendering and saved-document formats remain compatible.
 
 ## 0.3.0 — 2026-10-02
 

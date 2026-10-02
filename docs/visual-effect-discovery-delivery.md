@@ -1,7 +1,8 @@
 # A4 visual effect discovery delivery
 
-Feature branch: `codex/visual-effect-discovery`, based on released 0.3.0.
-Version remains 0.3.0. The installed application is unchanged.
+Merged through PR #16 from `codex/visual-effect-discovery`, based on 0.3.0.
+Included in the 0.4.0 release dated 2026-10-02. Validation below records the
+feature review before the release metadata update.
 
 ## Delivered behavior
 

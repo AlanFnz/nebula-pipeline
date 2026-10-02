@@ -2,8 +2,8 @@
 
 Recorded: 2026-10-01.
 Status: A1 starting points, A2 creative-control pilot and A3 snapshots/controlled
-exploration merged and installed in 0.3.0 on 2026-10-02. A4 is implemented on its feature branch for draft review; A5 and audio
-reactivity remain unimplemented.
+exploration shipped in 0.3.0 on 2026-10-02. A4 visual discovery is merged into
+main for 0.4.0 on 2026-10-02; A5 and audio reactivity remain unimplemented.
 Expanded: 2026-10-01 with selectable frequency ranges and future multitrack routing.
 Order: independent visual experimentation first, imported-audio reactivity next,
 then multiple imported tracks and optional live input. Future milestones do not
@@ -186,7 +186,7 @@ loop, retain B, and restore A without losing other effects or source settings.
 
 ### A4. Visual discovery and explanations
 
-Implemented on `codex/visual-effect-discovery`, pending review/release. See
+Merged through PR #16 and included in 0.4.0. See
 [delivery notes](visual-effect-discovery-delivery.md) for actual behavior, native
 adjustments, measurements and limits.
 
@@ -372,7 +372,7 @@ control signal. No hardware is required for the imported-file milestone.
 - [x] A1: visible starting flow, existing editor integration and save/open.
 - [x] A2: creative-control pilot with reversible, bounded per-state adjustments.
 - [x] A3: named snapshots/A/B and controlled, effect-scoped Keep/Discard auditions.
-- [x] A4: previews, explanations and composition breakdown implemented on the feature branch; review/release pending.
+- [x] A4: previews, explanations and composition breakdown, included in 0.4.0.
 - [ ] A5: understandable motion and envelope controls.
 - [ ] Add B1 imported audio/transport, then B2 mappings and B3 export verification.
 - [ ] Extend to B4 multiple imported tracks with independent routing and explicit audio output.

@@ -13,7 +13,8 @@ The [creative controls and audio-reactivity roadmap](docs/creative-controls-audi
 tracks independent experimentation, meaningful effect controls, comparison tools
 and synchronized audio-driven animation. A1 adds the New piece starting flow;
 A2 adds the first creative-control pilot; A3 adds named snapshots, A/B comparison
-and effect-scoped auditions. Audio reactivity remains planned.
+and effect-scoped auditions. A4 adds preset previews, current-frame explanations
+and a composition breakdown. Audio reactivity remains planned.
 
 ## Launch on this Mac
 
