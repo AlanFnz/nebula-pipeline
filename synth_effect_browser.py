@@ -1,13 +1,23 @@
 """Searchable effect discovery with explicit, mutation-free action signals."""
-from PySide6.QtCore import Qt, QSignalBlocker, Signal
+from PySide6.QtCore import Qt, QSignalBlocker, Signal, QTimer
 from PySide6.QtWidgets import (
     QAbstractItemView, QDialog, QDialogButtonBox, QHeaderView, QHBoxLayout,
     QLabel, QLineEdit, QPushButton, QSizePolicy, QStackedWidget,
-    QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
+    QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QScrollArea, QFrame, QListWidget, QListWidgetItem,
 )
 
 from studio_widgets import ComboBox
 from synth_effect_catalog import CATEGORIES, SOURCE_EFFECT_IDS, effect_catalog
+
+
+class CompactEffectList(QListWidget):
+    """A native accessible list; compact discovery does not need a table grid."""
+    def rowCount(self): return self.count()
+    def clearContents(self): self.clear()
+    def setRowCount(self, _count): pass
+    def selectRow(self, row): self.setCurrentRow(row)
+    def item(self, row, column=0): return super().item(row)
+
 
 
 class EffectBrowserDialog(QDialog):
@@ -15,7 +25,7 @@ class EffectBrowserDialog(QDialog):
     effectInspected = Signal(str)
     objectRequested = Signal()
 
-    def __init__(self, allowed_effects=None, applied_ids=(), parent=None):
+    def __init__(self, allowed_effects=None, applied_ids=(), parent=None, *, compact=False):
         super().__init__(parent)
         self.setWindowTitle('Add effect')
         self.setAccessibleName('Add image effect')
@@ -25,10 +35,17 @@ class EffectBrowserDialog(QDialog):
         self.applied_ids = frozenset()
         self._entries = {}
         self._preset_choices = {}
-        layout = QVBoxLayout(self)
+        self.compact = compact
+        outer = QVBoxLayout(self)
+        body = QWidget(); layout = QVBoxLayout(body); layout.setContentsMargins(0, 0, 0, 0)
+        self.body_layout = layout
+        scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setWidget(body)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setFrameShape(QFrame.Shape.NoFrame); outer.addWidget(scroll, 1)
         heading = QLabel('IMAGE EFFECTS'); heading.setObjectName('sectionTitle')
         layout.addWidget(heading)
         hint = QLabel('Browse treatments for your image. Choose a preset, then Add effect.')
+        self.browser_hint = hint
         hint.setWordWrap(True); layout.addWidget(hint)
         filters = QHBoxLayout()
         self.search = QLineEdit()
@@ -42,20 +59,21 @@ class EffectBrowserDialog(QDialog):
         layout.addLayout(filters)
 
         self.results = QStackedWidget()
-        self.table = QTableWidget(0, 3)
+        self.table = CompactEffectList() if compact else QTableWidget(0, 3)
         self.table.setAccessibleName('Image effects')
         self.table.setAccessibleDescription('Select an effect to read its description. Use Add effect or Inspect effect to continue.')
-        self.table.setHorizontalHeaderLabels(('Effect', 'Category', 'Status'))
+        if not compact: self.table.setHorizontalHeaderLabels(('Effect', 'Category', 'Status'))
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setAlternatingRowColors(True)
-        self.table.verticalHeader().hide()
-        self.table.verticalHeader().setDefaultSectionSize(30)
-        header = self.table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        if not compact:
+            self.table.verticalHeader().hide()
+            self.table.verticalHeader().setDefaultSectionSize(30)
+            header = self.table.horizontalHeader()
+            header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+            header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+            if not compact: header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         self.table.setMinimumHeight(140)
         self.results.addWidget(self.table)
         self.empty = QLabel()
@@ -88,7 +106,7 @@ class EffectBrowserDialog(QDialog):
         self.selection_note = QLabel(); self.selection_note.setWordWrap(True)
         self.selection_note.setObjectName('muted'); layout.addWidget(self.selection_note)
 
-        source_title = QLabel('OBJECT SOURCES'); source_title.setObjectName('controlGroup')
+        source_title = QLabel('OBJECT SOURCES'); self.object_heading = source_title; source_title.setObjectName('controlGroup')
         layout.addWidget(source_title)
         sources = QHBoxLayout()
         self.object_note = QLabel('Text, shapes and particles have their own Object controls.')
@@ -110,7 +128,7 @@ class EffectBrowserDialog(QDialog):
         self.action.setObjectName('primary')
         self.action.setAutoDefault(False)
         self.action.clicked.connect(self.request_effect)
-        actions.addWidget(self.action); layout.addLayout(actions)
+        actions.addWidget(self.action); outer.addLayout(actions)
 
         self.search.textChanged.connect(self.apply_filters)
         self.category.currentIndexChanged.connect(self.apply_filters)
@@ -159,14 +177,17 @@ class EffectBrowserDialog(QDialog):
             selected_row = 0
             for row, effect in enumerate(entries):
                 applied = effect.id in self.applied_ids
-                for column, value in enumerate((effect.label, effect.category, 'Applied' if applied else 'Available')):
-                    item = QTableWidgetItem(value)
+                status = 'Applied' if applied else 'Available'
+                values = (effect.label + ' · ' + status,) if self.compact else (effect.label, effect.category, status)
+                for column, value in enumerate(values):
+                    item = QListWidgetItem(value) if self.compact else QTableWidgetItem(value)
                     item.setData(Qt.ItemDataRole.UserRole, effect.id)
                     item.setToolTip(effect.description)
                     if column == 0:
                         item.setData(Qt.ItemDataRole.AccessibleTextRole,
                                      f'{effect.label}, {effect.category}, {"already applied" if applied else "available"}')
-                    self.table.setItem(row, column, item)
+                    if self.compact: self.table.addItem(item)
+                    else: self.table.setItem(row, column, item)
                 if effect.id == selected: selected_row = row
             if entries: self.table.selectRow(selected_row)
         self.results.setCurrentWidget(self.table if entries else self.empty)
@@ -204,6 +225,11 @@ class EffectBrowserDialog(QDialog):
         self.layout().activate()
         row = self.table.selectionModel().selectedRows()[0].row()
         self.table.scrollToItem(self.table.item(row, 0))
+        QTimer.singleShot(0, self, self.ensure_selection_visible)
+
+    def ensure_selection_visible(self):
+        rows = self.table.selectionModel().selectedRows()
+        if rows: self.table.scrollToItem(self.table.item(rows[0].row(), 0), QAbstractItemView.ScrollHint.PositionAtCenter)
 
     def remember_preset(self, index):
         identifier = self.selected_effect_id()

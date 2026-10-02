@@ -60,6 +60,7 @@ class ExplorationStudio:
             self.export_button.setToolTip('Export working B. A/B comparison only changes the viewer.' if active else '')
 
     def begin_comparison(self, first, label, candidate=None, snapshot_id=None, purpose=None):
+        if self.discovery_session and purpose not in ('effect', 'contribution'): self.dismiss_effect_discovery()
         first = content(first); a = compile_composition(first)
         b = compile_composition(candidate) if candidate is not None else self.sequence
         problem = comparison_problem(a, b)
@@ -143,11 +144,22 @@ class ExplorationStudio:
         dialog.move(min(host.x(), frame.right() - dialog.width()),
                     min(host.y(), frame.bottom() - dialog.height()))
 
+    def dismiss_effect_discovery(self):
+        dialog = getattr(self, 'discovery_dialog', None)
+        if dialog is not None: dialog.reject()
+        elif self.discovery_session: self.discovery_session.close(restore=False)
+
     def open_effect_discovery(self, effect_id='', preset=0, operation='add'):
         from synth_effect_discovery_ui import EffectAuditionDialog
         from PySide6.QtWidgets import QMessageBox
-        if self.discovery_session:
-            self.discovery_session.close(restore=False)
+        if self.discovery_session: self.dismiss_effect_discovery()
+        if self.audition_pending():
+            choice = QMessageBox.question(self, 'Temporary variation', 'Keep this variation before previewing an effect?',
+                QMessageBox.StandardButton.Apply | QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Cancel)
+            if choice == QMessageBox.StandardButton.Cancel: return
+            if choice == QMessageBox.StandardButton.Apply: self.keep_audition()
+            else: self.end_comparison()
         try:
             dialog = EffectAuditionDialog(self, effect_id or None, preset, operation)
         except ValueError as exc:
@@ -155,4 +167,4 @@ class ExplorationStudio:
         self.discovery_dialog = dialog
         dialog.finished.connect(lambda _result, d=dialog: setattr(self, 'discovery_dialog', None) if getattr(self, 'discovery_dialog', None) is d else None)
         self.position_exploration_dialog(dialog)
-        dialog.open()
+        dialog.show()

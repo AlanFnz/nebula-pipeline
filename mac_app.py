@@ -12,7 +12,8 @@ def main():
     paths = ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"]
     paths.extend(os.environ.get("PATH", "").split(os.pathsep))
     os.environ["PATH"] = os.pathsep.join(dict.fromkeys(path for path in paths if path))
-    log_path = Path.home() / "Library" / "Logs" / "Nebula Studio" / "studio.log"
+    state_dir = os.environ.get("NEBULA_STATE_DIR")
+    log_path = Path(state_dir) / "studio.log" if state_dir else Path.home() / "Library" / "Logs" / "Nebula Studio" / "studio.log"
     if getattr(sys, "frozen", False):
         log_path.parent.mkdir(parents=True, exist_ok=True)
         log = log_path.open("a", buffering=1)

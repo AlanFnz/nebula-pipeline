@@ -1,7 +1,8 @@
 """Compact effect audition controls; rendering stays in the Studio scheduler."""
 import time
+import sys
 from PySide6.QtCore import QTimer, Qt
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QSlider, QScrollArea, QWidget, QVBoxLayout
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QSlider, QWidget, QVBoxLayout
 from synth_effect_browser import EffectBrowserDialog
 from synth_effect_preview import EffectPreviewSession
 from synth_effects import EFFECT_BY_ID
@@ -14,68 +15,72 @@ class EffectAuditionDialog(EffectBrowserDialog):
         self.session = EffectPreviewSession(studio, section_id, operation)
         self.studio = studio; self.operation = operation; self.locked_effect = effect_id
         allowed = (effect_id,) if effect_id else panel.allowed_effects
-        super().__init__(allowed, () if effect_id else panel.browser_applied_ids(), studio)
+        super().__init__(allowed, () if effect_id else panel.browser_applied_ids(), studio, compact=True)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        self.setWindowModality(Qt.WindowModality.WindowModal)
+        self.setWindowModality(Qt.WindowModality.ApplicationModal if sys.platform == 'darwin' else Qt.WindowModality.WindowModal)
         self.setWindowTitle('Compare contribution' if operation == 'without' else 'Preview effect preset')
         self.resize(430, 620); self.setMinimumWidth(380)
-        self.table.setColumnHidden(1, True)
+        self.browser_hint.setText('Choose a preset to audition on your piece, then Apply effect.' if operation == 'add' else 'Preview fixed preset values in this scope before replacing.' if operation == 'replace' else 'Compare the piece with this treatment temporarily bypassed.')
+        self.action.setAccessibleName('Replace with preset' if operation == 'replace' else 'Apply selected effect')
         self.action.setText('Replace with preset' if operation == 'replace' else 'Apply effect')
         self.action.clicked.disconnect()
         self.action.clicked.connect(self.apply_candidate)
+        self.table.setMaximumHeight(180); self.results.setMaximumHeight(180)
+        self.body_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.target_label = QLabel('Whole clip' if section_id is None else panel.context_scope_label.removeprefix('Editing: '))
         self.target_label.setWordWrap(True)
-        self.layout().insertWidget(1, self.target_label)
+        self.body_layout.insertWidget(1, self.target_label)
+        self.diagnostic_note = QLabel(); self.diagnostic_note.setWordWrap(True)
+        self.diagnostic_note.setObjectName('muted'); self.body_layout.insertWidget(self.body_layout.count()-1, self.diagnostic_note)
+        self.transport_host = QWidget(); transport_layout = QVBoxLayout(self.transport_host)
+        transport_layout.setContentsMargins(0, 0, 0, 0)
+        self.layout().insertWidget(self.layout().count()-1, self.transport_host)
         self.preview_note = QLabel('Select a treatment to preview.'); self.preview_note.setWordWrap(True)
         self.preview_note.setAccessibleName('Effect preview status')
-        self.layout().insertWidget(self.layout().count()-1, self.preview_note)
+        transport_layout.addWidget(self.preview_note)
         row = QHBoxLayout()
         self.before = QPushButton('Before'); self.after = QPushButton('Preview')
+        self.before.setCheckable(True); self.after.setCheckable(True)
         self.preview_play = QPushButton('Play preview'); self.preview_play.setCheckable(True)
         for button in (self.before, self.after, self.preview_play):
             button.setAutoDefault(False); row.addWidget(button)
-        self.layout().insertLayout(self.layout().count()-1, row)
+        transport_layout.addLayout(row)
         self.before.clicked.connect(lambda: self.switch_side('a'))
         self.after.clicked.connect(lambda: self.switch_side('b'))
         self.preview_play.toggled.connect(self.play_sample)
         self.scrubber = QSlider(Qt.Orientation.Horizontal); self.scrubber.setAccessibleName('Sampled effect preview position')
         self.scrubber.valueChanged.connect(self.scrub_sample)
-        self.layout().insertWidget(self.layout().count()-1, self.scrubber)
+        transport_layout.addWidget(self.scrubber)
         row = QHBoxLayout()
         self.selected_section = QPushButton('Preview selected section'); self.selected_section.clicked.connect(self.seek_section)
         self.retry = QPushButton('Retry'); self.retry.clicked.connect(self.render_selection)
         self.prepare = QPushButton('Prepare preview'); self.prepare.clicked.connect(lambda: self.render_selection(explicit=True))
         for button in (self.selected_section, self.retry, self.prepare): button.setAutoDefault(False); row.addWidget(button)
-        self.layout().insertLayout(self.layout().count()-1, row)
+        transport_layout.addLayout(row)
         self.debounce = QTimer(self); self.debounce.setSingleShot(True); self.debounce.setInterval(300)
         self.debounce.timeout.connect(self.render_selection)
         self.transport = QTimer(self); self.transport.setInterval(83); self.transport.timeout.connect(self.advance_sample)
         self.poll = QTimer(self); self.poll.setInterval(100); self.poll.timeout.connect(self.refresh_preview); self.poll.start()
-        self.table.itemSelectionChanged.connect(self.selection_changed)
         self.preset.currentIndexChanged.connect(self.selection_changed)
         self.finished.connect(self.cleanup)
         self.effectInspected.connect(panel.inspect_effect)
         self.objectRequested.connect(panel.object_requested.emit)
         if effect_id:
             self.search.hide(); self.category.hide(); self.results.hide(); self.status.hide()
-            self.object_button.hide(); self.object_note.hide()
+            self.object_button.hide(); self.object_note.hide(); self.object_heading.hide()
             self.preset.setCurrentIndex(preset)
             self.preset_row.setVisible(operation != 'without')
             self.selection_note.setText('Fixed preset values replace this effect in the displayed scope.' if operation == 'replace' else 'Temporary bypass only. Close restores your piece.')
         if operation == 'without': self.action.hide(); self.cancel_button.setText('Close')
-        # Keep actions pinned while the content scrolls on small screens.
-        outer = self.layout()
-        actions = outer.takeAt(outer.count()-1)
-        body = QWidget(); body_layout = QVBoxLayout(body)
-        body_layout.setContentsMargins(0, 0, 0, 0)
-        while outer.count(): body_layout.addItem(outer.takeAt(0))
-        scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setWidget(body)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
-        outer.addWidget(scroll, 1); outer.addItem(actions)
         screen = studio.screen().availableGeometry()
         self.resize(430, min(620, screen.height()-60))
         self.selection_changed()
+
+    def update_selection(self):
+        super().update_selection()
+        if hasattr(self, 'debounce'):
+            self.action.setAccessibleName('Inspect selected effect' if self.selected_effect_id() in self.applied_ids else 'Replace with preset' if self.operation == 'replace' else 'Apply selected effect')
+            self.selection_changed()
 
     def selection_changed(self, *_):
         if not hasattr(self, 'debounce'): return
@@ -88,6 +93,7 @@ class EffectAuditionDialog(EffectBrowserDialog):
         self.action.setEnabled(False)
         self.studio.viewer.set_packet(None)
         self.preview_note.setText('Loading selected preset…')
+        self.diagnostic_note.clear(); self.diagnostic_key = None
         self.debounce.start()
 
     def render_selection(self, explicit=False):
@@ -124,24 +130,42 @@ class EffectAuditionDialog(EffectBrowserDialog):
         self.selected_section.setVisible(session.section_id is not None and not session.target_scope.contains(self.studio.timeline.value()))
         self.prepare.setVisible(self.selected_effect_id() == 'subject_cutout')
         self.retry.setVisible(bool(session.error))
+        side = self.studio.comparison['side'] if self.studio.comparison else None
+        self.before.setChecked(side == 'a'); self.after.setChecked(side == 'b')
         self.before.setEnabled(session.candidate is not None); self.after.setEnabled(session.candidate is not None)
         self.preview_play.setEnabled(session.ready and bool(session.samples))
         self.scrubber.setEnabled(bool(session.samples))
-        if session.error: self.preview_note.setText('Preview unavailable: ' + session.error)
+        if session.error:
+            self.transport.stop(); self.preview_play.setChecked(False)
+            self.preview_note.setText('Preview unavailable: ' + session.error)
         elif session.candidate is not None:
             seconds = self.studio.timeline.value()/self.studio.preview_fps()
             size = self.studio.preview_size()
             note = f'{"Ready" if session.ready else "Loading"} · {seconds:.2f}s · {size[0]}×{size[1]} · sampled up to 12 fps'
             if session.section_id and not session.target_scope.contains(self.studio.timeline.value()): note += '\nCurrent frame is outside the selected section.'
-            elif self.operation == 'without' and session.section_id is None:
+            if session.section_id and session.target_scope.contains(self.studio.timeline.value()):
+                occurrence = next(i+1 for i, (start,end) in enumerate(session.target_scope.intervals) if start<=self.studio.timeline.value()<end)
+                note += f'\nSection occurrence {occurrence} of {len(session.target_scope.intervals)} · original absolute clock'
+            if self.operation == 'without' and session.section_id is None:
                 note += '\nExplicit section Resume overrides Whole clip bypass.'
             if session.operation == 'replace' and self.studio.composer.effects_panel.is_bypassed(session.effect_id): note += '\nBypassed settings stay bypassed. Resume separately in the inspector.'
-            note += '\nIntermittent treatments may not fire in this short window.'
+            if self.preview_play.isChecked() and getattr(self, 'waiting', False):
+                note = 'Preparing sampled loop… ' + str(sum(frame in self.studio.preview_frames.items for frame in session.samples)) + '/' + str(len(session.samples)) + ' frames\n' + note
             self.preview_note.setText(note)
+            key = (session.owner, self.studio.timeline.value(), session.ready)
+            if self.diagnostic_key != key:
+                self.diagnostic_key = key
+                from synth_effect_diagnostics import explain_effect
+                facts = explain_effect(session.candidate, self.studio.comparison['b_sequence'], session.effect_id,
+                                       seconds, session.section_id)
+                text = '\n'.join(f.scope + ': ' + f.message for f in facts)
+                matching = session.matching_samples()
+                if matching: text += '\nNo visible difference in these matching preview frames. Try relevant strength or threshold controls after Apply.'
+                self.diagnostic_note.setText(text + '\nIntermittent treatments may not fire in this short window.')
 
     def switch_side(self, side):
         self.studio.set_comparison_side(side)
-        if self.transport.isActive(): self.session.prepare_samples()
+        if self.transport.isActive(): self.waiting = True; self.session.prepare_samples()
 
     def seek_section(self):
         self.session.seek_selected()
@@ -149,10 +173,13 @@ class EffectAuditionDialog(EffectBrowserDialog):
 
     def play_sample(self, checked):
         if checked:
-            self.session.prepare_samples(); self.started = time.monotonic(); self.transport.start()
+            self.session.prepare_samples(); self.waiting = True; self.started = time.monotonic(); self.transport.start()
         else: self.transport.stop()
 
     def advance_sample(self):
+        if getattr(self, 'waiting', False):
+            if not all(frame in self.studio.preview_frames.items for frame in self.session.samples): return
+            self.waiting = False; self.started = time.monotonic()
         if self.session.samples:
             index = int((time.monotonic()-self.started)*min(12,self.studio.preview_fps())) % len(self.session.samples)
             self.scrubber.setValue(index)

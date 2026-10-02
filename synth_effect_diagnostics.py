@@ -26,9 +26,9 @@ def explain_effect(document, sequence, effect_id, seconds, section_id=None, reso
             raise ValueError('Explanation points to an unavailable control.')
         result.append(EffectExplanation(code, where, evidence, message, target))
     if entry.get('bypassed'):
-        fact('bypassed', 'Bypassed. Your settings are retained.', 'resume', where='In this scope')
+        fact('bypassed', 'Bypassed. Your settings are retained.' if local else 'Whole clip default is bypassed. Section Resume overrides it.', 'resume', where='In this scope')
     elif entry.get('mode') == 'off':
-        fact('off', f'Off in {scope}.', 'activation', where='In this scope')
+        fact('off', f'Off in {scope}.' if local else 'Whole clip default is off. Section activation overrides it.', 'activation', where='In this scope')
     if 'footage' in document and not Path(document['footage']['path']).is_file():
         fact('missing-media', 'Source video is missing.', 'source')
         return tuple(result)
@@ -64,10 +64,9 @@ def explain_effect(document, sequence, effect_id, seconds, section_id=None, reso
         if not smear and not companion: zero = 'smear.amount'
     if zero:
         fact('zero', f'{effect.label} has zero contributing strength at this frame.', zero)
-    elif not result:
+    else:
         fact('configured', f'{effect.label} is configured at {seconds:.2f}s. Visibility depends on the source and other treatments.')
     threshold = {'bloom':'bloom.threshold', 'edge_phosphor':'edge_phosphor.threshold', 'scan_drag':'scan_drag.threshold'}.get(effect_id)
-    # Edge phosphor has no threshold path: retain description rather than inventing one.
     if threshold in effect.paths:
         fact('brightness-guidance', 'This treatment needs bright source areas. Threshold controls which areas contribute.', threshold, 'guidance')
     elif effect_id == 'edge_phosphor':

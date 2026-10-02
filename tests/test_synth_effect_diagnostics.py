@@ -46,3 +46,12 @@ def test_resolution_matches_renderer_at_transition_boundaries(monkeypatch, trans
         base=resolve_sequence_frame(sequence,seconds)[-1]
         render_sequence_frame(sequence,seconds,(32,32))
         assert captured[-1]==base
+
+
+def test_global_default_bypass_does_not_hide_local_resume_at_frame():
+    doc = effect_candidate(new_piece('shape'), None, 'tape')
+    doc['effects']['tape']['bypassed']=True
+    doc['sections'][0]['effects']['tape']={'mode':'on','params':{},'bypassed':False}
+    facts=explain_effect(doc,compile_composition(doc),'tape',0)
+    assert any(f.code=='bypassed' and 'default' in f.message for f in facts)
+    assert any(f.code=='configured' and f.scope=='At this frame' for f in facts)

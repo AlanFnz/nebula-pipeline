@@ -112,6 +112,7 @@ class EffectsPanel(QWidget):
         self.breakdown_host = QWidget(); self.breakdown_layout = QVBoxLayout(self.breakdown_host)
         self.breakdown_layout.setContentsMargins(0, 0, 0, 0); self.breakdown_host.hide()
         self.breakdown_button.toggled.connect(self.breakdown_host.setVisible)
+        self.breakdown_button.toggled.connect(lambda _expanded: self.navigation_changed.emit())
         rack_layout.addWidget(self.breakdown_host); self.breakdown_rows = {}
         rack_layout.addStretch(1)
         rack_scroll.setWidget(rack); overview_layout.addWidget(rack_scroll, 1); self.pages.addWidget(self.overview)
@@ -325,7 +326,7 @@ class EffectsPanel(QWidget):
             else:
                 control.refresh(info["ranges"][path], entry["params"].get(path), path in parent.get("params", {}), available, parent_value=parent.get("params", {}).get(path), scope_label=self.context_scope_label.removeprefix("Editing: "), context_key=self.context_key)
             control.base_origin = control.origin.text()
-        self.apply_button.setText("Preview preset…" if self.discovery_enabled else "Replace with preset" if effect.id in self.applied_ids else "Apply preset")
+        self.apply_button.setText("Preview preset…" if self.discovery_enabled and effect.id not in SOURCE_EFFECTS else "Replace with preset" if effect.id in self.applied_ids else "Apply preset")
         self.status.setText("Active during part of the recipe. On keeps it enabled throughout." if info["intermittent"] else
                             "Active. Unedited values keep following their recipe." if info["active"] else
                             f"{effect.label} is off in this scope. Open Activation & preset to apply settings, or return to the effects overview.")
@@ -401,7 +402,7 @@ class EffectsPanel(QWidget):
             groups = (tuple(path for path in effect.paths if path not in POLARITY_CONTROLS + SIGNAL_CONTROLS + SCREEN_CONTROLS),
                       POLARITY_CONTROLS, SIGNAL_CONTROLS, SCREEN_CONTROLS)
             visible_paths = groups[self.parameter_tabs.currentIndex()]
-        if self.allowed_effects is not None:
+        if self.allowed_effects is not None and 'forms' not in self.allowed_effects:
             visible_paths = tuple(path for path in visible_paths if not path.startswith('slab.'))
         if phosphor:
             if region:
@@ -536,6 +537,7 @@ class EffectsPanel(QWidget):
             (self.bypass_button if target == 'resume' else self.mode).setFocus(); return
         if target in self.controls:
             self.parameter_tabs.setCurrentIndex(1 if self.effect_id in CREATIVE_CONTROLS else 0)
+            self.group.setCurrentIndex(0)
             self.filter.setText(parameter(target).label)
             self.parameter_scroll.ensureWidgetVisible(self.controls[target])
 

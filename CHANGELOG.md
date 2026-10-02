@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- Add effect and inspector preset replacement now audition on the complete
+  current piece before an explicit, undoable Apply. Before/Preview, sampled
+  playback and scrub stay temporary; Cancel and Escape create no edits.
+- Add scoped/current-frame effect explanations and a navigable How this look is
+  built overview with temporary contribution bypass comparisons.
+- Reuse A3 preview routing and its shared 192 MiB frame budget, with temporary
+  360 px quality and original-clock sampling at up to 12 fps. Subject cutout
+  preparation remains explicit; slow studies can take seconds per new frame.
+- Use a compact native list and floating macOS audition window with pinned
+  transport/actions. See `docs/visual-effect-discovery-delivery.md` for native
+  findings, preservation checks, measurements and limits. Version remains 0.3.0.
+
 ## 0.3.0 — 2026-10-02
 
 - Add named composition snapshots, same-frame A/B preview, undoable restoration

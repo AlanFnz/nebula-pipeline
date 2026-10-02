@@ -383,7 +383,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
             focus.clearFocus()
 
     def prepare_document_save(self):
-        if self.discovery_session: self.discovery_session.close(restore=False)
+        if self.discovery_session: self.dismiss_effect_discovery()
         try:
             if self.composer is not None:
                 return self.composer.prepare_text_save()
@@ -402,7 +402,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         return self.confirm_close(purpose)
 
     def confirm_close(self, purpose="closing"):
-        if self.discovery_session: self.discovery_session.close(restore=False)
+        if self.discovery_session: self.dismiss_effect_discovery()
         if self.audition_pending():
             choice = QMessageBox.question(self, 'Temporary variation', f'Keep this audition before {purpose}?',
                 QMessageBox.StandardButton.Apply | QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
@@ -1046,7 +1046,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
             self.studies_dialog.set_rendering_paused(busy)
 
     def save_study_dialog(self):
-        if self.discovery_session: self.discovery_session.close(restore=False)
+        if self.discovery_session: self.dismiss_effect_discovery()
         if self.audition_pending():
             self.status.setText('Keep or discard the temporary variation before saving a study.'); return
         if self.composition is None or self.study_job is not None: return
@@ -1449,7 +1449,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         return Path(path) if path and not self.protected_document_destination(path) else None
 
     def save_sequence_dialog(self, checked=False, *, save_as=False):
-        if self.discovery_session: self.discovery_session.close(restore=False)
+        if self.discovery_session: self.dismiss_effect_discovery()
         if self.audition_pending():
             self.status.setText('Keep or discard the temporary variation before saving.'); return False
         self.finish_focused_edit()
@@ -1687,6 +1687,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         if job is self.prepare_job: self.prepare_job = None
         if self.closing: return
         if valid and error:
+            if self.discovery_session: self.discovery_session.fail(error)
             self.preparation_explicit = False; self.preparation_target = ()
             self.prepare_preview.setText('Prepare preview'); self.preview_status.setText(f'Limited by rendering · {error}'); return
         if self.render_queued and not self.render_running and not self.preview_debounce.isActive(): QTimer.singleShot(0, self.request_frame)
@@ -1728,7 +1729,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
             self.display_frame(self.current_time, packet, cached=True)
             return
         self._obsolete_preparation()
-        if self.render_running:
+        if self.render_running or (self.discovery_session and self.warming_job):
             self.render_queued = True
             return
         self.render_queued = False
@@ -1881,7 +1882,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         return self.load_sequence_dialog()
 
     def export_dialog(self):
-        if self.discovery_session: self.discovery_session.close(restore=False)
+        if self.discovery_session: self.dismiss_effect_discovery()
         if self.audition_pending():
             self.status.setText('Keep or discard the temporary variation before exporting.'); return
         if self.export_job: return
@@ -1967,13 +1968,13 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         if not self.composition or not self.composer or not self.sequence: return
         import time
         now = time.monotonic()
-        if isinstance(seconds, (int, float)) and now-getattr(self, '_explanation_time', 0)<.2: return
+        if self.play.isChecked() and isinstance(seconds, (int, float)) and now-getattr(self, '_explanation_time', 0)<.2: return
         self._explanation_time = now
         from synth_effect_diagnostics import explain_effect
         panel = self.composer.effects_panel
         sid = self.composer.target()['id'] if self.composer.scope else None
         from synth_sequence import resolve_sequence_frame
-        seconds = self.timeline.value()/self.preview_fps()
+        seconds = seconds if isinstance(seconds, (int, float)) else self.timeline.value()/self.preview_fps()
         resolved = resolve_sequence_frame(self.sequence, seconds)
         panel.set_explanations(explain_effect(self.composition, self.sequence, panel.effect_id, seconds, sid, resolved))
         if panel.breakdown_host.isVisible():
@@ -1984,7 +1985,9 @@ class SynthStudio(ExplorationStudio, QMainWindow):
 def run_synth_app(preset=None):
     app = QApplication.instance() or QApplication(sys.argv)
     apply_theme(app)
-    window = SynthStudio(preset, settings=QSettings('AlanFnz', 'Nebula Studio')); window.show_workspace()
+    state_dir = os.environ.get('NEBULA_STATE_DIR')
+    settings = QSettings(str(Path(state_dir) / 'settings.ini'), QSettings.Format.IniFormat) if state_dir else QSettings('AlanFnz', 'Nebula Studio')
+    window = SynthStudio(preset, settings=settings); window.show_workspace()
     return app.exec()
 
 

@@ -211,9 +211,9 @@ def _interpolate_presets(first, second, amount):
     return normalize_synth(result)
 
 
-def resolve_sequence_frame(sequence, time_seconds):
+def resolve_sequence_frame(sequence, time_seconds, *, normalized=False):
     """Exact renderer cue/base resolution, without rendering or decoding media."""
-    seq = normalize_sequence(sequence)
+    seq = sequence if normalized else normalize_sequence(sequence)
     t = max(0.0, min(float(seq["duration"]), float(time_seconds)))
     effect_time = mapped_time(seq.get('time_map'), t, 'effects')
     video_time = mapped_time(seq.get('time_map'), t, 'video')
@@ -249,7 +249,7 @@ def render_sequence_frame(sequence, time_seconds, size=None, frame_provider=None
         from synth_video import VideoFrameProvider
         with VideoFrameProvider() as provider:
             return render_sequence_frame(seq, time_seconds, size, provider, bypass)
-    seq, t, effect_time, video_time, cue, transition, amount, base = resolve_sequence_frame(seq, time_seconds)
+    seq, t, effect_time, video_time, cue, transition, amount, base = resolve_sequence_frame(seq, time_seconds, normalized=True)
     output, working, sampling = render_resolution(base, size)
     source_image = None
     source_mask = None

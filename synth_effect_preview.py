@@ -1,6 +1,5 @@
 """One temporary discovery owner layered on Studio's A3 render/cache routing."""
 import copy
-import time
 
 from PySide6.QtCore import QSignalBlocker
 from synth_effect_discovery import document_fingerprint, effect_candidate
@@ -27,6 +26,7 @@ class EffectPreviewSession:
         self.base = copy.deepcopy(studio.composition)
         self.identity = studio.document_identity; self.fingerprint = document_fingerprint(self.base)
         self.entry_frame = studio.timeline.value()
+        self.entry_playing = studio.play.isChecked()
         self.entry_source = studio.source_preview.isChecked()
         self.prior = studio.comparison
         self.media = preview_context(studio.sequence, studio.preview_size(), False, studio.video_frames.directory)[2]
@@ -82,6 +82,17 @@ class EffectPreviewSession:
             studio.preparation_explicit = True
             studio.preparation_limited = False
             studio._start_warm_batch()
+
+    def matching_samples(self):
+        """Only compare exact matching cached packets; never guess a cause."""
+        banks = self.studio.preview_frames.banks
+        sides = {}
+        for key, bank in banks.items():
+            if isinstance(key, tuple) and key and key[-1] in ((self.owner, 'a'), (self.owner, 'b')):
+                sides[key[-1][1]] = bank
+        if 'a' not in sides or 'b' not in sides: return 0
+        pairs = [(packet, sides['b'][frame]) for frame, packet in sides['a'].items() if frame in sides['b']]
+        return len(pairs) if pairs and all(a == b for a, b in pairs) else 0
 
     def apply(self):
         if not self.valid(): raise ValueError('The piece or media changed. Open a fresh preview before applying.')
