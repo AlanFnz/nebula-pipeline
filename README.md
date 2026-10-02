@@ -569,10 +569,20 @@ detailed sequence/preset windows disable composition Undo/Redo.
   parameter search stay visible while the parameter body scrolls.
 - **Add effect…** opens a searchable library with categories, descriptions and
   starting presets. Search or inspect candidates without changing the composition,
-  then choose **Add effect**. Already applied effects offer **Inspect effect**;
+  then choose **Apply effect** after its still preview succeeds. **Before / Preview**
+  compares the complete current piece with the selected preset; **Play preview**
+  prepares an opt-in sampled loop. **Cancel** and Escape keep the piece unchanged.
+  The temporary preview uses up to 360 px and 12 sampled frames per second on the
+  original timeline; it does not change monitor preferences or Timeline FPS.
+  Already applied effects offer **Inspect effect**;
   **Choose object…** takes you to source selection. Imported videos show only
   compatible image treatments. Effects can be combined per section in the
   renderer's established order.
+- **How this look is built** in the Effects overview explains the actual sources
+  and treatments in the current scope. Contributions open their existing controls;
+  **Compare without this effect** auditions a temporary bypass with no undo entry.
+  Scope and current-frame explanations distinguish bypass/off, verified zero
+  strength and missing dependencies. Brightness advice is conditional guidance.
 - **Bypass / Resume** temporarily disables an image effect while retaining its
   parameters and authored activation timing, including after Save/Open and
   Undo/Redo. Bypassed effects remain in the applied overview. A section can resume
@@ -585,8 +595,10 @@ detailed sequence/preset windows disable composition Undo/Redo.
   Numeric controls retain saved precision while displaying two decimal places;
   known units and small hue indications help identify values.
 - **Activation & preset** inside the focused editor controls **Follow study**,
-  **On throughout scope** and **Off throughout scope**. **Replace with preset**
-  explicitly replaces that effect's settings; **Restore this effect** removes
+  **On throughout scope** and **Off throughout scope**. Image treatments offer
+  **Preview preset…** and explicit **Replace with preset** in the audition. A
+  bypassed treatment stays bypassed; Resume is a separate edit. Object source
+  presets keep their existing immediate replacement action; **Restore this effect** removes
   its overrides from the current scope. Shared ink **Timing**, video **Source**
   and **Master** controls remain whole-clip controls and identify that scope.
   Pending text stays with its original section when navigating; Save validates
@@ -813,7 +825,7 @@ and fullscreen/maximized state. On first launch it opens fullscreen; the header'
 **Full screen / Exit full screen** button switches modes. Detailed-copy windows keep
 their own temporary layout without overwriting the main workspace preferences.
 
-**Effects → Add effect… → Low-res finish → 360 px preview feel → Add effect** keeps
+**Effects → Add effect… → Low-res finish → 360 px preview feel → Apply effect** keeps
 the texture of the 360 px preview in a full-size export. Choose the whole-clip
 scope to apply it throughout, or select a section for a local treatment.
 **Working resolution** sets the longest edge of the internal raster; the saved

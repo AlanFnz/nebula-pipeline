@@ -222,6 +222,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         super().__init__()
         self.workspace_settings = settings
         self.comparison = None
+        self.discovery_session = None
         self.setWindowTitle("Nebula Synth")
         self.setFont(terminal_font())
         self.resize(1280, 800)
@@ -382,6 +383,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
             focus.clearFocus()
 
     def prepare_document_save(self):
+        if self.discovery_session: self.dismiss_effect_discovery()
         try:
             if self.composer is not None:
                 return self.composer.prepare_text_save()
@@ -400,6 +402,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         return self.confirm_close(purpose)
 
     def confirm_close(self, purpose="closing"):
+        if self.discovery_session: self.dismiss_effect_discovery()
         if self.audition_pending():
             choice = QMessageBox.question(self, 'Temporary variation', f'Keep this audition before {purpose}?',
                 QMessageBox.StandardButton.Apply | QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
@@ -878,6 +881,13 @@ class SynthStudio(ExplorationStudio, QMainWindow):
             self.composer.sectionSelected.connect(self.composition_section_selected)
             self.composer.detailsRequested.connect(self.open_detailed_copy)
             self.composer.effects_panel.variation_requested.connect(self.open_effect_variation)
+            self.composer.effects_panel.discovery_enabled = True
+            self.composer.effects_panel.refresh_breakdown()
+            self.composer.effects_panel.discovery_requested.connect(self.open_effect_discovery)
+            self.composer.effects_panel.navigation_changed.connect(self.refresh_effect_explanations)
+            self.composer.effects_panel.finishing_requested.connect(lambda: self.composer.look_tabs.setCurrentIndex(2))
+            self.composer.effects_panel.master_requested.connect(lambda: self.composer.look_tabs.setCurrentWidget(self.composer.master_panel))
+            self.composer.effects_panel.source_requested.connect(lambda: self.composer.look_tabs.setCurrentWidget(self.composer.video_panel))
             self.composer.relinkRequested.connect(lambda: self.import_video_dialog(relink=True))
             self.composer_layout.addWidget(self.composer)
             self.inspector_host.setCurrentWidget(self.composer_host)
@@ -1030,12 +1040,13 @@ class SynthStudio(ExplorationStudio, QMainWindow):
 
     def update_study_browser_priority(self):
         if self.studies_dialog is None: return
-        busy = bool(self.closing or self.export_job or self.render_running or self.render_queued
+        busy = bool(self.discovery_session or self.closing or self.export_job or self.render_running or self.render_queued
                     or self.preparation_explicit or self.play.isChecked() or self.preview_debounce.isActive())
         if busy != self.studies_dialog._rendering_paused:
             self.studies_dialog.set_rendering_paused(busy)
 
     def save_study_dialog(self):
+        if self.discovery_session: self.dismiss_effect_discovery()
         if self.audition_pending():
             self.status.setText('Keep or discard the temporary variation before saving a study.'); return
         if self.composition is None or self.study_job is not None: return
@@ -1438,6 +1449,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         return Path(path) if path and not self.protected_document_destination(path) else None
 
     def save_sequence_dialog(self, checked=False, *, save_as=False):
+        if self.discovery_session: self.dismiss_effect_discovery()
         if self.audition_pending():
             self.status.setText('Keep or discard the temporary variation before saving.'); return False
         self.finish_focused_edit()
@@ -1560,7 +1572,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         return self.sequence['fps'] if self.sequence is not None else self.preset['export_fps']
 
     def preview_size(self):
-        return preview_size(self.current_canvas(), (360, 720, None)[self.quality.currentIndex()])
+        return preview_size(self.current_canvas(), 360 if self.discovery_session else (360, 720, None)[self.quality.currentIndex()])
 
     def active_preview_scope(self):
         return resolve_scope(self.composition, self.section_timeline.selected_ids, self.timeline.maximum(), bool(self.preview_scope.currentIndex()))
@@ -1587,7 +1599,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         else: self.schedule_auto_preparation()
 
     def schedule_auto_preparation(self):
-        if self.closing or not hasattr(self, 'auto_prepare') or not self.auto_prepare.isChecked() or self.export_job: return
+        if self.discovery_session or self.closing or not hasattr(self, 'auto_prepare') or not self.auto_prepare.isChecked() or self.export_job: return
         self.warm_debounce.start(400)
 
     def _automatic_preparation(self):
@@ -1675,6 +1687,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         if job is self.prepare_job: self.prepare_job = None
         if self.closing: return
         if valid and error:
+            if self.discovery_session: self.discovery_session.fail(error)
             self.preparation_explicit = False; self.preparation_target = ()
             self.prepare_preview.setText('Prepare preview'); self.preview_status.setText(f'Limited by rendering · {error}'); return
         if self.render_queued and not self.render_running and not self.preview_debounce.isActive(): QTimer.singleShot(0, self.request_frame)
@@ -1699,7 +1712,9 @@ class SynthStudio(ExplorationStudio, QMainWindow):
             except (ValueError, OSError) as exc:
                 self.settings_generation += 1
                 self.preview_frames.clear(); self.cached_ranges.set_ranges([]); self.cancel_preparation(); self.render_queued = False
-                self.preview_status.setText(f'Preview unavailable: {exc}'); return
+                self.preview_status.setText(f'Preview unavailable: {exc}')
+                if self.discovery_session: self.discovery_session.fail(exc)
+                return
         self.request_serial += 1
         fps = self.sequence["fps"] if self.sequence is not None else self.preset["export_fps"]
         self.current_time = self.timeline.value() / max(1, fps)
@@ -1714,7 +1729,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
             self.display_frame(self.current_time, packet, cached=True)
             return
         self._obsolete_preparation()
-        if self.render_running:
+        if self.render_running or (self.discovery_session and self.warming_job):
             self.render_queued = True
             return
         self.render_queued = False
@@ -1762,6 +1777,8 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         self.display_frame(time_seconds, (size, raw))
 
     def display_frame(self, time_seconds, packet, cached=False):
+        self.refresh_effect_explanations(time_seconds)
+        if self.discovery_session: self.discovery_session.accept_packet()
         if self.comparison:
             self.comparison['pending'] = False; self.refresh_comparison_controls()
         if cached: self.last_displayed_request = max(self.last_displayed_request, self.request_serial)
@@ -1781,6 +1798,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         if self.play.isChecked() and not self.warm_debounce.isActive() and not self.preparation_explicit:
             self.schedule_auto_preparation()
     def render_failed(self, message):
+        if self.discovery_session: self.discovery_session.fail(message)
         self.status.setText(f"Render error: {message}")
         self.preview_status.setText('Preview unavailable. Check the render error above; no frames were substituted.')
     def scrub(self, value):
@@ -1864,6 +1882,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         return self.load_sequence_dialog()
 
     def export_dialog(self):
+        if self.discovery_session: self.dismiss_effect_discovery()
         if self.audition_pending():
             self.status.setText('Keep or discard the temporary variation before exporting.'); return
         if self.export_job: return
@@ -1945,11 +1964,32 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         super().closeEvent(event)
 
 
+    def refresh_effect_explanations(self, seconds=None):
+        if not self.composition or not self.composer or not self.sequence: return
+        import time
+        now = time.monotonic()
+        if self.play.isChecked() and isinstance(seconds, (int, float)) and now-getattr(self, '_explanation_time', 0)<.2: return
+        self._explanation_time = now
+        from synth_effect_diagnostics import explain_effect
+        panel = self.composer.effects_panel
+        sid = self.composer.target()['id'] if self.composer.scope else None
+        from synth_sequence import resolve_sequence_frame
+        seconds = seconds if isinstance(seconds, (int, float)) else self.timeline.value()/self.preview_fps()
+        resolved = resolve_sequence_frame(self.sequence, seconds)
+        panel.set_explanations(explain_effect(self.composition, self.sequence, panel.effect_id, seconds, sid, resolved))
+        if panel.breakdown_host.isVisible():
+            panel.update_breakdown_status({key: explain_effect(self.composition, self.sequence, key, seconds, sid, resolved)
+                                           for key in panel.breakdown_rows})
+
+
 def run_synth_app(preset=None):
     app = QApplication.instance() or QApplication(sys.argv)
     apply_theme(app)
-    window = SynthStudio(preset, settings=QSettings('AlanFnz', 'Nebula Studio')); window.show_workspace()
+    state_dir = os.environ.get('NEBULA_STATE_DIR')
+    settings = QSettings(str(Path(state_dir) / 'settings.ini'), QSettings.Format.IniFormat) if state_dir else QSettings('AlanFnz', 'Nebula Studio')
+    window = SynthStudio(preset, settings=settings); window.show_workspace()
     return app.exec()
+
 
 
 if __name__ == "__main__":

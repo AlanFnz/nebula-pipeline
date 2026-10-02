@@ -211,12 +211,9 @@ def _interpolate_presets(first, second, amount):
     return normalize_synth(result)
 
 
-def render_sequence_frame(sequence, time_seconds, size=None, frame_provider=None, bypass=False):
-    seq = normalize_sequence(sequence)
-    if 'footage' in seq and frame_provider is None:
-        from synth_video import VideoFrameProvider
-        with VideoFrameProvider() as provider:
-            return render_sequence_frame(seq, time_seconds, size, provider, bypass)
+def resolve_sequence_frame(sequence, time_seconds, *, normalized=False):
+    """Exact renderer cue/base resolution, without rendering or decoding media."""
+    seq = sequence if normalized else normalize_sequence(sequence)
     t = max(0.0, min(float(seq["duration"]), float(time_seconds)))
     effect_time = mapped_time(seq.get('time_map'), t, 'effects')
     video_time = mapped_time(seq.get('time_map'), t, 'video')
@@ -243,6 +240,16 @@ def render_sequence_frame(sequence, time_seconds, size=None, frame_provider=None
         base = second if transition in {"sweep", "flash"} else _interpolate_presets(first, second, amount)
     else:
         base = _state_preset(seq, cue["state"])
+    return seq, t, effect_time, video_time, cue, transition, amount, base
+
+
+def render_sequence_frame(sequence, time_seconds, size=None, frame_provider=None, bypass=False):
+    seq = normalize_sequence(sequence)
+    if 'footage' in seq and frame_provider is None:
+        from synth_video import VideoFrameProvider
+        with VideoFrameProvider() as provider:
+            return render_sequence_frame(seq, time_seconds, size, provider, bypass)
+    seq, t, effect_time, video_time, cue, transition, amount, base = resolve_sequence_frame(seq, time_seconds, normalized=True)
     output, working, sampling = render_resolution(base, size)
     source_image = None
     source_mask = None

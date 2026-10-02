@@ -71,7 +71,11 @@ class EffectsPanel(QWidget):
     timing_selected = Signal(bool)
     navigation_changed = Signal()
     object_requested = Signal()
+    source_requested = Signal()
+    finishing_requested = Signal()
+    master_requested = Signal()
     variation_requested = Signal(str)
+    discovery_requested = Signal(str, int, str)
 
     def __init__(self):
         super().__init__()
@@ -79,6 +83,7 @@ class EffectsPanel(QWidget):
         self.effect_id = "rays"; self.controls = {}; self.rows = {}; self.control_cache = {}
         self.context_key = None; self.local = False; self.focused = True
         self.shared_timing = {}; self.shared_summary = {}; self.context_scope_label = ''
+        self.discovery_enabled = False
         self.updating = False; self.allowed_effects = None; self.browser = None
         self.applied_ids = (); self.available_ids = (); self.effect_choices = {}; self.group_labels = {}
         layout = QVBoxLayout(self); layout.setContentsMargins(8, 4, 8, 4); layout.setSpacing(4)
@@ -101,7 +106,15 @@ class EffectsPanel(QWidget):
         self.source_host = QWidget(); self.source_layout = QVBoxLayout(self.source_host); self.source_layout.setContentsMargins(0, 0, 0, 0)
         rack_layout.addWidget(self.source_host)
         self.object_button = QPushButton('Choose or edit object…'); self.object_button.clicked.connect(self.object_requested.emit)
-        rack_layout.addWidget(self.object_button); rack_layout.addStretch(1)
+        rack_layout.addWidget(self.object_button)
+        self.breakdown_button = QPushButton('How this look is built ▸'); self.breakdown_button.setCheckable(True)
+        rack_layout.addWidget(self.breakdown_button)
+        self.breakdown_host = QWidget(); self.breakdown_layout = QVBoxLayout(self.breakdown_host)
+        self.breakdown_layout.setContentsMargins(0, 0, 0, 0); self.breakdown_host.hide()
+        self.breakdown_button.toggled.connect(self.breakdown_host.setVisible)
+        self.breakdown_button.toggled.connect(lambda _expanded: self.navigation_changed.emit())
+        rack_layout.addWidget(self.breakdown_host); self.breakdown_rows = {}
+        rack_layout.addStretch(1)
         rack_scroll.setWidget(rack); overview_layout.addWidget(rack_scroll, 1); self.pages.addWidget(self.overview)
         # Retain the public row lookup for programmatic inspection. Discovery is in the dialog.
         self.available_host = QWidget(); self.available_host.hide(); self.available_layout = QVBoxLayout(self.available_host)
@@ -118,6 +131,10 @@ class EffectsPanel(QWidget):
         self.inspector_title = QLabel(); self.inspector_title.setObjectName('sectionTitle'); self.inspector_title.setWordWrap(True); row.addWidget(self.inspector_title, 1)
         self.bypass_button = QPushButton('Bypass'); self.bypass_button.clicked.connect(lambda: self.toggle_bypass(self.effect_id)); row.addWidget(self.bypass_button)
         editor_layout.addLayout(row)
+        self.frame_status = QLabel(); self.frame_status.setWordWrap(True); self.frame_status.setObjectName('muted')
+        editor_layout.addWidget(self.frame_status)
+        self.explanation_link = QPushButton('Open relevant control'); self.explanation_link.hide()
+        self.explanation_link.clicked.connect(self.navigate_explanation); editor_layout.addWidget(self.explanation_link)
         self.description = QLabel(); self.description.hide()
         row = QHBoxLayout()
         self.mode = QComboBox()
@@ -127,7 +144,7 @@ class EffectsPanel(QWidget):
         self.activation_row = row; editor_layout.addLayout(row)
         row = QHBoxLayout()
         self.look = QComboBox(); row.addWidget(self.look, 1)
-        self.apply_button = QPushButton("Replace with preset"); self.apply_button.clicked.connect(self.apply_look); row.addWidget(self.apply_button)
+        self.apply_button = QPushButton("Preview preset…"); self.apply_button.clicked.connect(self.apply_look); row.addWidget(self.apply_button)
         self.preset_row = row; editor_layout.addLayout(row)
         self.status = QLabel(); self.status.setWordWrap(True); self.status.setObjectName('muted'); editor_layout.addWidget(self.status)
         self.parameter_tabs = QTabBar()
@@ -188,6 +205,8 @@ class EffectsPanel(QWidget):
         return tuple(dict.fromkeys((*self.applied_ids, *self.parent_entries, *self.entries)))
 
     def open_browser(self):
+        if self.discovery_enabled:
+            self.discovery_requested.emit('', 0, 'add'); return
         from synth_effect_browser import EffectBrowserDialog
         if self.browser is None:
             self.browser = EffectBrowserDialog(self.allowed_effects, self.browser_applied_ids(), self)
@@ -239,6 +258,7 @@ class EffectsPanel(QWidget):
             target.addWidget(self.effect_choices[effect.id])
             self.effect_choices[effect.id].setVisible(effect.id in self.applied_ids)
         with QSignalBlocker(self.mode): self.mode.setItemText(0, 'Follow whole clip / study' if local else 'Follow study')
+        self.refresh_breakdown()
         self.updating = False
         self.refresh_effect()
         if changed_context: self.parameter_scroll.verticalScrollBar().setValue(0)
@@ -306,7 +326,7 @@ class EffectsPanel(QWidget):
             else:
                 control.refresh(info["ranges"][path], entry["params"].get(path), path in parent.get("params", {}), available, parent_value=parent.get("params", {}).get(path), scope_label=self.context_scope_label.removeprefix("Editing: "), context_key=self.context_key)
             control.base_origin = control.origin.text()
-        self.apply_button.setText("Replace with preset" if effect.id in self.applied_ids else "Apply preset")
+        self.apply_button.setText("Preview preset…" if self.discovery_enabled and effect.id not in SOURCE_EFFECTS else "Replace with preset" if effect.id in self.applied_ids else "Apply preset")
         self.status.setText("Active during part of the recipe. On keeps it enabled throughout." if info["intermittent"] else
                             "Active. Unedited values keep following their recipe." if info["active"] else
                             f"{effect.label} is off in this scope. Open Activation & preset to apply settings, or return to the effects overview.")
@@ -382,7 +402,7 @@ class EffectsPanel(QWidget):
             groups = (tuple(path for path in effect.paths if path not in POLARITY_CONTROLS + SIGNAL_CONTROLS + SCREEN_CONTROLS),
                       POLARITY_CONTROLS, SIGNAL_CONTROLS, SCREEN_CONTROLS)
             visible_paths = groups[self.parameter_tabs.currentIndex()]
-        if self.allowed_effects is not None:
+        if self.allowed_effects is not None and 'forms' not in self.allowed_effects:
             visible_paths = tuple(path for path in visible_paths if not path.startswith('slab.'))
         if phosphor:
             if region:
@@ -495,9 +515,64 @@ class EffectsPanel(QWidget):
         self.edited.emit(self.effect_id, None, "effect-restore")
 
     def apply_look(self):
-        entry = effect_preset(self.effect_id, self.look.currentIndex())
-        previous = self.entries.get(self.effect_id, {})
-        if 'bypassed' in previous: entry['bypassed'] = previous['bypassed']
-        if self.local and 'creative' in self.parent_entries.get(self.effect_id, {}):
-            entry['creative'] = {'version': 1, 'values': {spec.key: spec.neutral for spec in CREATIVE_CONTROLS.get(self.effect_id, ())}}
+        if self.discovery_enabled and self.effect_id not in SOURCE_EFFECTS:
+            self.discovery_requested.emit(self.effect_id, self.look.currentIndex(), 'replace'); return
+        from synth_effect_discovery import preset_entry
+        entry = preset_entry(self.effect_id, self.look.currentIndex(), self.entries.get(self.effect_id),
+                             self.parent_entries.get(self.effect_id), self.local)
         self.edited.emit(self.effect_id, entry, "effect-apply")
+
+    def set_explanations(self, explanations):
+        self.explanations = explanations
+        self.frame_status.setText('\n'.join(item.scope + ': ' + item.message for item in explanations))
+        self.explanation_target = next((item.target for item in explanations if item.target), None)
+        self.explanation_link.setVisible(bool(self.explanation_target))
+
+    def navigate_explanation(self):
+        target = getattr(self, 'explanation_target', None)
+        if target == 'source': self.source_requested.emit(); return
+        if target == 'object': self.object_requested.emit(); return
+        if target in ('activation', 'resume'):
+            self.activation_button.setChecked(True)
+            (self.bypass_button if target == 'resume' else self.mode).setFocus(); return
+        if target in self.controls:
+            self.parameter_tabs.setCurrentIndex(1 if self.effect_id in CREATIVE_CONTROLS else 0)
+            self.group.setCurrentIndex(0)
+            self.filter.setText(parameter(target).label)
+            self.parameter_scroll.ensureWidgetVisible(self.controls[target])
+
+    def refresh_breakdown(self):
+        from synth_effect_catalog import composition_contributions
+        while self.breakdown_layout.count():
+            item = self.breakdown_layout.takeAt(0)
+            if item.widget(): item.widget().deleteLater()
+        self.breakdown_rows = {}
+        video = self.allowed_effects is not None and 'forms' not in self.allowed_effects
+        if video:
+            button = QPushButton('Source video provides the image.'); button.clicked.connect(self.source_requested.emit)
+            self.breakdown_layout.addWidget(button)
+        for identifier, sentence, source in composition_contributions(self.summary, self.entries, self.parent_entries, video):
+            host = QWidget(); layout = QVBoxLayout(host); layout.setContentsMargins(0, 0, 0, 4)
+            button = QPushButton(EFFECT_BY_ID[identifier].label)
+            button.clicked.connect(lambda _checked=False, key=identifier: self.inspect_choice(key))
+            layout.addWidget(button)
+            label = QLabel(sentence); label.setWordWrap(True); layout.addWidget(label)
+            status = QLabel(); status.setWordWrap(True); status.setObjectName('muted'); layout.addWidget(status)
+            self.breakdown_rows[identifier] = status
+            if not source:
+                compare = QPushButton('Compare without this effect')
+                compare.clicked.connect(lambda _checked=False, key=identifier: self.discovery_requested.emit(key, 0, 'without'))
+                compare.setEnabled(self.discovery_enabled)
+                layout.addWidget(compare)
+            self.breakdown_layout.addWidget(host)
+        note = QLabel('Finishing, Master and authored transitions may also shape the result. This is a capability guide, not a layer stack.')
+        note.setWordWrap(True); self.breakdown_layout.addWidget(note)
+        for title, signal in (('Open Finishing', self.finishing_requested), ('Open Master', self.master_requested)):
+            button = QPushButton(title); button.clicked.connect(signal.emit); self.breakdown_layout.addWidget(button)
+
+    def update_breakdown_status(self, explanations):
+        for identifier, status in self.breakdown_rows.items():
+            info = self.summary[identifier]
+            facts = explanations.get(identifier, ())
+            primary = next((f for f in facts if f.code in ('bypassed','off','disabled','dependency','zero','missing-media')), None)
+            status.setText(primary.message if primary else 'Configured · active during part of this scope' if info['intermittent'] else 'Configured in this scope')
