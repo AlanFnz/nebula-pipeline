@@ -153,5 +153,6 @@ class ExplorationStudio:
         except ValueError as exc:
             QMessageBox.information(self, 'Effect preview', str(exc)); return
         self.discovery_dialog = dialog
+        dialog.finished.connect(lambda _result, d=dialog: setattr(self, 'discovery_dialog', None) if getattr(self, 'discovery_dialog', None) is d else None)
         self.position_exploration_dialog(dialog)
         dialog.open()

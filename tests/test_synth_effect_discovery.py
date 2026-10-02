@@ -78,3 +78,13 @@ def test_preview_session_cancel_and_exact_apply_in_real_studio(monkeypatch):
     finally:
         studio.clean_document = studio.document_state()
         studio.close(); QThreadPool.globalInstance().waitForDone(10000); app.processEvents()
+
+
+def test_contributions_include_authored_off_personal_sources_and_scope():
+    from synth_effects import describe_effects
+    from synth_effect_catalog import composition_contributions
+    doc = new_piece('shape')
+    sequence = compile_composition(doc)
+    rows = composition_contributions(describe_effects(list(sequence['states'].values())), {'tape':{'mode':'off','params':{}}}, {})
+    assert any(row[0]=='forms' and row[2] for row in rows)
+    assert any(row[0]=='tape' and not row[2] for row in rows)

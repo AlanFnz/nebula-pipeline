@@ -102,6 +102,7 @@ class EffectPreviewSession:
         studio.end_comparison()
         if valid:
             with QSignalBlocker(studio.timeline): studio.timeline.setValue(self.entry_frame)
+            studio.current_time = self.entry_frame/studio.preview_fps()
             with QSignalBlocker(studio.source_preview): studio.source_preview.setChecked(self.entry_source)
             if restore: studio.comparison = self.prior
         studio.viewer.set_packet(None); studio.refresh_comparison_controls(); studio.invalidate(force_clear=True)

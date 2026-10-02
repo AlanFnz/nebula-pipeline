@@ -882,8 +882,11 @@ class SynthStudio(ExplorationStudio, QMainWindow):
             self.composer.detailsRequested.connect(self.open_detailed_copy)
             self.composer.effects_panel.variation_requested.connect(self.open_effect_variation)
             self.composer.effects_panel.discovery_enabled = True
+            self.composer.effects_panel.refresh_breakdown()
             self.composer.effects_panel.discovery_requested.connect(self.open_effect_discovery)
             self.composer.effects_panel.navigation_changed.connect(self.refresh_effect_explanations)
+            self.composer.effects_panel.finishing_requested.connect(lambda: self.composer.look_tabs.setCurrentIndex(2))
+            self.composer.effects_panel.master_requested.connect(lambda: self.composer.look_tabs.setCurrentWidget(self.composer.master_panel))
             self.composer.effects_panel.source_requested.connect(lambda: self.composer.look_tabs.setCurrentWidget(self.composer.video_panel))
             self.composer.relinkRequested.connect(lambda: self.import_video_dialog(relink=True))
             self.composer_layout.addWidget(self.composer)
@@ -1969,8 +1972,13 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         from synth_effect_diagnostics import explain_effect
         panel = self.composer.effects_panel
         sid = self.composer.target()['id'] if self.composer.scope else None
-        panel.set_explanations(explain_effect(self.composition, self.sequence, panel.effect_id,
-                               self.timeline.value()/self.preview_fps(), sid))
+        from synth_sequence import resolve_sequence_frame
+        seconds = self.timeline.value()/self.preview_fps()
+        resolved = resolve_sequence_frame(self.sequence, seconds)
+        panel.set_explanations(explain_effect(self.composition, self.sequence, panel.effect_id, seconds, sid, resolved))
+        if panel.breakdown_host.isVisible():
+            panel.update_breakdown_status({key: explain_effect(self.composition, self.sequence, key, seconds, sid, resolved)
+                                           for key in panel.breakdown_rows})
 
 
 def run_synth_app(preset=None):

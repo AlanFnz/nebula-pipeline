@@ -14,7 +14,7 @@ class EffectExplanation:
     target: str | None = None
 
 
-def explain_effect(document, sequence, effect_id, seconds, section_id=None):
+def explain_effect(document, sequence, effect_id, seconds, section_id=None, resolved=None):
     effect = EFFECT_BY_ID[effect_id]
     local = next((s for s in document['sections'] if s['id'] == section_id), None)
     entries = merge_effects(document['effects'], local['effects']) if local else document['effects']
@@ -32,7 +32,7 @@ def explain_effect(document, sequence, effect_id, seconds, section_id=None):
     if 'footage' in document and not Path(document['footage']['path']).is_file():
         fact('missing-media', 'Source video is missing.', 'source')
         return tuple(result)
-    _, _, _, _, _, transition, amount, base = resolve_sequence_frame(sequence, seconds)
+    _, _, _, _, _, transition, amount, base = resolved or resolve_sequence_frame(sequence, seconds)
     values = {f"{m['id']}.{k}": v for m in base['modules'] for k, v in m['params'].items()}
     enabled = {m['id'] for m in base['modules'] if m['enabled']}
     p = lambda path: values[path]

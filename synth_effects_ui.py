@@ -72,6 +72,8 @@ class EffectsPanel(QWidget):
     navigation_changed = Signal()
     object_requested = Signal()
     source_requested = Signal()
+    finishing_requested = Signal()
+    master_requested = Signal()
     variation_requested = Signal(str)
     discovery_requested = Signal(str, int, str)
 
@@ -104,7 +106,14 @@ class EffectsPanel(QWidget):
         self.source_host = QWidget(); self.source_layout = QVBoxLayout(self.source_host); self.source_layout.setContentsMargins(0, 0, 0, 0)
         rack_layout.addWidget(self.source_host)
         self.object_button = QPushButton('Choose or edit object…'); self.object_button.clicked.connect(self.object_requested.emit)
-        rack_layout.addWidget(self.object_button); rack_layout.addStretch(1)
+        rack_layout.addWidget(self.object_button)
+        self.breakdown_button = QPushButton('How this look is built ▸'); self.breakdown_button.setCheckable(True)
+        rack_layout.addWidget(self.breakdown_button)
+        self.breakdown_host = QWidget(); self.breakdown_layout = QVBoxLayout(self.breakdown_host)
+        self.breakdown_layout.setContentsMargins(0, 0, 0, 0); self.breakdown_host.hide()
+        self.breakdown_button.toggled.connect(self.breakdown_host.setVisible)
+        rack_layout.addWidget(self.breakdown_host); self.breakdown_rows = {}
+        rack_layout.addStretch(1)
         rack_scroll.setWidget(rack); overview_layout.addWidget(rack_scroll, 1); self.pages.addWidget(self.overview)
         # Retain the public row lookup for programmatic inspection. Discovery is in the dialog.
         self.available_host = QWidget(); self.available_host.hide(); self.available_layout = QVBoxLayout(self.available_host)
@@ -248,6 +257,7 @@ class EffectsPanel(QWidget):
             target.addWidget(self.effect_choices[effect.id])
             self.effect_choices[effect.id].setVisible(effect.id in self.applied_ids)
         with QSignalBlocker(self.mode): self.mode.setItemText(0, 'Follow whole clip / study' if local else 'Follow study')
+        self.refresh_breakdown()
         self.updating = False
         self.refresh_effect()
         if changed_context: self.parameter_scroll.verticalScrollBar().setValue(0)
@@ -528,3 +538,39 @@ class EffectsPanel(QWidget):
             self.parameter_tabs.setCurrentIndex(1 if self.effect_id in CREATIVE_CONTROLS else 0)
             self.filter.setText(parameter(target).label)
             self.parameter_scroll.ensureWidgetVisible(self.controls[target])
+
+    def refresh_breakdown(self):
+        from synth_effect_catalog import composition_contributions
+        while self.breakdown_layout.count():
+            item = self.breakdown_layout.takeAt(0)
+            if item.widget(): item.widget().deleteLater()
+        self.breakdown_rows = {}
+        video = self.allowed_effects is not None and 'forms' not in self.allowed_effects
+        if video:
+            button = QPushButton('Source video provides the image.'); button.clicked.connect(self.source_requested.emit)
+            self.breakdown_layout.addWidget(button)
+        for identifier, sentence, source in composition_contributions(self.summary, self.entries, self.parent_entries, video):
+            host = QWidget(); layout = QVBoxLayout(host); layout.setContentsMargins(0, 0, 0, 4)
+            button = QPushButton(EFFECT_BY_ID[identifier].label)
+            button.clicked.connect(lambda _checked=False, key=identifier: self.inspect_choice(key))
+            layout.addWidget(button)
+            label = QLabel(sentence); label.setWordWrap(True); layout.addWidget(label)
+            status = QLabel(); status.setWordWrap(True); status.setObjectName('muted'); layout.addWidget(status)
+            self.breakdown_rows[identifier] = status
+            if not source:
+                compare = QPushButton('Compare without this effect')
+                compare.clicked.connect(lambda _checked=False, key=identifier: self.discovery_requested.emit(key, 0, 'without'))
+                compare.setEnabled(self.discovery_enabled)
+                layout.addWidget(compare)
+            self.breakdown_layout.addWidget(host)
+        note = QLabel('Finishing, Master and authored transitions may also shape the result. This is a capability guide, not a layer stack.')
+        note.setWordWrap(True); self.breakdown_layout.addWidget(note)
+        for title, signal in (('Open Finishing', self.finishing_requested), ('Open Master', self.master_requested)):
+            button = QPushButton(title); button.clicked.connect(signal.emit); self.breakdown_layout.addWidget(button)
+
+    def update_breakdown_status(self, explanations):
+        for identifier, status in self.breakdown_rows.items():
+            info = self.summary[identifier]
+            facts = explanations.get(identifier, ())
+            primary = next((f for f in facts if f.code in ('bypassed','off','disabled','dependency','zero','missing-media')), None)
+            status.setText(primary.message if primary else 'Configured · active during part of this scope' if info['intermittent'] else 'Configured in this scope')

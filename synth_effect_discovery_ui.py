@@ -15,6 +15,7 @@ class EffectAuditionDialog(EffectBrowserDialog):
         self.studio = studio; self.operation = operation; self.locked_effect = effect_id
         allowed = (effect_id,) if effect_id else panel.allowed_effects
         super().__init__(allowed, () if effect_id else panel.browser_applied_ids(), studio)
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self.setWindowModality(Qt.WindowModality.WindowModal)
         self.setWindowTitle('Compare contribution' if operation == 'without' else 'Preview effect preset')
         self.resize(430, 620); self.setMinimumWidth(380)

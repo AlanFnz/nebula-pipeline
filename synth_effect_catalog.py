@@ -74,3 +74,32 @@ def effect_catalog(allowed_effects=None, *, query='', category=''):
         if all(word in searchable for word in words):
             result.append(effect)
     return tuple(result)
+
+# Capability sentences, separate from frozen recipes and measured visibility.
+CONTRIBUTIONS = {
+    'forms': 'Luminous forms provide the geometric source.',
+    'rays': 'Rays provide a striped light source.',
+    'text': 'Text provides the lettering.',
+    'silhouette': 'Model silhouette provides the head.',
+    'ink_bloom': 'Ink bloom provides overlapping stamps.',
+    'particles': 'Particles provide the moving point source.',
+    'edge_phosphor': 'Edge phosphor creates a colored contour.',
+    'scan_drag': 'Scan drag pulls highlights into streaks.',
+    'signal_background': 'Signal background textures dark areas.',
+    'ghosts': 'Ghosts add shifted copies and a luminous companion.',
+    'cloud': 'Granular halo surrounds luminous forms with noise.',
+    'tape': 'Tape damage adds tracking faults and color bleed.',
+    'frame_jitter': 'Frame jitter varies the source registration.',
+    'bloom': 'Bloom spreads light from bright source areas.',
+}
+
+
+def contribution_sentence(effect_id):
+    from synth_effects import EFFECT_BY_ID
+    return CONTRIBUTIONS.get(effect_id, EFFECT_BY_ID[effect_id].description.split('. ')[0].rstrip('.') + '.')
+
+
+def composition_contributions(summary, entries, parent_entries, video=False):
+    """Follow the current scope, including authored off and bypassed entries."""
+    ids = [effect.id for effect in EFFECTS if summary[effect.id]['active'] or effect.id in entries or effect.id in parent_entries]
+    return tuple((identifier, contribution_sentence(identifier), identifier in SOURCE_EFFECT_IDS) for identifier in ids)
