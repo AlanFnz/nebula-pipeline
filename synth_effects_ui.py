@@ -72,6 +72,7 @@ class EffectsPanel(QWidget):
     navigation_changed = Signal()
     object_requested = Signal()
     variation_requested = Signal(str)
+    discovery_requested = Signal(str, int, str)
 
     def __init__(self):
         super().__init__()
@@ -79,6 +80,7 @@ class EffectsPanel(QWidget):
         self.effect_id = "rays"; self.controls = {}; self.rows = {}; self.control_cache = {}
         self.context_key = None; self.local = False; self.focused = True
         self.shared_timing = {}; self.shared_summary = {}; self.context_scope_label = ''
+        self.discovery_enabled = False
         self.updating = False; self.allowed_effects = None; self.browser = None
         self.applied_ids = (); self.available_ids = (); self.effect_choices = {}; self.group_labels = {}
         layout = QVBoxLayout(self); layout.setContentsMargins(8, 4, 8, 4); layout.setSpacing(4)
@@ -127,7 +129,7 @@ class EffectsPanel(QWidget):
         self.activation_row = row; editor_layout.addLayout(row)
         row = QHBoxLayout()
         self.look = QComboBox(); row.addWidget(self.look, 1)
-        self.apply_button = QPushButton("Replace with preset"); self.apply_button.clicked.connect(self.apply_look); row.addWidget(self.apply_button)
+        self.apply_button = QPushButton("Preview preset…"); self.apply_button.clicked.connect(self.apply_look); row.addWidget(self.apply_button)
         self.preset_row = row; editor_layout.addLayout(row)
         self.status = QLabel(); self.status.setWordWrap(True); self.status.setObjectName('muted'); editor_layout.addWidget(self.status)
         self.parameter_tabs = QTabBar()
@@ -188,6 +190,8 @@ class EffectsPanel(QWidget):
         return tuple(dict.fromkeys((*self.applied_ids, *self.parent_entries, *self.entries)))
 
     def open_browser(self):
+        if self.discovery_enabled:
+            self.discovery_requested.emit('', 0, 'add'); return
         from synth_effect_browser import EffectBrowserDialog
         if self.browser is None:
             self.browser = EffectBrowserDialog(self.allowed_effects, self.browser_applied_ids(), self)
@@ -495,6 +499,8 @@ class EffectsPanel(QWidget):
         self.edited.emit(self.effect_id, None, "effect-restore")
 
     def apply_look(self):
+        if self.discovery_enabled:
+            self.discovery_requested.emit(self.effect_id, self.look.currentIndex(), 'replace'); return
         from synth_effect_discovery import preset_entry
         entry = preset_entry(self.effect_id, self.look.currentIndex(), self.entries.get(self.effect_id),
                              self.parent_entries.get(self.effect_id), self.local)

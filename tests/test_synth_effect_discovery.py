@@ -48,3 +48,33 @@ def test_sampled_window_uses_absolute_frames_and_discontinuous_scope():
     assert all(scope.contains(frame) for frame in frames)
     assert max(frames) >= 100
     assert sampled_window(scope, 0, 30) == ()
+
+
+def test_preview_session_cancel_and_exact_apply_in_real_studio(monkeypatch):
+    from PySide6.QtWidgets import QApplication
+    from PySide6.QtCore import QThreadPool
+    from synth_studio import SynthStudio
+    from synth_effect_preview import EffectPreviewSession
+    app = QApplication.instance() or QApplication([])
+    monkeypatch.setattr(SynthStudio, 'request_frame', lambda self: None)
+    studio = SynthStudio(composition=new_piece('shape'))
+    studio.auto_prepare.setChecked(False)
+    original = copy.deepcopy(studio.composition)
+    clean = studio.clean_document
+    try:
+        session = EffectPreviewSession(studio)
+        session.select('tape', 0)
+        assert not studio.audition_pending() and not studio.has_unsaved_changes()
+        assert studio.preview_size()[0] <= 360
+        session.close()
+        assert studio.composition == original and studio.clean_document == clean
+        session = EffectPreviewSession(studio)
+        session.select('tape', 1); session.accept_packet()
+        candidate = copy.deepcopy(session.candidate)
+        session.apply()
+        assert studio.composition == candidate
+        studio.undo_composition()
+        assert studio.composition == original
+    finally:
+        studio.clean_document = studio.document_state()
+        studio.close(); QThreadPool.globalInstance().waitForDone(10000); app.processEvents()

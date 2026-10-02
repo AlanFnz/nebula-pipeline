@@ -142,3 +142,16 @@ class ExplorationStudio:
         frame = self.frameGeometry()
         dialog.move(min(host.x(), frame.right() - dialog.width()),
                     min(host.y(), frame.bottom() - dialog.height()))
+
+    def open_effect_discovery(self, effect_id='', preset=0, operation='add'):
+        from synth_effect_discovery_ui import EffectAuditionDialog
+        from PySide6.QtWidgets import QMessageBox
+        if self.discovery_session:
+            self.discovery_session.close(restore=False)
+        try:
+            dialog = EffectAuditionDialog(self, effect_id or None, preset, operation)
+        except ValueError as exc:
+            QMessageBox.information(self, 'Effect preview', str(exc)); return
+        self.discovery_dialog = dialog
+        self.position_exploration_dialog(dialog)
+        dialog.open()

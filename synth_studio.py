@@ -881,6 +881,8 @@ class SynthStudio(ExplorationStudio, QMainWindow):
             self.composer.sectionSelected.connect(self.composition_section_selected)
             self.composer.detailsRequested.connect(self.open_detailed_copy)
             self.composer.effects_panel.variation_requested.connect(self.open_effect_variation)
+            self.composer.effects_panel.discovery_enabled = True
+            self.composer.effects_panel.discovery_requested.connect(self.open_effect_discovery)
             self.composer.relinkRequested.connect(lambda: self.import_video_dialog(relink=True))
             self.composer_layout.addWidget(self.composer)
             self.inspector_host.setCurrentWidget(self.composer_host)
@@ -1033,7 +1035,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
 
     def update_study_browser_priority(self):
         if self.studies_dialog is None: return
-        busy = bool(self.closing or self.export_job or self.render_running or self.render_queued
+        busy = bool(self.discovery_session or self.closing or self.export_job or self.render_running or self.render_queued
                     or self.preparation_explicit or self.play.isChecked() or self.preview_debounce.isActive())
         if busy != self.studies_dialog._rendering_paused:
             self.studies_dialog.set_rendering_paused(busy)

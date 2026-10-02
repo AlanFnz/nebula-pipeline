@@ -18,7 +18,7 @@ def document_fingerprint(document):
 def preset_entry(effect_id, preset, previous=None, parent=None, local=False):
     """The established replacement semantics, including inherited bypass."""
     effect = EFFECT_BY_ID.get(effect_id)
-    if effect is None or not isinstance(preset, int) or not 0 <= preset < max(1, len(effect.looks)):
+    if effect is None or type(preset) is not int or not 0 <= preset < max(1, len(effect.looks)):
         raise ValueError('Choose an available effect preset.')
     entry = effect_preset(effect_id, preset)
     previous, parent = previous or {}, parent or {}
