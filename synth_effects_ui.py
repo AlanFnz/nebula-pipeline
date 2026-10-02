@@ -495,9 +495,7 @@ class EffectsPanel(QWidget):
         self.edited.emit(self.effect_id, None, "effect-restore")
 
     def apply_look(self):
-        entry = effect_preset(self.effect_id, self.look.currentIndex())
-        previous = self.entries.get(self.effect_id, {})
-        if 'bypassed' in previous: entry['bypassed'] = previous['bypassed']
-        if self.local and 'creative' in self.parent_entries.get(self.effect_id, {}):
-            entry['creative'] = {'version': 1, 'values': {spec.key: spec.neutral for spec in CREATIVE_CONTROLS.get(self.effect_id, ())}}
+        from synth_effect_discovery import preset_entry
+        entry = preset_entry(self.effect_id, self.look.currentIndex(), self.entries.get(self.effect_id),
+                             self.parent_entries.get(self.effect_id), self.local)
         self.edited.emit(self.effect_id, entry, "effect-apply")
