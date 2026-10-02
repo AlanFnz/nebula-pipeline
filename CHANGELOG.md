@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.3.0 — 2026-10-02
+
 - Add named composition snapshots, same-frame A/B preview, undoable restoration
   and removal, and video dependency packaging for saved studies. Reuse A/B
   packets within one bounded cache with stale-worker rejection. Add
