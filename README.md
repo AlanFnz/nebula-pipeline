@@ -10,9 +10,9 @@ directional regions and versioned compatibility, with all nine original study
 results protected by raw-pixel regression tests.
 
 The [creative controls and audio-reactivity roadmap](docs/creative-controls-audio-roadmap.md)
-records future work on independent experimentation, meaningful effect controls,
-comparison tools and synchronized audio-driven animation. These milestones are
-planned; they are not current app features.
+tracks independent experimentation, meaningful effect controls, comparison tools
+and synchronized audio-driven animation. A1 adds the New piece starting flow;
+creative-control mappings, snapshots and audio reactivity remain planned.
 
 ## Launch on this Mac
 
@@ -641,8 +641,15 @@ detailed sequence/preset windows disable composition Undo/Redo.
   saves with the composition and supports undo/redo. **New take** keeps the
   shape, diameter, height, sides and rotation; the Width macro still varies
   rectangular/elliptical forms unless locked. Circles remain circular.
-- **New clip** starts an empty 15-second section. Add forms, rays or particles, then
-  combine them with signal effects. In the bundled studies, choose source
+- **New piece…** (also **File → New piece…**, Command-N) offers Text, Shape,
+  Model, Video, or Remix a study. Generated material is visible immediately in
+  one six-second section, uses the current canvas and Timeline FPS, and opens
+  **Object** for editing. Enter your wording, choose a shape, or use the solid
+  Doryphoros silhouette/particle head; then use **Effects → Add effect…** to build
+  a treatment. Resize or add sections to change total duration. Video follows
+  the existing import flow with its native canvas/FPS; Remix opens an independent
+  editable copy with the study's saved canvas and timing. Cancel keeps the current
+  piece, and replacement respects unsaved changes. In the bundled studies, choose source
   phrases under **Arrange**. Phrases repeat to fill their duration;
   **Rhythm** controls how quickly their internal changes happen.
 - **New take** makes a reproducible variation in the current scope. **Keep**
