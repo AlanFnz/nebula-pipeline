@@ -2,8 +2,8 @@
 
 Recorded: 2026-10-01.
 Status: A1 starting points, A2 creative-control pilot and A3 snapshots/controlled
-exploration implemented for review on 2026-10-02. A4–A5 and audio reactivity remain
-planned.
+exploration merged and installed in 0.3.0 on 2026-10-02. A4 has a detailed
+implementation plan; A4–A5 and audio reactivity remain unimplemented.
 Expanded: 2026-10-01 with selectable frequency ranges and future multitrack routing.
 Order: independent visual experimentation first, imported-audio reactivity next,
 then multiple imported tracks and optional live input. Future milestones do not
@@ -186,6 +186,10 @@ loop, retain B, and restore A without losing other effects or source settings.
 
 ### A4. Visual discovery and explanations
 
+Execution specification: [Visual effect discovery implementation plan](visual-effect-discovery-plan.md).
+It defines browser/preset auditions, temporary-preview ownership, visibility
+explanations, a composition breakdown, work packages and validation gates.
+
 - Add short effect/preset previews, preferably on the current material, with
   cached low-resolution results and clear loading/quality feedback.
 - Audition before applying; browsing alone must not edit the document.
@@ -364,7 +368,8 @@ control signal. No hardware is required for the imported-file milestone.
 - [x] A1: visible starting flow, existing editor integration and save/open.
 - [x] A2: creative-control pilot with reversible, bounded per-state adjustments.
 - [x] A3: named snapshots/A/B and controlled, effect-scoped Keep/Discard auditions.
-- [ ] Extend independent experimentation with A4 previews/explanations and A5 motion.
+- [ ] A4: previews, explanations and composition breakdown, following the detailed implementation plan.
+- [ ] A5: understandable motion and envelope controls.
 - [ ] Add B1 imported audio/transport, then B2 mappings and B3 export verification.
 - [ ] Extend to B4 multiple imported tracks with independent routing and explicit audio output.
 - [ ] Consider C live input after the file-based workflow is established.
