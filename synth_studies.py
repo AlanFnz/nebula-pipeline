@@ -216,24 +216,31 @@ def save_study(project, name, directory=None, cancel=None):
     destination = root / key
     with tempfile.TemporaryDirectory(prefix='.saving-', dir=root) as staging:
         staged = Path(staging)
-        if 'footage' in document:
-            footage = document['footage']
+        documents = [document, *(item['document'] for item in document.get('snapshots', []))]
+        copies = {}
+        for piece in documents:
+            if 'footage' not in piece: continue
+            footage = piece['footage']
             original = check_source(footage)
-            media = staged / 'media'; media.mkdir()
-            copied = media / ('source' + original.suffix.lower())
-            with original.open('rb') as source, copied.open('wb') as target:
-                while chunk := source.read(1024 * 1024):
-                    cancel.check()
-                    target.write(chunk)
-            shutil.copystat(original, copied)
-            check_source(footage)
-            stat = copied.stat()
-            if stat.st_size != footage['identity']['size']:
-                raise ValueError('Video changed while saving the study; please try again')
-            footage['path'] = copied.relative_to(staged).as_posix()
-            footage['identity'] = {'size': stat.st_size, 'mtime_ns': stat.st_mtime_ns}
-            if 'footage' in document['source']:
-                document['source']['footage'] = copy.deepcopy(footage)
+            media_key = (str(original.resolve()), footage['identity']['size'], footage['identity']['mtime_ns'])
+            if media_key not in copies:
+                media = staged / 'media'; media.mkdir(exist_ok=True)
+                suffix = '' if not copies else '-' + str(len(copies) + 1)
+                copied = media / ('source' + suffix + original.suffix.lower())
+                with original.open('rb') as source, copied.open('wb') as target:
+                    while chunk := source.read(1024 * 1024):
+                        cancel.check()
+                        target.write(chunk)
+                shutil.copystat(original, copied)
+                check_source(footage)
+                stat = copied.stat()
+                if stat.st_size != footage['identity']['size']:
+                    raise ValueError('Video changed while saving the study; please try again')
+                copies[media_key] = (copied.relative_to(staged).as_posix(), {'size': stat.st_size, 'mtime_ns': stat.st_mtime_ns})
+            footage['path'], footprint = copies[media_key]
+            footage['identity'] = dict(footprint)
+            if 'footage' in piece['source']:
+                piece['source']['footage'] = copy.deepcopy(footage)
         save_composition(staged / 'study.json', document)
         (staged / 'metadata.json').write_text(json.dumps({
             'schema_version': 1, 'saved_at': datetime.now().astimezone().isoformat(),

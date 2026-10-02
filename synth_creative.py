@@ -74,14 +74,26 @@ def normalize_creative(effect_id, raw):
         if control.operation == 'offset' and not float(value).is_integer():
             raise ValueError(f'{key} must be an integer')
         result[key] = int(value) if control.operation == 'offset' else float(value)
-    return {'version': 1, 'values': result}
+    normalized = {'version': 1, 'values': result}
+    if 'variation' in raw:
+        variation = raw['variation']
+        if (not isinstance(variation, dict) or type(variation.get('seed')) is not int or
+            not 0 <= variation['seed'] < 2**31 or variation.get('amount') not in ('subtle', 'moderate', 'strong') or
+            not isinstance(variation.get('controls'), list) or not variation['controls'] or
+            not all(isinstance(key, str) and key in controls for key in variation['controls'])):
+            raise ValueError('Invalid creative variation record')
+        normalized['variation'] = dict(seed=variation['seed'], amount=variation['amount'], controls=sorted(set(variation['controls'])))
+    return normalized
 
 
 def merged_creative(parent, local):
     """Local keys override their parent; explicit neutral cancels a parent key."""
     values = dict(parent.get('creative', {}).get('values', {}))
     values.update(local.get('creative', {}).get('values', {}))
-    return {'version': 1, 'values': values}
+    result = {'version': 1, 'values': values}
+    variation = local.get('creative', {}).get('variation', parent.get('creative', {}).get('variation'))
+    if variation is not None: result['variation'] = dict(variation)
+    return result
 
 
 def creative_overrides(effect_id, values, creative):
