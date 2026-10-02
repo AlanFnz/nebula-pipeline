@@ -222,6 +222,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         super().__init__()
         self.workspace_settings = settings
         self.comparison = None
+        self.discovery_session = None
         self.setWindowTitle("Nebula Synth")
         self.setFont(terminal_font())
         self.resize(1280, 800)
@@ -382,6 +383,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
             focus.clearFocus()
 
     def prepare_document_save(self):
+        if self.discovery_session: self.discovery_session.close(restore=False)
         try:
             if self.composer is not None:
                 return self.composer.prepare_text_save()
@@ -400,6 +402,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         return self.confirm_close(purpose)
 
     def confirm_close(self, purpose="closing"):
+        if self.discovery_session: self.discovery_session.close(restore=False)
         if self.audition_pending():
             choice = QMessageBox.question(self, 'Temporary variation', f'Keep this audition before {purpose}?',
                 QMessageBox.StandardButton.Apply | QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
@@ -1560,7 +1563,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         return self.sequence['fps'] if self.sequence is not None else self.preset['export_fps']
 
     def preview_size(self):
-        return preview_size(self.current_canvas(), (360, 720, None)[self.quality.currentIndex()])
+        return preview_size(self.current_canvas(), 360 if self.discovery_session else (360, 720, None)[self.quality.currentIndex()])
 
     def active_preview_scope(self):
         return resolve_scope(self.composition, self.section_timeline.selected_ids, self.timeline.maximum(), bool(self.preview_scope.currentIndex()))
@@ -1587,7 +1590,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         else: self.schedule_auto_preparation()
 
     def schedule_auto_preparation(self):
-        if self.closing or not hasattr(self, 'auto_prepare') or not self.auto_prepare.isChecked() or self.export_job: return
+        if self.discovery_session or self.closing or not hasattr(self, 'auto_prepare') or not self.auto_prepare.isChecked() or self.export_job: return
         self.warm_debounce.start(400)
 
     def _automatic_preparation(self):
@@ -1699,7 +1702,9 @@ class SynthStudio(ExplorationStudio, QMainWindow):
             except (ValueError, OSError) as exc:
                 self.settings_generation += 1
                 self.preview_frames.clear(); self.cached_ranges.set_ranges([]); self.cancel_preparation(); self.render_queued = False
-                self.preview_status.setText(f'Preview unavailable: {exc}'); return
+                self.preview_status.setText(f'Preview unavailable: {exc}')
+                if self.discovery_session: self.discovery_session.fail(exc)
+                return
         self.request_serial += 1
         fps = self.sequence["fps"] if self.sequence is not None else self.preset["export_fps"]
         self.current_time = self.timeline.value() / max(1, fps)
@@ -1762,6 +1767,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         self.display_frame(time_seconds, (size, raw))
 
     def display_frame(self, time_seconds, packet, cached=False):
+        if self.discovery_session: self.discovery_session.accept_packet()
         if self.comparison:
             self.comparison['pending'] = False; self.refresh_comparison_controls()
         if cached: self.last_displayed_request = max(self.last_displayed_request, self.request_serial)
@@ -1781,6 +1787,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         if self.play.isChecked() and not self.warm_debounce.isActive() and not self.preparation_explicit:
             self.schedule_auto_preparation()
     def render_failed(self, message):
+        if self.discovery_session: self.discovery_session.fail(message)
         self.status.setText(f"Render error: {message}")
         self.preview_status.setText('Preview unavailable. Check the render error above; no frames were substituted.')
     def scrub(self, value):

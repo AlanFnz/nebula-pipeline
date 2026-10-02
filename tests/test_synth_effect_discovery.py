@@ -37,3 +37,14 @@ def test_replace_neutralizes_inherited_creative_and_preserves_bypass_precedence(
 @pytest.mark.parametrize('effect,operation,preset,sid', [('forms','add',0,None), ('tape','no',0,None), ('tape','add',90,None), ('tape','add',0,'missing'), ('subject_cutout','add',0,None)])
 def test_invalid_candidates_are_rejected(effect, operation, preset, sid):
     with pytest.raises(ValueError): effect_candidate(new_piece('shape'), sid, effect, operation, preset)
+
+
+def test_sampled_window_uses_absolute_frames_and_discontinuous_scope():
+    from synth_preview import PreviewScope
+    from synth_effect_preview import sampled_window
+    scope = PreviewScope(((30, 45), (100, 180)), 2)
+    frames = sampled_window(scope, 40, 30)
+    assert len(frames) <= 24 and len(set(frames)) == len(frames)
+    assert all(scope.contains(frame) for frame in frames)
+    assert max(frames) >= 100
+    assert sampled_window(scope, 0, 30) == ()
