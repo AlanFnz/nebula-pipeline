@@ -735,9 +735,14 @@ def phrase_events(project, section):
     return events
 
 
-def compile_composition(raw):
-    """Compile the arrangement to the same public sequence format as before."""
+def compile_composition(raw, *, base_states=None):
+    """Compile ordinary sequence states; optionally collect inspector base states.
+
+    Base states exclude creative adjustments and bypass, retaining fixed edits.
+    The collector is presentation data and never changes the exported sequence.
+    """
     project = normalize_composition(raw)
+    if base_states is not None: base_states.clear()
     result = copy.deepcopy(project["source"])
     result['render_version'] = project['render_version']
     result.update(name=project["name"], fps=project["fps"], seed=project["seed"], states={}, cues=[])
@@ -781,7 +786,12 @@ def compile_composition(raw):
                 state_name = f"{section['id']}:{cue['state']}"
                 if state_name not in result["states"]:
                     state = _adjust_state(project["source"]["states"][cue["state"]], macros, offset, effective_geometry(project, section))
-                    result["states"][state_name] = apply_shared_timing(apply_effects(state, effects), project['ink_timing'])
+                    if base_states is None:
+                        treated = apply_effects(state, effects)
+                    else:
+                        treated, base = apply_effects(state, effects, include_base=True)
+                        base_states[state_name] = apply_shared_timing(base, project['ink_timing'])
+                    result["states"][state_name] = apply_shared_timing(treated, project['ink_timing'])
                     if 'footage' in project:
                         result['states'][state_name].setdefault('overrides', {})['treatment_fps'] = project['footage']['treatment_fps']
                 item = dict(cue, time=frame / fps, state=state_name)

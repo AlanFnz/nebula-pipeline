@@ -13,6 +13,7 @@ from synth import MODULE_BY_ID, Param, curated_presets
 from synth_artwork import validate_artwork
 from synth_text import validate_text
 from synth_ink_timing import stage_durations
+from synth_creative import creative_overrides, merged_creative, normalize_creative
 
 
 @dataclass(frozen=True)
@@ -160,6 +161,8 @@ def normalize_effects(raw):
                 raise ValueError(f"{path} must be an integer")
             values[path] = int(value) if spec.kind == "int" else float(value)
         normalized = {"mode": mode, "params": values}
+        if 'creative' in entry:
+            normalized['creative'] = normalize_creative(key, entry['creative'])
         if "bypassed" in entry:
             if not isinstance(entry["bypassed"], bool):
                 raise ValueError(f"{key} bypassed must be a boolean")
@@ -175,6 +178,8 @@ def merge_effects(global_effects, local_effects):
         if entry["mode"] != "recipe":
             target["mode"] = entry["mode"]
         target["params"].update(entry["params"])
+        if 'creative' in entry:
+            target['creative'] = merged_creative(target, entry)
         if "bypassed" in entry:
             target["bypassed"] = entry["bypassed"]
     return result
@@ -188,9 +193,9 @@ def state_values(state):
     return values, enabled
 
 
-def apply_effects(state, effects):
+def apply_effects(state, effects, *, include_base=False):
     if not effects:
-        return state
+        return (state, state) if include_base else state
     result = copy.deepcopy(state)
     _, enabled = state_values(state)
     overrides = result.setdefault("overrides", {})
@@ -206,7 +211,21 @@ def apply_effects(state, effects):
             enabled.difference_update(effect.modules)
             overrides.update(effect.off)
     result["enabled"] = [module for module in MODULE_BY_ID if module in enabled]
-    return result
+    # Inspector values are the unadjusted, unbypassed base, collected without
+    # compiling the entire arrangement again. Fixed edits remain base values.
+    base = None
+    if include_base:
+        original = {key: {k: v for k, v in entry.items() if k not in ('creative', 'bypassed')}
+                    for key, entry in effects.items()}
+        base = apply_effects(state, original)
+    if any('creative' in entry for entry in effects.values()):
+        values, _ = state_values(result)
+        for effect in EFFECTS:
+            entry = effects.get(effect.id, {})
+            if entry.get('bypassed') or entry.get('mode') == 'off': continue
+            updates = creative_overrides(effect.id, values, entry.get('creative', {}))
+            result['overrides'].update(updates); values.update(updates)
+    return (result, base) if include_base else result
 
 
 def effect_active(effect, values, enabled):

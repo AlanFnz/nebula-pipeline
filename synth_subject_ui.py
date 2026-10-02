@@ -120,6 +120,7 @@ class SubjectPanel(QWidget):
         self.control_host.setVisible(self.kind in OBJECT_PATHS)
         self.wording_host.setVisible(self.kind == 'text')
         self.details.setText('Text appearance…' if self.kind == 'text' else 'Source controls…')
+        self.timing.setText('Creative motion…' if self.kind == 'particles' else 'Motion & timing…')
         paths = OBJECT_PATHS.get(self.kind, ())
         if set(self.controls) != set(paths):
             for host_layout in (self.control_layout, self.wording_layout):

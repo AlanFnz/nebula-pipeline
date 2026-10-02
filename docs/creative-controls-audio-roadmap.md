@@ -1,8 +1,8 @@
 # Creative controls and audio reactivity
 
 Recorded: 2026-10-01.
-Status: A1 starting points implemented for review on 2026-10-02. A2–A5 and audio
-reactivity remain planned.
+Status: A1 starting points and the A2 creative-control pilot implemented for
+review on 2026-10-02. A3–A5 and audio reactivity remain planned.
 Expanded: 2026-10-01 with selectable frequency ranges and future multitrack routing.
 Order: independent visual experimentation first, imported-audio reactivity next,
 then multiple imported tracks and optional live input. Future milestones do not
@@ -56,6 +56,48 @@ image treatment, save it, and reopen it entirely through the interface. Remixing
 and saving must leave the original study unchanged.
 
 ### A2. Effect-specific creative controls
+
+Implemented pilot: Tape damage, Frame jitter, Ghosts and Particles now have
+**Creative** and **Parameters** tabs. Creative edits relative adjustments;
+Parameters edits the underlying values, retains explicit Use fixed value and
+shows any creative adjustment still acting on a control. Particle models also
+reach Creative through **Object → Creative motion…**; Source controls opens
+Parameters.
+
+| Effect | Delivered controls | Engine limits made explicit |
+| --- | --- | --- |
+| Tape damage | Tracking & dropout strength, Pattern change speed, Color bleed | Cadence changes the pattern; it does not independently set fault probability or duration. |
+| Frame jitter | Movement distance, Turn jitter, Pose change speed | Movement preserves the X/Y balance; cadence holds each pose and does not alter Timeline FPS. |
+| Ghosts | Add / remove copies, Trail distance, Trail brightness | Counts add an integer offset, bounded to 1–10. Brightness retains trail fading; the luminous form companion remains one ghost. |
+| Particles | Expansion distance, Outward time, Return time, Path disorder | Release distance needs a released cloud/cycle; stage durations apply only in Impulse mode and retain its cycle-relative caps. |
+
+Most controls scale their affected values within each parameter's engine bounds;
+100% is neutral. Copy counts use an additive integer offset, with zero neutral.
+The compiler resolves geometry/Finishing, fixed effect parameters, then creative
+adjustments for each source state. It preserves activation, cues, seeds, canvas,
+source clocks and total arrangement duration. Existing authored zeros stay zero;
+adding intensity does not implicitly enable a source or start a burst.
+
+Optional version-1 `creative` data lives alongside an effect's fixed `params`,
+separate from the source recipe. Local keys override whole-clip keys; an explicit
+local 100% (or zero copies) cancels that inherited adjustment. An individual
+restore arrow or Restore creative controls removes only local creative edits and
+follows the parent again. Restore this effect removes its whole scoped entry.
+Preset replacement uses neutral creative values in a section with an adjusted
+parent. Bypass retains these values; Undo/Redo, Save/Open and detailed copies keep
+the result. Untouched documents receive no new fields and neutral values recover
+the original pixels.
+
+Ghosts gains a reusable Trail brightness base parameter for whole-image copies.
+Its default 1 preserves the old arithmetic exactly, and existing fading across
+the copies is retained. Independent tape fault probability/duration and a new
+trail decay curve are not claimed by this pilot; they need separate engine work.
+
+Inspector base values are collected within the compilation pass, avoiding a
+second full arrangement compile for adjusted/bypassed controls. They are not
+exported metadata. Tests cover active animation, neutral restoration, fixed base
+edits, scope inheritance, source replacement, bypass, history, portability and
+frozen-study pixels.
 
 Provide roughly three to six useful controls for each supported effect. Choose
 names and ranges that describe a visible outcome. Start with a small pilot:
@@ -281,7 +323,8 @@ control signal. No hardware is required for the imported-file milestone.
 ## Delivery order and open decisions
 
 - [x] A1: visible starting flow, existing editor integration and save/open.
-- [ ] Complete the first creative release with A2 creative-control pilot + A3 snapshots/A/B.
+- [x] A2: creative-control pilot with reversible, bounded per-state adjustments.
+- [ ] Complete the first creative release with A3 snapshots/A/B.
 - [ ] Extend independent experimentation with A4 previews/explanations and A5 motion.
 - [ ] Add B1 imported audio/transport, then B2 mappings and B3 export verification.
 - [ ] Extend to B4 multiple imported tracks with independent routing and explicit audio output.

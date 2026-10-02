@@ -787,7 +787,11 @@ class CompositionPanel(QWidget):
             self.scope_combo.setToolTip(self.scope_combo.currentText() + ('. Unedited controls follow the whole clip or study.' if self.scope else '. Explicit section overrides take priority.'))
             self.master_panel.set_values(self.document['master'])
             target = self.target()
-            compiled = compile_composition(self.document)
+            needs_base = any('creative' in entry or 'bypassed' in entry
+                             for scope in (self.document, *self.document['sections'])
+                             for entry in scope['effects'].values())
+            base_states = {} if needs_base else None
+            compiled = compile_composition(self.document, base_states=base_states)
             self.compiled = compiled
             prefix = section["id"] + ":"
             all_states = list(compiled['states'].values())
@@ -795,13 +799,8 @@ class CompositionPanel(QWidget):
             label = f"Editing: Section {self.index + 1} — {self.document['phrases'][section['phrase']]['name']}" if self.scope else "Editing: Whole clip"
             context_key = section["id"] if self.scope else None
             authored_states = None
-            if any('bypassed' in entry for effects in [self.document['effects'], *(s['effects'] for s in self.document['sections'])] for entry in effects.values()):
-                authored = copy.deepcopy(self.document)
-                for effects in [authored['effects'], *(s['effects'] for s in authored['sections'])]:
-                    for entry in effects.values(): entry.pop('bypassed', None)
-                authored_sequence = compile_composition(authored)
-                authored_all = list(authored_sequence['states'].values())
-                authored_states = [state for name, state in authored_sequence['states'].items() if name.startswith(prefix)] if self.scope else authored_all
+            if base_states is not None:
+                authored_states = [state for name, state in base_states.items() if name.startswith(prefix)] if self.scope else list(base_states.values())
             self.effects_panel.set_context(target["effects"], self.document["effects"] if self.scope else {}, states, label, bool(self.scope), (self.scope, context_key), self.document['ink_timing'], all_states, VIDEO_EFFECTS if video else tuple(effect.id for effect in EFFECTS if effect.id != 'subject_cutout'), authored_states=authored_states)
             self.object_panel.refresh(self.effects_panel.summary, target['effects'], self.document['effects'] if self.scope else {}, bool(self.scope), context_key=(self.scope, context_key), scope_label=label.removeprefix('Editing: '))
             for key, control in self.macro_controls.items():
@@ -917,8 +916,9 @@ class CompositionPanel(QWidget):
         self.change_effect(effect, entry, 'effect-reset-param')
 
     def open_object_details(self, effect, timing):
+        from synth_creative import CREATIVE_CONTROLS
         self.effects_panel.inspect_effect(effect)
-        self.effects_panel.parameter_tabs.setCurrentIndex(1 if timing else 0)
+        self.effects_panel.parameter_tabs.setCurrentIndex((0 if timing else 1) if effect in CREATIVE_CONTROLS else (1 if timing else 0))
         self.look_tabs.setCurrentWidget(self.effects_panel)
 
     def change_master(self, key, value):

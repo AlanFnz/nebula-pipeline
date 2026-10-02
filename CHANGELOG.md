@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Add Creative controls for Tape damage, Frame jitter, Ghosts and Particles.
+  Preserve animated recipe values through bounded relative adjustments and
+  additive copy-count offsets. Keep fixed base edits in Parameters with visible
+  adjustment annotations; support inherited/neutral section values, reset,
+  bypass, history and portable save/open. Add neutral-default trail brightness
+  and collect inspector base states during compilation without changing study
+  pixels. Particle models open Creative motion directly from Object.
+
 - Add New piece… in the toolbar and File menu with Text, Shape, Model, Video
   and Remix a study choices. Generated pieces start with visible material,
   one six-second section, the current canvas/FPS and Object controls ready.
