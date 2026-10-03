@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Stretch or compress multiple selected timeline sections proportionally by
+  dragging the last selected section's right edge. Preserve unselected
+  durations, loop repetitions and the Effects only / Video + effects modes.
+  Add a brighter group handle, selection drag readout and timeline Select All
+  shortcut. Frame snapping and duration limits apply to a common scale; release
+  commits one undoable edit and Escape cancels the temporary preview.
+
 ## 0.4.0 — 2026-10-02
 
 - Add effect and inspector preset replacement now audition on the complete
