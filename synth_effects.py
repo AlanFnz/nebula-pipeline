@@ -171,6 +171,12 @@ def normalize_effects(raw):
     return result
 
 
+def is_removed_effect(entry):
+    """An empty Off entry hides an inherited/recipe effect without retaining edits."""
+    return bool(entry and entry.get('mode') == 'off' and not entry.get('params') and
+                not entry.get('creative') and not entry.get('bypassed', False))
+
+
 def merge_effects(global_effects, local_effects):
     result = copy.deepcopy(global_effects)
     for key, entry in local_effects.items():

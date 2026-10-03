@@ -909,6 +909,9 @@ class CompositionPanel(QWidget):
             effects.pop(effect_id, None)
         else:
             effects[effect_id] = without_timing(entry) if effect_id == 'ink_bloom' else entry
+        if action == 'effect-remove' and not self.scope:
+            for section in document['sections']:
+                section['effects'].pop(effect_id, None)
         self.commit(document, f"{action}:{self.scope}:{self.index}:{effect_id}")
 
     def show_timing_scope(self, timing):
