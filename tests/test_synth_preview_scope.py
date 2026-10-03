@@ -117,7 +117,7 @@ def test_explicit_preparation_waits_for_foreground_and_oversize_warms_useful_win
     prepared(window)
     assert len(window.preparation_target) == 5 and all(frame in window.preview_frames.items for frame in window.preparation_target)
     assert window.preview_frames.bytes + window.preview_frames.reserved <= window.preview_frames.budget
-    assert 'Limited by rendering' in window.preview_status.text() and not window.play.isChecked()
+    assert 'partially prepared' in window.preview_status.text() and not window.play.isChecked()
     old = dict(window.preview_frames.items)
     QTest.qWait(500)
     assert dict(window.preview_frames.items) == old and window.prepare_job is None

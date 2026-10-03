@@ -93,6 +93,23 @@ QToolTip { background: #1b2c20; color: #e3f1dd; border: 1px solid #7d9d70; paddi
 QPushButton:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus, QLineEdit:focus { border-color: #b5e49b; }
 QSlider::handle:horizontal:focus { border-color: #d6a3ce; background: #e0f7d3; }
 QCheckBox:focus { color: #b5e49b; }
+/* Compact workspace chrome, leaving parameter fields and dialogs readable. */
+QWidget[chrome="true"] QPushButton, QPushButton[compact="true"] { padding: 3px 7px; }
+QWidget[chrome="true"] QComboBox { padding-top: 3px; padding-bottom: 3px; }
+QWidget[chrome="true"] QSpinBox, QWidget[chrome="true"] QDoubleSpinBox { padding: 3px 5px; }
+QWidget[chrome="true"] QLabel#timecode { padding: 3px 5px; }
+QPushButton[secondaryAction="true"] { background: transparent; border-color: #26382c; color: #94aa98; }
+QPushButton[secondaryAction="true"]:hover, QPushButton[secondaryAction="true"]:focus { background: #203225; border-color: #91b286; color: #e3f1dd; }
+QToolButton { background: #111b14; border: 1px solid #3b5141; padding: 3px 20px 3px 7px; }
+QToolButton:hover, QToolButton:focus { background: #203225; border-color: #b5e49b; }
+QToolButton::menu-button { width: 16px; border-left: 1px solid #304536; }
+QToolButton::menu-arrow { image: url("@CHEVRON@"); width: 8px; height: 6px; }
+QMenu { background: #101812; border: 1px solid #3b5141; padding: 4px; }
+QMenu::item { padding: 6px 20px; }
+QMenu::item:selected { background: #2b4230; }
+QSlider#transportScrubber::handle:horizontal { background: #d6a3ce; border-color: #efd5e9; width: 5px; margin: -4px 0; }
+QSlider#transportScrubber::sub-page:horizontal { background: #52664f; }
+
 """.replace("@CHEVRON@", (Path(__file__).parent / "assets" / "terminal-chevron.svg").as_posix())
 
 

@@ -38,7 +38,7 @@ def test_default_layout_gives_the_monitor_room_without_forcing_a_taller_window(a
     app.processEvents()
     try:
         assert window.height() == size[1]
-        assert window.document_title.text() and window.document_title.width() >= 120
+        assert window.document_title.text() and window.document_title.width() >= 100
         assert window.viewer.height() >= minimum_height
         assert window.preview_splitter.orientation() == Qt.Orientation.Vertical
         for control in (window.play, window.timeline, window.preview_status):
@@ -88,16 +88,17 @@ def test_small_window_keeps_timeline_and_scrolled_controls_reachable(app):
         window.splitter.moveSplitter(0, 1)
         app.processEvents()
         scroll = window.preview_controls_scroll
-        assert scroll.height() >= 120
-        assert window.section_scroll.height() == 108
+        assert scroll.height() >= 112
+        assert window.section_scroll.height() == 78
         assert visible_in(window.section_timeline, scroll.viewport())
         assert scroll.verticalScrollBar().maximum() > 0
-        for control in (window.preview_scope, window.prepare_preview, window.quality, window.export_button):
+        for control in (window.preview_scope, window.prepare_preview, window.quality):
             scroll.ensureWidgetVisible(control)
             app.processEvents()
             assert visible_in(control, scroll.viewport())
             left = control.mapTo(scroll.viewport(), QPoint(0, 0)).x()
             assert left >= 0 and left + control.width() <= scroll.viewport().width()
+        assert visible_in(window.export_button, window.header_host)
         assert visible_in(window.play, window.preview_splitter.widget(0))
         assert visible_in(window.preview_status, window.preview_splitter.widget(0))
     finally:

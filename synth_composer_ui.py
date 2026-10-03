@@ -671,8 +671,8 @@ class CompositionPanel(QWidget):
         self.index = min(index, len(document["sections"]) - 1)
         self.scope = scope
         self.updating = False
-        layout = QVBoxLayout(self); layout.setContentsMargins(0, 0, 0, 0)
-        title = QLabel("02 / COMPOSER"); title.setObjectName("sectionTitle")
+        layout = QVBoxLayout(self); layout.setContentsMargins(0, 0, 0, 0); layout.setSpacing(5)
+        title = QLabel("02 / INSPECTOR"); title.setObjectName("sectionTitle")
         title_row = QHBoxLayout(); title_row.addWidget(title); title_row.addStretch(1)
         self.timeline_summary = QLabel(); self.timeline_summary.setObjectName('muted')
         self.timeline_summary.setToolTip('Total duration and section count for the whole timeline, including loops.')
@@ -680,7 +680,13 @@ class CompositionPanel(QWidget):
         hint = QLabel("Combine effects. Arrange their changes in sections.")
         hint.setWordWrap(True); hint.setObjectName("muted"); hint.hide(); title.setToolTip(hint.text())
 
-        timeline_row = QHBoxLayout()
+        self.workspace_actions = QWidget(); self.workspace_actions.setProperty('chrome', True)
+        self.workspace_actions_layout = QHBoxLayout(self.workspace_actions)
+        self.workspace_actions_layout.setContentsMargins(0, 0, 0, 0)
+        self.workspace_actions_layout.addStretch(1)
+        layout.addWidget(self.workspace_actions)
+        self.timeline_controls = QWidget(); self.timeline_controls.setProperty('chrome', True)
+        timeline_row = QHBoxLayout(self.timeline_controls); timeline_row.setContentsMargins(0, 0, 0, 0)
         self.fps_label = QLabel('Timeline FPS')
         self.fps = QSpinBox(); self.fps.setRange(1, 120); self.fps.setSuffix(" fps"); self.fps.setKeyboardTracking(False)
         self.fps.setAccessibleName('Timeline FPS')
@@ -690,7 +696,7 @@ class CompositionPanel(QWidget):
         timeline_row.addWidget(self.fps_label); timeline_row.addWidget(self.fps); timeline_row.addStretch(1)
         self.arrangement_button = QPushButton('Arrange sections…'); self.arrangement_button.setCheckable(True)
         self.arrangement_button.setToolTip("Edit section durations, order and loops.")
-        timeline_row.addWidget(self.arrangement_button); layout.addLayout(timeline_row)
+        self.workspace_actions_layout.addWidget(self.arrangement_button); layout.addWidget(self.timeline_controls)
         self.content_stack = QStackedWidget(); layout.addWidget(self.content_stack, 1)
         self.arrangement_scroll = QScrollArea(); self.arrangement_scroll.setWidgetResizable(True)
         self.arrangement_scroll.setFrameShape(QFrame.Shape.NoFrame)
@@ -735,8 +741,8 @@ class CompositionPanel(QWidget):
         section_layout.addLayout(row)
         arrangement_layout.addWidget(section_box); arrangement_layout.addStretch(1)
 
-        shape = QGroupBox("PARAMETERS / SCOPE")
-        shape_layout = QVBoxLayout(shape)
+        shape = QWidget()
+        shape_layout = QVBoxLayout(shape); shape_layout.setContentsMargins(0, 0, 0, 0); shape_layout.setSpacing(5)
         self.scope_combo = QComboBox(); self.scope_combo.addItems(["Whole clip", "Selected section"])
         self.scope_combo.currentIndexChanged.connect(self.change_scope); shape_layout.addWidget(self.scope_combo)
         self.timing_scope_label = QLabel('Editing: Whole clip · shared timing'); self.timing_scope_label.hide()
@@ -813,7 +819,15 @@ class CompositionPanel(QWidget):
         self.content_stack.setCurrentWidget(shape)
         self.arrangement_button.toggled.connect(self.show_arrangement)
         self.details_button = details = QPushButton("Open detailed copy…"); details.clicked.connect(self.detailsRequested.emit); layout.addWidget(details)
+        details.setProperty('compact', True); details.setProperty('secondaryAction', True)
         self.refresh()
+
+    def embed_workspace_controls(self, fps_layout, reset_button):
+        """Move the actual global FPS control to the document header."""
+        fps_layout.addWidget(self.fps_label); fps_layout.addWidget(self.fps)
+        self.timeline_controls.hide()
+        self.workspace_actions_layout.insertWidget(0, reset_button)
+        reset_button.show()
 
     def show_arrangement(self, expanded):
         self.content_stack.setCurrentWidget(self.arrangement_scroll if expanded else self.parameters_group)
@@ -1301,11 +1315,12 @@ class CompositionPanel(QWidget):
 
 class CachedRangeStrip(QWidget):
     """Cached absolute frame ranges aligned with the transport slider."""
+    rangesChanged = Signal()
     def __init__(self, slider):
         super().__init__()
         self.slider = slider
         self.ranges = []
-        self.setFixedHeight(5)
+        self.setFixedHeight(3)
         self.setAccessibleName('Cached preview ranges')
         self.setToolTip('Highlighted ranges are cached at the current preview quality.')
 
@@ -1313,12 +1328,13 @@ class CachedRangeStrip(QWidget):
         self.ranges = list(ranges)
         self.setAccessibleDescription(f'{sum(b-a for a,b in self.ranges)} frames cached')
         self.update()
+        self.rangesChanged.emit()
 
     def paintEvent(self, event):
         painter = QPainter(self)
         origin = self.mapFromGlobal(self.slider.mapToGlobal(QPoint(0, 0))).x()
         width = self.slider.width()
         count = max(1, self.slider.maximum() + 1)
-        painter.fillRect(QRectF(origin, 1, width, 3), QColor(COLORS['border']))
+        painter.fillRect(QRectF(origin, 0, width, 2), QColor(COLORS['border']))
         for start, end in self.ranges:
-            painter.fillRect(QRectF(origin + width*start/count, 1, max(1, width*(end-start)/count), 3), QColor(COLORS['accent']))
+            painter.fillRect(QRectF(origin + width*start/count, 0, max(1, width*(end-start)/count), 2), QColor(COLORS['muted']))

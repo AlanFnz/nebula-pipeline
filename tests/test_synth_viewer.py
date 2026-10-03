@@ -75,7 +75,7 @@ def test_first_launch_fullscreen_then_restores_window_mode_splitter_and_zoom(app
         assert not window.fullscreen_button.isCheckable()
         QTest.mouseClick(window.fullscreen_button, Qt.MouseButton.LeftButton); app.processEvents()
         assert not window.isFullScreen()
-        assert window.fullscreen_button.text() == 'Full screen'
+        assert window.fullscreen_button.accessibleName() == 'Full screen'
         window.resize(1280, 780); app.processEvents()
         window.splitter.moveSplitter(610, 1); window.viewer.set_zoom(.75)
     finally:
