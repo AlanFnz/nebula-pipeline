@@ -115,3 +115,14 @@ def test_export_feedback_is_reachable_and_only_occupies_space_during_export(wind
     window.export_failed(job, 'Export cancelled'); window._finish_export(job)
     assert not window.export_progress.isVisible() and not window.cancel_export.isVisible()
     assert 'cancelled' in window.status.text() and window.status.isVisible()
+
+
+def test_tall_restored_footer_keeps_controls_packed_at_the_top(window):
+    window.resize(1728, 1017); window.preview_splitter.setSizes([660, 280])
+    QApplication.processEvents()
+    pane = window.preview_controls_scroll.widget()
+    tools = window.section_tools
+    assert tools.y() <= 6
+    assert tools.height() <= tools.sizeHint().height() + 2
+    assert window.section_scroll.y() <= tools.y() + tools.height() + 6
+    assert window.preview_scope.mapTo(pane, QPoint()).y() <= window.section_scroll.y() + window.section_scroll.height() + 6
