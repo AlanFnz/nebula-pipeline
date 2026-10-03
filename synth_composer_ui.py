@@ -5,7 +5,7 @@ import copy
 import math
 
 from PySide6.QtCore import Qt, QRectF, QPoint, QSignalBlocker, Signal, QSize, QTimer
-from PySide6.QtGui import QColor, QPainter, QPen, QCursor
+from PySide6.QtGui import QColor, QPainter, QPen, QCursor, QKeySequence
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox, QLabel,
     QPushButton, QCheckBox, QTabWidget, QSizePolicy, QMenu, QInputDialog, QAbstractScrollArea, QApplication, QScrollArea, QFrame, QStackedWidget,
@@ -14,7 +14,7 @@ from studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBo
 
 from synth import SHAPES
 from studio_theme import COLORS
-from synth_composition import MACROS, compile_composition, default_geometry, effective_geometry, neutral_macros, normalize_composition, section_placements, section_ranges, vary_composition
+from synth_composition import MACROS, compile_composition, default_geometry, effective_geometry, neutral_macros, normalize_composition, proportional_section_durations, section_placements, section_ranges, vary_composition
 from synth_effects_ui import EffectsPanel
 from synth_shared_timing import edit_shared_timing, restore_shared_timing, without_timing
 from synth_master import normalize_master
@@ -32,6 +32,7 @@ class SectionTimeline(QWidget):
     loopRequested = Signal(object, int)
     seekRequested = Signal(float)
     durationRequested = Signal(str, float)
+    stretchRequested = Signal(object, float)
     reorderRequested = Signal(object, object)
 
     def __init__(self):
@@ -130,13 +131,29 @@ class SectionTimeline(QWidget):
                             original_edge=end*self.width()/placements[-1][2],
                             original_minimum=self.minimumWidth(), moved=False,
                             gutter=max(100,scroll.viewport().width()//4) if scroll else 0)
+        if self._is_selection_edge(occurrence):
+            identifiers = tuple(self.document['sections'][i]['id'] for i in self.selected_indices())
+            original_durations = {item['id']: max(1, round(item['duration'] * fps)) / fps
+                                  for item in self.document['sections'] if item['id'] in identifiers}
+            edge_frames = sum(round(self.document['sections'][i]['duration'] * fps) *
+                              int(self.document['sections'][i].get('loops', 1))
+                              for i, *_ in placements[:occurrence+1]
+                              if self.document['sections'][i]['id'] in identifiers)
+            self._resize.update(identifiers=identifiers, factor=1., edge_frames=edge_frames,
+                                original_durations=original_durations, durations=original_durations)
         self._preview_document = copy.deepcopy(self.document)
         self._preview_document['sections'][index]['duration'] = original_frames/fps
         self._grow_resize_canvas()
         self.setFocus(Qt.FocusReason.MouseFocusReason)
         self.setCursor(Qt.CursorShape.SizeHorCursor)
-        self.setToolTip('Drag to retime this section and ripple later sections. Release to apply; Escape to cancel.')
+        self.setToolTip((f'Drag to stretch {len(self._resize["identifiers"])} selected sections proportionally. '
+                        if 'identifiers' in self._resize else 'Drag to retime this section and ripple later sections. ') +
+                       'Release to apply; Escape to cancel.')
         self.update()
+
+    def _is_selection_edge(self, occurrence):
+        selected = self.selected_indices()
+        return len(selected) > 1 and section_placements(self.document)[occurrence][0] == selected[-1]
 
     def _grow_resize_canvas(self):
         drag = self._resize
@@ -148,6 +165,16 @@ class SectionTimeline(QWidget):
     def _update_resize(self, x):
         drag = self._resize
         if drag is None: return
+        if 'identifiers' in drag:
+            factor = 1 + (x-drag['press_x']) / drag['pixels_per_second'] * drag['fps'] / drag['edge_frames']
+            durations = proportional_section_durations(self.document, drag['identifiers'], factor)
+            if durations == drag['durations']: return
+            drag.update(factor=factor, durations=durations)
+            for section in self._preview_document['sections']:
+                if section['id'] in durations: section['duration'] = durations[section['id']]
+            self._grow_resize_canvas()
+            self.update()
+            return
         delta = (x-drag['press_x'])/drag['pixels_per_second']/drag['edge_factor']
         frames = max(1,min(drag['max_frames'],round(drag['original_frames']+delta*drag['fps'])))
         if frames == drag['frames']: return
@@ -183,7 +210,10 @@ class SectionTimeline(QWidget):
         self.unsetCursor()
         self.setToolTip('')
         self.update()
-        if commit and drag['frames'] != drag['original_frames']:
+        if commit and 'identifiers' in drag:
+            if drag['durations'] != drag['original_durations']:
+                self.stretchRequested.emit(drag['identifiers'], drag['factor'])
+        elif commit and drag['frames'] != drag['original_frames']:
             self.durationRequested.emit(drag['identifier'],drag['frames']/drag['fps'])
 
     def selected_indices(self):
@@ -290,6 +320,8 @@ class SectionTimeline(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         document = self.display_document()
         placements = section_placements(document) if document else []
+        selected_indices = self.selected_indices()
+        selection_end = selected_indices[-1] if len(selected_indices) > 1 else None
         for occurrence, ((index, _start, _end, repetition), rect) in enumerate(zip(placements, self.rectangles())):
             section = document["sections"][index]
             selected = section['id'] in self.selected_ids
@@ -311,7 +343,9 @@ class SectionTimeline(QWidget):
             loops = int(section.get('loops', 1))
             painter.drawText(rect.adjusted(4, 43, -4, -3), Qt.AlignmentFlag.AlignCenter, f"{section['duration']:.2f}s ×{loops}")
             if selected or occurrence == self._hover_edge:
-                painter.setPen(QPen(QColor(COLORS['accent'] if occurrence == self._hover_edge else COLORS['muted']),2))
+                selection_edge = index == selection_end
+                painter.setPen(QPen(QColor(COLORS['accent'] if occurrence == self._hover_edge or selection_edge else COLORS['muted']),
+                                    4 if selection_edge else 2))
                 edge = min(self.width()-2,round(_end*self.pixels_per_second()-3))
                 painter.drawLine(edge,25,edge,52)
             painter.restore()
@@ -328,6 +362,10 @@ class SectionTimeline(QWidget):
             painter.setPen(QColor(COLORS['accent']))
             visible = self.visibleRegion().boundingRect()
             readout = f"{drag['frames']/drag['fps']:.2f}s per play · {drag['frames']/drag['original_frames']:.2f}× length · release to apply · Esc cancel"
+            if 'identifiers' in drag:
+                scale = sum(drag['durations'].values()) / sum(drag['original_durations'].values())
+                total = placements[-1][2]
+                readout = f"{len(drag['identifiers'])} sections · {scale:.2f}× length · {total:.2f}s timeline · release to apply · Esc cancel"
             painter.drawText(QRectF(visible.left()+6,75,max(0,visible.width()-12),14),Qt.AlignmentFlag.AlignLeft|Qt.AlignmentFlag.AlignVCenter,readout)
         if self._reorder is not None and self._reorder['active']:
             drag = self._reorder
@@ -362,7 +400,7 @@ class SectionTimeline(QWidget):
         edge = self.edge_at(event.position())
         if event.button() == Qt.MouseButton.LeftButton and event.modifiers() == Qt.KeyboardModifier.NoModifier and edge is not None:
             index, start, _end, _repetition = section_placements(self.document)[edge]
-            self.select_at(index)
+            self.select_at(index, context=self._is_selection_edge(edge))
             self.seekRequested.emit(start)
             self._begin_resize(edge,event.position())
             event.accept()
@@ -406,6 +444,10 @@ class SectionTimeline(QWidget):
             self._finish_resize(False)
             event.accept()
             return
+        if self.document and self._resize is None and self._reorder is None and event.matches(QKeySequence.StandardKey.SelectAll):
+            self.selected_ids = {section['id'] for section in self.document['sections']}
+            self.update(); self.selectionChanged.emit()
+            event.accept(); return
         super().keyPressEvent(event)
 
     def leaveEvent(self, event):
@@ -487,7 +529,9 @@ class SectionTimeline(QWidget):
         if edge is not None:
             index = section_placements(self.document)[edge][0]
             duration = self.document['sections'][index]['duration']
-            self.setToolTip(f'Drag right edge to retime section {index+1} · {duration:.2f}s per play · later sections ripple · Escape cancels')
+            self.setToolTip((f'Drag to stretch {len(self.selected_ids)} selected sections proportionally · '
+                            if self._is_selection_edge(edge) else f'Drag right edge to retime section {index+1} · {duration:.2f}s per play · ') +
+                           'later sections ripple · Escape cancels')
             return
         placements = section_placements(self.document) if self.document else []
         for (index, _start, _end, repetition), rect in zip(placements, self.rectangles()):
@@ -497,7 +541,7 @@ class SectionTimeline(QWidget):
                 loops = int(section.get('loops', 1))
                 self.setToolTip(f"{index + 1}. {self.document['phrases'][section['phrase']]['name']} · {loops}× total plays · " +
                                (f'Sequence repetition {repetition} · ' if repetition > 1 else '') +
-                               'drag body to reorder; drag right edge to stretch; Shift-click to select a range; Command-click to add sections; right-click to loop')
+                               'drag body to reorder; drag the last selected edge to stretch the selection; Shift-click to select a range; Command-click to add sections; Command-A to select all; right-click to loop')
                 return
         self.setToolTip('')
 
@@ -1004,6 +1048,16 @@ class CompositionPanel(QWidget):
             self.refresh(); self.failed.emit(str(exc)); return
         if document != self.document:
             self.commit(document, 'section-stretch')
+
+    def stretch_sections(self, identifiers, factor):
+        if self.updating: return
+        from synth_composition import stretch_sections
+        try:
+            document = stretch_sections(self.document, identifiers, factor, self.resize_mode)
+        except ValueError as exc:
+            self.refresh(); self.failed.emit(str(exc)); return
+        if document != self.document:
+            self.commit(document, 'sections-stretch')
 
     def resize_section_loops(self, loops):
         if self.updating: return

@@ -9,7 +9,7 @@ from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QScrollArea
 
 from synth_composer_ui import SectionTimeline
-from synth_composition import section_placements
+from synth_composition import proportional_section_durations, section_placements
 
 
 @pytest.fixture
@@ -45,6 +45,105 @@ def observe(widget):
     calls = []
     widget.durationRequested.connect(lambda identifier,duration: calls.append((identifier,duration)))
     return calls
+
+
+def observe_selection(widget):
+    calls = []
+    widget.stretchRequested.connect(lambda identifiers, factor: calls.append((identifiers, factor)))
+    return calls
+
+
+@pytest.mark.parametrize('selected,delta,expected', [
+    ([0, 1], 100, [2.4, 3.6, 1.]),
+    ([0, 2], 150, [3., 3., 1.52]),
+    ([0, 1, 2], -300, [1., 1.52, .48]),
+])
+def test_last_selected_edge_stretches_selection_and_ripples_once(timeline, selected, delta, expected):
+    original = copy.deepcopy(timeline.document)
+    timeline.select_at(selected[0])
+    for index in selected[1:]: timeline.select_at(index, Qt.KeyboardModifier.MetaModifier)
+    # The real studio refreshes synchronously on selection and on commit.
+    timeline.selected.connect(lambda index: timeline.set_document(timeline.document, index))
+    calls = observe_selection(timeline)
+    single_calls = observe(timeline)
+    def commit(identifiers, factor):
+        updated = copy.deepcopy(timeline.document)
+        durations = proportional_section_durations(updated, identifiers, factor)
+        for section in updated['sections']:
+            if section['id'] in durations: section['duration'] = durations[section['id']]
+        timeline.set_document(updated, timeline.index)
+    timeline.stretchRequested.connect(commit)
+    point = edge_point(timeline, selected[-1])
+    scale = timeline.pixels_per_second()
+    QTest.mouseMove(timeline, point - QPoint(20, 0))
+    QTest.mouseMove(timeline, point)
+    assert f'{len(selected)} selected sections proportionally' in timeline.toolTip()
+    QTest.mousePress(timeline, Qt.MouseButton.LeftButton, pos=point)
+    QTest.mouseMove(timeline, point + QPoint(delta, 0))
+    assert timeline.selected_indices() == selected
+    assert timeline.document == original
+    assert [s['duration'] for s in timeline.display_document()['sections']] == expected
+    assert timeline.pixels_per_second() == scale
+    assert not calls and not single_calls
+    QTest.mouseRelease(timeline, Qt.MouseButton.LeftButton, pos=point + QPoint(delta, 0))
+    assert len(calls) == 1 and not single_calls
+    assert [s['duration'] for s in timeline.document['sections']] == expected
+    assert timeline.selected_indices() == selected
+    assert timeline._resize is None and timeline._preview_document is None
+
+
+def test_selection_resize_repeated_edge_follows_pointer_and_updates_all_occurrences(timeline):
+    doc = document()
+    doc['sections'][0]['loops'] = 2
+    doc['timeline_loops'] = [{'sections': ['alpha', 'beta'], 'loops': 3}]
+    timeline.set_document(doc)
+    timeline.select_at(1, Qt.KeyboardModifier.ShiftModifier)
+    point = edge_point(timeline, 3)  # Beta's second sequence pass.
+    scale = timeline.pixels_per_second()
+    QTest.mousePress(timeline, Qt.MouseButton.LeftButton, pos=point)
+    assert timeline._resize['edge_frames'] == 14 * 25
+    timeline._update_resize(point.x() + scale * 7)
+    preview = timeline.display_document()
+    assert [s['duration'] for s in preview['sections']] == [3., 4.48, 1.]
+    # Frame rounding is the only departure from the pointer's desired edge.
+    assert section_placements(preview)[3][2] - section_placements(doc)[3][2] == pytest.approx(6.96)
+    assert all(end - start == pytest.approx(6. if index == 0 else 4.48 if index == 1 else 1.)
+               for index, start, end, _ in section_placements(preview))
+    QTest.keyClick(timeline, Qt.Key.Key_Escape)
+
+
+def test_group_resize_cancel_return_to_origin_and_other_edges_remain_single(timeline):
+    timeline.select_at(2, Qt.KeyboardModifier.ShiftModifier)
+    selected = set(timeline.selected_ids)
+    original = copy.deepcopy(timeline.document)
+    calls = observe_selection(timeline)
+    point = edge_point(timeline, 2)
+    for cancel in ('escape', 'external', 'return'):
+        QTest.mousePress(timeline, Qt.MouseButton.LeftButton, pos=point)
+        QTest.mouseMove(timeline, point - QPoint(70, 0))
+        if cancel == 'escape': QTest.keyClick(timeline, Qt.Key.Key_Escape)
+        if cancel == 'external': timeline.set_document(copy.deepcopy(original), 2)
+        QTest.mouseRelease(timeline, Qt.MouseButton.LeftButton, pos=point)
+        assert timeline.document == original and not calls
+        assert timeline.selected_ids == selected
+        assert not timeline._resize_scroll_timer.isActive()
+    single_calls = observe(timeline)
+    point = edge_point(timeline, 0)
+    QTest.mousePress(timeline, Qt.MouseButton.LeftButton, pos=point)
+    QTest.mouseRelease(timeline, Qt.MouseButton.LeftButton, pos=point + QPoint(40, 0))
+    assert single_calls == [('alpha', 2.4)]
+    assert not calls and timeline.selected_indices() == [0]
+
+
+def test_select_all_shortcut_preserves_active_section_and_enables_group_resize(timeline):
+    timeline.select_at(1)
+    QTest.keyClick(timeline, Qt.Key.Key_A, Qt.KeyboardModifier.ControlModifier)
+    assert timeline.selected_indices() == [0, 1, 2]
+    assert timeline.index == 1
+    point = edge_point(timeline, 2)
+    QTest.mousePress(timeline, Qt.MouseButton.LeftButton, pos=point)
+    assert timeline._resize['identifiers'] == ('alpha', 'beta', 'gamma')
+    QTest.keyClick(timeline, Qt.Key.Key_Escape)
 
 
 def test_shared_edge_hover_selects_left_and_previews_ripple_without_editing_document(timeline):
@@ -189,12 +288,14 @@ def test_modified_clicks_and_right_click_keep_selection_and_loop_gestures(timeli
     menu.close()
 
 
-def test_last_edge_gutter_and_autoscroll_preserve_the_frozen_scale(app,monkeypatch):
+@pytest.mark.parametrize('group', [False, True])
+def test_last_edge_gutter_and_autoscroll_preserve_the_frozen_scale(app,monkeypatch,group):
     scroll = QScrollArea()
     scroll.setWidgetResizable(True)
     scroll.resize(420,115)
     timeline = SectionTimeline()
     timeline.set_document(document())
+    if group: timeline.select_at(2, Qt.KeyboardModifier.ShiftModifier)
     scroll.setWidget(timeline)
     scroll.show()
     app.processEvents()
@@ -211,8 +312,33 @@ def test_last_edge_gutter_and_autoscroll_preserve_the_frozen_scale(app,monkeypat
     assert scroll.horizontalScrollBar().value() > before
     assert timeline.pixels_per_second() == scale
     assert timeline.display_document()['sections'][-1]['duration'] > 1.
+    if group:
+        assert timeline.selected_indices() == [0, 1, 2]
+        assert timeline.display_document()['sections'][0]['duration'] > 2.
     QTest.keyClick(timeline,Qt.Key.Key_Escape)
     assert timeline.document['sections'][-1]['duration'] == 1.
     assert not timeline._resize_scroll_timer.isActive()
     scroll.close()
     app.processEvents()
+
+
+def test_selection_preview_limits_match_the_final_request(timeline):
+    doc = document()
+    doc['sections'] = doc['sections'][:2]
+    doc['sections'][0].update(duration=10., loops=2)
+    doc['sections'][1]['duration'] = 100.
+    doc['timeline_loops'] = [{'sections': ['alpha', 'beta'], 'loops': 20}]
+    timeline.set_document(doc)
+    timeline.select_at(1, Qt.KeyboardModifier.ShiftModifier)
+    calls = observe_selection(timeline)
+    point = edge_point(timeline, 3)
+    QTest.mousePress(timeline, Qt.MouseButton.LeftButton, pos=point)
+    timeline._update_resize(point.x() - 1e7)
+    assert [s['duration'] for s in timeline.display_document()['sections']] == [.04, .4]
+    timeline._update_resize(point.x() + 1e7)
+    expected = [s['duration'] for s in timeline.display_document()['sections']]
+    assert expected == [15., 150.]
+    assert section_placements(timeline.display_document())[-1][2] == 3600.
+    timeline._finish_resize(True)
+    identifiers, factor = calls[0]
+    assert list(proportional_section_durations(doc, identifiers, factor).values()) == expected
