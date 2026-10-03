@@ -1,7 +1,8 @@
 # Compact Studio workspace
 
 Prepared: 2026-10-03. Baseline: v0.4.2 / aad682b on main.
-Status: planned; implementation starts after recording this plan.
+Status: implemented; see [delivery notes](compact-workspace-delivery.md) for
+measurements, validation and compatibility details.
 
 ## Outcome
 
