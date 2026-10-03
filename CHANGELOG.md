@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.4.1 — 2026-10-03
+
 - Stretch or compress multiple selected timeline sections proportionally by
   dragging the last selected section's right edge. Preserve unselected
   durations, loop repetitions and the Effects only / Video + effects modes.
