@@ -73,3 +73,13 @@ budget are unchanged; this release creates screen space, not faster rendering.
 
 Test groups overlap; the counts above are not a unique-test total. Local QA
 captures/logs remain outside the repository in `/private/tmp/nebula-compact-qa`.
+
+
+## Installed-layout follow-up · 0.4.4
+
+Restoring the user's taller lower pane exposed a gap not covered by the default
+split measurements: Qt distributed excess height into tool rows and spaces.
+Constrain tool-row height and let a trailing spacer absorb the extra room. Keep
+the saved divider location and the existing scroll-to-export behavior. A new
+regression checks a 280 px lower pane; compact workspace/layout tests cover both
+that case and the minimum-size scrolling/export flow.

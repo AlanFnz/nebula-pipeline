@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.4.4 — 2026-10-03
+
+- Keep timeline help, sections and preview settings packed at the top when
+  restoring a tall lower pane. Extra height remains below the controls instead
+  of stretching tool rows and their gaps. Preserve the saved divider position.
+
 ## 0.4.3 — 2026-10-03
 
 - Give the artwork more room with a responsive two-row document/canvas header,

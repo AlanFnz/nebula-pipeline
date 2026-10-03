@@ -609,6 +609,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         self.section_scroll.setFixedHeight(78)
         controls_layout.addWidget(self.section_scroll)
         self.section_tools = QWidget()
+        self.section_tools.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         section_tools = QHBoxLayout(self.section_tools); section_tools.setContentsMargins(0, 0, 0, 0)
         self.section_hint = QPushButton('Timeline help'); self.section_hint.setProperty('compact', True); self.section_hint.setProperty('secondaryAction', True)
         gesture_help = 'Drag a section to reorder. Drag its right edge to resize. Shift-click to select several; drag the last selected edge to scale them together. Right-click to loop the selection. Escape cancels a drag.'
@@ -671,6 +672,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         self.cancel_export = QPushButton('Cancel export'); self.cancel_export.setEnabled(False); self.cancel_export.hide(); self.cancel_export.clicked.connect(self.cancel_export_job)
         export_feedback = QHBoxLayout(); export_feedback.addWidget(self.export_progress, 1); export_feedback.addWidget(self.cancel_export)
         controls_layout.addLayout(export_feedback)
+        controls_layout.addStretch(1)
         self.preview_controls_scroll.setMinimumWidth(
             controls_pane.minimumSizeHint().width() + self.preview_controls_scroll.verticalScrollBar().sizeHint().width())
         # Keep transport and performance feedback beside the monitor while the
