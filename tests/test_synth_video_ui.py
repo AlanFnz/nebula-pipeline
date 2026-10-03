@@ -120,9 +120,9 @@ def test_save_as_study_is_independent_and_loads_from_the_renamed_library(window,
     before = copy.deepcopy(window.composition)
     assert window.starter_combo.accessibleName() == 'Studies'
     assert window.starter_combo.placeholderText() == 'Choose a study…'
-    assert window.load_starter_button.text() == 'Load study'
+    assert window.load_starter_button.accessibleName() == 'Load study'
     monkeypatch.setattr(QInputDialog, 'getText', lambda *args, **kwargs: ('My tape study', True))
-    window.save_study_button.click()
+    window.save_study_button.trigger()
     wait_until(lambda: window.study_job is None)
     assert window.composition == before
     assert window.starter_combo.currentData() is None
@@ -136,7 +136,7 @@ def test_save_as_study_is_independent_and_loads_from_the_renamed_library(window,
     assert Path(window.composition['footage']['path']).exists()
     original_name = window.composition['name']
     monkeypatch.setattr(QInputDialog, 'getText', lambda *args, **kwargs: ('', False))
-    window.save_study_button.click()
+    window.save_study_button.trigger()
     assert window.study_job is None and window.composition['name'] == original_name
 
 

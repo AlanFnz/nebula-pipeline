@@ -131,8 +131,8 @@ def test_playback_clock_skips_to_wall_time_instead_of_slowing_clip(window,monkey
 def test_memory_limit_and_cancellation_are_visible(window):
     window.preview_frames.budget=1
     window.prepare_playback()
-    assert window.prepare_job is None and 'Limited by rendering' in window.preview_status.text()
-    assert '360 px' in window.preview_status.text()
+    assert window.prepare_job is None and 'partially prepared' in window.preview_status.text()
+    assert '360 px' in window.preview_status.toolTip()
 
 
 def test_held_mask_cache_reuses_results_but_tracks_framing_and_retention(clip,tmp_path,monkeypatch):

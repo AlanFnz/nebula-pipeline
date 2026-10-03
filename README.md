@@ -98,7 +98,7 @@ composition being left is backed up in
   effects with their own FPS controls retain their independent clocks.
   **Motion cadence** holds the source image at a chosen FPS without changing
   playback speed or duration; **Native FPS** preserves the original behavior.
-  **Timeline FPS**, always visible at the top of the Composer, sets the frame rate of the complete image in both
+  **Timeline FPS**, always visible beside Canvas in the workspace header, sets the frame rate of the complete image in both
   preview and export, across every section. Try 12 or 15 fps for a stepped look;
   it changes sampling rather than slowing the action. Section durations round
   to the nearest frame. Source playback is real time; this milestone does not
@@ -456,7 +456,7 @@ can be removed from the picker in the same way. Removal does not reclaim disk
 space; the local `.library.json` records library visibility separately from the
 recipes and source media.
 
-**Save as study…** adds the current composition to the Studies library under a
+**Save ▾ → Save as study…** adds the current composition to the Studies library under a
 name you choose, without replacing the working document. A study is an
 independent snapshot of its source recipe, sections, effects, timing, master
 grade and canvas. Each load opens a fresh editable copy with that study's saved
@@ -515,7 +515,7 @@ detailed sequence/preset windows disable composition Undo/Redo.
   and given different durations under **Arrange sections…**. Arrange uses its own scrollable
   view; **Back to editing** restores the selected effect, scope and scroll position.
   **Timeline FPS** stays visible above both views and always affects the whole clip,
-  even when editing a selected section. The Composer header also shows total duration,
+  even when editing a selected section. The Inspector header also shows total duration,
   including loops, and section count.
 - **Drag the body of a timeline section** to reorder it. A floating label and
   insertion marker show the destination; release to apply one undoable move.
@@ -694,7 +694,7 @@ detailed sequence/preset windows disable composition Undo/Redo.
   1× means the original recipe, so different sections can look different at 1×.
 - **Original geometry** retains each source state's authored shape. Sections
   default to **From whole clip** and can override it independently. Geometry
-  saves with the composition and supports undo/redo. **New take** keeps the
+  saves with the composition and supports undo/redo. **New variation** keeps the
   shape, diameter, height, sides and rotation; the Width macro still varies
   rectangular/elliptical forms unless locked. Circles remain circular.
 - **New piece…** (also **File → New piece…**, Command-N) offers Text, Shape,
@@ -708,14 +708,14 @@ detailed sequence/preset windows disable composition Undo/Redo.
   piece, and replacement respects unsaved changes. In the bundled studies, choose source
   phrases under **Arrange**. Phrases repeat to fill their duration;
   **Rhythm** controls how quickly their internal changes happen.
-- **New take** makes a reproducible variation in the current scope. **Keep**
+- **New variation** makes a reproducible variation in the current scope. **Keep**
   locks a macro value during variation. Fixed effect values stay fixed.
-  The toolbar's restore action follows the current panel: **Restore this effect**,
+  The inspector's restore action follows the current panel: **Restore this effect**,
   **Restore object controls**, **Reset finishing**, **Reset master** or
-  **Restore shared timing**. It keeps unrelated panels unchanged and is disabled
+  **Restore shared timing**. It keeps unrelated panels unchanged and is hidden
   in the effects overview. **Reset source controls** preserves the imported file
   and its In/Out trim. **Undo / Redo** recover composition edits.
-- **Save…** keeps effects, arrangement, macros, locks, variations and a snapshot of
+- **Save** keeps effects, arrangement, macros, locks, variations and a snapshot of
   the source recipe together in a versioned composition document. **Open…**
   accepts compositions and existing detailed sequence files.
 - **Open detailed copy…** opens the generated events and full parameter editor
@@ -802,10 +802,11 @@ the built-in registry lives in `synth_starters.py`; `synth_studies.py` combines 
 The monitor reports **Preview: measured / target FPS** separately from export
 FPS. Live playback follows elapsed time, skipping preview frames when rendering
 cannot keep up. **Auto prepare** warms a small window after editing or scrubbing
-settles: roughly two seconds ahead and half a second behind. **Prepare preview**
+settles: roughly two seconds ahead and half a second behind. **Prepare**
 prepares the active scope explicitly and can be cancelled. Neither action starts
-playback. The thin strip beneath the transport highlights cached frame ranges;
-those frames are reused during playback and scrubbing.
+playback. The thin green strip immediately beneath the scrubber highlights prepared frame
+ranges. **Preview ready: X/Y** counts the actual prepared frames in the current
+playback scope; gaps can still skip during playback. Hover for details.
 
 Choose **Entire timeline** or **Selected sections** for preview. Selected sections
 play every occurrence of their section IDs in timeline order, including repeats,
@@ -822,28 +823,36 @@ it safe, including transitions and repeated sections. Global, timing, canvas,
 quality, source and bypass changes rebuild the preview; stale workers cannot
 restore old pixels. Preview preferences are workspace settings. Preview remains
 silent and exports still render every frame independently.
-During MP4 export, the monitor shows a frame-based progress bar with percentage
-and current/total frame count; completion, cancellation and errors remain visible
-after the worker finishes.
+During MP4 export, the lower pane reveals a progress bar and Cancel action.
+Completion, cancellation and errors remain in the operation status after the
+progress controls disappear. **Export MP4** stays in the top header.
 Subject cutout also caches held-frame masks and continuity results in 32 MB per
 video reader, keyed by source identity, framing, trim, detection and retention
 settings. Treatment-only edits can reuse those masks without changing pixels.
 
-**View zoom** below the monitor changes only the view. Choose **Fit**, **100%**,
+The header groups document actions in its first row, then Studies, Canvas and
+Timeline FPS. **Save** saves directly; its arrow opens **Save As…** and
+**Save as study…**. The same keyboard shortcuts still apply. Controls wrap as
+groups in narrow workspaces. Contextual **Restore** lives above the inspector.
+Section blocks use two compact lines; outlines indicate arrangement selection,
+while a filled section identifies local editing. Whole-clip editing has no
+single-section fill. **Timeline help** explains resize, selection, reorder and loops.
+
+**View zoom** in the monitor header changes only the view. Choose **Fit**, **100%**,
 enter a percentage, or use **− / +**. Drag to pan a zoomed image, double-click to
 fit, or use Ctrl/⌘ + wheel to zoom around the pointer. Zoom does not change
 preview quality, export resolution or the composition.
 
-Drag the horizontal divider below the playback/FPS controls up or down to
+Drag the horizontal divider below the playback controls up or down to
 resize the monitor vertically. The lower pane keeps the timeline first and lets
-you scroll to preparation and export controls. Zoom, playback and performance
+you scroll to preview settings and export progress. Zoom, playback and performance
 feedback remain beside the monitor. The app remembers this vertical split
 separately from the composition.
 
 Drag the divider between the monitor and inspector to adjust the effects
 column's width. The app remembers this split, view zoom, window position, size
-and fullscreen/maximized state. On first launch it opens fullscreen; the header's
-**Full screen / Exit full screen** button switches modes. Detailed-copy windows keep
+and fullscreen/maximized state. On first launch it opens fullscreen. The compact
+full-screen icon in the monitor header switches modes. Detailed-copy windows keep
 their own temporary layout without overwriting the main workspace preferences.
 
 **Effects → Add effect… → Low-res finish → 360 px preview feel → Apply effect** keeps
@@ -893,7 +902,7 @@ hold the closed pose.
 **Motion FPS** controls how often the geometry updates, independently of
 **Gesture speed**: at .1× and 15 Motion FPS the figure still gets 15 poses per
 second, with smaller movement between them. For smoother motion, raise Motion
-FPS and **Timeline FPS** at the top of the Composer together (for example, both to 30 fps).
+FPS and **Timeline FPS** beside Canvas in the workspace header together (for example, both to 30 fps).
 Lower Motion FPS deliberately retains the mixed-media holds. **Frame jitter → Jitter
 FPS** independently controls how often the tiny positional shakes change; 6–8
 FPS gives longer holds than 15 FPS. Print/background noise also keeps its own

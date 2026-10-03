@@ -19,10 +19,11 @@ from PySide6.QtWidgets import (
     QApplication, QCheckBox, QFileDialog, QGroupBox,
     QHBoxLayout, QGridLayout, QLabel, QMainWindow, QPushButton, QScrollArea,
     QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QMessageBox, QSizePolicy, QFrame, QInputDialog,
-    QProgressBar, QLineEdit, QPlainTextEdit, QTextEdit, QAbstractSpinBox, QAbstractSlider, QAbstractButton, QStackedWidget, QComboBox as NativeComboBox,
+    QProgressBar, QMenu, QToolButton, QLineEdit, QPlainTextEdit, QTextEdit, QAbstractSpinBox, QAbstractSlider, QAbstractButton, QStackedWidget, QComboBox as NativeComboBox,
 )
 from studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBox, SpinBox as QSpinBox, Slider as QSlider
 from studio_widgets import configure_parameter_spin, PlaybackButton
+from synth_workspace_widgets import FlowLayout, ElidingLabel, WorkspaceSplitter, inline
 
 from media import Cancellation
 from studio_theme import COLORS, apply_theme, terminal_font
@@ -459,142 +460,140 @@ class SynthStudio(ExplorationStudio, QMainWindow):
 
     def changeEvent(self, event):
         if event.type() == QEvent.Type.WindowStateChange and hasattr(self, 'fullscreen_button'):
-            self.fullscreen_button.setText('Exit full screen' if self.isFullScreen() else 'Full screen')
+            label = 'Exit full screen' if self.isFullScreen() else 'Full screen'
+            self.fullscreen_button.setAccessibleName(label); self.fullscreen_button.setToolTip(label)
         super().changeEvent(event)
 
     def build_ui(self):
         root = QWidget()
         outer = QVBoxLayout(root)
-        outer.setContentsMargins(12, 10, 12, 12); outer.setSpacing(10)
-        header = QHBoxLayout()
-        brand = QLabel("nebula_")
-        brand.setObjectName("brand")
-        header.addWidget(brand)
-        mode = QLabel("/ SIGNAL SYNTH"); mode.setObjectName("muted"); header.addWidget(mode)
-        self.document_title = QLabel(); self.document_title.setAccessibleName("Document name and unsaved status"); self.document_title.setMinimumWidth(120); self.document_title.setMaximumWidth(240); self.document_title.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred); header.addWidget(self.document_title)
-        header.addStretch(1)
-        fullscreen = QPushButton('Full screen')
-        fullscreen.clicked.connect(self.toggle_fullscreen); header.addWidget(fullscreen)
-        self.fullscreen_button = fullscreen
-        self.composition_widgets = []
-        for text, callback in (("New take", self.generate_variation), ("Reset controls", lambda: self.composer and self.composer.reset_controls()), ("Undo", self.undo_composition), ("Redo", self.redo_composition)):
-            button = QPushButton(text); button.clicked.connect(callback)
-            if text == "New take": button.setObjectName("primary")
-            if text == "Reset controls": self.reset_controls_button = button
-            if text == "Undo": self.composition_undo_button = button
-            if text == "Redo": self.composition_redo_button = button
-            header.addWidget(button); self.composition_widgets.append(button)
-        preset_label = QLabel("Preset")
-        header.addWidget(preset_label)
-        self.preset_widgets = [preset_label]
-        self.preset_combo = QComboBox()
-        self.preset_combo.addItems([*curated_presets().keys(), "Custom"])
-        preset_name = self.preset.get("name", "Custom")
-        self.preset_combo.setCurrentText(preset_name if preset_name in curated_presets() else "Custom")
-        self.preset_combo.currentTextChanged.connect(self.select_curated)
-        header.addWidget(self.preset_combo)
-        self.preset_widgets.append(self.preset_combo)
-        for text, slot in (("Save preset", self.save_preset_dialog), ("Load preset", self.load_preset_dialog), ("Generate variation", self.generate_variation)):
-            button = QPushButton(text)
-            button.clicked.connect(slot)
-            header.addWidget(button)
-            self.preset_widgets.append(button)
-        outer.addLayout(header)
-        sequence_actions = QHBoxLayout()
+        outer.setContentsMargins(12, 8, 12, 10); outer.setSpacing(7)
+        self.header_host = QWidget(); self.header_host.setProperty('chrome', True)
+        header_layout = QVBoxLayout(self.header_host); header_layout.setContentsMargins(0, 0, 0, 0); header_layout.setSpacing(5)
+        header = FlowLayout(right_last=True); header_layout.addLayout(header)
+        brand = QLabel("nebula_"); brand.setObjectName("brand")
+        self.document_title = QLabel(); self.document_title.setAccessibleName("Document name and unsaved status")
+        self.document_title.setMinimumWidth(100); self.document_title.setMaximumWidth(200)
+        header.addWidget(inline(brand, self.document_title, spacing=12))
+        self.composition_widgets = []; self.preset_widgets = []
         self.new_piece_button = QPushButton('New piece…'); self.new_piece_button.clicked.connect(self.new_piece_dialog)
         self.new_piece_button.setToolTip('Start with Text, Shape, Model, Video, or remix an existing study.')
-        sequence_actions.addWidget(self.new_piece_button)
         self.import_video_button = QPushButton('Import video…'); self.import_video_button.clicked.connect(self.import_video_dialog)
-        sequence_actions.addWidget(self.import_video_button)
-        self.cancel_import = QPushButton('Cancel import'); self.cancel_import.clicked.connect(self.cancel_video_import); self.cancel_import.hide(); sequence_actions.addWidget(self.cancel_import)
-        for text, slot in (("Save", self.save_sequence_dialog), ("Save As…", self.save_as_dialog), ("Open…", self.load_sequence_dialog)):
-            button = QPushButton(text); button.clicked.connect(slot); sequence_actions.addWidget(button)
-        self.save_study_button = QPushButton('Save as study…'); self.save_study_button.clicked.connect(self.save_study_dialog)
-        self.save_study_button.setToolTip('Keep an independent copy in Studies, including a local copy of imported video. Your working composition stays open.')
-        sequence_actions.addWidget(self.save_study_button)
-        sequence_actions.addStretch(1)
-        outer.addLayout(sequence_actions)
-        study_actions = QHBoxLayout()
-        study_actions.addWidget(QLabel("Studies"))
-        self.starter_combo = QComboBox(); self.starter_combo.setAccessibleName("Studies")
+        self.cancel_import = QPushButton('Cancel import'); self.cancel_import.clicked.connect(self.cancel_video_import); self.cancel_import.hide()
+        open_button = QPushButton('Open…'); open_button.clicked.connect(self.load_sequence_dialog)
+        self.save_button = QToolButton(); self.save_button.setText('Save'); self.save_button.setAccessibleName('Save composition')
+        self.save_button.setMinimumWidth(68)
+        self.save_button.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
+        self.save_button.clicked.connect(self.save_sequence_dialog)
+        save_menu = QMenu(self.save_button)
+        save_menu.addAction('Save As…', self.save_as_dialog)
+        self.save_study_button = save_menu.addAction('Save as study…', self.save_study_dialog)
+        self.save_study_button.setToolTip('Keep an independent copy in Studies, including a local copy of imported video.')
+        self.save_button.setMenu(save_menu)
+        header.addWidget(inline(self.new_piece_button, self.import_video_button, self.cancel_import, open_button, self.save_button))
+        commands = QWidget(); command_row = QHBoxLayout(commands); command_row.setContentsMargins(0, 0, 0, 0); command_row.setSpacing(5)
+        for text, callback in (("New variation", self.generate_variation), ("Undo", self.undo_composition), ("Redo", self.redo_composition)):
+            button = QPushButton(text); button.clicked.connect(callback)
+            if text == 'New variation': button.setToolTip('Generate another take of this composition using its unlocked controls.')
+            if text == 'Undo': self.composition_undo_button = button
+            if text == 'Redo': self.composition_redo_button = button
+            command_row.addWidget(button); self.composition_widgets.append(button)
+        self.export_button = QPushButton('Export MP4'); self.export_button.setObjectName('primary')
+        self.export_button.clicked.connect(self.export_dialog); command_row.addWidget(self.export_button)
+        header.addWidget(commands)
+        # This action is attached to the current inspector when it is built.
+        self.reset_controls_button = QPushButton('Restore effect', root)
+        self.reset_controls_button.setProperty('compact', True); self.reset_controls_button.setProperty('secondaryAction', True)
+        self.reset_controls_button.clicked.connect(lambda: self.composer and self.composer.reset_controls())
+        self.reset_controls_button.hide()
+        settings_row = FlowLayout(right_last=True); header_layout.addLayout(settings_row)
+        self.starter_combo = QComboBox(); self.starter_combo.setAccessibleName('Studies')
         self.starter_combo.setPlaceholderText('Choose a study…')
-        self.starter_combo.setToolTip("Choose a built-in or saved study, then load an editable copy with its saved canvas.")
+        self.starter_combo.setToolTip('Choose a study, then Load to open an editable copy with its saved canvas.')
         self.starter_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
-        self.starter_combo.setMinimumContentsLength(48)
-        self.starter_combo.setMinimumWidth(420); self.starter_combo.setMaximumWidth(560)
-        study_actions.addWidget(self.starter_combo)
-        self.load_starter_button = QPushButton("Load study"); self.load_starter_button.clicked.connect(self.load_starter)
-        self.load_starter_button.setEnabled(False)
+        self.starter_combo.setMinimumContentsLength(20); self.starter_combo.setMinimumWidth(180); self.starter_combo.setMaximumWidth(250)
+        self.load_starter_button = QPushButton('Load'); self.load_starter_button.setAccessibleName('Load study')
+        self.load_starter_button.clicked.connect(self.load_starter); self.load_starter_button.setEnabled(False)
         self.starter_combo.currentIndexChanged.connect(lambda index: self.load_starter_button.setEnabled(index >= 0))
-        study_actions.addWidget(self.load_starter_button)
-        self.manage_studies_button = QPushButton('Browse studies…')
-        self.manage_studies_button.setAccessibleName('Browse studies')
-        self.manage_studies_button.setToolTip('Browse still previews, search, filter, favorite, remove or restore Studies.')
+        self.manage_studies_button = QPushButton('Browse…'); self.manage_studies_button.setAccessibleName('Browse studies')
+        self.manage_studies_button.setToolTip('Browse previews, search, favorite, remove or restore Studies.')
         self.manage_studies_button.clicked.connect(self.manage_studies)
-        study_actions.addWidget(self.manage_studies_button)
-        study_actions.addStretch(1)
-        outer.addLayout(study_actions)
+        settings_row.addWidget(inline(QLabel('Studies'), self.starter_combo, self.load_starter_button, self.manage_studies_button))
         self.refresh_studies()
-        canvas_row = QHBoxLayout(); canvas_row.addWidget(QLabel("Canvas"))
-        self.canvas_combo = QComboBox(); self.canvas_combo.setAccessibleName("Canvas aspect ratio")
-        for identifier, label, _width, _height in CANVAS_FORMATS:
-            self.canvas_combo.addItem(label, identifier)
+        self.canvas_combo = QComboBox(); self.canvas_combo.setAccessibleName('Canvas aspect ratio')
+        for identifier, label, _width, _height in CANVAS_FORMATS: self.canvas_combo.addItem(label, identifier)
         self.canvas_combo.currentIndexChanged.connect(self.canvas_selected)
-        self.canvas_combo.setToolTip("Reframe the generated scene without rewriting effects, timing or source material. Saved with the document.")
-        canvas_row.addWidget(self.canvas_combo)
-        self.fit_subject = QCheckBox("Fit subject"); self.fit_subject.setAccessibleName("Fit subject")
-        self.fit_subject.setToolTip("Optional uniform scaling to fit the artwork's reference frame. Off keeps its pixel size and centers/crops it like resizing a canvas. Never stretches its proportions.")
-        self.fit_subject.toggled.connect(self.framing_changed); canvas_row.addWidget(self.fit_subject)
-        canvas_row.addStretch(1)
-        self.canvas_label = QLabel(); self.canvas_label.setObjectName("muted"); canvas_row.addWidget(self.canvas_label)
-        outer.addLayout(canvas_row)
-        self.splitter = split = QSplitter(Qt.Orientation.Horizontal)
+        self.canvas_combo.setToolTip('Canvas dimensions. Reframe without stretching the subject or rewriting its effects.')
+        self.canvas_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.canvas_combo.setMinimumContentsLength(18); self.canvas_combo.setFixedWidth(238)
+        self.fit_subject = QCheckBox('Fit subject'); self.fit_subject.setAccessibleName('Fit subject')
+        self.fit_subject.setToolTip('Uniformly fit the artwork reference. Off keeps its pixel size and centers/crops it. Never stretches proportions.')
+        self.fit_subject.toggled.connect(self.framing_changed)
+        self.canvas_label = QLabel(); self.canvas_label.setObjectName('monitorMeta')
+        settings_row.addWidget(inline(QLabel('Canvas'), self.canvas_combo, self.fit_subject, self.canvas_label))
+        self.workspace_fps_host = QWidget(); self.workspace_fps_host.setProperty('chrome', True)
+        self.workspace_fps_layout = QHBoxLayout(self.workspace_fps_host); self.workspace_fps_layout.setContentsMargins(0, 0, 0, 0); self.workspace_fps_layout.setSpacing(5)
+        settings_row.addWidget(self.workspace_fps_host)
+        legacy = QWidget(); legacy_row = FlowLayout(legacy)
+        preset_label = QLabel('Preset'); legacy_row.addWidget(preset_label)
+        self.preset_combo = QComboBox(); self.preset_combo.addItems([*curated_presets().keys(), 'Custom'])
+        preset_name = self.preset.get('name', 'Custom')
+        self.preset_combo.setCurrentText(preset_name if preset_name in curated_presets() else 'Custom')
+        self.preset_combo.currentTextChanged.connect(self.select_curated); legacy_row.addWidget(self.preset_combo)
+        for text, slot in (('Save preset', self.save_preset_dialog), ('Load preset', self.load_preset_dialog), ('Generate variation', self.generate_variation)):
+            button = QPushButton(text); button.clicked.connect(slot); legacy_row.addWidget(button)
+        self.preset_widgets.append(legacy); header_layout.addWidget(legacy)
+        outer.addWidget(self.header_host)
+        self.splitter = split = WorkspaceSplitter(Qt.Orientation.Horizontal)
         split.setHandleWidth(9); split.setChildrenCollapsible(False)
         left = QWidget(); left_column = QVBoxLayout(left)
-        left_column.setContentsMargins(0, 0, 10, 0); left_column.setSpacing(0)
-        self.preview_splitter = QSplitter(Qt.Orientation.Vertical)
+        left_column.setContentsMargins(0, 0, 5, 0); left_column.setSpacing(0)
+        self.preview_splitter = WorkspaceSplitter(Qt.Orientation.Vertical)
         self.preview_splitter.setAccessibleName('Monitor and timeline layout')
         self.preview_splitter.setHandleWidth(9); self.preview_splitter.setChildrenCollapsible(False)
         left_column.addWidget(self.preview_splitter)
         monitor_pane = QWidget(); left_layout = QVBoxLayout(monitor_pane)
-        left_layout.setContentsMargins(0, 0, 0, 0); left_layout.setSpacing(8)
+        left_layout.setContentsMargins(0, 0, 0, 0); left_layout.setSpacing(4)
         self.preview_splitter.addWidget(monitor_pane)
         self.preview_controls_scroll = QScrollArea()
         self.preview_controls_scroll.setAccessibleName('Timeline and preview controls')
         self.preview_controls_scroll.setWidgetResizable(True)
         self.preview_controls_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.preview_controls_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.preview_controls_scroll.setMinimumHeight(120)
+        self.preview_controls_scroll.setMinimumHeight(112)
         controls_pane = QWidget(); controls_layout = QVBoxLayout(controls_pane)
-        controls_layout.setContentsMargins(0, 0, 8, 0); controls_layout.setSpacing(8)
+        controls_layout.setContentsMargins(0, 5, 4, 0); controls_layout.setSpacing(4)
         controls_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.preview_controls_scroll.setWidget(controls_pane)
         self.preview_splitter.addWidget(self.preview_controls_scroll)
         monitor = QFrame(); monitor.setObjectName("monitorFrame")
         monitor_layout = QVBoxLayout(monitor); monitor_layout.setContentsMargins(1, 1, 1, 1); monitor_layout.setSpacing(0)
-        monitor_header = QWidget(); monitor_header.setObjectName("monitorHeader")
-        monitor_row = QHBoxLayout(monitor_header); monitor_row.setContentsMargins(10, 7, 10, 7)
-        monitor_title = QLabel("01 / SIGNAL MONITOR"); monitor_title.setObjectName("sectionTitle"); monitor_row.addWidget(monitor_title)
-        monitor_row.addStretch(1)
-        self.monitor_meta = QLabel("RGB"); self.monitor_meta.setObjectName("monitorMeta"); monitor_row.addWidget(self.monitor_meta)
-        self.monitor_state = QLabel("[ HOLD ]"); self.monitor_state.setObjectName("monitorState"); monitor_row.addWidget(self.monitor_state)
+        monitor_header = QWidget(); monitor_header.setObjectName('monitorHeader'); monitor_header.setProperty('chrome', True)
+        monitor_flow = FlowLayout(monitor_header, spacing=4)
+        title_group = QWidget(); monitor_row = QHBoxLayout(title_group); monitor_row.setContentsMargins(6, 2, 3, 2); monitor_row.setSpacing(5)
+        monitor_title = QLabel('01 / MONITOR'); monitor_title.setObjectName('sectionTitle'); monitor_row.addWidget(monitor_title)
+        monitor_flow.addWidget(title_group)
+        self.monitor_meta = QLabel(root); self.monitor_meta.hide()
+        self.monitor_state = QLabel(root); self.monitor_state.hide()
+        minus = QPushButton('−'); minus.setAccessibleName('Zoom out'); minus.setFixedWidth(24); minus.clicked.connect(lambda: self.viewer.zoom_by(.8))
+        self.view_zoom = QDoubleSpinBox(); self.view_zoom.setRange(0, 800); self.view_zoom.setDecimals(1); self.view_zoom.setSpecialValueText('Fit'); self.view_zoom.setSuffix(' %'); self.view_zoom.setKeyboardTracking(False); self.view_zoom.setFixedWidth(78)
+        self.view_zoom.setAccessibleName('Viewer zoom'); self.view_zoom.setToolTip('Viewer zoom only. Fit follows the available monitor size; numeric zoom stays fixed.')
+        self.view_zoom.valueChanged.connect(lambda value: self.viewer.set_zoom(value / 100))
+        plus = QPushButton('+'); plus.setAccessibleName('Zoom in'); plus.setFixedWidth(24); plus.clicked.connect(lambda: self.viewer.zoom_by(1.25))
+        self.fit_view_button = fit = QPushButton('Fit'); fit.setCheckable(True); fit.setAccessibleName('Fit canvas in viewer'); fit.clicked.connect(lambda: self.viewer.set_zoom(0))
+        actual = QPushButton('100%'); actual.setAccessibleName('View at 100 percent'); actual.clicked.connect(lambda: self.viewer.set_zoom(1))
+        monitor_flow.addWidget(inline(minus, self.view_zoom, plus, fit, actual, spacing=2))
+        self.source_preview = QCheckBox('Before / source'); self.source_preview.setAccessibleName('Before / source')
+        self.source_preview.setToolTip('Compare this footage frame before treatments. Export includes treatments.')
+        self.source_preview.toggled.connect(lambda _checked: self.invalidate()); monitor_flow.addWidget(self.source_preview)
+        self.build_exploration_controls(monitor_flow, monitor_row)
+        fullscreen = QPushButton('⛶'); fullscreen.setFixedWidth(28); fullscreen.setAccessibleName('Full screen'); fullscreen.setToolTip('Full screen')
+        fullscreen.clicked.connect(self.toggle_fullscreen); monitor_flow.addWidget(fullscreen); self.fullscreen_button = fullscreen
         monitor_layout.addWidget(monitor_header)
         self.viewer = SynthViewer(); monitor_layout.addWidget(self.viewer, 1)
         left_layout.addWidget(monitor, 1)
-        view_row = QHBoxLayout(); view_row.addWidget(QLabel('View zoom'))
-        minus = QPushButton('−'); minus.setAccessibleName('Zoom out'); minus.setFixedWidth(32); minus.clicked.connect(lambda: self.viewer.zoom_by(.8)); view_row.addWidget(minus)
-        self.view_zoom = QDoubleSpinBox(); self.view_zoom.setRange(0, 800); self.view_zoom.setDecimals(1); self.view_zoom.setSpecialValueText('Fit'); self.view_zoom.setSuffix(' %'); self.view_zoom.setKeyboardTracking(False); self.view_zoom.setFixedWidth(95)
-        self.view_zoom.setAccessibleName('Viewer zoom'); self.view_zoom.setToolTip('View only. 100% uses canvas dimensions. Preview quality controls image detail; export is unchanged.')
-        self.view_zoom.valueChanged.connect(lambda value: self.viewer.set_zoom(value / 100)); view_row.addWidget(self.view_zoom)
-        plus = QPushButton('+'); plus.setAccessibleName('Zoom in'); plus.setFixedWidth(32); plus.clicked.connect(lambda: self.viewer.zoom_by(1.25)); view_row.addWidget(plus)
-        fit = QPushButton('Fit'); fit.setAccessibleName('Fit canvas in viewer'); fit.clicked.connect(lambda: self.viewer.set_zoom(0)); view_row.addWidget(fit)
-        actual = QPushButton('100%'); actual.setAccessibleName('View at 100 percent'); actual.clicked.connect(lambda: self.viewer.set_zoom(1)); view_row.addWidget(actual)
-        view_row.addStretch(1); left_layout.addLayout(view_row)
-        self.source_preview = QCheckBox('Before / source'); self.source_preview.setAccessibleName('Before / source')
-        self.source_preview.setToolTip('Preview the same footage frame with its framing, before image treatments and master grade. Export always includes treatments.')
-        self.source_preview.toggled.connect(lambda _checked: self.invalidate()); view_row.addWidget(self.source_preview)
-        self.build_exploration_controls(view_row, monitor_row)
         self.viewer.zoomChanged.connect(self.refresh_view_zoom)
+        self.fit_view_button.setChecked(self.viewer.zoom == 0)
         self.section_timeline = SectionTimeline()
         self.section_timeline.selected.connect(lambda index: self.composer and self.composer.select_section(index))
         self.section_timeline.selectionChanged.connect(self.preview_scope_changed)
@@ -607,13 +606,14 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         self.section_scroll.setWidgetResizable(True); self.section_scroll.setWidget(self.section_timeline)
         self.section_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.section_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.section_scroll.setFixedHeight(108)
+        self.section_scroll.setFixedHeight(78)
         controls_layout.addWidget(self.section_scroll)
         self.section_tools = QWidget()
         section_tools = QHBoxLayout(self.section_tools); section_tools.setContentsMargins(0, 0, 0, 0)
-        self.section_hint = QLabel('Drag body to reorder · last selected edge stretches selection · Shift-click to select · right-click to loop')
-        self.section_hint.setObjectName('muted'); self.section_hint.setWordWrap(True)
-        section_tools.addWidget(self.section_hint, 1)
+        self.section_hint = QPushButton('Timeline help'); self.section_hint.setProperty('compact', True); self.section_hint.setProperty('secondaryAction', True)
+        gesture_help = 'Drag a section to reorder. Drag its right edge to resize. Shift-click to select several; drag the last selected edge to scale them together. Right-click to loop the selection. Escape cancels a drag.'
+        self.section_hint.setToolTip(gesture_help); self.section_hint.clicked.connect(lambda: QMessageBox.information(self, 'Timeline gestures', gesture_help))
+        section_tools.addWidget(self.section_hint); section_tools.addStretch(1)
         self.section_resize_mode = QComboBox()
         self.section_resize_mode.addItem('Resize: Effects only', 'effects')
         self.section_resize_mode.addItem('Resize: Video + effects', 'video')
@@ -621,69 +621,63 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         self.section_resize_mode.setToolTip('Effects only stretches transitions and effect animation while footage keeps its current speed. Video + effects also retimes footage and its audio. Applies to the next section or selection resize; Escape cancels a drag.')
         self.section_resize_mode.currentIndexChanged.connect(lambda _index: self.composer and setattr(self.composer, 'resize_mode', self.section_resize_mode.currentData()))
         section_tools.addWidget(self.section_resize_mode)
-        controls_layout.addWidget(self.section_tools)
-        self.status = QLabel("Source-free deterministic synthesis")
-        self.status.setObjectName("muted"); self.status.setWordWrap(True)
-        status_row = QHBoxLayout()
-        prompt = QLabel(">"); prompt.setObjectName("sectionTitle"); status_row.addWidget(prompt); status_row.addWidget(self.status, 1)
-        controls_layout.addLayout(status_row)
-        timeline = QHBoxLayout()
-        self.play = PlaybackButton(); self.play.toggled.connect(self.toggle_play)
-        timeline.addWidget(self.play)
-        self.timeline = QSlider(Qt.Orientation.Horizontal); self.timeline.valueChanged.connect(self.scrub); timeline.addWidget(self.timeline, 1)
-        self.time_label = QLabel("00:00.00"); self.time_label.setObjectName("timecode"); timeline.addWidget(self.time_label)
-        self.total_time_label = QLabel(); self.total_time_label.setObjectName('monitorMeta')
-        self.total_time_label.setAccessibleName('Total duration')
-        self.total_time_label.setToolTip('Total duration is the sum of all sections. It updates automatically when section timing changes.')
-        timeline.addWidget(self.total_time_label)
-        left_layout.addLayout(timeline)
-        self.cached_ranges = CachedRangeStrip(self.timeline); left_layout.addWidget(self.cached_ranges)
-        self.preview_status = QLabel('Preview renders on demand. Export uses the clip frame rate.')
-        self.preview_status.setObjectName('muted'); self.preview_status.setWordWrap(True)
-        self.preview_status.setAccessibleName('Preview performance')
-        left_layout.addWidget(self.preview_status)
-        preparation_row = QHBoxLayout()
-        self.preview_scope = QComboBox(); self.preview_scope.addItems(['Entire timeline', 'Selected sections'])
-        self.preview_scope.setAccessibleName('Preview scope')
-        self.preview_scope.setToolTip('Selected section IDs play their rendered occurrences in timeline order, with original absolute clocks.')
+        controls_layout.insertWidget(0, self.section_tools)
+        self.section_tools.setProperty('chrome', True)
+        self.status = ElidingLabel(auto_hide=True); self.status.setObjectName('muted'); self.status.setAccessibleName('Operation status')
+        transport = QWidget(); transport.setProperty('chrome', True)
+        timeline = QHBoxLayout(transport); timeline.setContentsMargins(0, 0, 0, 0); timeline.setSpacing(6)
+        self.play = PlaybackButton(); self.play.setFixedSize(30, 28); self.play.toggled.connect(self.toggle_play); timeline.addWidget(self.play)
+        track = QWidget(); track.setFixedHeight(22); track_layout = QVBoxLayout(track); track_layout.setContentsMargins(0, 0, 0, 0); track_layout.setSpacing(0)
+        self.timeline = QSlider(Qt.Orientation.Horizontal); self.timeline.setObjectName('transportScrubber'); self.timeline.setFixedHeight(19)
+        self.timeline.valueChanged.connect(self.scrub); track_layout.addWidget(self.timeline)
+        self.cached_ranges = CachedRangeStrip(self.timeline); track_layout.addWidget(self.cached_ranges)
+        timeline.addWidget(track, 1)
+        self.time_label = QLabel('00:00.00'); self.time_label.setObjectName('timecode'); timeline.addWidget(self.time_label)
+        self.total_time_label = QLabel(); self.total_time_label.setObjectName('monitorMeta'); self.total_time_label.setAccessibleName('Total duration')
+        self.total_time_label.setToolTip('Duration of all sections and loops. Updates automatically when timing changes.')
+        timeline.addWidget(self.total_time_label); left_layout.addWidget(transport)
+        preview_line = QHBoxLayout(); preview_line.setContentsMargins(0, 0, 0, 3); preview_line.setSpacing(8)
+        self.preview_status = ElidingLabel('Preview paused'); self.preview_status.setObjectName('muted'); self.preview_status.setAccessibleName('Preview performance')
+        preview_line.addWidget(self.preview_status, 1)
+        self.cache_status = QLabel('Preview ready: 0 frames'); self.cache_status.setObjectName('monitorMeta'); self.cache_status.setAccessibleName('Prepared preview frames')
+        self.cached_ranges.rangesChanged.connect(self.refresh_cache_status)
+        self.cache_status.setToolTip('Highlighted parts of the playback track have prepared frames at this quality. Unprepared frames may play more slowly.')
+        preview_line.addWidget(self.cache_status); left_layout.addLayout(preview_line)
+        preparation_host = QWidget(); preparation_host.setProperty('chrome', True)
+        preparation_row = FlowLayout(preparation_host, spacing=5)
+        self.preview_scope = QComboBox(); self.preview_scope.addItems(['Entire timeline', 'Selected sections']); self.preview_scope.setAccessibleName('Playback scope')
+        self.preview_scope.setToolTip('Playback selection is separate from editing scope. Repeats play in timeline order.')
         self.preview_scope.currentIndexChanged.connect(self.preview_scope_changed)
-        preparation_row.addWidget(self.preview_scope)
-        self.scope_summary = QLabel(); self.scope_summary.setObjectName('muted'); preparation_row.addWidget(self.scope_summary)
+        preparation_row.addWidget(inline(QLabel('Playback'), self.preview_scope))
+        self.scope_summary = QLabel(); self.scope_summary.setObjectName('monitorMeta'); preparation_row.addWidget(self.scope_summary)
+        self.quality = QComboBox(); self.quality.setAccessibleName('Preview quality'); self.quality.addItems(['360 px', '720 px', 'Full canvas'])
+        self.quality.setToolTip('Monitor detail only. Export uses full canvas dimensions. Low-res finish can apply the preview texture to exported artwork.')
+        self.quality.currentIndexChanged.connect(lambda _index: self.invalidate()); preparation_row.addWidget(inline(QLabel('Quality'), self.quality))
         self.auto_prepare = QCheckBox('Auto prepare'); self.auto_prepare.setChecked(True)
-        self.auto_prepare.setToolTip('After 400 ms idle, warm about two seconds ahead and half a second behind the playhead.')
-        self.auto_prepare.toggled.connect(self.auto_prepare_changed); preparation_row.addWidget(self.auto_prepare)
-        self.prepare_preview = QPushButton('Prepare preview')
-        self.prepare_preview.setToolTip('Prepare the active preview scope. Long scopes warm a bounded window; completion never starts playback.')
+        self.auto_prepare.setToolTip('Prepare frames near the playhead after editing or scrubbing settles.')
+        self.auto_prepare.toggled.connect(self.auto_prepare_changed)
+        self.prepare_preview = QPushButton('Prepare'); self.prepare_preview.setAccessibleName('Prepare preview'); self.prepare_preview.setToolTip('Prepare playback of the active scope. Long clips prepare a bounded window. Does not start playback.')
         self.prepare_preview.clicked.connect(self.prepare_playback)
-        preparation_row.addWidget(self.prepare_preview); controls_layout.addLayout(preparation_row)
-        export_row = QHBoxLayout()
-        self.quality = QComboBox(); self.quality.setAccessibleName("Preview quality")
-        self.quality.addItems(["Preview · 360 px", "Preview · 720 px", "Preview · full"])
-        self.quality.setToolTip("Monitor resolution only. MP4 exports use the full canvas size shown above. To keep this texture in your export, apply Effects → Low-res finish → 360 px preview feel.")
-        self.quality.currentIndexChanged.connect(lambda _index: self.invalidate()); export_row.addWidget(self.quality)
+        preparation_row.addWidget(inline(self.auto_prepare, self.prepare_preview))
         if self.workspace_settings:
             self.auto_prepare.setChecked(self.workspace_settings.value('preview/auto_prepare', True, type=bool))
             self.preview_scope.setCurrentIndex(int(self.workspace_settings.value('preview/scope', 0)))
             self.quality.setCurrentIndex(int(self.workspace_settings.value('preview/quality', 0)))
-        self.export_button = export = QPushButton("Export MP4"); export.setObjectName("primary"); export.clicked.connect(self.export_dialog); export_row.addWidget(export)
-        self.cancel_export = QPushButton("Cancel export"); self.cancel_export.setEnabled(False); self.cancel_export.clicked.connect(self.cancel_export_job); export_row.addWidget(self.cancel_export)
-        controls_layout.addLayout(export_row)
-        self.export_progress = QProgressBar()
-        self.export_progress.setRange(0, 100)
-        self.export_progress.setValue(0)
-        self.export_progress.setTextVisible(True)
-        self.export_progress.setFormat('Ready to export')
-        self.export_progress.setAccessibleName('Export progress')
-        self.export_progress.setToolTip('Shows frames rendered during MP4 export. Export quality and frame rate are unchanged.')
-        self.export_progress.hide()
-        controls_layout.addWidget(self.export_progress)
+        controls_layout.addWidget(preparation_host)
+        controls_layout.addWidget(self.status)
+        self.export_progress = QProgressBar(); self.export_progress.setRange(0, 100); self.export_progress.setValue(0)
+        self.export_progress.setTextVisible(True); self.export_progress.setFormat('Ready to export')
+        self.export_progress.setAccessibleName('Export progress'); self.export_progress.setToolTip('Frames rendered for MP4 export.'); self.export_progress.hide()
+        self.cancel_export = QPushButton('Cancel export'); self.cancel_export.setEnabled(False); self.cancel_export.hide(); self.cancel_export.clicked.connect(self.cancel_export_job)
+        export_feedback = QHBoxLayout(); export_feedback.addWidget(self.export_progress, 1); export_feedback.addWidget(self.cancel_export)
+        controls_layout.addLayout(export_feedback)
         self.preview_controls_scroll.setMinimumWidth(
             controls_pane.minimumSizeHint().width() + self.preview_controls_scroll.verticalScrollBar().sizeHint().width())
         # Keep transport and performance feedback beside the monitor while the
         # expanded timeline/preparation/export controls can scroll independently.
         self.preview_splitter.setStretchFactor(0, 1)
         self.preview_splitter.setStretchFactor(1, 0)
-        self.preview_splitter.setSizes([520, 140])
+        self.preview_splitter.setSizes([600, 164])
         self.preview_splitter.handle(1).setToolTip('Drag up or down to resize the monitor and timeline controls.')
         split.addWidget(left)
         self.inspector_host = QStackedWidget(); self.inspector_host.setMinimumWidth(380)
@@ -698,7 +692,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         self.composer_layout = QVBoxLayout(self.composer_host)
         self.composer_layout.setContentsMargins(8, 0, 0, 0)
         self.inspector_host.addWidget(self.composer_host)
-        split.addWidget(self.inspector_host); split.setSizes([750, 490]); outer.addWidget(split, 1)
+        split.addWidget(self.inspector_host); split.setSizes([820, 420]); outer.addWidget(split, 1)
         split.handle(1).setToolTip('Drag to resize the monitor and controls column.')
         self.setCentralWidget(root)
 
@@ -709,9 +703,19 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         self.reset_controls_button.setToolTip(
             'Restore the current panel in the shown editing scope. Other panels keep their settings.'
             if label else 'Select an effect to restore its settings.')
+        self.reset_controls_button.setVisible(bool(label))
+        self.sync_timeline_editing_scope()
+
+    def sync_timeline_editing_scope(self):
+        panel = self.composer
+        section = None
+        if panel and panel.scope and not panel.scope_combo.isHidden():
+            section = panel.document['sections'][panel.index]['id']
+        self.section_timeline.set_editing_section(section)
 
     def refresh_view_zoom(self, percent):
         with QSignalBlocker(self.view_zoom): self.view_zoom.setValue(percent)
+        with QSignalBlocker(self.fit_view_button): self.fit_view_button.setChecked(self.viewer.zoom == 0)
 
     def global_group(self):
         group = QGroupBox("Global timing")
@@ -851,6 +855,13 @@ class SynthStudio(ExplorationStudio, QMainWindow):
     def _rebuild_modules(self):
         self.refresh_canvas_controls()
         self.save_study_button.setEnabled(self.composition is not None and self.study_job is None)
+        # These controls live outside the panel they belong to. Detach the
+        # persistent reset action and retire the previous FPS controls first.
+        self.reset_controls_button.setParent(self.centralWidget()); self.reset_controls_button.hide()
+        while self.workspace_fps_layout.count():
+            item = self.workspace_fps_layout.takeAt(0)
+            if item.widget(): item.widget().hide(); item.widget().deleteLater()
+        self.workspace_fps_host.setVisible(self.composition is not None)
         if self.composer is not None:
             self.composition_index = self.composer.index
             self.composition_scope = self.composer.scope
@@ -893,12 +904,14 @@ class SynthStudio(ExplorationStudio, QMainWindow):
             self.composer.effects_panel.source_requested.connect(lambda: self.composer.look_tabs.setCurrentWidget(self.composer.video_panel))
             self.composer.relinkRequested.connect(lambda: self.import_video_dialog(relink=True))
             self.composer_layout.addWidget(self.composer)
+            self.composer.embed_workspace_controls(self.workspace_fps_layout, self.reset_controls_button)
             self.inspector_host.setCurrentWidget(self.composer_host)
             self.composer.reset_context_changed.connect(self.update_contextual_reset)
             self.update_contextual_reset(self.composer.reset_label())
             self.section_timeline.set_document(self.composition, self.composer.index)
+            self.sync_timeline_editing_scope()
             self.update_composition_history()
-            self.status.setText(f"{self.composition['name']} · {len(self.composition['sections'])} sections")
+            self.status.setText('')
             return
         if self.sequence is not None:
             compose = QPushButton("Use this sequence in composer")
@@ -1116,7 +1129,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         self.canvas_label.setText(f"Export / {canvas['width']} × {canvas['height']}")
         self.viewer.set_canvas_size((canvas['width'], canvas['height']))
         with QSignalBlocker(self.quality):
-            self.quality.setItemText(2, f"Preview · full {canvas['width']}×{canvas['height']}")
+            self.quality.setItemText(2, 'Full canvas')
 
     def canvas_selected(self, index):
         identifier = self.canvas_combo.itemData(index)
@@ -1234,7 +1247,8 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         with QSignalBlocker(self.timeline):
             self.timeline.setValue(round(old_time * self.composition["fps"]))
         self.section_timeline.set_document(self.composition, self.composer.index)
-        self.status.setText(f"{self.composition['name']} · {len(self.composition['sections'])} sections")
+        self.sync_timeline_editing_scope()
+        self.status.setText('')
         self.update_composition_history(); self.invalidate()
         if self.play.isChecked():
             self.play_timer.start(max(15, round(1000 / self.composition["fps"])))
@@ -1242,6 +1256,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
     def composition_section_selected(self, index):
         self.composition_index = index
         self.section_timeline.set_document(self.composition, index)
+        self.sync_timeline_editing_scope()
         if not self.preview_scope.currentIndex():
             self.timeline.setValue(round(section_ranges(self.composition)[index][0] * self.composition["fps"]))
 
@@ -1570,9 +1585,9 @@ class SynthStudio(ExplorationStudio, QMainWindow):
             self.play_origin = self.active_preview_scope().position(self.timeline.value()); self.play_started = time.monotonic()
         self.cancel_preparation()
         self.cached_ranges.set_ranges(self.preview_frames.ranges())
-        self.prepare_preview.setText('Prepare preview')
+        self.prepare_preview.setText('Prepare')
         self.schedule_auto_preparation()
-        self.preview_status.setText(f'Updating preview… Export: {self.preview_fps()} fps. Changes do not alter export quality.')
+        self.preview_status.setText('Updating preview…')
         self.render_queued = True
         self.preview_debounce.start(100)
 
@@ -1590,6 +1605,14 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         scope = self.active_preview_scope()
         self.preview_scope.setEnabled(self.composition is not None)
         self.scope_summary.setText(f'{scope.occurrences} occurrences · {scope.count/self.preview_fps():.2f}s' if self.preview_scope.currentIndex() and self.composition else '')
+        self.refresh_cache_status()
+
+    def refresh_cache_status(self):
+        if not hasattr(self, 'cache_status') or not hasattr(self, 'preview_scope'): return
+        scope = self.active_preview_scope()
+        count = sum(scope.contains(frame) for frame in self.preview_frames.items)
+        self.cache_status.setText(f'Preview ready: {count}/{scope.count}')
+        self.cache_status.setToolTip(f'{count} of {scope.count} frames in the playback scope are prepared at this preview quality. The thin green line below the scrubber shows their positions. Gaps may skip during playback; export renders every frame.')
 
     def preview_scope_changed(self, *_args):
         if not hasattr(self, 'preview_scope') or not hasattr(self, 'quality'): return
@@ -1627,7 +1650,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         self._obsolete_preparation()
         self.warm_debounce.stop()
         self.preparation_target = (); self.preparation_explicit = False
-        self.prepare_preview.setText('Prepare preview')
+        self.prepare_preview.setText('Prepare')
 
     def prepare_playback(self, checked=False):
         if self.preparation_explicit:
@@ -1639,14 +1662,15 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         self._start_warm_batch()
 
     def _preparation_ready(self):
-        self.prepare_preview.setText('Prepare preview')
+        self.prepare_preview.setText('Prepare')
         self.preparation_explicit = False
         scope = self.active_preview_scope()
         if self.preparation_limited:
             megabytes = self.preparation_budget() / 1024**2
-            self.preview_status.setText(f'Limited by rendering · {len(self.preparation_target)} / {scope.count} frames in the bounded {megabytes:g} MB window. Choose 360 px for more cached frames; export is unaffected.')
+            self.preview_status.setText('Preview partially prepared · lower quality caches more frames')
+            self.preview_status.setToolTip(f'Limited by rendering · {len(self.preparation_target)} / {scope.count} frames in the bounded {megabytes:g} MB window. Choose 360 px for more cached frames; export is unaffected.')
         else:
-            self.preview_status.setText(f'Ready · {len(self.preparation_target)} cached frames · Export: {self.preview_fps()} fps. Press Play.')
+            self.preview_status.setText('Preview prepared · press Play')
 
     def _start_warm_batch(self):
         if self.closing or self.export_job: return
@@ -1666,8 +1690,8 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         self.preview_frames.reserve(job.reserved_bytes, self.preparation_target)
         self.cached_ranges.set_ranges(self.preview_frames.ranges())
         self.prepare_job = self.warming_job = job; self.pending_jobs.append(job)
-        self.prepare_preview.setText('Cancel preparation' if self.preparation_explicit else 'Prepare preview')
-        self.preview_status.setText(f'Preparing · {sum(i in self.preview_frames.items for i in self.preparation_target)} / {len(self.preparation_target)} frames · Export: {self.preview_fps()} fps')
+        self.prepare_preview.setText('Cancel preparation' if self.preparation_explicit else 'Prepare')
+        self.preview_status.setText(f'Preparing · {sum(i in self.preview_frames.items for i in self.preparation_target)} / {len(self.preparation_target)} frames')
         job.signals.done.connect(lambda result, j=job: self.preparation_finished(j, result=result))
         job.signals.failed.connect(lambda error, j=job: self.preparation_finished(j, error))
         self.jobs.start(job)
@@ -1697,7 +1721,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         if valid and error:
             if self.discovery_session: self.discovery_session.fail(error)
             self.preparation_explicit = False; self.preparation_target = ()
-            self.prepare_preview.setText('Prepare preview'); self.preview_status.setText(f'Limited by rendering · {error}'); return
+            self.prepare_preview.setText('Prepare'); self.preview_status.setText(f'Limited by rendering · {error}'); return
         if self.render_queued and not self.render_running and not self.preview_debounce.isActive(): QTimer.singleShot(0, self.request_frame)
         if self.preparation_target: QTimer.singleShot(0, self._start_warm_batch)
         else: self.schedule_auto_preparation()
@@ -1800,15 +1824,15 @@ class SynthStudio(ExplorationStudio, QMainWindow):
             actual = (len(self.display_times)-1)/max(.001, now-self.display_times[0]) if len(self.display_times)>1 else 0.
             speed = f'{actual:.1f}' if actual else 'measuring'
             note = ' · skipping preview frames' if actual and actual < fps*.9 else ''
-            self.preview_status.setText(f'Preview: {speed} / {fps} fps{note} · Export: {fps} fps' + (' · cached' if cached else ''))
+            self.preview_status.setText(f'Preview: {speed} / {fps} fps{note}' + (' · cached' if cached else ''))
         elif not self.prepare_job:
-            self.preview_status.setText(f'Preview paused · {"cached frame" if cached else f"rendered in {self.last_render_seconds*1000:.0f} ms"} · Export: {fps} fps')
+            self.preview_status.setText(f'Preview paused · {"cached frame" if cached else f"rendered in {self.last_render_seconds*1000:.0f} ms"}')
         if self.play.isChecked() and not self.warm_debounce.isActive() and not self.preparation_explicit:
             self.schedule_auto_preparation()
     def render_failed(self, message):
         if self.discovery_session: self.discovery_session.fail(message)
         self.status.setText(f"Render error: {message}")
-        self.preview_status.setText('Preview unavailable. Check the render error above; no frames were substituted.')
+        self.preview_status.setText('Preview unavailable · see the operation status for details.')
     def scrub(self, value):
         if not self.advancing:
             self.cancel_preparation(); self.schedule_auto_preparation()
@@ -1831,10 +1855,10 @@ class SynthStudio(ExplorationStudio, QMainWindow):
             scope = self.active_preview_scope()
             if not scope.contains(self.timeline.value()): self.timeline.setValue(scope.frame_at(0))
             self.play_origin = scope.position(self.timeline.value()); self.play_started = time.monotonic(); self.display_times.clear()
-            self.preview_status.setText(f'Preview: measuring / {fps} fps · Export: {fps} fps')
+            self.preview_status.setText(f'Preview: measuring / {fps} fps')
             self.play_timer.start(max(5, round(1000 / fps)))
         else:
-            self.play_timer.stop(); self.preview_status.setText(f'Preview paused · Export: {fps} fps')
+            self.play_timer.stop(); self.preview_status.setText('Preview paused')
     def install_preset(self, preset, *, path=None):
         self.end_comparison()
         self.cancel_video_import(); self.play.setChecked(False)
@@ -1901,7 +1925,8 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         self.export_button.setEnabled(False)
         self.export_progress.setValue(0)
         self.export_progress.setFormat('Exporting… 0%')
-        self.export_progress.show()
+        self.export_progress.show(); self.cancel_export.show()
+        QTimer.singleShot(0, lambda: self.preview_controls_scroll.ensureWidgetVisible(self.export_progress))
         p = copy.deepcopy(self.preset) if self.sequence is not None else self.collect()
         canvas = self.current_canvas(); size = (canvas["width"], canvas["height"])
         job = ExportJob(p, path, size, self.sequence); self.export_job = job; self.cancel_export.setEnabled(True); self.pending_jobs.append(job)
@@ -1945,7 +1970,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
             self.pending_jobs.remove(job)
         if self.export_job is job:
             self.export_job = None
-            self.cancel_export.setEnabled(False)
+            self.cancel_export.setEnabled(False); self.cancel_export.hide(); self.export_progress.hide()
             self.export_button.setEnabled(True)
             self.schedule_auto_preparation()
 

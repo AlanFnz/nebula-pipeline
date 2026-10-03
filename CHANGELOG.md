@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+## 0.4.3 — 2026-10-03
+
+- Give the artwork more room with a responsive two-row document/canvas header,
+  global Timeline FPS beside Canvas, compact monitor zoom and a persistent top
+  Export action. Save As and Save as study move into the Save arrow menu.
+- Compact timeline blocks to two lines, distinguish local editing fill from
+  selection outlines, and keep existing resize, group stretch, reorder and loops.
+  Use thin divider grips with the same comfortable drag area.
+- Place prepared ranges directly below the playback scrubber and label the
+  prepared frame count for the current playback scope. Keep measured playback
+  FPS, partial readiness and error feedback explicit.
+- Simplify inspector framing, group Add effect and Edit object with their
+  headers, and move contextual Restore into the inspector. Export progress and
+  Cancel appear while exporting; completion/error status remains afterward.
+- Preserve study rendering, canvas framing, timing, saved documents, snapshots,
+  preview cache limits and the user's saved window splits and zoom.
+
 ## 0.4.2 — 2026-10-03
 
 - Add Remove beside Bypass in the applied effect list and focused editor.
