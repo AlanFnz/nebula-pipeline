@@ -27,6 +27,12 @@ from synth_video import VIDEO_EFFECTS, apply_treatment
 
 
 class SectionTimeline(QWidget):
+    LANE_HEIGHT = 62
+    BLOCK_TOP = 5
+    BLOCK_HEIGHT = 46
+    BLOCK_BOTTOM = BLOCK_TOP + BLOCK_HEIGHT
+    READOUT_TOP = BLOCK_BOTTOM + 1
+
     selected = Signal(int)
     selectionChanged = Signal()
     loopRequested = Signal(object, int)
@@ -40,6 +46,7 @@ class SectionTimeline(QWidget):
         self.document = None
         self.index = 0
         self.selected_ids = set()
+        self.editing_section_id = None
         self.selection_anchor = None
         self.context_menu = None
         self.time = 0
@@ -53,7 +60,7 @@ class SectionTimeline(QWidget):
         self._reorder_scroll_timer = QTimer(self)
         self._reorder_scroll_timer.setInterval(30)
         self._reorder_scroll_timer.timeout.connect(self._auto_scroll_reorder)
-        self.setFixedHeight(90)
+        self.setFixedHeight(self.LANE_HEIGHT)
         self.setMouseTracking(True)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setAccessibleName('Section timeline')
@@ -65,6 +72,7 @@ class SectionTimeline(QWidget):
         self.document = document
         self.index = index
         ids = {section['id'] for section in document['sections']}
+        if self.editing_section_id not in ids: self.editing_section_id = None
         current = document['sections'][index]['id']
         self.selected_ids.intersection_update(ids)
         if reset_selection or current not in self.selected_ids:
@@ -74,8 +82,25 @@ class SectionTimeline(QWidget):
             self.selection_anchor = current
         self.setMinimumWidth(len(section_placements(document)) * 82)
         self._hover_edge = None
+        self._update_accessible_description()
         self.update()
         if old_ids != self.selected_ids: self.selectionChanged.emit()
+
+    def set_editing_section(self, section_id_or_none):
+        """Mark the inspector's editing scope independently of arrangement selection."""
+        self.editing_section_id = section_id_or_none
+        self._update_accessible_description()
+        self.update()
+
+    def _update_accessible_description(self):
+        if not self.document: return
+        identities = [f"{index + 1}. {self.document['phrases'][section['phrase']]['name']} "
+                      f"({section['id']}) · {section['duration']:.2f}s per play · "
+                      f"{int(section.get('loops', 1))}× total plays"
+                      for index, section in enumerate(self.document['sections'])]
+        scope = next((identities[index] for index, section in enumerate(self.document['sections'])
+                      if section['id'] == self.editing_section_id), 'Whole clip')
+        self.setAccessibleDescription('Editing: ' + scope + '. Sections: ' + '; '.join(identities))
 
     def display_document(self):
         """The drag preview is private; only release requests a document edit."""
@@ -87,7 +112,7 @@ class SectionTimeline(QWidget):
         return self.width()/placements[-1][2] if placements else 1.
 
     def edge_at(self, position):
-        if not self.document or not 5 <= position.y() <= 73: return None
+        if not self.document or not self.BLOCK_TOP <= position.y() <= self.BLOCK_BOTTOM: return None
         placements = section_placements(self.display_document())
         scale = self.pixels_per_second()
         candidates = []
@@ -312,8 +337,16 @@ class SectionTimeline(QWidget):
             return []
         placements = section_placements(document)
         scale = self.pixels_per_second()
-        return [QRectF(start*scale+2, 5, max(1,(end-start)*scale-4), 68)
+        return [QRectF(start*scale+2, self.BLOCK_TOP, max(1,(end-start)*scale-4), self.BLOCK_HEIGHT)
                 for _index, start, end, _repetition in placements]
+
+    def text_rectangles(self, rect):
+        """Both text lines stay inside even a one-pixel section body."""
+        padding = min(5., rect.width() / 2)
+        width = max(0., rect.width() - 2 * padding)
+        line_height = (rect.height() - 4) / 2
+        return (QRectF(rect.left() + padding, rect.top() + 2, width, line_height),
+                QRectF(rect.left() + padding, rect.top() + 2 + line_height, width, line_height))
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -327,37 +360,43 @@ class SectionTimeline(QWidget):
             selected = section['id'] in self.selected_ids
             painter.save()
             if self._reorder and self._reorder['active'] and selected: painter.setOpacity(.45)
-            painter.setBrush(QColor(COLORS["selected"] if selected else COLORS["panel"]))
+            editing = section['id'] == self.editing_section_id
+            painter.setBrush(QColor(COLORS["selected"] if editing else COLORS["panel"]))
             painter.setPen(QPen(QColor(COLORS["accent"] if selected else COLORS["border"]), 1))
             painter.drawRect(rect)
-            small_font = self.font(); small_font.setPixelSize(10); painter.setFont(small_font)
-            painter.setPen(QColor(COLORS["accent"] if selected else COLORS["muted"]))
+            painter.save()
+            painter.setClipRect(rect.adjusted(1, 1, -1, -1))
+            title_rect, metadata_rect = self.text_rectangles(rect)
             number = f'{index + 1:02d}' + (f' / ↻{repetition}' if repetition > 1 else '')
-            painter.drawText(rect.adjusted(7, 3, -4, -47), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, number)
             label = document["phrases"][section["phrase"]]["name"]
             label_font = self.font(); label_font.setPixelSize(11); painter.setFont(label_font)
             painter.setPen(QColor(COLORS["text"]))
-            label = painter.fontMetrics().elidedText(label, Qt.TextElideMode.ElideRight, max(0, int(rect.width() - 10)))
-            painter.drawText(rect.adjusted(5, 20, -5, -21), Qt.AlignmentFlag.AlignCenter, label)
+            label = painter.fontMetrics().elidedText(f'{number} {label}', Qt.TextElideMode.ElideRight, int(title_rect.width()))
+            painter.drawText(title_rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, label)
+            small_font = self.font(); small_font.setPixelSize(10)
             painter.setFont(small_font); painter.setPen(QColor(COLORS["muted"]))
             loops = int(section.get('loops', 1))
-            painter.drawText(rect.adjusted(4, 43, -4, -3), Qt.AlignmentFlag.AlignCenter, f"{section['duration']:.2f}s ×{loops}")
+            metadata = painter.fontMetrics().elidedText(f"{section['duration']:.2f}s ×{loops}",
+                                                      Qt.TextElideMode.ElideRight, int(metadata_rect.width()))
+            painter.drawText(metadata_rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, metadata)
+            painter.restore()
             if selected or occurrence == self._hover_edge:
                 selection_edge = index == selection_end
                 painter.setPen(QPen(QColor(COLORS['accent'] if occurrence == self._hover_edge or selection_edge else COLORS['muted']),
                                     4 if selection_edge else 2))
                 edge = min(self.width()-2,round(_end*self.pixels_per_second()-3))
-                painter.drawLine(edge,25,edge,52)
+                painter.drawLine(edge, self.BLOCK_TOP + 12, edge, self.BLOCK_BOTTOM - 12)
             painter.restore()
         if self.document:
             x = max(1, min(self.width()-1,self.time*self.pixels_per_second()))
             painter.setPen(QPen(QColor(COLORS["cursor"]), 1))
-            painter.drawLine(int(x), 2, int(x), 77)
+            painter.drawLine(int(x), 2, int(x), self.BLOCK_BOTTOM + 2)
             painter.fillRect(QRectF(x - 3, 0, 6, 3), QColor(COLORS["cursor"]))
         if self._resize is not None:
             drag = self._resize
             painter.setPen(QPen(QColor(COLORS['cursor']),1,Qt.PenStyle.DashLine))
-            painter.drawLine(round(drag['original_edge']),5,round(drag['original_edge']),73)
+            painter.drawLine(round(drag['original_edge']), self.BLOCK_TOP,
+                             round(drag['original_edge']), self.BLOCK_BOTTOM)
             font = self.font(); font.setPixelSize(10); painter.setFont(font)
             painter.setPen(QColor(COLORS['accent']))
             visible = self.visibleRegion().boundingRect()
@@ -366,7 +405,8 @@ class SectionTimeline(QWidget):
                 scale = sum(drag['durations'].values()) / sum(drag['original_durations'].values())
                 total = placements[-1][2]
                 readout = f"{len(drag['identifiers'])} sections · {scale:.2f}× length · {total:.2f}s timeline · release to apply · Esc cancel"
-            painter.drawText(QRectF(visible.left()+6,75,max(0,visible.width()-12),14),Qt.AlignmentFlag.AlignLeft|Qt.AlignmentFlag.AlignVCenter,readout)
+            readout = painter.fontMetrics().elidedText(readout, Qt.TextElideMode.ElideRight, max(0, visible.width() - 12))
+            painter.drawText(QRectF(visible.left()+6,self.READOUT_TOP,max(0,visible.width()-12),self.height()-self.READOUT_TOP),Qt.AlignmentFlag.AlignLeft|Qt.AlignmentFlag.AlignVCenter,readout)
         if self._reorder is not None and self._reorder['active']:
             drag = self._reorder
             visible = self.visibleRegion().boundingRect()
@@ -375,20 +415,20 @@ class SectionTimeline(QWidget):
             color = QColor(COLORS['accent'] if drag['valid'] and drag['changed'] else COLORS['muted'])
             if drag['valid']:
                 x = max(2, min(self.width() - 3, round(drag['marker'])))
-                painter.setPen(QPen(color, 3)); painter.drawLine(x, 3, x, 73)
+                painter.setPen(QPen(color, 3)); painter.drawLine(x, 3, x, self.BLOCK_BOTTOM)
                 painter.fillRect(QRectF(x - 4, 2, 9, 4), color)
-                painter.fillRect(QRectF(x - 4, 70, 9, 4), color)
+                painter.fillRect(QRectF(x - 4, self.BLOCK_BOTTOM - 3, 9, 4), color)
             before = next((i + 1 for i, section in enumerate(document['sections']) if section['id'] == drag.get('before')), None)
             destination = f'before section {before:02d}' if before is not None else 'to the end'
             readout = (f'Move {count} section' + ('s' if count > 1 else '') + f' {destination} · repetitions follow · Esc cancels') if drag['valid'] else 'Move back over the timeline to drop · Esc cancels'
             if drag['valid'] and not drag['changed']: readout = 'Current order · Esc cancels'
             painter.setPen(color)
             readout = painter.fontMetrics().elidedText(readout, Qt.TextElideMode.ElideRight, max(0, visible.width() - 12))
-            painter.drawText(QRectF(visible.left()+6,75,max(0,visible.width()-12),14),Qt.AlignmentFlag.AlignLeft|Qt.AlignmentFlag.AlignVCenter,readout)
+            painter.drawText(QRectF(visible.left()+6,self.READOUT_TOP,max(0,visible.width()-12),self.height()-self.READOUT_TOP),Qt.AlignmentFlag.AlignLeft|Qt.AlignmentFlag.AlignVCenter,readout)
             label = f'{count} sections' if count > 1 else document['phrases'][document['sections'][self.index]['phrase']]['name']
             width = min(200, max(70, painter.fontMetrics().horizontalAdvance(label) + 20))
             x = max(visible.left(), min(drag['position'].x() + 12, visible.right() - width))
-            ghost = QRectF(x, 24, width, 26)
+            ghost = QRectF(x, self.BLOCK_TOP + 10, width, 26)
             painter.setOpacity(.9); painter.setPen(QPen(color, 1)); painter.setBrush(QColor(COLORS['selected']))
             painter.drawRoundedRect(ghost, 3, 3)
             painter.drawText(ghost.adjusted(8, 0, -8, 0), Qt.AlignmentFlag.AlignCenter,
@@ -539,7 +579,7 @@ class SectionTimeline(QWidget):
                 self.setCursor(Qt.CursorShape.OpenHandCursor)
                 section = self.document["sections"][index]
                 loops = int(section.get('loops', 1))
-                self.setToolTip(f"{index + 1}. {self.document['phrases'][section['phrase']]['name']} · {loops}× total plays · " +
+                self.setToolTip(f"{index + 1}. {self.document['phrases'][section['phrase']]['name']} · {section['duration']:.2f}s per play · {loops}× total plays · " +
                                (f'Sequence repetition {repetition} · ' if repetition > 1 else '') +
                                'drag body to reorder; drag the last selected edge to stretch the selection; Shift-click to select a range; Command-click to add sections; Command-A to select all; right-click to loop')
                 return
