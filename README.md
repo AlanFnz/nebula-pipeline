@@ -532,6 +532,17 @@ detailed sequence/preset windows disable composition Undo/Redo.
   applies one undoable edit on release. **Escape** cancels. The final edge can
   autoscroll beyond the viewport. Resizing a repeated section updates all its
   occurrences, including sequence loops.
+- **Stretch a selection** by Shift-clicking a range or Command-clicking
+  individual sections, then dragging the right edge of the last selected
+  section. Each selected duration changes by the same proportion, rounded to
+  an output frame; unselected durations stay fixed. The brighter, thicker edge
+  marks the selection's resize handle. Click the timeline, then **Command-A**
+  (**Ctrl-A** on other platforms) to select all sections. The drag shows the
+  selection count, length multiplier and resulting timeline duration, and
+  release applies one Undo/Redo step. Escape cancels. Looped views share the
+  same change, and the existing video resize mode applies to the selection.
+  Scaling stops when a selected section reaches one frame or 300 seconds,
+  or the complete arrangement reaches its one-hour limit.
 - For imported footage, **Resize: Effects only** below the timeline keeps the
   source video's current speed. **Resize: Video + effects** also retimes the
   source video and any retained audio, preserving audio pitch. Choose the mode

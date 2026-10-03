@@ -7,9 +7,68 @@ import pytest
 from PySide6.QtCore import QPoint, Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
-from synth_composition import compile_composition, load_composition, save_composition
+from synth_composition import compile_composition, load_composition, normalize_composition, save_composition
 from test_synth_video import clip
 from test_synth_video_ui import window
+
+
+@pytest.mark.parametrize('mode', ['effects', 'video'])
+def test_selection_drag_is_one_edit_with_modes_selection_undo_and_reload(window, tmp_path, mode):
+    project = copy.deepcopy(window.composition)
+    section = project['sections'][0]
+    project['sections'] = [dict(copy.deepcopy(section), id=f'cut-{i}', duration=duration)
+                           for i, duration in enumerate((.5, 1., 1.5))]
+    original = normalize_composition(project)
+    window.set_composition(original)
+    window.section_resize_mode.setCurrentIndex(window.section_resize_mode.findData(mode))
+    timeline = window.section_timeline
+    timeline.select_at(0)
+    timeline.select_at(2, Qt.KeyboardModifier.MetaModifier)
+    assert timeline.selected_ids == {'cut-0', 'cut-2'}
+    count = len(window.undo_compositions)
+    point = QPoint(timeline.width() - 1, 40)
+    QTest.mousePress(timeline, Qt.MouseButton.LeftButton, pos=point)
+    destination = point - QPoint(round(timeline.pixels_per_second()), 0)  # Half the two-second selection.
+    QTest.mouseMove(timeline, destination)
+    assert window.composition == original
+    assert len(window.undo_compositions) == count
+    QTest.mouseRelease(timeline, Qt.MouseButton.LeftButton, pos=destination)
+    edited = copy.deepcopy(window.composition)
+    assert [s['duration'] for s in edited['sections']] == [.25, 1., .75]
+    assert edited['sections'][1] == original['sections'][1]
+    assert len(window.undo_compositions) == count + 1
+    assert window.edit_key == 'sections-stretch'
+    assert timeline.selected_ids == {'cut-0', 'cut-2'}
+    assert [edited['sections'][i]['effects_rate'] for i in (0, 2)] == [2., 2.]
+    assert [edited['sections'][i].get('video_rate', 1.) for i in (0, 2)] == ([2., 2.] if mode == 'video' else [1., 1.])
+    assert window.sequence['duration'] == 2.
+    window.undo_composition()
+    assert window.composition == original
+    assert timeline.selected_ids == {'cut-0', 'cut-2'}
+    window.redo_composition()
+    assert window.composition == edited
+    assert timeline.selected_ids == {'cut-0', 'cut-2'}
+    path = tmp_path / f'selection-{mode}.json'
+    save_composition(path, edited)
+    assert compile_composition(load_composition(path)) == window.sequence
+
+
+def test_selection_escape_and_noop_keep_history_clean(window):
+    window.composer.duplicate_section()
+    timeline = window.section_timeline
+    timeline.select_at(0)
+    timeline.select_at(1, Qt.KeyboardModifier.ShiftModifier)
+    original = copy.deepcopy(window.composition)
+    count = len(window.undo_compositions)
+    point = QPoint(timeline.width() - 1, 40)
+    for cancel in (False, True):
+        QTest.mousePress(timeline, Qt.MouseButton.LeftButton, pos=point)
+        QTest.mouseMove(timeline, point - QPoint(50, 0))
+        if cancel: QTest.keyClick(timeline, Qt.Key.Key_Escape)
+        QTest.mouseRelease(timeline, Qt.MouseButton.LeftButton, pos=point)
+        assert window.composition == original
+        assert len(window.undo_compositions) == count
+        assert len(timeline.selected_ids) == 2
 
 
 def test_video_resize_modes_drag_undo_redo_and_reload(window, tmp_path):
