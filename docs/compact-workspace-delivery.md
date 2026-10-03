@@ -60,7 +60,13 @@ budget are unchanged; this release creates screen space, not faster rendering.
   preview behavior and video/study UI. Includes Save/rebuild lifecycle, actual
   FPS binding, selection versus editing, scoped prepared counts, comparison
   wrapping, Fit/numeric zoom, and visible export progress/cancellation.
-- Preview scope: 14 tests passed after updating the partial-preparation wording.
+- Extended integration run exercised MP4 export/folder retention, snapshots/A/B,
+  effect discovery, scoped playback, source retiming and reorder. Its one
+  failure expected the previous partial-preparation sentence; the corrected
+  preview-scope suite passed all 14 tests. The final New piece group passed all
+  10 tests in a fresh process. The accumulated-window batch was stopped during
+  repeated Qt stylesheet setup after the earlier groups completed; fresh-process
+  checks avoid that test-harness overhead.
 - Frozen rendering: 12 tests passed, checking 121 existing scenarios and model
   asset identities. No fixture changes, renderer changes or document migrations.
 - Version metadata, CLI version, Python compilation and diff whitespace checked.

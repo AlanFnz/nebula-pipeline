@@ -710,12 +710,12 @@ detailed sequence/preset windows disable composition Undo/Redo.
   **Rhythm** controls how quickly their internal changes happen.
 - **New variation** makes a reproducible variation in the current scope. **Keep**
   locks a macro value during variation. Fixed effect values stay fixed.
-  The toolbar's restore action follows the current panel: **Restore this effect**,
+  The inspector's restore action follows the current panel: **Restore this effect**,
   **Restore object controls**, **Reset finishing**, **Reset master** or
-  **Restore shared timing**. It keeps unrelated panels unchanged and is disabled
+  **Restore shared timing**. It keeps unrelated panels unchanged and is hidden
   in the effects overview. **Reset source controls** preserves the imported file
   and its In/Out trim. **Undo / Redo** recover composition edits.
-- **Save…** keeps effects, arrangement, macros, locks, variations and a snapshot of
+- **Save** keeps effects, arrangement, macros, locks, variations and a snapshot of
   the source recipe together in a versioned composition document. **Open…**
   accepts compositions and existing detailed sequence files.
 - **Open detailed copy…** opens the generated events and full parameter editor
