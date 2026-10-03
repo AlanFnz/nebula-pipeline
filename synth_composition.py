@@ -661,6 +661,75 @@ def section_placements(composition):
     return result
 
 
+def proportional_section_durations(composition, identifiers, factor):
+    """Scale selected base durations together, respecting frame and loop limits.
+
+    This also accepts the timeline's lightweight document for drag previews.
+    A common scale stops at the shortest section's one-frame minimum, the
+    longest section's 300-second maximum, or the arrangement's one-hour limit.
+    """
+    if isinstance(factor, bool) or not isinstance(factor, (int, float)) or not math.isfinite(factor):
+        raise ValueError('Section stretch factor must be finite')
+    if isinstance(identifiers, str): raise ValueError('Select sections to resize')
+    selected = set(identifiers)
+    fps = composition['fps']
+    original = {section['id']: max(1, round(section['duration'] * fps))
+                for section in composition['sections'] if section['id'] in selected}
+    if not selected or len(original) != len(selected): raise ValueError('Unknown sections to resize')
+    placements = section_placements(composition)
+    plays = {identifier: 0 for identifier in original}
+    for index, *_ in placements:
+        section = composition['sections'][index]
+        if section['id'] in plays: plays[section['id']] += int(section.get('loops', 1))
+    selected_frames = sum(original[key] * plays[key] for key in original)
+    other_frames = round(placements[-1][2] * fps) - selected_frames
+    budget = 3600 * fps - other_frames
+    lower = 1 / min(original.values())
+    upper = min(300 * fps / max(original.values()), budget / selected_frames)
+    scale = max(lower, min(upper, factor))
+
+    def frames_at(value):
+        return {key: max(1, round(frames * value)) for key, frames in original.items()}
+
+    frames = frames_at(scale)
+    # Independent frame rounding can push a heavily repeated selection over
+    # the arrangement limit. Find the nearest feasible common scale instead
+    # of shortening only one section and changing the selection's proportions.
+    if sum(frames[key] * plays[key] for key in frames) > budget:
+        low, high = lower, scale
+        frames = frames_at(low)
+        for _ in range(52):
+            midpoint = (low + high) / 2
+            candidate = frames_at(midpoint)
+            if sum(candidate[key] * plays[key] for key in candidate) <= budget:
+                low, frames = midpoint, candidate
+            else:
+                high = midpoint
+    return {key: frames[key] / fps for key in frames}
+
+
+def _retime_section(section, frames, fps, keys):
+    old_frames = round(section['duration'] * fps)
+    if frames == old_frames: return
+    factor = old_frames / frames
+    for key in keys:
+        section[key] = section.get(key, 1.) * factor
+    section['duration'] = frames / fps
+
+
+def stretch_sections(raw, identifiers, factor, mode='effects'):
+    """One proportional ripple edit, with each selected section's own clocks."""
+    if mode not in ('effects', 'video'):
+        raise ValueError('Resize mode must be effects or video')
+    result = normalize_composition(raw)
+    durations = proportional_section_durations(result, identifiers, factor)
+    keys = ('effects_rate', 'video_rate') if mode == 'video' and 'footage' in result else ('effects_rate',)
+    for section in result['sections']:
+        if section['id'] in durations:
+            _retime_section(section, round(durations[section['id']] * result['fps']), result['fps'], keys)
+    return normalize_composition(result)
+
+
 def stretch_section(raw, identifier, duration, mode='effects'):
     """Frame-snapped ripple stretch; untouched section clocks retain their phase."""
     if mode not in ('effects', 'video'):
@@ -679,11 +748,8 @@ def stretch_section(raw, identifier, duration, mode='effects'):
     maximum = min(300 * fps, (3600 * fps - other_frames) // plays)
     frames = max(1, min(maximum, round(duration * fps)))
     if frames == old_frames: return result
-    factor = old_frames / frames
     keys = ('effects_rate', 'video_rate') if mode == 'video' and 'footage' in result else ('effects_rate',)
-    for key in keys:
-        section[key] = section.get(key, 1.) * factor
-    section['duration'] = frames / fps
+    _retime_section(section, frames, fps, keys)
     return normalize_composition(result)
 
 
