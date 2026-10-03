@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.4.2 — 2026-10-03
+
+- Add Remove beside Bypass in the applied effect list and focused editor.
+  Clear settings in the current scope, including section overrides for a
+  Whole clip removal. Preserve Undo/Redo, Save/Open and re-adding presets.
+- Remember the last successful MP4 export folder across studies and app
+  restarts. Cancelled or failed exports retain the previous folder; missing
+  folders fall back to the default location.
+
 ## 0.4.1 — 2026-10-03
 
 - Stretch or compress multiple selected timeline sections proportionally by
