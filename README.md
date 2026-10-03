@@ -599,6 +599,11 @@ detailed sequence/preset windows disable composition Undo/Redo.
   parameters and authored activation timing, including after Save/Open and
   Undo/Redo. Bypassed effects remain in the applied overview. A section can resume
   an inherited bypass without copying the whole clip's parameter values.
+- **Remove**, beside Bypass in the applied list and effect editor, clears an
+  image effect's settings and removes it from the applied list. In Whole clip,
+  this also clears that effect's section overrides; in a selected section,
+  other sections keep it. Undo restores its settings, and Add effect can start
+  it again with a fresh preset. Object sources are managed in Object.
 - **Editing: Whole clip / Section …** identifies the scope of parameter edits.
   **Animated**, **Fixed** and **Following** labels distinguish study values from
   whole-clip inheritance and section overrides. Animated ranges are read-only;
@@ -787,7 +792,11 @@ loaded copy afterward with the Canvas controls.
 **Export MP4** always uses the document's full dimensions, shown beside Canvas,
 even with a fast preview selected. The export snapshots the canvas and scene so
 subsequent edits do not change an in-progress render. Custom dimensions in loaded
-documents are retained. The new format/size helpers live in `synth_canvas.py` and
+documents are retained. The MP4 save dialog remembers the last successful export
+folder across studies and app restarts. Cancelling or failing an export keeps
+the previous folder; a missing folder falls back to Movies or your home folder.
+This preference is separate from composition files and JSON Save/Open.
+The new format/size helpers live in `synth_canvas.py` and
 the built-in registry lives in `synth_starters.py`; `synth_studies.py` combines it with personal studies.
 
 The monitor reports **Preview: measured / target FPS** separately from export

@@ -221,6 +221,8 @@ class SynthStudio(ExplorationStudio, QMainWindow):
     def __init__(self, preset=None, sequence=None, composition=None, settings=None):
         super().__init__()
         self.workspace_settings = settings
+        self.export_settings = settings
+        self.last_export_directory = ''
         self.comparison = None
         self.discovery_session = None
         self.setWindowTitle("Nebula Synth")
@@ -1269,6 +1271,8 @@ class SynthStudio(ExplorationStudio, QMainWindow):
 
     def open_detailed_copy(self):
         window = SynthStudio(preset=self.preset, sequence=copy.deepcopy(self.sequence))
+        window.export_settings = self.export_settings
+        window.last_export_directory = self.last_export_directory
         window.detailed_copy = True; window.update_document_title()
         self.detail_windows.append(window)
         window.show()
@@ -1423,6 +1427,9 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         document = self.composition or self.sequence or self.preset
         name = "".join(character if character.isalnum() or character in "-_" else "-" for character in document.get("name", "nebula").lower()).strip("-") or "nebula"
         folder = Path.home() / ("Movies" if suffix == ".mp4" else "Documents")
+        if suffix == '.mp4':
+            remembered = self.export_settings.value('export/directory', '') if self.export_settings is not None else self.last_export_directory
+            if remembered and Path(remembered).expanduser().is_dir(): folder = Path(remembered).expanduser()
         return str((folder if folder.is_dir() else Path.home()) / (name[:80] + suffix))
 
     def protected_document_destination(self, path):
@@ -1918,6 +1925,10 @@ class SynthStudio(ExplorationStudio, QMainWindow):
     def export_finished(self, job, path):
         if self.export_job is not job or self.closing:
             return
+        self.last_export_directory = str(Path(path).expanduser().resolve().parent)
+        if self.export_settings is not None:
+            self.export_settings.setValue('export/directory', self.last_export_directory)
+            self.export_settings.sync()
         self.export_progress.setValue(100)
         self.export_progress.setFormat('Export complete · 100%')
         self.status.setText(f'Exported {path}')

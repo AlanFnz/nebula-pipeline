@@ -12,7 +12,7 @@ from studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBo
 from studio_widgets import Slider, configure_parameter_spin, parameter_number
 from synth_inspector import grouped_paths
 
-from synth_effects import EFFECTS, EFFECT_BY_ID, describe_effects, effect_preset, parameter
+from synth_effects import EFFECTS, EFFECT_BY_ID, describe_effects, is_removed_effect, parameter
 from synth_artwork_ui import ArtworkControl
 from synth_text_ui import TextControl
 from synth_ink_timing import DURATION_KEYS, TIMING_KEYS
@@ -35,21 +35,39 @@ REGION_CONTROLS = tuple('edge_phosphor.' + key for key in (
 from synth_effect_parameter_ui import EffectParameter, format_value
 
 
+class EffectNameButton(QPushButton):
+    """Keep the state and actions visible when the inspector is narrow."""
+    def __init__(self, label):
+        super().__init__(label)
+        self.full_label = label
+        self.setMinimumWidth(56)
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.setText(self.fontMetrics().elidedText(self.full_label, Qt.TextElideMode.ElideRight,
+                                                  max(0, self.width() - 12)))
+
+
 class EffectChoice(QFrame):
     """A compact, non-scrolling navigation row with a separate state badge."""
     selected = Signal(str)
     bypassRequested = Signal(str)
+    removeRequested = Signal(str)
 
     def __init__(self, effect):
         super().__init__()
         self.setObjectName('effectChoice')
         row = QHBoxLayout(self); row.setContentsMargins(2, 0, 7, 0); row.setSpacing(4)
-        self.button = QPushButton(effect.label); self.button.setObjectName('effectChoiceButton')
+        self.button = EffectNameButton(effect.label); self.button.setObjectName('effectChoiceButton')
         self.button.clicked.connect(lambda: self.selected.emit(effect.id))
         row.addWidget(self.button, 1)
         self.badge = QLabel(); self.badge.setObjectName('effectState'); row.addWidget(self.badge)
         self.bypass = QPushButton('Bypass'); self.bypass.setVisible(effect.id not in SOURCE_EFFECTS)
         self.bypass.clicked.connect(lambda: self.bypassRequested.emit(effect.id)); row.addWidget(self.bypass)
+        self.remove = QPushButton('Remove'); self.remove.setVisible(effect.id not in SOURCE_EFFECTS)
+        self.remove.setAccessibleName(f'Remove {effect.label}')
+        self.remove.clicked.connect(lambda: self.removeRequested.emit(effect.id)); row.addWidget(self.remove)
 
     def refresh(self, effect, info, selected, bypassed):
         state = 'Bypassed' if bypassed else 'Intermittent' if info['intermittent'] else 'On' if info['active'] else 'Off'
@@ -121,6 +139,7 @@ class EffectsPanel(QWidget):
         for effect in EFFECTS:
             choice = EffectChoice(effect); choice.selected.connect(self.inspect_choice)
             choice.bypassRequested.connect(self.toggle_bypass)
+            choice.removeRequested.connect(self.remove_effect)
             self.available_layout.addWidget(choice); self.effect_choices[effect.id] = choice
         self.editor = QWidget(); editor_layout = QVBoxLayout(self.editor); editor_layout.setContentsMargins(0, 0, 0, 0); editor_layout.setSpacing(4)
         row = QHBoxLayout()
@@ -130,6 +149,7 @@ class EffectsPanel(QWidget):
         row = QHBoxLayout()
         self.inspector_title = QLabel(); self.inspector_title.setObjectName('sectionTitle'); self.inspector_title.setWordWrap(True); row.addWidget(self.inspector_title, 1)
         self.bypass_button = QPushButton('Bypass'); self.bypass_button.clicked.connect(lambda: self.toggle_bypass(self.effect_id)); row.addWidget(self.bypass_button)
+        self.remove_button = QPushButton('Remove'); self.remove_button.clicked.connect(lambda: self.remove_effect(self.effect_id)); row.addWidget(self.remove_button)
         editor_layout.addLayout(row)
         self.frame_status = QLabel(); self.frame_status.setWordWrap(True); self.frame_status.setObjectName('muted')
         editor_layout.addWidget(self.frame_status)
@@ -202,7 +222,8 @@ class EffectsPanel(QWidget):
 
     def browser_applied_ids(self):
         # Authored disabled entries are still duplicates; Inspect preserves them.
-        return tuple(dict.fromkeys((*self.applied_ids, *self.parent_entries, *self.entries)))
+        return tuple(key for key in dict.fromkeys((*self.applied_ids, *self.parent_entries, *self.entries))
+                     if key in self.applied_ids or not is_removed_effect(self.entries.get(key, self.parent_entries.get(key))))
 
     def open_browser(self):
         if self.discovery_enabled:
@@ -222,7 +243,17 @@ class EffectsPanel(QWidget):
         if effect_id not in EFFECT_BY_ID or effect_id in SOURCE_EFFECTS: return
         if self.allowed_effects is not None and effect_id not in self.allowed_effects: return
         self.inspect_effect(effect_id)
-        self.edited.emit(effect_id, effect_preset(effect_id, preset_index), 'effect-add')
+        from synth_effect_discovery import preset_entry
+        entry = preset_entry(effect_id, preset_index, self.entries.get(effect_id),
+                             self.parent_entries.get(effect_id), self.local)
+        self.edited.emit(effect_id, entry, 'effect-add')
+
+    def remove_effect(self, effect_id):
+        if self.updating or effect_id in SOURCE_EFFECTS or effect_id not in self.browser_applied_ids(): return
+        # An explicit Off entry prevents the embedded study or parent scope
+        # from bringing the removed effect back. Undo retains its old settings.
+        self.edited.emit(effect_id, {'mode': 'off', 'params': {}, 'bypassed': False}, 'effect-remove')
+        self.show_overview()
 
     def toggle_bypass(self, effect_id):
         if self.updating or effect_id in SOURCE_EFFECTS: return
@@ -295,6 +326,13 @@ class EffectsPanel(QWidget):
         self.bypass_button.setVisible(effect.id not in SOURCE_EFFECTS)
         self.bypass_button.setText('Resume' if self.is_bypassed(effect.id) else 'Bypass')
         self.bypass_button.setToolTip('Temporarily disable this effect while retaining its activation timing and parameters.')
+        self.remove_button.setVisible(effect.id not in SOURCE_EFFECTS)
+        self.remove_button.setEnabled(effect.id in self.browser_applied_ids())
+        self.remove_button.setAccessibleName(f'Remove {effect.label}')
+        removal_hint = ('Remove this effect from the selected section and clear its local settings. Other sections keep it.'
+                        if self.local else 'Remove this effect from the whole clip, including its section settings.') + ' Undo restores it.'
+        self.remove_button.setToolTip(removal_hint)
+        for item in self.effect_choices.values(): item.remove.setToolTip(removal_hint)
         if tuple(self.controls) != effect.paths:
             while self.parameter_layout.count():
                 widget = self.parameter_layout.takeAt(0).widget()

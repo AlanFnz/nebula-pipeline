@@ -6,7 +6,7 @@ import json
 from synth_composition import compile_composition, normalize_composition
 from synth_creative import CREATIVE_CONTROLS
 from synth_effect_catalog import SOURCE_EFFECT_IDS
-from synth_effects import EFFECT_BY_ID, effect_preset
+from synth_effects import EFFECT_BY_ID, effect_preset, is_removed_effect
 from synth_exploration import comparison_problem
 from synth_video import VIDEO_EFFECTS
 
@@ -53,7 +53,8 @@ def effect_candidate(document, section_id, effect_id, operation='add', preset=0)
         entry = copy.deepcopy(previous or {'mode': 'recipe', 'params': {}})
         entry['bypassed'] = True
     else:
-        if operation == 'add' and (previous or parent):
+        if operation == 'add' and ((previous and not is_removed_effect(previous)) or
+                                   (parent and not is_removed_effect(parent) and not is_removed_effect(previous))):
             raise ValueError('This effect is already authored. Inspect it to keep its settings.')
         entry = preset_entry(effect_id, preset, previous, parent, section_id is not None)
     target['effects'][effect_id] = entry
