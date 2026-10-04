@@ -4,7 +4,8 @@ Prepared: 2026-10-04. Baseline: main `5ded876`, Nebula Studio 0.4.4.
 Executor: GPT-6.1 Sol. Integration and independent review: parent agent.
 Branch: `codex/timed-effect-automation`.
 Roadmap: [A5 motion controls](creative-controls-audio-roadmap.md).
-Status: ready for implementation.
+Status: implemented in the assigned branch; parent owns native review and release.
+Delivery: [implementation notes](timed-effect-automation-delivery.md).
 
 ## Outcome and acceptance journey
 

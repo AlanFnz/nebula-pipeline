@@ -1,0 +1,240 @@
+{
+  "format": "nebula-composition",
+  "schema_version": 1,
+  "render_version": 1,
+  "name": "Timed tape pull / 4\u20135 seconds",
+  "fps": 15,
+  "seed": 2409,
+  "source": {
+    "schema_version": 1,
+    "name": "Free composition",
+    "duration": 15.0,
+    "fps": 25,
+    "seed": 2409,
+    "field": {
+      "valley_start": 0.0,
+      "valley_end": 0.0,
+      "valley_gain": 1.0,
+      "cloud_start": 0.0,
+      "cloud_strength": 0.0,
+      "cloud_late_start": 0.0,
+      "cloud_late_rate": 0.0
+    },
+    "states": {
+      "blank": {
+        "preset": "Reference blinds",
+        "overrides": {
+          "slab.ghost_opacity": 0.0,
+          "slab.cloud_strength": 0.0,
+          "slab.cloud_detail": 0.0
+        },
+        "enabled": []
+      }
+    },
+    "cues": [
+      {
+        "time": 0.0,
+        "state": "blank",
+        "transition": "cut",
+        "duration": 0.0
+      }
+    ],
+    "render_version": 1
+  },
+  "canvas": {
+    "width": 720,
+    "height": 480,
+    "framing": "native"
+  },
+  "master": {
+    "enabled": true,
+    "brightness": 0.0,
+    "contrast": 1.0,
+    "saturation": 1.0
+  },
+  "phrases": {
+    "custom": {
+      "name": "One uninterrupted portrait",
+      "start": 0.0,
+      "end": 15.0
+    }
+  },
+  "macros": {
+    "rhythm": 1.0,
+    "width": 1.0,
+    "motion": 1.0,
+    "texture": 1.0,
+    "glow": 1.0,
+    "flashes": 1.0,
+    "color": 1.0
+  },
+  "geometry": {
+    "shape": "original",
+    "height": 1.0,
+    "diameter": 0.6,
+    "sides": 6,
+    "rotation": 0.0,
+    "position_x": 0.0,
+    "position_y": 0.0
+  },
+  "effects": {
+    "forms": {
+      "mode": "off",
+      "params": {}
+    },
+    "rays": {
+      "mode": "off",
+      "params": {}
+    },
+    "ink_bloom": {
+      "mode": "off",
+      "params": {}
+    },
+    "particles": {
+      "mode": "off",
+      "params": {}
+    },
+    "silhouette": {
+      "mode": "on",
+      "params": {
+        "silhouette.model": 0,
+        "silhouette.scale": 0.4,
+        "silhouette.yaw": -90.0,
+        "silhouette.pitch": 0.0,
+        "silhouette.roll": 0.0,
+        "silhouette.definition": 0.0,
+        "silhouette.center_x": 0.6,
+        "silhouette.center_y": 0.4,
+        "silhouette.neck_fullness": 0.4,
+        "silhouette.neck_length": 0.7,
+        "silhouette.softness": 0.5,
+        "silhouette.opacity": 1.0
+      }
+    },
+    "text": {
+      "mode": "off",
+      "params": {}
+    },
+    "edge_phosphor": {
+      "mode": "on",
+      "params": {
+        "edge_phosphor.hue": 0.295,
+        "edge_phosphor.backlight": 0.8,
+        "edge_phosphor.saturation": 1.0,
+        "edge_phosphor.edge": 1.1,
+        "edge_phosphor.fringe_hue": 0.83,
+        "edge_phosphor.fringe": 1.0,
+        "edge_phosphor.grain": 0.22,
+        "edge_phosphor.spread": 0.36,
+        "edge_phosphor.rim_width": 0.006,
+        "edge_phosphor.separation": 0.012,
+        "edge_phosphor.glow": 0.009,
+        "edge_phosphor.echo": 0.2,
+        "edge_phosphor.echo_distance": 0.035,
+        "edge_phosphor.lower_fade": 0.8,
+        "edge_phosphor.neck_dissolve": 0.0,
+        "edge_phosphor.fade_mode": 0,
+        "edge_phosphor.fade_strength": 0.0,
+        "edge_phosphor.fade_start": 0.0,
+        "edge_phosphor.fade_width": 0.5,
+        "edge_phosphor.fade_angle": 0.0,
+        "edge_phosphor.fade_softness": 0.065,
+        "edge_phosphor.fade_anchor": 0,
+        "edge_phosphor.fade_x": 0.0,
+        "edge_phosphor.fade_y": 0.0,
+        "edge_phosphor.fade_curve": 1,
+        "edge_phosphor.body": 0.0,
+        "edge_phosphor.side": 0,
+        "edge_phosphor.threshold": 0.2,
+        "edge_phosphor.rate": 15.0,
+        "edge_phosphor.canvas_coverage": 1,
+        "edge_phosphor.mix": 1.0
+      }
+    },
+    "crt_capture": {
+      "mode": "on",
+      "params": {
+        "crt_capture.pitch": 3.0,
+        "crt_capture.phosphor": 0.18,
+        "crt_capture.moire": 0.22,
+        "crt_capture.moire_pitch": 24.0,
+        "crt_capture.angle": 2.0,
+        "crt_capture.curvature": 1.5,
+        "crt_capture.weave": 0.4,
+        "crt_capture.field": 0.15,
+        "crt_capture.bend": 1.5,
+        "crt_capture.drift": 0.6,
+        "crt_capture.softness": 0.65,
+        "crt_capture.focus_drift": 1.4,
+        "crt_capture.exposure": 0.3,
+        "crt_capture.flicker": 0.3,
+        "crt_capture.grain": 0.05,
+        "crt_capture.halation": 0.25,
+        "crt_capture.threshold": 0.5,
+        "crt_capture.radius": 4.0,
+        "crt_capture.rate": 1.0,
+        "crt_capture.cadence": 25.0,
+        "crt_capture.mix": 1.0
+      }
+    },
+    "tape": {
+      "mode": "on",
+      "params": {
+        "tape.pull": 0.0,
+        "tape.tracking": 0.0,
+        "tape.jitter": 0.0,
+        "tape.dropouts": 0.0,
+        "tape.chroma_delay": 0.0,
+        "tape.bleed": 0.0,
+        "tape.head_switch": 0.0,
+        "tape.rate": 16.0,
+        "tape.mix": 1.0
+      }
+    }
+  },
+  "ink_timing": {},
+  "variation": 0,
+  "locks": [],
+  "sections": [
+    {
+      "id": "section-1",
+      "phrase": "custom",
+      "duration": 10.0,
+      "loops": 1,
+      "macros": {
+        "rhythm": 1.0,
+        "width": 1.0,
+        "motion": 1.0,
+        "texture": 1.0,
+        "glow": 1.0,
+        "flashes": 1.0,
+        "color": 1.0
+      },
+      "geometry": {
+        "shape": "inherit",
+        "height": 1.0,
+        "diameter": 0.6,
+        "sides": 6,
+        "rotation": 0.0,
+        "position_x": 0.0,
+        "position_y": 0.0
+      },
+      "effects": {},
+      "variation": 0,
+      "locks": [],
+      "automations": [
+        {
+          "id": "demo-pull",
+          "path": "tape.pull",
+          "amount": 0.6,
+          "enabled": true,
+          "easing": "smooth",
+          "start_fraction": 0.4,
+          "attack_fraction": 0.015,
+          "hold_fraction": 0.0,
+          "recovery_fraction": 0.085
+        }
+      ]
+    }
+  ]
+}
