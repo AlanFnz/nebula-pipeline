@@ -5,7 +5,7 @@ import math
 import uuid
 
 from PySide6.QtCore import Qt, QRectF, QPointF
-from PySide6.QtGui import QPainter, QPainterPath, QColor, QPen
+from PySide6.QtGui import QAction, QKeySequence, QPainter, QPainterPath, QColor, QPen
 from PySide6.QtWidgets import (QWidget, QDialog, QVBoxLayout, QHBoxLayout, QLabel,
     QFormLayout, QPushButton, QDialogButtonBox, QCheckBox, QListWidget, QMenu)
 from studio_widgets import ComboBox, DoubleSpinBox, configure_parameter_spin
@@ -244,7 +244,16 @@ class AutomationLane(QWidget):
     def __init__(self, timeline):
         super().__init__(timeline); self.timeline = timeline; self.drag = None; self.selected = None; self.menu = None
         self.setMouseTracking(True); self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-        self.setAccessibleName('Automation lane'); self.setAccessibleDescription('Use the Automations button to edit with the keyboard. Drag a gesture to move it; Escape cancels. Repeated gestures edit all repetitions.')
+        self.duplicate_action = QAction('Duplicate automation', self)
+        self.duplicate_action.setShortcut(QKeySequence('Ctrl+D'))
+        self.duplicate_action.setShortcutContext(Qt.ShortcutContext.WidgetShortcut)
+        self.duplicate_action.triggered.connect(self.duplicate_selected)
+        self.addAction(self.duplicate_action)
+        self.setAccessibleName('Automation lane'); self.setAccessibleDescription('Select a gesture and press Command-D to duplicate. Use the Automations button to edit with the keyboard. Drag a gesture to move it; Escape cancels. Repeated gestures edit all repetitions.')
+
+    def duplicate_selected(self):
+        if self.selected and self.drag is None:
+            self.timeline.automationRequested.emit(*self.selected, 'duplicate')
 
     def rectangles(self):
         if not self.timeline.document: return []
@@ -278,14 +287,18 @@ class AutomationLane(QWidget):
         self.menu = QMenu(self)
         for _rect, sid, eid, _origin, event in hits:
             submenu = self.menu.addMenu(target_label(event['path']))
-            for label, action in (('Edit…', 'edit'), ('Disable' if event['enabled'] else 'Enable', 'toggle'), ('Remove', 'remove')):
+            shortcut = self.duplicate_action.shortcut().toString(QKeySequence.SequenceFormat.NativeText)
+            for label, action in (('Edit…', 'edit'), ('Duplicate\t' + shortcut, 'duplicate'), ('Disable' if event['enabled'] else 'Enable', 'toggle'), ('Remove', 'remove')):
                 item = submenu.addAction(label); item.triggered.connect(lambda checked=False, sid=sid,eid=eid,action=action: self.timeline.automationRequested.emit(sid,eid,action))
         self.menu.popup(global_position)
 
     def mousePressEvent(self, event):
         hits = self.hits(event.position())
-        if not hits: return
+        if not hits:
+            self.selected = None; self.setFocus(); self.update(); return
         if event.button() == Qt.MouseButton.RightButton or len(hits)>1:
+            if len(hits) == 1: self.selected = hits[0][1:3]
+            self.setFocus(); self.update()
             self.open_menu(hits, event.globalPosition().toPoint()); return
         if event.button() != Qt.MouseButton.LeftButton: return
         _rect, sid, eid, origin, absolute = hits[0]; self.selected=(sid,eid)

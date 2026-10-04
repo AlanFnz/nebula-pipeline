@@ -605,6 +605,17 @@ detailed sequence/preset windows disable composition Undo/Redo.
   modes. Undo/Redo, snapshots, Studies, save/open, detailed copies and MP4 export
   retain events. Remove effect clears its events; bypass and preset replacement
   preserve them. Restore parameter changes the base only.
+- **Command-D** duplicates the selected automation curve or timeline sections;
+  **Duplicate** is also in their right-click menus. Section copies are placed as
+  one block after the last selected section, in timeline order, and become the
+  selection. They keep their effects, timing, automation and individual loops;
+  fully selected sequence loop groups also get an independent copy. Partial
+  group selections copy their sections without joining the original group.
+  Automation copies keep the same curve and strength and use the next free
+  space after the original in its section. Disabled gestures reserve their space
+  too. If it does not fit, lengthen the section or move gestures, then try again.
+  Each duplication is one undoable edit. Click the desired lane first; typing
+  fields and other windows do not duplicate timeline content.
 - **Tape damage → Clean pull / animate** starts with existing faults at zero,
   Mix on and **Horizontal pull** at zero. Animate that signed pull for a broad
   sideways displacement of the existing image. Adding an event to an existing

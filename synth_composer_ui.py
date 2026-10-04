@@ -5,7 +5,7 @@ import copy
 import math
 
 from PySide6.QtCore import Qt, QRectF, QPoint, QSignalBlocker, Signal, QSize, QTimer
-from PySide6.QtGui import QColor, QPainter, QPen, QCursor, QKeySequence
+from PySide6.QtGui import QAction, QColor, QPainter, QPen, QCursor, QKeySequence
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox, QLabel,
     QPushButton, QCheckBox, QTabWidget, QSizePolicy, QMenu, QInputDialog, QAbstractScrollArea, QApplication, QScrollArea, QFrame, QStackedWidget,
@@ -40,6 +40,7 @@ class SectionTimeline(QWidget):
     durationRequested = Signal(str, float)
     stretchRequested = Signal(object, float)
     reorderRequested = Signal(object, object)
+    duplicateRequested = Signal(object)
     automationVisibilityChanged = Signal(bool)
     automationRequested = Signal(str, str, str)
     automationMoveRequested = Signal(str, str, float)
@@ -67,6 +68,11 @@ class SectionTimeline(QWidget):
         self.setMouseTracking(True)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setAccessibleName('Section timeline')
+        self.duplicate_action = QAction('Duplicate selected sections', self)
+        self.duplicate_action.setShortcut(QKeySequence('Ctrl+D'))
+        self.duplicate_action.setShortcutContext(Qt.ShortcutContext.WidgetShortcut)
+        self.duplicate_action.triggered.connect(self.duplicate_selected)
+        self.addAction(self.duplicate_action)
         from synth_automation_ui import AutomationLane
         self.automation_lane = AutomationLane(self); self.automation_lane.hide()
 
@@ -76,6 +82,10 @@ class SectionTimeline(QWidget):
         self.automation_lane.drag = None
         old_ids = set(self.selected_ids)
         self.document = document
+        if self.automation_lane.selected not in {
+                (section['id'], event['id']) for section in document['sections']
+                for event in section.get('automations', ())}:
+            self.automation_lane.selected = None
         self.index = index
         ids = {section['id'] for section in document['sections']}
         if self.editing_section_id not in ids: self.editing_section_id = None
@@ -116,7 +126,7 @@ class SectionTimeline(QWidget):
                       for index, section in enumerate(self.document['sections'])]
         scope = next((identities[index] for index, section in enumerate(self.document['sections'])
                       if section['id'] == self.editing_section_id), 'Whole clip')
-        self.setAccessibleDescription('Editing: ' + scope + '. Sections: ' + '; '.join(identities))
+        self.setAccessibleDescription('Editing: ' + scope + '. Select sections and press Command-D to duplicate. Sections: ' + '; '.join(identities))
 
     def display_document(self):
         """The drag preview is private; only release requests a document edit."""
@@ -507,6 +517,11 @@ class SectionTimeline(QWidget):
             event.accept(); return
         super().keyPressEvent(event)
 
+    def duplicate_selected(self):
+        if not self.document or self._resize is not None or self._reorder is not None: return
+        self.duplicateRequested.emit(tuple(self.document['sections'][i]['id']
+                                          for i in self.selected_indices()))
+
     def leaveEvent(self, event):
         if self._resize is None and self._reorder is None:
             self._hover_edge = None
@@ -522,7 +537,7 @@ class SectionTimeline(QWidget):
     def make_context_menu(self):
         identifiers = tuple(self.document['sections'][i]['id'] for i in self.selected_indices())
         menu = QMenu(self)
-        menu.setTitle('Timeline loops')
+        menu.setTitle('Timeline sections')
         label = 'Loop' if len(identifiers) == 1 else f'Loop {len(identifiers)} selected sections'
         action = menu.addAction(label)
         action.setToolTip('Add one repetition to the selected section or sections.')
@@ -541,6 +556,8 @@ class SectionTimeline(QWidget):
                 action = menu.addAction(f"Remove sequence loop ({len(group['sections'])} sections)")
                 members = tuple(group['sections'])
                 action.triggered.connect(lambda checked=False, members=members: self.loopRequested.emit(members, 1))
+        menu.addSeparator()
+        menu.addAction(self.duplicate_action)
         return menu
 
     def custom_loop_count(self, identifiers):
@@ -598,7 +615,7 @@ class SectionTimeline(QWidget):
                 loops = int(section.get('loops', 1))
                 self.setToolTip(f"{index + 1}. {self.document['phrases'][section['phrase']]['name']} · {section['duration']:.2f}s per play · {loops}× total plays · " +
                                (f'Sequence repetition {repetition} · ' if repetition > 1 else '') +
-                               'drag body to reorder; drag the last selected edge to stretch the selection; Shift-click to select a range; Command-click to add sections; Command-A to select all; right-click to loop')
+                               'drag body to reorder; drag the last selected edge to stretch the selection; Shift-click to select a range; Command-click to add sections; Command-A to select all; Command-D to duplicate; right-click for actions')
                 return
         self.setToolTip('')
 
@@ -1062,15 +1079,22 @@ class CompositionPanel(QWidget):
         document = copy.deepcopy(self.document)
         owner = next(s for s in document['sections'] if s['id'] == section_id)
         event = next(e for e in owner.get('automations', ()) if e['id'] == event_id)
-        if operation == 'remove': owner['automations'].remove(event)
+        duplicate_id = None
+        if operation == 'duplicate':
+            from synth_automation import duplicate_automation
+            duplicate = duplicate_automation(owner['automations'], event_id)
+            owner['automations'].append(duplicate); duplicate_id = duplicate['id']
+        elif operation == 'remove': owner['automations'].remove(event)
         elif operation == 'toggle': event['enabled'] = not event['enabled']
         elif operation == 'move': event['start_fraction'] = start_fraction
         else: raise ValueError('Unknown automation operation')
         normalized = normalize_composition(document)
+        if duplicate_id: compile_composition(normalized)
         if normalized != self.document: self.commit(normalized, 'automation-' + operation)
+        return duplicate_id
 
     def timeline_automation(self, section_id, event_id, operation, start_fraction=None):
-        try: self.change_automation(section_id, event_id, operation, start_fraction)
+        try: return self.change_automation(section_id, event_id, operation, start_fraction)
         except ValueError as exc: self.failed.emit(str(exc))
 
     def show_timing_scope(self, timing):
@@ -1260,11 +1284,37 @@ class CompositionPanel(QWidget):
         return f"section-{index}"
 
     def duplicate_section(self):
-        if len(self.document["sections"]) >= 64: return
+        return self.duplicate_sections((self.document['sections'][self.index]['id'],))
+
+    def duplicate_sections(self, identifiers):
+        """Copy a selection as one block, keeping complete sequence loops independent."""
+        if self.updating or isinstance(identifiers, (str, bytes)): return
+        try: selected = set(identifiers)
+        except TypeError: return
+        sections = self.document['sections']
+        positions = [i for i, section in enumerate(sections) if section['id'] in selected]
+        if not positions or len(positions) != len(selected): return
+        if len(sections) + len(positions) > 64:
+            self.failed.emit('Use at most 64 sections. Remove sections before duplicating this selection.'); return
         document = copy.deepcopy(self.document)
-        section = copy.deepcopy(document["sections"][self.index]); section["id"] = self._new_id(document)
-        document["sections"].insert(self.index + 1, section); self.index += 1
-        self.commit(document, "duplicate"); self.sectionSelected.emit(self.index)
+        copies = []; mapping = {}
+        insertion = positions[-1] + 1
+        for offset, index in enumerate(positions):
+            section = copy.deepcopy(sections[index]); old_id = section['id']
+            section['id'] = self._new_id(document); mapping[old_id] = section['id']
+            document['sections'].insert(insertion + offset, section); copies.append(section['id'])
+        for group in self.document.get('timeline_loops', ()):
+            if set(group['sections']).issubset(selected):
+                document.setdefault('timeline_loops', []).append({
+                    'sections': [mapping[key] for key in group['sections']], 'loops': group['loops']})
+        try:
+            normalized = normalize_composition(document)
+            compile_composition(normalized)
+        except ValueError as exc:
+            self.failed.emit(str(exc)); return
+        self.index = insertion
+        self.commit(normalized, 'sections-duplicate'); self.sectionSelected.emit(self.index)
+        return tuple(copies)
 
     def add_section(self):
         if len(self.document["sections"]) >= 64: return

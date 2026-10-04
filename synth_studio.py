@@ -600,8 +600,9 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         self.section_timeline.durationRequested.connect(lambda identifier, duration: self.composer and self.composer.stretch_section(identifier, duration))
         self.section_timeline.stretchRequested.connect(lambda identifiers, factor: self.composer and self.composer.stretch_sections(identifiers, factor))
         self.section_timeline.reorderRequested.connect(lambda identifiers, before: self.composer and self.composer.reorder_sections(identifiers, before))
+        self.section_timeline.duplicateRequested.connect(self.duplicate_timeline_sections)
         self.section_timeline.loopRequested.connect(lambda identifiers, count: self.composer and self.composer.loop_sections(identifiers, count))
-        self.section_timeline.automationRequested.connect(lambda sid, eid, op: self.composer and self.composer.timeline_automation(sid, eid, op))
+        self.section_timeline.automationRequested.connect(self.timeline_automation)
         self.section_timeline.automationMoveRequested.connect(lambda sid, eid, start: self.composer and self.composer.timeline_automation(sid, eid, "move", start))
         self.section_timeline.seekRequested.connect(lambda time: self.composition and self.timeline.setValue(round(time * self.composition['fps'])))
         self.section_scroll = QScrollArea()
@@ -615,7 +616,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         self.section_tools.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         section_tools = QHBoxLayout(self.section_tools); section_tools.setContentsMargins(0, 0, 0, 0)
         self.section_hint = QPushButton('Timeline help'); self.section_hint.setProperty('compact', True); self.section_hint.setProperty('secondaryAction', True)
-        gesture_help = 'Drag a section to reorder. Drag its right edge to resize. Shift-click to select several; drag the last selected edge to scale them together. Right-click to loop the selection. Escape cancels a drag.'
+        gesture_help = 'Drag a section to reorder. Drag its right edge to resize. Shift-click to select several; drag the last selected edge to scale them together. Select sections or an automation curve, then press Command-D to duplicate. Right-click for duplication and loops. Escape cancels a drag.'
         self.section_hint.setToolTip(gesture_help); self.section_hint.clicked.connect(lambda: QMessageBox.information(self, 'Timeline gestures', gesture_help))
         section_tools.addWidget(self.section_hint); section_tools.addStretch(1)
         self.section_resize_mode = QComboBox()
@@ -1265,6 +1266,21 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         self.sync_timeline_editing_scope()
         if not self.preview_scope.currentIndex():
             self.timeline.setValue(round(section_ranges(self.composition)[index][0] * self.composition["fps"]))
+
+    def duplicate_timeline_sections(self, identifiers):
+        if not self.composer: return
+        copies = self.composer.duplicate_sections(identifiers)
+        if copies:
+            self.section_timeline.selected_ids = set(copies)
+            self.section_timeline.selection_anchor = copies[0]
+            self.section_timeline.update(); self.section_timeline.selectionChanged.emit()
+
+    def timeline_automation(self, section_id, event_id, operation):
+        if not self.composer: return
+        duplicate = self.composer.timeline_automation(section_id, event_id, operation)
+        if duplicate:
+            lane = self.section_timeline.automation_lane
+            lane.selected = (section_id, duplicate); lane.update()
 
     def update_composition_history(self):
         if hasattr(self, "undo_action"):
