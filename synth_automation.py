@@ -84,8 +84,16 @@ def envelope(event, seconds):
     if not event.get('enabled', True): return 0.
     local = seconds - event['start']
     attack, hold, recovery = (event[key] for key in STAGES[1:])
-    if local < 0 or local >= attack + hold + recovery: return 0.
-    def ease(x): return x * x * (3 - 2 * x) if event.get('easing', 'smooth') == 'smooth' else x
+    # Fractions and frame times may reach the same endpoint by different
+    # floating-point operations. A few ULPs suppress only arithmetic residue,
+    # preventing a nearly-zero pull from resampling an otherwise neutral frame.
+    end = event['start'] + attack + hold + recovery
+    tolerance = 8 * math.ulp(max(1., abs(end), abs(event['start'])))
+    if seconds < event['start'] - tolerance or seconds >= end - tolerance: return 0.
+    if abs(local) <= tolerance: local = 0.
+    def ease(x):
+        x = max(0., min(1., x))
+        return x * x * (3 - 2 * x) if event.get('easing', 'smooth') == 'smooth' else x
     if attack > 0 and local < attack: return ease(local / attack)
     if local < attack + hold: return 1.
     return 1. - ease((local - attack - hold) / recovery) if recovery > 0 else 1.

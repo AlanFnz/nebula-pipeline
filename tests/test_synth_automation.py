@@ -133,3 +133,31 @@ def test_generated_v2_detailed_copy_keeps_render_version_and_pixels():
     assert rebuilt['render_version'] == 2
     for t in (0, 1.5, 3, 5):
         assert np.array_equal(render_sequence_frame(seq, t, (120, 120)), render_sequence_frame(rebuilt, t, (120, 120)))
+
+
+def test_snapshots_and_study_retain_events_and_resolved_frames(tmp_path):
+    from synth_exploration import capture_snapshot, restore_snapshot
+    from synth_studies import save_study, study_composition
+    p = project(); snap, sid = capture_snapshot(p, 'Automated base')
+    snap['sections'][0]['automations'][0]['enabled'] = False
+    restored = restore_snapshot(snap, sid)
+    key = save_study(restored, 'Timed automation', tmp_path/'studies')
+    loaded = study_composition(key, tmp_path/'studies')
+    expected = compile_composition(p)
+    actual = compile_composition(loaded)
+    for t in (3.9, 4.1, 4.2, 5.):
+        assert value(actual,t) == value(expected,t)
+        assert np.array_equal(render_sequence_frame(actual,t,(120,80)),render_sequence_frame(expected,t,(120,80)))
+
+
+@pytest.mark.parametrize('fps',[12,15,24,25,30,60])
+def test_frame_grid_endpoints_have_exact_zero_delta(fps):
+    for start in range(0,8*fps,max(1,fps//3)):
+        for attack,hold,recovery in ((1,0,2),(2,1,7),(3,2,5),(1,0,1)):
+            event=dict(gesture(),start_fraction=start/fps/10,attack_fraction=attack/fps/10,
+                       hold_fraction=hold/fps/10,recovery_fraction=recovery/fps/10)
+            for easing in ('linear','smooth'):
+                absolute=absolute_event(dict(event,easing=easing),10)
+                assert envelope(absolute,(start+attack+hold+recovery)/fps) == 0
+                assert envelope(absolute,start/fps) == 0
+                assert 0 <= envelope(absolute,(start+attack+hold)/fps) <= 1
