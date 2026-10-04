@@ -8,6 +8,7 @@ from __future__ import annotations
 import copy
 import math
 import hashlib
+import uuid
 from synth import MODULE_BY_ID
 from synth_instances import base_path
 
@@ -78,6 +79,27 @@ def normalize_automations(raw, *, duration=1., fractions=True):
             if current[0] < previous[1] - 1e-12:
                 raise ValueError(f'Overlapping automation on {path}: {previous[2]} and {current[2]}')
     return result
+
+
+def duplicate_automation(events, event_id):
+    """Copy a gesture into the first free interval after it, within its section."""
+    original = next((event for event in events if event['id'] == event_id), None)
+    if original is None: raise ValueError('Select an automation to duplicate.')
+    length = sum(original[key + '_fraction'] for key in STAGES[1:])
+    start = original['start_fraction'] + length
+    # Reserve disabled gestures too: their copies should still be safe to enable.
+    intervals = sorted((event['start_fraction'], event['start_fraction'] +
+                        sum(event[key + '_fraction'] for key in STAGES[1:]))
+                       for event in events if event['path'] == original['path'])
+    for left, right in intervals:
+        if right <= start + 1e-12: continue
+        if start + length <= left + 1e-12: break
+        start = right
+    if start + length > 1 + 1e-12:
+        raise ValueError('No room after this automation. Lengthen the section or move its gestures to make space, then duplicate again.')
+    duplicate = copy.deepcopy(original)
+    duplicate.update(id='gesture-' + uuid.uuid4().hex, start_fraction=min(start, 1-length))
+    return duplicate
 
 
 def envelope(event, seconds):
