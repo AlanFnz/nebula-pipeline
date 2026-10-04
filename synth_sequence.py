@@ -18,6 +18,7 @@ from synth_master import apply_master, normalize_master
 from synth_compat import render_version
 from synth_retime import mapped_time, normalize_time_map
 from synth_automation import normalize_automations, apply_automations
+from synth_instances import instance_ids, state_instance_ids
 
 SEQUENCE_SCHEMA_VERSION = 1
 NEUTRAL_FIELD = {
@@ -157,6 +158,11 @@ def _apply_override(preset, path, value):
 def _state_preset(sequence, state_name):
     state = sequence["states"][state_name]
     preset = copy.deepcopy(curated_presets()[state["preset"]])
+    # Every state uses the same instance identities, including disabled slots.
+    # Appending preserves all historical module indices and random seeds.
+    for identifier in instance_ids(key for item in sequence['states'].values() for key in state_instance_ids(item)):
+        preset['modules'].append(dict(id=identifier, enabled=False,
+                                      params={p.key: p.default for p in MODULE_BY_ID[identifier].params}))
     preset['render_version'] = render_version(sequence)
     for path, value in state.get("overrides", {}).items():
         _apply_override(preset, path, value)

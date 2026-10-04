@@ -3,7 +3,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from synth_effects import EFFECTS
+from synth_effects import EFFECTS, EFFECT_BY_ID, effects_for
+from synth_instances import instance_ids, base_id
 
 
 SOURCE_EFFECT_IDS = frozenset(('forms', 'rays', 'ink_bloom', 'particles', 'silhouette', 'text'))
@@ -64,7 +65,12 @@ def effect_catalog(allowed_effects=None, *, query='', category=''):
     allowed = None if allowed_effects is None else frozenset(allowed_effects)
     words = query.casefold().split()
     result = []
-    for effect in EFFECT_CATALOG:
+    extra = []
+    for identifier in instance_ids(allowed or ()):
+        effect = EFFECT_BY_ID[identifier]
+        extra.append(CatalogEffect(effect.id, effect.label, EFFECT_CATEGORIES[base_id(identifier)], effect.description,
+                                   tuple(label for label, _ in effect.looks)))
+    for effect in (*EFFECT_CATALOG, *extra):
         if allowed is not None and effect.id not in allowed:
             continue
         if category and effect.category != category:
@@ -101,5 +107,5 @@ def contribution_sentence(effect_id):
 
 def composition_contributions(summary, entries, parent_entries, video=False):
     """Follow the current scope, including authored off and bypassed entries."""
-    ids = [effect.id for effect in EFFECTS if summary[effect.id]['active'] or effect.id in entries or effect.id in parent_entries]
+    ids = [effect.id for effect in effects_for(summary) if summary[effect.id]['active'] or effect.id in entries or effect.id in parent_entries]
     return tuple((identifier, contribution_sentence(identifier), identifier in SOURCE_EFFECT_IDS) for identifier in ids)

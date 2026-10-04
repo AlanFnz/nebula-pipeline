@@ -9,6 +9,7 @@ import copy
 import math
 import hashlib
 from synth import MODULE_BY_ID
+from synth_instances import base_path
 
 TARGETS = frozenset({
     'tape.pull', 'tape.tracking', 'tape.jitter', 'warp.amount',
@@ -23,7 +24,7 @@ MAX_SEQUENCE_EVENTS = 131072
 
 
 def target_parameter(path):
-    if path not in TARGETS:
+    if base_path(path) not in TARGETS:
         raise ValueError(f'Unsupported automation target: {path}')
     module, key = path.split('.')
     return next(p for p in MODULE_BY_ID[module].params if p.key == key)

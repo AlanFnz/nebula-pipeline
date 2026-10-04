@@ -24,6 +24,7 @@ class EffectBrowserDialog(QDialog):
     effectRequested = Signal(str, int)
     effectInspected = Signal(str)
     objectRequested = Signal()
+    instanceRequested = Signal(str)
 
     def __init__(self, allowed_effects=None, applied_ids=(), parent=None, *, compact=False):
         super().__init__(parent)
@@ -119,6 +120,10 @@ class EffectBrowserDialog(QDialog):
         sources.addWidget(self.object_button); layout.addLayout(sources)
 
         actions = QHBoxLayout(); actions.addStretch(1)
+        self.instance_action = QPushButton('Add another instance')
+        self.instance_action.setAutoDefault(False)
+        self.instance_action.setToolTip('Add a neutral Tape damage pass with independent settings and automation.')
+        self.instance_action.clicked.connect(self.request_instance); actions.addWidget(self.instance_action)
         self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel)
         self.cancel_button = self.buttons.button(QDialogButtonBox.StandardButton.Cancel)
         self.cancel_button.setAutoDefault(False)
@@ -210,6 +215,7 @@ class EffectBrowserDialog(QDialog):
                 self.preset.setCurrentIndex(self._preset_choices.get(identifier, 0))
         applied = identifier in self.applied_ids
         self.action.setText('Inspect effect' if applied else 'Add effect')
+        self.instance_action.setVisible(identifier == 'tape' and applied)
         self.action.setAccessibleName('Inspect selected effect' if applied else 'Add selected effect')
         self.preset_row.setVisible(effect is not None and not applied)
         self.preset.setEnabled(effect is not None and not applied)
@@ -249,6 +255,10 @@ class EffectBrowserDialog(QDialog):
         if not self.object_button.isEnabled(): return
         self.objectRequested.emit()
         self.accept()
+
+    def request_instance(self):
+        if self.selected_effect_id() != 'tape': return
+        self.instanceRequested.emit('tape'); self.accept()
 
     def keyPressEvent(self, event):
         if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):

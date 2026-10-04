@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 0.5.1 — 2026-10-04
+
+- Add independent Tape damage instances from the inspector or Add effect browser.
+  Each numbered pass has separate settings, bypass, removal and automation.
+  New passes start neutral and run after the existing image chain in creation
+  order, preserving original module order, seeds and study rendering.
+- Keep instance targets through section edits, loops, save/open, detailed copies,
+  Studies, snapshots and MP4 exports. Removing one pass clears only its events;
+  Undo/Redo restores the pass and its automation together.
+
 ## 0.5.0 — 2026-10-04
 
 - Add section-based parameter automation: timed rise, hold and recovery gestures

@@ -64,6 +64,7 @@ class EffectAuditionDialog(EffectBrowserDialog):
         self.preset.currentIndexChanged.connect(self.selection_changed)
         self.finished.connect(self.cleanup)
         self.effectInspected.connect(panel.inspect_effect)
+        self.instanceRequested.connect(self.add_instance)
         self.objectRequested.connect(panel.object_requested.emit)
         if effect_id:
             self.search.hide(); self.category.hide(); self.results.hide(); self.status.hide()
@@ -81,6 +82,11 @@ class EffectAuditionDialog(EffectBrowserDialog):
         if hasattr(self, 'debounce'):
             self.action.setAccessibleName('Inspect selected effect' if self.selected_effect_id() in self.applied_ids else 'Replace with preset' if self.operation == 'replace' else 'Apply selected effect')
             self.selection_changed()
+
+    def add_instance(self, identifier):
+        # Release any temporary audition before committing the new pass.
+        self.cleanup()
+        self.studio.composer.add_effect_instance(identifier)
 
     def selection_changed(self, *_):
         if not hasattr(self, 'debounce'): return

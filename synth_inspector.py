@@ -2,6 +2,8 @@
 
 
 def control_group(path):
+    from synth_instances import base_path
+    path = base_path(path)
     module, key = path.split('.')
     if module == 'particles' and key in ('assembly', 'breathing', 'motion', 'release', 'turn_scope', 'orbit_start', 'orbit_handoff'):
         return 'Motion & timing'
