@@ -370,6 +370,7 @@ MODULES = (
     )),
     Module("tape", "Tape damage", "Tracking slips, chroma smear and lost scanlines within the existing image.", (
         P("pull", "Horizontal pull", 0., -1, 1, .01, "Broad continuous sideways stretch of the recorded picture. Positive pulls right, negative pulls left; zero preserves the image."),
+        P("pull_edges", "Pull edges", 0, 0, 1, 1, "Keep canvas filled anchors both picture edges while stretching the interior. Applies only to Horizontal pull; other tape faults keep their own behavior.", choices=("Allow blanking", "Keep canvas filled")),
         P("tracking", "Tracking slip", .04, 0, .3, .002, "Horizontal displacement of short irregular scan regions."),
         P("jitter", "Line jitter", .001, 0, .02, .0005, "Small independent scanline timing errors."),
         P("dropouts", "Dropouts", .3, 0, 1, .01, "Short missing stretches of the recorded image."),

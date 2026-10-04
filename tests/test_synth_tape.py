@@ -80,3 +80,36 @@ def test_pull_clock_is_independent_of_existing_fault_clock():
     pulling = dict(worn,pull=.3,rate=5.)
     assert np.array_equal(render_tape_damage(image,pulling,.01,1.,7,pull_time=4.21), render_tape_damage(image,pulling,.19,1.,7,pull_time=4.21))
     assert not np.array_equal(render_tape_damage(image,pulling,.01,1.,7,pull_time=4.21), render_tape_damage(image,pulling,.21,1.,7,pull_time=4.21))
+
+
+@pytest.mark.parametrize('width', [64, 121, 720])
+def test_anchored_pull_coordinates_stay_monotonic_and_inside_canvas(width):
+    from synth_tape import _anchored_pull_shifts
+    shifts = _anchored_pull_shifts(width, np.linspace(-.42, .42, 31))
+    source = np.arange(width)[None, :] - shifts
+    assert np.all(source >= 0) and np.all(source <= width-1)
+    assert np.all(np.diff(source, axis=1) > 0)
+    assert np.all(source[:,0] == 0) and np.all(source[:,-1] == width-1)
+    midpoint = width//2
+    assert source[0,midpoint] > midpoint and source[-1,midpoint] < midpoint
+
+
+@pytest.mark.parametrize('pull', [-1., -.18, .18, 1.])
+def test_filled_pull_keeps_textured_canvas_edges_and_introduces_no_black(pull):
+    image = (.35 + .4*np.random.default_rng(4).random((96,120,3))).astype('float32')
+    neutral = settings(**dict.fromkeys(('tracking','jitter','dropouts','chroma_delay','bleed','head_switch'),0.),mix=1.)
+    p = dict(neutral, pull=pull, pull_edges=1)
+    result = render_tape_damage(image,p,4.07,1.,7)
+    assert result.min() >= image.min()-1e-7 and result.max() <= image.max()+1e-7
+    assert np.allclose(result[:,[0,-1]],image[:,[0,-1]],atol=1e-7)
+    assert not np.allclose(result[:,30:90],image[:,30:90])
+    assert render_tape_damage(image,dict(p,pull=0.),4.07,1.,7) is image
+    # Blanking remains available for existing files and other fault treatments.
+    blanked = render_tape_damage(image,dict(p,pull_edges=0),4.07,1.,7)
+    assert blanked.min() < .1
+
+
+def test_pull_edge_mode_does_not_change_unrelated_tape_faults():
+    image = np.random.default_rng(8).random((96,120,3)).astype('float32')
+    p = settings()
+    assert np.array_equal(render_tape_damage(image,p,.31,1.,7),render_tape_damage(image,dict(p,pull_edges=1),.31,1.,7))
