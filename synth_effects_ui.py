@@ -12,7 +12,8 @@ from studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBo
 from studio_widgets import Slider, configure_parameter_spin, parameter_number
 from synth_inspector import grouped_paths
 
-from synth_effects import EFFECTS, EFFECT_BY_ID, describe_effects, is_removed_effect, parameter
+from synth_effects import EFFECTS, EFFECT_BY_ID, describe_effects, is_removed_effect, parameter, effects_for
+from synth_instances import base_id, REPEATABLE
 from synth_artwork_ui import ArtworkControl
 from synth_text_ui import TextControl
 from synth_ink_timing import DURATION_KEYS, TIMING_KEYS
@@ -88,6 +89,7 @@ class EffectChoice(QFrame):
 class EffectsPanel(QWidget):
     edited = Signal(str, object, str)
     automation_requested = Signal(str)
+    instance_requested = Signal(str)
     timing_edited = Signal(str, object)
     timing_reset = Signal()
     timing_selected = Signal(bool)
@@ -164,6 +166,9 @@ class EffectsPanel(QWidget):
         row = QHBoxLayout()
         self.inspector_title = QLabel(); self.inspector_title.setObjectName('sectionTitle'); self.inspector_title.setWordWrap(True); row.addWidget(self.inspector_title, 1)
         self.bypass_button = QPushButton('Bypass'); self.bypass_button.clicked.connect(lambda: self.toggle_bypass(self.effect_id)); row.addWidget(self.bypass_button)
+        self.instance_button = QPushButton('Add instance'); self.instance_button.setProperty('compact', True)
+        self.instance_button.setToolTip('Add an independent, neutral Tape damage pass after the existing image effects. Your current settings stay intact.')
+        self.instance_button.clicked.connect(lambda: self.instance_requested.emit(self.effect_id)); row.addWidget(self.instance_button)
         self.remove_button = QPushButton('Remove'); self.remove_button.clicked.connect(lambda: self.remove_effect(self.effect_id)); row.addWidget(self.remove_button)
         self.bypass_button.setProperty('compact', True); self.remove_button.setProperty('compact', True)
         self.remove_button.setProperty('secondaryAction', True)
@@ -250,6 +255,7 @@ class EffectsPanel(QWidget):
             self.browser = EffectBrowserDialog(self.allowed_effects, self.browser_applied_ids(), self)
             self.browser.effectRequested.connect(self.add_effect)
             self.browser.effectInspected.connect(self.inspect_effect)
+            self.browser.instanceRequested.connect(self.instance_requested.emit)
             self.browser.objectRequested.connect(self.object_requested.emit)
         self.browser.set_context(self.allowed_effects, self.browser_applied_ids())
         self.browser.open()
@@ -283,7 +289,16 @@ class EffectsPanel(QWidget):
         self.entries = copy.deepcopy(entries); self.parent_entries = copy.deepcopy(parent_entries); self.local = local
         self.summary = describe_effects(states); self.authored_summary = describe_effects(authored_states) if authored_states is not None else self.summary
         self.allowed_effects = allowed_effects
-        visible_effects = [e for e in EFFECTS if allowed_effects is None or e.id in allowed_effects]
+        self.context_effects = effects_for((*self.summary, *entries, *parent_entries))
+        for effect in self.context_effects:
+            if effect.id not in self.summary or effect.id not in self.authored_summary:
+                empty = dict(active=False, intermittent=False, ranges={p: (parameter(p).default,) * 2 for p in effect.paths})
+                self.summary.setdefault(effect.id, empty); self.authored_summary.setdefault(effect.id, empty)
+            if effect.id not in self.effect_choices:
+                choice = EffectChoice(effect); choice.selected.connect(self.inspect_choice)
+                choice.bypassRequested.connect(self.toggle_bypass); choice.removeRequested.connect(self.remove_effect)
+                self.available_layout.addWidget(choice); self.effect_choices[effect.id] = choice
+        visible_effects = [e for e in self.context_effects if allowed_effects is None or base_id(e.id) in allowed_effects]
         self.shared_timing = copy.deepcopy(shared_timing or {})
         self.shared_summary = describe_effects(shared_states)['ink_bloom'] if shared_states is not None else self.authored_summary['ink_bloom']
         self.context_scope_label = scope_label if scope_label.startswith('Editing:') else 'Editing: ' + scope_label
@@ -303,7 +318,8 @@ class EffectsPanel(QWidget):
         self.source_title.setText(f'OBJECT · {len(sources)} ' + ('source' if len(sources) == 1 else 'sources') if sources else 'OBJECT · no source')
         self.source_title.setVisible(object_available); self.source_header.setVisible(object_available)
         self.source_host.setVisible(bool(sources)); self.object_button.setVisible(object_available)
-        for effect in EFFECTS:
+        for choice in self.effect_choices.values(): choice.hide()
+        for effect in self.context_effects:
             target = self.source_layout if effect.id in SOURCE_EFFECTS else self.applied_layout
             target.addWidget(self.effect_choices[effect.id])
             self.effect_choices[effect.id].setVisible(effect.id in self.applied_ids)
@@ -316,7 +332,7 @@ class EffectsPanel(QWidget):
 
     def inspect_effect(self, effect_id):
         if self.updating or effect_id not in EFFECT_BY_ID: return
-        if self.allowed_effects is not None and effect_id not in self.allowed_effects: return
+        if self.allowed_effects is not None and base_id(effect_id) not in self.allowed_effects: return
         switched = self.effect_id != effect_id
         self.effect_id = effect_id; self.focused = True; self.pages.setCurrentWidget(self.editor)
         with QSignalBlocker(self.filter): self.filter.clear()
@@ -335,11 +351,13 @@ class EffectsPanel(QWidget):
         effect = EFFECT_BY_ID[self.effect_id]
         self.inspector_title.setText(f'{"SOURCE" if effect.id in SOURCE_EFFECTS else "EDIT"} / {effect.label}')
         self.inspector_title.setToolTip(effect.description)
-        for item in EFFECTS:
+        for item in self.context_effects:
             self.effect_choices[item.id].refresh(item, self.authored_summary[item.id], item.id == effect.id, self.is_bypassed(item.id))
         entry = self.entries.get(effect.id, {"mode": "recipe", "params": {}})
         with QSignalBlocker(self.mode): self.mode.setCurrentIndex(self.mode.findData(entry["mode"]))
         self.description.setText(effect.description)
+        self.instance_button.setVisible(base_id(effect.id) in REPEATABLE)
+        self.instance_button.setAccessibleName('Add another ' + EFFECT_BY_ID[base_id(effect.id)].label + ' instance')
         self.restore.setEnabled(effect.id in self.entries)
         self.restore.setToolTip("Remove only this effect's overrides in the selected scope. Follow the whole clip or study again.")
         self.bypass_button.setVisible(effect.id not in SOURCE_EFFECTS)

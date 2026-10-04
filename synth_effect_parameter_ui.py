@@ -97,7 +97,8 @@ class EffectParameter(QWidget):
         if not block_input: row.addWidget(self.value_stack)
         self.animate_button = None
         from synth_automation import TARGETS
-        if path in TARGETS:
+        from synth_instances import base_path
+        if base_path(path) in TARGETS:
             self.animate_button = QPushButton("Animate…"); self.animate_button.setProperty("compact", True)
             self.animate_button.setAccessibleName("Animate " + spec.label)
             self.animate_button.setToolTip("Add a temporary section gesture; the displayed value remains the base. Existing events are edited separately.")

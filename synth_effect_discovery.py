@@ -9,6 +9,7 @@ from synth_effect_catalog import SOURCE_EFFECT_IDS
 from synth_effects import EFFECT_BY_ID, effect_preset, is_removed_effect
 from synth_exploration import comparison_problem
 from synth_video import VIDEO_EFFECTS
+from synth_instances import base_id
 
 
 def document_fingerprint(document):
@@ -39,7 +40,7 @@ def effect_candidate(document, section_id, effect_id, operation='add', preset=0)
     if effect_id not in EFFECT_BY_ID or effect_id in SOURCE_EFFECT_IDS:
         raise ValueError('Choose an image treatment, not an Object source.')
     allowed = VIDEO_EFFECTS if 'footage' in original else tuple(e for e in EFFECT_BY_ID if e != 'subject_cutout')
-    if effect_id not in allowed:
+    if base_id(effect_id) not in allowed:
         raise ValueError('This treatment is unavailable for the current source.')
     if operation not in ('add', 'replace', 'without'):
         raise ValueError('Unknown effect operation.')

@@ -14,6 +14,7 @@ from synth_artwork import validate_artwork
 from synth_text import validate_text
 from synth_ink_timing import stage_durations
 from synth_creative import creative_overrides, merged_creative, normalize_creative
+from synth_instances import InstanceRegistry, instance_ids, state_instance_ids
 
 
 @dataclass(frozen=True)
@@ -115,7 +116,11 @@ EFFECTS = (
                   ("Fine / 720 px", {"low_res.resolution": 720}),
                   ("Crisp pixels / 240 px", {"low_res.resolution": 240, "low_res.sampling": 1}))),
 )
-EFFECT_BY_ID = {effect.id: effect for effect in EFFECTS}
+EFFECT_BY_ID = InstanceRegistry({effect.id: effect for effect in EFFECTS}, effects=True)
+
+
+def effects_for(keys=()):
+    return (*EFFECTS, *(EFFECT_BY_ID[key] for key in instance_ids(keys)))
 
 
 def parameter(path) -> Param:
@@ -194,6 +199,8 @@ def merge_effects(global_effects, local_effects):
 def state_values(state):
     preset = curated_presets()[state["preset"]]
     values = {f"{item['id']}.{key}": value for item in preset["modules"] for key, value in item["params"].items()}
+    for identifier in state_instance_ids(state):
+        values.update({f'{identifier}.{p.key}': p.default for p in MODULE_BY_ID[identifier].params})
     values.update(state.get("overrides", {}))
     enabled = set(state.get("enabled", [item["id"] for item in preset["modules"] if item["enabled"]]))
     return values, enabled
@@ -205,7 +212,7 @@ def apply_effects(state, effects, *, include_base=False):
     result = copy.deepcopy(state)
     _, enabled = state_values(state)
     overrides = result.setdefault("overrides", {})
-    for effect in EFFECTS:
+    for effect in effects_for(effects):
         entry = effects.get(effect.id)
         if not entry:
             continue
@@ -216,7 +223,7 @@ def apply_effects(state, effects, *, include_base=False):
         elif mode == "off":
             enabled.difference_update(effect.modules)
             overrides.update(effect.off)
-    result["enabled"] = [module for module in MODULE_BY_ID if module in enabled]
+    result["enabled"] = [module for module in (*MODULE_BY_ID, *instance_ids(enabled)) if module in enabled]
     # Inspector values are the unadjusted, unbypassed base, collected without
     # compiling the entire arrangement again. Fixed edits remain base values.
     base = None
@@ -244,6 +251,7 @@ def effect_active(effect, values, enabled):
 
 def describe_effects(states):
     """Inspect real recipe values, including ranges across animated states."""
+    states = tuple(states)
     resolved = []
     # Display effective seconds, not the internal negative "follow recipe"
     # value. Resolve each state separately to retain per-section differences.
@@ -258,7 +266,7 @@ def describe_effects(states):
             values['_ink_loop'] = sum(durations.values()) / speed if speed > 0 else float('inf')
         resolved.append((values, enabled))
     result = {}
-    for effect in EFFECTS:
+    for effect in effects_for(key for state in states for key in state_instance_ids(state)):
         active = [(values, enabled) for values, enabled in resolved if effect_active(effect, values, enabled)]
         ranges = {}
         for path in effect.paths:

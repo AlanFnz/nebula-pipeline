@@ -20,6 +20,7 @@ from PIL import Image, ImageFilter
 
 from synth_particles import render_particles
 from synth_tape import render_tape_damage
+from synth_instances import InstanceRegistry, instance_base, base_id
 from synth_photocopy import render_photocopy
 from synth_text import FONTS, validate_text, render_text
 from synth_broadcast import render_broadcast, render_broadcast_exposure
@@ -668,7 +669,7 @@ MODULES += (
 
 # Append-only: legacy module indices also determine existing random seeds.
 MODULES += modulation_modules(Module, P)
-MODULE_BY_ID = {module.id: module for module in MODULES}
+MODULE_BY_ID = InstanceRegistry({module.id: module for module in MODULES})
 
 
 def _defaults(module: Module):
@@ -1348,7 +1349,8 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
             arr = treat_source(arr)
         if not entry.get("enabled", True):
             continue
-        module_id = entry.get("id")
+        instance_id = entry.get("id")
+        module_id = base_id(instance_id)
         if source_image is not None and module_id not in VIDEO_MODULES:
             if module_id != 'low_res':
                 raise ValueError(f'{module_id} requires a generated object, not a video source')
@@ -1368,8 +1370,8 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
                 rendered = render_edge_phosphor_v1(arr, params, module_time, p, _seed(p['seed'], 'edge-phosphor'))
             else:
                 rendered = render_edge_phosphor(arr, params, module_time, p, _seed(p['seed'], 'edge-phosphor'), continuous_time)
-        elif module_id == "tape" and params.get("pull", 0):
-            rendered = render_tape_damage(arr, params, module_time, p["speed"], _seed(p["seed"], "tape"), pull_time=continuous_time)
+        elif module_id == "tape" and (params.get("pull", 0) or instance_base(instance_id)):
+            rendered = render_tape_damage(arr, params, module_time, p["speed"], _seed(p["seed"], instance_id), pull_time=continuous_time)
         else:
             rendered = renderer(arr, params, module_time, p, index)
         if rendered is not None:

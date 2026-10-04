@@ -4,6 +4,7 @@ from pathlib import Path
 from synth_effects import EFFECT_BY_ID, merge_effects, state_values, parameter
 from synth_automation import envelope
 from synth_sequence import resolve_sequence_frame
+from synth_instances import base_id
 
 
 @dataclass(frozen=True)
@@ -59,9 +60,9 @@ def explain_effect(document, sequence, effect_id, seconds, section_id=None, reso
     if effect_id == 'edge_phosphor' and p('edge_phosphor.mix') == 0: zero = 'edge_phosphor.mix'
     elif effect_id == 'bloom' and p('bloom.strength') == 0: zero = 'bloom.strength'
     elif effect_id == 'cloud' and p('slab.cloud_strength') == 0: zero = 'slab.cloud_strength'
-    elif effect_id == 'tape':
-        if p('tape.mix') == 0: zero = 'tape.mix'
-        elif all(p('tape.'+k) == 0 for k in ('pull','tracking','jitter','dropouts','chroma_delay','bleed','head_switch')): zero = 'tape.tracking'
+    elif base_id(effect_id) == 'tape':
+        if p(effect_id+'.mix') == 0: zero = effect_id+'.mix'
+        elif all(p(effect_id+'.'+k) == 0 for k in ('pull','tracking','jitter','dropouts','chroma_delay','bleed','head_switch')): zero = effect_id+'.pull'
     elif effect_id == 'frame_jitter':
         if p('frame_jitter.strength') == 0: zero = 'frame_jitter.strength'
         elif all(p('frame_jitter.'+k) == 0 for k in ('x','y','rotation','scale')): zero = 'frame_jitter.x'

@@ -11,10 +11,15 @@ from PySide6.QtWidgets import (QWidget, QDialog, QVBoxLayout, QHBoxLayout, QLabe
 from studio_widgets import ComboBox, DoubleSpinBox, configure_parameter_spin
 from synth_automation import TARGETS, STAGES, target_parameter, absolute_event, envelope, normalize_automations
 from synth_effects import EFFECTS
+from synth_instances import base_id, base_path, document_instance_ids
+from synth_effects import EFFECT_BY_ID
 from synth_composition import section_placements
 
 
 def target_label(path):
+    module = path.split('.')[0]
+    if base_id(module) != module:
+        return EFFECT_BY_ID[module].label + ' / ' + target_parameter(path).label
     effect = next(e for e in EFFECTS if path in e.paths)
     return effect.label + ' / ' + target_parameter(path).label
 
@@ -70,7 +75,10 @@ class AutomationEditor(QDialog):
         hint.setWordWrap(True); layout.addWidget(hint)
         form = QFormLayout(); form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow); layout.addLayout(form)
         self.target = ComboBox()
-        for item in sorted(TARGETS): self.target.addItem(target_label(item), item)
+        targets = set(TARGETS)
+        for identifier in document_instance_ids(composer.document):
+            targets.update(identifier + '.' + p.split('.')[1] for p in TARGETS if p.split('.')[0] == base_id(identifier))
+        for item in sorted(targets): self.target.addItem(target_label(item), item)
         self.target.setCurrentIndex(max(0, self.target.findData(path)))
         self.target.setEnabled(path is None)
         self.target.setAccessibleName('Automation target'); form.addRow('Parameter', self.target)
@@ -117,7 +125,7 @@ class AutomationEditor(QDialog):
     def configure_amount(self):
         spec = target_parameter(self.target.currentData()); configure_parameter_spin(self.amount, spec)
         span = spec.maximum-spec.minimum; self.amount.setRange(-span, span)
-        self.amount.setValue(min(span, max(spec.step, span*(.15 if self.target.currentData() == "tape.pull" else .3))))
+        self.amount.setValue(min(span, max(spec.step, span*(.15 if base_path(self.target.currentData()) == "tape.pull" else .3))))
 
     def section_changed(self):
         section = self.current_section(); duration = section['duration']

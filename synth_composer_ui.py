@@ -779,6 +779,7 @@ class CompositionPanel(QWidget):
         self.effects_panel.scope_label.hide()
         self.effects_panel.edited.connect(self.change_effect)
         self.effects_panel.automation_requested.connect(self.parameter_automation)
+        self.effects_panel.instance_requested.connect(self.add_effect_instance)
         self.effects_panel.timing_edited.connect(self.change_ink_timing)
         self.effects_panel.timing_reset.connect(self.reset_ink_timing)
         self.effects_panel.timing_selected.connect(self.show_timing_scope)
@@ -1005,6 +1006,19 @@ class CompositionPanel(QWidget):
             for section in document['sections']:
                 section['effects'].pop(effect_id, None)
         self.commit(document, f"{action}:{self.scope}:{self.index}:{effect_id}")
+
+    def add_effect_instance(self, effect_id):
+        from synth_instances import base_id, REPEATABLE, document_instance_ids, MAX_INSTANCES
+        from synth_effects import effect_preset
+        if base_id(effect_id) not in REPEATABLE: return
+        numbers = [int(key.split('@')[1]) for key in document_instance_ids(self.document)]
+        number = max([1, *numbers]) + 1
+        if number > MAX_INSTANCES:
+            QMessageBox.information(self, 'Effect instances', 'This composition already uses the maximum number of Tape damage passes.'); return
+        identifier = f'{base_id(effect_id)}@{number}'
+        # A clean pass contributes nothing until the artist edits or animates it.
+        self.change_effect(identifier, effect_preset(identifier, 3), 'effect-instance-add')
+        self.effects_panel.inspect_effect(identifier)
 
     def automation_section_id(self):
         if self.scope: return self.document['sections'][self.index]['id']

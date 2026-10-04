@@ -627,7 +627,8 @@ def normalize_composition(raw):
     if 'footage' in result:
         from synth_video import VIDEO_EFFECTS
         for scope in scopes:
-            if set(scope['effects']) - set(VIDEO_EFFECTS):
+            from synth_instances import base_id
+            if {base_id(key) for key in scope['effects']} - set(VIDEO_EFFECTS):
                 raise ValueError('Video compositions support image treatments; object generators need a generated study')
     elif any(scope['effects'].get('subject_cutout', {}).get('mode') == 'on' for scope in scopes):
         raise ValueError('Subject cutout needs imported video')
