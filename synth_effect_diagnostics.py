@@ -51,7 +51,7 @@ def explain_effect(document, sequence, effect_id, seconds, section_id=None, reso
     elif effect_id == 'cloud' and p('slab.cloud_strength') == 0: zero = 'slab.cloud_strength'
     elif effect_id == 'tape':
         if p('tape.mix') == 0: zero = 'tape.mix'
-        elif all(p('tape.'+k) == 0 for k in ('tracking','jitter','dropouts','chroma_delay','bleed','head_switch')): zero = 'tape.tracking'
+        elif all(p('tape.'+k) == 0 for k in ('pull','tracking','jitter','dropouts','chroma_delay','bleed','head_switch')): zero = 'tape.tracking'
     elif effect_id == 'frame_jitter':
         if p('frame_jitter.strength') == 0: zero = 'frame_jitter.strength'
         elif all(p('frame_jitter.'+k) == 0 for k in ('x','y','rotation','scale')): zero = 'frame_jitter.x'

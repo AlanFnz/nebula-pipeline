@@ -17,8 +17,8 @@ def _sample_rows(signal, shifts):
     return result * ((x >= 0) & (x <= w - 1))[..., None]
 
 
-def render_tape_damage(arr, p, time, speed, seed):
-    if p["mix"] == 0 or not any(p[key] for key in ("tracking", "jitter", "dropouts", "chroma_delay", "bleed", "head_switch")):
+def render_tape_damage(arr, p, time, speed, seed, *, pull_time=None):
+    if p["mix"] == 0 or (not p.get("pull", 0) and not any(p[key] for key in ("tracking", "jitter", "dropouts", "chroma_delay", "bleed", "head_switch"))):
         return arr
     h, w = arr.shape[:2]
     tick = math.floor(time * speed * p["rate"] + 1e-9)
@@ -40,6 +40,15 @@ def render_tape_damage(arr, p, time, speed, seed):
     bottom = np.clip((y - .92) / .08, 0., 1.)
     switch = bottom ** 2 * np.sin(y * 180 + tick * 1.7) * .055
     shift = w * (p["tracking"] * tracking + p["jitter"] * jitter + p["head_switch"] * switch)
+    if p.get("pull", 0):
+        # Broad, irregular row delay. Continuous deterministic phases avoid
+        # held random jumps and carry every detail of the combined picture.
+        pull_time = time if pull_time is None else pull_time
+        phase = (seed % 997) / 997 * math.tau
+        center = .48 + .10 * math.sin(pull_time * speed * .73 + phase)
+        profile = np.exp(-((y - center) / .30) ** 4)
+        ripple = .82 + .12 * np.sin(y * 13 + pull_time * speed * .9 + phase) + .06 * np.sin(y * 31 - pull_time * speed * .4)
+        shift = shift + w * p["pull"] * .42 * profile * ripple
     warped = _sample_rows(signal, shift[:, None])
 
     # Delay and low-pass the chroma while retaining the sharper luminance.

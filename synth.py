@@ -368,6 +368,7 @@ MODULES = (
         P("mix", "Mix", .75, 0, 1, .01, "Blend the broken signal with the original."),
     )),
     Module("tape", "Tape damage", "Tracking slips, chroma smear and lost scanlines within the existing image.", (
+        P("pull", "Horizontal pull", 0., -1, 1, .01, "Broad continuous sideways stretch of the recorded picture. Positive pulls right, negative pulls left; zero preserves the image."),
         P("tracking", "Tracking slip", .04, 0, .3, .002, "Horizontal displacement of short irregular scan regions."),
         P("jitter", "Line jitter", .001, 0, .02, .0005, "Small independent scanline timing errors."),
         P("dropouts", "Dropouts", .3, 0, 1, .01, "Short missing stretches of the recorded image."),
@@ -1367,6 +1368,8 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
                 rendered = render_edge_phosphor_v1(arr, params, module_time, p, _seed(p['seed'], 'edge-phosphor'))
             else:
                 rendered = render_edge_phosphor(arr, params, module_time, p, _seed(p['seed'], 'edge-phosphor'), continuous_time)
+        elif module_id == "tape" and params.get("pull", 0):
+            rendered = render_tape_damage(arr, params, module_time, p["speed"], _seed(p["seed"], "tape"), pull_time=continuous_time)
         else:
             rendered = renderer(arr, params, module_time, p, index)
         if rendered is not None:
