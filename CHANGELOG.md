@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 0.5.3 — 2026-10-04
+
+- Duplicate selected timeline sections or an automation curve with Command-D
+  or the right-click menu. Section selections copy together in timeline order,
+  preserving effects, timing, automation, individual loops and complete sequence
+  loop groups, with independent identities and the copies selected afterward.
+- Copy automation into the next free space after its original in the same section,
+  retaining its curve, strength and target. When there is no room, show how to
+  make space without changing the section. Duplication is one Undo/Redo step and
+  persists through Save/Open; shortcuts stay local to the focused timeline lane.
+
 ## 0.5.2 — 2026-10-04
 
 - Add Tape damage's **Pull edges → Keep canvas filled** mode. Horizontal pull
