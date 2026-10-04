@@ -88,7 +88,7 @@ def envelope(event, seconds):
     # floating-point operations. A few ULPs suppress only arithmetic residue,
     # preventing a nearly-zero pull from resampling an otherwise neutral frame.
     end = event['start'] + attack + hold + recovery
-    tolerance = 8 * math.ulp(max(1., abs(end), abs(event['start'])))
+    tolerance = 8 * math.ulp(max(abs(end), abs(event['start'])))
     if seconds < event['start'] - tolerance or seconds >= end - tolerance: return 0.
     if abs(local) <= tolerance: local = 0.
     def ease(x):

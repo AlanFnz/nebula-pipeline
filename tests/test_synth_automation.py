@@ -161,3 +161,9 @@ def test_frame_grid_endpoints_have_exact_zero_delta(fps):
                 assert envelope(absolute,(start+attack+hold+recovery)/fps) == 0
                 assert envelope(absolute,start/fps) == 0
                 assert 0 <= envelope(absolute,(start+attack+hold)/fps) <= 1
+
+
+def test_tiny_positive_envelope_keeps_explicit_zero_attack_step():
+    event=absolute_event(dict(gesture(),start_fraction=0,attack_fraction=0,hold_fraction=0,recovery_fraction=1e-18),1)
+    assert envelope(event,0)==1
+    assert envelope(event,1e-18)==0

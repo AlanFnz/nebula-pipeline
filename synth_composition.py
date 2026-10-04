@@ -572,6 +572,7 @@ def normalize_composition(raw):
     if not isinstance(sections, list) or not 1 <= len(sections) <= 64:
         raise ValueError("Use between 1 and 64 sections")
     ids = set()
+    authored_event_count = 0
     for section in sections:
         if not isinstance(section, dict) or section.get("phrase") not in phrases:
             raise ValueError("Unknown section phrase")
@@ -592,6 +593,9 @@ def normalize_composition(raw):
         section["effects"] = normalize_effects(section.get("effects", {}))
         if "automations" in section:
             events = normalize_automations(section["automations"])
+            authored_event_count += len(events)
+            if authored_event_count > MAX_SEQUENCE_EVENTS:
+                raise ValueError("Composition contains too many automation events")
             if events: section["automations"] = events
             else: section.pop("automations")
         section["variation"] = _number(section.get("variation", 0), "Variation", 0, 2**31 - 1, True)
