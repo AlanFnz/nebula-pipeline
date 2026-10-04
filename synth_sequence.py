@@ -17,6 +17,7 @@ from synth_ink_timing import DURATION_KEYS, stage_durations
 from synth_master import apply_master, normalize_master
 from synth_compat import render_version
 from synth_retime import mapped_time, normalize_time_map
+from synth_automation import normalize_automations, apply_automations
 
 SEQUENCE_SCHEMA_VERSION = 1
 NEUTRAL_FIELD = {
@@ -118,6 +119,10 @@ def normalize_sequence(raw=None):
             raise ValueError("transition must be cut, morph, sweep or flash")
         normalized.append(item)
     result["cues"] = normalized
+    result.pop("automations", None)
+    if raw.get("automations") is not None:
+        events = normalize_automations(raw["automations"], duration=result["duration"], fractions=False)
+        if events: result["automations"] = events
     return result
 
 
@@ -240,6 +245,7 @@ def resolve_sequence_frame(sequence, time_seconds, *, normalized=False):
         base = second if transition in {"sweep", "flash"} else _interpolate_presets(first, second, amount)
     else:
         base = _state_preset(seq, cue["state"])
+    base = apply_automations(base, seq.get("automations", ()), t)
     return seq, t, effect_time, video_time, cue, transition, amount, base
 
 
