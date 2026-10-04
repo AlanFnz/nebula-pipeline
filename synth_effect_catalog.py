@@ -88,7 +88,7 @@ CONTRIBUTIONS = {
     'signal_background': 'Signal background textures dark areas.',
     'ghosts': 'Ghosts add shifted copies and a luminous companion.',
     'cloud': 'Granular halo surrounds luminous forms with noise.',
-    'tape': 'Tape damage adds tracking faults and color bleed.',
+    'tape': 'Tape damage resamples the picture with horizontal pull, tracking faults and color bleed.',
     'frame_jitter': 'Frame jitter varies the source registration.',
     'bloom': 'Bloom spreads light from bright source areas.',
 }

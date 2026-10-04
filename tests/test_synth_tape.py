@@ -52,3 +52,31 @@ def test_tracking_resamples_rows_instead_of_adding_exposure():
     assert .01 < changed_rows.mean() < .5
     assert result.max() <= .800001
     assert np.all(result >= np.array((.055, .067, .055)) - 1e-7)
+
+
+def test_pull_is_signed_broad_continuous_deterministic_and_resamples():
+    image = np.full((192, 240, 3), (.055, .067, .055), dtype=np.float32)
+    image[:, 95:145] = .8
+    neutral = settings(**dict.fromkeys(('tracking', 'jitter', 'dropouts', 'chroma_delay', 'bleed', 'head_switch'), 0.), mix=1.)
+    assert render_tape_damage(image, neutral, 4.2, 1., 7) is image
+    right = render_tape_damage(image, dict(neutral, pull=.6), 4.2, 1., 7)
+    left = render_tape_damage(image, dict(neutral, pull=-.6), 4.2, 1., 7)
+    assert (np.abs(right-image).max(axis=(1,2)) > .01).mean() > .5
+    assert right.max() <= .800001 and left.max() <= .800001
+    assert np.argmax(right[96,:,0]) > np.argmax(image[96,:,0])
+    assert np.argmax(left[96,:,0]) < np.argmax(image[96,:,0])
+    assert np.array_equal(right, render_tape_damage(image, dict(neutral, pull=.6), 4.2, 1., 7))
+    nearby = render_tape_damage(image, dict(neutral, pull=.6), 4.201, 1., 7)
+    assert 0 < np.abs(nearby-right).max() < .02
+    blank = np.full_like(image, (.055, .067, .055))
+    assert np.allclose(render_tape_damage(blank, dict(neutral, pull=.6), 4.2, 1., 7), blank)
+
+
+def test_pull_clock_is_independent_of_existing_fault_clock():
+    image = np.random.default_rng(4).random((96,120,3)).astype('float32')
+    worn = settings()
+    assert np.array_equal(render_tape_damage(image,worn,.1,1.,7,pull_time=4.21), render_tape_damage(image,worn,.1,1.,7,pull_time=8.))
+    # A fixed pull clock freezes only the new profile, keeping the old held faults.
+    pulling = dict(worn,pull=.3,rate=5.)
+    assert np.array_equal(render_tape_damage(image,pulling,.01,1.,7,pull_time=4.21), render_tape_damage(image,pulling,.19,1.,7,pull_time=4.21))
+    assert not np.array_equal(render_tape_damage(image,pulling,.01,1.,7,pull_time=4.21), render_tape_damage(image,pulling,.21,1.,7,pull_time=4.21))

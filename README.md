@@ -590,6 +590,33 @@ detailed sequence/preset windows disable composition Undo/Redo.
   **Choose object…** takes you to source selection. Imported videos show only
   compatible image treatments. Effects can be combined per section in the
   renderer's established order.
+- **Animate…** beside supported treatment parameters creates a timed section
+  gesture. Set **Start**, **Rise**, **Hold**, **Recover**, signed **Change amount**,
+  **Easing**, and **Enabled**, then **Apply**. The shown parameter remains its base;
+  automation adds a temporary change and returns to the moving recipe. Cancel
+  leaves the composition unchanged. Whole-clip inspectors explicitly choose the
+  target section; the default follows the playhead.
+- **Automations…** lists every section gesture with Edit, Enable/Disable and Remove.
+  A slim lane appears below the section blocks when events exist. Double-click
+  a gesture to edit, drag its body to move it, or right-click for its actions.
+  Overlapping targets have separate menu entries. Looped occurrences share one
+  authored event; moving or editing one updates every repetition. Escape cancels
+  a drag. Section resizing scales gesture timing proportionally in both resize
+  modes. Undo/Redo, snapshots, Studies, save/open, detailed copies and MP4 export
+  retain events. Remove effect clears its events; bypass and preset replacement
+  preserve them. Restore parameter changes the base only.
+- **Tape damage → Clean pull / animate** starts with existing faults at zero,
+  Mix on and **Horizontal pull** at zero. Animate that signed pull for a broad
+  sideways displacement of the existing image. Adding an event to an existing
+  Tape effect preserves its other settings. Supported automation targets cover
+  Tape pull/tracking/jitter, Signal drift/breakup amount, Color separation,
+  Ghost trail length/brightness, Bloom strength, CRT raster instability,
+  Raster/grain intensities and selected Chroma print controls. Overlapping enabled
+  events on one target are rejected; disabled events remain editable. Seeds,
+  choices, timing clocks, source changes and Master are excluded. Newly automated
+  documents require the app version introducing this feature; older releases
+  cannot preserve these optional fields. See the [delivery notes](docs/timed-effect-automation-delivery.md)
+  for the complete target list and independent ten-second example.
 - **How this look is built** in the Effects overview explains the actual sources
   and treatments in the current scope. Contributions open their existing controls;
   **Compare without this effect** auditions a temporary bypass with no undo entry.

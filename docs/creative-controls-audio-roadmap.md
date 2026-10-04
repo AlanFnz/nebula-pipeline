@@ -210,6 +210,16 @@ main features of a study. Preview work must yield to editing and export.
 
 ### A5. Understandable motion
 
+Implemented in the timed-effect automation branch: section-owned rise/hold/recover
+parameter gestures, signed additive change, smooth/linear easing, a draft-first
+editor, an accessible event list and compact draggable timeline lane. Gestures
+repeat with section/group loops and scale with section resize, while retaining
+source/effect clocks, cue animation, Creative controls and bypass precedence.
+The neutral signed Tape horizontal pull supplies the initial VHS use case.
+See [delivery notes](timed-effect-automation-delivery.md) for shipped targets,
+validation and compatibility. Arbitrary keyframe graphs and all audio work remain
+deferred; the parent owns final native review and release integration.
+
 Add a compact curve/envelope editor for behaviors such as build up, burst, hold
 and recover. Show duration and easing directly; offer useful movement patterns
 without requiring dozens of sections. Preserve current shared ink timing and
@@ -373,7 +383,7 @@ control signal. No hardware is required for the imported-file milestone.
 - [x] A2: creative-control pilot with reversible, bounded per-state adjustments.
 - [x] A3: named snapshots/A/B and controlled, effect-scoped Keep/Discard auditions.
 - [x] A4: previews, explanations and composition breakdown, included in 0.4.0.
-- [ ] A5: understandable motion and envelope controls.
+- [x] A5: bounded timed parameter gestures and envelope controls; arbitrary keyframes deferred.
 - [ ] Add B1 imported audio/transport, then B2 mappings and B3 export verification.
 - [ ] Extend to B4 multiple imported tracks with independent routing and explicit audio output.
 - [ ] Consider C live input after the file-based workflow is established.

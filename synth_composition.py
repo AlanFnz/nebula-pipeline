@@ -18,6 +18,7 @@ from synth_canvas import normalize_canvas
 from synth_shared_timing import apply_shared_timing, normalize_shared_timing
 from synth_master import normalize_master
 from synth_compat import render_version
+from synth_automation import normalize_automations, absolute_event, section_event, compiled_id, MAX_SEQUENCE_EVENTS
 
 FORMAT = "nebula-composition"
 MACROS = {
@@ -87,11 +88,14 @@ def composition_from_sequence(sequence):
     """An imported detailed sequence remains intact as one reusable phrase."""
     source = normalize_sequence(sequence)
     result = reference_composition()
-    result.update(name=source["name"], source=source, fps=source["fps"], seed=source["seed"])
+    result.update(name=source["name"], source=source, fps=source["fps"], seed=source["seed"], render_version=source["render_version"])
     result["canvas"] = normalize_canvas(source.get("canvas"))
     result["master"] = normalize_master(source.get("master"))
     result["phrases"] = {"custom": {"name": source["name"], "start": 0., "end": source["duration"]}}
     result["sections"] = [{"id": "section-1", "phrase": "custom", "duration": source["duration"], "loops": 1, "macros": neutral_macros(), "geometry": default_geometry(section=True), "effects": {}, "variation": 0, "locks": []}]
+    if source.get('automations'):
+        result['sections'][0]['automations'] = [section_event(event, source['duration']) for event in source['automations']]
+        result['source'].pop('automations')
     if 'footage' in source:
         result.update(schema_version=2, render_version=2, footage=copy.deepcopy(source['footage']))
     return result
@@ -568,6 +572,7 @@ def normalize_composition(raw):
     if not isinstance(sections, list) or not 1 <= len(sections) <= 64:
         raise ValueError("Use between 1 and 64 sections")
     ids = set()
+    authored_event_count = 0
     for section in sections:
         if not isinstance(section, dict) or section.get("phrase") not in phrases:
             raise ValueError("Unknown section phrase")
@@ -586,6 +591,13 @@ def normalize_composition(raw):
         section["macros"] = _controls(section.get("macros", {}))
         section["geometry"] = _geometry(section.get("geometry", {}), section=True)
         section["effects"] = normalize_effects(section.get("effects", {}))
+        if "automations" in section:
+            events = normalize_automations(section["automations"])
+            authored_event_count += len(events)
+            if authored_event_count > MAX_SEQUENCE_EVENTS:
+                raise ValueError("Composition contains too many automation events")
+            if events: section["automations"] = events
+            else: section.pop("automations")
         section["variation"] = _number(section.get("variation", 0), "Variation", 0, 2**31 - 1, True)
         section["locks"] = [key for key in section.get("locks", []) if key in MACROS]
     if 'timeline_loops' in result:
@@ -829,8 +841,13 @@ def compile_composition(raw, *, base_states=None):
     result["duration"] = placements[-1][2]
     from synth_retime import compose_time_maps
     clocks = []
+    compiled_automations = []
+    # Imported detailed sequences use section-owned gestures. Reject an ambiguous
+    # hand-authored embedded sequence instead of silently losing its automation.
+    if project["source"].get("automations"):
+        raise ValueError("Import automated sequences with composition_from_sequence before arranging sections")
     effects_time = video_time = 0.
-    for index, start, end, _repetition in placements:
+    for occurrence, (index, start, end, _repetition) in enumerate(placements):
         section = project['sections'][index]
         phrase = project["phrases"][section["phrase"]]
         first, last = phrase["start"], phrase["end"]
@@ -849,6 +866,12 @@ def compile_composition(raw, *, base_states=None):
         offset = _seed(project["seed"], section["id"], *variant) % (2**31 - 1) if any(variant) else 0
         loop_frames = max(1, round(section["duration"] * fps))
         loop_end = (round(start * fps) + loop_frames) / fps
+        if len(compiled_automations) + section["loops"] * len(section.get("automations", ())) > MAX_SEQUENCE_EVENTS:
+            raise ValueError("Arrangement contains too many automation occurrences")
+        for loop in range(section["loops"]):
+            for event in section.get("automations", ()):
+                compiled_automations.append(absolute_event(event, section["duration"], start + loop * section["duration"],
+                    compiled_id(section["id"], event["id"], occurrence, loop)))
         cues_by_frame = {}
         # Compile one edited section, then repeat its frame-aligned cues. Extending
         # the source phrase here would run past a trimmed section's loop boundary.
@@ -878,6 +901,8 @@ def compile_composition(raw, *, base_states=None):
                 dict(cues_by_frame[frame], time=(frame + loop * loop_frames) / fps)
                 for frame in sorted(cues_by_frame)
             )
+    result.pop('automations', None)
+    if compiled_automations: result['automations'] = compiled_automations
     if project['source'].get('time_map') or any(s.get('effects_rate', 1.) != 1 or s.get('video_rate', 1.) != 1 for s in project['sections']):
         result['time_map'] = compose_time_maps(clocks, project['source'].get('time_map'))
     return normalize_sequence(result)

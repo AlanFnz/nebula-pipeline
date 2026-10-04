@@ -40,6 +40,9 @@ class SectionTimeline(QWidget):
     durationRequested = Signal(str, float)
     stretchRequested = Signal(object, float)
     reorderRequested = Signal(object, object)
+    automationVisibilityChanged = Signal(bool)
+    automationRequested = Signal(str, str, str)
+    automationMoveRequested = Signal(str, str, float)
 
     def __init__(self):
         super().__init__()
@@ -64,10 +67,13 @@ class SectionTimeline(QWidget):
         self.setMouseTracking(True)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setAccessibleName('Section timeline')
+        from synth_automation_ui import AutomationLane
+        self.automation_lane = AutomationLane(self); self.automation_lane.hide()
 
     def set_document(self, document, index=0, reset_selection=False):
         if self._resize is not None: self._finish_resize(False)
         if self._reorder is not None: self._finish_reorder(False)
+        self.automation_lane.drag = None
         old_ids = set(self.selected_ids)
         self.document = document
         self.index = index
@@ -82,9 +88,19 @@ class SectionTimeline(QWidget):
             self.selection_anchor = current
         self.setMinimumWidth(len(section_placements(document)) * 82)
         self._hover_edge = None
+        has_events = any(section.get("automations") for section in document["sections"])
+        self.setFixedHeight(self.LANE_HEIGHT + (30 if has_events else 0))
+        self.automation_lane.setVisible(has_events)
+        self.automationVisibilityChanged.emit(has_events)
+        self.automation_lane.setGeometry(0, self.LANE_HEIGHT, self.width(), 30)
+        self.automation_lane.update()
         self._update_accessible_description()
         self.update()
         if old_ids != self.selected_ids: self.selectionChanged.emit()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.automation_lane.setGeometry(0, self.LANE_HEIGHT, self.width(), 30)
 
     def set_editing_section(self, section_id_or_none):
         """Mark the inspector's editing scope independently of arrangement selection."""
@@ -329,6 +345,7 @@ class SectionTimeline(QWidget):
 
     def set_time(self, time):
         self.time = time
+        self.automation_lane.update()
         self.update()
 
     def rectangles(self):
@@ -671,6 +688,8 @@ class CompositionPanel(QWidget):
         self.index = min(index, len(document["sections"]) - 1)
         self.scope = scope
         self.updating = False
+        self.playhead_seconds = lambda: 0.
+        self.automation_dialogs = []
         layout = QVBoxLayout(self); layout.setContentsMargins(0, 0, 0, 0); layout.setSpacing(5)
         title = QLabel("02 / INSPECTOR"); title.setObjectName("sectionTitle")
         title_row = QHBoxLayout(); title_row.addWidget(title); title_row.addStretch(1)
@@ -696,6 +715,9 @@ class CompositionPanel(QWidget):
         timeline_row.addWidget(self.fps_label); timeline_row.addWidget(self.fps); timeline_row.addStretch(1)
         self.arrangement_button = QPushButton('Arrange sections…'); self.arrangement_button.setCheckable(True)
         self.arrangement_button.setToolTip("Edit section durations, order and loops.")
+        self.automations_button = QPushButton("Automations…")
+        self.automations_button.setProperty("compact", True); self.automations_button.clicked.connect(lambda: self.open_automation_list())
+        self.workspace_actions_layout.addWidget(self.automations_button)
         self.workspace_actions_layout.addWidget(self.arrangement_button); layout.addWidget(self.timeline_controls)
         self.content_stack = QStackedWidget(); layout.addWidget(self.content_stack, 1)
         self.arrangement_scroll = QScrollArea(); self.arrangement_scroll.setWidgetResizable(True)
@@ -756,6 +778,7 @@ class CompositionPanel(QWidget):
         # The composer owns the persistent scope selector for every page.
         self.effects_panel.scope_label.hide()
         self.effects_panel.edited.connect(self.change_effect)
+        self.effects_panel.automation_requested.connect(self.parameter_automation)
         self.effects_panel.timing_edited.connect(self.change_ink_timing)
         self.effects_panel.timing_reset.connect(self.reset_ink_timing)
         self.effects_panel.timing_selected.connect(self.show_timing_scope)
@@ -900,6 +923,14 @@ class CompositionPanel(QWidget):
             if base_states is not None:
                 authored_states = [state for name, state in base_states.items() if name.startswith(prefix)] if self.scope else list(base_states.values())
             self.effects_panel.set_context(target["effects"], self.document["effects"] if self.scope else {}, states, label, bool(self.scope), (self.scope, context_key), self.document['ink_timing'], all_states, VIDEO_EFFECTS if video else tuple(effect.id for effect in EFFECTS if effect.id != 'subject_cutout'), authored_states=authored_states)
+            automation_sections = [section] if self.scope else self.document["sections"]
+            counts = {}
+            for owner in automation_sections:
+                for event in owner.get("automations", ()):
+                    counts[event["path"]] = counts.get(event["path"], 0) + 1
+            self.effects_panel.set_automation_counts(counts)
+            total_events = sum(len(owner.get("automations", ())) for owner in self.document["sections"])
+            self.automations_button.setText(f"Automations ({total_events})…" if total_events else "Automations…")
             self.object_panel.refresh(self.effects_panel.summary, target['effects'], self.document['effects'] if self.scope else {}, bool(self.scope), context_key=(self.scope, context_key), scope_label=label.removeprefix('Editing: '))
             for key, control in self.macro_controls.items():
                 control.set_value(target["macros"][key], key in target["locks"])
@@ -963,10 +994,70 @@ class CompositionPanel(QWidget):
             effects.pop(effect_id, None)
         else:
             effects[effect_id] = without_timing(entry) if effect_id == 'ink_bloom' else entry
+        if action == 'effect-remove':
+            from synth_effects import EFFECT_BY_ID
+            owners = [document['sections'][self.index]] if self.scope else document['sections']
+            for owner in owners:
+                events = [event for event in owner.get('automations', ()) if event['path'] not in EFFECT_BY_ID[effect_id].paths]
+                if events: owner['automations'] = events
+                else: owner.pop('automations', None)
         if action == 'effect-remove' and not self.scope:
             for section in document['sections']:
                 section['effects'].pop(effect_id, None)
         self.commit(document, f"{action}:{self.scope}:{self.index}:{effect_id}")
+
+    def automation_section_id(self):
+        if self.scope: return self.document['sections'][self.index]['id']
+        time = self.playhead_seconds()
+        for index, start, end, repetition in section_placements(self.document):
+            if start <= time < end: return self.document['sections'][index]['id']
+        return self.document['sections'][-1]['id']
+
+    def _show_automation_dialog(self, dialog):
+        self.automation_dialogs.append(dialog)
+        def finished():
+            if dialog in self.automation_dialogs: self.automation_dialogs.remove(dialog)
+            dialog.deleteLater()
+        dialog.finished.connect(finished); dialog.setModal(True); dialog.show()
+        return dialog
+
+    def open_automation(self, path=None, section_id=None, event_id=None):
+        from synth_automation_ui import AutomationEditor
+        return self._show_automation_dialog(AutomationEditor(self, path, section_id, event_id))
+
+    def open_automation_list(self, path=None):
+        from synth_automation_ui import AutomationList
+        return self._show_automation_dialog(AutomationList(self, path))
+
+    def parameter_automation(self, path):
+        if self.effects_panel.automation_counts.get(path, 0): return self.open_automation_list(path)
+        return self.open_automation(path)
+
+    def save_automation(self, section_id, event, old_section=None, old_id=None):
+        document = copy.deepcopy(self.document)
+        if old_id:
+            previous = next(s for s in document['sections'] if s['id'] == old_section)
+            previous['automations'] = [e for e in previous.get('automations', ()) if e['id'] != old_id]
+        owner = next(s for s in document['sections'] if s['id'] == section_id)
+        owner.setdefault('automations', []).append(event)
+        normalized = normalize_composition(document)  # Draft errors remain inside the editor.
+        if normalized != self.document: self.commit(normalized, 'automation-apply')
+
+    def change_automation(self, section_id, event_id, operation, start_fraction=None):
+        if operation == 'edit': return self.open_automation(section_id=section_id, event_id=event_id)
+        document = copy.deepcopy(self.document)
+        owner = next(s for s in document['sections'] if s['id'] == section_id)
+        event = next(e for e in owner.get('automations', ()) if e['id'] == event_id)
+        if operation == 'remove': owner['automations'].remove(event)
+        elif operation == 'toggle': event['enabled'] = not event['enabled']
+        elif operation == 'move': event['start_fraction'] = start_fraction
+        else: raise ValueError('Unknown automation operation')
+        normalized = normalize_composition(document)
+        if normalized != self.document: self.commit(normalized, 'automation-' + operation)
+
+    def timeline_automation(self, section_id, event_id, operation, start_fraction=None):
+        try: self.change_automation(section_id, event_id, operation, start_fraction)
+        except ValueError as exc: self.failed.emit(str(exc))
 
     def show_timing_scope(self, timing):
         timing = timing and self.effects_panel.focused and self.look_tabs.currentIndex() == 0

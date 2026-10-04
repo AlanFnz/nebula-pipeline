@@ -30,6 +30,7 @@ def format_value(path, value):
 class EffectParameter(QWidget):
     changed = Signal(object)
     reset = Signal()
+    animate = Signal(str)
 
     def __init__(self, path):
         super().__init__()
@@ -94,6 +95,13 @@ class EffectParameter(QWidget):
         self.animated_value.setAccessibleName(spec.label + ' animated range')
         self.value_stack.addWidget(self.animated_value)
         if not block_input: row.addWidget(self.value_stack)
+        self.animate_button = None
+        from synth_automation import TARGETS
+        if path in TARGETS:
+            self.animate_button = QPushButton("Animate…"); self.animate_button.setProperty("compact", True)
+            self.animate_button.setAccessibleName("Animate " + spec.label)
+            self.animate_button.setToolTip("Add a temporary section gesture; the displayed value remains the base. Existing events are edited separately.")
+            self.animate_button.clicked.connect(lambda: self.animate.emit(self.path))
         self.reset_button = QPushButton('↶'); self.reset_button.setFixedWidth(30)
         self.reset_button.setAccessibleName(f'Restore {spec.label}')
         self.reset_button.clicked.connect(self.reset.emit); row.addWidget(self.reset_button)
@@ -112,6 +120,15 @@ class EffectParameter(QWidget):
         if self.slider: layout.addWidget(self.slider)
         self.origin = QLabel(); self.origin.setWordWrap(True)
         self.origin.setObjectName('muted'); layout.addWidget(self.origin)
+        if self.animate_button:
+            automation_row = QHBoxLayout(); automation_row.addStretch(1); automation_row.addWidget(self.animate_button)
+            layout.addLayout(automation_row)
+
+    def set_automation_count(self, count):
+        if self.animate_button:
+            self.animate_button.setText(f"Automations ({count})…" if count else "Animate…")
+            self.animate_button.setAccessibleName(f"{self.spec.label}: {count} automation events" if count else "Animate " + self.spec.label)
+            self.label.setText(self.spec.label + (" · Base" if count else ""))
 
     def emit_change(self, value):
         self.update_swatch(value)

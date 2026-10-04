@@ -30,6 +30,7 @@ def control_group(path):
         if key == 'exposure': return 'Color & light'
         if key == 'angle': return 'Shape & layout'
     if module == 'broadcast' and key == 'roll': return 'Motion & timing'
+    if module == 'tape' and key == 'pull': return 'Motion & timing'
     if module == 'tape' and key == 'tracking': return 'Texture & detail'
     if key in ('content', 'font', 'artwork'): return 'Wording & source' if module == 'text' else 'Source'
     if key in ('copies', 'copy_gap', 'copy_floor'): return 'Repetitions'
