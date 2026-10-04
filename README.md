@@ -622,6 +622,9 @@ detailed sequence/preset windows disable composition Undo/Redo.
   another instance** when Tape damage is already applied. Numbered passes have
   their own parameters, bypass, removal and automation targets. Animate the new
   pass's Horizontal pull to introduce a temporary stretch over an existing look.
+  **Pull edges → Keep canvas filled** holds both frame edges in place and
+  stretches the interior. New clean passes use it by default; **Allow blanking**
+  preserves the older sideways shift. This choice affects only Horizontal pull.
   Added passes run after the established image effects in creation order; a
   neutral pass leaves the image unchanged. This first instance implementation
   supports Tape damage (up to 64 slots) and requires Nebula 0.5.1 or newer.

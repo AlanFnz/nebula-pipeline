@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.5.2 — 2026-10-04
+
+- Add Tape damage's **Pull edges → Keep canvas filled** mode. Horizontal pull
+  stretches the interior while anchoring both canvas edges, without exposing
+  blank strips, repeating the image, extending flat edge colors or zooming.
+  Clean pull / animate and newly added tape passes use this mode.
+- Preserve legacy blanking for existing projects and leave other tape faults
+  unchanged. Gesture timing and strength remain individually configurable.
+
 ## 0.5.1 — 2026-10-04
 
 - Add independent Tape damage instances from the inspector or Add effect browser.
