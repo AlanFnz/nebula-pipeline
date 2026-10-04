@@ -87,6 +87,7 @@ class EffectChoice(QFrame):
 
 class EffectsPanel(QWidget):
     edited = Signal(str, object, str)
+    automation_requested = Signal(str)
     timing_edited = Signal(str, object)
     timing_reset = Signal()
     timing_selected = Signal(bool)
@@ -100,6 +101,7 @@ class EffectsPanel(QWidget):
 
     def __init__(self):
         super().__init__()
+        self.automation_counts = {}
         self.entries = {}; self.parent_entries = {}; self.summary = {}; self.authored_summary = {}
         self.effect_id = "rays"; self.controls = {}; self.rows = {}; self.control_cache = {}
         self.context_key = None; self.local = False; self.focused = True
@@ -348,7 +350,7 @@ class EffectsPanel(QWidget):
         self.remove_button.setEnabled(effect.id in self.browser_applied_ids())
         self.remove_button.setAccessibleName(f'Remove {effect.label}')
         removal_hint = ('Remove this effect from the selected section and clear its local settings. Other sections keep it.'
-                        if self.local else 'Remove this effect from the whole clip, including its section settings.') + ' Undo restores it.'
+                        if self.local else 'Remove this effect from the whole clip, including its section settings.') + ' Its automation is removed too. Undo restores both.'
         self.remove_button.setToolTip(removal_hint)
         for item in self.effect_choices.values(): item.remove.setToolTip(removal_hint)
         if tuple(self.controls) != effect.paths:
@@ -361,6 +363,7 @@ class EffectsPanel(QWidget):
             if not self.controls:
                 for path in effect.paths:
                     control = EffectParameter(path)
+                    control.animate.connect(self.automation_requested.emit)
                     control.changed.connect(lambda value, path=path, effect_id=effect.id: self.change_parameter(path, value, effect_id))
                     control.reset.connect(lambda path=path, effect_id=effect.id: self.reset_parameter(path, effect_id))
                     self.controls[path] = control
@@ -381,7 +384,9 @@ class EffectsPanel(QWidget):
                 control.setToolTip('One timing setup for the whole composition, regardless of the selected section.')
             else:
                 control.refresh(info["ranges"][path], entry["params"].get(path), path in parent.get("params", {}), available, parent_value=parent.get("params", {}).get(path), scope_label=self.context_scope_label.removeprefix("Editing: "), context_key=self.context_key)
+            control.set_automation_count(self.automation_counts.get(path, 0))
             control.base_origin = control.origin.text()
+        self.apply_button.setToolTip("Replace the base settings; existing section automation is retained.")
         self.apply_button.setText("Preview preset…" if self.discovery_enabled and effect.id not in SOURCE_EFFECTS else "Replace with preset" if effect.id in self.applied_ids else "Apply preset")
         self.status.setText("Active during part of the recipe. On keeps it enabled throughout." if info["intermittent"] else
                             "Active. Unedited values keep following their recipe." if info["active"] else
@@ -394,6 +399,10 @@ class EffectsPanel(QWidget):
         self.show_controls()
         self.updating = False
         self.navigation_changed.emit()
+
+    def set_automation_counts(self, counts):
+        self.automation_counts = counts
+        for path, control in self.controls.items(): control.set_automation_count(counts.get(path, 0))
 
     def change_parameter_tab(self, _index):
         with QSignalBlocker(self.filter): self.filter.clear()

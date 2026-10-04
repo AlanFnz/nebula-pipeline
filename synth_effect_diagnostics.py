@@ -1,7 +1,8 @@
 """Presentation facts and conditional guidance; never infer stage luminance."""
 from dataclasses import dataclass
 from pathlib import Path
-from synth_effects import EFFECT_BY_ID, merge_effects, state_values
+from synth_effects import EFFECT_BY_ID, merge_effects, state_values, parameter
+from synth_automation import envelope
 from synth_sequence import resolve_sequence_frame
 
 
@@ -40,11 +41,20 @@ def explain_effect(document, sequence, effect_id, seconds, section_id=None, reso
     active = any(m in enabled for m in relevant)
     if effect_id == 'ghosts': active = 'smear' in enabled or ('slab' in enabled and p('slab.ghost_opacity') > 0)
     if effect_id == 'cloud': active = 'slab' in enabled
+    gestures = [event for event in sequence.get("automations", ()) if event["path"] in effect.paths and envelope(event, seconds) != 0]
     if not active:
+        if gestures:
+            fact("automation-inactive", "A timed gesture is active, but this effect is disabled or bypassed. Resume or enable it to see the change.", "activation")
         message = f'Inactive at {seconds:.2f}s; its resolved modules are disabled.'
         if effect_id == 'cloud': message = 'Granular halo needs Luminous forms at this frame.'
         fact('dependency' if effect_id == 'cloud' else 'disabled', message, 'object' if effect_id == 'cloud' else 'activation')
         return tuple(result)
+    for event in gestures:
+        target = event["path"]
+        spec = parameter(target)
+        effective = values[target]
+        displayed = f"{effective*100:.2f}%" if spec.step < .01 else f"{effective:.2f}"
+        fact("automation", f"{spec.label}: {displayed} with temporary automation; returns to the moving base.", target)
     zero = None
     if effect_id == 'edge_phosphor' and p('edge_phosphor.mix') == 0: zero = 'edge_phosphor.mix'
     elif effect_id == 'bloom' and p('bloom.strength') == 0: zero = 'bloom.strength'
