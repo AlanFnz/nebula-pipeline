@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+## 0.5.0 — 2026-10-04
+
+- Add section-based parameter automation: timed rise, hold and recovery gestures
+  with signed strength, smooth or linear easing, and a compact curve editor.
+  Animate is available on 18 continuous image-treatment controls.
+- Show gestures in a compact timeline lane with edit, move, disable and remove
+  actions. Events follow section order, proportional resizing and loops; base
+  settings and authored study animation continue underneath them.
+- Add a neutral horizontal pull to Tape damage and a Clean pull / animate preset.
+  Existing tape fault timing and zero-pull rendering remain unchanged.
+- Preserve gestures through Undo/Redo, snapshots, Studies, save/load, detailed
+  copies and MP4 exports. Exact event boundaries restore the underlying image;
+  preview edits invalidate obsolete prepared frames.
+- Preserve generated render versions when converting detailed sequences back
+  into compositions. All 121 frozen rendering scenarios retain their pixels.
+- Include an editable ten-second portrait example with a one-second pull at 4s.
+  Audio reactivity, arbitrary keyframes and Master automation remain deferred.
+
 ## 0.4.4 — 2026-10-03
 
 - Keep timeline help, sections and preview settings packed at the top when
