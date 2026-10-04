@@ -87,7 +87,7 @@ EFFECTS = (
            looks=(("Tracking loss", {}), ("Hard cuts", {"breakup.amount": .24, "breakup.bands": 9, "breakup.dropout": .35, "breakup.rate": 5., "breakup.mix": 1.}))),
     Effect("tape", "Tape damage", "Faults in the recorded image: tracking slips, scanline loss, color lag and bleed. Adds no bars or independent shapes.", paths("tape"), ("tape",),
            looks=(("Worn tape", {}), ("Tracking slip", {"tape.tracking": .11, "tape.dropouts": .5, "tape.mix": 1.}),
-                  ("Color bleed", {"tape.tracking": .01, "tape.chroma_delay": .015, "tape.bleed": .03}), ("Clean pull / animate", {"tape.pull": 0., "tape.tracking": 0., "tape.jitter": 0., "tape.dropouts": 0., "tape.chroma_delay": 0., "tape.bleed": 0., "tape.head_switch": 0., "tape.mix": 1.}))),
+                  ("Color bleed", {"tape.tracking": .01, "tape.chroma_delay": .015, "tape.bleed": .03}), ("Clean pull / animate", {"tape.pull": 0., "tape.pull_edges": 1, "tape.tracking": 0., "tape.jitter": 0., "tape.dropouts": 0., "tape.chroma_delay": 0., "tape.bleed": 0., "tape.head_switch": 0., "tape.mix": 1.}))),
     Effect("drift", "Signal drift", "Continuous waves displace the combined image in two dimensions.", paths("warp"), ("warp",)),
     Effect("cloud", "Granular halo", "A noisy halo around luminous forms. Requires Luminous forms in the same section.",
            paths("slab", "cloud_strength cloud_detail cloud_tint cloud_position"), (), (("slab.cloud_strength", 0.), ("slab.cloud_detail", 0.)),

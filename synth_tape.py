@@ -17,6 +17,22 @@ def _sample_rows(signal, shifts):
     return result * ((x >= 0) & (x <= w - 1))[..., None]
 
 
+def _anchored_pull_shifts(width, displacement):
+    """Monotonic horizontal stretch, with both canvas edges held in place.
+
+    Map the source midpoint to 0.5 + displacement in each row. The inverse
+    rational mapping uses only in-frame pixels: no tiling, flat edge extension,
+    blanking or global zoom. Identity at zero and positive derivative throughout.
+    """
+    u = np.arange(width, dtype=np.float64)[None, :] / max(1, width - 1)
+    d = np.clip(np.asarray(displacement)[:, None], -.42, .42)
+    ratio = (.5 + d) / (.5 - d)
+    source = u / (ratio + (1 - ratio) * u) * (width - 1)
+    source[:, 0] = 0.
+    source[:, -1] = width - 1
+    return np.arange(width)[None, :] - source
+
+
 def render_tape_damage(arr, p, time, speed, seed, *, pull_time=None):
     if p["mix"] == 0 or (not p.get("pull", 0) and not any(p[key] for key in ("tracking", "jitter", "dropouts", "chroma_delay", "bleed", "head_switch"))):
         return arr
@@ -48,8 +64,15 @@ def render_tape_damage(arr, p, time, speed, seed, *, pull_time=None):
         center = .48 + .10 * math.sin(pull_time * speed * .73 + phase)
         profile = np.exp(-((y - center) / .30) ** 4)
         ripple = .82 + .12 * np.sin(y * 13 + pull_time * speed * .9 + phase) + .06 * np.sin(y * 31 - pull_time * speed * .4)
-        shift = shift + w * p["pull"] * .42 * profile * ripple
-    warped = _sample_rows(signal, shift[:, None])
+        displacement = p["pull"] * .42 * profile * ripple
+        if p.get('pull_edges', 0) == 1:
+            shifts = shift[:, None] + _anchored_pull_shifts(w, displacement)
+        else:
+            # Preserve the legacy operation order as well as its blanking.
+            shifts = (shift + w * p['pull'] * .42 * profile * ripple)[:, None]
+    else:
+        shifts = shift[:, None]
+    warped = _sample_rows(signal, shifts)
 
     # Delay and low-pass the chroma while retaining the sharper luminance.
     luminance = warped @ np.array((.299, .587, .114))
