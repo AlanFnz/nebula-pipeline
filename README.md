@@ -617,6 +617,14 @@ detailed sequence/preset windows disable composition Undo/Redo.
   documents require the app version introducing this feature; older releases
   cannot preserve these optional fields. See the [delivery notes](docs/timed-effect-automation-delivery.md)
   for the complete target list and independent ten-second example.
+- **Tape damage → Add instance** adds another independent, neutral pass without
+  replacing existing tape settings. The Add effect browser also offers **Add
+  another instance** when Tape damage is already applied. Numbered passes have
+  their own parameters, bypass, removal and automation targets. Animate the new
+  pass's Horizontal pull to introduce a temporary stretch over an existing look.
+  Added passes run after the established image effects in creation order; a
+  neutral pass leaves the image unchanged. This first instance implementation
+  supports Tape damage (up to 64 slots) and requires Nebula 0.5.1 or newer.
 - **How this look is built** in the Effects overview explains the actual sources
   and treatments in the current scope. Contributions open their existing controls;
   **Compare without this effect** auditions a temporary bypass with no undo entry.
