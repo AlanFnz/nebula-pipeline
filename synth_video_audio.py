@@ -64,6 +64,7 @@ def _coalesce_video_segments(time_map):
             previous = segments[-1]
             expected = previous['video_start']+(entry['start']-previous['start'])*previous['video_rate']
             if (previous['video_rate'] == entry['video_rate'] and
+                    previous.get('footage') == entry.get('footage') and
                     math.isclose(previous['end'], entry['start'], rel_tol=0., abs_tol=1e-9) and
                     math.isclose(expected, entry['video_start'], rel_tol=0., abs_tol=1e-9)):
                 previous['end'] = entry['end']
@@ -73,13 +74,9 @@ def _coalesce_video_segments(time_map):
 
 
 def _mux_mapped_audio(video, destination, footage, start, duration, cancel, time_map):
-    span = footage['out']-footage['in']
     with tempfile.TemporaryDirectory(prefix='.nebula-audio-', dir=Path(video).parent) as folder:
         folder = Path(folder)
-        trimmed = folder/'trim.wav'
-        run_ffmpeg(['-i', footage['path'], '-map', '0:a:0', '-vn',
-            '-af', f"atrim=start={footage['in']}:end={footage['out']},asetpts=PTS-STARTPTS,aresample=48000,apad",
-            '-t', str(span), '-c:a', 'pcm_s16le', str(trimmed)], cancel)
+        trims = {}
         pieces = []
         for segment in _coalesce_video_segments(time_map):
             left = max(start, segment['start'])
@@ -88,15 +85,25 @@ def _mux_mapped_audio(video, destination, footage, start, duration, cancel, time
             length = right-left
             offset = segment['video_start']+(left-segment['start'])*segment['video_rate']
             rate = segment['video_rate']
+            source = segment.get('footage', footage)
+            span = source['out']-source['in']
             piece = folder/f'piece-{len(pieces)}.wav'
-            if footage['end_mode'] == 'hold' and offset >= span:
+            if source['audio'] != 'keep' or not source['has_audio'] or (source['end_mode'] == 'hold' and offset >= span):
                 args = ['-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo', '-t', str(length)]
             else:
+                key = (source['path'], source['in'], source['out'])
+                if key not in trims:
+                    check_source(source)
+                    trimmed = folder/f'trim-{len(trims)}.wav'
+                    run_ffmpeg(['-i', source['path'], '-map', '0:a:0', '-vn',
+                        '-af', f"atrim=start={source['in']}:end={source['out']},asetpts=PTS-STARTPTS,aresample=48000,apad",
+                        '-t', str(span), '-c:a', 'pcm_s16le', str(trimmed)], cancel)
+                    trims[key] = trimmed
                 args = []
-                if footage['end_mode'] == 'loop':
+                if source['end_mode'] == 'loop':
                     args += ['-stream_loop', '-1']
                     offset %= span
-                args += ['-i', str(trimmed), '-af',
+                args += ['-i', str(trims[key]), '-af',
                     f'atrim=start={offset}:duration={length*rate},asetpts=PTS-STARTPTS,'
                     f'{_tempo_filters(rate)},apad,atrim=duration={length},asetpts=PTS-STARTPTS']
             # A common format makes concatenation independent of the source's
@@ -116,3 +123,12 @@ def _mux_mapped_audio(video, destination, footage, start, duration, cancel, time
             '-t', str(duration), '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k',
             '-movflags', '+faststart', str(destination)]
         run_ffmpeg(args, cancel)
+
+
+def mux_section_audio(video, destination, segments, start, duration, cancel):
+    for segment in segments:
+        source = check_source(segment['footage'])
+        target = Path(destination)
+        if target.resolve() == source.resolve() or (target.exists() and target.samefile(source)):
+            raise ValueError('Audio export cannot overwrite a source video')
+    return _mux_mapped_audio(video, destination, segments[0]['footage'], start, duration, cancel, segments)

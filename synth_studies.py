@@ -216,11 +216,9 @@ def save_study(project, name, directory=None, cancel=None):
     destination = root / key
     with tempfile.TemporaryDirectory(prefix='.saving-', dir=root) as staging:
         staged = Path(staging)
-        documents = [document, *(item['document'] for item in document.get('snapshots', []))]
+        from synth_section_sources import footage_references
         copies = {}
-        for piece in documents:
-            if 'footage' not in piece: continue
-            footage = piece['footage']
+        for footage in footage_references(document):
             original = check_source(footage)
             media_key = (str(original.resolve()), footage['identity']['size'], footage['identity']['mtime_ns'])
             if media_key not in copies:
@@ -239,8 +237,6 @@ def save_study(project, name, directory=None, cancel=None):
                 copies[media_key] = (copied.relative_to(staged).as_posix(), {'size': stat.st_size, 'mtime_ns': stat.st_mtime_ns})
             footage['path'], footprint = copies[media_key]
             footage['identity'] = dict(footprint)
-            if 'footage' in piece['source']:
-                piece['source']['footage'] = copy.deepcopy(footage)
         save_composition(staged / 'study.json', document)
         (staged / 'metadata.json').write_text(json.dumps({
             'schema_version': 1, 'saved_at': datetime.now().astimezone().isoformat(),

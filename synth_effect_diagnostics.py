@@ -31,7 +31,9 @@ def explain_effect(document, sequence, effect_id, seconds, section_id=None, reso
         fact('bypassed', 'Bypassed. Your settings are retained.' if local else 'Whole clip default is bypassed. Section Resume overrides it.', 'resume', where='In this scope')
     elif entry.get('mode') == 'off':
         fact('off', f'Off in {scope}.' if local else 'Whole clip default is off. Section activation overrides it.', 'activation', where='In this scope')
-    if 'footage' in document and not Path(document['footage']['path']).is_file():
+    from synth_section_sources import video_source_at
+    footage, _video_time = video_source_at(sequence, seconds)
+    if footage and not Path(footage['path']).is_file():
         fact('missing-media', 'Source video is missing.', 'source')
         return tuple(result)
     _, _, _, _, _, transition, amount, base = resolved or resolve_sequence_frame(sequence, seconds)

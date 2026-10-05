@@ -1,4 +1,4 @@
-"""Global source controls for video compositions."""
+"""Shared or section-owned source controls for video compositions."""
 from pathlib import Path
 from PySide6.QtCore import Signal, Qt
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QCheckBox
@@ -11,16 +11,34 @@ class VideoSourcePanel(QWidget):
     relinkRequested = Signal()
     durationRequested = Signal(float)
     treatmentRequested = Signal(int)
+    sourceModeRequested = Signal(bool)
+    speedRequested = Signal(float, bool)
 
     def __init__(self):
         super().__init__()
         self.updating = False
         self.footage = None
         layout = QVBoxLayout(self)
-        title = QLabel('VIDEO SOURCE / whole clip'); title.setObjectName('sectionTitle'); layout.addWidget(title)
+        self.title = QLabel('VIDEO SOURCE / whole clip'); self.title.setObjectName('sectionTitle'); layout.addWidget(self.title)
+        self.source_mode = ComboBox(); self.source_mode.setAccessibleName('Section footage source')
+        self.source_mode.addItem('Use shared footage · continuous', False)
+        self.source_mode.addItem('Independent footage · starts at In', True)
+        self.source_mode.currentIndexChanged.connect(lambda _: not self.updating and self.sourceModeRequested.emit(self.source_mode.currentData()))
+        layout.addWidget(self.source_mode)
+        self.scope_note = QLabel(); self.scope_note.setWordWrap(True); self.scope_note.setObjectName('muted'); layout.addWidget(self.scope_note)
         self.name = QLabel(); self.name.setWordWrap(True); self.name.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse); layout.addWidget(self.name)
         self.metadata = QLabel(); self.metadata.setWordWrap(True); self.metadata.setObjectName('muted'); layout.addWidget(self.metadata)
-        relink = QPushButton('Relink / replace video…'); relink.clicked.connect(self.relinkRequested.emit); layout.addWidget(relink)
+        self.relink = QPushButton('Relink / replace video…'); self.relink.clicked.connect(self.relinkRequested.emit); layout.addWidget(self.relink)
+        self.speed_row = QWidget(); speed_layout = QHBoxLayout(self.speed_row); speed_layout.setContentsMargins(0, 0, 0, 0)
+        speed_layout.addWidget(QLabel('Playback speed'))
+        self.speed = DoubleSpinBox(); self.speed.setRange(.05, 16.); self.speed.setDecimals(2); self.speed.setSingleStep(.1); self.speed.setSuffix(' ×'); self.speed.setKeyboardTracking(False)
+        self.speed.setAccessibleName('Section playback speed')
+        self.speed.setToolTip('Video speed for this section. 2× plays twice as fast. Match section duration also retimes effects and automation proportionally; turn it off to keep the section length.')
+        self.speed.valueChanged.connect(lambda value: not self.updating and self.speedRequested.emit(value, self.match_duration.isChecked()))
+        speed_layout.addWidget(self.speed); layout.addWidget(self.speed_row)
+        self.match_duration = QCheckBox('Match section duration to speed'); self.match_duration.setChecked(True)
+        self.match_duration.setToolTip('Keep the same source interval: 10 seconds at 1× becomes 5 seconds at 2×. Durations round to timeline frames.')
+        layout.addWidget(self.match_duration)
         self.controls = {}
         for key, label, low, high, step, suffix in (
             ('in', 'In', 0., 86400., .1, ' s'), ('out', 'Out', 0., 86400., .1, ' s'),
@@ -48,12 +66,12 @@ class VideoSourcePanel(QWidget):
         layout.addWidget(QLabel('When footage ends')); layout.addWidget(self.end)
         self.audio = QCheckBox('Keep source audio in export'); self.audio.setAccessibleName('Keep source audio in export')
         self.audio.toggled.connect(lambda checked: self.change('audio', 'keep' if checked else 'mute')); layout.addWidget(self.audio)
-        note = QLabel('Preview is silent. Export follows the trim and loop; Hold ends the audio in silence. Sections change treatments without restarting the footage.')
+        note = QLabel('Preview is silent. Export follows each source’s trim and speed; Hold ends the audio in silence. Independent footage restarts at In on each section repeat.')
         note.setWordWrap(True); note.setObjectName('muted'); layout.addWidget(note)
-        duration = QPushButton('Use trimmed duration for timeline')
-        duration.clicked.connect(lambda: self.footage and self.durationRequested.emit(self.footage['out'] - self.footage['in']))
-        layout.addWidget(duration)
-        layout.addWidget(QLabel('TREATMENT PRESETS / keep this source'))
+        self.duration = QPushButton('Use trimmed duration for timeline')
+        self.duration.clicked.connect(lambda: self.footage and self.durationRequested.emit((self.footage['out'] - self.footage['in']) / (self.speed.value() if self.section else 1.)))
+        layout.addWidget(self.duration)
+        layout.addWidget(QLabel('TREATMENT PRESETS / whole clip · keep sources'))
         self.treatment = ComboBox(); self.treatment.setAccessibleName('Video treatment preset'); self.treatment.addItems([name for name, _ in TREATMENTS]); layout.addWidget(self.treatment)
         apply = QPushButton('Apply treatment preset'); apply.clicked.connect(lambda: self.treatmentRequested.emit(self.treatment.currentIndex()))
         apply.setToolTip('Replace image effects and master adjustments throughout this composition. Source, framing and section durations stay in place. Undo restores the previous treatment.')
@@ -63,18 +81,33 @@ class VideoSourcePanel(QWidget):
     def change(self, key, value):
         if not self.updating: self.edited.emit(key, value)
 
-    def refresh(self, footage):
+    def refresh(self, footage, section=None):
         if footage is None: return
         self.updating = True
         self.footage = footage
+        self.section = section
         try:
+            local = section is not None
+            independent = local and 'footage' in section
+            self.title.setText('VIDEO SOURCE / selected section' if local else 'VIDEO SOURCE / whole clip')
+            self.source_mode.setVisible(local); self.source_mode.setCurrentIndex(1 if independent else 0)
+            self.scope_note.setText('This section has its own trim, framing and source. Other sections keep their footage.' if independent else
+                                   'Follows the shared source continuously. Choose independent footage to edit this section’s trim and framing, or choose another video.' if local else
+                                   'Edits affect sections using shared footage. Independent sections keep their own source settings.')
+            self.relink.setText('Choose video for this section…' if local else 'Relink / replace shared video…')
+            self.speed_row.setVisible(local); self.match_duration.setVisible(local)
+            rate = section.get('video_rate', 1.) if local else 1.
+            self.speed.setRange(min(.05, rate), max(16., rate)); self.speed.setValue(rate)
+            self.duration.setText('Use trimmed duration for this section' if local else 'Use trimmed duration for timeline')
             self.name.setText(Path(footage['path']).name); self.name.setToolTip(footage['path'])
             missing = ' · MISSING — relink below' if not Path(footage['path']).exists() else ''
             self.metadata.setText(f"{footage['width']}×{footage['height']} · {footage['fps']:.3f} fps · {footage['duration']:.2f}s · {'audio' if footage['has_audio'] else 'no audio'}{missing}")
             for key, control in self.controls.items():
                 if key in ('in', 'out'): control.setMaximum(footage['duration'])
                 control.setValue(footage[key])
+                control.setEnabled(not local or independent)
+            self.fit.setEnabled(not local or independent); self.end.setEnabled(not local or independent)
             self.fit.setCurrentIndex(self.fit.findData(footage['fit']))
             self.end.setCurrentIndex(self.end.findData(footage['end_mode']))
-            self.audio.setEnabled(footage['has_audio']); self.audio.setChecked(footage['has_audio'] and footage['audio'] == 'keep')
+            self.audio.setEnabled(footage['has_audio'] and (not local or independent)); self.audio.setChecked(footage['has_audio'] and footage['audio'] == 'keep')
         finally: self.updating = False

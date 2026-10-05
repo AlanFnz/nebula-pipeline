@@ -143,10 +143,14 @@ def preview_context(sequence, size, bypass, proxy_root=None):
     media = ()
     if sequence and 'footage' in sequence:
         from synth_video import PROXY_EDGE, proxy_directory
-        footage = sequence['footage']
-        key = hashlib.sha256(json.dumps([footage['path'], footage['identity'], footage['sample_fps'], PROXY_EDGE, 1], sort_keys=True).encode()).hexdigest()
-        proxy = (Path(proxy_root) if proxy_root else proxy_directory()) / (key + '.mkv')
-        media = (_file_fingerprint(footage['path']), _file_fingerprint(proxy))
+        from synth_section_sources import rendered_footage
+        sources = []
+        for footage in rendered_footage(sequence):
+            key = hashlib.sha256(json.dumps([footage['path'], footage['identity'], footage['sample_fps'], PROXY_EDGE, 1], sort_keys=True).encode()).hexdigest()
+            proxy = (Path(proxy_root) if proxy_root else proxy_directory()) / (key + '.mkv')
+            identity = (_file_fingerprint(footage['path']), _file_fingerprint(proxy))
+            if identity not in sources: sources.append(identity)
+        media = tuple(sources)
     return (tuple(size), bool(bypass), media)
 
 

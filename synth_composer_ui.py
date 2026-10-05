@@ -821,7 +821,9 @@ class CompositionPanel(QWidget):
         self.video_panel = VideoSourcePanel()
         self.video_panel.edited.connect(self.change_video)
         self.video_panel.relinkRequested.connect(self.relinkRequested.emit)
-        self.video_panel.durationRequested.connect(self.resize_clip)
+        self.video_panel.durationRequested.connect(self.resize_video_duration)
+        self.video_panel.sourceModeRequested.connect(self.change_video_source_mode)
+        self.video_panel.speedRequested.connect(self.change_video_speed)
         self.video_panel.treatmentRequested.connect(self.apply_video_treatment)
         self.look_tabs.addTab(self.video_panel, 'Source')
         self.look_tabs.currentChanged.connect(lambda _index: self.show_timing_scope(self.effects_panel.effect_id == 'ink_bloom' and self.effects_panel.parameter_tabs.currentIndex() == 1))
@@ -902,7 +904,8 @@ class CompositionPanel(QWidget):
             self.look_tabs.setTabVisible(self.look_tabs.indexOf(self.object_panel), not video)
             self.look_tabs.setTabVisible(2, not video)
             self.details_button.setVisible(not video)
-            self.video_panel.refresh(video)
+            source_section = self.document['sections'][self.index] if self.scope else None
+            self.video_panel.refresh(source_section.get('footage', video) if source_section else video, source_section)
             minimum_frames = sum(int(self.document['sections'][index].get('loops', 1))
                                  for index, _start, _end, _pass in section_placements(self.document))
             self.duration.setMinimum(minimum_frames / self.document["fps"])
@@ -1100,18 +1103,46 @@ class CompositionPanel(QWidget):
     def show_timing_scope(self, timing):
         timing = timing and self.effects_panel.focused and self.look_tabs.currentIndex() == 0
         master = self.look_tabs.currentWidget() is self.master_panel
-        source = self.look_tabs.currentWidget() is self.video_panel
-        self.scope_combo.setVisible(not (timing or master or source))
+        self.scope_combo.setVisible(not (timing or master))
         self.timing_scope_label.setVisible(timing)
         self.master_scope_label.setVisible(master)
-        self.source_scope_label.setVisible(source)
+        self.source_scope_label.setVisible(False)
         self.take_label.setVisible(not master)
 
     def change_video(self, key, value):
         if self.updating: return
         document = copy.deepcopy(self.document)
-        document['footage'][key] = value
-        self.commit(document, f'video:{key}')
+        target = self.target(document)
+        if self.scope: target.setdefault('footage', copy.deepcopy(document['footage']))
+        target['footage'][key] = value
+        self.commit(document, f'video:{self.scope}:{self.index}:{key}')
+
+    def change_video_source_mode(self, independent):
+        if self.updating or not self.scope: return
+        document = copy.deepcopy(self.document); section = self.target(document)
+        if independent: section.setdefault('footage', copy.deepcopy(document['footage']))
+        else: section.pop('footage', None)
+        self.commit(document, 'video-source-mode')
+
+    def change_video_speed(self, rate, match_duration):
+        if self.updating or not self.scope: return
+        from synth_composition import stretch_section
+        section = self.document['sections'][self.index]
+        if match_duration:
+            duration = section['duration'] * section.get('video_rate', 1.) / rate
+            document = stretch_section(self.document, section['id'], duration, 'video')
+        else:
+            document = copy.deepcopy(self.document)
+            document['sections'][self.index]['video_rate'] = rate
+        self.commit(document, 'video-speed')
+
+    def resize_video_duration(self, duration):
+        if self.scope:
+            from synth_composition import stretch_section
+            section = self.document['sections'][self.index]
+            document = stretch_section(self.document, section['id'], duration, 'effects')
+            self.commit(document, 'video-trim-duration')
+        else: self.resize_clip(duration)
 
     def apply_video_treatment(self, index):
         self.commit(apply_treatment(self.document, index), 'video-treatment')
@@ -1455,11 +1486,11 @@ class CompositionPanel(QWidget):
             action = 'object-reset'
         elif page is self.video_panel:
             from synth_video import normalize_footage
-            raw = copy.deepcopy(document['footage'])
+            raw = copy.deepcopy(target.get('footage', document['footage']))
             for key in self.video_panel.controls:
                 if key not in ('in', 'out'): raw.pop(key, None)
             for key in ('fit', 'end_mode', 'audio'): raw.pop(key, None)
-            document['footage'] = normalize_footage(raw)
+            target['footage'] = normalize_footage(raw)
             action = 'video-reset'
         else:
             for key in MACROS:

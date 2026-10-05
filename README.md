@@ -84,15 +84,27 @@ remains available from the same `studio.py` entry point.
 
 **Import video…** opens a new composition at the footage's aspect ratio and
 frame rate. Preparation runs in the background and can be cancelled. The
-composition being left is backed up in
-`~/Library/Application Support/Nebula Studio/Backups/` before switching.
+unsaved composition being left can be saved before switching.
 
-- **Source** controls the global In/Out range, uniform scale, X/Y position, rotation and
+- **Source**, with **Editing: Whole clip**, controls the shared In/Out range, uniform scale, X/Y position, rotation and
   Fit / Fill-crop / Original pixel size. Changing the canvas never stretches
   the footage. **Use trimmed duration for timeline** explicitly resizes the
   arrangement; otherwise section durations continue to determine the total.
+- Select a timeline section and open **Source → Choose video for this section…**
+  to replace only its footage, keeping effects and automation. Alternatively,
+  choose **Independent footage · starts at In** to give the same video its own
+  trim, framing and cadence. **Use shared footage · continuous** returns the
+  section to the shared source. Duplicating an independent section copies its
+  settings independently; local footage starts at In on each section repeat.
+- **Playback speed** is available in Source while editing a section. With
+  **Match section duration to speed** checked, 10 seconds at 1× becomes 5 seconds
+  at 2×, including proportional effect and automation timing. Uncheck it to
+  change only video speed while retaining the section duration and effect clocks.
+  **Use trimmed duration for this section** fits the local trim at its current
+  speed without changing other sections. Timeline-edge resizing still offers
+  **Effects only** and **Video + effects**.
 - **Loop trimmed range** repeats that range. **Hold last frame** freezes its
-  last frame. Footage time stays continuous across section boundaries; effects
+  last frame. Shared footage time stays continuous across section boundaries; effects
   can change without restarting the input.
 - **Effect cadence** holds shared procedural changes independently of footage playback;
   effects with their own FPS controls retain their independent clocks.
@@ -101,8 +113,8 @@ composition being left is backed up in
   **Timeline FPS**, always visible beside Canvas in the workspace header, sets the frame rate of the complete image in both
   preview and export, across every section. Try 12 or 15 fps for a stepped look;
   it changes sampling rather than slowing the action. Section durations round
-  to the nearest frame. Source playback is real time; this milestone does not
-  add speed ramps or reverse playback.
+  to the nearest frame. Speed changes are uniform within each section; speed
+  ramps and reverse playback remain future work.
 - **Effects** offers applicable image treatments: tape damage, breakup, scan
   drag, drift, ghosts, color separation, interference, exposure flare, jitter,
   bloom, raster/grain/softness, print surface, signal background and low-res
@@ -116,11 +128,13 @@ composition being left is backed up in
 - **Before / source** previews the same frame and framing without treatments or
   master grading. Export always includes the enabled treatments.
 - **Keep source audio in export** is explicit in Source. Uncheck it for a silent
-  MP4. Audio follows the trimmed loop; Hold pads its end with silence. The preview
+  MP4. Audio follows each section's source, trim and speed with preserved pitch;
+  muted clips insert silence and Hold pads its end with silence. The preview
   is currently silent. Export is atomic and cannot overwrite the input, including
   a symlink or hard-link alias.
 - Save/Open keeps the source file reference and its identity. Missing or changed
-  files have a clear relink message: **Source → Relink / replace video…** retains
+  files have a clear relink message. Replace shared footage in Whole clip scope,
+  or choose a replacement in that section's Source panel; this retains
   treatments and valid trim settings. The document does not embed the video;
   keep it with the project when moving between machines.
 
@@ -133,8 +147,9 @@ Variable-rate footage is sampled onto a deterministic timestamp grid, capped at
 120 fps; audio retains real-time duration. Processing and H.264 delivery use the
 studio's existing 8-bit RGB/SDR path, not an HDR mastering pipeline.
 
-Video compositions and compiled sequences use storage schema 2 so older builds
-reject them explicitly; generated documents retain schema 1 and their render
+Shared-video compositions and compiled sequences retain storage schema 2.
+Documents using independent footage use schema 3, so older builds reject them
+explicitly rather than silently using the wrong source. Generated documents retain schema 1 and their render
 versions, defaults and seeds. Pixel contracts cover all eleven studies,
 including both newer profile models. `synth_video.py` owns source identity,
 framing, clocks and decoding; `synth_video_audio.py` handles audio assembly.
