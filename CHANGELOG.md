@@ -1,6 +1,11 @@
 # Changelog
 
-## Unreleased
+## 0.6.2 — 2026-10-05
+
+- Explain section footage playback with actual source intervals, effective speed,
+  section length and hold/loop behavior, separate from the selected In/Out range.
+  Shared sections show Edit shared source and Make independent actions instead
+  of disabled trim/framing fields. Rendering and saved timing stay unchanged.
 
 - Reconcile the usage guide and roadmap with shipped section footage, loops,
   Tape damage instances and automation. Add a duration/speed/FPS reference and
