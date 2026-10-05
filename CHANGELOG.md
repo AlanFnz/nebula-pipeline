@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.6.1 — 2026-10-05
+
+- Clarify timeline resizing with compact **Keep footage speed** and
+  **Stretch footage** labels. Tooltips explain source Out limits, retained speed,
+  and proportional effects and automation timing. Existing resize behavior,
+  saved settings and rendering remain unchanged.
+
 ## 0.6.0 — 2026-10-05
 
 - Give timeline sections independent footage from Source, preserving their

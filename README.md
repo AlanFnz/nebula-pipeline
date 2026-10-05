@@ -102,7 +102,7 @@ unsaved composition being left can be saved before switching.
   change only video speed while retaining the section duration and effect clocks.
   **Use trimmed duration for this section** fits the local trim at its current
   speed without changing other sections. Timeline-edge resizing still offers
-  **Effects only** and **Video + effects**.
+  **Keep footage speed** and **Stretch footage**.
 - **Loop trimmed range** repeats that range. **Hold last frame** freezes its
   last frame. Shared footage time stays continuous across section boundaries; effects
   can change without restarting the input.
@@ -558,10 +558,13 @@ detailed sequence/preset windows disable composition Undo/Redo.
   same change, and the existing video resize mode applies to the selection.
   Scaling stops when a selected section reaches one frame or 300 seconds,
   or the complete arrangement reaches its one-hour limit.
-- For imported footage, **Resize: Effects only** below the timeline keeps the
-  source video's current speed. **Resize: Video + effects** also retimes the
+- For imported footage, **Resize: Keep footage speed** above the timeline keeps the
+  source video's current speed, revealing more or less of its selected range.
+  **Source → Out** limits that range; beyond Out, footage holds or loops according
+  to its source settings. **Resize: Stretch footage** also retimes the
   source video and any retained audio, preserving audio pitch. Choose the mode
   before dragging; it also applies to the section duration field in Arrange.
+  Both modes stretch effects and automation to fit the new section length.
   The mode affects the next resize, so switching it does not undo previous
   speed changes. Generated studies always stretch their effects. Saved studies,
   detailed copies, preview and export retain the resulting timing.
