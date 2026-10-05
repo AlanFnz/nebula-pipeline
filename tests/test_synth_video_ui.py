@@ -37,7 +37,7 @@ def test_video_controls_scope_effects_before_after_undo_and_reopen(window, tmp_p
     panel.look_tabs.setCurrentWidget(panel.video_panel)
     assert not panel.object_panel.isVisible()
     assert not panel.look_tabs.isTabVisible(panel.look_tabs.indexOf(panel.object_panel))
-    assert panel.scope_combo.isHidden()
+    assert not panel.scope_combo.isHidden()
     assert window.fit_subject.isHidden()
     assert not window.source_preview.isHidden()
     assert set(panel.effects_panel.available_ids) == set(VIDEO_EFFECTS)
@@ -49,6 +49,7 @@ def test_video_controls_scope_effects_before_after_undo_and_reopen(window, tmp_p
     assert window.composition['footage']['out'] == 1.
     panel.duplicate_section(); panel.select_section(1)
     panel.look_tabs.setCurrentWidget(panel.video_panel)
+    panel.change_scope(0)  # Shared-source edits explicitly use Whole clip.
     panel.video_panel.controls['treatment_fps'].setValue(6)
     assert all(s['overrides']['treatment_fps'] == 6 for s in window.sequence['states'].values())
     panel.video_panel.controls['motion_fps'].setValue(4)

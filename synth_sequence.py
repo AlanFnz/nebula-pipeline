@@ -50,10 +50,10 @@ def normalize_sequence(raw=None):
         return reference_sequence()
     if not isinstance(raw, dict):
         raise ValueError("Synth sequence must be a JSON object")
-    if raw.get("schema_version", 0) not in (1, 2):
+    if raw.get("schema_version", 0) not in (1, 2, 3):
         raise ValueError(f"Unsupported sequence schema version: {raw.get('schema_version')}")
     result = copy.deepcopy(reference_sequence())
-    if raw.get('schema_version') == 2 or 'footage' in raw:
+    if raw.get('schema_version') in (2, 3) or 'footage' in raw:
         from synth_video import normalize_footage
         result.update(schema_version=2, footage=normalize_footage(raw.get('footage')))
     result['render_version'] = render_version(raw)
@@ -69,6 +69,11 @@ def normalize_sequence(raw=None):
         result[key] = int(value) if key in {"fps", "seed"} else float(value)
     if 'time_map' in raw:
         result['time_map'] = normalize_time_map(raw['time_map'], result['duration'])
+    if 'video_segments' in raw:
+        if 'footage' not in result: raise ValueError('Video segments need a video source')
+        from synth_section_sources import normalize_video_segments
+        result['video_segments'] = normalize_video_segments(raw['video_segments'], result['duration'])
+        result['schema_version'] = 3
     field = copy.deepcopy(raw.get("field", NEUTRAL_FIELD))
     if not isinstance(field, dict):
         raise ValueError("field must be an object")
@@ -135,9 +140,8 @@ def save_sequence(path, sequence):
 
 def load_sequence(path):
     raw = json.loads(Path(path).read_text())
-    if isinstance(raw.get('footage'), dict) and raw['footage'].get('path'):
-        source = Path(raw['footage']['path'])
-        if not source.is_absolute(): raw['footage']['path'] = str((Path(path).resolve().parent / source).resolve())
+    from synth_section_sources import resolve_media_paths
+    resolve_media_paths(raw, Path(path).resolve().parent)
     return normalize_sequence(raw)
 
 
@@ -267,7 +271,8 @@ def render_sequence_frame(sequence, time_seconds, size=None, frame_provider=None
     source_mask = None
     if 'footage' in seq:
         from synth_video import frame_on_canvas
-        footage = seq['footage']
+        from synth_section_sources import video_source_at
+        footage, video_time = video_source_at(seq, t, video_time)
         source_size = output if bypass else working
         source = frame_provider.frame(footage, video_time, edge=max(*output, *source_size))
         source_image = frame_on_canvas(source, footage, base, source_size)

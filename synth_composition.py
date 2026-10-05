@@ -532,14 +532,14 @@ def _geometry(raw, section=False):
 
 
 def normalize_composition(raw):
-    if not isinstance(raw, dict) or raw.get("format") != FORMAT or raw.get("schema_version") not in (1, 2):
+    if not isinstance(raw, dict) or raw.get("format") != FORMAT or raw.get("schema_version") not in (1, 2, 3):
         raise ValueError("Unsupported composition document")
     snapshots = None
     if 'snapshots' in raw:
         from synth_exploration import normalize_snapshots
         snapshots = normalize_snapshots(raw['snapshots'])
     result = copy.deepcopy(raw)
-    if raw.get('schema_version') == 2 or 'footage' in raw:
+    if raw.get('schema_version') in (2, 3) or 'footage' in raw:
         from synth_video import normalize_footage
         result['footage'] = normalize_footage(raw.get('footage'))
         result['schema_version'] = 2
@@ -591,6 +591,11 @@ def normalize_composition(raw):
         section["macros"] = _controls(section.get("macros", {}))
         section["geometry"] = _geometry(section.get("geometry", {}), section=True)
         section["effects"] = normalize_effects(section.get("effects", {}))
+        if 'footage' in section:
+            if 'footage' not in result: raise ValueError('Section footage needs a video composition')
+            from synth_video import normalize_footage
+            section['footage'] = normalize_footage(section['footage'])
+            result['schema_version'] = 3
         if "automations" in section:
             events = normalize_automations(section["automations"])
             authored_event_count += len(events)
@@ -623,6 +628,7 @@ def normalize_composition(raw):
     if section_placements(result)[-1][2] > 3600:
         raise ValueError("Composition is longer than one hour")
     normalize_shared_timing(result)
+    if result['source'].get('video_segments'): result['schema_version'] = 3
     scopes = [result, *result['sections']]
     if 'footage' in result:
         from synth_video import VIDEO_EFFECTS
@@ -891,7 +897,7 @@ def compile_composition(raw, *, base_states=None):
                         base_states[state_name] = apply_shared_timing(base, project['ink_timing'])
                     result["states"][state_name] = apply_shared_timing(treated, project['ink_timing'])
                     if 'footage' in project:
-                        result['states'][state_name].setdefault('overrides', {})['treatment_fps'] = project['footage']['treatment_fps']
+                        result['states'][state_name].setdefault('overrides', {})['treatment_fps'] = section.get('footage', project['footage'])['treatment_fps']
                 item = dict(cue, time=frame / fps, state=state_name)
                 item["duration"] = min(float(cue.get("duration", 0)) / rate, loop_end - frame / fps)
                 if cue.get("transition") in {"flash", "sweep"}:
@@ -906,6 +912,10 @@ def compile_composition(raw, *, base_states=None):
     if compiled_automations: result['automations'] = compiled_automations
     if project['source'].get('time_map') or any(s.get('effects_rate', 1.) != 1 or s.get('video_rate', 1.) != 1 for s in project['sections']):
         result['time_map'] = compose_time_maps(clocks, project['source'].get('time_map'))
+    if 'footage' in project:
+        from synth_section_sources import compile_video_segments
+        segments = compile_video_segments(project, placements, clocks, result.get('time_map'))
+        if segments: result['video_segments'] = segments
     return normalize_sequence(result)
 
 
@@ -931,13 +941,6 @@ def save_composition(path, composition):
 
 def load_composition(path):
     raw = json.loads(Path(path).read_text())
-    documents = [raw]
-    if isinstance(raw, dict) and isinstance(raw.get('snapshots'), list):
-        documents += [item['document'] for item in raw['snapshots'] if isinstance(item, dict) and isinstance(item.get('document'), dict)]
-    for document in documents:
-        if not isinstance(document, dict): continue
-        for holder in (document, document.get('source', {})):
-            if isinstance(holder, dict) and isinstance(holder.get('footage'), dict) and holder['footage'].get('path'):
-                source = Path(holder['footage']['path'])
-                if not source.is_absolute(): holder['footage']['path'] = str((Path(path).resolve().parent / source).resolve())
+    from synth_section_sources import resolve_media_paths
+    resolve_media_paths(raw, Path(path).resolve().parent)
     return normalize_composition(raw)

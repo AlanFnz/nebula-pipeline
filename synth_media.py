@@ -30,9 +30,14 @@ def export_synth_video(preset, output, start=0, count=None, cancel=None, progres
     provider = None
     if footage:
         from synth_video import VideoFrameProvider, check_source
-        source_path = check_source(footage)
-        if output.resolve() == source_path.resolve() or (output.exists() and os.path.samefile(output, source_path)):
-            raise ValueError('Choose an output different from the source clip')
+        from synth_section_sources import footage_references, rendered_footage
+        # Protect every authored asset, even when all sections override the
+        # shared source. Validate only footage actually used by the export.
+        for source in footage_references(sequence_data):
+            source_path = Path(source['path'])
+            if output.resolve() == source_path.resolve() or (output.exists() and source_path.exists() and os.path.samefile(output, source_path)):
+                raise ValueError('Choose an output different from the source clip')
+        for source in rendered_footage(sequence_data): check_source(source)
         provider = VideoFrameProvider(cancel=cancel)
     canvas = sequence_data.get("canvas", p) if sequence_data else p
     width, height = size or (canvas["width"], canvas["height"])
@@ -74,11 +79,14 @@ def export_synth_video(preset, output, start=0, count=None, cancel=None, progres
             if code:
                 errors.seek(0)
                 raise ValueError(errors.read().decode(errors="replace")[-2000:] or "FFmpeg could not encode synth")
-        if footage and footage['audio'] == 'keep' and footage['has_audio']:
-            from synth_video_audio import mux_source_audio
+        if footage and any(source['audio'] == 'keep' and source['has_audio'] for source in rendered_footage(sequence_data)):
+            from synth_video_audio import mux_source_audio, mux_section_audio
             fd, name = tempfile.mkstemp(prefix='.nebula-mux-', suffix='.mp4', dir=output.parent)
             os.close(fd); muxed = Path(name)
-            mux_source_audio(temp, muxed, footage, start / export_fps, count / export_fps, cancel, time_map=sequence_data.get('time_map'))
+            if sequence_data.get('video_segments'):
+                mux_section_audio(temp, muxed, sequence_data['video_segments'], start / export_fps, count / export_fps, cancel)
+            else:
+                mux_source_audio(temp, muxed, footage, start / export_fps, count / export_fps, cancel, time_map=sequence_data.get('time_map'))
             cancel.check()
             os.replace(muxed, output)
         else:

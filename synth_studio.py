@@ -1187,15 +1187,18 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         return True
 
     def import_video_dialog(self, checked=False, relink=False):
-        path, _ = QFileDialog.getOpenFileName(self, 'Relink video' if relink else 'Import video as a new composition', '',
+        section_id = self.composer.document['sections'][self.composer.index]['id'] if relink and self.composer and self.composer.scope else None
+        title = 'Choose video for selected section' if section_id else 'Replace shared video' if relink else 'Import video as a new composition'
+        path, _ = QFileDialog.getOpenFileName(self, title, '',
             'Video (*.mp4 *.mov *.m4v *.mkv *.avi *.webm);;All files (*)')
-        if path: self.start_video_import(path, relink)
+        if path: self.start_video_import(path, relink, section_id=section_id)
 
-    def start_video_import(self, path, relink=False):
+    def start_video_import(self, path, relink=False, *, section_id=None):
         self.cancel_video_import()
         self.play.setChecked(False)
         job = ImportVideoJob(path)
         job.document_identity = self.document_identity
+        job.section_id = section_id
         self.import_job = job; self.pending_jobs.append(job)
         self.import_video_button.setEnabled(False); self.cancel_import.show()
         self.status.setText('Preparing video preview… You can keep editing. Original footage is used for export.')
@@ -1225,8 +1228,13 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         if getattr(job, "document_identity", None) is not self.document_identity: return
         if relink and self.composition and 'footage' in self.composition:
             document = copy.deepcopy(self.composition)
-            document['footage'] = relink_footage(document['footage'], footage)
+            section_id = getattr(job, 'section_id', None)
+            target = document if section_id is None else next((s for s in document['sections'] if s['id'] == section_id), None)
+            if target is None:
+                self.status.setText('The target section was removed while loading. No footage was replaced.'); return
+            target['footage'] = relink_footage(target.get('footage', document['footage']), footage)
             self.composer.commit(document, 'video-relink')
+            self.status.setText('Section footage replaced. Effects and other sections kept their settings.' if section_id else 'Shared footage replaced. Independent sections kept their videos.')
         else:
             if getattr(job, 'document_identity', None) is not self.document_identity: return
             project = video_composition(footage)
@@ -1419,6 +1427,9 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         if key in {'fps', 'duration'} and edited.get('time_map'):
             from synth_retime import resize_time_map
             edited['time_map'] = resize_time_map(edited['time_map'], edited['duration'])
+        if key in {'fps', 'duration'} and edited.get('video_segments'):
+            from synth_retime import resize_time_map
+            edited['video_segments'] = resize_time_map(edited['video_segments'], edited['duration'])
         try:
             self.sequence = normalize_sequence(edited)
         except ValueError as exc:
@@ -1481,8 +1492,8 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         documents = (self.composition, self.sequence, self.preset, *(item['document'] for item in (self.composition or {}).get('snapshots', [])))
         for document in documents:
             if not document: continue
-            footage = document.get('footage', document.get('source', {}).get('footage', {}))
-            if footage.get('path'):
+            from synth_section_sources import footage_references
+            for footage in footage_references(document):
                 source = Path(footage['path']).expanduser()
                 if resolved == source.resolve(): return True
                 try:
@@ -1762,7 +1773,9 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         if not self.ensure_preview_context(): return
         sequence = self.preview_sequence()
         if sequence and 'footage' in sequence:
-            try: check_source(sequence['footage'])
+            from synth_section_sources import video_source_at
+            source, _time = video_source_at(sequence, self.timeline.value()/self.preview_fps())
+            try: check_source(source)
             except (ValueError, OSError) as exc:
                 self.settings_generation += 1
                 self.preview_frames.clear(); self.cached_ranges.set_ranges([]); self.cancel_preparation(); self.render_queued = False
