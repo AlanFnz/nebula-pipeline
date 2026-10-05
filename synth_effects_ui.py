@@ -91,7 +91,6 @@ class EffectChoice(QFrame):
 
 
 class EffectsPanel(QWidget):
-    clipRequested = Signal(int)
     edited = Signal(str, object, str)
     automation_requested = Signal(str)
     instance_requested = Signal(str)
@@ -141,8 +140,6 @@ class EffectsPanel(QWidget):
         self.clip_host = QWidget(); self.clip_layout = QVBoxLayout(self.clip_host)
         self.clip_layout.setContentsMargins(0, 0, 0, 0); self.clip_layout.setSpacing(3); rack_layout.addWidget(self.clip_host)
         self.clip_note = QLabel(); self.clip_note.setWordWrap(True); self.clip_note.setObjectName('muted'); rack_layout.addWidget(self.clip_note)
-        self.clip_links = QWidget(); self.clip_links_layout = QVBoxLayout(self.clip_links)
-        self.clip_links_layout.setContentsMargins(0, 0, 0, 0); rack_layout.addWidget(self.clip_links)
         self.source_header = QWidget(); source_header_layout = QHBoxLayout(self.source_header)
         source_header_layout.setContentsMargins(0, 0, 0, 0); source_header_layout.setSpacing(6)
         self.source_title = QLabel('OBJECT / sources'); self.source_title.setObjectName('sectionTitle')
@@ -299,7 +296,7 @@ class EffectsPanel(QWidget):
         entry['bypassed'] = not self.is_bypassed(effect_id)
         self.edited.emit(effect_id, entry, 'effect-bypass')
 
-    def set_context(self, entries, parent_entries, states, scope_label, local, context_key, shared_timing=None, shared_states=None, allowed_effects=None, authored_states=None, *, clip_automations=(), clip_overrides=()):
+    def set_context(self, entries, parent_entries, states, scope_label, local, context_key, shared_timing=None, shared_states=None, allowed_effects=None, authored_states=None, *, clip_automations=()):
         self.updating = True
         self.entries = copy.deepcopy(entries); self.parent_entries = copy.deepcopy(parent_entries); self.local = local
         self.summary = describe_effects(states); self.authored_summary = describe_effects(authored_states) if authored_states is not None else self.summary
@@ -335,11 +332,14 @@ class EffectsPanel(QWidget):
                                      (e.id in entries or automated.intersection(e.paths)))
         self.project_effect_ids = tuple(e.id for e in treatments if e.id not in self.clip_effect_ids)
         self.rack_ids = set(self.applied_ids) | set(self.clip_effect_ids)
+        for button in (self.available_button, self.add_button):
+            button.setText('Add clip effect…' if local else 'Add project effect…')
+            button.setToolTip('Add an effect only to this clip.' if local else 'Add a shared project effect. Explicit clip overrides still take priority.')
         self.applied_title.setText(f'IMAGE EFFECTS · {len(self.project_effect_ids) + len(self.clip_effect_ids)}'); self.empty_applied.setVisible(not treatments)
         self.project_title.setText(f'PROJECT EFFECTS · {len(self.project_effect_ids)}' + (' · inherited' if local else ''))
         self.project_title.setVisible(bool(self.project_effect_ids))
         self.applied_host.setVisible(bool(self.project_effect_ids))
-        self.empty_applied.setText('No project image effects. Add an effect in Entire project to share it across clips.' if not local else 'No inherited project image effects.')
+        self.empty_applied.setText('No project image effects. Choose Add project effect to share a treatment across clips.' if not local else 'No inherited project image effects.')
         self.empty_applied.setVisible(not self.project_effect_ids and not self.clip_effect_ids)
         self.clip_title.setText(f'CLIP EFFECTS & OVERRIDES · {len(self.clip_effect_ids)}')
         self.clip_title.setVisible(local)
@@ -347,17 +347,6 @@ class EffectsPanel(QWidget):
         self.clip_note.setText('Edits here affect only this clip. Select Entire project to change shared effects.' if self.clip_effect_ids else
                                'No clip overrides. Editing an inherited effect creates settings for this clip.')
         self.clip_note.setVisible(local)
-        while self.clip_links_layout.count():
-            item = self.clip_links_layout.takeAt(0); item.widget().deleteLater()
-        overridden = [(i, s) for i, s in enumerate(clip_overrides) if s.get('effects') or s.get('automations')]
-        self.clip_links.setVisible(not local and bool(overridden))
-        if not local:
-            self.clip_title.setText(f'CLIP SETTINGS · {len(overridden)} clips'); self.clip_title.setVisible(bool(overridden))
-        for index, owner in overridden:
-            button = QPushButton(f"Clip {index + 1} · {len(owner['effects'])} overrides · {len(owner.get('automations', ()))} gestures →")
-            button.setProperty('compact', True); button.setAccessibleName(f'Inspect effects for clip {index + 1}')
-            button.setToolTip(', '.join(EFFECT_BY_ID[key].label for key in owner['effects']))
-            button.clicked.connect(lambda _checked=False, index=index: self.clipRequested.emit(index)); self.clip_links_layout.addWidget(button)
         object_available = allowed_effects is None or any(key in allowed_effects for key in SOURCE_EFFECTS)
         self.source_title.setText(f'OBJECT · {len(sources)} ' + ('source' if len(sources) == 1 else 'sources') if sources else 'OBJECT · no source')
         self.source_title.setVisible(object_available); self.source_header.setVisible(object_available)

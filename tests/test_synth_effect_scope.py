@@ -56,7 +56,7 @@ def test_project_collector_excludes_local_settings_without_changing_render_or_sa
     assert compile_composition(load_composition(path)) == actual
 
 
-def test_project_links_open_only_the_clip_with_local_settings(composer):
+def test_project_hides_clip_settings_until_scope_is_explicitly_changed(composer):
     panel = composer.effects_panel
     original = copy.deepcopy(composer.document)
     assert f"{len(composer.document['sections'])} clips" in composer.timeline_summary.text()
@@ -64,10 +64,13 @@ def test_project_links_open_only_the_clip_with_local_settings(composer):
     assert panel.clip_effect_ids == ()
     assert 'tape@2' not in panel.applied_ids
     assert panel.project_title.text() == 'PROJECT EFFECTS · 1'
-    links = panel.clip_links.findChildren(QPushButton)
-    assert len(links) == 1 and links[0].accessibleName() == 'Inspect effects for clip 1'
+    assert panel.clip_title.isHidden() and panel.clip_host.isHidden()
+    assert not any('Inspect effects for clip' in b.accessibleName() for b in panel.findChildren(QPushButton))
+    assert panel.available_button.text() == 'Add project effect…'
     edits = []; composer.changed.connect(lambda *args: edits.append(args))
-    links[0].click()
+    composer.select_section(0, preserve_scope=True)
+    assert composer.scope == 0 and panel.clip_title.isHidden()
+    composer.change_scope(1)
     assert composer.scope == 1 and composer.index == 0
     assert 'Editing: Clip 1' in composer.scope_combo.currentText()
     assert set(panel.clip_effect_ids) == {'raster', 'tape@2'}

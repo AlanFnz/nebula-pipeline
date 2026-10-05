@@ -473,8 +473,10 @@ seeds, defaults and visual contracts remain unchanged.
 The default view is a **composer**: clips below the preview and an **Effects**
 inspector. It opens the **Refined signal** study with its original animated recipe.
 In **Editing: Entire project**, the Effects list shows the shared project look.
-**Clip settings** links open clips with their own effect overrides or automation.
-Selecting a timeline clip separates **Project effects · inherited** from
+Choose **Add project effect…** to add a shared effect. Clip-only effects and
+settings are hidden here. Clicking a timeline clip selects it and moves the
+playhead while preserving the chosen editing scope. To edit a clip, select it
+and switch **Editing** to **Clip**. This view separates **Project effects · inherited** from
 **Clip effects & overrides**. Editing an inherited effect creates an override
 for that clip; the **↶ Follow project** action removes its local settings while
 keeping automation. An effect switched Off locally stays visible in the override
@@ -578,8 +580,8 @@ and Shift-Left/Right steps ten. Text, numeric fields and sliders retain their
 normal keys. The File, Edit and Preview menus show the available shortcuts;
 detailed sequence/preset windows disable composition Undo/Redo.
 
-- Select **Entire project** to adjust the entire piece, or click a clip to
-  adjust it locally. Clips can be added, duplicated, removed, reordered,
+- Select **Entire project** to adjust the entire piece, or select a clip and switch **Editing** to **Clip** to
+  adjust it locally. Timeline selection keeps the chosen editing scope. Clips can be added, duplicated, removed, reordered,
   and given different durations under **Arrange clips…**. Arrange uses its own scrollable
   view; **Back to editing** restores the selected effect, scope and scroll position.
   **Timeline FPS** stays visible above both views and always affects the entire project,
@@ -981,7 +983,7 @@ their own temporary layout without overwriting the main workspace preferences.
 
 **Effects → Add effect… → Low-res finish → 360 px preview feel → Apply effect** keeps
 the texture of the 360 px preview in a full-size export. Choose the project
-scope to apply it throughout, or select a clip for a local treatment.
+scope to apply it throughout, or choose **Editing: Clip** for a local treatment.
 **Working resolution** sets the longest edge of the internal raster; the saved
 canvas supplies its proportions. **Enlargement → Soft** smoothly enlarges the
 grain and softened edges, while **Crisp pixels** preserves hard pixel edges.
