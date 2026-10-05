@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+## 0.6.0 — 2026-10-05
+
+- Give timeline sections independent footage from Source, preserving their
+  effects and automation. Each section can choose its own video, trim, framing,
+  cadence and audio, or return to continuous shared footage. Independent media
+  restarts at In on each section repeat and survives duplication, reorder,
+  retiming, Undo/Redo, snapshots, Studies and detailed copies.
+- Add section Playback speed with optional matching duration. Matching speed
+  proportionally retimes section effects and automation; keeping duration
+  changes only footage speed. Export assembles each source's audio with preserved
+  pitch, including muted intervals, loops, Hold and partial timeline exports.
+- Retain existing shared-source rendering and schema 2. Independent footage
+  uses schema 3 so older apps reject it explicitly. Studies copy all referenced
+  videos locally, preview caches track every active source, and exports protect
+  every source asset from being overwritten.
+
 ## 0.5.3 — 2026-10-04
 
 - Duplicate selected timeline sections or an automation curve with Command-D
