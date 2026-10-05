@@ -47,12 +47,12 @@ def test_disabled_animation_cannot_author_fixed_value_and_restore_is_local_only(
     assert control.value_stack.currentWidget() is control.animated_value
     assert not control.use_fixed.isEnabled() and not control.reset_button.isEnabled()
     control.use_fixed.click(); control.reset_button.click(); assert changes == resets == []
-    control.refresh((.4, .4), None, True, True, parent_value=.4, scope_label='Section 2 — Verse')
+    control.refresh((.4, .4), None, True, True, parent_value=.4, scope_label='Clip 2 — Verse')
     assert control.input.value() == .4 and not control.reset_button.isEnabled()
-    assert control.origin.text() == 'Fixed · Whole clip'
+    assert control.origin.text() == 'Fixed · Entire project'
     control.input.setValue(.46); assert changes == [.46]
-    control.refresh((.46, .46), .46, True, True, parent_value=.4, scope_label='Section 2 — Verse')
-    assert control.origin.text() == 'Fixed · Section'
+    control.refresh((.46, .46), .46, True, True, parent_value=.4, scope_label='Clip 2 — Verse')
+    assert control.origin.text() == 'Fixed · Clip'
     control.reset_button.click(); assert resets == [True]
     assert 'only this parameter' in control.reset_button.toolTip()
     # Reset emits intent; the owning panel removes the local override.
@@ -61,13 +61,13 @@ def test_disabled_animation_cannot_author_fixed_value_and_restore_is_local_only(
     control.close()
 
 
-@pytest.mark.parametrize('path,value', [('text.font', 2), ('text.content', 'Whole clip wording'),
+@pytest.mark.parametrize('path,value', [('text.font', 2), ('text.content', 'Entire project wording'),
                                         ('ink_bloom.artwork', encode_artwork(Image.new('RGBA', (2, 2), 'red')))])
 def test_inherited_non_numeric_fixed_values_remain_editable_without_local_restore(app, path, value):
     control = EffectParameter(path); changes = []; control.changed.connect(changes.append)
     control.refresh((value, value), None, True, True, parent_value=value)
     assert control.value_stack.currentWidget() is control.input
-    assert control.origin.text() == 'Fixed · Whole clip'
+    assert control.origin.text() == 'Fixed · Entire project'
     assert not control.reset_button.isEnabled() and changes == []
     assert (control.input.currentIndex() if control.spec.choices else control.input.value()) == value
     control.close()

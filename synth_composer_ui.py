@@ -1,4 +1,4 @@
-"""Native composition controls: sections and a small set of musical macros."""
+"""Native composition controls: clips and a small set of musical macros."""
 from __future__ import annotations
 
 import copy
@@ -67,8 +67,8 @@ class SectionTimeline(QWidget):
         self.setFixedHeight(self.LANE_HEIGHT)
         self.setMouseTracking(True)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-        self.setAccessibleName('Section timeline')
-        self.duplicate_action = QAction('Duplicate selected sections', self)
+        self.setAccessibleName('Clip timeline')
+        self.duplicate_action = QAction('Duplicate selected clips', self)
         self.duplicate_action.setShortcut(QKeySequence('Ctrl+D'))
         self.duplicate_action.setShortcutContext(Qt.ShortcutContext.WidgetShortcut)
         self.duplicate_action.triggered.connect(self.duplicate_selected)
@@ -125,8 +125,8 @@ class SectionTimeline(QWidget):
                       f"{int(section.get('loops', 1))}× total plays"
                       for index, section in enumerate(self.document['sections'])]
         scope = next((identities[index] for index, section in enumerate(self.document['sections'])
-                      if section['id'] == self.editing_section_id), 'Whole clip')
-        self.setAccessibleDescription('Editing: ' + scope + '. Select sections and press Command-D to duplicate. Sections: ' + '; '.join(identities))
+                      if section['id'] == self.editing_section_id), 'Entire project')
+        self.setAccessibleDescription('Editing: ' + scope + '. Select clips and press Command-D to duplicate. Clips: ' + '; '.join(identities))
 
     def display_document(self):
         """The drag preview is private; only release requests a document edit."""
@@ -197,8 +197,8 @@ class SectionTimeline(QWidget):
         self._grow_resize_canvas()
         self.setFocus(Qt.FocusReason.MouseFocusReason)
         self.setCursor(Qt.CursorShape.SizeHorCursor)
-        self.setToolTip((f'Drag to stretch {len(self._resize["identifiers"])} selected sections proportionally. '
-                        if 'identifiers' in self._resize else 'Drag to retime this section and ripple later sections. ') +
+        self.setToolTip((f'Drag to stretch {len(self._resize["identifiers"])} selected clips proportionally. '
+                        if 'identifiers' in self._resize else 'Drag to retime this clip and ripple later clips. ') +
                        'Release to apply; Escape to cancel.')
         self.update()
 
@@ -368,7 +368,7 @@ class SectionTimeline(QWidget):
                 for _index, start, end, _repetition in placements]
 
     def text_rectangles(self, rect):
-        """Both text lines stay inside even a one-pixel section body."""
+        """Both text lines stay inside even a one-pixel clip body."""
         padding = min(5., rect.width() / 2)
         width = max(0., rect.width() - 2 * padding)
         line_height = (rect.height() - 4) / 2
@@ -431,7 +431,7 @@ class SectionTimeline(QWidget):
             if 'identifiers' in drag:
                 scale = sum(drag['durations'].values()) / sum(drag['original_durations'].values())
                 total = placements[-1][2]
-                readout = f"{len(drag['identifiers'])} sections · {scale:.2f}× length · {total:.2f}s timeline · release to apply · Esc cancel"
+                readout = f"{len(drag['identifiers'])} clips · {scale:.2f}× length · {total:.2f}s timeline · release to apply · Esc cancel"
             readout = painter.fontMetrics().elidedText(readout, Qt.TextElideMode.ElideRight, max(0, visible.width() - 12))
             painter.drawText(QRectF(visible.left()+6,self.READOUT_TOP,max(0,visible.width()-12),self.height()-self.READOUT_TOP),Qt.AlignmentFlag.AlignLeft|Qt.AlignmentFlag.AlignVCenter,readout)
         if self._reorder is not None and self._reorder['active']:
@@ -446,13 +446,13 @@ class SectionTimeline(QWidget):
                 painter.fillRect(QRectF(x - 4, 2, 9, 4), color)
                 painter.fillRect(QRectF(x - 4, self.BLOCK_BOTTOM - 3, 9, 4), color)
             before = next((i + 1 for i, section in enumerate(document['sections']) if section['id'] == drag.get('before')), None)
-            destination = f'before section {before:02d}' if before is not None else 'to the end'
-            readout = (f'Move {count} section' + ('s' if count > 1 else '') + f' {destination} · repetitions follow · Esc cancels') if drag['valid'] else 'Move back over the timeline to drop · Esc cancels'
+            destination = f'before clip {before:02d}' if before is not None else 'to the end'
+            readout = (f'Move {count} clip' + ('s' if count > 1 else '') + f' {destination} · repetitions follow · Esc cancels') if drag['valid'] else 'Move back over the timeline to drop · Esc cancels'
             if drag['valid'] and not drag['changed']: readout = 'Current order · Esc cancels'
             painter.setPen(color)
             readout = painter.fontMetrics().elidedText(readout, Qt.TextElideMode.ElideRight, max(0, visible.width() - 12))
             painter.drawText(QRectF(visible.left()+6,self.READOUT_TOP,max(0,visible.width()-12),self.height()-self.READOUT_TOP),Qt.AlignmentFlag.AlignLeft|Qt.AlignmentFlag.AlignVCenter,readout)
-            label = f'{count} sections' if count > 1 else document['phrases'][document['sections'][self.index]['phrase']]['name']
+            label = f'{count} clips' if count > 1 else document['phrases'][document['sections'][self.index]['phrase']]['name']
             width = min(200, max(70, painter.fontMetrics().horizontalAdvance(label) + 20))
             x = max(visible.left(), min(drag['position'].x() + 12, visible.right() - width))
             ghost = QRectF(x, self.BLOCK_TOP + 10, width, 26)
@@ -537,10 +537,10 @@ class SectionTimeline(QWidget):
     def make_context_menu(self):
         identifiers = tuple(self.document['sections'][i]['id'] for i in self.selected_indices())
         menu = QMenu(self)
-        menu.setTitle('Timeline sections')
-        label = 'Loop' if len(identifiers) == 1 else f'Loop {len(identifiers)} selected sections'
+        menu.setTitle('Timeline clips')
+        label = 'Loop' if len(identifiers) == 1 else f'Loop {len(identifiers)} selected clips'
         action = menu.addAction(label)
-        action.setToolTip('Add one repetition to the selected section or sections.')
+        action.setToolTip('Add one repetition to the selected clip or clips.')
         action.triggered.connect(lambda: self.loopRequested.emit(identifiers, 0))
         counts = menu.addMenu('Repeat count')
         for count in (2, 3, 4, 8, 16, 32):
@@ -553,7 +553,7 @@ class SectionTimeline(QWidget):
         remove.triggered.connect(lambda: self.loopRequested.emit(identifiers, 1))
         for group in self.document.get('timeline_loops', []):
             if set(group['sections']) & set(identifiers) and set(group['sections']) != set(identifiers):
-                action = menu.addAction(f"Remove sequence loop ({len(group['sections'])} sections)")
+                action = menu.addAction(f"Remove sequence loop ({len(group['sections'])} clips)")
                 members = tuple(group['sections'])
                 action.triggered.connect(lambda checked=False, members=members: self.loopRequested.emit(members, 1))
         menu.addSeparator()
@@ -603,9 +603,9 @@ class SectionTimeline(QWidget):
         if edge is not None:
             index = section_placements(self.document)[edge][0]
             duration = self.document['sections'][index]['duration']
-            self.setToolTip((f'Drag to stretch {len(self.selected_ids)} selected sections proportionally · '
-                            if self._is_selection_edge(edge) else f'Drag right edge to retime section {index+1} · {duration:.2f}s per play · ') +
-                           'later sections ripple · Escape cancels')
+            self.setToolTip((f'Drag to stretch {len(self.selected_ids)} selected clips proportionally · '
+                            if self._is_selection_edge(edge) else f'Drag right edge to retime clip {index+1} · {duration:.2f}s per play · ') +
+                           'later clips ripple · Escape cancels')
             return
         placements = section_placements(self.document) if self.document else []
         for (index, _start, _end, repetition), rect in zip(placements, self.rectangles()):
@@ -615,7 +615,7 @@ class SectionTimeline(QWidget):
                 loops = int(section.get('loops', 1))
                 self.setToolTip(f"{index + 1}. {self.document['phrases'][section['phrase']]['name']} · {section['duration']:.2f}s per play · {loops}× total plays · " +
                                (f'Sequence repetition {repetition} · ' if repetition > 1 else '') +
-                               'drag body to reorder; drag the last selected edge to stretch the selection; Shift-click to select a range; Command-click to add sections; Command-A to select all; Command-D to duplicate; right-click for actions')
+                               'drag body to reorder; drag the last selected edge to stretch the selection; Shift-click to select a range; Command-click to add clips; Command-A to select all; Command-D to duplicate; right-click for actions')
                 return
         self.setToolTip('')
 
@@ -711,9 +711,9 @@ class CompositionPanel(QWidget):
         title = QLabel("02 / INSPECTOR"); title.setObjectName("sectionTitle")
         title_row = QHBoxLayout(); title_row.addWidget(title); title_row.addStretch(1)
         self.timeline_summary = QLabel(); self.timeline_summary.setObjectName('muted')
-        self.timeline_summary.setToolTip('Total duration and section count for the whole timeline, including loops.')
+        self.timeline_summary.setToolTip('Total duration and clip count for the whole timeline, including loops.')
         title_row.addWidget(self.timeline_summary); layout.addLayout(title_row)
-        hint = QLabel("Combine effects. Arrange their changes in sections.")
+        hint = QLabel("Combine effects. Arrange their changes in clips.")
         hint.setWordWrap(True); hint.setObjectName("muted"); hint.hide(); title.setToolTip(hint.text())
 
         self.workspace_actions = QWidget(); self.workspace_actions.setProperty('chrome', True)
@@ -727,11 +727,11 @@ class CompositionPanel(QWidget):
         self.fps = QSpinBox(); self.fps.setRange(1, 120); self.fps.setSuffix(" fps"); self.fps.setKeyboardTracking(False)
         self.fps.setAccessibleName('Timeline FPS')
         self.fps_label.setBuddy(self.fps)
-        self.fps.setToolTip('Global frame rate for preview and export, across every section, regardless of editing scope. Lower it for a stepped cadence without slowing the action. Section durations round to the nearest frame. Source and effect cadence controls can hold individual parts longer.')
+        self.fps.setToolTip('Global frame rate for preview and export, across every clip, regardless of editing scope. Lower it for a stepped cadence without slowing the action. Clip durations round to the nearest frame. Source and effect cadence controls can hold individual parts longer.')
         self.fps_label.setToolTip(self.fps.toolTip())
         timeline_row.addWidget(self.fps_label); timeline_row.addWidget(self.fps); timeline_row.addStretch(1)
-        self.arrangement_button = QPushButton('Arrange sections…'); self.arrangement_button.setCheckable(True)
-        self.arrangement_button.setToolTip("Edit section durations, order and loops.")
+        self.arrangement_button = QPushButton('Arrange clips…'); self.arrangement_button.setCheckable(True)
+        self.arrangement_button.setToolTip("Edit clip durations, order and loops.")
         self.automations_button = QPushButton("Automations…")
         self.automations_button.setProperty("compact", True); self.automations_button.clicked.connect(lambda: self.open_automation_list())
         self.workspace_actions_layout.addWidget(self.automations_button)
@@ -764,14 +764,14 @@ class CompositionPanel(QWidget):
         self.phrase.currentIndexChanged.connect(self.change_phrase); row.addWidget(self.phrase, 1)
         self.section_duration = QDoubleSpinBox(); self.section_duration.setRange(1 / self.document["fps"], 300); self.section_duration.setDecimals(2); self.section_duration.setSuffix(" s"); self.section_duration.setFixedWidth(95); self.section_duration.setKeyboardTracking(False)
         self.resize_mode = 'effects'
-        self.section_duration.setToolTip('Stretch this section and all its effects. The Resize menu below the timeline chooses whether imported video also changes speed.')
+        self.section_duration.setToolTip('Stretch this clip and all its effects. The Resize menu below the timeline chooses whether imported video also changes speed.')
         self.section_duration.valueChanged.connect(self.resize_section); row.addWidget(self.section_duration)
         row.addWidget(QLabel('Loops'))
         self.section_loops = QSpinBox(); self.section_loops.setRange(1, 32); self.section_loops.setSuffix(" ×"); self.section_loops.setFixedWidth(68); self.section_loops.setKeyboardTracking(False)
-        self.section_loops.setAccessibleName('Section loops')
-        self.section_loops.setToolTip('Total plays of this section: 1 = once, 2 = twice. '
+        self.section_loops.setAccessibleName('Clip loops')
+        self.section_loops.setToolTip('Total plays of this clip: 1 = once, 2 = twice. '
                                      'Repeats its edited event sequence; procedural motion/noise and imported footage keep running. '
-                                     'Total duration uses section duration × loops.')
+                                     'Total duration uses clip duration × loops.')
         self.section_loops.valueChanged.connect(self.resize_section_loops); row.addWidget(self.section_loops)
         section_layout.addLayout(row)
         row = QHBoxLayout()
@@ -782,13 +782,13 @@ class CompositionPanel(QWidget):
 
         shape = QWidget()
         shape_layout = QVBoxLayout(shape); shape_layout.setContentsMargins(0, 0, 0, 0); shape_layout.setSpacing(5)
-        self.scope_combo = QComboBox(); self.scope_combo.addItems(["Whole clip", "Selected section"])
+        self.scope_combo = QComboBox(); self.scope_combo.addItems(["Entire project", "Selected clip"])
         self.scope_combo.currentIndexChanged.connect(self.change_scope); shape_layout.addWidget(self.scope_combo)
-        self.timing_scope_label = QLabel('Editing: Whole clip · shared timing'); self.timing_scope_label.hide()
+        self.timing_scope_label = QLabel('Editing: Entire project · shared timing'); self.timing_scope_label.hide()
         shape_layout.addWidget(self.timing_scope_label)
-        self.master_scope_label = QLabel('Editing: Whole clip · master adjustments'); self.master_scope_label.hide()
+        self.master_scope_label = QLabel('Editing: Entire project · master adjustments'); self.master_scope_label.hide()
         shape_layout.addWidget(self.master_scope_label)
-        self.source_scope_label = QLabel('Editing: Whole clip · source video'); self.source_scope_label.hide()
+        self.source_scope_label = QLabel('Editing: Entire project · source video'); self.source_scope_label.hide()
         shape_layout.addWidget(self.source_scope_label)
         self.look_tabs = InspectorTabs()
         self.effects_panel = EffectsPanel()
@@ -825,6 +825,7 @@ class CompositionPanel(QWidget):
         self.video_panel.sourceModeRequested.connect(self.change_video_source_mode)
         self.video_panel.speedRequested.connect(self.change_video_speed)
         self.video_panel.sharedEditRequested.connect(lambda: self.change_scope(0))
+        self.effects_panel.clipRequested.connect(self.select_section)
         self.video_panel.treatmentRequested.connect(self.apply_video_treatment)
         self.look_tabs.addTab(self.video_panel, 'Source')
         self.look_tabs.currentChanged.connect(lambda _index: self.show_timing_scope(self.effects_panel.effect_id == 'ink_bloom' and self.effects_panel.parameter_tabs.currentIndex() == 1))
@@ -875,8 +876,8 @@ class CompositionPanel(QWidget):
 
     def show_arrangement(self, expanded):
         self.content_stack.setCurrentWidget(self.arrangement_scroll if expanded else self.parameters_group)
-        self.arrangement_button.setText('← Back to editing' if expanded else 'Arrange sections…')
-        self.arrangement_button.setToolTip('Return to effects, object and source controls.' if expanded else 'Edit section durations, order and loops.')
+        self.arrangement_button.setText('← Back to editing' if expanded else 'Arrange clips…')
+        self.arrangement_button.setToolTip('Return to effects, object and source controls.' if expanded else 'Edit clip durations, order and loops.')
         self.emit_reset_context()
 
     def target(self, document=None):
@@ -923,17 +924,20 @@ class CompositionPanel(QWidget):
             self.section_duration.setMinimum(1 / self.document["fps"])
             self.section_duration.setValue(section["duration"])
             with QSignalBlocker(self.section_loops): self.section_loops.setValue(section.get("loops", 1))
-            self.scope_combo.setItemText(0, 'Editing: Whole clip')
-            self.scope_combo.setItemText(1, f"Editing: Section {self.index + 1} — {self.document['phrases'][section['phrase']]['name']}")
+            self.scope_combo.setItemText(0, 'Editing: Entire project')
+            self.scope_combo.setItemText(1, f"Editing: Clip {self.index + 1} — {self.document['phrases'][section['phrase']]['name']}")
             self.scope_combo.setCurrentIndex(self.scope)
-            self.scope_combo.setToolTip(self.scope_combo.currentText() + ('. Unedited controls follow the whole clip or study.' if self.scope else '. Explicit section overrides take priority.'))
+            self.scope_combo.setToolTip(self.scope_combo.currentText() + ('. Unedited controls follow the entire project or study.' if self.scope else '. Explicit clip overrides take priority.'))
             self.master_panel.set_values(self.document['master'])
             target = self.target()
             needs_base = any('creative' in entry or 'bypassed' in entry
                              for scope in (self.document, *self.document['sections'])
                              for entry in scope['effects'].values())
             base_states = {} if needs_base else None
-            compiled = compile_composition(self.document, base_states=base_states)
+            project_states = {} if not self.scope else None
+            project_base_states = {} if not self.scope else None
+            compiled = compile_composition(self.document, base_states=base_states,
+                                           project_states=project_states, project_base_states=project_base_states)
             self.compiled = compiled
             source_plays = [placement for placement in section_placements(self.document) if placement[0] == self.index]
             self.video_panel.refresh(source_section.get('footage', video) if source_section else video, source_section,
@@ -941,13 +945,16 @@ class CompositionPanel(QWidget):
                                      repeated=len(source_plays) > 1 or section.get('loops', 1) > 1)
             prefix = section["id"] + ":"
             all_states = list(compiled['states'].values())
-            states = [state for name, state in compiled["states"].items() if name.startswith(prefix)] if self.scope else all_states
-            label = f"Editing: Section {self.index + 1} — {self.document['phrases'][section['phrase']]['name']}" if self.scope else "Editing: Whole clip"
+            states = [state for name, state in compiled["states"].items() if name.startswith(prefix)] if self.scope else list(project_states.values())
+            label = f"Editing: Clip {self.index + 1} — {self.document['phrases'][section['phrase']]['name']}" if self.scope else "Editing: Entire project"
             context_key = section["id"] if self.scope else None
             authored_states = None
             if base_states is not None:
                 authored_states = [state for name, state in base_states.items() if name.startswith(prefix)] if self.scope else list(base_states.values())
-            self.effects_panel.set_context(target["effects"], self.document["effects"] if self.scope else {}, states, label, bool(self.scope), (self.scope, context_key), self.document['ink_timing'], all_states, VIDEO_EFFECTS if video else tuple(effect.id for effect in EFFECTS if effect.id != 'subject_cutout'), authored_states=authored_states)
+            if not self.scope: authored_states = list(project_base_states.values())
+            self.effects_panel.set_context(target["effects"], self.document["effects"] if self.scope else {}, states, label, bool(self.scope), (self.scope, context_key), self.document['ink_timing'], all_states, VIDEO_EFFECTS if video else tuple(effect.id for effect in EFFECTS if effect.id != 'subject_cutout'), authored_states=authored_states,
+                                           clip_automations=section.get('automations', ()) if self.scope else (),
+                                           clip_overrides=self.document['sections'] if not self.scope else ())
             automation_sections = [section] if self.scope else self.document["sections"]
             counts = {}
             for owner in automation_sections:
@@ -962,7 +969,7 @@ class CompositionPanel(QWidget):
             geometry = target["geometry"]
             self.object_panel.refresh_position(geometry, self.document["geometry"], self.document["canvas"], bool(self.scope))
             self.geometry_shape.clear()
-            if self.scope: self.geometry_shape.addItem("From whole clip", "inherit")
+            if self.scope: self.geometry_shape.addItem("From entire project", "inherit")
             self.geometry_shape.addItem("Original geometry", "original")
             for label in SHAPES: self.geometry_shape.addItem(label, label.lower())
             self.geometry_shape.setCurrentIndex(self.geometry_shape.findData(geometry["shape"]))
@@ -1330,7 +1337,7 @@ class CompositionPanel(QWidget):
         positions = [i for i, section in enumerate(sections) if section['id'] in selected]
         if not positions or len(positions) != len(selected): return
         if len(sections) + len(positions) > 64:
-            self.failed.emit('Use at most 64 sections. Remove sections before duplicating this selection.'); return
+            self.failed.emit('Use at most 64 clips. Remove clips before duplicating this selection.'); return
         document = copy.deepcopy(self.document)
         copies = []; mapping = {}
         insertion = positions[-1] + 1
@@ -1363,11 +1370,11 @@ class CompositionPanel(QWidget):
         """Insert independent media in one edit; never create a pending empty clip."""
         if self.updating or 'footage' not in self.document: return
         if len(self.document['sections']) >= 64:
-            self.failed.emit('Use at most 64 sections. Remove a section before adding footage.'); return
+            self.failed.emit('Use at most 64 clips. Remove a clip before adding footage.'); return
         document = copy.deepcopy(self.document)
         positions = {section['id']: index for index, section in enumerate(document['sections'])}
         if after_id not in positions or (copy_from_id is not None and copy_from_id not in positions):
-            self.failed.emit('The insertion or copied section was removed while loading. No section was added.'); return
+            self.failed.emit('The insertion or copied clip was removed while loading. No clip was added.'); return
         anchor = document['sections'][positions[after_id]]
         if copy_from_id is not None:
             section = copy.deepcopy(document['sections'][positions[copy_from_id]])
@@ -1470,7 +1477,7 @@ class CompositionPanel(QWidget):
         for _control, context, draft in records:
             scope, identifier = context
             if scope and not any(section['id'] == identifier for section in self.document['sections']):
-                raise ValueError('A wording draft belongs to a removed section. Apply or discard it before saving.')
+                raise ValueError('A wording draft belongs to a removed clip. Apply or discard it before saving.')
             states = [state for name, state in compiled['states'].items() if not scope or name.startswith(identifier + ':')]
             original_target = next(section for section in self.document['sections'] if section['id'] == identifier) if scope else self.document
             baseline = original_target['effects'].get('text', {}).get('params', {}).get('text.content')

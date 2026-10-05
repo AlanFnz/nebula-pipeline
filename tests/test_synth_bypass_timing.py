@@ -1,4 +1,4 @@
-"""Hiding an ink source must not replace its authored clock or section lengths."""
+"""Hiding an ink source must not replace its authored clock or clip lengths."""
 import copy
 
 import pytest

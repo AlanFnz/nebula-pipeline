@@ -99,7 +99,7 @@ def vary_effect(project, effect_id, amount, keys, seed, section_id=None):
     target = result
     if section_id is not None:
         target = next((section for section in result['sections'] if section['id'] == section_id), None)
-        if target is None: raise ValueError('The selected section no longer exists')
+        if target is None: raise ValueError('The selected clip no longer exists')
     parent = result['effects'].get(effect_id, {}) if section_id else {}
     entry = target['effects'].setdefault(effect_id, {'mode': 'recipe', 'params': {}})
     inherited = parent.get('creative', {}).get('values', {})

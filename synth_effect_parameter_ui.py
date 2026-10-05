@@ -101,7 +101,7 @@ class EffectParameter(QWidget):
         if base_path(path) in TARGETS:
             self.animate_button = QPushButton("Animate…"); self.animate_button.setProperty("compact", True)
             self.animate_button.setAccessibleName("Animate " + spec.label)
-            self.animate_button.setToolTip("Add a temporary section gesture; the displayed value remains the base. Existing events are edited separately.")
+            self.animate_button.setToolTip("Add a temporary clip gesture; the displayed value remains the base. Existing events are edited separately.")
             self.animate_button.clicked.connect(lambda: self.animate.emit(self.path))
         self.reset_button = QPushButton('↶'); self.reset_button.setFixedWidth(30)
         self.reset_button.setAccessibleName(f'Restore {spec.label}')
@@ -230,13 +230,13 @@ class EffectParameter(QWidget):
         if self.slider:
             self.sync_slider(value); self.slider.setVisible(not animated); self.slider.setEnabled(available)
         self.reset_button.setEnabled(fixed is not None)
-        provenance = 'Whole clip' if inherited else 'Study'
+        provenance = 'Entire project' if inherited else 'Study'
         if fixed is not None:
-            provenance = 'Whole clip' if scope_label == 'Whole clip' else 'Section' if scope_label and scope_label.startswith('Section') else 'Local'
+            provenance = 'Entire project' if scope_label == 'Entire project' else 'Clip' if scope_label and scope_label.startswith('Clip') else 'Local'
         state = 'Animated' if animated else 'Fixed' if fixed is not None or inherited_fixed else 'Following'
         self.origin.setText(origin_label or f'{state} · {provenance}' + ('' if available else ' · Unavailable'))
         self.origin.setToolTip(f'{state} value from {scope_label or "this scope" if fixed is not None else provenance.lower()}. ' +
                                ('Enable or add this effect to edit its values.' if not available else 'Editing authors a fixed value in the selected scope.'))
-        restore_target = 'whole clip' if inherited else 'study'
+        restore_target = 'entire project' if inherited else 'study'
         self.reset_button.setToolTip(f'Remove only this parameter’s local override and follow the {restore_target} again.')
         self.setToolTip('Editing fixes this parameter across the scope; other study changes keep playing.')

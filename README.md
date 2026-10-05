@@ -1,7 +1,7 @@
 # Nebula Studio
 
 A native Python + PySide6 desktop app for building analog-looking motion from
-text, shapes, models or video. Combine reusable effects, arrange sections with
+text, shapes, models or video. Combine reusable effects, arrange clips with
 independent footage, automate parameters, compare variations and export a piece.
 The earlier Print / Scan input-clip editor remains available separately.
 
@@ -90,53 +90,53 @@ remains available from the same `studio.py` entry point.
 frame rate. Preparation runs in the background and can be cancelled. The
 unsaved composition being left can be saved before switching.
 
-- **Source**, with **Editing: Whole clip**, controls the shared In/Out range, uniform scale, X/Y position, rotation and
+- **Source**, with **Editing: Entire project**, controls the shared In/Out range, uniform scale, X/Y position, rotation and
   Fit / Fill-crop / Original pixel size. Changing the canvas never stretches
   the footage. **Use trimmed duration for timeline** explicitly resizes the
-  arrangement; otherwise section durations continue to determine the total.
-- In a video timeline, **+ Add section…** imports new footage after the active
-  section. Choose **Copy section** to reuse its effects, automation, framing and
+  arrangement; otherwise clip durations continue to determine the total.
+- In a video timeline, **+ Add clip…** imports new footage after the active
+  clip. Choose **Copy clip** to reuse its effects, automation, framing and
   duration, or **Whole-clip look** to use the current phrase and shared effects
   without local overrides; its duration follows the new footage (up to five minutes).
   New footage uses its full source range at normal speed, with one play.
-  Copied framing, cadence and end behavior follow the chosen section. Canvas,
-  FPS and other sections keep their settings. Cancellation adds nothing; Undo
+  Copied framing, cadence and end behavior follow the chosen clip. Canvas,
+  FPS and other clips keep their settings. Cancellation adds nothing; Undo
   removes the completed addition in one step. Generated timelines retain
-  their existing section controls in **Arrange sections…**.
-- Select a timeline section and open **Source → Choose video for this section…**
+  their existing clip controls in **Arrange clips…**.
+- Select a timeline clip and open **Source → Choose video for this clip…**
   to replace only its footage, keeping effects and automation. Alternatively,
   choose **Independent footage · starts at In** to give the same video its own
   trim, framing and cadence. **Use shared footage · continuous** returns the
-  section to the shared source, removing its independent settings; Undo restores
-  them. Duplicating an independent section copies its settings independently;
-  local footage starts at In on each section repeat.
-- The section playback summary shows its length, effective speed and the source
+  clip to the shared source, removing its independent settings; Undo restores
+  them. Duplicating an independent clip copies its settings independently;
+  local footage starts at In on each clip repeat.
+- The clip playback summary shows its length, effective speed and the source
   interval that actually plays, including any hold or loop. **Selected source
-  range** shows the available In/Out limits separately: a seven-second section
-  can use only seven seconds of a ten-second range. For repeated sections, the
+  range** shows the available In/Out limits separately: a seven-second clip
+  can use only seven seconds of a ten-second range. For repeated clips, the
   summary describes the first play; later shared repeats continue the source clock.
-- Shared sections show **Edit shared source** instead of disabled trim/framing
-  fields. This switches to Whole clip without changing the composition.
-  **Make independent for this section** copies the shared video settings into
-  the selected section so its trim and framing become editable; Undo restores sharing.
-- **Playback speed** is available in Source while editing a section. With
-  **Match section duration to speed** checked, 10 seconds at 1× becomes 5 seconds
+- Shared clips show **Edit shared source** instead of disabled trim/framing
+  fields. This switches to Entire project without changing the composition.
+  **Make independent for this clip** copies the shared video settings into
+  the selected clip so its trim and framing become editable; Undo restores sharing.
+- **Playback speed** is available in Source while editing a clip. With
+  **Match clip duration to speed** checked, 10 seconds at 1× becomes 5 seconds
   at 2×, including proportional effect and automation timing. Uncheck it to
-  change only video speed while retaining the section duration and effect clocks.
-  **Use trimmed duration for this section** fits the local trim at its current
-  speed without changing other sections. Timeline-edge resizing still offers
+  change only video speed while retaining the clip duration and effect clocks.
+  **Use trimmed duration for this clip** fits the local trim at its current
+  speed without changing other clips. Timeline-edge resizing still offers
   **Keep footage speed** and **Stretch footage**.
 - **Loop trimmed range** repeats that range. **Hold last frame** freezes its
-  last frame. Shared footage time stays continuous across section boundaries; effects
+  last frame. Shared footage time stays continuous across clip boundaries; effects
   can change without restarting the input.
 - **Effect cadence** holds shared procedural changes independently of footage playback;
   effects with their own FPS controls retain their independent clocks.
   **Motion cadence** holds the source image at a chosen FPS without changing
   playback speed or duration; **Native FPS** preserves the original behavior.
   **Timeline FPS**, always visible beside Canvas in the workspace header, sets the frame rate of the complete image in both
-  preview and export, across every section. Try 12 or 15 fps for a stepped look;
-  it changes sampling rather than slowing the action. Section durations round
-  to the nearest frame. Speed changes are uniform within each section; speed
+  preview and export, across every clip. Try 12 or 15 fps for a stepped look;
+  it changes sampling rather than slowing the action. Clip durations round
+  to the nearest frame. Speed changes are uniform within each clip; speed
   ramps and reverse playback remain future work.
 - **Effects** offers applicable image treatments: tape damage, breakup, scan
   drag, drift, ghosts, color separation, interference, exposure flare, jitter,
@@ -146,18 +146,18 @@ unsaved composition being left can be saved before switching.
   extraction. Object generators are not offered for video.
 - **Source → Treatment presets** applies Clean, Worn tape, Printed motion,
   Soft signal, Cold photocopy, Cyan / slice screen or Cyan / filmed exposures to the current footage. These replace effects and master settings
-  throughout the composition while retaining its source, framing and sections;
+  throughout the composition while retaining its source, framing and clips;
   Undo restores the previous treatment. They are separate from generated studies.
 - **Before / source** previews the same frame and framing without treatments or
   master grading. Export always includes the enabled treatments.
 - **Keep source audio in export** is explicit in Source. Uncheck it for a silent
-  MP4. Audio follows each section's source, trim and speed with preserved pitch;
+  MP4. Audio follows each clip's source, trim and speed with preserved pitch;
   muted clips insert silence and Hold pads its end with silence. The preview
   is currently silent. Export is atomic and cannot overwrite the input, including
   a symlink or hard-link alias.
 - Save/Open keeps the source file reference and its identity. Missing or changed
-  files have a clear relink message. Replace shared footage in Whole clip scope,
-  or choose a replacement in that section's Source panel; this retains
+  files have a clear relink message. Replace shared footage in Entire project scope,
+  or choose a replacement in that clip's Source panel; this retains
   treatments and valid trim settings. The document does not embed the video;
   keep it with the project when moving between machines.
 
@@ -165,12 +165,12 @@ unsaved composition being left can be saved before switching.
 
 | Intent | Control | Result |
 | --- | --- | --- |
-| Show more or less source footage at its current speed | Timeline **Resize: Keep footage speed**, then drag the right edge | Section length changes; effects and automation stretch. Footage stops or loops at Source → Out. |
+| Show more or less source footage at its current speed | Timeline **Resize: Keep footage speed**, then drag the right edge | Clip length changes; effects and automation stretch. Footage stops or loops at Source → Out. |
 | Stretch the same source interval over a different duration | Timeline **Resize: Stretch footage**, then drag the right edge | Video, audio, effects and automation retime together. |
-| Set a section's video speed directly | **Source → Playback speed** | With **Match section duration to speed** checked, the section and its effects retime; unchecked, the section length and effect timing stay fixed. |
+| Set a clip's video speed directly | **Source → Playback speed** | With **Match clip duration to speed** checked, the clip and its effects retime; unchecked, the clip length and effect timing stay fixed. |
 | Change the whole piece's frame cadence | **Timeline FPS** beside Canvas | Preview and export sample at the new FPS without changing playback speed. |
 
-For example, to extend a seven-second independent section to ten seconds at
+For example, to extend a seven-second independent clip to ten seconds at
 1×, select it, make sure **Source → Out** reaches at least **In + 10 seconds**,
 choose **Keep footage speed**, and drag its right edge to ten seconds. If the
 source runs out sooner, **When footage ends** determines Hold or Loop; extending
@@ -191,7 +191,7 @@ Documents using independent footage use schema 3, so older builds reject them
 explicitly rather than silently using the wrong source. Generated documents retain schema 1 and their render
 versions, defaults and seeds. Frozen pixel contracts protect the generated studies,
 including the newer profile models. `synth_video.py` owns source identity,
-framing and decoding; `synth_section_sources.py` resolves section-owned footage
+framing and decoding; `synth_section_sources.py` resolves clip-owned footage
 and compiled video clocks; `synth_video_audio.py` handles audio assembly.
 The existing renderer accepts an optional source image before the same image
 treatments. Tracked object identities, input-driven particles and
@@ -405,7 +405,7 @@ size motion, start/end magnification, cycle, acceleration and held motion FPS.
 **Perspective pullback** follows a camera-like depth curve, with a fast initial
 retreat that settles as the lettering gets farther away.
 Type-on preserves the full phrase's layout. Text timing uses the selected scope:
-Whole clip is the default, and section overrides are available. Image effects
+Entire project is the default, and clip overrides are available. Image effects
 keep their own clocks. Scrubbing and export need no playback history.
 
 **Broadcast wear** is a reusable image treatment for text, other generated
@@ -470,8 +470,17 @@ command-line developer tools installed. Photocopy works without this helper;
 only Subject cutout needs it. Both effects are opt-in. All prior module indices,
 seeds, defaults and visual contracts remain unchanged.
 
-The default view is a **composer**: sections below the preview and an **Effects**
+The default view is a **composer**: clips below the preview and an **Effects**
 inspector. It opens the **Refined signal** study with its original animated recipe.
+In **Editing: Entire project**, the Effects list shows the shared project look.
+**Clip settings** links open clips with their own effect overrides or automation.
+Selecting a timeline clip separates **Project effects · inherited** from
+**Clip effects & overrides**. Editing an inherited effect creates an override
+for that clip; the **↶ Follow project** action removes its local settings while
+keeping automation. An effect switched Off locally stays visible in the override
+group so you can restore inheritance. **Remove** in Entire project clears that
+effect and its automation across all clips; in a clip it affects only that clip.
+
 Choose a study in **Studies**, then press **Load study** to create an editable
 copy. The library includes Refined signal, Approved signal, Particle head,
 Expand / orbit, Original particles, Ink bloom, Mixed media / two bursts,
@@ -513,7 +522,7 @@ recipes and source media.
 
 **Save ▾ → Save as study…** adds the current composition to the Studies library under a
 name you choose, without replacing the working document. A study is an
-independent snapshot of its source recipe, sections, effects, timing, master
+independent snapshot of its source recipe, clips, effects, timing, master
 grade and canvas. Each load opens a fresh editable copy with that study's saved
 canvas dimensions, framing and artwork reference, just like the built-in studies.
 
@@ -569,74 +578,74 @@ and Shift-Left/Right steps ten. Text, numeric fields and sliders retain their
 normal keys. The File, Edit and Preview menus show the available shortcuts;
 detailed sequence/preset windows disable composition Undo/Redo.
 
-- Select **Whole clip** to adjust the entire piece, or click a section to
-  adjust it locally. Sections can be added, duplicated, removed, reordered,
-  and given different durations under **Arrange sections…**. Arrange uses its own scrollable
+- Select **Entire project** to adjust the entire piece, or click a clip to
+  adjust it locally. Clips can be added, duplicated, removed, reordered,
+  and given different durations under **Arrange clips…**. Arrange uses its own scrollable
   view; **Back to editing** restores the selected effect, scope and scroll position.
-  **Timeline FPS** stays visible above both views and always affects the whole clip,
-  even when editing a selected section. The Inspector header also shows total duration,
-  including loops, and section count.
-- **Drag the body of a timeline section** to reorder it. A floating label and
+  **Timeline FPS** stays visible above both views and always affects the entire project,
+  even when editing a selected clip. The Inspector header also shows total duration,
+  including loops, and clip count.
+- **Drag the body of a timeline clip** to reorder it. A floating label and
   insertion marker show the destination; release to apply one undoable move.
-  Shift-click a range or Command-click individual sections, then drag a selected
-  section to move them together in their existing order. Escape or releasing
+  Shift-click a range or Command-click individual clips, then drag a selected
+  clip to move them together in their existing order. Escape or releasing
   outside the timeline vertically cancels. Long timelines scroll at the edges.
-  Moving a repeated view moves its shared section; insertion markers identify
-  the original section boundaries, and loop sequences update with the new order.
-  Durations, effect settings and resize speeds travel with their sections.
-- **Drag a section's right edge** to stretch or compress it. Transitions,
+  Moving a repeated view moves its shared clip; insertion markers identify
+  the original clip boundaries, and loop sequences update with the new order.
+  Durations, effect settings and resize speeds travel with their clips.
+- **Drag a clip's right edge** to stretch or compress it. Transitions,
   procedural motion, noise and every timed effect scale together. Following
-  sections move automatically, keeping their effect clocks continuous. The drag
+  clips move automatically, keeping their effect clocks continuous. The drag
   shows seconds per play and the length multiplier; it snaps to frames and
   applies one undoable edit on release. **Escape** cancels. The final edge can
-  autoscroll beyond the viewport. Resizing a repeated section updates all its
+  autoscroll beyond the viewport. Resizing a repeated clip updates all its
   occurrences, including sequence loops.
 - **Stretch a selection** by Shift-clicking a range or Command-clicking
-  individual sections, then dragging the right edge of the last selected
-  section. Each selected duration changes by the same proportion, rounded to
+  individual clips, then dragging the right edge of the last selected
+  clip. Each selected duration changes by the same proportion, rounded to
   an output frame; unselected durations stay fixed. The brighter, thicker edge
   marks the selection's resize handle. Click the timeline, then **Command-A**
-  (**Ctrl-A** on other platforms) to select all sections. The drag shows the
+  (**Ctrl-A** on other platforms) to select all clips. The drag shows the
   selection count, length multiplier and resulting timeline duration, and
   release applies one Undo/Redo step. Escape cancels. Looped views share the
   same change, and the existing video resize mode applies to the selection.
-  Scaling stops when a selected section reaches one frame or 300 seconds,
+  Scaling stops when a selected clip reaches one frame or 300 seconds,
   or the complete arrangement reaches its one-hour limit.
 - For imported footage, **Resize: Keep footage speed** above the timeline keeps the
   source video's current speed, revealing more or less of its selected range.
   **Source → Out** limits that range; beyond Out, footage holds or loops according
   to its source settings. **Resize: Stretch footage** also retimes the
   source video and any retained audio, preserving audio pitch. Choose the mode
-  before dragging; it also applies to the section duration field in Arrange.
-  Both modes stretch effects and automation to fit the new section length.
+  before dragging; it also applies to the clip duration field in Arrange.
+  Both modes stretch effects and automation to fit the new clip length.
   The mode affects the next resize, so switching it does not undo previous
   speed changes. Generated studies always stretch their effects. Saved studies,
   detailed copies, preview and export retain the resulting timing.
-- The whole-clip Duration control remains an extend/trim control; it does not
-  stretch animation. Use section edges or section duration for proportional
+- The project Duration control remains an extend/trim control; it does not
+  stretch animation. Use clip edges or clip duration for proportional
   retiming. Timeline FPS changes sampling cadence, not animation speed.
-- **Right-click a timeline section → Loop** adds one repetition. **Repeat count**
+- **Right-click a timeline clip → Loop** adds one repetition. **Repeat count**
   sets total plays (1 = once, up to 32), with preset counts and a Custom option;
   **Remove loop** returns to one play. The existing Arrange count is also
-  available for individual sections.
+  available for individual clips.
 - **Shift-click** selects a range; **Command-click** adds/removes individual
-  sections. Right-click inside the selection to loop the selected sequence in
+  clips. Right-click inside the selection to loop the selected sequence in
   timeline order: 1–2–3 becomes 1–2–3, 1–2–3. Nonadjacent selections repeat after
   their last selected member. Repeated sequence views appear with a pass marker
-  such as `↻2` and share their original section's controls, duration, states and
+  such as `↻2` and share their original clip's controls, duration, states and
   variation seed. Clicking a repetition seeks its actual occurrence. Selecting
   the original members again lets Repeat count adjust the entire sequence;
   **Remove sequence loop** is also available from an individual member. Longer
-  arrangements scroll horizontally. Selection follows section IDs through edits
+  arrangements scroll horizontally. Selection follows clip IDs through edits
   and undo, and clears when loading a new document. Loop edits are atomic and
   undoable; Save/Open and Studies preserve the optional `timeline_loops` groups.
 - Timeline and export use the repeated duration automatically. Each repetition
   restarts the edited events, even after duration and rhythm edits.
   Procedural motion/noise and shared footage keep their continuous clocks.
-  Independent footage restarts at In on each section repeat, including sequence
+  Independent footage restarts at In on each clip repeat, including sequence
   loops. **Source → When footage ends → Loop trimmed range** repeats the selected
-  In/Out range within a section; **Hold last frame** freezes it instead. At 1×,
-  a section must be longer than that range to show an internal source repetition.
+  In/Out range within a clip; **Hold last frame** freezes it instead. At 1×,
+  a clip must be longer than that range to show an internal source repetition.
 - **Effects** opens an overview of image treatments used in the selected scope,
   with **On**, **Intermittent** and **Bypassed** badges. Sources appear in a separate
   **Object / sources** group. Click an entry to open its focused editor;
@@ -651,32 +660,32 @@ detailed sequence/preset windows disable composition Undo/Redo.
   original timeline; it does not change monitor preferences or Timeline FPS.
   Already applied effects offer **Inspect effect**;
   **Choose object…** takes you to source selection. Imported videos show only
-  compatible image treatments. Effects can be combined per section in the
+  compatible image treatments. Effects can be combined per clip in the
   renderer's established order.
-- **Animate…** beside supported treatment parameters creates a timed section
+- **Animate…** beside supported treatment parameters creates a timed clip
   gesture. Set **Start**, **Rise**, **Hold**, **Recover**, signed **Change amount**,
   **Easing**, and **Enabled**, then **Apply**. The shown parameter remains its base;
   automation adds a temporary change and returns to the moving recipe. Cancel
   leaves the composition unchanged. Whole-clip inspectors explicitly choose the
-  target section; the default follows the playhead.
-- **Automations…** lists every section gesture with Edit, Enable/Disable and Remove.
-  A slim lane appears below the section blocks when events exist. Double-click
+  target clip; the default follows the playhead.
+- **Automations…** lists every clip gesture with Edit, Enable/Disable and Remove.
+  A slim lane appears below the clip blocks when events exist. Double-click
   a gesture to edit, drag its body to move it, or right-click for its actions.
   Overlapping targets have separate menu entries. Looped occurrences share one
   authored event; moving or editing one updates every repetition. Escape cancels
-  a drag. Section resizing scales gesture timing proportionally in both resize
+  a drag. Clip resizing scales gesture timing proportionally in both resize
   modes. Undo/Redo, snapshots, Studies, save/open, detailed copies and MP4 export
   retain events. Remove effect clears its events; bypass and preset replacement
   preserve them. Restore parameter changes the base only.
-- **Command-D** duplicates the selected automation curve or timeline sections;
-  **Duplicate** is also in their right-click menus. Section copies are placed as
-  one block after the last selected section, in timeline order, and become the
+- **Command-D** duplicates the selected automation curve or timeline clips;
+  **Duplicate** is also in their right-click menus. Clip copies are placed as
+  one block after the last selected clip, in timeline order, and become the
   selection. They keep their effects, timing, automation and individual loops;
   fully selected sequence loop groups also get an independent copy. Partial
-  group selections copy their sections without joining the original group.
+  group selections copy their clips without joining the original group.
   Automation copies keep the same curve and strength and use the next free
-  space after the original in its section. Disabled gestures reserve their space
-  too. If it does not fit, lengthen the section or move gestures, then try again.
+  space after the original in its clip. Disabled gestures reserve their space
+  too. If it does not fit, lengthen the clip or move gestures, then try again.
   Each duplication is one undoable edit. Click the desired lane first; typing
   fields and other windows do not duplicate timeline content.
 - **Tape damage → Clean pull / animate** starts with existing faults at zero,
@@ -709,16 +718,16 @@ detailed sequence/preset windows disable composition Undo/Redo.
   strength and missing dependencies. Brightness advice is conditional guidance.
 - **Bypass / Resume** temporarily disables an image effect while retaining its
   parameters and authored activation timing, including after Save/Open and
-  Undo/Redo. Bypassed effects remain in the applied overview. A section can resume
-  an inherited bypass without copying the whole clip's parameter values.
+  Undo/Redo. Bypassed effects remain in the applied overview. A clip can resume
+  an inherited bypass without copying the entire project's parameter values.
 - **Remove**, beside Bypass in the applied list and effect editor, clears an
-  image effect's settings and removes it from the applied list. In Whole clip,
-  this also clears that effect's section overrides; in a selected section,
-  other sections keep it. Undo restores its settings, and Add effect can start
+  image effect's settings and removes it from the applied list. In Entire project,
+  this also clears that effect's clip overrides; in a selected clip,
+  other clips keep it. Undo restores its settings, and Add effect can start
   it again with a fresh preset. Object sources are managed in Object.
-- **Editing: Whole clip / Section …** identifies the scope of parameter edits.
+- **Editing: Entire project / Clip …** identifies the scope of parameter edits.
   **Animated**, **Fixed** and **Following** labels distinguish study values from
-  whole-clip inheritance and section overrides. Animated ranges are read-only;
+  project inheritance and clip overrides. Animated ranges are read-only;
   **Use fixed value** explicitly starts from the displayed proposal. **↶** removes
   only that parameter's local override. Unedited parameters keep animating.
   Numeric controls retain saved precision while displaying two decimal places;
@@ -729,10 +738,10 @@ detailed sequence/preset windows disable composition Undo/Redo.
   bypassed treatment stays bypassed; Resume is a separate edit. Object source
   presets keep their existing immediate replacement action; **Restore this effect** removes
   its overrides from the current scope. Shared ink **Timing** and **Master**
-  remain whole-clip controls. Video **Source** follows the shown Whole clip or
-  Section scope; shared source settings are disabled in a section until it owns
+  remain project controls. Video **Source** follows the shown Entire project or
+  Clip scope; shared source settings are disabled in a clip until it owns
   independent footage.
-  Pending text stays with its original section when navigating; Save validates
+  Pending text stays with its original clip when navigating; Save validates
   and applies retained drafts together. Conflicting wording in the Object and
   Effects editors must be resolved before saving.
 - **Object** is the common place for the scene's source. It replaces the former
@@ -748,7 +757,7 @@ detailed sequence/preset windows disable composition Undo/Redo.
   keeping treatments, canvas, timeline and durations. Whole-clip replacement also
   resets local source activation overrides, retaining their parameter values.
   Switching back to an authored source follows its original enable/disable
-  choreography. **↶** follows study/whole-clip source activation again; object
+  choreography. **↶** follows study/project source activation again; object
   parameter edits and embedded artwork survive switching. Undo/Redo, save/open
   and detailed copies preserve the result. Existing combinations made through
   Effects remain editable; Object names additional active source families.
@@ -757,14 +766,14 @@ detailed sequence/preset windows disable composition Undo/Redo.
   study's authored placement and movement. Stamps and their split pieces,
   particles during assembly/expansion, geometric sources and attached ghosts,
   halos and glow follow the placement; full-canvas noise and tape processing
-  remain across the canvas. Whole-clip position applies to all sections; a
-  selected section adds a local offset. **Reset position** clears both offsets
+  remain across the canvas. Whole-clip position applies to all clips; a
+  selected clip adds a local offset. **Reset position** clears both offsets
   in that scope. Position survives object-type switches, canvas resizing,
   Undo/Redo, save/open, detailed copies and export. Preview zoom does not change
   its units. Existing per-effect positions remain available in Source controls.
 - **Total** beside the playback counter always shows the complete duration,
-  calculated from the sum of each section's duration multiplied by its loops
-  count. It updates after section edits, loop changes and automatic timing
+  calculated from the sum of each clip's duration multiplied by its loops
+  count. It updates after clip edits, loop changes and automatic timing
   changes, including the two-burst study. No separate total duration edit is
   needed.
 - **Creative** in Tape damage, Frame jitter, Ghosts and Particles adjusts the
@@ -775,12 +784,12 @@ detailed sequence/preset windows disable composition Undo/Redo.
   Impulse motion; **Object → Creative motion…** opens these controls.
   **Parameters** edits the underlying values and shows which creative adjustments
   still apply. Use fixed value remains available for an intentional constant.
-  Local creative settings override whole-clip settings; local 100%/zero cancels
+  Local creative settings override project settings; local 100%/zero cancels
   an inherited adjustment. **↶** or **Restore creative controls** follows the
   parent again and keeps fixed values. Bypass, history, save/open, detailed copies
   and export preserve the result. Existing studies start neutral.
 - Fixed effect parameters use absolute values. Whole-clip settings apply first;
-  section settings override them. Fixed effect values take priority over
+  clip settings override them. Fixed effect values take priority over
   geometric Object controls and Finishing; creative adjustments act after those
   fixed values. A luminous form's companion ghost and granular halo require
   that form; ghost trails also apply to rays. Exposure flares are independent
@@ -806,18 +815,18 @@ detailed sequence/preset windows disable composition Undo/Redo.
   3–32 sides. Rotation is available for rectangles, ellipses and polygons.
   The same geometry shapes the luminous source, its echoes and the central
   ray aperture. **Finishing** holds the relative treatment adjustments:
-  1× means the original recipe, so different sections can look different at 1×.
-- **Original geometry** retains each source state's authored shape. Sections
-  default to **From whole clip** and can override it independently. Geometry
+  1× means the original recipe, so different clips can look different at 1×.
+- **Original geometry** retains each source state's authored shape. Clips
+  default to **From entire project** and can override it independently. Geometry
   saves with the composition and supports undo/redo. **New variation** keeps the
   shape, diameter, height, sides and rotation; the Width macro still varies
   rectangular/elliptical forms unless locked. Circles remain circular.
 - **New piece…** (also **File → New piece…**, Command-N) offers Text, Shape,
   Model, Video, or Remix a study. Generated material is visible immediately in
-  one six-second section, uses the current canvas and Timeline FPS, and opens
+  one six-second clip, uses the current canvas and Timeline FPS, and opens
   **Object** for editing. Enter your wording, choose a shape, or use the solid
   Doryphoros silhouette/particle head; then use **Effects → Add effect…** to build
-  a treatment. Resize or add sections to change total duration. Video follows
+  a treatment. Resize or add clips to change total duration. Video follows
   the existing import flow with its native canvas/FPS; Remix opens an independent
   editable copy with the study's saved canvas and timing. Cancel keeps the current
   piece, and replacement respects unsaved changes. In the bundled studies, choose source
@@ -853,7 +862,7 @@ tears and dropouts are deterministic under scrubbing and export.
 ### Master adjustments and scrolling
 
 The **Master** tab applies **Brightness**, **Contrast** and **Saturation** to the
-whole composition, regardless of the selected section. Brightness starts at 0%;
+whole composition, regardless of the selected clip. Brightness starts at 0%;
 contrast and saturation start at 100%. Saturation at 0% produces black and white.
 **Enable master** bypasses the adjustment without losing its values. Use **↶**
 to reset one control or **Reset master** to restore all neutral settings.
@@ -862,7 +871,7 @@ Master affects the finished image, including backgrounds and transitions, before
 Low-res finish enlarges its working raster. Preview and MP4 export use the same
 processing. Save/open, Undo/Redo and detailed copies preserve the settings;
 the detailed sequence editor also exposes Master. Old documents remain neutral
-and retain their exact pixels. Master is independent of section effects and
+and retain their exact pixels. Master is independent of clip effects and
 the relative recipe controls in Finishing.
 
 Closed dropdowns, numeric fields and sliders ignore the mouse wheel and trackpad
@@ -923,8 +932,8 @@ playback. The thin green strip immediately beneath the scrubber highlights prepa
 ranges. **Preview ready: X/Y** counts the actual prepared frames in the current
 playback scope; gaps can still skip during playback. Hover for details.
 
-Choose **Entire timeline** or **Selected sections** for preview. Selected sections
-play every occurrence of their section IDs in timeline order, including repeats,
+Choose **Entire timeline** or **Selected clips** for preview. Selected clips
+play every occurrence of their clip IDs in timeline order, including repeats,
 and skip unselected gaps. The occurrence count and duration explain the scope.
 Original absolute source/effect clocks are retained; this does not change the
 composition, its authored loops, or export. Scope changes pause playback, keeping
@@ -934,7 +943,7 @@ The preview cache and pending frame deliveries share a 192 MiB budget. Long
 scopes prepare a bounded window and report the limit instead of requiring the
 entire clip to fit. Foreground seeks take priority, and export suspends warming.
 Local visual edits retain unaffected frames when compiled cue dependencies prove
-it safe, including transitions and repeated sections. Global, timing, canvas,
+it safe, including transitions and repeated clips. Global, timing, canvas,
 quality, source and bypass changes rebuild the preview; stale workers cannot
 restore old pixels. Preview preferences are workspace settings. Preview remains
 silent and exports still render every frame independently.
@@ -949,9 +958,9 @@ The header groups document actions in its first row, then Studies, Canvas and
 Timeline FPS. **Save** saves directly; its arrow opens **Save As…** and
 **Save as study…**. The same keyboard shortcuts still apply. Controls wrap as
 groups in narrow workspaces. Contextual **Restore** lives above the inspector.
-Section blocks use two compact lines; outlines indicate arrangement selection,
-while a filled section identifies local editing. Whole-clip editing has no
-single-section fill. **Timeline help** explains resize, selection, reorder and loops.
+Clip blocks use two compact lines; outlines indicate arrangement selection,
+while a filled clip identifies local editing. Whole-clip editing has no
+single-clip fill. **Timeline help** explains resize, selection, reorder and loops.
 
 **View zoom** in the monitor header changes only the view. Choose **Fit**, **100%**,
 enter a percentage, or use **− / +**. Drag to pan a zoomed image, double-click to
@@ -971,8 +980,8 @@ full-screen icon in the monitor header switches modes. Detailed-copy windows kee
 their own temporary layout without overwriting the main workspace preferences.
 
 **Effects → Add effect… → Low-res finish → 360 px preview feel → Apply effect** keeps
-the texture of the 360 px preview in a full-size export. Choose the whole-clip
-scope to apply it throughout, or select a section for a local treatment.
+the texture of the 360 px preview in a full-size export. Choose the project
+scope to apply it throughout, or select a clip for a local treatment.
 **Working resolution** sets the longest edge of the internal raster; the saved
 canvas supplies its proportions. **Enlargement → Soft** smoothly enlarges the
 grain and softened edges, while **Crisp pixels** preserves hard pixel edges.
@@ -982,7 +991,7 @@ This renders sources, grain, backgrounds and sequence transitions at the chosen
 resolution before scaling the finished frame. Preview quality changes only the
 monitor size when the effect is on; the artistic raster stays the same in the
 preview and export. Export MP4 still writes the full canvas dimensions. The
-effect saves with the document and supports section overrides, Undo/Redo and
+effect saves with the document and supports clip overrides, Undo/Redo and
 detailed editing. It is off in existing studies; disable it to restore native
 rendering. Working resolution is capped at the saved canvas size.
 
@@ -990,19 +999,19 @@ rendering. Working resolution is capped at the saved canvas size.
 
 **Effects → Ink bloom → Timing** exposes the gesture as four durations in
 seconds: **Unfold**, **Stay unfolded**, **Fold**, and **Stay folded**. Timing is
-**shared across all sections**, including when a section is selected. The first
+**shared across all clips**, including when a clip is selected. The first
 edit establishes one complete timing profile and continuous clock; changing
-sections then shows the same values. Shape, inks and other appearance effects
-keep their existing section controls. Use **↶** to restore a timing value from
+clips then shows the same values. Shape, inks and other appearance effects
+keep their existing clip controls. Use **↶** to restore a timing value from
 the base recipe, or **Restore recipe timing** to return the original motion.
 Save/open, Undo/Redo and detailed copies retain the settings.
 
-Sections that already span complete ink cycles resize together when timing
+Clips that already span complete ink cycles resize together when timing
 changes, retaining their cycle counts. This keeps the second variation between
 gestures. Boundaries round cumulatively to export frames without adding drift.
-Manually arranged sections that do not span whole cycles keep their lengths;
+Manually arranged clips that do not span whole cycles keep their lengths;
 the shared motion clock continues through their boundaries. Old saved timing
-overrides are consolidated: whole-clip timing wins, otherwise the first section
+overrides are consolidated: project timing wins, otherwise the first clip
 with custom timing supplies the common profile. The embedded source is retained.
 
 **Gesture speed** scales this motion independently: 2× runs twice as fast, .5×
@@ -1021,13 +1030,13 @@ FPS and **Timeline FPS** beside Canvas in the workspace header together (for exa
 Lower Motion FPS deliberately retains the mixed-media holds. **Frame jitter → Jitter
 FPS** independently controls how often the tiny positional shakes change; 6–8
 FPS gives longer holds than 15 FPS. Print/background noise also keeps its own
-clock. **Arrange** controls custom section and clip lengths. **Timing**
+clock. **Arrange** controls custom clip and clip lengths. **Timing**
 includes cycle phase and automatic/manual cycling; the original percentage
 settings remain in the detailed editor. Untouched recipes keep their approved
 frames until a shared timing edit is made.
 
 **Studies → Ink bloom** creates a 3.53-second, 15 fps study from one editable
-section. Select **Canvas → Square** for its reference framing. Seven ragged
+clip. Select **Canvas → Square** for its reference framing. Seven ragged
 cyan, magenta, yellow and white impressions unfold into a rotating cluster,
 pass through edge-on views, and fold back into a compact stamp. The shapes and
 paper are generated procedurally; no reference footage or downloaded textures
@@ -1073,7 +1082,7 @@ Empty margins are cropped, proportions are preserved, and masks over 2048 pixels
 are reduced on import. The processed silhouette is embedded in the document, so
 save/open, detailed copies and export work after moving the original file.
 Switching to a built-in shape keeps the artwork available. Imports and edits
-support Undo/Redo and section overrides; ↶ restores the inherited artwork.
+support Undo/Redo and clip overrides; ↶ restores the inherited artwork.
 
 **Frame jitter** is a reusable effect for the ink figures, particle head and
 other generated sources. Apply **Hand-positioned paper**, **Subtle scan** or
@@ -1087,7 +1096,7 @@ freezes the pose. The renderer places this effect before bloom, raster and print
 finishing, so fresh print background noise retains its own frame pattern.
 
 **Studies → Mixed media / two bursts · 7s** opens a 106-frame, 15 fps composition
-with two editable sections and Frame jitter enabled. The second gesture opens
+with two editable clips and Frame jitter enabled. The second gesture opens
 wider, fans out, adds depth/tilt and turns in the opposite direction. A short
 parameter transition starts while the first gesture is closed. Replace its
 Stamp shape or import artwork to reuse the full motion. The original Ink bloom
@@ -1095,7 +1104,7 @@ study and saved clips retain their previous output.
 
 The shorter canvas edge controls stamp size, preserving proportions when
 switching formats. Paper covers the entire canvas. Effect overrides support
-save/open, Undo/Redo, section scope, independent study copies and detailed
+save/open, Undo/Redo, clip scope, independent study copies and detailed
 editing. Width, Instability and Texture finishing controls also affect the new
 source/treatment; Cycle seconds and opening/closing controls set its gesture.
 Seeded identities make scrubbing and export deterministic. The original signal
@@ -1104,7 +1113,7 @@ and particle studies remain unchanged. Implementation: `synth_print.py`.
 ### Particle attractors
 
 **Studies → Profile / phosphor scan · 4s** creates a 61-frame study at 15 fps,
-with a fixed left-facing human profile and four editable sections: Green lock,
+with a fixed left-facing human profile and four editable clips: Green lock,
 Overload, Red hold and Lower scan tear. It uses the existing CC0 head mesh;
 no frames or textures from a reference GIF are bundled. Low-res finish renders
 at 480 px before enlarging to the saved 960×540 canvas.
@@ -1153,22 +1162,22 @@ at 480 px before enlarging to the saved 960×540 canvas.
   covers the whole canvas and stays in place when the object moves.
 
 Both treatments can be applied to other sources through Effects. The study
-embeds its settings, keeps the same head pose throughout its sections, and
-supports whole-clip/section edits, reset, Undo/Redo, save/open, detailed copies,
+embeds its settings, keeps the same head pose throughout its clips, and
+supports project/clip edits, reset, Undo/Redo, save/open, detailed copies,
 canvas reframing and MP4 export. Other studies keep these effects disabled
 and retain their original rendering.
 
-New profile studies enable Signal background across all four sections. To
-update a saved profile, choose Whole clip, then add Signal background from
+New profile studies enable Signal background across all four clips. To
+update a saved profile, choose Entire project, then add Signal background from
 **Add effect…**. Saved compositions and other studies retain their prior look.
 
 **Studies → Profile / signal echoes · 8s** adds a separate 120-frame variation
-at 15 fps. Six sections progress through Green lock, Overload, Red / falling scan,
+at 15 fps. Six clips progress through Green lock, Overload, Red / falling scan,
 Violet echoes, Flare / signal rupture and Green return. The second half brings
 in **Ghosts / trails**, **Exposure flare** and **Signal drift**, with a brief
-violet pause and a return to the initial green palette. All six sections keep the
+violet pause and a return to the initial green palette. All six clips keep the
 same fixed head pose and Signal background settings. Edit each effect at Whole
-clip or section scope; changing section durations updates the total. The
+clip or clip scope; changing clip durations updates the total. The
 four-second study and saved projects remain unchanged.
 
 **Studies → Profile / clear silhouette · 8s** keeps that choreography in a
@@ -1179,7 +1188,7 @@ The study uses an explicit object region for the neck blend. Its mesh assets,
 the original Profile / signal echoes and Refined signal are unchanged.
 
 **Studies → Profile / Doryphoros · 8s** uses a CC0 museum scan of the classical
-Doryphoros head with the clear silhouette variation's six-section treatment.
+Doryphoros head with the clear silhouette variation's six-clip treatment.
 Facial definition and neck fullness start at zero to retain the scan's profile;
 the reusable directional region blends the neck into the signal. Select the mesh
 independently through **Object → Head model → Doryphoros**, or use it as a particle
@@ -1201,12 +1210,12 @@ changes to shared algorithms still need compatibility implementations and visual
 regression checks; an engine version field alone does not preserve old pixels.
 
 **Studies → Particle head** opens the **Particle signal** study: dots rush into an
-anatomical head, rebound and dissolve toward a thin luminous band. Three sections
+anatomical head, rebound and dissolve toward a thin luminous band. Three clips
 (Charge & gather, Signal storm, Release & return) combine the continuous particle
 motion with 11 signal-treatment cues. **Original particles** retains the first
-one-section study and its original pixels.
+one-clip study and its original pixels.
 **Expand / orbit** opens a 15-second variation with exactly two expansions,
-arranged as two sections. The assembled head turns at 18°/s, expands quickly with
+arranged as two clips. The assembled head turns at 18°/s, expands quickly with
 a narrow velocity peak, revolves as a broad cloud at 24°/s, then gathers again.
 A shared centered axis keeps the cloud from circling an offset pivot. The head
 inherits the cloud’s accumulated rotation on return, so reassembly keeps turning
@@ -1247,7 +1256,7 @@ You can also choose **Object → Particle model** in any generated composition.
   **Turn degrees / sec** separately rotates the entire target and field.
   **Cloud / band** restores the earlier release and its **Collapse to band**
   control. Collapse is ignored in Expand / orbit, which has no downward pull
-  or funnel taper. Release and orbit settings can also be overridden per section.
+  or funnel taper. Release and orbit settings can also be overridden per clip.
 - **Particle count**, **Dot size**, **Dispersion** and **Turbulence** set density,
   texture and the released field. **Parameters** includes collapse toward a
   horizontal band, rotation, tilt, scale, position, perspective, surface relief,
@@ -1284,7 +1293,7 @@ You can also choose **Object → Particle model** in any generated composition.
   has no active rays, slabs or flare generators. Tape damage is off in old presets.
 - Combine particles with bloom, raster / grain, color separation, trails or
   signal breakup. The particle source runs before those treatments. Parameters
-  support whole-clip/local overrides, bypass, restore, undo/redo and save/open.
+  support project/local overrides, bypass, restore, undo/redo and save/open.
   **Object → Particle model** controls the model, scale, pose and point density.
   **More object controls** opens its complete inspector, including head turn,
   assembly, expansion and orbit controls.
@@ -1333,7 +1342,7 @@ These controls also work in standalone presets.
 
 The following workflow and limits apply to the separate input-clip editor,
 opened with `studio.py` or the installed app's `--clip-studio` option. The
-default Synth composer supports the section, footage and automation workflows
+default Synth composer supports the clip, footage and automation workflows
 documented above.
 
 ### Experimenting

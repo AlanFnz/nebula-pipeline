@@ -41,7 +41,7 @@ def test_source_summary_follows_selected_section_resize_speed_and_shared_clock(m
     source.make_independent.click()
     assert 'Plays source 00:00.00 → 00:01.00.' in source.playback_summary.text()
     source.speed.setValue(2.)
-    assert 'Section length: 0.50s · Speed: 2.00×' in source.playback_summary.text()
+    assert 'Clip length: 0.50s · Speed: 2.00×' in source.playback_summary.text()
     assert '00:00.00 → 00:01.00' in source.playback_summary.text()
     panel.stretch_section(panel.document['sections'][1]['id'],1.)
     assert 'holds the last frame for 0.50s' in source.playback_summary.text()
@@ -54,7 +54,7 @@ def test_duplicate_replace_only_one_section_preserves_effects_and_undo(make_wind
     panel.duplicate_section(); panel.select_section(1); panel.look_tabs.setCurrentWidget(panel.video_panel)
     assert not panel.scope_combo.isHidden()
     source=panel.video_panel
-    assert 'this section' in source.relink.text()
+    assert 'this clip' in source.relink.text()
     assert not source.controls['in'].isEnabled()
     original=copy.deepcopy(window.composition)
     job=SimpleNamespace(document_identity=window.document_identity,section_id=original['sections'][1]['id'])

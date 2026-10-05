@@ -37,10 +37,10 @@ class SubjectPanel(QWidget):
         row = QHBoxLayout()
         self.selector = ComboBox(); self.selector.setAccessibleName('Object type')
         for key, (label, _) in SUBJECTS.items(): self.selector.addItem(label, key)
-        self.selector.setToolTip('Replace the object in this scope. Treatments, canvas and section durations stay in place.')
+        self.selector.setToolTip('Replace the object in this scope. Treatments, canvas and clip durations stay in place.')
         self.selector.currentIndexChanged.connect(self.choose); row.addWidget(self.selector, 1)
         self.restore = QPushButton('↶'); self.restore.setAccessibleName('Restore study object')
-        self.restore.setToolTip('Follow the study or whole-clip source activation again. Keep your object parameters.')
+        self.restore.setToolTip('Follow the study or project source activation again. Keep your object parameters.')
         self.restore.clicked.connect(self.restored.emit); row.addWidget(self.restore); layout.addLayout(row)
         self.note = QLabel(); self.note.setWordWrap(True); self.note.setObjectName('muted'); layout.addWidget(self.note)
         self.wording_host = QWidget(); self.wording_layout = QVBoxLayout(self.wording_host)
@@ -85,9 +85,9 @@ class SubjectPanel(QWidget):
                 extent = max(canvas[dimension], abs(round(value)))
                 slider.setRange(-extent, extent); slider.setValue(round(value)); spin.setValue(value)
         self.reset_position.setEnabled(any(geometry[f'position_{axis}'] for axis in ('x', 'y')))
-        self.position_note.setText('Section offset adds to whole-clip position. 0 keeps the inherited placement.' if local else '0 keeps the authored placement. X → right · Y → down. Motion and background stay intact.')
+        self.position_note.setText('Clip offset adds to project position. 0 keeps the inherited placement.' if local else '0 keeps the authored placement. X → right · Y → down. Motion and background stay intact.')
         if local:
-            self.position_note.setToolTip(f"Whole-clip offset: X {parent['position_x']:g} px · Y {parent['position_y']:g} px")
+            self.position_note.setToolTip(f"Project offset: X {parent['position_x']:g} px · Y {parent['position_y']:g} px")
         else: self.position_note.setToolTip('')
 
     def choose(self, index):
@@ -104,7 +104,7 @@ class SubjectPanel(QWidget):
         self.signal_effect = 'forms' if summary['forms']['active'] else 'rays'
         with QSignalBlocker(self.selector): self.selector.setCurrentIndex(self.selector.findData(self.kind))
         self.restore.setEnabled(any(entries.get(key, {}).get('mode', 'recipe') != 'recipe' for key in SOURCE_EFFECTS))
-        scope = 'this section' if local else 'the whole clip'
+        scope = 'this clip' if local else 'the entire project'
         notes = {'silhouette': 'A fixed human silhouette. Adjust its pose and framing here; Edge phosphor and Scan drag treat its outline.',
                  'text': 'Edit your wording below and apply it. Text appearance opens background, opacity and rotation; Motion & timing controls word changes and animation.',
                  'ink': 'Edit the printed silhouette here. Its unfold, turn and refold motion stays with it.',

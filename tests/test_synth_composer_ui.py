@@ -258,7 +258,7 @@ def test_new_clip_supports_combining_effects_and_local_bypass(window):
     assert window.composition["effects"]["breakup"]["params"]["breakup.bands"] == 9
     panel.select_section(0)
     assert effects.controls["breakup.bands"].input.value() == 9
-    assert "whole clip" in effects.controls["breakup.bands"].origin.text().lower()
+    assert "entire project" in effects.controls["breakup.bands"].origin.text().lower()
     effects.mode.setCurrentIndex(effects.mode.findData("off"))
     assert window.composition["effects"]["breakup"]["mode"] == "on"
     assert window.composition["sections"][0]["effects"]["breakup"]["mode"] == "off"

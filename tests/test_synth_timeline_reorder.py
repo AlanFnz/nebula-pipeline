@@ -1,4 +1,4 @@
-"""Body dragging reorders shared sections without colliding with edge resizing."""
+"""Body dragging reorders shared clips without colliding with edge resizing."""
 import copy
 
 import pytest

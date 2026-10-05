@@ -27,7 +27,7 @@ class EffectAuditionDialog(EffectBrowserDialog):
         self.action.clicked.connect(self.apply_candidate)
         self.table.setMaximumHeight(180); self.results.setMaximumHeight(180)
         self.body_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        self.target_label = QLabel('Whole clip' if section_id is None else panel.context_scope_label.removeprefix('Editing: '))
+        self.target_label = QLabel('Entire project' if section_id is None else panel.context_scope_label.removeprefix('Editing: '))
         self.target_label.setWordWrap(True)
         self.body_layout.insertWidget(1, self.target_label)
         self.diagnostic_note = QLabel(); self.diagnostic_note.setWordWrap(True)
@@ -52,7 +52,7 @@ class EffectAuditionDialog(EffectBrowserDialog):
         self.scrubber.valueChanged.connect(self.scrub_sample)
         transport_layout.addWidget(self.scrubber)
         row = QHBoxLayout()
-        self.selected_section = QPushButton('Preview selected section'); self.selected_section.clicked.connect(self.seek_section)
+        self.selected_section = QPushButton('Preview selected clip'); self.selected_section.clicked.connect(self.seek_section)
         self.retry = QPushButton('Retry'); self.retry.clicked.connect(self.render_selection)
         self.prepare = QPushButton('Prepare preview'); self.prepare.clicked.connect(lambda: self.render_selection(explicit=True))
         for button in (self.selected_section, self.retry, self.prepare): button.setAutoDefault(False); row.addWidget(button)
@@ -148,12 +148,12 @@ class EffectAuditionDialog(EffectBrowserDialog):
             seconds = self.studio.timeline.value()/self.studio.preview_fps()
             size = self.studio.preview_size()
             note = f'{"Ready" if session.ready else "Loading"} · {seconds:.2f}s · {size[0]}×{size[1]} · sampled up to 12 fps'
-            if session.section_id and not session.target_scope.contains(self.studio.timeline.value()): note += '\nCurrent frame is outside the selected section.'
+            if session.section_id and not session.target_scope.contains(self.studio.timeline.value()): note += '\nCurrent frame is outside the selected clip.'
             if session.section_id and session.target_scope.contains(self.studio.timeline.value()):
                 occurrence = next(i+1 for i, (start,end) in enumerate(session.target_scope.intervals) if start<=self.studio.timeline.value()<end)
-                note += f'\nSection occurrence {occurrence} of {len(session.target_scope.intervals)} · original absolute clock'
+                note += f'\nClip occurrence {occurrence} of {len(session.target_scope.intervals)} · original absolute clock'
             if self.operation == 'without' and session.section_id is None:
-                note += '\nExplicit section Resume overrides Whole clip bypass.'
+                note += '\nExplicit clip Resume overrides Entire project bypass.'
             if session.operation == 'replace' and self.studio.composer.effects_panel.is_bypassed(session.effect_id): note += '\nBypassed settings stay bypassed. Resume separately in the inspector.'
             if self.preview_play.isChecked() and getattr(self, 'waiting', False):
                 note = 'Preparing sampled loop… ' + str(sum(frame in self.studio.preview_frames.items for frame in session.samples)) + '/' + str(len(session.samples)) + ' frames\n' + note

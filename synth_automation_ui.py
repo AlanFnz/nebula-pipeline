@@ -71,7 +71,7 @@ class AutomationEditor(QDialog):
         self.setWindowTitle('Edit automation' if event_id else 'Animate parameter')
         self.setMinimumWidth(320); self.resize(420, 480)
         layout = QVBoxLayout(self)
-        hint = QLabel('Adds a temporary change to the base value, then returns to the moving base. Section loops repeat this gesture; editing changes every repetition.')
+        hint = QLabel('Adds a temporary change to the base value, then returns to the moving base. Clip loops repeat this gesture; editing changes every repetition.')
         hint.setWordWrap(True); layout.addWidget(hint)
         form = QFormLayout(); form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow); layout.addLayout(form)
         self.target = ComboBox()
@@ -85,10 +85,10 @@ class AutomationEditor(QDialog):
         self.section = ComboBox()
         for index, item in enumerate(composer.document['sections']):
             name = composer.document['phrases'][item['phrase']]['name']
-            self.section.addItem(f"Section {index+1} · {name}", item['id'])
+            self.section.addItem(f"Clip {index+1} · {name}", item['id'])
         chosen = section_id or composer.automation_section_id()
         self.section.setCurrentIndex(max(0, self.section.findData(chosen)))
-        self.section.setAccessibleName('Automation section'); form.addRow('Section', self.section)
+        self.section.setAccessibleName('Automation clip'); form.addRow('Clip', self.section)
         self.times = {}
         for key, label in zip(STAGES, ('Start', 'Rise', 'Hold', 'Recover')):
             control = DoubleSpinBox(); control.setDecimals(12); control.setRange(0, 300); control.setSuffix(' s')
@@ -160,9 +160,9 @@ class AutomationEditor(QDialog):
         from synth_sequence import resolve_sequence_frame
         base = resolve_sequence_frame(self.composer.compiled, origin+start)[-1]
         module = self.target.currentData().split('.')[0]
-        message = 'Start moved inside the section to leave room for a gesture.' if getattr(self, '_start_adjusted', False) else ''
+        message = 'Start moved inside the clip to leave room for a gesture.' if getattr(self, '_start_adjusted', False) else ''
         if not any(m['id'] == module and m['enabled'] for m in base['modules']):
-            message += ' This effect is inactive at the gesture start in the chosen section. Automation retains its activation and bypass settings; enable or resume it to see the gesture.'
+            message += ' This effect is inactive at the gesture start in the chosen clip. Automation retains its activation and bypass settings; enable or resume it to see the gesture.'
         self.notice.setText(message.strip())
 
     def quick_pull(self):
@@ -186,7 +186,7 @@ class AutomationEditor(QDialog):
         if not hasattr(self, 'curve'): return
         event = self.draft(); self.curve.gesture = absolute_event(event, self.current_section()['duration']); self.curve.update()
         total = sum(control.value() for key, control in self.times.items() if key != 'start')
-        self.total.setText(f'Duration {total:.2f}s · ends at {self.times["start"].value()+total:.2f}s in this section')
+        self.total.setText(f'Duration {total:.2f}s · ends at {self.times["start"].value()+total:.2f}s in this clip')
         self.update_notice()
 
     def apply(self):
@@ -202,8 +202,8 @@ class AutomationList(QDialog):
         super().__init__(composer); self.composer = composer; self.path = path; self.records = []
         self.setWindowTitle('Automations'); self.resize(500, 310)
         layout = QVBoxLayout(self)
-        hint = QLabel('Events belong to sections and repeat with their loops. Base values and presets remain editable.'); hint.setWordWrap(True); layout.addWidget(hint)
-        self.list = QListWidget(); self.list.setAccessibleName('Section automation events'); layout.addWidget(self.list)
+        hint = QLabel('Events belong to clips and repeat with their loops. Base values and presets remain editable.'); hint.setWordWrap(True); layout.addWidget(hint)
+        self.list = QListWidget(); self.list.setAccessibleName('Clip automation events'); layout.addWidget(self.list)
         row = QHBoxLayout(); layout.addLayout(row)
         self.add = QPushButton('Add…'); self.edit = QPushButton('Edit…'); self.toggle = QPushButton('Enable / Disable'); self.remove = QPushButton('Remove')
         for button in (self.add, self.edit, self.toggle, self.remove): row.addWidget(button)
@@ -222,7 +222,7 @@ class AutomationList(QDialog):
                 self.records.append((section['id'], event['id']))
                 timing = absolute_event(event, section['duration'])
                 end = sum(timing[k] for k in STAGES)
-                self.list.addItem(f"Section {index+1} · {target_label(event['path'])} · {timing['start']:.2f}–{end:.2f}s · {'Enabled' if event['enabled'] else 'Disabled'}")
+                self.list.addItem(f"Clip {index+1} · {target_label(event['path'])} · {timing['start']:.2f}–{end:.2f}s · {'Enabled' if event['enabled'] else 'Disabled'}")
         self.list.setCurrentRow(min(max(0, previous), len(self.records)-1)); self.selection_changed()
 
     def selection_changed(self, *_args):

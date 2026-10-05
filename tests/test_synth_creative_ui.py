@@ -79,7 +79,7 @@ def test_context_switch_from_broadcast_tab_opens_creative(panels):
     panel = panels(); editor = panel.effects_panel
     editor.inspect_effect('broadcast'); editor.parameter_tabs.setCurrentIndex(2)
     editor.set_context({}, {}, list(panel.compiled['states'].values()),
-                       'Whole clip', False, ('next-document',), allowed_effects=('tape',))
+                       'Entire project', False, ('next-document',), allowed_effects=('tape',))
     assert editor.effect_id == 'tape' and editor.parameter_tabs.currentIndex() == 0
     assert editor.creative_panel.isVisible() and not editor.parameter_host.isVisible()
 

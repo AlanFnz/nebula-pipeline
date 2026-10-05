@@ -1,4 +1,4 @@
-"""Timeline footage addition is atomic and follows stable section identities."""
+"""Timeline footage addition is atomic and follows stable clip identities."""
 import copy
 import os
 
@@ -115,7 +115,7 @@ def test_section_limit_and_generated_timeline_do_not_offer_footage_add(make_wind
     p['sections'] = [dict(copy.deepcopy(p['sections'][0]), id=f'section-{i}') for i in range(64)]
     window = make_window(composition=p); before = copy.deepcopy(window.composition)
     window.add_footage_section.click()
-    assert '64 sections' in window.status.text() and window.import_job is None
+    assert '64 clips' in window.status.text() and window.import_job is None
     assert window.composition == before
 
 

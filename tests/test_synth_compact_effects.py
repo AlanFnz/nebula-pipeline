@@ -28,7 +28,7 @@ def make_panel():
             document['effects'][key] = effect_preset(key)
         states = list(compile_composition(document)['states'].values())
         widget = EffectsPanel()
-        widget.set_context(document['effects'], {}, states, 'Whole clip', False, ('whole',), allowed_effects=allowed)
+        widget.set_context(document['effects'], {}, states, 'Entire project', False, ('whole',), allowed_effects=allowed)
         widget.show_overview(); widget.resize(width, 600); widget.show(); app.processEvents()
         panels.append(widget)
         return widget, document, states
@@ -120,7 +120,7 @@ def test_keyboard_bypass_resume_and_remove_keep_authored_payloads(make_panel):
     row.bypass.setFocus(); QTest.keyClick(row.bypass, Qt.Key.Key_Space)
     assert edits[-1] == ('tape', dict(entry, bypassed=True), 'effect-bypass')
     entries = copy.deepcopy(document['effects']); entries['tape']['bypassed'] = True
-    panel.set_context(entries, {}, states, 'Whole clip', False, ('whole',))
+    panel.set_context(entries, {}, states, 'Entire project', False, ('whole',))
     assert row.bypass.text() == 'Resume' and row.badge.text() == 'Bypassed'
     row.bypass.setFocus(); QTest.keyClick(row.bypass, Qt.Key.Key_Space)
     assert edits[-1] == ('tape', dict(entry, bypassed=False), 'effect-bypass')
