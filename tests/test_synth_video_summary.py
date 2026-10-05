@@ -24,7 +24,7 @@ def sequence(end_mode='hold', rate=1.):
 def test_actual_source_offsets_speed_hold_and_loop(start, duration, rate, mode, expected):
     seq = sequence(mode, rate); before = copy.deepcopy(seq)
     text, details = section_playback_summary(seq, start, duration)
-    assert f'Section length: {duration:.2f}s · Speed: {rate:.2f}×' in text
+    assert f'Clip length: {duration:.2f}s · Speed: {rate:.2f}×' in text
     assert expected in text and expected in details
     assert video_source_at(seq, start)[1] == start * rate
     assert seq == before

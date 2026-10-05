@@ -46,7 +46,7 @@ def test_edit_fill_is_independent_of_multi_selection_and_does_not_edit(timeline)
     rect = timeline.rectangles()[1]
     assert image.pixelColor(round(rect.left()), round(rect.top() + 3)) != QColor(COLORS['panel'])
     assert timeline.selected_ids == selected and timeline.document == original
-    assert 'Editing: Whole clip' in timeline.accessibleDescription()
+    assert 'Editing: Entire project' in timeline.accessibleDescription()
 
 
 def test_narrow_long_names_and_metadata_stay_bounded_and_discoverable(timeline):
@@ -84,4 +84,4 @@ def test_edit_scope_fills_every_occurrence_and_clears_deleted_owner(timeline):
     doc.pop('timeline_loops')
     timeline.set_document(doc)
     assert timeline.editing_section_id is None
-    assert 'Editing: Whole clip' in timeline.accessibleDescription()
+    assert 'Editing: Entire project' in timeline.accessibleDescription()

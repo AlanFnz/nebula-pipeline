@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.4 — 2026-10-05
+
+- Separate inherited project effects from clip effects and overrides. Entire
+  project shows the shared look and links to clips with local settings. Clip
+  overrides remain visible when Off, with a Follow project action that keeps
+  automation. Rename timeline sections to Clips and Whole clip to Entire project
+  across the interface and usage guide. Rendering, document keys and existing
+  Studies remain unchanged.
+
 ## 0.6.3 — 2026-10-05
 
 - Add a timeline **+ Add section…** shortcut for independent footage. Copy any

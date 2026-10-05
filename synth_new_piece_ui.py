@@ -18,7 +18,7 @@ class NewPieceDialog(QDialog):
         title = QLabel('START / choose your material'); title.setObjectName('sectionTitle')
         layout.addWidget(title)
         note = QLabel('Start with a visible object, then build its treatment in Effects. '
-                      'You can change the object and resize or add sections later.')
+                      'You can change the object and resize or add clips later.')
         note.setWordWrap(True); layout.addWidget(note)
         dimensions = QLabel(f"Canvas {canvas['width']} × {canvas['height']} · Timeline {fps} fps")
         dimensions.setObjectName('muted'); layout.addWidget(dimensions)

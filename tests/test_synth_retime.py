@@ -1,4 +1,4 @@
-"""A section stretch retimes all procedural clocks and optional footage together."""
+"""A clip stretch retimes all procedural clocks and optional footage together."""
 import copy
 
 import pytest

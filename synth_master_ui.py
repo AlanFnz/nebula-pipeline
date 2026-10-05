@@ -14,7 +14,7 @@ class MasterPanel(QWidget):
         super().__init__()
         layout = QVBoxLayout(self)
         label = QLabel('MASTER / whole composition'); label.setObjectName('sectionTitle'); layout.addWidget(label)
-        hint = QLabel('Adjust the finished image across every section, including textures and transitions. Neutral values keep the original look.')
+        hint = QLabel('Adjust the finished image across every clip, including textures and transitions. Neutral values keep the original look.')
         hint.setWordWrap(True); hint.setObjectName('muted'); layout.addWidget(hint)
         self.enabled = QCheckBox('Enable master'); self.enabled.setChecked(True)
         self.enabled.toggled.connect(lambda value: self.edited.emit('enabled', value)); layout.addWidget(self.enabled)
@@ -53,5 +53,5 @@ class MasterPanel(QWidget):
             with QSignalBlocker(control), QSignalBlocker(self.sliders[key]):
                 control.setValue(master[key] * 100); self.sliders[key].setValue(round(master[key] * 100))
             self.resets[key].setEnabled(master[key] != DEFAULT_MASTER[key])
-        self.status.setText('Bypassed · settings are preserved' if not master['enabled'] else 'Neutral · original image' if master == DEFAULT_MASTER else 'Applied to every section')
+        self.status.setText('Bypassed · settings are preserved' if not master['enabled'] else 'Neutral · original image' if master == DEFAULT_MASTER else 'Applied to every clip')
         self.reset.setEnabled(master != DEFAULT_MASTER)

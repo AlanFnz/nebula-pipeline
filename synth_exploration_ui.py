@@ -92,7 +92,7 @@ class VaryEffectDialog(QDialog):
         self.section_id = studio.composer.document['sections'][studio.composer.index]['id'] if studio.composer.scope else None
         self.setWindowTitle('Vary ' + EFFECT_BY_ID[effect_id].label); self.resize(390, 450)
         layout = QVBoxLayout(self)
-        scope = 'Selected section' if self.section_id else 'Whole clip'
+        scope = 'Selected clip' if self.section_id else 'Entire project'
         self.scope = QLabel(scope); self.scope.setObjectName('sectionTitle'); layout.addWidget(self.scope)
         note = QLabel('Only checked controls vary. Object, palette, source and noise seed stay fixed. Timing starts unchecked. Try previews a temporary B; Keep commits one undoable edit.'); note.setWordWrap(True); layout.addWidget(note)
         self.amount = ComboBox(); self.amount.setAccessibleName('Variation amount')

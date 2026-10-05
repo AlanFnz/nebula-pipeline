@@ -47,7 +47,7 @@ def effect_candidate(document, section_id, effect_id, operation='add', preset=0)
     result = copy.deepcopy(original)
     target = result if section_id is None else next((s for s in result['sections'] if s['id'] == section_id), None)
     if target is None:
-        raise ValueError('The selected section no longer exists. Open a fresh preview.')
+        raise ValueError('The selected clip no longer exists. Open a fresh preview.')
     previous = target['effects'].get(effect_id, {})
     parent = result['effects'].get(effect_id, {}) if section_id is not None else {}
     if operation == 'without':

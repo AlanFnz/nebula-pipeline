@@ -570,24 +570,24 @@ def normalize_composition(raw):
         phrase["name"] = str(phrase.get("name", "Phrase"))
     sections = result.get("sections")
     if not isinstance(sections, list) or not 1 <= len(sections) <= 64:
-        raise ValueError("Use between 1 and 64 sections")
+        raise ValueError("Use between 1 and 64 clips")
     ids = set()
     authored_event_count = 0
     for section in sections:
         if not isinstance(section, dict) or section.get("phrase") not in phrases:
-            raise ValueError("Unknown section phrase")
+            raise ValueError("Unknown clip phrase")
         identifier = section.get("id")
         if not isinstance(identifier, str) or not identifier or identifier in ids:
-            raise ValueError("Section identifiers must be unique")
+            raise ValueError("Clip identifiers must be unique")
         ids.add(identifier)
-        duration = _number(section.get("duration"), "Section duration", 1 / result["fps"], 300)
+        duration = _number(section.get("duration"), "Clip duration", 1 / result["fps"], 300)
         section["duration"] = max(1, round(duration * result["fps"])) / result["fps"]
         for key in ('effects_rate', 'video_rate'):
             if key in section:
                 if isinstance(section[key], bool): raise ValueError(f'Invalid {key}')
                 section[key] = _number(section[key], key, 1e-6, 1e6)
                 if math.isclose(section[key], 1., rel_tol=1e-12): section.pop(key)
-        section["loops"] = _number(section.get("loops", 1), "Section loops", 1, 32, True)
+        section["loops"] = _number(section.get("loops", 1), "Clip loops", 1, 32, True)
         section["macros"] = _controls(section.get("macros", {}))
         section["geometry"] = _geometry(section.get("geometry", {}), section=True)
         section["effects"] = normalize_effects(section.get("effects", {}))
@@ -617,7 +617,7 @@ def normalize_composition(raw):
             if (not isinstance(members, list) or not members or
                 not all(isinstance(key, str) and key in positions for key in members) or
                 len(set(members)) != len(members) or used.intersection(members)):
-                raise ValueError('Timeline loop groups need distinct known sections without overlaps')
+                raise ValueError('Timeline loop groups need distinct known clips without overlaps')
             loops = _number(group.get('loops'), 'Timeline loop count', 1, 32, True)
             if isinstance(group.get('loops'), bool): raise ValueError('Invalid timeline loop count')
             if loops > 1:
@@ -688,13 +688,13 @@ def proportional_section_durations(composition, identifiers, factor):
     longest section's 300-second maximum, or the arrangement's one-hour limit.
     """
     if isinstance(factor, bool) or not isinstance(factor, (int, float)) or not math.isfinite(factor):
-        raise ValueError('Section stretch factor must be finite')
-    if isinstance(identifiers, str): raise ValueError('Select sections to resize')
+        raise ValueError('Clip stretch factor must be finite')
+    if isinstance(identifiers, str): raise ValueError('Select clips to resize')
     selected = set(identifiers)
     fps = composition['fps']
     original = {section['id']: max(1, round(section['duration'] * fps))
                 for section in composition['sections'] if section['id'] in selected}
-    if not selected or len(original) != len(selected): raise ValueError('Unknown sections to resize')
+    if not selected or len(original) != len(selected): raise ValueError('Unknown clips to resize')
     placements = section_placements(composition)
     plays = {identifier: 0 for identifier in original}
     for index, *_ in placements:
@@ -754,10 +754,10 @@ def stretch_section(raw, identifier, duration, mode='effects'):
     if mode not in ('effects', 'video'):
         raise ValueError('Resize mode must be effects or video')
     if isinstance(duration, bool) or not isinstance(duration, (int, float)) or not math.isfinite(duration):
-        raise ValueError('Section duration must be finite')
+        raise ValueError('Clip duration must be finite')
     result = normalize_composition(raw)
     section = next((item for item in result['sections'] if item['id'] == identifier), None)
-    if section is None: raise ValueError('Unknown section to resize')
+    if section is None: raise ValueError('Unknown clip to resize')
     fps = result['fps']
     placements = section_placements(result)
     index = result['sections'].index(section)
@@ -827,15 +827,18 @@ def phrase_events(project, section):
     return events
 
 
-def compile_composition(raw, *, base_states=None):
+def compile_composition(raw, *, base_states=None, project_states=None, project_base_states=None):
     """Compile ordinary sequence states; optionally collect inspector base states.
 
     Base states exclude creative adjustments and bypass, retaining fixed edits.
-    The collector is presentation data and never changes the exported sequence.
+    Project collectors omit clip overrides; project_base_states also omits bypass
+    and creative adjustments. All collectors leave the exported sequence unchanged.
     The editor's snapshot library is excluded from rendering and base collection.
     """
     project = normalize_composition({key: value for key, value in raw.items() if key != 'snapshots'} if isinstance(raw, dict) else raw)
     if base_states is not None: base_states.clear()
+    if project_states is not None: project_states.clear()
+    if project_base_states is not None: project_base_states.clear()
     result = copy.deepcopy(project["source"])
     result['render_version'] = project['render_version']
     result.update(name=project["name"], fps=project["fps"], seed=project["seed"], states={}, cues=[])
@@ -852,7 +855,7 @@ def compile_composition(raw, *, base_states=None):
     # Imported detailed sequences use section-owned gestures. Reject an ambiguous
     # hand-authored embedded sequence instead of silently losing its automation.
     if project["source"].get("automations"):
-        raise ValueError("Import automated sequences with composition_from_sequence before arranging sections")
+        raise ValueError("Import automated sequences with composition_from_sequence before arranging clips")
     effects_time = video_time = 0.
     for occurrence, (index, start, end, _repetition) in enumerate(placements):
         section = project['sections'][index]
@@ -889,6 +892,13 @@ def compile_composition(raw, *, base_states=None):
                     break
                 state_name = f"{section['id']}:{cue['state']}"
                 if state_name not in result["states"]:
+                    # Optional inspector data excludes clip overrides without a
+                    # second compilation or any change to the rendered states.
+                    if project_states is not None or project_base_states is not None:
+                        shared = _adjust_state(project['source']['states'][cue['state']], project['macros'], 0, project['geometry'])
+                        shared, shared_base = apply_effects(shared, project['effects'], include_base=True)
+                        if project_states is not None: project_states[state_name] = apply_shared_timing(shared, project['ink_timing'])
+                        if project_base_states is not None: project_base_states[state_name] = apply_shared_timing(shared_base, project['ink_timing'])
                     state = _adjust_state(project["source"]["states"][cue["state"]], macros, offset, effective_geometry(project, section))
                     if base_states is None:
                         treated = apply_effects(state, effects)

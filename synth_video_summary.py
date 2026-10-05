@@ -33,7 +33,7 @@ def section_playback_summary(sequence, start, duration, *, repeated=False):
     """Describe one base play, respecting detailed imports and inherited clocks.
 
     Endpoints describe the source interval, not the last sampled/held frame.
-    Repeated shared sections may have different source offsets on later plays.
+    Repeated shared clips may have different source offsets on later plays.
     """
     clocks = sequence.get('video_segments') or sequence.get('time_map') or [
         dict(start=0., end=sequence['duration'], video_start=0., video_rate=1.)]
@@ -48,7 +48,7 @@ def section_playback_summary(sequence, start, duration, *, repeated=False):
         rows.append((footage, _interval_text(footage, elapsed, rate, right - left)))
         rates.append(rate)
     speed = f'{rates[0]:.2f}×' if rates and all(math.isclose(rate, rates[0], rel_tol=1e-9) for rate in rates) else 'varies'
-    heading = f'Section length: {duration:.2f}s · Speed: {speed}'
+    heading = f'Clip length: {duration:.2f}s · Speed: {speed}'
     if repeated: heading += ' · first play'
     # Long imported sequences should not create an enormous inspector label.
     multiple = len(rows) > 1

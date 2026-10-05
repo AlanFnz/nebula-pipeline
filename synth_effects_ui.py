@@ -55,6 +55,7 @@ class EffectChoice(QFrame):
     selected = Signal(str)
     bypassRequested = Signal(str)
     removeRequested = Signal(str)
+    restoreRequested = Signal(str)
 
     def __init__(self, effect):
         super().__init__()
@@ -72,6 +73,9 @@ class EffectChoice(QFrame):
         self.remove.setProperty('compact', True); self.remove.setProperty('secondaryAction', True)
         self.remove.setAccessibleName(f'Remove {effect.label}')
         self.remove.clicked.connect(lambda: self.removeRequested.emit(effect.id)); row.addWidget(self.remove)
+        self.restore = QPushButton('↶'); self.restore.setFixedWidth(24); self.restore.setProperty('compact', True)
+        self.restore.setAccessibleName(f'Follow project for {effect.label}')
+        self.restore.clicked.connect(lambda: self.restoreRequested.emit(effect.id)); row.addWidget(self.restore); self.restore.hide()
 
     def refresh(self, effect, info, selected, bypassed):
         state = 'Bypassed' if bypassed else 'Intermittent' if info['intermittent'] else 'On' if info['active'] else 'Off'
@@ -87,6 +91,7 @@ class EffectChoice(QFrame):
 
 
 class EffectsPanel(QWidget):
+    clipRequested = Signal(int)
     edited = Signal(str, object, str)
     automation_requested = Signal(str)
     instance_requested = Signal(str)
@@ -129,6 +134,15 @@ class EffectsPanel(QWidget):
         rack_layout.addWidget(self.applied_host)
         self.empty_applied = QLabel('No image effects applied. Add an effect to treat the source.'); self.empty_applied.setWordWrap(True)
         self.empty_applied.setObjectName('muted'); rack_layout.addWidget(self.empty_applied)
+        self.project_title = QLabel(); self.project_title.setObjectName('sectionTitle'); self.project_title.setWordWrap(True)
+        rack_layout.insertWidget(0, self.project_title)
+        self.clip_title = QLabel(); self.clip_title.setObjectName('sectionTitle'); self.clip_title.setWordWrap(True)
+        rack_layout.addWidget(self.clip_title)
+        self.clip_host = QWidget(); self.clip_layout = QVBoxLayout(self.clip_host)
+        self.clip_layout.setContentsMargins(0, 0, 0, 0); self.clip_layout.setSpacing(3); rack_layout.addWidget(self.clip_host)
+        self.clip_note = QLabel(); self.clip_note.setWordWrap(True); self.clip_note.setObjectName('muted'); rack_layout.addWidget(self.clip_note)
+        self.clip_links = QWidget(); self.clip_links_layout = QVBoxLayout(self.clip_links)
+        self.clip_links_layout.setContentsMargins(0, 0, 0, 0); rack_layout.addWidget(self.clip_links)
         self.source_header = QWidget(); source_header_layout = QHBoxLayout(self.source_header)
         source_header_layout.setContentsMargins(0, 0, 0, 0); source_header_layout.setSpacing(6)
         self.source_title = QLabel('OBJECT / sources'); self.source_title.setObjectName('sectionTitle')
@@ -156,6 +170,7 @@ class EffectsPanel(QWidget):
             choice = EffectChoice(effect); choice.selected.connect(self.inspect_choice)
             choice.bypassRequested.connect(self.toggle_bypass)
             choice.removeRequested.connect(self.remove_effect)
+            choice.restoreRequested.connect(lambda key: self.edited.emit(key, None, 'effect-restore'))
             self.available_layout.addWidget(choice); self.effect_choices[effect.id] = choice
         self.editor = QWidget(); editor_layout = QVBoxLayout(self.editor); editor_layout.setContentsMargins(0, 0, 0, 0); editor_layout.setSpacing(4)
         row = QHBoxLayout()
@@ -223,7 +238,7 @@ class EffectsPanel(QWidget):
         self.creative_notice.setObjectName('muted'); body_layout.addWidget(self.creative_notice)
         self.parameter_host = QWidget(); self.parameter_layout = QVBoxLayout(self.parameter_host); self.parameter_layout.setContentsMargins(0, 0, 0, 0); body_layout.addWidget(self.parameter_host)
         self.no_matches = QLabel('No matching controls in this tab.'); self.no_matches.setObjectName('muted'); body_layout.addWidget(self.no_matches); self.no_matches.hide()
-        self.note = QLabel('Use fixed value to override an animated control. Restore follows the whole clip or study again.')
+        self.note = QLabel('Use fixed value to override an animated control. Restore follows the entire project or study again.')
         self.note.setWordWrap(True); self.note.setObjectName('muted'); body_layout.addWidget(self.note); body_layout.addStretch(1)
         self.parameter_scroll.setWidget(body); self.pages.addWidget(self.editor); self.pages.setCurrentWidget(self.editor)
 
@@ -284,12 +299,13 @@ class EffectsPanel(QWidget):
         entry['bypassed'] = not self.is_bypassed(effect_id)
         self.edited.emit(effect_id, entry, 'effect-bypass')
 
-    def set_context(self, entries, parent_entries, states, scope_label, local, context_key, shared_timing=None, shared_states=None, allowed_effects=None, authored_states=None):
+    def set_context(self, entries, parent_entries, states, scope_label, local, context_key, shared_timing=None, shared_states=None, allowed_effects=None, authored_states=None, *, clip_automations=(), clip_overrides=()):
         self.updating = True
         self.entries = copy.deepcopy(entries); self.parent_entries = copy.deepcopy(parent_entries); self.local = local
         self.summary = describe_effects(states); self.authored_summary = describe_effects(authored_states) if authored_states is not None else self.summary
         self.allowed_effects = allowed_effects
-        self.context_effects = effects_for((*self.summary, *entries, *parent_entries))
+        self.context_effects = effects_for((*self.summary, *entries, *parent_entries,
+                                           *(event['path'].split('.')[0] for event in clip_automations)))
         for effect in self.context_effects:
             if effect.id not in self.summary or effect.id not in self.authored_summary:
                 empty = dict(active=False, intermittent=False, ranges={p: (parameter(p).default,) * 2 for p in effect.paths})
@@ -297,6 +313,7 @@ class EffectsPanel(QWidget):
             if effect.id not in self.effect_choices:
                 choice = EffectChoice(effect); choice.selected.connect(self.inspect_choice)
                 choice.bypassRequested.connect(self.toggle_bypass); choice.removeRequested.connect(self.remove_effect)
+                choice.restoreRequested.connect(lambda key: self.edited.emit(key, None, 'effect-restore'))
                 self.available_layout.addWidget(choice); self.effect_choices[effect.id] = choice
         visible_effects = [e for e in self.context_effects if allowed_effects is None or base_id(e.id) in allowed_effects]
         self.shared_timing = copy.deepcopy(shared_timing or {})
@@ -313,17 +330,44 @@ class EffectsPanel(QWidget):
         self.available_ids = tuple(effect.id for effect in visible_effects if effect.id not in self.applied_ids)
         treatments = [e for e in active if e.id not in SOURCE_EFFECTS]
         sources = [e for e in active if e.id in SOURCE_EFFECTS]
-        self.applied_title.setText(f'IMAGE EFFECTS · {len(treatments)}'); self.empty_applied.setVisible(not treatments)
+        automated = {event['path'] for event in clip_automations}
+        self.clip_effect_ids = tuple(e.id for e in visible_effects if local and e.id not in SOURCE_EFFECTS and
+                                     (e.id in entries or automated.intersection(e.paths)))
+        self.project_effect_ids = tuple(e.id for e in treatments if e.id not in self.clip_effect_ids)
+        self.rack_ids = set(self.applied_ids) | set(self.clip_effect_ids)
+        self.applied_title.setText(f'IMAGE EFFECTS · {len(self.project_effect_ids) + len(self.clip_effect_ids)}'); self.empty_applied.setVisible(not treatments)
+        self.project_title.setText(f'PROJECT EFFECTS · {len(self.project_effect_ids)}' + (' · inherited' if local else ''))
+        self.project_title.setVisible(bool(self.project_effect_ids))
+        self.applied_host.setVisible(bool(self.project_effect_ids))
+        self.empty_applied.setText('No project image effects. Add an effect in Entire project to share it across clips.' if not local else 'No inherited project image effects.')
+        self.empty_applied.setVisible(not self.project_effect_ids and not self.clip_effect_ids)
+        self.clip_title.setText(f'CLIP EFFECTS & OVERRIDES · {len(self.clip_effect_ids)}')
+        self.clip_title.setVisible(local)
+        self.clip_host.setVisible(local and bool(self.clip_effect_ids))
+        self.clip_note.setText('Edits here affect only this clip. Select Entire project to change shared effects.' if self.clip_effect_ids else
+                               'No clip overrides. Editing an inherited effect creates settings for this clip.')
+        self.clip_note.setVisible(local)
+        while self.clip_links_layout.count():
+            item = self.clip_links_layout.takeAt(0); item.widget().deleteLater()
+        overridden = [(i, s) for i, s in enumerate(clip_overrides) if s.get('effects') or s.get('automations')]
+        self.clip_links.setVisible(not local and bool(overridden))
+        if not local:
+            self.clip_title.setText(f'CLIP SETTINGS · {len(overridden)} clips'); self.clip_title.setVisible(bool(overridden))
+        for index, owner in overridden:
+            button = QPushButton(f"Clip {index + 1} · {len(owner['effects'])} overrides · {len(owner.get('automations', ()))} gestures →")
+            button.setProperty('compact', True); button.setAccessibleName(f'Inspect effects for clip {index + 1}')
+            button.setToolTip(', '.join(EFFECT_BY_ID[key].label for key in owner['effects']))
+            button.clicked.connect(lambda _checked=False, index=index: self.clipRequested.emit(index)); self.clip_links_layout.addWidget(button)
         object_available = allowed_effects is None or any(key in allowed_effects for key in SOURCE_EFFECTS)
         self.source_title.setText(f'OBJECT · {len(sources)} ' + ('source' if len(sources) == 1 else 'sources') if sources else 'OBJECT · no source')
         self.source_title.setVisible(object_available); self.source_header.setVisible(object_available)
         self.source_host.setVisible(bool(sources)); self.object_button.setVisible(object_available)
         for choice in self.effect_choices.values(): choice.hide()
         for effect in self.context_effects:
-            target = self.source_layout if effect.id in SOURCE_EFFECTS else self.applied_layout
+            target = self.source_layout if effect.id in SOURCE_EFFECTS else self.clip_layout if effect.id in self.clip_effect_ids else self.applied_layout
             target.addWidget(self.effect_choices[effect.id])
-            self.effect_choices[effect.id].setVisible(effect.id in self.applied_ids)
-        with QSignalBlocker(self.mode): self.mode.setItemText(0, 'Follow whole clip / study' if local else 'Follow study')
+            self.effect_choices[effect.id].setVisible(effect.id in self.rack_ids)
+        with QSignalBlocker(self.mode): self.mode.setItemText(0, 'Follow entire project / study' if local else 'Follow study')
         self.refresh_breakdown()
         self.updating = False
         self.refresh_effect()
@@ -352,14 +396,20 @@ class EffectsPanel(QWidget):
         self.inspector_title.setText(f'{"SOURCE" if effect.id in SOURCE_EFFECTS else "EDIT"} / {effect.label}')
         self.inspector_title.setToolTip(effect.description)
         for item in self.context_effects:
-            self.effect_choices[item.id].refresh(item, self.authored_summary[item.id], item.id == effect.id, self.is_bypassed(item.id))
+            row = self.effect_choices[item.id]
+            row.refresh(item, self.summary[item.id], item.id == effect.id, self.is_bypassed(item.id))
+            row.restore.setVisible(self.local and item.id in self.entries and item.id not in SOURCE_EFFECTS)
+            row.restore.setToolTip('Remove this clip’s effect overrides and follow the project or study again. Automation is kept.')
+            row.remove.setEnabled(item.id in self.browser_applied_ids())
+            row.bypass.setEnabled(self.summary[item.id]['active'] or self.is_bypassed(item.id))
+            row.setAccessibleDescription('Clip settings' if item.id in self.clip_effect_ids else 'Inherited project effect' if self.local else 'Project effect')
         entry = self.entries.get(effect.id, {"mode": "recipe", "params": {}})
         with QSignalBlocker(self.mode): self.mode.setCurrentIndex(self.mode.findData(entry["mode"]))
         self.description.setText(effect.description)
         self.instance_button.setVisible(base_id(effect.id) in REPEATABLE)
         self.instance_button.setAccessibleName('Add another ' + EFFECT_BY_ID[base_id(effect.id)].label + ' instance')
         self.restore.setEnabled(effect.id in self.entries)
-        self.restore.setToolTip("Remove only this effect's overrides in the selected scope. Follow the whole clip or study again.")
+        self.restore.setToolTip("Remove only this effect's overrides in the selected scope. Follow the entire project or study again.")
         self.bypass_button.setVisible(effect.id not in SOURCE_EFFECTS)
         self.bypass_button.setText('Resume' if self.is_bypassed(effect.id) else 'Bypass')
         self.bypass_button.setAccessibleName(f'{self.bypass_button.text()} {effect.label}')
@@ -367,8 +417,8 @@ class EffectsPanel(QWidget):
         self.remove_button.setVisible(effect.id not in SOURCE_EFFECTS)
         self.remove_button.setEnabled(effect.id in self.browser_applied_ids())
         self.remove_button.setAccessibleName(f'Remove {effect.label}')
-        removal_hint = ('Remove this effect from the selected section and clear its local settings. Other sections keep it.'
-                        if self.local else 'Remove this effect from the whole clip, including its section settings.') + ' Its automation is removed too. Undo restores both.'
+        removal_hint = ('Remove this effect from the selected clip and clear its local settings. Other clips keep it.'
+                        if self.local else 'Remove this effect from the entire project, including its clip settings.') + ' Its automation is removed too. Undo restores both.'
         self.remove_button.setToolTip(removal_hint)
         for item in self.effect_choices.values(): item.remove.setToolTip(removal_hint)
         if tuple(self.controls) != effect.paths:
@@ -397,21 +447,21 @@ class EffectsPanel(QWidget):
         self.creative_panel.refresh(effect.id, entry, parent, info, available, self.local)
         for path, control in self.controls.items():
             if path in INK_TIMING:
-                control.refresh(self.shared_summary['ranges'][path], self.shared_timing.get(path), False, True, scope_label='Whole clip', origin_label='Whole clip · shared timing', context_key=('shared-timing',))
-                control.origin.setText('Shared across all sections' if self.shared_timing else 'Recipe timing · edits apply to all sections')
-                control.setToolTip('One timing setup for the whole composition, regardless of the selected section.')
+                control.refresh(self.shared_summary['ranges'][path], self.shared_timing.get(path), False, True, scope_label='Entire project', origin_label='Entire project · shared timing', context_key=('shared-timing',))
+                control.origin.setText('Shared across all clips' if self.shared_timing else 'Recipe timing · edits apply to all clips')
+                control.setToolTip('One timing setup for the whole composition, regardless of the selected clip.')
             else:
                 control.refresh(info["ranges"][path], entry["params"].get(path), path in parent.get("params", {}), available, parent_value=parent.get("params", {}).get(path), scope_label=self.context_scope_label.removeprefix("Editing: "), context_key=self.context_key)
             control.set_automation_count(self.automation_counts.get(path, 0))
             control.base_origin = control.origin.text()
-        self.apply_button.setToolTip("Replace the base settings; existing section automation is retained.")
+        self.apply_button.setToolTip("Replace the base settings; existing clip automation is retained.")
         self.apply_button.setText("Preview preset…" if self.discovery_enabled and effect.id not in SOURCE_EFFECTS else "Replace with preset" if effect.id in self.applied_ids else "Apply preset")
         self.status.setText("Active during part of the recipe. On keeps it enabled throughout." if info["intermittent"] else
                             "Active. Unedited values keep following their recipe." if info["active"] else
                             f"{effect.label} is off in this scope. Open Activation & preset to apply settings, or return to the effects overview.")
         if self.is_bypassed(effect.id): self.status.setText('Bypassed · edits are retained. Resume restores the original activation timing.')
-        elif self.local: self.status.setText(self.status.text() + ' Unedited controls follow the whole clip or study.')
-        else: self.status.setText(self.status.text() + ' Section overrides take priority.')
+        elif self.local: self.status.setText(self.status.text() + ' Unedited controls follow the entire project or study.')
+        else: self.status.setText(self.status.text() + ' Clip overrides take priority.')
         if effect.id == 'ink_bloom' and self.controls['ink_bloom.shape'].input.currentIndex() == 5 and not self.controls['ink_bloom.artwork'].input.value():
             self.status.setText('Import artwork to supply the custom silhouette, or choose a built-in shape.')
         self.show_controls()
@@ -468,7 +518,7 @@ class EffectsPanel(QWidget):
         self.restore_timing.setVisible(timing)
         self.restore_timing.setEnabled(bool(self.shared_timing))
         for widget in (self.mode, self.restore, self.look, self.apply_button, self.status): widget.setVisible(not timing)
-        self.scope_label.setText('Editing: Whole clip · shared timing' if timing else self.context_scope_label)
+        self.scope_label.setText('Editing: Entire project · shared timing' if timing else self.context_scope_label)
         if not self.focused: self.scope_label.setText(self.context_scope_label)
         self.timing_selected.emit(timing and self.focused)
         visible_paths = SHARED_TIMING_CONTROLS if timing else tuple(path for path in effect.paths if not ink or path not in INK_TIMING)
@@ -539,7 +589,7 @@ class EffectsPanel(QWidget):
             elif not math.isfinite(loops[1]): loop = 'Gesture speed is frozen in part or all of this scope.'
             elif loops[0] == loops[1]: loop = f'Loop: {loops[0]:.2f} s at the current speed.'
             else: loop = f'Loop varies: {loops[0]:.2f}–{loops[1]:.2f} s across this scope.'
-            self.timing_note.setText('Changes apply to every section. ' + loop + ' Complete-cycle sections resize together to keep their boundaries aligned. Durations are at 1×; Stay folded is the total rest between gestures.')
+            self.timing_note.setText('Changes apply to every clip. ' + loop + ' Complete-cycle clips resize together to keep their boundaries aligned. Durations are at 1×; Stay folded is the total rest between gestures.')
 
     def change_mode(self, index):
         if self.updating or index < 0: return

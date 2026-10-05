@@ -1,4 +1,4 @@
-"""Section reordering changes chronology while preserving stable authored sections."""
+"""Clip reordering changes chronology while preserving stable authored clips."""
 import copy
 
 import pytest

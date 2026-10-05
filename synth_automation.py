@@ -48,7 +48,7 @@ def normalize_automations(raw, *, duration=1., fractions=True):
         if not isinstance(event, dict): raise ValueError('Automation event must be an object')
         identifier = event.get('id')
         if not isinstance(identifier, str) or not identifier or len(identifier) > 256 or identifier in ids:
-            raise ValueError('Automation identifiers must be unique within their section/sequence')
+            raise ValueError('Automation identifiers must be unique within their clip/sequence')
         ids.add(identifier)
         path = event.get('path')
         if not isinstance(path, str): raise ValueError('Automation needs a parameter path')
@@ -62,10 +62,10 @@ def normalize_automations(raw, *, duration=1., fractions=True):
         if easing not in ('smooth', 'linear'): raise ValueError('Automation easing must be smooth or linear')
         stages = {key + suffix: _number(event.get(key + suffix), key.title()) for key in STAGES}
         if any(value < 0 or value > limit for value in stages.values()):
-            raise ValueError('Automation start and stages must be within the section')
+            raise ValueError('Automation start and stages must be within the clip')
         total = sum(stages[key + suffix] for key in STAGES[1:])
         if total <= 0 or stages['start' + suffix] + total > limit + 1e-12:
-            raise ValueError('Automation needs a positive duration and must end inside its section')
+            raise ValueError('Automation needs a positive duration and must end inside its clip')
         result.append(dict(id=identifier, path=path, amount=amount, enabled=enabled, easing=easing, **stages))
     intervals = {}
     for event in result:
@@ -96,7 +96,7 @@ def duplicate_automation(events, event_id):
         if start + length <= left + 1e-12: break
         start = right
     if start + length > 1 + 1e-12:
-        raise ValueError('No room after this automation. Lengthen the section or move its gestures to make space, then duplicate again.')
+        raise ValueError('No room after this automation. Lengthen the clip or move its gestures to make space, then duplicate again.')
     duplicate = copy.deepcopy(original)
     duplicate.update(id='gesture-' + uuid.uuid4().hex, start_fraction=min(start, 1-length))
     return duplicate

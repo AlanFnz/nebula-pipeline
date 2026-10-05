@@ -84,7 +84,7 @@ def test_automation_no_room_is_atomic_and_reports_actionable_feedback(make_windo
     lane.selected = ('section-1', events(window)[0]['id'])
     duplicate_key(lane)
     assert window.composition == original and not window.undo_compositions
-    assert 'Lengthen the section' in window.status.text()
+    assert 'Lengthen the clip' in window.status.text()
     assert lane.selected == ('section-1', events(window)[0]['id'])
 
 
@@ -158,7 +158,7 @@ def test_duplicate_section_limit_never_partially_copies(make_window):
     window.section_timeline.selected_ids = {'cut-0','cut-1'}
     duplicate_key(window.section_timeline)
     assert window.composition == original and not window.undo_compositions
-    assert '64 sections' in window.status.text()
+    assert '64 clips' in window.status.text()
 
 
 def test_right_click_duplicate_actions_follow_the_same_undoable_paths(make_window):

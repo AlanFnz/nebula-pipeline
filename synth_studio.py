@@ -618,21 +618,21 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         tools_policy.setHeightForWidth(True); self.section_tools.setSizePolicy(tools_policy)
         section_tools = FlowLayout(self.section_tools, spacing=5)
         self.section_hint = QPushButton('Timeline help'); self.section_hint.setProperty('compact', True); self.section_hint.setProperty('secondaryAction', True)
-        gesture_help = 'Drag a section to reorder. Drag its right edge to resize. Shift-click to select several; drag the last selected edge to scale them together. Select sections or an automation curve, then press Command-D to duplicate. Right-click for duplication and loops. Escape cancels a drag.'
+        gesture_help = 'Drag a clip to reorder. Drag its right edge to resize. Shift-click to select several; drag the last selected edge to scale them together. Select clips or an automation curve, then press Command-D to duplicate. Right-click for duplication and loops. Escape cancels a drag.'
         self.section_hint.setToolTip(gesture_help); self.section_hint.clicked.connect(lambda: QMessageBox.information(self, 'Timeline gestures', gesture_help))
         section_tools.addWidget(self.section_hint)
-        self.add_footage_section = QPushButton('+ Add section…')
+        self.add_footage_section = QPushButton('+ Add clip…')
         self.add_footage_section.setProperty('compact', True)
-        self.add_footage_section.setAccessibleName('Add footage section')
-        self.add_footage_section.setToolTip('Choose new footage and optionally copy another section’s look. Adds an independent section after the active section; Undo removes it.')
+        self.add_footage_section.setAccessibleName('Add footage clip')
+        self.add_footage_section.setToolTip('Choose new footage and optionally copy another clip’s look. Adds an independent clip after the active clip; Undo removes it.')
         self.add_footage_section.clicked.connect(self.add_footage_section_dialog)
         section_tools.addWidget(self.add_footage_section)
         self.section_resize_mode = QComboBox()
         self.section_resize_mode.addItem('Resize: Keep footage speed', 'effects')
         self.section_resize_mode.addItem('Resize: Stretch footage', 'video')
-        self.section_resize_mode.setAccessibleName('Section resize mode')
+        self.section_resize_mode.setAccessibleName('Clip resize mode')
         self.section_resize_mode.setToolTip('Keep footage speed reveals more or less of the source, up to Source → Out. At Out, footage holds or loops according to its source settings. Stretch footage changes video speed and retimes its audio to keep the same source interval. Both modes stretch effects and automation. Applies to the next resize; switching modes does not undo earlier speed changes.')
-        self.section_resize_mode.setItemData(0, 'Keep video speed while changing section length. Source → Out limits the available footage; effects and automation stretch to fit.', Qt.ItemDataRole.ToolTipRole)
+        self.section_resize_mode.setItemData(0, 'Keep video speed while changing clip length. Source → Out limits the available footage; effects and automation stretch to fit.', Qt.ItemDataRole.ToolTipRole)
         self.section_resize_mode.setItemData(1, 'Keep the same source interval by changing video speed. Footage, audio, effects and automation stretch together.', Qt.ItemDataRole.ToolTipRole)
         self.section_resize_mode.currentIndexChanged.connect(lambda _index: self.composer and setattr(self.composer, 'resize_mode', self.section_resize_mode.currentData()))
         section_tools.addWidget(self.section_resize_mode)
@@ -649,7 +649,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         timeline.addWidget(track, 1)
         self.time_label = QLabel('00:00.00'); self.time_label.setObjectName('timecode'); timeline.addWidget(self.time_label)
         self.total_time_label = QLabel(); self.total_time_label.setObjectName('monitorMeta'); self.total_time_label.setAccessibleName('Total duration')
-        self.total_time_label.setToolTip('Duration of all sections and loops. Updates automatically when timing changes.')
+        self.total_time_label.setToolTip('Duration of all clips and loops. Updates automatically when timing changes.')
         timeline.addWidget(self.total_time_label); left_layout.addWidget(transport)
         preview_line = QHBoxLayout(); preview_line.setContentsMargins(0, 0, 0, 3); preview_line.setSpacing(8)
         self.preview_status = ElidingLabel('Preview paused'); self.preview_status.setObjectName('muted'); self.preview_status.setAccessibleName('Preview performance')
@@ -660,7 +660,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         preview_line.addWidget(self.cache_status); left_layout.addLayout(preview_line)
         preparation_host = QWidget(); preparation_host.setProperty('chrome', True)
         preparation_row = FlowLayout(preparation_host, spacing=5)
-        self.preview_scope = QComboBox(); self.preview_scope.addItems(['Entire timeline', 'Selected sections']); self.preview_scope.setAccessibleName('Playback scope')
+        self.preview_scope = QComboBox(); self.preview_scope.addItems(['Entire timeline', 'Selected clips']); self.preview_scope.setAccessibleName('Playback scope')
         self.preview_scope.setToolTip('Playback selection is separate from editing scope. Repeats play in timeline order.')
         self.preview_scope.currentIndexChanged.connect(self.preview_scope_changed)
         preparation_row.addWidget(inline(QLabel('Playback'), self.preview_scope))
@@ -1200,7 +1200,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
 
     def import_video_dialog(self, checked=False, relink=False):
         section_id = self.composer.document['sections'][self.composer.index]['id'] if relink and self.composer and self.composer.scope else None
-        title = 'Choose video for selected section' if section_id else 'Replace shared video' if relink else 'Import video as a new composition'
+        title = 'Choose video for selected clip' if section_id else 'Replace shared video' if relink else 'Import video as a new composition'
         path, _ = QFileDialog.getOpenFileName(self, title, '',
             'Video (*.mp4 *.mov *.m4v *.mkv *.avi *.webm);;All files (*)')
         if path: self.start_video_import(path, relink, section_id=section_id)
@@ -1208,12 +1208,12 @@ class SynthStudio(ExplorationStudio, QMainWindow):
     def add_footage_section_dialog(self):
         if not self.composer or not self.composition or 'footage' not in self.composition: return
         if len(self.composition['sections']) >= 64:
-            self.status.setText('Use at most 64 sections. Remove a section before adding footage.'); return
+            self.status.setText('Use at most 64 clips. Remove a clip before adding footage.'); return
         index = self.composer.index
         anchor = self.composition['sections'][index]['id']
         dialog = AddVideoSectionDialog(self.composition, index, self)
         if not dialog.exec(): return
-        path, _ = QFileDialog.getOpenFileName(self, 'Choose footage for new section', '',
+        path, _ = QFileDialog.getOpenFileName(self, 'Choose footage for new clip', '',
             'Video (*.mp4 *.mov *.m4v *.mkv *.avi *.webm);;All files (*)')
         if path:
             self.start_video_import(path, add_section={'after_id': anchor, 'copy_from_id': dialog.look.currentData()})
@@ -1257,16 +1257,16 @@ class SynthStudio(ExplorationStudio, QMainWindow):
             if not self.composer or not self.composition or 'footage' not in self.composition: return
             identifier = self.composer.add_video_section(footage, **addition)
             if not identifier: return
-            self.status.setText('Section added with independent footage. Undo removes it; other sections kept their settings.')
+            self.status.setText('Clip added with independent footage. Undo removes it; other clips kept their settings.')
         elif relink and self.composition and 'footage' in self.composition:
             document = copy.deepcopy(self.composition)
             section_id = getattr(job, 'section_id', None)
             target = document if section_id is None else next((s for s in document['sections'] if s['id'] == section_id), None)
             if target is None:
-                self.status.setText('The target section was removed while loading. No footage was replaced.'); return
+                self.status.setText('The target clip was removed while loading. No footage was replaced.'); return
             target['footage'] = relink_footage(target.get('footage', document['footage']), footage)
             self.composer.commit(document, 'video-relink')
-            self.status.setText('Section footage replaced. Effects and other sections kept their settings.' if section_id else 'Shared footage replaced. Independent sections kept their videos.')
+            self.status.setText('Clip footage replaced. Effects and other clips kept their settings.' if section_id else 'Shared footage replaced. Independent clips kept their videos.')
         else:
             if getattr(job, 'document_identity', None) is not self.document_identity: return
             project = video_composition(footage)

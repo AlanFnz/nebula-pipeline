@@ -77,7 +77,7 @@ def test_last_selected_edge_stretches_selection_and_ripples_once(timeline, selec
     scale = timeline.pixels_per_second()
     QTest.mouseMove(timeline, point - QPoint(20, 0))
     QTest.mouseMove(timeline, point)
-    assert f'{len(selected)} selected sections proportionally' in timeline.toolTip()
+    assert f'{len(selected)} selected clips proportionally' in timeline.toolTip()
     QTest.mousePress(timeline, Qt.MouseButton.LeftButton, pos=point)
     QTest.mouseMove(timeline, point + QPoint(delta, 0))
     assert timeline.selected_indices() == selected
