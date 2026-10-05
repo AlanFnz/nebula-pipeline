@@ -1,6 +1,7 @@
 # Editing and preview improvements
 
-Status: implemented, validated, and installed on 2026-09-30; draft review pending.
+Status: implemented, validated and installed on 2026-09-30; merged through PR #9.
+This records the original milestone. Current workflows are in [README](../README.md).
 Prepared: 2026-09-30.
 Repository: AlanFnz/nebula-pipeline.
 Baseline: main at 167636b; the separate playback-icons change is dee20f4 / PR #8.

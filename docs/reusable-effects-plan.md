@@ -2,6 +2,9 @@
 
 Status: first milestone implemented; later extractions remain planned.
 Baseline: `2f4f8a2` on `codex/synthesizer-v0.2`.
+This records that milestone's design and validation. Current workflows are in
+[README](../README.md). The later 0.5.1 release adds Tape damage instances;
+arbitrary instances for other effect families and user-reordered stacks remain planned.
 
 ## First milestone delivered
 

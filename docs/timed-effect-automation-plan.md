@@ -4,7 +4,8 @@ Prepared: 2026-10-04. Baseline: main `5ded876`, Nebula Studio 0.4.4.
 Executor: GPT-6.1 Sol. Integration and independent review: parent agent.
 Branch: `codex/timed-effect-automation`.
 Roadmap: [A5 motion controls](creative-controls-audio-roadmap.md).
-Status: implemented in the assigned branch; parent owns native review and release.
+Status: merged through PR #21, released and installed as 0.5.0 on 2026-10-04.
+This records the original milestone. Current workflows are in [README](../README.md).
 Delivery: [implementation notes](timed-effect-automation-delivery.md).
 
 ## Outcome and acceptance journey
@@ -82,7 +83,8 @@ Document that newly authored automation requires this new app version.
 Expand section events into optional sequence events with absolute timeline start
 and stage durations, following `section_placements()` and each section's internal
 loop count. Events repeat for every section/group occurrence, move with reorder,
-and scale on resize in both Effects only and Video + effects modes. They must not
+and scale on resize in both modes, now labelled Keep footage speed and Stretch
+footage (formerly Effects only and Video + effects). They must not
 inherit a second accidental scale from the procedural `effects_rate` time map.
 When a section is duplicated, preserve its gestures and establish valid IDs for
 the chosen uniqueness scope. Deleting a section deletes its events.

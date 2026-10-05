@@ -3,6 +3,8 @@
 Prepared: 2026-10-03. Baseline: v0.4.2 / aad682b on main.
 Status: implemented; see [delivery notes](compact-workspace-delivery.md) for
 measurements, validation and compatibility details.
+This records the 0.4.3 layout milestone. Current workflows are in
+[README](../README.md); video Source controls gained section scope in 0.6.0.
 
 ## Outcome
 

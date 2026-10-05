@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Reconcile the usage guide and roadmap with shipped section footage, loops,
+  Tape damage instances and automation. Add a duration/speed/FPS reference and
+  distinguish the earlier Print / Scan editor's limits from the Synth composer.
+  Documentation only; application behavior and version remain unchanged.
+
 ## 0.6.1 — 2026-10-05
 
 - Clarify timeline resizing with compact **Keep footage speed** and

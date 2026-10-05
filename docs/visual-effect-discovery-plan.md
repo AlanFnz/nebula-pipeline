@@ -1,7 +1,8 @@
 # Visual effect discovery implementation plan
 
 Prepared: 2026-10-02.
-Status: implemented on the feature branch for draft review; see [delivery notes](visual-effect-discovery-delivery.md) for validation and native adjustments.
+Status: merged through PR #16 and shipped in 0.4.0 on 2026-10-02; see
+[delivery notes](visual-effect-discovery-delivery.md) for validation and native adjustments.
 Executor: GPT 6.1 Sol.
 Baseline: `main` at `578411a`, released and installed as Nebula Studio 0.3.0.
 Working branch: `codex/visual-effect-discovery`.

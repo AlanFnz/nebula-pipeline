@@ -1,8 +1,9 @@
 # Timed effect automation delivery
 
 Implemented 2026-10-04 on `codex/timed-effect-automation`, based on 0.4.4.
-The parent owns native review, release versioning, merge and installation.
-No personal saved composition, running user app or study library was changed.
+Merged through PR #21, released and installed as 0.5.0 on 2026-10-04.
+The validation below records the original implementation and isolated review.
+Current workflow: [README](../README.md).
 
 ## Artist workflow
 
@@ -100,6 +101,9 @@ held fault clock, so adding pull retains existing tracking/dropout/chroma timing
 Zero pull preserves the old path exactly, including its neutral early return.
 **Clean pull / animate** was appended after all prior Tape presets to preserve
 their numeric indices; it zeros old faults, enables Mix, and keeps pull zero.
+Since 0.5.2, new clean passes use **Pull edges → Keep canvas filled**; the earlier
+displacement remains available as **Allow blanking**. Tape damage gained independent
+instances in 0.5.1, and Command-D gesture/section duplication shipped in 0.5.3.
 
 ## Validation and independent example
 
@@ -141,5 +145,5 @@ The parent independently verified the native isolated-window workflow: visible
 Animate, typed Start 4 / Rise .15 / Hold 0 / Recover .85 / Amount .35, Apply,
 scrub at 4.2s with effective-value diagnostics, visible unclipped lane, Undo back
 to the clean original, and Redo to the same event. The composition retained one
-10s section and the compact viewport. Installation/restart of the user's app
-remains the parent's task.
+10s section and the compact viewport. This isolated review preceded the 0.5.0
+release and installation noted above.

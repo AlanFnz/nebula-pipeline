@@ -2,8 +2,9 @@
 
 Recorded: 2026-10-01.
 Status: A1 starting points, A2 creative-control pilot and A3 snapshots/controlled
-exploration shipped in 0.3.0 on 2026-10-02. A4 visual discovery is merged into
-main for 0.4.0 on 2026-10-02; A5 and audio reactivity remain unimplemented.
+exploration shipped in 0.3.0 on 2026-10-02. A4 visual discovery shipped in
+0.4.0 on 2026-10-02; A5 timed gestures shipped in 0.5.0 on 2026-10-04.
+Reviewed against 0.6.1 on 2026-10-05. Audio reactivity remains unimplemented.
 Expanded: 2026-10-01 with selectable frequency ranges and future multitrack routing.
 Order: independent visual experimentation first, imported-audio reactivity next,
 then multiple imported tracks and optional live input. Future milestones do not
@@ -170,7 +171,7 @@ Save as study and export require keeping or discarding a pending audition;
 closing/replacing checks the audition before the ordinary unsaved-document guard.
 The chosen values, amount, affected controls and exploration seed are saved in
 the effect's optional creative variation record. Manual creative edits clear that
-record. Existing New take/Keep controls continue their established broader
+record. Existing New variation/Keep controls continue their established broader
 Finishing variation behavior.
 
 - Add named snapshots and A/B comparison at the same playhead time, quality and
@@ -178,7 +179,7 @@ Finishing variation behavior.
 - Add Vary this effect, with subtle/moderate/strong exploration amounts.
 - Let the user keep properties such as palette, object or timing unchanged.
   Show what will vary; record the random seed so a saved take remains reproducible.
-- Build on the current New take and Keep mechanisms. Separate temporary auditions
+- Build on the current New variation and Keep mechanisms. Separate temporary auditions
   from committed changes; returning to a snapshot must recover its full behavior.
 
 Acceptance: capture A, vary only the chosen effect, compare A/B during a short
@@ -210,15 +211,16 @@ main features of a study. Preview work must yield to editing and export.
 
 ### A5. Understandable motion
 
-Implemented in the timed-effect automation branch: section-owned rise/hold/recover
+Shipped in 0.5.0 through PR #21: section-owned rise/hold/recover
 parameter gestures, signed additive change, smooth/linear easing, a draft-first
 editor, an accessible event list and compact draggable timeline lane. Gestures
 repeat with section/group loops and scale with section resize, while retaining
 source/effect clocks, cue animation, Creative controls and bypass precedence.
 The neutral signed Tape horizontal pull supplies the initial VHS use case.
 See [delivery notes](timed-effect-automation-delivery.md) for shipped targets,
-validation and compatibility. Arbitrary keyframe graphs and all audio work remain
-deferred; the parent owns final native review and release integration.
+validation and compatibility. Arbitrary keyframe graphs and audio-reactivity work remain
+deferred. Follow-up releases add independent Tape damage instances (0.5.1),
+canvas-filled pulls (0.5.2), and timeline section/gesture duplication (0.5.3).
 
 Add a compact curve/envelope editor for behaviors such as build up, burst, hold
 and recover. Show duration and easing directly; offer useful movement patterns
@@ -249,8 +251,9 @@ bounded modulation. Mapping amount zero or bypass must recover the base result.
 - Handle missing files with relink and clear state. Follow the existing portable
   study/media policy when saving assets.
 
-Current code already exports imported video audio, including trim, loop/hold
-and retimed video clocks, through synth_video_audio.py. Extend that behavior
+Current code already exports each section's imported video audio, including
+independent sources, trim, loop/hold, muted gaps and pitch-preserving speed changes,
+through synth_video_audio.py. Extend that behavior
 without regressing it. A separate soundtrack and audible synchronized preview
 are additional work; existing audio export is not an audio-reactivity system.
 
@@ -393,12 +396,12 @@ preview time. A full general-purpose curve editor is not an architectural
 prerequisite; implementation planning can choose its position after the first
 creative release is reviewed.
 
-Resolve before the relevant milestone: exact pilot mappings and useful ranges;
-snapshot scope/persistence; how direct parameter edits combine with creative
-adjustments; multiple-connection composition; initial frequency ranges and band filtering;
-trigger/retrigger behavior; per-track soundtrack selection/end behavior;
-and the asset portability policy. Keep these explicit rather than treating
-suggested UI labels or example mappings as finished specifications.
+Before the audio milestones, resolve the initial visual targets and useful
+ranges, multiple-connection composition, frequency ranges and band filtering,
+trigger/retrigger behavior, and per-track soundtrack selection/end behavior.
+Extend the existing snapshot and portable-media behavior from A3 and section
+footage rather than introducing a separate persistence policy. Suggested audio
+labels and example mappings remain proposals, not finished specifications.
 
 Deliver each milestone in reviewable commits with targeted behavior tests,
 existing frozen-study regressions and visual checks at narrow/normal window

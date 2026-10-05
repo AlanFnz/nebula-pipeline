@@ -2,7 +2,8 @@
 
 Status: implemented and packaged 2026-09-30; merged into main and installed on 2026-10-01.
 Base: 4ba6a63 on codex/studio-editing-library (draft PR #9, itself based on #8).
-Delivery branch: codex/effects-editor-ux. Version remains 0.2.0.
+Delivery branch: codex/effects-editor-ux. Milestone version: 0.2.0.
+This records the original milestone. Current workflows are in [README](../README.md).
 
 ## Goal and invariants
 

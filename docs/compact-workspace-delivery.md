@@ -1,6 +1,8 @@
 # Compact workspace delivery
 
 2026-10-03 · v0.4.3
+These are the measurements and validation for that release. Current workflows
+are in [README](../README.md); video Source controls gained section scope in 0.6.0.
 
 Implementation follows [the recorded plan](compact-workspace-plan.md). Two
 GPT 6.1 Sol agents implemented the bounded timeline and effects overview work;
