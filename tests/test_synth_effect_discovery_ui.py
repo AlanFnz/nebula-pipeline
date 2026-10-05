@@ -12,6 +12,8 @@ from synth_exploration import capture_snapshot
 from synth_video import inspect_video, video_composition
 from test_synth_video import clip
 
+REAL_REQUEST_FRAME = SynthStudio.request_frame
+
 
 @pytest.fixture
 def window(monkeypatch):
@@ -65,6 +67,44 @@ def test_selection_invalidates_late_packet_and_apply(window):
     assert window.composition==candidate and len(window.undo_compositions)==history+1
     window.undo_composition();assert 'bloom' not in window.composition['effects']
     window.redo_composition();assert window.composition==candidate
+
+
+def test_applied_effect_restores_working_preview_after_audition(window, monkeypatch):
+    window.composer.change_effect('bloom', {'mode': 'on', 'params': {}}, 'effect-add')
+    before = copy.deepcopy(window.composition)
+    history = copy.deepcopy(window.undo_compositions)
+    monkeypatch.setattr(SynthStudio, 'request_frame', REAL_REQUEST_FRAME)
+    # The fixture connected the no-render stub when constructing its timer.
+    window.preview_debounce.timeout.disconnect()
+    window.preview_debounce.timeout.connect(window.request_frame)
+    window.open_effect_discovery(); d = window.discovery_dialog
+    select(d, 'tape'); d.debounce.stop(); d.render_selection()
+    assert window.comparison is not None
+    # The old path cleared the viewport and had no comparison/context change
+    # left to trigger rendering when browsing another applied effect.
+    select(d, 'bloom'); d.debounce.stop(); d.render_selection()
+    assert window.comparison is None and d.session.candidate is None
+    for _ in range(200):
+        QApplication.processEvents()
+        if window.viewer.packet is not None: break
+        QTest.qWait(25)
+    assert window.viewer.packet is not None
+    assert window.preview_sequence() == window.sequence
+    assert d.action.text() == 'Inspect effect' and d.action.isEnabled()
+    assert window.composition == before and window.undo_compositions == history
+
+
+def test_browsing_applied_effect_keeps_current_picture(window):
+    window.composer.change_effect('bloom', {'mode': 'on', 'params': {}}, 'effect-add')
+    window.open_effect_discovery(); d = window.discovery_dialog
+    d.debounce.stop(); d.render_selection()
+    if window.comparison: window.end_comparison()
+    packet = ((1, 1), b'\x12\x34\x56')
+    window.viewer.set_packet(packet)
+    select(d, 'bloom'); d.debounce.stop(); d.render_selection()
+    assert window.viewer.packet == packet
+    assert window.render_queued and window.preview_debounce.isActive()
+    assert d.session.candidate is None
 
 
 def test_failure_stale_document_export_and_drafts_disable_or_reject(window):

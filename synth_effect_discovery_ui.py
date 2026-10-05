@@ -97,7 +97,13 @@ class EffectAuditionDialog(EffectBrowserDialog):
         self.studio.cancel_preparation()
         if self.studio.comparison: self.studio.end_comparison()
         self.action.setEnabled(False)
-        self.studio.viewer.set_packet(None)
+        if self.selected_effect_id() in self.applied_ids:
+            # Inspecting an existing effect has no temporary candidate. Keep
+            # the picture and request the working piece at audition quality,
+            # including when returning from a different preset comparison.
+            self.studio.invalidate(force_clear=True)
+        else:
+            self.studio.viewer.set_packet(None)
         self.preview_note.setText('Loading selected preset…')
         self.diagnostic_note.clear(); self.diagnostic_key = None
         self.debounce.start()
