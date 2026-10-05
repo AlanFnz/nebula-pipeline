@@ -101,6 +101,15 @@ unsaved composition being left can be saved before switching.
   section to the shared source, removing its independent settings; Undo restores
   them. Duplicating an independent section copies its settings independently;
   local footage starts at In on each section repeat.
+- The section playback summary shows its length, effective speed and the source
+  interval that actually plays, including any hold or loop. **Selected source
+  range** shows the available In/Out limits separately: a seven-second section
+  can use only seven seconds of a ten-second range. For repeated sections, the
+  summary describes the first play; later shared repeats continue the source clock.
+- Shared sections show **Edit shared source** instead of disabled trim/framing
+  fields. This switches to Whole clip without changing the composition.
+  **Make independent for this section** copies the shared video settings into
+  the selected section so its trim and framing become editable; Undo restores sharing.
 - **Playback speed** is available in Source while editing a section. With
   **Match section duration to speed** checked, 10 seconds at 1× becomes 5 seconds
   at 2×, including proportional effect and automation timing. Uncheck it to

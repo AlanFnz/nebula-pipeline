@@ -824,6 +824,7 @@ class CompositionPanel(QWidget):
         self.video_panel.durationRequested.connect(self.resize_video_duration)
         self.video_panel.sourceModeRequested.connect(self.change_video_source_mode)
         self.video_panel.speedRequested.connect(self.change_video_speed)
+        self.video_panel.sharedEditRequested.connect(lambda: self.change_scope(0))
         self.video_panel.treatmentRequested.connect(self.apply_video_treatment)
         self.look_tabs.addTab(self.video_panel, 'Source')
         self.look_tabs.currentChanged.connect(lambda _index: self.show_timing_scope(self.effects_panel.effect_id == 'ink_bloom' and self.effects_panel.parameter_tabs.currentIndex() == 1))
@@ -905,7 +906,6 @@ class CompositionPanel(QWidget):
             self.look_tabs.setTabVisible(2, not video)
             self.details_button.setVisible(not video)
             source_section = self.document['sections'][self.index] if self.scope else None
-            self.video_panel.refresh(source_section.get('footage', video) if source_section else video, source_section)
             minimum_frames = sum(int(self.document['sections'][index].get('loops', 1))
                                  for index, _start, _end, _pass in section_placements(self.document))
             self.duration.setMinimum(minimum_frames / self.document["fps"])
@@ -935,6 +935,10 @@ class CompositionPanel(QWidget):
             base_states = {} if needs_base else None
             compiled = compile_composition(self.document, base_states=base_states)
             self.compiled = compiled
+            source_plays = [placement for placement in section_placements(self.document) if placement[0] == self.index]
+            self.video_panel.refresh(source_section.get('footage', video) if source_section else video, source_section,
+                                     sequence=compiled, start=source_plays[0][1],
+                                     repeated=len(source_plays) > 1 or section.get('loops', 1) > 1)
             prefix = section["id"] + ":"
             all_states = list(compiled['states'].values())
             states = [state for name, state in compiled["states"].items() if name.startswith(prefix)] if self.scope else all_states
@@ -1457,7 +1461,9 @@ class CompositionPanel(QWidget):
         page = self.look_tabs.currentWidget()
         if page is self.master_panel: return 'Reset master'
         if page is self.object_panel: return 'Restore object controls'
-        if page is self.video_panel: return 'Reset source controls'
+        if page is self.video_panel:
+            if self.scope and 'footage' not in self.document['sections'][self.index]: return ''
+            return 'Reset source controls'
         if page is self.effects_panel:
             if self.effects_panel.focused:
                 if self.effects_panel.effect_id == 'ink_bloom' and self.effects_panel.parameter_tabs.currentIndex() == 1:

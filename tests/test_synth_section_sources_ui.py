@@ -12,6 +12,42 @@ from test_synth_effects_editor_integration import make_window
 from test_synth_section_sources import clip, other_clip, two_sources
 
 
+def test_shared_actions_unlock_local_settings_or_navigate_without_editing(make_window,clip):
+    p=video_composition(clip); window=make_window(composition=p); panel=window.composer
+    panel.duplicate_section(); panel.select_section(1); panel.look_tabs.setCurrentWidget(panel.video_panel)
+    source=panel.video_panel; before=copy.deepcopy(window.composition)
+    history=len(window.undo_compositions)
+    assert source.shared_actions.isVisible() and not source.source_controls.isVisible()
+    assert not window.reset_controls_button.isVisible()
+    source.edit_shared.click()
+    assert panel.scope==0 and panel.look_tabs.currentWidget() is source
+    assert source.source_controls.isVisible() and not source.shared_actions.isVisible()
+    assert window.composition==before and len(window.undo_compositions)==history
+    panel.select_section(1); source.make_independent.click()
+    assert source.source_controls.isVisible() and not source.shared_actions.isVisible()
+    assert window.composition['sections'][1]['footage']==p['footage']
+    assert window.composition['sections'][0]==before['sections'][0]
+    assert len(window.undo_compositions)==history+1
+    window.undo_composition()
+    assert window.composition==before and source.shared_actions.isVisible()
+
+
+def test_source_summary_follows_selected_section_resize_speed_and_shared_clock(make_window,clip):
+    p=video_composition(clip); p['footage']['end_mode']='hold'
+    window=make_window(composition=p); panel=window.composer
+    panel.duplicate_section(); panel.select_section(1); panel.look_tabs.setCurrentWidget(panel.video_panel)
+    source=panel.video_panel
+    assert 'Holds the last frame' in source.playback_summary.text()
+    source.make_independent.click()
+    assert 'Plays source 00:00.00 → 00:01.00.' in source.playback_summary.text()
+    source.speed.setValue(2.)
+    assert 'Section length: 0.50s · Speed: 2.00×' in source.playback_summary.text()
+    assert '00:00.00 → 00:01.00' in source.playback_summary.text()
+    panel.stretch_section(panel.document['sections'][1]['id'],1.)
+    assert 'holds the last frame for 0.50s' in source.playback_summary.text()
+    assert 'Selected source range: 00:00.00 → 00:01.00 (1.00s)'==source.source_range.text()
+
+
 def test_duplicate_replace_only_one_section_preserves_effects_and_undo(make_window,clip,other_clip,tmp_path):
     p=video_composition(clip); p['effects']['tape']=effect_preset('tape',1)
     window=make_window(composition=p); panel=window.composer
