@@ -1,6 +1,9 @@
 # Nebula Studio
 
-A native Python + PySide6 desktop app for experimenting with the existing digital print, scan, motion and grading effects. Open a clip, adjust its treatment, scrub, compare versions, and play a short loop inside the app.
+A native Python + PySide6 desktop app for building analog-looking motion from
+text, shapes, models or video. Combine reusable effects, arrange sections with
+independent footage, automate parameters, compare variations and export a piece.
+The earlier Print / Scan input-clip editor remains available separately.
 
 The project version comes from [`_version.py`](_version.py); run `python studio.py --version` to display it. See [versioning](VERSIONING.md) and the [changelog](CHANGELOG.md) for milestone history and compatibility notes.
 
@@ -14,7 +17,8 @@ tracks independent experimentation, meaningful effect controls, comparison tools
 and synchronized audio-driven animation. A1 adds the New piece starting flow;
 A2 adds the first creative-control pilot; A3 adds named snapshots, A/B comparison
 and effect-scoped auditions. A4 adds preset previews, current-frame explanations
-and a composition breakdown. Audio reactivity remains planned.
+and a composition breakdown. A5 adds timed parameter gestures. Audio reactivity,
+selectable frequency mappings and multitrack routing remain planned.
 
 ## Launch on this Mac
 
@@ -94,8 +98,9 @@ unsaved composition being left can be saved before switching.
   to replace only its footage, keeping effects and automation. Alternatively,
   choose **Independent footage · starts at In** to give the same video its own
   trim, framing and cadence. **Use shared footage · continuous** returns the
-  section to the shared source. Duplicating an independent section copies its
-  settings independently; local footage starts at In on each section repeat.
+  section to the shared source, removing its independent settings; Undo restores
+  them. Duplicating an independent section copies its settings independently;
+  local footage starts at In on each section repeat.
 - **Playback speed** is available in Source while editing a section. With
   **Match section duration to speed** checked, 10 seconds at 1× becomes 5 seconds
   at 2×, including proportional effect and automation timing. Uncheck it to
@@ -138,6 +143,22 @@ unsaved composition being left can be saved before switching.
   treatments and valid trim settings. The document does not embed the video;
   keep it with the project when moving between machines.
 
+#### Duration, speed and FPS
+
+| Intent | Control | Result |
+| --- | --- | --- |
+| Show more or less source footage at its current speed | Timeline **Resize: Keep footage speed**, then drag the right edge | Section length changes; effects and automation stretch. Footage stops or loops at Source → Out. |
+| Stretch the same source interval over a different duration | Timeline **Resize: Stretch footage**, then drag the right edge | Video, audio, effects and automation retime together. |
+| Set a section's video speed directly | **Source → Playback speed** | With **Match section duration to speed** checked, the section and its effects retime; unchecked, the section length and effect timing stay fixed. |
+| Change the whole piece's frame cadence | **Timeline FPS** beside Canvas | Preview and export sample at the new FPS without changing playback speed. |
+
+For example, to extend a seven-second independent section to ten seconds at
+1×, select it, make sure **Source → Out** reaches at least **In + 10 seconds**,
+choose **Keep footage speed**, and drag its right edge to ten seconds. If the
+source runs out sooner, **When footage ends** determines Hold or Loop; extending
+the timeline does not extend the source file. These resize choices apply to the
+next edit and do not reset a speed change already made.
+
 Preview uses lossless, seekable proxies up to 720 pixels under
 `~/Library/Caches/Nebula Studio/video-v1/`, with a bounded decoded-frame cache.
 Effect changes reuse decoded frames. Proxies are regenerated when needed and
@@ -150,9 +171,10 @@ studio's existing 8-bit RGB/SDR path, not an HDR mastering pipeline.
 Shared-video compositions and compiled sequences retain storage schema 2.
 Documents using independent footage use schema 3, so older builds reject them
 explicitly rather than silently using the wrong source. Generated documents retain schema 1 and their render
-versions, defaults and seeds. Pixel contracts cover all eleven studies,
-including both newer profile models. `synth_video.py` owns source identity,
-framing, clocks and decoding; `synth_video_audio.py` handles audio assembly.
+versions, defaults and seeds. Frozen pixel contracts protect the generated studies,
+including the newer profile models. `synth_video.py` owns source identity,
+framing and decoding; `synth_section_sources.py` resolves section-owned footage
+and compiled video clocks; `synth_video_audio.py` handles audio assembly.
 The existing renderer accepts an optional source image before the same image
 treatments. Tracked object identities, input-driven particles and
 multiple footage layers remain future work.
@@ -479,8 +501,9 @@ canvas dimensions, framing and artwork reference, just like the built-in studies
 
 Personal studies live in
 `~/Library/Application Support/Nebula Studio/Studies/`. Video studies include a
-local copy of their source in the same folder, referenced by a relative path,
-so moving the original video does not break the saved study. Copying the whole
+local copy of every source used by the working piece or its snapshots, referenced
+by relative paths. Repeated references to the same asset are copied once, so
+moving the original videos does not break the saved study. Copying the whole
 study folder to another installation's Studies directory preserves it. Saving
 runs in the background and publishes the folder only after the document and
 video are complete; cancellation or a failed copy leaves the library intact.
@@ -490,13 +513,16 @@ unchanged by the UI rename from Starters to Studies.
 
 The native editors share a terminal-inspired interface: a system-available
 monospaced font, dark panels, phosphor-green controls and a violet playhead.
-The synth monitor shows the rendered preview dimensions, RGB format and
-play/hold state. The theme lives in [`studio_theme.py`](studio_theme.py) and
+The monitor header groups zoom, Fit, snapshots and full-screen controls;
+playback, time and preview performance appear below the viewer. The theme lives
+in [`studio_theme.py`](studio_theme.py) and
 affects the interface only; saved compositions and exported pixels are unchanged.
 
-Effect controls are grouped by purpose and fully expanded within the selected
-Look, Timing, Signal, Screen or Region tab. **Find a control in this tab…**
-filters their labels; clear it to restore the complete group list. Numeric
+Effect controls are grouped by purpose and expanded in the focused editor.
+Effects with specialized controls expose Creative / Parameters, Look / Timing,
+Region, or broadcast Signal / Screen tabs as appropriate. **All groups** and
+**Find a control…** filter the selected page; clear them to show its complete
+group list. Numeric
 controls show at most two decimal places while retaining saved precision.
 Small normalized values use percentages (`0.0007` becomes `0.07%`). Sliders
 commit on release, and typed edits commit with Enter or focus change. The
@@ -588,10 +614,11 @@ detailed sequence/preset windows disable composition Undo/Redo.
   undoable; Save/Open and Studies preserve the optional `timeline_loops` groups.
 - Timeline and export use the repeated duration automatically. Each repetition
   restarts the edited events, even after duration and rhythm edits.
-  Procedural motion/noise and imported footage keep their continuous clocks;
-  use **Source → When footage ends → Loop trimmed range**, with **In** and
-  **Out** defining the range, to repeat the source video itself. The timeline
-  must be longer than that trimmed range to see another source repetition.
+  Procedural motion/noise and shared footage keep their continuous clocks.
+  Independent footage restarts at In on each section repeat, including sequence
+  loops. **Source → When footage ends → Loop trimmed range** repeats the selected
+  In/Out range within a section; **Hold last frame** freezes it instead. At 1×,
+  a section must be longer than that range to show an internal source repetition.
 - **Effects** opens an overview of image treatments used in the selected scope,
   with **On**, **Intermittent** and **Bypassed** badges. Sources appear in a separate
   **Object / sources** group. Click an entry to open its focused editor;
@@ -683,8 +710,10 @@ detailed sequence/preset windows disable composition Undo/Redo.
   **Preview preset…** and explicit **Replace with preset** in the audition. A
   bypassed treatment stays bypassed; Resume is a separate edit. Object source
   presets keep their existing immediate replacement action; **Restore this effect** removes
-  its overrides from the current scope. Shared ink **Timing**, video **Source**
-  and **Master** controls remain whole-clip controls and identify that scope.
+  its overrides from the current scope. Shared ink **Timing** and **Master**
+  remain whole-clip controls. Video **Source** follows the shown Whole clip or
+  Section scope; shared source settings are disabled in a section until it owns
+  independent footage.
   Pending text stays with its original section when navigating; Save validates
   and applies retained drafts together. Conflicting wording in the Object and
   Effects editors must be resolved before saving.
@@ -737,8 +766,9 @@ detailed sequence/preset windows disable composition Undo/Redo.
   geometric Object controls and Finishing; creative adjustments act after those
   fixed values. A luminous form's companion ghost and granular halo require
   that form; ghost trails also apply to rays. Exposure flares are independent
-  of the timeline's flash/sweep transitions. There is one instance per effect
-  family, in the renderer's established order.
+  of the timeline's flash/sweep transitions. Effects use the renderer's
+  established order. Tape damage additionally supports independent numbered
+  passes after that chain; other families currently use one instance each.
 - **Snapshots…** beside View zoom captures a complete named composition. Use
   **Compare with B** to switch saved A and working B at the same playhead and
   preview quality, or **Restore as working B** to recover its source, canvas,
@@ -792,8 +822,8 @@ detailed sequence/preset windows disable composition Undo/Redo.
 
 [`synth_composition.py`](synth_composition.py) compiles the arrangement to the
 existing public sequence format. Preview and export therefore use the same
-sequence renderer as the approved study. A fixed pixel-hash regression checks
-all 375 frames of each study at 96×72 against their earlier renderers;
+sequence renderer as the approved study. Fixed pixel-hash regressions protect
+study cycles, canvas formats and representative preview/full-size frames;
 composition tests cover local edits, deterministic variation and save/reload.
 [`synth_effects.py`](synth_effects.py) registers each reusable effect's parameter
 paths, activation rules and starting presets. The native inspector is generated
@@ -1069,7 +1099,7 @@ at 480 px before enlarging to the saved 960×540 canvas.
   grain, reach, contour width/glow, fringe color/gap, lower fade and silhouette
   fill. Light side selects a left- or right-facing contour; Source threshold
   controls the source mask. Phosphor FPS sets the held texture cadence.
-  **More controls → Canvas coverage → Extend to canvas** continues the backlight
+  **Look → Canvas coverage → Extend to canvas** continues the backlight
   above and below the object when resizing reveals more space. The model and
   its contour keep their size and proportions.
   **Region → Profile preset → Neck dissolve** fades the model's bright neck edges and
@@ -1078,7 +1108,7 @@ at 480 px before enlarging to the saved 960×540 canvas.
   to 0 for the previous outline. Saved clips keep their setting (0 if absent).
   In **Region**, choose **Object** for a reusable fade attached to the source,
   or **Canvas** for a fixed viewport region. Adjust Fade strength, Fade start,
-  Fade width, Fade direction and Light blending. More controls exposes the
+  Fade width, Fade direction and Light blending. The same Region page exposes the
   object anchor, region X/Y and linear/smooth curve. Object units follow the
   source's scale; canvas units are half its shortest edge. This blends contour,
   fringe, echoes, fill and backlight at their original stages, before final
@@ -1088,7 +1118,7 @@ at 480 px before enlarging to the saved 960×540 canvas.
   tracking tear count/height, irregular row groups, overload bloom, chroma slip, grain,
   softness, direction and fault FPS are independent. Recording width controls
   black side margins in the original canvas; set it to 1 for a full-width signal.
-  **More controls → Canvas coverage → Extend to canvas** lets streaks and
+  **Canvas coverage → Extend to canvas** lets streaks and
   overloads reach the resized canvas edges instead of clipping at the original
   recording width. Choose **Artwork bounds** in either effect to retain its
   former framing. Both effects default to extending into the newly revealed
@@ -1184,7 +1214,8 @@ You can also choose **Object → Particle model** in any generated composition.
   return and a .8 peak. **Cycle seconds** controls repetition independently.
   Expansion/gather durations cap at 25%/20% of the cycle to leave room for holds.
   Arrival disorder adds a small stagger without changing the number of cycles.
-  Orbit speed and expansion threshold remain under **More controls**.
+  **Orbit degrees / sec** and **Orbit after expansion** are available in
+  the particle effect's **Parameters** page; use **Find a control…** to locate them.
 - **Assembly** sets how tightly particles follow the invisible surface.
   **Assembly cycle** controls automatic gathering and release; set it to **0**
   to hold Assembly at a fixed value. **Cycle seconds** sets the period at global
@@ -1200,7 +1231,7 @@ You can also choose **Object → Particle model** in any generated composition.
   control. Collapse is ignored in Expand / orbit, which has no downward pull
   or funnel taper. Release and orbit settings can also be overridden per section.
 - **Particle count**, **Dot size**, **Dispersion** and **Turbulence** set density,
-  texture and the released field. **More controls** includes collapse toward a
+  texture and the released field. **Parameters** includes collapse toward a
   horizontal band, rotation, tilt, scale, position, perspective, surface relief,
   see-through depth, spectral color, shimmer and scan registration.
 - **Human head** uses an anatomical head/neck mesh derived from MakeHuman's
@@ -1212,7 +1243,7 @@ You can also choose **Object → Particle model** in any generated composition.
   and physical collision/gravity simulation are not included.
 - **Portrait head** adds the source's eye surfaces and a smooth subdivision pass.
   The separate 454 KB mesh keeps the earlier Human head asset unchanged.
-  **Surface occlusion** under More controls hides deeper points behind the
+  **Surface occlusion** under Parameters hides deeper points behind the
   assembled face using a fixed proxy depth grid. It fades away as particles
   disperse; only points are rendered. Older documents default to zero occlusion.
 - **Turn timing → Assembled only** eases the head turn to a hold during release,
@@ -1220,7 +1251,7 @@ You can also choose **Object → Particle model** in any generated composition.
   **Rotation axis → Centered** aligns both volumes to a common vertical pivot;
   its reference population is fixed, so changing Particle count retains identities.
   **Neck feather** softens the lower edge of head targets and restores those dots
-  during expansion. These controls are under Particle attractor → More controls;
+  during expansion. These controls are under Particle attractor → Parameters;
   old documents keep continuous turning, the original origin and no feather.
 - **Return rotation → Carry orbit** gives the head and cloud one accumulated
   orientation. The head reforms at the angle reached by the orbit, preventing
@@ -1280,7 +1311,14 @@ magenta/white fill, per-frame registration, ghost grain, and a localized signal
 cloud. **Signal softness** softens the image before the final raster grain.
 These controls also work in standalone presets.
 
-## Experimenting
+## Earlier Print / Scan clip editor
+
+The following workflow and limits apply to the separate input-clip editor,
+opened with `studio.py` or the installed app's `--clip-studio` option. The
+default Synth composer supports the section, footage and automation workflows
+documented above.
+
+### Experimenting
 
 1. **Open clip…** loads a local video. The source is read-only. The initial loop is two seconds at the existing default treatment rate of 12 fps.
 2. Adjust the controls on the right. **Lo / Hi** values define temporal ranges, not separate still variants. Translation, blur and channel offset are expressed in source pixels. Setting one bound across the other moves the other bound with it.
@@ -1291,7 +1329,7 @@ These controls also work in standalone presets.
 7. **Load preset…** accepts existing flat JSON presets and project `tune_params.json`. **Save preset…** defaults to `~/.nebula_pipeline/presets`. Settings are saved explicitly, not automatically. Stage bypass is stored under `_stages`; the legacy `grade` key remains authoritative for grade enablement.
 8. **Export MP4…** exports either the loop or the entire clip at full source resolution and the chosen fps. It snapshots the current B settings when started, so you may keep experimenting during export. Cancel stops the job; closing the app also cancels background work. The destination is replaced only when encoding succeeds, and the source path cannot be used as the destination.
 
-## Rendering contract
+### Rendering contract
 
 All processing follows **print → scan → wobble → grade**. `engine.render_frame` is used by the desktop preview/export and the legacy analog sequence processor. The legacy grading pass uses the same `grade_frame` function. The TUI's external preview now renders its selected frame rather than a low/mid/high sheet.
 
@@ -1301,11 +1339,11 @@ Preview and export use the same FFmpeg fps grid, including selected-range export
 
 Proxy blur, translation, channel offset, bloom and paper scale follow image scale. Grain and row noise use reduced variance, and subpixel scanlines converge toward average darkness. Fine dust/noise locations and subpixel shifts are approximations at proxy resolution; use Full-size still to judge fine texture. No real-time full-resolution promise is made.
 
-## Responsiveness and limits
+### Responsiveness and limits
 
 A 100 ms debounce coalesces edits. The preview worker prioritizes the selected frame, then prepares the loop. New requests cancel obsolete FFmpeg work; generation IDs discard late results and errors. Source and rendered-frame caches have 64 MiB and 128 MiB budgets, and the displayed loop has a 128 MiB budget. A/B and high-fps loops automatically use smaller proxies to fit. Export uses a separate worker and an atomic temporary output.
 
-For accurate variable-rate seeking, decoding starts from the beginning of the clip before selecting the requested frame. Seeking late in a long clip can therefore take longer. CPU rendering, silent MP4 output, one clip at a time, fixed stage order, and no audio playback are intentional first-version limits. Frame-count estimates depend on container duration; malformed duration metadata may require choosing an earlier loop position. There is no installer, node graph or multi-clip editing in this milestone. Undo/redo is available in the synth composer; the detailed editor and input-clip workflow do not yet have undo history.
+For accurate variable-rate seeking, decoding starts from the beginning of the clip before selecting the requested frame. Seeking late in a long clip can therefore take longer. This editor uses CPU rendering, silent MP4 output, one input clip at a time, fixed stage order and no audio playback. Frame-count estimates depend on container duration; malformed duration metadata may require choosing an earlier loop position. It has no node graph or multi-clip editing. Undo/redo is available in the Synth composer; the detailed editor and input-clip workflow do not yet have undo history.
 
 ## Validation
 

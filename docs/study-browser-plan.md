@@ -1,6 +1,7 @@
 # Visual Study browser
 
-Status: implemented, validated, and installed on 2026-09-30; draft review pending.
+Status: implemented, validated and installed on 2026-09-30; merged through PR #9.
+This records the original milestone. Current workflows are in [README](../README.md).
 Prepared: 2026-09-30.
 Baseline: 167636b plus playback-icons commit dee20f4 (PR #8).
 
