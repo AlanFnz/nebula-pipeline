@@ -913,7 +913,7 @@ class CompositionPanel(QWidget):
             self.duration.setValue(section_ranges(self.document)[-1][1])
             self.fps.setValue(self.document["fps"])
             count = len(self.document["sections"])
-            self.timeline_summary.setText(f"{count} {'section' if count == 1 else 'sections'} · {self.duration.value():.2f}s total")
+            self.timeline_summary.setText(f"{count} {'clip' if count == 1 else 'clips'} · {self.duration.value():.2f}s total")
             self.section_combo.clear()
             for index, section in enumerate(self.document["sections"]):
                 loops = int(section.get('loops', 1))

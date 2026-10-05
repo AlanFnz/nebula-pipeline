@@ -59,6 +59,7 @@ def test_project_collector_excludes_local_settings_without_changing_render_or_sa
 def test_project_links_open_only_the_clip_with_local_settings(composer):
     panel = composer.effects_panel
     original = copy.deepcopy(composer.document)
+    assert f"{len(composer.document['sections'])} clips" in composer.timeline_summary.text()
     assert panel.project_effect_ids == ('raster',)
     assert panel.clip_effect_ids == ()
     assert 'tape@2' not in panel.applied_ids
