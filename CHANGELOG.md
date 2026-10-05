@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.7 — 2026-10-05
+
+- Double-click a timeline clip to enter its editing scope. Single-click keeps
+  the chosen scope. Repeated occurrences enter the same clip's settings and
+  seek to the clicked occurrence. Explain the gesture in timeline help and hints.
+
 ## 0.6.6 — 2026-10-05
 
 - Keep the viewport visible when browsing an already-applied effect in Add

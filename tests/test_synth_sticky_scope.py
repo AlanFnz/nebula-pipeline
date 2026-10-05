@@ -1,4 +1,4 @@
-"""Timeline selection never redirects an effect edit to another scope."""
+"""Single-click preserves editing scope; double-click explicitly edits a clip."""
 import copy
 import pytest
 from PySide6.QtCore import Qt
@@ -55,3 +55,49 @@ def test_project_view_remains_shared_after_returning_from_a_clip_inspector(windo
     assert panel.index == 2 and panel.scope == 1
     click_clip(window, 0)
     assert panel.scope == 1 and set(effects.clip_effect_ids) == {'tape@2', 'raster'}
+
+
+@pytest.mark.parametrize('local', [False, True])
+def test_double_click_enters_clicked_clip_without_editing_document(window, local):
+    window.set_composition(document()); panel = window.composer
+    panel.change_scope(int(local))
+    original = copy.deepcopy(window.composition)
+    timeline = window.section_timeline
+    position = timeline.rectangles()[1].center().toPoint()
+    # Exercise the first click and the double-click event, as native Qt does.
+    QTest.mouseClick(timeline, Qt.MouseButton.LeftButton, pos=position)
+    assert panel.scope == int(local)
+    QTest.mouseDClick(timeline, Qt.MouseButton.LeftButton, pos=position)
+    QTest.mouseRelease(timeline, Qt.MouseButton.LeftButton, pos=position)
+    QApplication.processEvents()
+    assert panel.scope == 1 and panel.index == 1
+    assert timeline.editing_section_id == original['sections'][1]['id']
+    assert panel.effects_panel.available_button.text() == 'Add clip effect…'
+    assert not panel.effects_panel.clip_title.isHidden()
+    assert timeline._reorder is None and timeline._resize is None
+    assert window.composition == original and not window.undo_compositions
+    click_clip(window, 2)
+    assert panel.scope == 1 and panel.index == 2
+
+
+def test_double_click_loop_occurrence_edits_its_clip_and_keeps_clicked_time(window):
+    doc = document()
+    doc['timeline_loops'] = [{'sections': [s['id'] for s in doc['sections'][:2]], 'loops': 2}]
+    window.set_composition(doc); panel = window.composer; panel.change_scope(0)
+    timeline = window.section_timeline
+    position = timeline.rectangles()[2].center().toPoint()
+    QTest.mouseDClick(timeline, Qt.MouseButton.LeftButton, pos=position)
+    QApplication.processEvents()
+    assert panel.scope == 1 and panel.index == 0
+    assert window.timeline.value() == round(sum(s['duration'] for s in doc['sections'][:2]) * doc['fps'])
+    assert not window.undo_compositions
+
+
+def test_double_click_outside_clip_does_not_enter_clip_editing(window):
+    window.set_composition(document()); panel = window.composer; panel.change_scope(0)
+    timeline = window.section_timeline
+    position = timeline.rectangles()[1].center().toPoint(); position.setY(0)
+    QTest.mouseDClick(timeline, Qt.MouseButton.LeftButton, pos=position)
+    QApplication.processEvents()
+    assert panel.scope == 0 and panel.index == 0
+    assert not window.undo_compositions
