@@ -28,6 +28,7 @@ from synth_echo import render_stretch_echo, render_signal_etch
 from synth_chroma import render_chroma_print, render_slice_echo, render_screen_mesh
 from synth_modulation import render_scan_modulation, render_crt_capture
 from synth_modulation_controls import modules as modulation_modules
+from synth_repetition import modules as repetition_modules, render_signal_repetition
 from synth_canvas import content_size, normalize_canvas, source_framing, object_offset
 from synth_print import render_ink_bloom, render_print_surface
 from synth_profile import render_silhouette, render_edge_phosphor, render_scan_drag
@@ -670,6 +671,7 @@ MODULES += (
 
 # Append-only: legacy module indices also determine existing random seeds.
 MODULES += modulation_modules(Module, P)
+MODULES += repetition_modules(Module, P)
 MODULE_BY_ID = InstanceRegistry({module.id: module for module in MODULES})
 
 
@@ -1271,7 +1273,7 @@ RENDERERS = {
 }
 
 
-def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_image=None, source_mask=None):
+def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_image=None, source_mask=None, repetition_mask=None):
     """Render one frame at continuous time; `frame` is only a default clock."""
     p = normalize_synth(preset)
     output, (width, height), sampling = render_resolution(p, size)
@@ -1289,7 +1291,8 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
         arr = render_text(arr, text_source['params'], continuous_time, p)
     scan = next((entry['params'] for entry in p['modules'] if entry['id'] == 'scan_modulation' and entry['enabled'] and entry['params']['mix']), None)
     untreated = None
-    if scan and scan['input'] and source_image is not None:
+    repetition = next((entry['params'] for entry in p['modules'] if entry['id'] == 'signal_repetition' and entry['enabled'] and entry['params']['mix']), None)
+    if ((scan and scan['input']) or (repetition and repetition['input'])) and source_image is not None:
         untreated = np.asarray(source_image.convert('RGB'), dtype=np.float32)/255
     cutout = next((entry for entry in p['modules'] if entry['id'] == 'subject_cutout' and entry['enabled'] and entry['params']['mix'] > 0), None)
     if cutout:
@@ -1309,7 +1312,7 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
     generators = {'slab', 'blinds', 'particles', 'silhouette', 'ink_bloom', 'flare'}
     source_end = max((i for i, m in enumerate(p['modules']) if m.get('enabled', True) and m['id'] in generators), default=-1) + 1
     source_effects = {entry['id']: entry['params'] for entry in p['modules']
-                      if entry['enabled'] and entry['id'] in ('chroma_print', 'slice_echo', 'stretch_echo', 'signal_etch', 'scan_modulation')}
+                      if entry['enabled'] and entry['id'] in ('chroma_print', 'slice_echo', 'stretch_echo', 'signal_etch', 'scan_modulation', 'signal_repetition')}
     def treat_source(image):
         reference = content_size(p, (width, height))
         source_pixels = untreated if untreated is not None else image
@@ -1336,6 +1339,9 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
         if 'scan_modulation' in source_effects:
             image = render_scan_modulation(image, source_effects['scan_modulation'], continuous_time,
                                            p['speed'], _seed(p['seed'], 'scan-modulation'), reference, source_pixels)
+        if 'signal_repetition' in source_effects:
+            image = render_signal_repetition(image, source_effects['signal_repetition'], continuous_time,
+                                             p['speed'], _seed(p['seed'], 'signal-repetition'), reference, source_pixels, repetition_mask)
         return image
     polarity_index = None
     if broadcast and broadcast['reverse_stage'] and (broadcast['reverse'] or broadcast['edge_fringe']) and broadcast['mix']:

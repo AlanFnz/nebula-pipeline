@@ -7,6 +7,12 @@ def control_group(path):
     module, key = path.split('.')
     if module == 'particles' and key in ('assembly', 'breathing', 'motion', 'release', 'turn_scope', 'orbit_start', 'orbit_handoff'):
         return 'Motion & timing'
+    if module == 'signal_repetition':
+        if key in ('input', 'region', 'show_key') or key.startswith('key_'): return 'Signal selection'
+        if key in ('spacing', 'sample_width', 'sample_center', 'contour', 'row_height', 'row_breakup', 'row_lines', 'edge_echo', 'edge_distance'): return 'Repetitions'
+        if key in ('wave', 'drift', 'instability', 'rate', 'cadence', 'outline_warp'): return 'Motion & timing'
+        if key.startswith('outside_'): return 'Outside selection'
+        if key in ('relief', 'detail', 'fringe', 'edge_width', 'exposure'): return 'Color & light'
     if module == 'scan_modulation':
         if key in ('input', 'region', 'show_key') or key.startswith('key_'): return 'Signal selection'
         if key.startswith('fade'): return 'Selection fade'

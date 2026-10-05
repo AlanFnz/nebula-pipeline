@@ -13,6 +13,8 @@ from synth import MODULE_BY_ID
 from synth_instances import base_path
 
 TARGETS = frozenset({
+    'signal_repetition.spacing', 'signal_repetition.wave', 'signal_repetition.mix',
+    'signal_repetition.fringe', 'signal_repetition.exposure',
     'tape.pull', 'tape.tracking', 'tape.jitter', 'warp.amount',
     'breakup.amount', 'separation.amount', 'smear.amount', 'smear.opacity',
     'bloom.strength', 'crt_capture.bend', 'raster.grain', 'raster.lines',

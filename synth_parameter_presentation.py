@@ -31,6 +31,7 @@ DEGREES = frozenset({
 DEGREES_PER_SECOND = frozenset({'particles.rotation_speed', 'particles.orbit_speed'})
 PIXELS = frozenset({'low_res.resolution'})
 HUES = frozenset({
+    'signal_repetition.key_hue', 'signal_repetition.hue', 'signal_repetition.fringe_hue', 'signal_repetition.outside_hue',
     'particles.hue', 'edge_phosphor.hue', 'edge_phosphor.fringe_hue',
     'text.hue', 'text.back_hue', 'broadcast.hue', 'broadcast.reverse_hue',
     'broadcast.edge_hue', 'broadcast.halo_hue', 'stretch_echo.hue',

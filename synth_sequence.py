@@ -269,6 +269,7 @@ def render_sequence_frame(sequence, time_seconds, size=None, frame_provider=None
     output, working, sampling = render_resolution(base, size)
     source_image = None
     source_mask = None
+    repetition_mask = None
     if 'footage' in seq:
         from synth_video import frame_on_canvas
         from synth_section_sources import video_source_at
@@ -282,10 +283,13 @@ def render_sequence_frame(sequence, time_seconds, size=None, frame_provider=None
             p = cutout['params']
             continuity = {'retention': p['retention'], 'retention_seconds': p['retention_seconds']} if p['retention'] > 0 else {}
             source_mask = frame_provider.mask(footage, video_time, base, p['mode'], **continuity)
+        repetition = next((entry for entry in base['modules'] if entry['id'] == 'signal_repetition' and entry['enabled']), None)
+        if repetition and repetition['params']['mix'] and repetition['params']['region'] == 3:
+            repetition_mask = source_mask if source_mask is not None and cutout['params']['mode'] == 0 else frame_provider.mask(footage, video_time, base, 0)
         base['treatment_fps'] = footage['treatment_fps']
     # Keep transition overlays and sequence noise on the same working raster.
     # The synth receives that exact size, so it performs no intermediate resize.
-    current = render_synth_frame(base, time_seconds=effect_time, size=working, source_image=source_image, source_mask=source_mask) if source_image is not None else render_synth_frame(base, time_seconds=effect_time, size=working)
+    current = render_synth_frame(base, time_seconds=effect_time, size=working, source_image=source_image, source_mask=source_mask, repetition_mask=repetition_mask) if source_image is not None else render_synth_frame(base, time_seconds=effect_time, size=working)
     result = np.asarray(current, dtype=np.float32) / 255
     if transition == "sweep" and amount < 1:
         direction = float(cue.get("direction", 1))

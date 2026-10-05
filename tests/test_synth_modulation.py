@@ -113,7 +113,8 @@ def test_subpixel_rows_sample_black_outside_canvas_without_wrap(channels):
 
 
 def test_new_modules_append_to_existing_order_and_stay_off_in_old_documents():
-    assert tuple(module.id for module in MODULES[-2:]) == NEW_MODULES
+    ids = [module.id for module in MODULES]
+    assert ids[ids.index(NEW_MODULES[0]):ids.index(NEW_MODULES[1])+1] == list(NEW_MODULES)
     for preset in [default_synth_preset(),*curated_presets().values()]:
         assert all(not entry['enabled'] for entry in preset['modules'] if entry['id'] in NEW_MODULES)
         legacy = copy.deepcopy(preset)
@@ -123,7 +124,7 @@ def test_new_modules_append_to_existing_order_and_stay_off_in_old_documents():
         assert not any(entry['id'] in NEW_MODULES for entry in normalized['modules'])
     p = source_preset('slab')
     old = copy.deepcopy(p)
-    old['modules'] = old['modules'][:-2]
+    old['modules'] = [entry for entry in old['modules'] if entry['id'] not in NEW_MODULES]
     assert render_synth_frame(old,time_seconds=.3).tobytes() == render_synth_frame(p,time_seconds=.3).tobytes()
 
 

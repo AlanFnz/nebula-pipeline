@@ -331,6 +331,46 @@ values clockwise. Scale stays uniform and foreground masks follow the same
 framing. Increase Scale if rotation exposes corners. Existing video documents
 use zero rotation; source relinking preserves the chosen angle.
 
+### Temporal fragments
+
+**Signal repetition** compresses horizontal samples of the actual image into
+moving rows of repeated fragments. Find it under **Add effect → Motion & echoes**.
+**Source → Treatment presets → Temporal fragments** combines it with Tape damage,
+Raster / grain and CRT capture, keeping your source, framing and clip timing.
+The separate **Portrait / temporal fragments** local Study includes a ten-second
+source passage and two editable Repeat spacing automations.
+
+- **Signal selection → Region** chooses the whole image, highlights, a color
+  range, or **Video foreground**. Foreground uses the existing local macOS mask
+  helper; it requires imported video. The other modes also work with text and
+  generated objects. **View → Selection** shows the mask before distortion.
+- **Repetitions → Repeat spacing** controls density; smaller means more copies.
+  **Sample width / Sample position** choose how much source is compressed into
+  each copy. Band height, irregularity and row interruptions break up the rows.
+- **Motion & timing → Motion speed / Horizontal travel / Row bending** control
+  movement independently of footage speed. Motion FPS zero is continuous.
+  Outline movement and Outline echoes disturb the selected boundary.
+- **Color & light** controls the blue signal, fringe color/width, contrast,
+  original detail and brief color-lock slips. **Outside selection** optionally
+  replaces the background; replacement zero preserves the unselected picture.
+- Repeat spacing, Row bending, Mix, Color fringe and Signal exposure support
+  timeline automation. CRT capture controls the final phosphors, focus and grain.
+
+This is spatial signal folding reconstructed at the requested time, rather than
+recorded frame history. Scrubbing and exporting produce the same motion. The
+new module is disabled in previous documents and existing Studies stay intact.
+The foreground mask can make the first preview slower while it is prepared.
+
+To recreate the local Study from another file:
+
+```bash
+.venv/bin/python scripts/create_temporal_fragments.py /path/to/source.mp4 \
+  --start 6 --save-study --output /path/to/new-output-folder
+```
+
+The script saves an editable composition and MP4. With `--save-study`, it also
+copies the footage into the local Study library; no source media enters Git.
+
 ### Editable text studies
 
 Four six-second Studies use the editable phrase **REVOLUTION IS NOW**:
