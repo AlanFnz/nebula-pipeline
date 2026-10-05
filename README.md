@@ -475,8 +475,9 @@ inspector. It opens the **Refined signal** study with its original animated reci
 In **Editing: Entire project**, the Effects list shows the shared project look.
 Choose **Add project effect…** to add a shared effect. Clip-only effects and
 settings are hidden here. Clicking a timeline clip selects it and moves the
-playhead while preserving the chosen editing scope. To edit a clip, select it
-and switch **Editing** to **Clip**. This view separates **Project effects · inherited** from
+playhead while preserving the chosen editing scope. **Double-click a timeline
+clip to switch to editing that clip**, or select it and switch **Editing** to
+**Clip**. This view separates **Project effects · inherited** from
 **Clip effects & overrides**. Editing an inherited effect creates an override
 for that clip; the **↶ Follow project** action removes its local settings while
 keeping automation. An effect switched Off locally stays visible in the override

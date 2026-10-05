@@ -34,6 +34,7 @@ class SectionTimeline(QWidget):
     READOUT_TOP = BLOCK_BOTTOM + 1
 
     selected = Signal(int)
+    editRequested = Signal(int)
     selectionChanged = Signal()
     loopRequested = Signal(object, int)
     seekRequested = Signal(float)
@@ -126,7 +127,7 @@ class SectionTimeline(QWidget):
                       for index, section in enumerate(self.document['sections'])]
         scope = next((identities[index] for index, section in enumerate(self.document['sections'])
                       if section['id'] == self.editing_section_id), 'Entire project')
-        self.setAccessibleDescription('Editing: ' + scope + '. Select clips and press Command-D to duplicate. Clips: ' + '; '.join(identities))
+        self.setAccessibleDescription('Editing: ' + scope + '. Click to select; double-click to edit a clip. Select clips and press Command-D to duplicate. Clips: ' + '; '.join(identities))
 
     def display_document(self):
         """The drag preview is private; only release requests a document edit."""
@@ -486,6 +487,21 @@ class SectionTimeline(QWidget):
             self.setFocus(Qt.FocusReason.MouseFocusReason)
         event.accept()
 
+    def mouseDoubleClickEvent(self, event):
+        if event.button() != Qt.MouseButton.LeftButton or event.modifiers() != Qt.KeyboardModifier.NoModifier:
+            event.ignore(); return
+        occurrence = self.occurrence_at(event.position())
+        if occurrence is None:
+            event.ignore(); return
+        # A double-click enters the inspector, rather than completing a drag.
+        self._finish_reorder(False)
+        self._finish_resize(False)
+        index, start, _end, _repetition = section_placements(self.document)[occurrence]
+        self.select_at(index)
+        self.editRequested.emit(index)
+        self.seekRequested.emit(start)
+        event.accept()
+
     def mouseReleaseEvent(self, event):
         if self._reorder is not None and event.button() == Qt.MouseButton.LeftButton:
             active = self._reorder['active']
@@ -615,7 +631,7 @@ class SectionTimeline(QWidget):
                 loops = int(section.get('loops', 1))
                 self.setToolTip(f"{index + 1}. {self.document['phrases'][section['phrase']]['name']} · {section['duration']:.2f}s per play · {loops}× total plays · " +
                                (f'Sequence repetition {repetition} · ' if repetition > 1 else '') +
-                               'drag body to reorder; drag the last selected edge to stretch the selection; Shift-click to select a range; Command-click to add clips; Command-A to select all; Command-D to duplicate; right-click for actions')
+                               'double-click to edit this clip; drag body to reorder; drag the last selected edge to stretch the selection; Shift-click to select a range; Command-click to add clips; Command-A to select all; Command-D to duplicate; right-click for actions')
                 return
         self.setToolTip('')
 
@@ -926,7 +942,7 @@ class CompositionPanel(QWidget):
             self.scope_combo.setItemText(0, 'Editing: Entire project')
             self.scope_combo.setItemText(1, f"Editing: Clip {self.index + 1} — {self.document['phrases'][section['phrase']]['name']}")
             self.scope_combo.setCurrentIndex(self.scope)
-            self.scope_combo.setToolTip(self.scope_combo.currentText() + ('. Unedited controls follow the entire project or study.' if self.scope else '. Timeline selection keeps this scope. Explicit clip overrides take priority.'))
+            self.scope_combo.setToolTip(self.scope_combo.currentText() + ('. Unedited controls follow the entire project or study.' if self.scope else '. Single-click keeps this scope; double-click a timeline clip to edit it. Explicit clip overrides take priority.'))
             self.master_panel.set_values(self.document['master'])
             target = self.target()
             needs_base = any('creative' in entry or 'bypassed' in entry
