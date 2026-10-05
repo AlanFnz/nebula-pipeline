@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.7.0 — 2026-10-05
+
+- Add opt-in Signal repetition: image-derived fragments, independent moving
+  scan bands, silhouette following, outline echoes, color fringes and soft
+  region selection. Video foreground uses local masks; other selections also
+  work with text and generated sources. Existing rendering stays unchanged.
+- Add the Temporal fragments footage treatment and a reproducible local Study
+  recipe, with a ten-second source passage and editable density automations.
+  Repeat spacing, bending, mix, fringe and exposure support timed gestures.
+- Group new controls by selection, repetition, motion, color and background.
+  Source footage and rendered examples remain local.
+
 ## 0.6.7 — 2026-10-05
 
 - Double-click a timeline clip to enter its editing scope. Single-click keeps

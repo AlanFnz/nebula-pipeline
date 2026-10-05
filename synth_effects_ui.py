@@ -547,6 +547,18 @@ class EffectsPanel(QWidget):
             else:
                 visible_paths = tuple(p for p in visible_paths if p not in REGION_CONTROLS)
                 self.description.setText(effect.description)
+        if effect.id == 'signal_repetition':
+            ranges = self.summary[effect.id]['ranges']
+            mode = ranges['signal_repetition.region']
+            if mode[0] == mode[1]:
+                key_fields = {'key_invert'} if mode[0] == 3 else {'key_floor', 'key_softness', 'key_invert'} if mode[0] == 1 else set() if mode[0] == 0 else None
+                if key_fields is not None:
+                    visible_paths = tuple(path for path in visible_paths
+                                          if not path.split('.')[1].startswith('key_') or path.split('.')[1] in key_fields)
+            if ranges['signal_repetition.outside_mix'] == (0., 0.):
+                visible_paths = tuple(path for path in visible_paths if not path.startswith('signal_repetition.outside_') or path.endswith('.outside_mix'))
+            if ranges['signal_repetition.edge_echo'] == (0., 0.):
+                visible_paths = tuple(path for path in visible_paths if path != 'signal_repetition.edge_distance')
         groups = grouped_paths(visible_paths)
         titles = tuple(title for title, _paths in groups)
         if tuple(self.group.itemText(i) for i in range(1, self.group.count())) != titles:

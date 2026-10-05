@@ -21,6 +21,7 @@ import threading
 from PIL import Image
 from media import Cancellation, decode_frames, dimensions, frame_count, probe
 from synth_portrait_recipes import PORTRAIT_EFFECTS, EXPOSURE_EFFECTS, FRACTURED_EFFECTS, CRT_BARS_EFFECTS, UNSTABLE_CRT_EFFECTS
+from synth_repetition_recipes import FRAGMENT_EFFECTS
 from synth_modulation_recipes import MODULATED_CRT_EFFECTS, GRAIN_CRT_EFFECTS
 
 VIDEO_EFFECTS = ('subject_cutout', 'photocopy', 'broadcast', 'stretch_echo', 'signal_etch', 'chroma_print', 'slice_echo', 'screen_mesh', 'signal_background', 'scan_drag', 'ghosts', 'breakup', 'tape',
@@ -30,8 +31,8 @@ VIDEO_MODULES = frozenset(('subject_cutout', 'photocopy', 'broadcast', 'stretch_
                           'warp', 'flare', 'separation', 'interference', 'frame_jitter',
                           'bloom', 'raster', 'print_surface', 'low_res'))
 PROXY_EDGE = 720
-VIDEO_EFFECTS += ('scan_modulation', 'crt_capture')
-VIDEO_MODULES |= {'scan_modulation', 'crt_capture'}
+VIDEO_EFFECTS += ('scan_modulation', 'crt_capture', 'signal_repetition')
+VIDEO_MODULES |= {'scan_modulation', 'crt_capture', 'signal_repetition'}
 _PROXY_LOCK = threading.Lock()
 
 
@@ -439,6 +440,8 @@ TREATMENTS = (
     ('Cyan / unstable CRT', UNSTABLE_CRT_EFFECTS),
     ('Cyan / modulated CRT', MODULATED_CRT_EFFECTS),
     ('Cyan / grain CRT', GRAIN_CRT_EFFECTS),
+    ('Temporal fragments', {effect: {f'{effect}.{key}': value for key, value in values.items()}
+                            for effect, values in FRAGMENT_EFFECTS.items()}),
 )
 
 

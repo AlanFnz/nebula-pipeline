@@ -10,6 +10,7 @@ from synth_instances import instance_ids, base_id
 SOURCE_EFFECT_IDS = frozenset(('forms', 'rays', 'ink_bloom', 'particles', 'silhouette', 'text'))
 CATEGORIES = ('Distortion', 'Texture', 'Light & color', 'Motion & echoes', 'Cutout', 'Finishing', 'Other')
 EFFECT_CATEGORIES = {
+    'signal_repetition': 'Motion & echoes',
     'scan_modulation': 'Distortion',
     'crt_capture': 'Texture',
     'stretch_echo': 'Motion & echoes',
