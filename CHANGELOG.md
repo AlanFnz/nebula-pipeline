@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.3 — 2026-10-05
+
+- Add a timeline **+ Add section…** shortcut for independent footage. Copy any
+  section’s look, automation, framing and duration, or start with the shared look
+  and the new footage’s duration. New footage starts at its beginning at normal
+  speed, with one play. Additions complete atomically after preparation, support
+  Undo/Redo, and cancel safely. Timeline tools wrap in narrow monitors.
+  Existing Studies, duplication and source replacement behavior are unchanged.
+
 ## 0.6.2 — 2026-10-05
 
 - Explain section footage playback with actual source intervals, effective speed,

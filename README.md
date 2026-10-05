@@ -94,6 +94,15 @@ unsaved composition being left can be saved before switching.
   Fit / Fill-crop / Original pixel size. Changing the canvas never stretches
   the footage. **Use trimmed duration for timeline** explicitly resizes the
   arrangement; otherwise section durations continue to determine the total.
+- In a video timeline, **+ Add section…** imports new footage after the active
+  section. Choose **Copy section** to reuse its effects, automation, framing and
+  duration, or **Whole-clip look** to use the current phrase and shared effects
+  without local overrides; its duration follows the new footage (up to five minutes).
+  New footage uses its full source range at normal speed, with one play.
+  Copied framing, cadence and end behavior follow the chosen section. Canvas,
+  FPS and other sections keep their settings. Cancellation adds nothing; Undo
+  removes the completed addition in one step. Generated timelines retain
+  their existing section controls in **Arrange sections…**.
 - Select a timeline section and open **Source → Choose video for this section…**
   to replace only its footage, keeping effects and automation. Alternatively,
   choose **Independent footage · starts at In** to give the same video its own

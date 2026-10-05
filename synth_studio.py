@@ -36,6 +36,7 @@ from synth_canvas import CANVAS_FORMATS, format_canvas, normalize_canvas, previe
 from synth_studies import study_records, study_composition, save_study
 from synth_studies_ui import StudiesDialog
 from synth_new_piece_ui import NewPieceDialog
+from synth_add_section_ui import AddVideoSectionDialog
 from synth_starting_points import new_piece
 from synth_artwork_ui import ArtworkControl
 from synth_text_ui import TextControl
@@ -613,12 +614,19 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         self.section_timeline.automationVisibilityChanged.connect(lambda visible: self.section_scroll.setFixedHeight(108 if visible else 78))
         controls_layout.addWidget(self.section_scroll)
         self.section_tools = QWidget()
-        self.section_tools.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
-        section_tools = QHBoxLayout(self.section_tools); section_tools.setContentsMargins(0, 0, 0, 0)
+        tools_policy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        tools_policy.setHeightForWidth(True); self.section_tools.setSizePolicy(tools_policy)
+        section_tools = FlowLayout(self.section_tools, spacing=5)
         self.section_hint = QPushButton('Timeline help'); self.section_hint.setProperty('compact', True); self.section_hint.setProperty('secondaryAction', True)
         gesture_help = 'Drag a section to reorder. Drag its right edge to resize. Shift-click to select several; drag the last selected edge to scale them together. Select sections or an automation curve, then press Command-D to duplicate. Right-click for duplication and loops. Escape cancels a drag.'
         self.section_hint.setToolTip(gesture_help); self.section_hint.clicked.connect(lambda: QMessageBox.information(self, 'Timeline gestures', gesture_help))
-        section_tools.addWidget(self.section_hint); section_tools.addStretch(1)
+        section_tools.addWidget(self.section_hint)
+        self.add_footage_section = QPushButton('+ Add section…')
+        self.add_footage_section.setProperty('compact', True)
+        self.add_footage_section.setAccessibleName('Add footage section')
+        self.add_footage_section.setToolTip('Choose new footage and optionally copy another section’s look. Adds an independent section after the active section; Undo removes it.')
+        self.add_footage_section.clicked.connect(self.add_footage_section_dialog)
+        section_tools.addWidget(self.add_footage_section)
         self.section_resize_mode = QComboBox()
         self.section_resize_mode.addItem('Resize: Keep footage speed', 'effects')
         self.section_resize_mode.addItem('Resize: Stretch footage', 'video')
@@ -893,6 +901,8 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         self.section_scroll.setVisible(self.composition is not None)
         self.section_tools.setVisible(self.composition is not None)
         self.section_resize_mode.setVisible(self.composition is not None and 'footage' in self.composition)
+        self.add_footage_section.setVisible(self.composition is not None and 'footage' in self.composition)
+        self.section_tools.layout().right_last = self.composition is not None and 'footage' in self.composition
         if self.composition is not None:
             self.composer = CompositionPanel(self.composition, self.composition_index, self.composition_scope)
             self.composer.resize_mode = self.section_resize_mode.currentData()
@@ -1195,12 +1205,26 @@ class SynthStudio(ExplorationStudio, QMainWindow):
             'Video (*.mp4 *.mov *.m4v *.mkv *.avi *.webm);;All files (*)')
         if path: self.start_video_import(path, relink, section_id=section_id)
 
-    def start_video_import(self, path, relink=False, *, section_id=None):
+    def add_footage_section_dialog(self):
+        if not self.composer or not self.composition or 'footage' not in self.composition: return
+        if len(self.composition['sections']) >= 64:
+            self.status.setText('Use at most 64 sections. Remove a section before adding footage.'); return
+        index = self.composer.index
+        anchor = self.composition['sections'][index]['id']
+        dialog = AddVideoSectionDialog(self.composition, index, self)
+        if not dialog.exec(): return
+        path, _ = QFileDialog.getOpenFileName(self, 'Choose footage for new section', '',
+            'Video (*.mp4 *.mov *.m4v *.mkv *.avi *.webm);;All files (*)')
+        if path:
+            self.start_video_import(path, add_section={'after_id': anchor, 'copy_from_id': dialog.look.currentData()})
+
+    def start_video_import(self, path, relink=False, *, section_id=None, add_section=None):
         self.cancel_video_import()
         self.play.setChecked(False)
         job = ImportVideoJob(path)
         job.document_identity = self.document_identity
         job.section_id = section_id
+        job.add_section = add_section
         self.import_job = job; self.pending_jobs.append(job)
         self.import_video_button.setEnabled(False); self.cancel_import.show()
         self.status.setText('Preparing video preview… You can keep editing. Original footage is used for export.')
@@ -1228,7 +1252,13 @@ class SynthStudio(ExplorationStudio, QMainWindow):
     def video_imported(self, job, footage, relink):
         if not self._release_import(job): return
         if getattr(job, "document_identity", None) is not self.document_identity: return
-        if relink and self.composition and 'footage' in self.composition:
+        addition = getattr(job, 'add_section', None)
+        if addition is not None:
+            if not self.composer or not self.composition or 'footage' not in self.composition: return
+            identifier = self.composer.add_video_section(footage, **addition)
+            if not identifier: return
+            self.status.setText('Section added with independent footage. Undo removes it; other sections kept their settings.')
+        elif relink and self.composition and 'footage' in self.composition:
             document = copy.deepcopy(self.composition)
             section_id = getattr(job, 'section_id', None)
             target = document if section_id is None else next((s for s in document['sections'] if s['id'] == section_id), None)
