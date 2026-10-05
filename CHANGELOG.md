@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.8.0 — 2026-10-05
+
+- Add opt-in Band flow, Sync loss, Slip frequency and Line flutter controls to
+  Signal repetition. Scan groups change height and spacing, accelerate,
+  briefly open into the source and recover with related color faults and
+  outline movement. The entire signal remains deterministic on seek.
+- Add the separate Living fragments treatment, Unstable signal effect look,
+  and local Study recipe with a softer filmed-CRT finish. Existing Studies
+  and the original Temporal fragments recipe keep their rendering.
+- Allow timed automation of flow, sync loss and flutter; document the new
+  controls and the recipe script's `--living` option.
+
 ## 0.7.0 — 2026-10-05
 
 - Add opt-in Signal repetition: image-derived fragments, independent moving
