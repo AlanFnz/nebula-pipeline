@@ -1359,6 +1359,39 @@ class CompositionPanel(QWidget):
         document["sections"].insert(self.index + 1, section); self.index += 1
         self.commit(document, "add"); self.sectionSelected.emit(self.index)
 
+    def add_video_section(self, footage, after_id, copy_from_id=None):
+        """Insert independent media in one edit; never create a pending empty clip."""
+        if self.updating or 'footage' not in self.document: return
+        if len(self.document['sections']) >= 64:
+            self.failed.emit('Use at most 64 sections. Remove a section before adding footage.'); return
+        document = copy.deepcopy(self.document)
+        positions = {section['id']: index for index, section in enumerate(document['sections'])}
+        if after_id not in positions or (copy_from_id is not None and copy_from_id not in positions):
+            self.failed.emit('The insertion or copied section was removed while loading. No section was added.'); return
+        anchor = document['sections'][positions[after_id]]
+        if copy_from_id is not None:
+            section = copy.deepcopy(document['sections'][positions[copy_from_id]])
+            from synth_video import relink_footage
+            # Keep the look's framing/cadence, but use the new video's full range.
+            source = relink_footage(section.get('footage', document['footage']), footage)
+            source.update({'in': footage['in'], 'out': footage['out']})
+            section.pop('video_rate', None)
+        else:
+            source = copy.deepcopy(footage)
+            section = dict(phrase=anchor['phrase'], duration=max(1 / document['fps'], min(300., footage['out'] - footage['in'])),
+                           macros=neutral_macros(), variation=0, locks=[], effects={})
+        section.update(id=self._new_id(document), footage=source, loops=1)
+        insertion = positions[after_id] + 1
+        document['sections'].insert(insertion, section)
+        try:
+            normalized = normalize_composition(document)
+            compile_composition(normalized)
+        except ValueError as exc:
+            self.failed.emit(str(exc)); return
+        self.index = insertion; self.scope = 1
+        self.commit(normalized, 'section-add-footage'); self.sectionSelected.emit(self.index)
+        return section['id']
+
     def remove_section(self):
         if len(self.document["sections"]) <= 1: return
         document = copy.deepcopy(self.document)
