@@ -21,7 +21,7 @@ import threading
 from PIL import Image
 from media import Cancellation, decode_frames, dimensions, frame_count, probe
 from synth_portrait_recipes import PORTRAIT_EFFECTS, EXPOSURE_EFFECTS, FRACTURED_EFFECTS, CRT_BARS_EFFECTS, UNSTABLE_CRT_EFFECTS
-from synth_repetition_recipes import FRAGMENT_EFFECTS
+from synth_repetition_recipes import FRAGMENT_EFFECTS, LIVING_FRAGMENT_EFFECTS
 from synth_modulation_recipes import MODULATED_CRT_EFFECTS, GRAIN_CRT_EFFECTS
 
 VIDEO_EFFECTS = ('subject_cutout', 'photocopy', 'broadcast', 'stretch_echo', 'signal_etch', 'chroma_print', 'slice_echo', 'screen_mesh', 'signal_background', 'scan_drag', 'ghosts', 'breakup', 'tape',
@@ -442,6 +442,8 @@ TREATMENTS = (
     ('Cyan / grain CRT', GRAIN_CRT_EFFECTS),
     ('Temporal fragments', {effect: {f'{effect}.{key}': value for key, value in values.items()}
                             for effect, values in FRAGMENT_EFFECTS.items()}),
+    ('Living fragments', {effect: {f'{effect}.{key}': value for key, value in values.items()}
+                          for effect, values in LIVING_FRAGMENT_EFFECTS.items()}),
 )
 
 

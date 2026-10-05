@@ -13,7 +13,7 @@ sys.path.insert(0, str(ROOT))
 from synth import default_synth_preset
 from synth_composition import compile_composition, save_composition
 from synth_media import export_synth_video
-from synth_repetition_recipes import temporal_fragments_composition
+from synth_repetition_recipes import temporal_fragments_composition, living_fragments_composition
 from synth_studies import save_study, study_composition
 from synth_video import inspect_video, normalize_footage
 
@@ -25,6 +25,7 @@ def main():
     parser.add_argument('--output',type=Path,default=ROOT/'.validation'/'temporal-fragments-delivery')
     parser.add_argument('--save-study',action='store_true')
     parser.add_argument('--skip-export',action='store_true')
+    parser.add_argument('--living',action='store_true',help='Use evolving scan bands and irregular signal unlocks.')
     args=parser.parse_args()
     footage=inspect_video(args.source)
     footage['in']=args.start
@@ -32,16 +33,18 @@ def main():
     if args.output.exists() and any(args.output.iterdir()):
         parser.error('Choose an empty output folder to preserve previous renders.')
     args.output.mkdir(parents=True,exist_ok=True)
-    project=temporal_fragments_composition(footage)
+    recipe=living_fragments_composition if args.living else temporal_fragments_composition
+    stem='living-fragments' if args.living else 'temporal-fragments'
+    project=recipe(footage)
     if args.save_study:
         identifier=save_study(project,project['name'])
         project=study_composition(identifier)
         print('Saved Study:',identifier,flush=True)
-    save_composition(args.output/'temporal-fragments.nebula.json',project)
+    save_composition(args.output/f'{stem}.nebula.json',project)
     if not args.skip_export:
         def progress(done,total):
             if done % 25==0 or done==total: print(f'{done}/{total} frames',flush=True)
-        export_synth_video(default_synth_preset(),args.output/'temporal-fragments-10s.mp4',
+        export_synth_video(default_synth_preset(),args.output/f'{stem}-10s.mp4',
                            sequence=compile_composition(project),progress=progress)
     print(args.output,flush=True)
 

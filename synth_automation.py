@@ -15,6 +15,7 @@ from synth_instances import base_path
 TARGETS = frozenset({
     'signal_repetition.spacing', 'signal_repetition.wave', 'signal_repetition.mix',
     'signal_repetition.fringe', 'signal_repetition.exposure',
+    'signal_repetition.band_flow', 'signal_repetition.sync_loss', 'signal_repetition.line_flutter',
     'tape.pull', 'tape.tracking', 'tape.jitter', 'warp.amount',
     'breakup.amount', 'separation.amount', 'smear.amount', 'smear.opacity',
     'bloom.strength', 'crt_capture.bend', 'raster.grain', 'raster.lines',

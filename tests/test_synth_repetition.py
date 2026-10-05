@@ -156,3 +156,82 @@ def test_inspector_only_shows_relevant_selection_and_background_controls(window)
     assert not panel.controls['signal_repetition.key_invert'].isHidden()
     panel.controls['signal_repetition.outside_mix'].input.setValue(1.)
     assert not panel.controls['signal_repetition.outside_level'].isHidden()
+
+
+@pytest.mark.parametrize('time,expected',[
+    (0.,'bb356c7e1c4c1afffd964f2cfb22f48693bc4160269725977446d21b4887aeab'),
+    (.21,'becc8b52a321fac9838281e037630b6c289a6bbea792cb95fcc1c1df75ca0e13'),
+    (3.2,'69c8940a6e4375e128d5455b284fe86b22cf6cf4a1c3302ebc13a8d74ced1158'),
+])
+def test_neutral_motion_matches_v070_pixels(time,expected):
+    import hashlib
+    pixels=np.uint8(np.clip(render(t=time)*255,0,255))
+    assert hashlib.sha256(pixels.tobytes()).hexdigest()==expected
+
+
+def test_living_motion_seeks_holds_and_freezes_as_one_signal():
+    p=params(band_flow=.85,sync_loss=.9,line_flutter=.85)
+    expected={t:render(p,t) for t in (0.,.12,.24,.61,1.21,3.)}
+    for t in reversed(expected): assert np.array_equal(render(p,t),expected[t])
+    assert np.array_equal(render(dict(p,rate=0),0),render(dict(p,rate=0),99))
+    assert np.array_equal(render(dict(p,cadence=10),.21),render(dict(p,cadence=10),.29))
+    # The evolving signal must remain active on a completely still input.
+    living=np.mean([np.abs(expected[b]-expected[a]).mean() for a,b in ((0.,.12),(.12,.24))])
+    quiet=np.mean([np.abs(render(t=b)-render(t=a)).mean() for a,b in ((0.,.12),(.12,.24))])
+    assert living > quiet*1.4
+
+
+def test_unlock_events_are_irregular_bounded_and_continuous_at_windows():
+    from synth_repetition import _sync_envelope
+    times=np.arange(0,5,.005)
+    values=np.array([_sync_envelope(t,1.4,23) for t in times])
+    assert np.isfinite(values).all() and values.min()==0 and .7<values.max()<=1
+    assert len(set(np.round(values[values>0],4)))>100
+    for t in range(1,6):
+        assert abs(_sync_envelope(t/1.4-1e-7,1.4,23)-_sync_envelope(t/1.4+1e-7,1.4,23))<1e-4
+    assert all(_sync_envelope(t,0,23)==0 for t in times[::25])
+    assert not np.array_equal(values,[_sync_envelope(t,1.4,24) for t in times])
+
+
+def test_living_motion_does_not_pull_black_edges_into_the_canvas():
+    a=np.full((72,48,3),.8,dtype=np.float32)
+    p=params(band_flow=1.,sync_loss=1.,line_flutter=1.,outline_warp=40.,edge_echo=1.)
+    for t in (0.,.3,.6,1.2):
+        out=render(p,t,a)
+        assert np.isfinite(out).all()
+        assert (out.mean(axis=2)>.04).all()
+
+
+def test_living_recipe_and_treatment_are_separate_from_original(clip,tmp_path):
+    from synth_repetition_recipes import living_fragments_composition
+    original=temporal_fragments_composition(clip)
+    p=living_fragments_composition(clip)
+    assert temporal_fragments_composition(clip)==original
+    assert original['effects']['signal_repetition']['params']['signal_repetition.band_flow']==0
+    assert p['effects']['signal_repetition']['params']['signal_repetition.band_flow']>0
+    assert not p['sections'][0].get('automations')
+    assert p['footage']==original['footage']
+    assert resolve_sequence_frame(compile_composition(p),.2)[-1]['speed']==1.
+    path=tmp_path/'living.json';save_composition(path,p)
+    assert load_composition(path)==p
+    index=next(i for i,(name,_) in enumerate(TREATMENTS) if name=='Living fragments')
+    clean=video_composition(clip)
+    treated=apply_treatment(clean,index)
+    assert treated['sections']==clean['sections'] and treated['footage']==clean['footage']
+    assert treated['effects']['signal_repetition']['params']['signal_repetition.sync_loss']>0
+
+
+def test_living_controls_can_be_automated_and_undone(window):
+    from synth_automation import target_parameter
+    from synth_inspector import control_group
+    p=copy.deepcopy(window.composition);p['effects']['signal_repetition']=effect_preset('signal_repetition')
+    window.set_composition(p)
+    panel=window.composer.effects_panel;panel.inspect_effect('signal_repetition')
+    for key in ('band_flow','sync_loss','line_flutter'):
+        path='signal_repetition.'+key
+        assert target_parameter(path).maximum==1
+        assert control_group(path)=='Motion & timing'
+        panel.controls[path].input.setValue(.75)
+        assert window.composition['effects']['signal_repetition']['params'][path]==.75
+        window.undo_composition()
+        assert panel.controls[path].input.value()==0
