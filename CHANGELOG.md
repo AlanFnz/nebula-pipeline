@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.6 — 2026-10-05
+
+- Keep the viewport visible when browsing an already-applied effect in Add
+  effect. Restore the working preview after leaving a temporary preset audition.
+  Inspect preserves existing effect settings; rendering and saved looks are unchanged.
+
 ## 0.6.5 — 2026-10-05
 
 - Keep the chosen editing scope when selecting timeline clips. Entire project
