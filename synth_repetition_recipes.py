@@ -16,6 +16,15 @@ FRAGMENT_EFFECTS = {
     'raster': dict(softness=.35,lines=.07,grain=.02,chroma=.006,line_noise=.02),
 }
 
+# Keep the original recipe frozen. The new variation explicitly opts into
+# dynamic scan groups and intermittent loss of synchronization.
+LIVING_FRAGMENT_EFFECTS = copy.deepcopy(FRAGMENT_EFFECTS)
+LIVING_FRAGMENT_EFFECTS['signal_repetition'].update(
+    band_flow=.85, sync_loss=.9, slip_frequency=1.2, line_flutter=.65, rate=1.3,
+    wave=8., row_height=37., row_lines=.65, spacing=28., detail=.06,
+    color_slips=.75, outline_warp=5.)
+LIVING_FRAGMENT_EFFECTS['crt_capture'].update(softness=.8, focus_drift=1., grain=.08, flicker=.28)
+
 
 def temporal_fragments_composition(footage):
     """A ten-second, non-looping source passage with two editable signal releases."""
@@ -42,4 +51,20 @@ def temporal_fragments_composition(footage):
         dict(id='signal-release',path='signal_repetition.spacing',amount=80.,enabled=True,
              easing='smooth',start_fraction=.65,attack_fraction=.015,hold_fraction=.012,recovery_fraction=.07),
     ]
+    return normalize_composition(project)
+
+
+def living_fragments_composition(footage):
+    """A continuous source passage with irregular, seekable signal unlocks."""
+    from synth_composition import normalize_composition
+    project = temporal_fragments_composition(footage)
+    project['name'] = 'Portrait / living fragments'
+    project['phrases']['custom']['name'] = 'Living signal'
+    # Blank video compositions inherit the slower Reference blinds clock.
+    # Author a real-time treatment clock without changing footage playback.
+    for state in project['source']['states'].values():
+        state['overrides']['speed'] = 1.
+    project['sections'][0]['automations'] = []
+    for effect, changes in LIVING_FRAGMENT_EFFECTS.items():
+        project['effects'][effect]['params'].update({f'{effect}.{key}':value for key,value in changes.items()})
     return normalize_composition(project)

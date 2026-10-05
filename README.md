@@ -361,6 +361,24 @@ recorded frame history. Scrubbing and exporting produce the same motion. The
 new module is disabled in previous documents and existing Studies stay intact.
 The foreground mask can make the first preview slower while it is prepared.
 
+**Portrait / living fragments** is a separate, more active variation. Its
+**Signal repetition → Motion & timing** controls are:
+
+- **Band flow** continuously changes the height, slope and spacing of scan groups.
+- **Sync loss** briefly opens the dense repetitions into a larger cyan image,
+  pulls the contours apart and introduces color faults before recovering.
+- **Slip frequency** sets the average number of unlocks per second when Motion
+  speed and the composition speed are 1. Their timing and strength vary with
+  the seed; zero disables unlocks.
+- **Line flutter** breaks up fine contours with fast row slips and interruptions.
+
+Motion speed scales these movements together; zero freezes the effect while
+footage continues. Motion FPS holds their shared clock. Band flow, Sync loss
+and Line flutter also support timeline automation. Their default amounts are
+zero, preserving the original Temporal fragments rendering. The effect's
+**Unstable signal** look enables them on any source; **Source → Treatment
+presets → Living fragments** adds the accompanying CRT, tape and grain finish.
+
 To recreate the local Study from another file:
 
 ```bash
@@ -370,6 +388,8 @@ To recreate the local Study from another file:
 
 The script saves an editable composition and MP4. With `--save-study`, it also
 copies the footage into the local Study library; no source media enters Git.
+Add `--living` to create the new variation instead. Choose a passage with visible
+subject movement: the effect distorts the footage but does not animate its pose.
 
 ### Editable text studies
 

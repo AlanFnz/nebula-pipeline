@@ -10,7 +10,7 @@ def control_group(path):
     if module == 'signal_repetition':
         if key in ('input', 'region', 'show_key') or key.startswith('key_'): return 'Signal selection'
         if key in ('spacing', 'sample_width', 'sample_center', 'contour', 'row_height', 'row_breakup', 'row_lines', 'edge_echo', 'edge_distance'): return 'Repetitions'
-        if key in ('wave', 'drift', 'instability', 'rate', 'cadence', 'outline_warp'): return 'Motion & timing'
+        if key in ('wave', 'drift', 'instability', 'rate', 'cadence', 'outline_warp', 'band_flow', 'sync_loss', 'slip_frequency', 'line_flutter'): return 'Motion & timing'
         if key.startswith('outside_'): return 'Outside selection'
         if key in ('relief', 'detail', 'fringe', 'edge_width', 'exposure'): return 'Color & light'
     if module == 'scan_modulation':
