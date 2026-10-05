@@ -825,7 +825,6 @@ class CompositionPanel(QWidget):
         self.video_panel.sourceModeRequested.connect(self.change_video_source_mode)
         self.video_panel.speedRequested.connect(self.change_video_speed)
         self.video_panel.sharedEditRequested.connect(lambda: self.change_scope(0))
-        self.effects_panel.clipRequested.connect(self.select_section)
         self.video_panel.treatmentRequested.connect(self.apply_video_treatment)
         self.look_tabs.addTab(self.video_panel, 'Source')
         self.look_tabs.currentChanged.connect(lambda _index: self.show_timing_scope(self.effects_panel.effect_id == 'ink_bloom' and self.effects_panel.parameter_tabs.currentIndex() == 1))
@@ -927,7 +926,7 @@ class CompositionPanel(QWidget):
             self.scope_combo.setItemText(0, 'Editing: Entire project')
             self.scope_combo.setItemText(1, f"Editing: Clip {self.index + 1} — {self.document['phrases'][section['phrase']]['name']}")
             self.scope_combo.setCurrentIndex(self.scope)
-            self.scope_combo.setToolTip(self.scope_combo.currentText() + ('. Unedited controls follow the entire project or study.' if self.scope else '. Explicit clip overrides take priority.'))
+            self.scope_combo.setToolTip(self.scope_combo.currentText() + ('. Unedited controls follow the entire project or study.' if self.scope else '. Timeline selection keeps this scope. Explicit clip overrides take priority.'))
             self.master_panel.set_values(self.document['master'])
             target = self.target()
             needs_base = any('creative' in entry or 'bypassed' in entry
@@ -953,8 +952,7 @@ class CompositionPanel(QWidget):
                 authored_states = [state for name, state in base_states.items() if name.startswith(prefix)] if self.scope else list(base_states.values())
             if not self.scope: authored_states = list(project_base_states.values())
             self.effects_panel.set_context(target["effects"], self.document["effects"] if self.scope else {}, states, label, bool(self.scope), (self.scope, context_key), self.document['ink_timing'], all_states, VIDEO_EFFECTS if video else tuple(effect.id for effect in EFFECTS if effect.id != 'subject_cutout'), authored_states=authored_states,
-                                           clip_automations=section.get('automations', ()) if self.scope else (),
-                                           clip_overrides=self.document['sections'] if not self.scope else ())
+                                           clip_automations=section.get('automations', ()) if self.scope else ())
             automation_sections = [section] if self.scope else self.document["sections"]
             counts = {}
             for owner in automation_sections:
@@ -1001,10 +999,11 @@ class CompositionPanel(QWidget):
         self.refresh()
         self.changed.emit(self.document, action)
 
-    def select_section(self, index):
+    def select_section(self, index, *, preserve_scope=False):
+        """Timeline selection keeps scope; explicit editor routes may choose a clip."""
         if self.updating or index < 0: return
         self.index = index
-        self.scope = 1
+        if not preserve_scope: self.scope = 1
         self.refresh()
         self.sectionSelected.emit(index)
 

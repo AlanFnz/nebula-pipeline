@@ -267,6 +267,7 @@ def test_new_clip_supports_combining_effects_and_local_bypass(window):
 
 
 def test_timeline_click_shows_effects_used_by_blocks_and_ghosts(window):
+    window.composer.change_scope(1)  # Choose clip editing explicitly.
     original = copy.deepcopy(window.composition)
     effects = window.composer.effects_panel
     effects.inspect_effect("rays")

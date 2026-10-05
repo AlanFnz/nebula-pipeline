@@ -596,7 +596,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         self.viewer.zoomChanged.connect(self.refresh_view_zoom)
         self.fit_view_button.setChecked(self.viewer.zoom == 0)
         self.section_timeline = SectionTimeline()
-        self.section_timeline.selected.connect(lambda index: self.composer and self.composer.select_section(index))
+        self.section_timeline.selected.connect(lambda index: self.composer and self.composer.select_section(index, preserve_scope=True))
         self.section_timeline.selectionChanged.connect(self.preview_scope_changed)
         self.section_timeline.durationRequested.connect(lambda identifier, duration: self.composer and self.composer.stretch_section(identifier, duration))
         self.section_timeline.stretchRequested.connect(lambda identifiers, factor: self.composer and self.composer.stretch_sections(identifiers, factor))

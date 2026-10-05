@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.5 — 2026-10-05
+
+- Keep the chosen editing scope when selecting timeline clips. Entire project
+  shows only shared effects, without clip settings or navigation links. Label
+  Add project effect and Add clip effect to make the destination clear. Clip
+  editing is chosen explicitly in Editing; rendering and saved looks are unchanged.
+
 ## 0.6.4 — 2026-10-05
 
 - Separate inherited project effects from clip effects and overrides. Entire
