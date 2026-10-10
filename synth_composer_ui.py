@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 from studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBox, SpinBox as QSpinBox, Slider as QSlider
 
 from synth import SHAPES
-from studio_theme import COLORS
+from studio_theme import COLORS, terminal_font
 from synth_composition import MACROS, compile_composition, default_geometry, effective_geometry, neutral_macros, normalize_composition, proportional_section_durations, section_placements, section_ranges, vary_composition
 from synth_effects_ui import EffectsPanel
 from synth_shared_timing import edit_shared_timing, restore_shared_timing, without_timing
@@ -391,17 +391,17 @@ class SectionTimeline(QWidget):
             editing = section['id'] == self.editing_section_id
             painter.setBrush(QColor(COLORS["selected"] if editing else COLORS["panel"]))
             painter.setPen(QPen(QColor(COLORS["accent"] if selected else COLORS["border"]), 1))
-            painter.drawRect(rect)
+            painter.drawRoundedRect(rect, 4, 4)
             painter.save()
             painter.setClipRect(rect.adjusted(1, 1, -1, -1))
             title_rect, metadata_rect = self.text_rectangles(rect)
             number = f'{index + 1:02d}' + (f' / ↻{repetition}' if repetition > 1 else '')
             label = document["phrases"][section["phrase"]]["name"]
-            label_font = self.font(); label_font.setPixelSize(11); painter.setFont(label_font)
+            label_font = self.font(); label_font.setPixelSize(12); painter.setFont(label_font)
             painter.setPen(QColor(COLORS["text"]))
             label = painter.fontMetrics().elidedText(f'{number} {label}', Qt.TextElideMode.ElideRight, int(title_rect.width()))
             painter.drawText(title_rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, label)
-            small_font = self.font(); small_font.setPixelSize(10)
+            small_font = terminal_font(); small_font.setPixelSize(11)
             painter.setFont(small_font); painter.setPen(QColor(COLORS["muted"]))
             loops = int(section.get('loops', 1))
             metadata = painter.fontMetrics().elidedText(f"{section['duration']:.2f}s ×{loops}",
@@ -425,7 +425,7 @@ class SectionTimeline(QWidget):
             painter.setPen(QPen(QColor(COLORS['cursor']),1,Qt.PenStyle.DashLine))
             painter.drawLine(round(drag['original_edge']), self.BLOCK_TOP,
                              round(drag['original_edge']), self.BLOCK_BOTTOM)
-            font = self.font(); font.setPixelSize(10); painter.setFont(font)
+            font = terminal_font(); font.setPixelSize(11); painter.setFont(font)
             painter.setPen(QColor(COLORS['accent']))
             visible = self.visibleRegion().boundingRect()
             readout = f"{drag['frames']/drag['fps']:.2f}s per play · {drag['frames']/drag['original_frames']:.2f}× length · release to apply · Esc cancel"
@@ -439,7 +439,7 @@ class SectionTimeline(QWidget):
             drag = self._reorder
             visible = self.visibleRegion().boundingRect()
             count = len(drag['identifiers'])
-            font = self.font(); font.setPixelSize(10); painter.setFont(font)
+            font = terminal_font(); font.setPixelSize(11); painter.setFont(font)
             color = QColor(COLORS['accent'] if drag['valid'] and drag['changed'] else COLORS['muted'])
             if drag['valid']:
                 x = max(2, min(self.width() - 3, round(drag['marker'])))
@@ -724,7 +724,7 @@ class CompositionPanel(QWidget):
         self.playhead_seconds = lambda: 0.
         self.automation_dialogs = []
         layout = QVBoxLayout(self); layout.setContentsMargins(0, 0, 0, 0); layout.setSpacing(5)
-        title = QLabel("02 / INSPECTOR"); title.setObjectName("sectionTitle")
+        title = QLabel("INSPECTOR"); title.setObjectName("sectionTitle")
         title_row = QHBoxLayout(); title_row.addWidget(title); title_row.addStretch(1)
         self.timeline_summary = QLabel(); self.timeline_summary.setObjectName('muted')
         self.timeline_summary.setToolTip('Total duration and clip count for the whole timeline, including loops.')
@@ -882,12 +882,17 @@ class CompositionPanel(QWidget):
         details.setProperty('compact', True); details.setProperty('secondaryAction', True)
         self.refresh()
 
-    def embed_workspace_controls(self, fps_layout, reset_button):
-        """Move the actual global FPS control to the document header."""
+    def embed_workspace_controls(self, fps_layout, reset_button, timeline_layout=None):
+        """Place document and timeline controls in their workspace context."""
         fps_layout.addWidget(self.fps_label); fps_layout.addWidget(self.fps)
         self.timeline_controls.hide()
         self.workspace_actions_layout.insertWidget(0, reset_button)
         reset_button.show()
+        if timeline_layout is not None:
+            for button in (self.arrangement_button, self.automations_button):
+                button.setProperty('compact', True)
+                button.setProperty('secondaryAction', True)
+                timeline_layout.addWidget(button)
 
     def show_arrangement(self, expanded):
         self.content_stack.setCurrentWidget(self.arrangement_scroll if expanded else self.parameters_group)
@@ -1568,8 +1573,8 @@ class CachedRangeStrip(QWidget):
         self.slider = slider
         self.ranges = []
         self.setFixedHeight(3)
-        self.setAccessibleName('Cached preview ranges')
-        self.setToolTip('Highlighted ranges are cached at the current preview quality.')
+        self.setAccessibleName('Prepared preview coverage')
+        self.setToolTip('Thin strip: prepared frames at the current preview quality. Use the slider above to move the playhead.')
 
     def set_ranges(self, ranges):
         self.ranges = list(ranges)

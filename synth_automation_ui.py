@@ -9,6 +9,7 @@ from PySide6.QtGui import QAction, QKeySequence, QPainter, QPainterPath, QColor,
 from PySide6.QtWidgets import (QWidget, QDialog, QVBoxLayout, QHBoxLayout, QLabel,
     QFormLayout, QPushButton, QDialogButtonBox, QCheckBox, QListWidget, QMenu)
 from studio_widgets import ComboBox, DoubleSpinBox, configure_parameter_spin
+from studio_theme import COLORS
 from synth_automation import TARGETS, STAGES, target_parameter, absolute_event, envelope, normalize_automations
 from synth_effects import EFFECTS
 from synth_instances import base_id, base_path, document_instance_ids
@@ -45,7 +46,7 @@ class CurvePreview(QWidget):
 
     def paintEvent(self, _event):
         painter = QPainter(self); painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setPen(QColor('#626b78')); painter.drawLine(8, self.height()-8, self.width()-8, self.height()-8)
+        painter.setPen(QColor(COLORS['border'])); painter.drawLine(8, self.height()-8, self.width()-8, self.height()-8)
         if not self.gesture: return
         e = dict(self.gesture, start=0, enabled=True)
         total = sum(e[k] for k in STAGES[1:])
@@ -55,7 +56,7 @@ class CurvePreview(QWidget):
             x = 8 + i / 100 * (self.width()-16)
             y = self.height()-8 - envelope(e, total*i/100) * (self.height()-16)
             path.lineTo(x, y)
-        painter.setPen(QPen(QColor('#b2f08d'), 2)); painter.drawPath(path)
+        painter.setPen(QPen(QColor(COLORS['warning']), 2)); painter.drawPath(path)
 
 
 class AutomationEditor(QDialog):
@@ -104,7 +105,7 @@ class AutomationEditor(QDialog):
         self.curve = CurvePreview(); layout.addWidget(self.curve)
         self.total = QLabel(); self.total.setWordWrap(True); layout.addWidget(self.total)
         self.notice = QLabel(); self.notice.setWordWrap(True); layout.addWidget(self.notice)
-        self.error = QLabel(); self.error.setWordWrap(True); self.error.setStyleSheet('color: #ed9c94'); layout.addWidget(self.error)
+        self.error = QLabel(); self.error.setWordWrap(True); self.error.setStyleSheet(f"color: {COLORS['destructive']}"); layout.addWidget(self.error)
         self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Apply | QDialogButtonBox.StandardButton.Cancel)
         self.buttons.button(QDialogButtonBox.StandardButton.Apply).clicked.connect(self.apply)
         self.buttons.rejected.connect(self.reject); layout.addWidget(self.buttons)
@@ -269,18 +270,18 @@ class AutomationLane(QWidget):
 
     def paintEvent(self, _event):
         painter = QPainter(self); painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.fillRect(self.rect(), QColor('#20272d'))
+        painter.fillRect(self.rect(), QColor(COLORS['panel']))
         for rect, sid, eid, origin, event in self.rectangles():
             selected = self.selected == (sid,eid)
-            color = QColor('#b2f08d' if event['enabled'] else '#737b84')
-            painter.setPen(QPen(color, 2 if selected else 1)); painter.setBrush(QColor('#3a493c' if selected else '#2a3430'))
+            color = QColor(COLORS['warning'] if event['enabled'] else COLORS['disabled'])
+            painter.setPen(QPen(color, 2 if selected else 1)); painter.setBrush(QColor(COLORS['raised'] if selected else COLORS['panel']))
             painter.drawRoundedRect(rect, 2, 2)
             curve = QPainterPath(QPointF(rect.left(), rect.bottom()-2))
             length = sum(event[k] for k in STAGES[1:])
             for i in range(41):
                 curve.lineTo(rect.left()+rect.width()*i/40, rect.bottom()-2-envelope(dict(event, enabled=True), event['start']+length*i/40)*(rect.height()-4))
             painter.drawPath(curve)
-        painter.setPen(QPen(QColor('#ededed'), 1)); x = self.timeline.time*self.timeline.pixels_per_second(); painter.drawLine(QPointF(x,0), QPointF(x,self.height()))
+        painter.setPen(QPen(QColor(COLORS['cursor']), 1)); x = self.timeline.time*self.timeline.pixels_per_second(); painter.drawLine(QPointF(x,0), QPointF(x,self.height()))
 
     def open_menu(self, hits, global_position):
         if self.menu: self.menu.deleteLater()

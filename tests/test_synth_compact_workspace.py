@@ -39,6 +39,9 @@ def test_global_fps_and_save_actions_survive_composer_replacement(window, monkey
         window.set_composition(copy.deepcopy(window.composition), clean=True)
         QApplication.processEvents()
         assert window.workspace_fps_layout.count() == 2
+        assert window.timeline_navigation_layout.count() == 2
+        assert window.composer.arrangement_button.parentWidget() is window.timeline_navigation
+        assert window.composer.automations_button.parentWidget() is window.timeline_navigation
         assert inside(window.composer.fps, window.header_host)
         assert window.save_study_button.isEnabled()
     window.composer.fps.setValue(12)
@@ -46,6 +49,23 @@ def test_global_fps_and_save_actions_survive_composer_replacement(window, monkey
     assert window.has_unsaved_changes()
     window.save_button.click()
     assert not window.has_unsaved_changes()
+
+
+def test_studio_navigation_keeps_timeline_actions_and_quality_with_their_context(window):
+    before = copy.deepcopy(window.composition)
+    panel = window.composer
+    assert inside(window.quality, window.transport)
+    assert inside(panel.arrangement_button, window.section_tools)
+    assert inside(panel.automations_button, window.section_tools)
+    panel.arrangement_button.click(); QApplication.processEvents()
+    assert panel.content_stack.currentWidget() is panel.arrangement_scroll
+    panel.arrangement_button.click(); QApplication.processEvents()
+    assert panel.content_stack.currentWidget() is panel.parameters_group
+    panel.look_tabs.setCurrentWidget(panel.master_panel)
+    assert window.reset_controls_button.isVisible()
+    panel.look_tabs.setCurrentWidget(panel.effects_panel)
+    assert not window.reset_controls_button.isVisible()
+    assert window.composition == before and not window.has_unsaved_changes()
 
 
 def test_editing_scope_is_independent_of_arrangement_selection(window):

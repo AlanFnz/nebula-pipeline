@@ -23,7 +23,7 @@ from media import Cancellation, Cancelled, probe, frame_count, export_video
 from parameters import DEFAULTS, LIMITS, RANGES, STAGES, PRESETS_DIR, normalize, load, save
 from preview_jobs import Events, PreviewWorker
 from _version import __version__
-from studio_theme import COLORS, STYLE, apply_theme, terminal_font
+from studio_theme import COLORS, STYLE, apply_theme, terminal_font, ui_font
 
 
 GROUPS = [
@@ -167,7 +167,7 @@ class Studio(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle(f"Nebula Studio — {__version__}")
-        self.setFont(terminal_font())
+        self.setFont(ui_font())
         self.resize(1280, 860)
         self.params = normalize()
         self.info = None

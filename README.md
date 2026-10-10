@@ -975,7 +975,8 @@ the canvas is edited. Studies are independent copies; loading one restores its
 saved output dimensions, framing and artwork reference. You can reframe the
 loaded copy afterward with the Canvas controls.
 
-**Preview quality** affects only the monitor (360 px, 720 px or full canvas).
+**Preview quality**, beside the playback controls, affects only the monitor
+(360 px, 720 px or full canvas).
 **Export MP4** always uses the document's full dimensions, shown beside Canvas,
 even with a fast preview selected. The export snapshots the canvas and scene so
 subsequent edits do not change an in-progress render. Custom dimensions in loaded
@@ -991,7 +992,7 @@ FPS. Live playback follows elapsed time, skipping preview frames when rendering
 cannot keep up. **Auto prepare** warms a small window after editing or scrubbing
 settles: roughly two seconds ahead and half a second behind. **Prepare**
 prepares the active scope explicitly and can be cancelled. Neither action starts
-playback. The thin green strip immediately beneath the scrubber highlights prepared frame
+playback. The thin muted strip immediately beneath the scrubber highlights prepared frame
 ranges. **Preview ready: X/Y** counts the actual prepared frames in the current
 playback scope; gaps can still skip during playback. Hover for details.
 
@@ -1020,10 +1021,19 @@ settings. Treatment-only edits can reuse those masks without changing pixels.
 The header groups document actions in its first row, then Studies, Canvas and
 Timeline FPS. **Save** saves directly; its arrow opens **Save As…** and
 **Save as study…**. The same keyboard shortcuts still apply. Controls wrap as
-groups in narrow workspaces. Contextual **Restore** lives above the inspector.
+groups in narrow workspaces. **Arrange clips…** and **Automations…** live beside
+the timeline. **Restore** stays with the effect being edited; other panels have
+a contextual reset above the inspector.
 Clip blocks use two compact lines; outlines indicate arrangement selection,
 while a filled clip identifies local editing. Whole-clip editing has no
 single-clip fill. **Timeline help** explains resize, selection, reorder and loops.
+
+The Studio interface uses neutral charcoal panels and phosphor-green selections.
+Parameter rows adapt to the inspector width; dropdowns have room for their full
+labels. Ordinary project values avoid repeated provenance lines, while animated,
+inherited and clip-specific values retain their context. Hover a parameter for
+its full explanation. Effect control groups can collapse; searching or following
+a diagnostic reveals the matching controls. Numeric displays keep saved precision.
 
 **View zoom** in the monitor header changes only the view. Choose **Fit**, **100%**,
 enter a percentage, or use **− / +**. Drag to pan a zoomed image, double-click to
