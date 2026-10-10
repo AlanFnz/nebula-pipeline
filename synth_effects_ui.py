@@ -115,6 +115,7 @@ class EffectsPanel(QWidget):
         self.discovery_enabled = False
         self.updating = False; self.allowed_effects = None; self.browser = None
         self.applied_ids = (); self.available_ids = (); self.effect_choices = {}; self.group_labels = {}
+        self.group_expansion = {}; self.revealed_path = None
         layout = QVBoxLayout(self); layout.setContentsMargins(8, 4, 8, 4); layout.setSpacing(4)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.scope_label = QLabel(); self.scope_label.setObjectName("sectionTitle"); self.scope_label.setWordWrap(True)
@@ -171,12 +172,16 @@ class EffectsPanel(QWidget):
             self.available_layout.addWidget(choice); self.effect_choices[effect.id] = choice
         self.editor = QWidget(); editor_layout = QVBoxLayout(self.editor); editor_layout.setContentsMargins(0, 0, 0, 0); editor_layout.setSpacing(4)
         row = QHBoxLayout()
-        self.back_button = QPushButton('← Back to effects'); self.back_button.clicked.connect(self.show_overview); row.addWidget(self.back_button)
+        row.setSpacing(6)
+        self.back_button = QPushButton('← Effects'); self.back_button.setAccessibleName('Back to effects')
+        self.back_button.clicked.connect(self.show_overview); row.addWidget(self.back_button)
+        row.addStretch(1)
         self.add_button = QPushButton('Add effect…'); self.add_button.clicked.connect(self.open_browser); row.addWidget(self.add_button)
         self.back_button.setProperty('compact', True); self.add_button.setProperty('compact', True)
         editor_layout.addLayout(row)
-        row = QHBoxLayout()
-        self.inspector_title = QLabel(); self.inspector_title.setObjectName('sectionTitle'); self.inspector_title.setWordWrap(True); row.addWidget(self.inspector_title, 1)
+        self.inspector_title = QLabel(); self.inspector_title.setObjectName('effectTitle'); self.inspector_title.setWordWrap(True)
+        editor_layout.addWidget(self.inspector_title)
+        row = QHBoxLayout(); row.setSpacing(4)
         self.bypass_button = QPushButton('Bypass'); self.bypass_button.clicked.connect(lambda: self.toggle_bypass(self.effect_id)); row.addWidget(self.bypass_button)
         self.instance_button = QPushButton('Add instance'); self.instance_button.setProperty('compact', True)
         self.instance_button.setToolTip('Add an independent, neutral Tape damage pass after the existing image effects. Your current settings stay intact.')
@@ -184,17 +189,20 @@ class EffectsPanel(QWidget):
         self.remove_button = QPushButton('Remove'); self.remove_button.clicked.connect(lambda: self.remove_effect(self.effect_id)); row.addWidget(self.remove_button)
         self.bypass_button.setProperty('compact', True); self.remove_button.setProperty('compact', True)
         self.remove_button.setProperty('secondaryAction', True)
+        self.restore = QPushButton('Restore'); self.restore.setProperty('compact', True)
+        self.restore.setAccessibleName('Restore this effect'); self.restore.clicked.connect(self.restore_effect)
+        row.addWidget(self.restore)
+        row.addStretch(1)
         editor_layout.addLayout(row)
-        self.frame_status = QLabel(); self.frame_status.setWordWrap(True); self.frame_status.setObjectName('muted')
+        self.frame_status = QLabel(); self.frame_status.setWordWrap(True); self.frame_status.setObjectName('muted'); self.frame_status.hide()
         editor_layout.addWidget(self.frame_status)
-        self.explanation_link = QPushButton('Open relevant control'); self.explanation_link.hide()
+        self.explanation_link = QPushButton('Open relevant control'); self.explanation_link.setProperty('compact', True); self.explanation_link.hide()
         self.explanation_link.clicked.connect(self.navigate_explanation); editor_layout.addWidget(self.explanation_link)
         self.description = QLabel(); self.description.hide()
         row = QHBoxLayout()
         self.mode = QComboBox()
         for label, value in (("Follow study", "recipe"), ("On throughout scope", "on"), ("Off throughout scope", "off")): self.mode.addItem(label, value)
         self.mode.currentIndexChanged.connect(self.change_mode); row.addWidget(self.mode, 1)
-        self.restore = QPushButton("Restore this effect"); self.restore.clicked.connect(self.restore_effect); row.addWidget(self.restore)
         self.activation_row = row; editor_layout.addLayout(row)
         row = QHBoxLayout()
         self.look = QComboBox(); row.addWidget(self.look, 1)
@@ -205,16 +213,17 @@ class EffectsPanel(QWidget):
         for title in ('Look', 'Timing', 'Signal', 'Screen'): self.parameter_tabs.addTab(title)
         self.parameter_tabs.currentChanged.connect(self.change_parameter_tab); editor_layout.addWidget(self.parameter_tabs)
         row = QHBoxLayout()
-        self.group = QComboBox(); self.group.setAccessibleName('Effect control group'); self.group.currentIndexChanged.connect(lambda _index: self.show_controls()); row.addWidget(self.group, 1)
+        self.group = QComboBox(); self.group.setAccessibleName('Effect control group'); self.group.currentIndexChanged.connect(self.change_group); row.addWidget(self.group, 1)
         self.filter = QLineEdit(); self.filter.setPlaceholderText('Find a control…'); self.filter.setClearButtonEnabled(True)
-        self.filter.setAccessibleName('Find effect control'); self.filter.textChanged.connect(lambda _text: self.show_controls()); row.addWidget(self.filter, 1)
+        self.filter.setAccessibleName('Find effect control'); self.filter.textChanged.connect(self.change_filter); row.addWidget(self.filter, 1)
         editor_layout.addLayout(row)
         self.parameter_scroll = QScrollArea(); self.parameter_scroll.setWidgetResizable(True); self.parameter_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.parameter_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.parameter_scroll.setMinimumHeight(100); editor_layout.addWidget(self.parameter_scroll, 1)
         body = QWidget(); body_layout = QVBoxLayout(body); body_layout.setContentsMargins(0, 0, 2, 0)
         self.activation_button = QPushButton('Activation && preset ▸'); self.activation_button.setCheckable(True)
-        self.activation_button.setToolTip('Choose activation timing, restore this effect or replace its settings with a preset.')
+        self.activation_button.setProperty('compact', True)
+        self.activation_button.setToolTip('Choose activation timing or replace this effect’s settings with a preset.')
         body_layout.addWidget(self.activation_button)
         self.activation_host = QWidget(); activation_layout = QVBoxLayout(self.activation_host)
         activation_layout.setContentsMargins(0, 0, 0, 6)
@@ -237,7 +246,9 @@ class EffectsPanel(QWidget):
         self.no_matches = QLabel('No matching controls in this tab.'); self.no_matches.setObjectName('muted'); body_layout.addWidget(self.no_matches); self.no_matches.hide()
         self.note = QLabel('Use fixed value to override an animated control. Restore follows the entire project or study again.')
         self.note.setWordWrap(True); self.note.setObjectName('muted'); body_layout.addWidget(self.note); body_layout.addStretch(1)
+        self.note.hide()
         self.parameter_scroll.setWidget(body); self.pages.addWidget(self.editor); self.pages.setCurrentWidget(self.editor)
+        self.parameter_host.setAccessibleDescription(self.note.text())
 
     def show_activation(self, expanded):
         self.activation_host.setVisible(expanded)
@@ -367,6 +378,7 @@ class EffectsPanel(QWidget):
         if self.updating or effect_id not in EFFECT_BY_ID: return
         if self.allowed_effects is not None and base_id(effect_id) not in self.allowed_effects: return
         switched = self.effect_id != effect_id
+        self.revealed_path = None
         self.effect_id = effect_id; self.focused = True; self.pages.setCurrentWidget(self.editor)
         with QSignalBlocker(self.filter): self.filter.clear()
         with QSignalBlocker(self.group): self.group.setCurrentIndex(0)
@@ -462,9 +474,25 @@ class EffectsPanel(QWidget):
         for path, control in self.controls.items(): control.set_automation_count(counts.get(path, 0))
 
     def change_parameter_tab(self, _index):
+        self.revealed_path = None
         with QSignalBlocker(self.filter): self.filter.clear()
         with QSignalBlocker(self.group): self.group.clear()
         self.show_controls(); self.parameter_scroll.verticalScrollBar().setValue(0); self.navigation_changed.emit()
+
+    def change_group(self, _index):
+        self.revealed_path = None
+        self.show_controls()
+
+    def change_filter(self, _text):
+        self.revealed_path = None
+        self.show_controls()
+
+    def toggle_control_group(self, title, expanded):
+        # Expansion is navigation state, independent of project/clip settings.
+        key = (self.effect_id, self.parameter_tabs.currentIndex(), title)
+        self.group_expansion[key] = expanded
+        self.show_controls()
+        self.navigation_changed.emit()
 
     def show_controls(self):
         if not self.summary: return
@@ -489,7 +517,7 @@ class EffectsPanel(QWidget):
         self.creative_panel.setVisible(creative)
         self.parameter_host.setVisible(not creative)
         self.filter.setVisible(not creative)
-        self.note.setVisible(not creative)
+        self.note.hide()
         adjustments = dict(self.parent_entries.get(effect.id, {}).get('creative', {}).get('values', {}))
         adjustments.update(self.entries.get(effect.id, {}).get('creative', {}).get('values', {}))
         adjusted = [spec for spec in CREATIVE_CONTROLS.get(effect.id, ()) if adjustments.get(spec.key, spec.neutral) != spec.neutral]
@@ -506,7 +534,8 @@ class EffectsPanel(QWidget):
         self.timing_note.setVisible(timing)
         self.restore_timing.setVisible(timing)
         self.restore_timing.setEnabled(bool(self.shared_timing))
-        for widget in (self.mode, self.restore, self.look, self.apply_button, self.status): widget.setVisible(not timing)
+        self.restore.setVisible(not timing)
+        for widget in (self.mode, self.look, self.apply_button, self.status): widget.setVisible(not timing)
         self.scope_label.setText('Editing: Entire project · shared timing' if timing else self.context_scope_label)
         if not self.focused: self.scope_label.setText(self.context_scope_label)
         self.timing_selected.emit(timing and self.focused)
@@ -559,6 +588,8 @@ class EffectsPanel(QWidget):
                 visible_paths = tuple(path for path in visible_paths if not path.startswith('signal_repetition.outside_') or path.endswith('.outside_mix'))
             if ranges['signal_repetition.edge_echo'] == (0., 0.):
                 visible_paths = tuple(path for path in visible_paths if path != 'signal_repetition.edge_distance')
+        if self.revealed_path in self.controls and self.revealed_path not in visible_paths:
+            visible_paths = (*visible_paths, self.revealed_path)
         groups = grouped_paths(visible_paths)
         titles = tuple(title for title, _paths in groups)
         if tuple(self.group.itemText(i) for i in range(1, self.group.count())) != titles:
@@ -571,15 +602,27 @@ class EffectsPanel(QWidget):
             visible_paths = next(paths for title, paths in groups if title == selected_group)
         query = self.filter.text().strip().casefold()
         shown = {p for p in visible_paths if not query or query in parameter(p).label.casefold() or query in p.casefold()}
-        for path, control in self.controls.items(): control.setVisible(path in shown)
+        for control in self.controls.values(): control.hide()
         for label in self.group_labels.values(): label.hide()
         index = 0
         for title, paths in grouped_paths(visible_paths):
             matching = [p for p in paths if p in shown]
             if not matching: continue
             if title not in self.group_labels:
-                label = QLabel(title.upper()); label.setObjectName('controlGroup'); self.group_labels[title] = label
-            label = self.group_labels[title]; label.show()
+                label = QPushButton(); label.setObjectName('controlGroup'); label.setCheckable(True)
+                label.setProperty('compact', True)
+                label.toggled.connect(lambda expanded, title=title: self.toggle_control_group(title, expanded))
+                self.group_labels[title] = label
+            key = (effect.id, self.parameter_tabs.currentIndex(), title)
+            expanded = (bool(query) or bool(selected_group) or self.revealed_path in matching or
+                        self.group_expansion.get(key, title == titles[0]))
+            label = self.group_labels[title]
+            with QSignalBlocker(label): label.setChecked(expanded)
+            label.setText(title.replace('&', '&&') + (' ▾' if expanded else ' ▸'))
+            label.setAccessibleName(title + ' controls')
+            label.setToolTip('Matching controls are expanded while searching.' if query else 'Collapse or expand this control group.')
+            label.show()
+            for path in matching: self.controls[path].setVisible(expanded)
             for widget in (label, *(self.controls[p] for p in matching)):
                 if self.parameter_layout.indexOf(widget) != index: self.parameter_layout.insertWidget(index, widget)
                 index += 1
@@ -658,22 +701,56 @@ class EffectsPanel(QWidget):
 
     def set_explanations(self, explanations):
         self.explanations = explanations
-        self.frame_status.setText('\n'.join(item.scope + ': ' + item.message for item in explanations))
-        self.explanation_target = next((item.target for item in explanations if item.target), None)
+        details = '\n'.join(item.scope + ': ' + item.message for item in explanations)
+        # Routine capability/threshold guidance is useful on demand. Actual
+        # inactive, missing, zero-strength and automated states stay explicit.
+        routine = {'configured', 'brightness-guidance', 'capability', 'transition'}
+        diagnostics = [item for item in explanations if item.code not in routine]
+        self.frame_status.setText('\n'.join(item.scope + ': ' + item.message for item in diagnostics))
+        self.frame_status.setVisible(bool(diagnostics))
+        self.frame_status.setToolTip(details)
+        self.frame_status.setAccessibleDescription(details)
+        self.inspector_title.setToolTip(EFFECT_BY_ID[self.effect_id].description + ('\n\n' + details if details else ''))
+        self.explanation_target = next((item.target for item in (*diagnostics, *explanations) if item.target), None)
         self.explanation_link.setVisible(bool(self.explanation_target))
+        self.explanation_link.setText('Open relevant control' if diagnostics else 'Threshold guidance…')
+        self.explanation_link.setToolTip(details)
+
+    def reveal_control(self, path):
+        """Reveal a control through its tab, filters and collapsed group."""
+        if path not in self.controls: return False
+        effect_id = base_id(self.effect_id)
+        if effect_id in CREATIVE_CONTROLS: tab = 1
+        elif effect_id == 'broadcast':
+            tab = 1 if path in POLARITY_CONTROLS else 2 if path in SIGNAL_CONTROLS else 3 if path in SCREEN_CONTROLS else 0
+        elif effect_id == 'ink_bloom': tab = 1 if path in INK_TIMING else 0
+        elif effect_id == 'text': tab = 1 if path in TEXT_TIMING else 0
+        elif effect_id == 'edge_phosphor': tab = 1 if path in REGION_CONTROLS else 0
+        else: tab = 0
+        self.parameter_tabs.setCurrentIndex(tab)
+        with QSignalBlocker(self.group): self.group.setCurrentIndex(0)
+        with QSignalBlocker(self.filter): self.filter.setText(parameter(path).label)
+        self.revealed_path = path
+        self.show_controls()
+        self.parameter_scroll.ensureWidgetVisible(self.controls[path])
+        self.controls[path].setFocus(Qt.FocusReason.OtherFocusReason)
+        self.navigation_changed.emit()
+        return True
 
     def navigate_explanation(self):
         target = getattr(self, 'explanation_target', None)
         if target == 'source': self.source_requested.emit(); return
         if target == 'object': self.object_requested.emit(); return
-        if target in ('activation', 'resume'):
+        if target == 'resume':
+            self.bypass_button.setFocus(); return
+        if target == 'activation':
+            if self.effect_id == 'ink_bloom' and self.parameter_tabs.currentIndex() == 1:
+                self.parameter_tabs.setCurrentIndex(0)
             self.activation_button.setChecked(True)
-            (self.bypass_button if target == 'resume' else self.mode).setFocus(); return
+            self.parameter_scroll.ensureWidgetVisible(self.mode)
+            self.mode.setFocus(); return
         if target in self.controls:
-            self.parameter_tabs.setCurrentIndex(1 if self.effect_id in CREATIVE_CONTROLS else 0)
-            self.group.setCurrentIndex(0)
-            self.filter.setText(parameter(target).label)
-            self.parameter_scroll.ensureWidgetVisible(self.controls[target])
+            self.reveal_control(target)
 
     def refresh_breakdown(self):
         from synth_effect_catalog import composition_contributions

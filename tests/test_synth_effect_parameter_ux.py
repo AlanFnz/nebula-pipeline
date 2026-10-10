@@ -10,6 +10,7 @@ from PIL import Image
 
 from synth_artwork import encode_artwork
 from synth_effect_parameter_ui import EffectParameter, format_value
+from test_synth_effects_editor_integration import make_window
 
 
 @pytest.fixture
@@ -195,14 +196,154 @@ def test_themed_inactive_broadcast_inputs_keep_text_and_slider_geometry(app):
         before = copy.deepcopy(panel.document)
         panel.show(); panel.effects_panel.inspect_effect('broadcast'); app.processEvents()
         for path in ('broadcast.field', 'broadcast.hue', 'broadcast.hue_spread', 'broadcast.drift'):
+            panel.effects_panel.reveal_control(path); app.processEvents()
             control = panel.effects_panel.controls[path]
+            assert control.isVisible()
             assert not control.input.isEnabled()
             assert control.input.height() >= control.input.minimumSizeHint().height()
             assert control.input.lineEdit().height() >= control.input.fontMetrics().height()
-            assert control.slider.y() > control.value_stack.geometry().bottom()
-            assert control.origin.y() > control.slider.geometry().bottom()
+            assert not control.slider.geometry().intersects(control.value_stack.geometry())
+            assert control.origin.y() > max(control.slider.geometry().bottom(), control.value_stack.geometry().bottom())
         assert panel.document == before
     finally:
         if panel: panel.close(); panel.deleteLater(); app.processEvents()
         app.setStyle(old_style); app.setFont(old_font); app.setPalette(old_palette)
         app.setStyleSheet(old_sheet)
+
+
+@pytest.mark.parametrize('width', [380, 490, 650])
+@pytest.mark.parametrize('path', ['tape.pull', 'particles.rotation_speed', 'text.hue',
+                                  'text.motion', 'text.font', 'particles.orbit_handoff',
+                                  'text.content', 'ink_bloom.artwork'])
+def test_responsive_rows_keep_fields_actions_and_long_choices_inside_inspector(app, width, path):
+    from studio_theme import apply_theme
+    old_style, old_sheet = app.style().objectName(), app.styleSheet()
+    old_font, old_palette = app.font(), app.palette()
+    host = QWidget()
+    try:
+        apply_theme(app)
+        layout = QVBoxLayout(host)
+        control = EffectParameter(path); layout.addWidget(control); layout.addStretch()
+        value = (max(range(len(control.spec.choices)), key=lambda i: len(control.spec.choices[i]))
+                 if control.spec.choices else control.spec.default)
+        control.refresh((value, value), value, False, True, scope_label='Entire project')
+        control.set_automation_count(3)
+        host.resize(650, 350); host.show(); app.processEvents()
+        host.resize(width, 350); app.processEvents()
+        assert host.width() == width and host.minimumSizeHint().width() <= width
+        assert control.origin.isHidden()
+        children = [control.input, control.reset_button, control.label]
+        if control.slider: children.append(control.slider)
+        if control.animate_button: children.append(control.animate_button)
+        for child in children:
+            assert child.isVisible()
+            assert child.mapTo(control, child.rect().topLeft()).x() >= 0
+            assert child.mapTo(control, child.rect().bottomRight()).x() < control.width()
+            assert child.mapTo(control, child.rect().bottomRight()).y() < control.height()
+        assert control.input.height() >= control.input.minimumSizeHint().height()
+        if control.spec.choices:
+            text_width = control.input.fontMetrics().horizontalAdvance(control.input.currentText())
+            assert control.input.width() >= text_width + 35
+        if control.slider:
+            assert control.slider.width() >= 100
+            assert not control.slider.geometry().intersects(control.value_stack.geometry())
+            if width == 650:
+                assert abs(control.slider.geometry().center().y() - control.value_stack.geometry().center().y()) <= 1
+                assert control.height() < 65
+            if width == 380:
+                assert control.slider.y() > control.reset_button.geometry().bottom()
+        if path == 'text.content':
+            assert control.input.editor.height() >= 100
+            assert control.input.width() == control.width()
+        if path == 'ink_bloom.artwork':
+            assert control.input.import_button.width() >= 80
+            assert control.input.width() == control.width()
+    finally:
+        host.close(); host.deleteLater(); app.processEvents()
+        app.setStyle(old_style); app.setFont(old_font); app.setPalette(old_palette)
+        app.setStyleSheet(old_sheet)
+
+
+def test_ordinary_project_provenance_is_quiet_but_context_and_exceptions_remain(app):
+    control = EffectParameter('text.size')
+    control.refresh((.4, .4), .4, False, True, scope_label='Entire project')
+    assert control.origin.isHidden()
+    assert 'Fixed' in control.accessibleDescription()
+    assert 'Entire project' in control.input.accessibleDescription()
+    assert 'Editing authors' in control.input.toolTip()
+    for bounds, fixed, inherited, available, scope, parent in [
+        ((.2, .5), None, False, True, 'Entire project', None),
+        ((.4, .4), None, True, True, 'Clip 2', .4),
+        ((.4, .4), .4, False, True, 'Clip 2', None),
+        ((.4, .4), .4, False, False, 'Entire project', None),
+    ]:
+        control.refresh(bounds, fixed, inherited, available, scope_label=scope, parent_value=parent)
+        assert not control.origin.isHidden()
+        assert control.origin.accessibleDescription()
+    control.refresh((.4, .4), .4, False, True, scope_label='Entire project', origin_label='Entire project · shared timing')
+    assert not control.origin.isHidden() and 'shared timing' in control.origin.text()
+    control.close()
+
+
+def test_responsive_slider_drag_commits_once_on_release_and_automation_stays_reachable(app):
+    host = QWidget(); layout = QVBoxLayout(host)
+    control = EffectParameter('tape.pull'); layout.addWidget(control); layout.addStretch()
+    changes = []; automations = []; resets = []
+    control.changed.connect(changes.append); control.animate.connect(automations.append)
+    control.reset.connect(lambda: resets.append(True))
+    control.refresh((.1, .1), .1, False, True, scope_label='Entire project')
+    host.resize(380, 250); host.show(); app.processEvents()
+    assert not control.slider.hasTracking()
+    control.slider.setSliderDown(True); control.slider.setSliderPosition(750)
+    assert changes == []
+    assert control.input.value() == control.slider_value(750)
+    control.slider.setSliderDown(False)
+    assert changes == [control.slider_value(750)]
+    host.resize(650, 250); app.processEvents()
+    assert changes == [control.slider_value(750)]
+    control.set_automation_count(3); control.animate_button.click(); control.reset_button.click()
+    assert automations == ['tape.pull'] and resets == [True]
+    assert control.animate_button.text() == 'Automations (3)…'
+    host.close()
+
+
+def test_integrated_inspector_resizes_rows_before_placing_neighbors(make_window):
+    import copy
+    from synth_composition import blank_composition
+
+    composition = blank_composition()
+    composition['effects']['scan_modulation'] = {
+        'mode': 'on', 'params': {'scan_modulation.region': 2},
+    }
+    window = make_window(composition=composition)
+    window.auto_prepare.setChecked(False)
+    panel = window.composer.effects_panel
+    panel.inspect_effect('scan_modulation')
+    before = copy.deepcopy(window.composition)
+    for size in ((1280, 720), (1440, 900), (1728, 1017)):
+        window.resize(*size)
+        QApplication.processEvents(); QApplication.processEvents()
+
+    def check_rows():
+        controls = sorted((control for control in panel.controls.values() if control.isVisible()),
+                          key=lambda control: control.y())
+        assert len(controls) >= 7
+        for first, second in zip(controls, controls[1:]):
+            assert first.geometry().bottom() < second.y()
+        for control in controls:
+            if not control.slider: continue
+            assert control.slider.height() >= control.slider.sizeHint().height()
+            assert control.input.height() >= control.input.minimumSizeHint().height()
+            for child in (control.slider, control.input, control.reset_button):
+                assert control.rect().contains(child.mapTo(control, child.rect().topLeft()))
+                assert control.rect().contains(child.mapTo(control, child.rect().bottomRight()))
+        return {control.path: control.height() for control in controls if control.slider}
+
+    window.splitter.setSizes([1320, 380])
+    QApplication.processEvents(); QApplication.processEvents()
+    narrow = check_rows()
+    window.splitter.setSizes([950, 750])
+    QApplication.processEvents(); QApplication.processEvents()
+    wide = check_rows()
+    assert narrow and all(narrow[path] > wide[path] for path in narrow)
+    assert window.composition == before

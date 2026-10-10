@@ -92,13 +92,14 @@ def test_small_window_keeps_timeline_and_scrolled_controls_reachable(app):
         assert window.section_scroll.height() == 78
         assert visible_in(window.section_timeline, scroll.viewport())
         assert scroll.verticalScrollBar().maximum() > 0
-        for control in (window.preview_scope, window.prepare_preview, window.quality):
+        for control in (window.preview_scope, window.prepare_preview):
             scroll.ensureWidgetVisible(control)
             app.processEvents()
             assert visible_in(control, scroll.viewport())
             left = control.mapTo(scroll.viewport(), QPoint(0, 0)).x()
             assert left >= 0 and left + control.width() <= scroll.viewport().width()
         assert visible_in(window.export_button, window.header_host)
+        assert visible_in(window.quality, window.transport)
         assert visible_in(window.play, window.preview_splitter.widget(0))
         assert visible_in(window.preview_status, window.preview_splitter.widget(0))
     finally:

@@ -26,7 +26,7 @@ from studio_widgets import configure_parameter_spin, PlaybackButton
 from synth_workspace_widgets import FlowLayout, ElidingLabel, WorkspaceSplitter, inline
 
 from media import Cancellation
-from studio_theme import COLORS, apply_theme, terminal_font
+from studio_theme import COLORS, apply_theme, terminal_font, ui_font
 from synth import MODULE_BY_ID, curated_presets, default_synth_preset, load_synth, normalize_synth, render_synth_frame, save_synth
 from synth_media import export_synth_video
 from synth_sequence import load_sequence, normalize_sequence, reference_sequence, render_sequence_frame, save_sequence
@@ -228,7 +228,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         self.comparison = None
         self.discovery_session = None
         self.setWindowTitle("Nebula Synth")
-        self.setFont(terminal_font())
+        self.setFont(ui_font())
         self.resize(1280, 800)
         if preset is None and sequence is None and composition is None:
             composition = reference_composition(refined=True)
@@ -470,6 +470,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         outer = QVBoxLayout(root)
         outer.setContentsMargins(12, 8, 12, 10); outer.setSpacing(7)
         self.header_host = QWidget(); self.header_host.setProperty('chrome', True)
+        self.header_host.setObjectName('workspaceHeader')
         header_layout = QVBoxLayout(self.header_host); header_layout.setContentsMargins(0, 0, 0, 0); header_layout.setSpacing(5)
         header = FlowLayout(right_last=True); header_layout.addLayout(header)
         brand = QLabel("nebula_"); brand.setObjectName("brand")
@@ -482,6 +483,8 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         self.import_video_button = QPushButton('Import video…'); self.import_video_button.clicked.connect(self.import_video_dialog)
         self.cancel_import = QPushButton('Cancel import'); self.cancel_import.clicked.connect(self.cancel_video_import); self.cancel_import.hide()
         open_button = QPushButton('Open…'); open_button.clicked.connect(self.load_sequence_dialog)
+        for button in (self.new_piece_button, self.import_video_button, open_button):
+            button.setProperty('secondaryAction', True)
         self.save_button = QToolButton(); self.save_button.setText('Save'); self.save_button.setAccessibleName('Save composition')
         self.save_button.setMinimumWidth(68)
         self.save_button.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
@@ -495,6 +498,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         commands = QWidget(); command_row = QHBoxLayout(commands); command_row.setContentsMargins(0, 0, 0, 0); command_row.setSpacing(5)
         for text, callback in (("New variation", self.generate_variation), ("Undo", self.undo_composition), ("Redo", self.redo_composition)):
             button = QPushButton(text); button.clicked.connect(callback)
+            button.setProperty('secondaryAction', True)
             if text == 'New variation': button.setToolTip('Generate another take of this composition using its unlocked controls.')
             if text == 'Undo': self.composition_undo_button = button
             if text == 'Redo': self.composition_redo_button = button
@@ -572,7 +576,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         monitor_header = QWidget(); monitor_header.setObjectName('monitorHeader'); monitor_header.setProperty('chrome', True)
         monitor_flow = FlowLayout(monitor_header, spacing=4)
         title_group = QWidget(); monitor_row = QHBoxLayout(title_group); monitor_row.setContentsMargins(6, 2, 3, 2); monitor_row.setSpacing(5)
-        monitor_title = QLabel('01 / MONITOR'); monitor_title.setObjectName('sectionTitle'); monitor_row.addWidget(monitor_title)
+        monitor_title = QLabel('MONITOR'); monitor_title.setObjectName('sectionTitle'); monitor_row.addWidget(monitor_title)
         monitor_flow.addWidget(title_group)
         self.monitor_meta = QLabel(root); self.monitor_meta.hide()
         self.monitor_state = QLabel(root); self.monitor_state.hide()
@@ -583,12 +587,14 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         plus = QPushButton('+'); plus.setAccessibleName('Zoom in'); plus.setFixedWidth(24); plus.clicked.connect(lambda: self.viewer.zoom_by(1.25))
         self.fit_view_button = fit = QPushButton('Fit'); fit.setCheckable(True); fit.setAccessibleName('Fit canvas in viewer'); fit.clicked.connect(lambda: self.viewer.set_zoom(0))
         actual = QPushButton('100%'); actual.setAccessibleName('View at 100 percent'); actual.clicked.connect(lambda: self.viewer.set_zoom(1))
+        for button in (minus, plus, fit, actual): button.setProperty('secondaryAction', True)
         monitor_flow.addWidget(inline(minus, self.view_zoom, plus, fit, actual, spacing=2))
         self.source_preview = QCheckBox('Before / source'); self.source_preview.setAccessibleName('Before / source')
         self.source_preview.setToolTip('Compare this footage frame before treatments. Export includes treatments.')
         self.source_preview.toggled.connect(lambda _checked: self.invalidate()); monitor_flow.addWidget(self.source_preview)
         self.build_exploration_controls(monitor_flow, monitor_row)
         fullscreen = QPushButton('⛶'); fullscreen.setFixedWidth(28); fullscreen.setAccessibleName('Full screen'); fullscreen.setToolTip('Full screen')
+        fullscreen.setProperty('secondaryAction', True)
         fullscreen.clicked.connect(self.toggle_fullscreen); monitor_flow.addWidget(fullscreen); self.fullscreen_button = fullscreen
         monitor_layout.addWidget(monitor_header)
         self.viewer = SynthViewer(); monitor_layout.addWidget(self.viewer, 1)
@@ -637,10 +643,15 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         self.section_resize_mode.setItemData(1, 'Keep the same source interval by changing video speed. Footage, audio, effects and automation stretch together.', Qt.ItemDataRole.ToolTipRole)
         self.section_resize_mode.currentIndexChanged.connect(lambda _index: self.composer and setattr(self.composer, 'resize_mode', self.section_resize_mode.currentData()))
         section_tools.addWidget(self.section_resize_mode)
+        self.timeline_navigation = QWidget()
+        self.timeline_navigation_layout = QHBoxLayout(self.timeline_navigation)
+        self.timeline_navigation_layout.setContentsMargins(0, 0, 0, 0)
+        self.timeline_navigation_layout.setSpacing(4)
+        section_tools.addWidget(self.timeline_navigation)
         controls_layout.insertWidget(0, self.section_tools)
         self.section_tools.setProperty('chrome', True)
         self.status = ElidingLabel(auto_hide=True); self.status.setObjectName('muted'); self.status.setAccessibleName('Operation status')
-        transport = QWidget(); transport.setProperty('chrome', True)
+        self.transport = transport = QWidget(); transport.setProperty('chrome', True)
         timeline = QHBoxLayout(transport); timeline.setContentsMargins(0, 0, 0, 0); timeline.setSpacing(6)
         self.play = PlaybackButton(); self.play.setFixedSize(30, 28); self.play.toggled.connect(self.toggle_play); timeline.addWidget(self.play)
         track = QWidget(); track.setFixedHeight(22); track_layout = QVBoxLayout(track); track_layout.setContentsMargins(0, 0, 0, 0); track_layout.setSpacing(0)
@@ -648,7 +659,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         self.timeline.valueChanged.connect(self.scrub); track_layout.addWidget(self.timeline)
         self.cached_ranges = CachedRangeStrip(self.timeline); track_layout.addWidget(self.cached_ranges)
         timeline.addWidget(track, 1)
-        self.time_label = QLabel('00:00.00'); self.time_label.setObjectName('timecode'); timeline.addWidget(self.time_label)
+        self.time_label = QLabel('00:00.00'); self.time_label.setObjectName('timecode'); self.time_label.setFont(terminal_font()); timeline.addWidget(self.time_label)
         self.total_time_label = QLabel(); self.total_time_label.setObjectName('monitorMeta'); self.total_time_label.setAccessibleName('Total duration')
         self.total_time_label.setToolTip('Duration of all clips and loops. Updates automatically when timing changes.')
         timeline.addWidget(self.total_time_label); left_layout.addWidget(transport)
@@ -668,7 +679,9 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         self.scope_summary = QLabel(); self.scope_summary.setObjectName('monitorMeta'); preparation_row.addWidget(self.scope_summary)
         self.quality = QComboBox(); self.quality.setAccessibleName('Preview quality'); self.quality.addItems(['360 px', '720 px', 'Full canvas'])
         self.quality.setToolTip('Monitor detail only. Export uses full canvas dimensions. Low-res finish can apply the preview texture to exported artwork.')
-        self.quality.currentIndexChanged.connect(lambda _index: self.invalidate()); preparation_row.addWidget(inline(QLabel('Quality'), self.quality))
+        self.quality.setMaximumWidth(112)
+        self.quality.currentIndexChanged.connect(lambda _index: self.invalidate())
+        timeline.addWidget(self.quality)
         self.auto_prepare = QCheckBox('Auto prepare'); self.auto_prepare.setChecked(True)
         self.auto_prepare.setToolTip('Prepare frames near the playhead after editing or scrubbing settles.')
         self.auto_prepare.toggled.connect(self.auto_prepare_changed)
@@ -698,6 +711,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         self.preview_splitter.handle(1).setToolTip('Drag up or down to resize the monitor and timeline controls.')
         split.addWidget(left)
         self.inspector_host = QStackedWidget(); self.inspector_host.setMinimumWidth(380)
+        self.inspector_host.setObjectName('inspectorSurface')
         self.inspector_scroll = scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -706,6 +720,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         self.panel_layout.setAlignment(Qt.AlignmentFlag.AlignTop); scroll.setWidget(panel)
         self.inspector_host.addWidget(scroll)
         self.composer_host = QWidget(); self.composer_host.setMinimumWidth(0)
+        self.composer_host.setObjectName('inspectorSurface')
         self.composer_layout = QVBoxLayout(self.composer_host)
         self.composer_layout.setContentsMargins(8, 0, 0, 0)
         self.inspector_host.addWidget(self.composer_host)
@@ -720,7 +735,9 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         self.reset_controls_button.setToolTip(
             'Restore the current panel in the shown editing scope. Other panels keep their settings.'
             if label else 'Select an effect to restore its settings.')
-        self.reset_controls_button.setVisible(bool(label))
+        show_reset = bool(label) and self.composer is not None and self.composer.look_tabs.currentWidget() is not self.composer.effects_panel
+        self.reset_controls_button.setVisible(show_reset)
+        if self.composer: self.composer.workspace_actions.setVisible(show_reset)
         self.sync_timeline_editing_scope()
 
     def sync_timeline_editing_scope(self):
@@ -878,6 +895,9 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         while self.workspace_fps_layout.count():
             item = self.workspace_fps_layout.takeAt(0)
             if item.widget(): item.widget().hide(); item.widget().deleteLater()
+        while self.timeline_navigation_layout.count():
+            item = self.timeline_navigation_layout.takeAt(0)
+            if item.widget(): item.widget().hide(); item.widget().deleteLater()
         self.workspace_fps_host.setVisible(self.composition is not None)
         if self.composer is not None:
             self.composition_index = self.composer.index
@@ -924,7 +944,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
             self.composer.effects_panel.source_requested.connect(lambda: self.composer.look_tabs.setCurrentWidget(self.composer.video_panel))
             self.composer.relinkRequested.connect(lambda: self.import_video_dialog(relink=True))
             self.composer_layout.addWidget(self.composer)
-            self.composer.embed_workspace_controls(self.workspace_fps_layout, self.reset_controls_button)
+            self.composer.embed_workspace_controls(self.workspace_fps_layout, self.reset_controls_button, self.timeline_navigation_layout)
             self.inspector_host.setCurrentWidget(self.composer_host)
             self.composer.reset_context_changed.connect(self.update_contextual_reset)
             self.update_contextual_reset(self.composer.reset_label())

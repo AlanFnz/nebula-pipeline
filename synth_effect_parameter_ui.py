@@ -4,7 +4,7 @@ from __future__ import annotations
 from PySide6.QtCore import QSignalBlocker, Signal, Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                               QPushButton, QStackedWidget, QSizePolicy, QLayout)
+                               QPushButton, QStackedWidget, QSizePolicy, QGridLayout)
 from studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBox, SpinBox as QSpinBox
 from studio_widgets import Slider, configure_parameter_spin, parameter_number
 from synth_effects import parameter
@@ -14,6 +14,25 @@ from synth_ink_timing import DURATION_KEYS
 from synth_parameter_presentation import presentation
 
 INK_DURATIONS = {f'ink_bloom.{key}' for key in DURATION_KEYS}
+
+
+class ParameterRowLayout(QGridLayout):
+    def __init__(self, control):
+        super().__init__()
+        self.control = control
+
+    def heightForWidth(self, width):
+        # Ancestor layouts ask for a height before assigning the new geometry.
+        # Reflow now so a scroll area's cached height includes the wrapped row.
+        self.control._arrange_row(width)
+        return super().heightForWidth(width)
+
+    def minimumSize(self):
+        # The wide arrangement must allow its host to shrink far enough to
+        # trigger wrapping; its current columns are not the narrow minimum.
+        size = super().minimumSize()
+        size.setWidth(min(size.width(), 240))
+        return size
 
 
 def format_value(path, value):
@@ -40,25 +59,30 @@ class EffectParameter(QWidget):
         self._context_key = None
         self._text_drafts = {}
         self.fixed_start = spec.default
-        layout = QVBoxLayout(self); layout.setContentsMargins(0, 0, 0, 8); layout.setSpacing(3)
-        layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
+        layout = QVBoxLayout(self); layout.setContentsMargins(0, 0, 0, 6); layout.setSpacing(4)
         self.slider = None
-        row = QHBoxLayout(); row.setSpacing(5)
+        self._row = ParameterRowLayout(self); self._row.setSpacing(6)
+        self._row_mode = None
+        self._label_container = QWidget()
+        label_row = QHBoxLayout(self._label_container)
+        label_row.setContentsMargins(0, 0, 0, 0); label_row.setSpacing(5)
         self.label = QLabel(spec.label); self.label.setWordWrap(True)
         self.label.setMinimumWidth(0); self.label.setToolTip(spec.hint)
-        row.addWidget(self.label, 1)
+        label_row.addWidget(self.label, 1)
         self.hue_swatch = None
         if self.presentation.hue:
             self.hue_swatch = QLabel(); self.hue_swatch.setFixedSize(14, 14)
             self.hue_swatch.setAccessibleName(spec.label + ' hue indication')
-            row.addWidget(self.hue_swatch)
+            label_row.addWidget(self.hue_swatch)
         if spec.kind in ('artwork', 'text'):
             self.input = ArtworkControl() if spec.kind == 'artwork' else TextControl()
             self.input.changed.connect(self.emit_change)
         elif spec.choices:
             self.input = QComboBox(); self.input.addItems(spec.choices)
             self.input.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
-            self.input.setMinimumContentsLength(6)
+            self.input.setMinimumContentsLength(12)
+            self.input.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             self.input.currentIndexChanged.connect(self.emit_change)
         else:
             self.input = QSpinBox() if spec.kind == 'int' else QDoubleSpinBox()
@@ -75,11 +99,13 @@ class EffectParameter(QWidget):
             self.slider.valueChanged.connect(self.commit_slider)
             self.input.valueChanged.connect(self.sync_slider)
         block_input = spec.kind in ('artwork', 'text')
-        self.input.setMinimumWidth(0 if block_input else 110)
-        if not block_input: self.input.setMaximumWidth(145)
+        self._block_input = block_input
+        self.input.setMinimumWidth(0 if block_input or spec.choices else 110)
+        if not block_input and not spec.choices: self.input.setMaximumWidth(145)
         self.input.setToolTip(spec.hint); self.input.setAccessibleName(spec.label)
         if spec.kind == 'float' and spec.step < .01:
             self.input.setToolTip(spec.hint + ' Displayed as a percentage; 100% = 1 in the saved recipe. Saved precision is preserved.')
+        self._input_hint = self.input.toolTip()
         self.value_stack = QStackedWidget()
         self.value_stack.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self.value_stack.addWidget(self.input)
@@ -94,19 +120,19 @@ class EffectParameter(QWidget):
         self.animated_value.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.animated_value.setAccessibleName(spec.label + ' animated range')
         self.value_stack.addWidget(self.animated_value)
-        if not block_input: row.addWidget(self.value_stack)
         self.animate_button = None
         from synth_automation import TARGETS
         from synth_instances import base_path
         if base_path(path) in TARGETS:
             self.animate_button = QPushButton("Animate…"); self.animate_button.setProperty("compact", True)
+            self.animate_button.setMinimumHeight(28)
             self.animate_button.setAccessibleName("Animate " + spec.label)
             self.animate_button.setToolTip("Add a temporary clip gesture; the displayed value remains the base. Existing events are edited separately.")
             self.animate_button.clicked.connect(lambda: self.animate.emit(self.path))
-        self.reset_button = QPushButton('↶'); self.reset_button.setFixedWidth(30)
+        self.reset_button = QPushButton('↶'); self.reset_button.setFixedSize(30, 28)
         self.reset_button.setAccessibleName(f'Restore {spec.label}')
-        self.reset_button.clicked.connect(self.reset.emit); row.addWidget(self.reset_button)
-        layout.addLayout(row)
+        self.reset_button.clicked.connect(self.reset.emit)
+        layout.addLayout(self._row)
         if block_input: layout.addWidget(self.value_stack)
         self.fixed_choice = QWidget(); choice = QHBoxLayout(self.fixed_choice)
         choice.setContentsMargins(0, 0, 0, 0); choice.setSpacing(5)
@@ -118,18 +144,79 @@ class EffectParameter(QWidget):
         self.use_fixed.clicked.connect(lambda: self.changed.emit(self.fixed_start))
         choice.addWidget(self.use_fixed); layout.addWidget(self.fixed_choice)
         self.fixed_choice.hide()
-        if self.slider: layout.addWidget(self.slider)
         self.origin = QLabel(); self.origin.setWordWrap(True)
         self.origin.setObjectName('muted'); layout.addWidget(self.origin)
-        if self.animate_button:
-            automation_row = QHBoxLayout(); automation_row.addStretch(1); automation_row.addWidget(self.animate_button)
-            layout.addLayout(automation_row)
+        self._arrange_row()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._arrange_row()
+
+    def _arrange_row(self, width=None):
+        """Wrap controls before their useful editing widths become cramped."""
+        animated = self.value_stack.currentWidget() is self.animated_value
+        if not self._block_input:
+            maximum_height = 16777215 if animated else self.input.sizeHint().height()
+            if self.value_stack.maximumHeight() != maximum_height:
+                self.value_stack.setMaximumHeight(maximum_height)
+        label_width = self.label.fontMetrics().horizontalAdvance(self.label.text())
+        if self.hue_swatch: label_width += self.hue_swatch.width() + 5
+        label_width = max(120, min(160, label_width))
+        action_width = self.reset_button.width()
+        if self.animate_button: action_width += self.animate_button.sizeHint().width() + 6
+        if self.spec.choices:
+            value_width = max(self.input.fontMetrics().horizontalAdvance(choice)
+                              for choice in self.spec.choices) + 40
+        else:
+            value_width = max(110, self.input.minimumSizeHint().width())
+        needed = label_width + action_width + value_width + 18
+        if self.slider and not animated: needed += 106
+        wrapped = self._block_input or (self.width() if width is None else width) < needed
+        mode = (wrapped, animated)
+        if mode == self._row_mode: return
+        self._row_mode = mode
+        while self._row.count(): self._row.takeAt(0)
+        for column in range(5):
+            self._row.setColumnStretch(column, 0)
+            self._row.setColumnMinimumWidth(column, 0)
+        if wrapped:
+            self._row.addWidget(self._label_container, 0, 0, 1, 2)
+            if self.animate_button:
+                self._row.addWidget(self.reset_button, 0, 2)
+                self._row.addWidget(self.animate_button, 0, 3)
+            else:
+                self._row.addWidget(self.reset_button, 0, 2, 1, 2, Qt.AlignmentFlag.AlignRight)
+            self._row.setColumnStretch(0, 1)
+            if not self._block_input:
+                if self.slider and not animated:
+                    self._row.addWidget(self.slider, 1, 0, 1, 2)
+                    self._row.addWidget(self.value_stack, 1, 2, 1, 2)
+                else:
+                    self._row.addWidget(self.value_stack, 1, 0, 1, 4)
+        else:
+            self._row.addWidget(self._label_container, 0, 0)
+            self._row.setColumnMinimumWidth(0, label_width)
+            self._row.setColumnStretch(0, 1)
+            if self.slider and not animated:
+                self._row.addWidget(self.slider, 0, 1)
+                self._row.setColumnStretch(1, 2)
+            self._row.addWidget(self.value_stack, 0, 2)
+            if self.spec.choices or animated: self._row.setColumnStretch(2, 2)
+            self._row.addWidget(self.reset_button, 0, 3)
+            if self.animate_button: self._row.addWidget(self.animate_button, 0, 4)
+        self._row.invalidate()
+        self.updateGeometry()
 
     def set_automation_count(self, count):
         if self.animate_button:
-            self.animate_button.setText(f"Automations ({count})…" if count else "Animate…")
+            text = f"Automations ({count})…" if count else "Animate…"
+            label = self.spec.label + (" · Base" if count else "")
+            if self.animate_button.text() == text and self.label.text() == label: return
+            self.animate_button.setText(text)
             self.animate_button.setAccessibleName(f"{self.spec.label}: {count} automation events" if count else "Animate " + self.spec.label)
-            self.label.setText(self.spec.label + (" · Base" if count else ""))
+            self.label.setText(label)
+            self._row_mode = None
+            self._arrange_row()
 
     def emit_change(self, value):
         self.update_swatch(value)
@@ -235,8 +322,22 @@ class EffectParameter(QWidget):
             provenance = 'Entire project' if scope_label == 'Entire project' else 'Clip' if scope_label and scope_label.startswith('Clip') else 'Local'
         state = 'Animated' if animated else 'Fixed' if fixed is not None or inherited_fixed else 'Following'
         self.origin.setText(origin_label or f'{state} · {provenance}' + ('' if available else ' · Unavailable'))
-        self.origin.setToolTip(f'{state} value from {scope_label or "this scope" if fixed is not None else provenance.lower()}. ' +
-                               ('Enable or add this effect to edit its values.' if not available else 'Editing authors a fixed value in the selected scope.'))
+        explanation = f'{state} value from {scope_label or "this scope" if fixed is not None else provenance.lower()}. ' + \
+                      ('Enable or add this effect to edit its values.' if not available else 'Editing authors a fixed value in the selected scope.')
+        self.origin.setToolTip(explanation)
+        self.origin.setAccessibleDescription(explanation)
+        ordinary_project = available and not animated and not inherited and not origin_label and scope_label == 'Entire project'
+        self.origin.setVisible(not ordinary_project)
+        self.setAccessibleDescription(self.origin.text() + '. ' + explanation)
+        self.label.setAccessibleDescription(explanation)
+        self.input.setAccessibleDescription(explanation)
+        self.input.setToolTip(self._input_hint + ' ' + explanation)
+        if self.spec.choices:
+            self.input.setToolTip(self.spec.choices[int(value)] + '. ' + self.input.toolTip())
+            self.input.view().setMinimumWidth(max(self.input.fontMetrics().horizontalAdvance(choice) for choice in self.spec.choices) + 40)
+        self.animated_value.setAccessibleDescription(explanation + ' ' + self.animated_value.toolTip())
+        if self.slider: self.slider.setAccessibleDescription(explanation)
+        self._arrange_row()
         restore_target = 'entire project' if inherited else 'study'
         self.reset_button.setToolTip(f'Remove only this parameter’s local override and follow the {restore_target} again.')
         self.setToolTip('Editing fixes this parameter across the scope; other study changes keep playing.')
