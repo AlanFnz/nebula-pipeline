@@ -37,6 +37,8 @@ and verified the combined interface.
 - Workspace/layout: 13 tests passed. A later navigation, repetition and compact
   workspace run passed all 45 tests after adapting two legacy visibility
   assertions to navigate through collapsed groups.
+- Final combined workspace, saved-layout and inspector-layout check passed all
+  26 tests after the responsive-height fix and final theme polish.
 - Timeline resize, reorder, sticky scope and preview checks passed 56 tests;
   the remaining legacy visibility assertion was updated and passed in the
   45-test navigation run above.
