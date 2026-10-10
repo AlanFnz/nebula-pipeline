@@ -164,8 +164,25 @@ class RenderValidity:
 
     @classmethod
     def capture(cls, identity, composition, sequence, preset, context):
-        return cls(identity, copy.deepcopy(composition), copy.deepcopy(sequence),
+        return cls(identity, _visual_document(composition), _visual_document(sequence),
                    copy.deepcopy(preset) if sequence is None else None, context)
+
+
+def _visual_document(document):
+    """B1 soundtrack authoring does not change rendered pixels or their cache.
+
+    Audio-driven mappings must become explicit visual inputs when B2 is added.
+    Schema versions describe persistence; render_version describes pixels.
+    """
+    if document is None: return None
+    result = copy.deepcopy(document)
+    result.pop('soundtrack', None)
+    if result.get('schema_version') == 4:
+        result['schema_version'] = (3 if result.get('video_segments') or
+            any('footage' in clip for clip in result.get('sections', ())) else
+            2 if 'footage' in result else 1)
+    if isinstance(result.get('source'), dict): result['source'] = _visual_document(result['source'])
+    return result
 
 
 def retained_frame_predicate(previous, current):
