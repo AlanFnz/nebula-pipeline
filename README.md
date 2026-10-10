@@ -17,8 +17,9 @@ tracks independent experimentation, meaningful effect controls, comparison tools
 and synchronized audio-driven animation. A1 adds the New piece starting flow;
 A2 adds the first creative-control pilot; A3 adds named snapshots, A/B comparison
 and effect-scoped auditions. A4 adds preset previews, current-frame explanations
-and a composition breakdown. A5 adds timed parameter gestures. Audio reactivity,
-selectable frequency mappings and multitrack routing remain planned.
+and a composition breakdown. A5 adds timed parameter gestures. B1 adds an imported
+soundtrack, waveform, audible preview and synchronized export. Audio-to-effect
+mappings, selectable frequency analysis and multitrack routing remain planned.
 
 The [Studio interface plan](docs/studio-design-plan.md) and
 [delivery notes](docs/studio-design-delivery.md) describe the 0.9.0 redesign.
@@ -199,6 +200,46 @@ and compiled video clocks; `synth_video_audio.py` handles audio assembly.
 The existing renderer accepts an optional source image before the same image
 treatments. Tracked object identities, input-driven particles and
 multiple footage layers remain future work.
+
+### Imported soundtrack
+
+Choose **+ Soundtrack…** beside the timeline (or **File → Soundtrack…**) and
+**Import…** a local audio file. The compact waveform appears below the clips.
+Click it to seek; double-click to reopen its settings.
+
+- **In / Out** select the source audio interval. **Start** places its beginning
+  on the project timeline. Press **Apply** to commit trim, placement or output
+  changes in one undoable edit. Clips still determine total project duration.
+- **Silence at end** stops at Out; **Loop trimmed audio** repeats In–Out. Clip
+  repeats, reorders and stretches do not restart the soundtrack. Selected-clip
+  preview seeks the soundtrack to each clip's original absolute position.
+- **Output volume** is saved with the piece. **Export audio** chooses the
+  soundtrack, the existing footage-audio settings, or a silent MP4. This first
+  version does not mix the two audio sources. Removing the soundtrack restores
+  the existing footage-audio export behavior.
+- **Preview monitor** volume and **Mute** affect listening only; they do not
+  change the project, output volume or export selection. Preview monitors the
+  soundtrack even if export is set to footage or silence. Footage audio still
+  follows its existing export-only path.
+- **Replace…** chooses a new track and resets its trim, retaining its placement
+  and output choices. **Relink…** repairs a moved/changed file and retains the
+  trim; replacement media must cover Out. Relink also retries preview after an
+  audio-device error. Neither failed import nor cancelled import replaces the
+  current track. Close the Soundtrack window to cancel an import in progress.
+
+Playback follows continuous project time even at low Timeline FPS or when video
+preview drops frames. Native audio seeks are approximate and trimmed preview
+loops can have a small gap; exported timing is assembled separately on the audio
+sample clock. Waveform preparation runs in the background. Missing media and
+audio-device errors are shown in Soundtrack; export reports missing source audio
+before rendering when it is selected for output.
+
+Soundtracks survive Save/Open, Undo/Redo, snapshots and detailed copies. **Save
+as study…** includes a local copy of soundtrack media, including snapshot tracks.
+Documents containing a soundtrack use schema 4 and need this version of Studio;
+existing documents and study pixels are unchanged. See the
+[implementation plan](docs/imported-soundtrack-plan.md). Frequency-to-effect
+mapping is the next audio milestone.
 
 ### Cyan portrait treatment
 

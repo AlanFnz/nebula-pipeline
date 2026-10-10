@@ -1,6 +1,6 @@
 # Imported soundtrack foundation
 
-Recorded: 2026-10-10. Scope: roadmap B1. Status: implemented; release validation in progress.
+Recorded: 2026-10-10. Scope: roadmap B1. Status: delivered in 0.10.0.
 
 ## User outcome
 
@@ -71,3 +71,24 @@ are the next milestone, not part of this release.
 
 Frequency analysis/mapping (B2), multiple tracks, live input, mixing soundtrack
 and footage, audio fades/effects, beat detection, word morphing and a DAW editor.
+
+## Delivery verification
+
+- 78 soundtrack core, transport, widget and Studio integration tests passed,
+  including the opt-in native muted-audio test. Export checks decode generated
+  tones to verify trim, offset, silence, loops, volume and partial ranges.
+- Existing frozen Study, Study library, exploration, footage/audio retiming,
+  composition, sequence, preview scope and cache checks passed. A timing test
+  now tolerates elapsed clock time instead of expecting exactly zero time to
+  have passed when Play is clicked.
+- A rendered three-second MP4 was verified to contain H.264 video and 48 kHz
+  AAC audio, both exactly three seconds long. Local QA artifacts are under
+  `output/soundtrack-qa/` and are not packaged as Studies.
+- Reviewed the compact editor and waveform layout, built and signature-checked
+  the macOS app, and verified opening, relinking and playback in the installed
+  application. A cold-load issue found through the native file picker was
+  resolved by deferring media loading until the next Qt event-loop turn;
+  cancellation prevents a closed or replaced backend from starting stale work.
+- Native seeking remains approximate and preview trim loops may have a small
+  gap. Export assembles timing separately using audio samples. Frequency
+  analysis and parameter mappings remain B2.

@@ -4,7 +4,8 @@ Recorded: 2026-10-01.
 Status: A1 starting points, A2 creative-control pilot and A3 snapshots/controlled
 exploration shipped in 0.3.0 on 2026-10-02. A4 visual discovery shipped in
 0.4.0 on 2026-10-02; A5 timed gestures shipped in 0.5.0 on 2026-10-04.
-Reviewed against 0.6.1 on 2026-10-05. Audio reactivity remains unimplemented.
+Reviewed against 0.10.0 on 2026-10-10. B1 imported soundtrack/transport is
+implemented; B2 audio-to-effect mappings remain unimplemented.
 Expanded: 2026-10-01 with selectable frequency ranges and future multitrack routing.
 Order: independent visual experimentation first, imported-audio reactivity next,
 then multiple imported tracks and optional live input. Future milestones do not
@@ -239,6 +240,14 @@ bounded modulation. Mapping amount zero or bypass must recover the base result.
 
 ### B1. Audio track and synchronized transport
 
+Implemented in 0.10.0: one imported soundtrack, compact waveform, explicit
+trim/start/end behavior and output volume, audible synchronized preview and
+soundtrack/footage/silent export choice. Monitor mute/volume are separate from
+saved output settings. Undo, snapshots, detailed copies and portable Studies
+retain the track. See [implementation and validation](imported-soundtrack-plan.md).
+Native preview seeks are approximate and trimmed preview loops may have gaps;
+export uses the audio sample clock. No automatic duration matching is added.
+
 - Start with one imported audio file, a waveform, trim and timeline start offset.
 - Support audible preview and synchronized video/audio export, with explicit
   playback volume/mute and end-of-track behavior. Muting monitoring should not
@@ -253,9 +262,9 @@ bounded modulation. Mapping amount zero or bypass must recover the base result.
 
 Current code already exports each section's imported video audio, including
 independent sources, trim, loop/hold, muted gaps and pitch-preserving speed changes,
-through synth_video_audio.py. Extend that behavior
-without regressing it. A separate soundtrack and audible synchronized preview
-are additional work; existing audio export is not an audio-reactivity system.
+through synth_video_audio.py. B1 retains that behavior as the explicit Footage
+audio output choice. Imported soundtrack playback/export is now available;
+audio-reactive visual modulation is still separate work.
 
 ### B2. Analysis and visual connections
 
@@ -387,7 +396,8 @@ control signal. No hardware is required for the imported-file milestone.
 - [x] A3: named snapshots/A/B and controlled, effect-scoped Keep/Discard auditions.
 - [x] A4: previews, explanations and composition breakdown, included in 0.4.0.
 - [x] A5: bounded timed parameter gestures and envelope controls; arbitrary keyframes deferred.
-- [ ] Add B1 imported audio/transport, then B2 mappings and B3 export verification.
+- [x] B1 imported soundtrack, waveform, transport and synchronized audio export.
+- [ ] B2 audio-to-effect mappings and B3 deterministic modulation/export verification.
 - [ ] Extend to B4 multiple imported tracks with independent routing and explicit audio output.
 - [ ] Consider C live input after the file-based workflow is established.
 

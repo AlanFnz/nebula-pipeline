@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.10.0 — 2026-10-10
+
+- Import one soundtrack from the timeline or File menu. Add a compact waveform,
+  source In/Out, project Start, silence/loop behavior and output volume. Clips
+  continue to determine duration; their repeats and retiming leave music on
+  the project clock.
+- Preview audio with play/pause, scrubbing and selected-clip jumps, using
+  continuous time even at low visual FPS. Monitor volume/mute are separate from
+  saved settings. Native seeking is approximate and preview loops may have gaps.
+- Choose soundtrack, existing footage audio or silence for export. Preserve
+  source audio behavior when no soundtrack exists, including pitch-preserving
+  footage retiming; protect source assets and atomically publish completed MP4s.
+- Preserve audio through Undo/Redo, snapshots, detailed copies and portable
+  Studies, with cancellable import/waveforms and missing-media relink. Schema 4
+  signals the new soundtrack data to older apps; rendering is unchanged.
+- Keep video preview caches on audio-only edits. Frequency-to-effect mapping,
+  multiple audio tracks and live input remain planned.
+
 ## 0.9.0 — 2026-10-10
 
 - Introduce the Studio interface: neutral charcoal panels, readable sans-serif
