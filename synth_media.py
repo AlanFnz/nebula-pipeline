@@ -28,6 +28,17 @@ def export_synth_video(preset, output, start=0, count=None, cancel=None, progres
     output = Path(output)
     footage = sequence_data.get('footage') if sequence_data else None
     provider = None
+    soundtrack = sequence_data.get('soundtrack') if sequence_data else None
+    audio_choice = soundtrack['export_audio'] if soundtrack else 'footage'
+    if sequence_data:
+        from synth_section_sources import soundtrack_references
+        for source in soundtrack_references(sequence):
+            source_path = Path(source['path'])
+            if output.resolve() == source_path.resolve() or (output.exists() and source_path.exists() and os.path.samefile(output, source_path)):
+                raise ValueError('Choose an output different from the source soundtrack')
+    if soundtrack and audio_choice == 'soundtrack':
+        from synth_soundtrack import check_soundtrack
+        check_soundtrack(soundtrack)
     if footage:
         from synth_video import VideoFrameProvider, check_source
         from synth_section_sources import footage_references, rendered_footage
@@ -79,7 +90,14 @@ def export_synth_video(preset, output, start=0, count=None, cancel=None, progres
             if code:
                 errors.seek(0)
                 raise ValueError(errors.read().decode(errors="replace")[-2000:] or "FFmpeg could not encode synth")
-        if footage and any(source['audio'] == 'keep' and source['has_audio'] for source in rendered_footage(sequence_data)):
+        if audio_choice == 'soundtrack':
+            from synth_soundtrack import mux_soundtrack_audio
+            fd, name = tempfile.mkstemp(prefix='.nebula-mux-', suffix='.mp4', dir=output.parent)
+            os.close(fd); muxed = Path(name)
+            mux_soundtrack_audio(temp, muxed, soundtrack, start / export_fps, count / export_fps, cancel)
+            cancel.check()
+            os.replace(muxed, output)
+        elif audio_choice == 'footage' and footage and any(source['audio'] == 'keep' and source['has_audio'] for source in rendered_footage(sequence_data)):
             from synth_video_audio import mux_source_audio, mux_section_audio
             fd, name = tempfile.mkstemp(prefix='.nebula-mux-', suffix='.mp4', dir=output.parent)
             os.close(fd); muxed = Path(name)

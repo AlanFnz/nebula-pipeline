@@ -237,6 +237,27 @@ def save_study(project, name, directory=None, cancel=None):
                 copies[media_key] = (copied.relative_to(staged).as_posix(), {'size': stat.st_size, 'mtime_ns': stat.st_mtime_ns})
             footage['path'], footprint = copies[media_key]
             footage['identity'] = dict(footprint)
+        from synth_section_sources import soundtrack_references
+        from synth_soundtrack import check_soundtrack
+        for soundtrack in soundtrack_references(document):
+            original = check_soundtrack(soundtrack)
+            before = original.stat()
+            media_key = (str(original.resolve()), before.st_size, before.st_mtime_ns)
+            if media_key not in copies:
+                media = staged / 'media'; media.mkdir(exist_ok=True)
+                copied = media / ('soundtrack-' + str(len(copies) + 1) + original.suffix.lower())
+                with original.open('rb') as source, copied.open('wb') as target:
+                    while chunk := source.read(1024 * 1024):
+                        cancel.check()
+                        target.write(chunk)
+                shutil.copystat(original, copied)
+                check_soundtrack(soundtrack)
+                after, stat = original.stat(), copied.stat()
+                if (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns) or stat.st_size != before.st_size:
+                    raise ValueError('Soundtrack changed while saving the study; please try again')
+                copies[media_key] = (copied.relative_to(staged).as_posix(), {'size': stat.st_size, 'mtime_ns': stat.st_mtime_ns})
+            soundtrack['path'], footprint = copies[media_key]
+            soundtrack['identity'] = dict(footprint)
         save_composition(staged / 'study.json', document)
         (staged / 'metadata.json').write_text(json.dumps({
             'schema_version': 1, 'saved_at': datetime.now().astimezone().isoformat(),
