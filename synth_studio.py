@@ -48,6 +48,7 @@ from synth_video import VideoFrameProvider, inspect_video, prepare_proxy, video_
 from synth_preview import PreviewScheduler, resolve_scope, RenderValidity, preview_context, retained_frame_predicate
 from synth_comparison_preview import ComparisonFrames
 from synth_exploration_studio import ExplorationStudio
+from synth_soundtrack_studio import SoundtrackStudio
 
 
 class SynthControl(QWidget):
@@ -219,7 +220,7 @@ class ExportJob(QRunnable):
             self.signals.failed.emit(str(exc))
 
 
-class SynthStudio(ExplorationStudio, QMainWindow):
+class SynthStudio(SoundtrackStudio, ExplorationStudio, QMainWindow):
     def __init__(self, preset=None, sequence=None, composition=None, settings=None):
         super().__init__()
         self.workspace_settings = settings
@@ -293,6 +294,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         self.play_timer = QTimer(self)
         self.play_timer.setTimerType(Qt.TimerType.PreciseTimer)
         self.play_timer.timeout.connect(self.advance)
+        self.init_soundtrack()
         self.build_ui()
         self.build_actions()
         QApplication.instance().installEventFilter(self)
@@ -317,6 +319,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         self.save_action = action(file_menu, 'Save', QKeySequence.StandardKey.Save, self.save_sequence_dialog)
         self.save_as_action = action(file_menu, 'Save As…', QKeySequence.StandardKey.SaveAs, self.save_as_dialog)
         self.open_action = action(file_menu, 'Open…', QKeySequence.StandardKey.Open, self.load_sequence_dialog)
+        self.soundtrack_action = action(file_menu, 'Soundtrack…', QKeySequence(), self.open_soundtrack)
         self.undo_action = action(edit_menu, 'Undo composition', QKeySequence.StandardKey.Undo, self.undo_composition)
         self.redo_action = action(edit_menu, 'Redo composition', QKeySequence.StandardKey.Redo, self.redo_composition)
         action(transport_menu, 'Play / pause', QKeySequence('Space'), lambda: self.play.setChecked(not self.play.isChecked()))
@@ -338,6 +341,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
             while widget and widget is not self:
                 if isinstance(widget, (QLineEdit, QPlainTextEdit, QTextEdit, QAbstractSpinBox, NativeComboBox, QAbstractSlider)):
                     if widget is not self.timeline: local_editor = True
+                if transport and widget is self.soundtrack_lane: local_editor = True
                 if transport and isinstance(widget, QAbstractButton): local_editor = True
                 widget = widget.parentWidget()
             if (transport or undo) and (local_editor or QApplication.activePopupWidget() or QApplication.activeModalWidget()):
@@ -620,6 +624,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         self.section_scroll.setFixedHeight(78)
         self.section_timeline.automationVisibilityChanged.connect(lambda visible: self.section_scroll.setFixedHeight(108 if visible else 78))
         controls_layout.addWidget(self.section_scroll)
+        self.build_soundtrack_lane(controls_layout)
         self.section_tools = QWidget()
         tools_policy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         tools_policy.setHeightForWidth(True); self.section_tools.setSizePolicy(tools_policy)
@@ -634,6 +639,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         self.add_footage_section.setToolTip('Choose new footage and optionally copy another clip’s look. Adds an independent clip after the active clip; Undo removes it.')
         self.add_footage_section.clicked.connect(self.add_footage_section_dialog)
         section_tools.addWidget(self.add_footage_section)
+        self.build_soundtrack_action(section_tools)
         self.section_resize_mode = QComboBox()
         self.section_resize_mode.addItem('Resize: Keep footage speed', 'effects')
         self.section_resize_mode.addItem('Resize: Stretch footage', 'video')
@@ -1200,6 +1206,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         if guard and not self.confirm_replacement(): return False
         self.end_comparison()
         self.cancel_video_import()
+        self.reset_soundtrack_work()
         self.play.setChecked(False)
         self.document_path = self.associated_document_path(path)
         self.composition = project
@@ -1545,8 +1552,8 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         documents = (self.composition, self.sequence, self.preset, *(item['document'] for item in (self.composition or {}).get('snapshots', [])))
         for document in documents:
             if not document: continue
-            from synth_section_sources import footage_references
-            for footage in footage_references(document):
+            from synth_section_sources import footage_references, soundtrack_references
+            for footage in (*footage_references(document), *soundtrack_references(document)):
                 source = Path(footage['path']).expanduser()
                 if resolved == source.resolve(): return True
                 try:
@@ -1596,6 +1603,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
 
     def install_sequence(self, loaded, *, path=None):
         self.end_comparison()
+        self.reset_soundtrack_work()
         self.cancel_video_import(); self.play.setChecked(False)
         self.composition = None; self.sequence = loaded
         self.document_identity = object(); self.document_path = self.associated_document_path(path)
@@ -1669,6 +1677,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         self.display_times.clear()
         if self.play.isChecked():
             self.play_origin = self.active_preview_scope().position(self.timeline.value()); self.play_started = time.monotonic()
+        self.refresh_soundtrack()
         self.cancel_preparation()
         self.cached_ranges.set_ranges(self.preview_frames.ranges())
         self.prepare_preview.setText('Prepare')
@@ -1821,6 +1830,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
             self.total_time_label.setText(f'Total {centiseconds // 6000:02d}:{(centiseconds % 6000) / 100:05.2f}')
             self.total_time_label.setAccessibleDescription(f'{duration:.2f} seconds · {round(duration * fps)} frames at {fps} fps')
             self.refresh_preview_scope()
+            self.refresh_soundtrack()
     def request_frame(self):
         if self.closing: return
         if not self.ensure_preview_context(): return
@@ -1926,15 +1936,23 @@ class SynthStudio(ExplorationStudio, QMainWindow):
             self.cancel_preparation(); self.schedule_auto_preparation()
         if self.play.isChecked() and not self.advancing:
             self.play_origin = self.active_preview_scope().position(value); self.play_started = time.monotonic(); self.display_times.clear()
+        if not self.advancing: self.sync_soundtrack(force=True)
         self.request_frame()
 
     def advance(self):
-        frame = int(self.play_origin + (time.monotonic()-self.play_started)*self.preview_fps()+1e-8)
+        elapsed_frames = self.play_origin + (time.monotonic()-self.play_started)*self.preview_fps()+1e-8
+        frame = int(elapsed_frames)
         self.advancing = True
         try:
             scope = self.active_preview_scope()
             self.timeline.setValue(scope.frame_at(frame % max(1, scope.count)))
         finally: self.advancing = False
+        rank = frame % max(1, scope.count)
+        mapping = (scope.intervals, frame // max(1, scope.count), self.timeline.value() - rank)
+        discontinuity = mapping != getattr(self, '_soundtrack_mapping', None)
+        self._soundtrack_mapping = mapping
+        self.sync_soundtrack(force=discontinuity,
+            seconds=(self.timeline.value() + elapsed_frames - frame) / self.preview_fps())
     def toggle_play(self, checked):
         self.monitor_state.setText("[ PLAY ]" if checked else "[ HOLD ]")
         fps = self.sequence["fps"] if self.sequence is not None else self.preset["export_fps"]
@@ -1943,12 +1961,15 @@ class SynthStudio(ExplorationStudio, QMainWindow):
             scope = self.active_preview_scope()
             if not scope.contains(self.timeline.value()): self.timeline.setValue(scope.frame_at(0))
             self.play_origin = scope.position(self.timeline.value()); self.play_started = time.monotonic(); self.display_times.clear()
+            self._soundtrack_mapping = None
             self.preview_status.setText(f'Preview: measuring / {fps} fps')
             self.play_timer.start(max(5, round(1000 / fps)))
         else:
             self.play_timer.stop(); self.preview_status.setText('Preview paused')
+        self.sync_soundtrack(force=True)
     def install_preset(self, preset, *, path=None):
         self.end_comparison()
+        self.reset_soundtrack_work()
         self.cancel_video_import(); self.play.setChecked(False)
         self.sequence = None; self.composition = None; self.preset = preset
         self.document_identity = object(); self.document_path = self.associated_document_path(path)
@@ -2009,6 +2030,9 @@ class SynthStudio(ExplorationStudio, QMainWindow):
         default_name = self.suggested_output_path(".mp4")
         path, _ = QFileDialog.getSaveFileName(self, "Export synth sequence" if self.sequence is not None else "Export synth loop", default_name, "MP4 video (*.mp4)")
         if not path: return
+        if self.protected_document_destination(path) or (self.document_path and Path(path).resolve() == self.document_path.resolve()):
+            self.status.setText('Choose an export destination different from your project and source media.')
+            return
         self.cancel_preparation()
         self.export_button.setEnabled(False)
         self.export_progress.setValue(0)
@@ -2074,6 +2098,7 @@ class SynthStudio(ExplorationStudio, QMainWindow):
             return
         self.save_workspace()
         self.closing = True
+        self.close_soundtrack()
         self.study_browser_priority_timer.stop()
         if self.studies_dialog is not None: self.studies_dialog.close()
         QApplication.instance().removeEventFilter(self)

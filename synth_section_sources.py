@@ -19,9 +19,18 @@ def footage_references(document):
 
 
 def resolve_media_paths(document, directory):
-    for footage in footage_references(document):
+    for footage in (*footage_references(document), *soundtrack_references(document)):
         source = Path(footage['path'])
         if not source.is_absolute(): footage['path'] = str((Path(directory) / source).resolve())
+
+
+def soundtrack_references(document):
+    """Yield authored soundtracks, including detailed sources and snapshots."""
+    if not isinstance(document, dict): return
+    if isinstance(document.get('soundtrack'), dict): yield document['soundtrack']
+    yield from soundtrack_references(document.get('source'))
+    for snapshot in document.get('snapshots', ()):
+        yield from soundtrack_references(snapshot.get('document'))
 
 
 def normalize_video_segments(raw, duration):

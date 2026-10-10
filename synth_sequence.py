@@ -50,12 +50,15 @@ def normalize_sequence(raw=None):
         return reference_sequence()
     if not isinstance(raw, dict):
         raise ValueError("Synth sequence must be a JSON object")
-    if raw.get("schema_version", 0) not in (1, 2, 3):
+    if raw.get("schema_version", 0) not in (1, 2, 3, 4):
         raise ValueError(f"Unsupported sequence schema version: {raw.get('schema_version')}")
     result = copy.deepcopy(reference_sequence())
     if raw.get('schema_version') in (2, 3) or 'footage' in raw:
         from synth_video import normalize_footage
         result.update(schema_version=2, footage=normalize_footage(raw.get('footage')))
+    if raw.get('soundtrack') is not None:
+        from synth_soundtrack import normalize_soundtrack
+        result['soundtrack'] = normalize_soundtrack(raw['soundtrack'])
     result['render_version'] = render_version(raw)
     result["name"] = str(raw.get("name", result["name"]))
     if "canvas" in raw:
@@ -129,6 +132,8 @@ def normalize_sequence(raw=None):
     if raw.get("automations") is not None:
         events = normalize_automations(raw["automations"], duration=result["duration"], fractions=False)
         if events: result["automations"] = events
+    if 'soundtrack' in result:
+        result['schema_version'] = 4
     return result
 
 
