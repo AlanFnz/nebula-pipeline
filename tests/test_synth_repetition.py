@@ -154,6 +154,8 @@ def test_inspector_only_shows_relevant_selection_and_background_controls(window)
     panel.controls['signal_repetition.region'].input.setCurrentIndex(3)
     assert panel.controls['signal_repetition.key_hue'].isHidden()
     assert not panel.controls['signal_repetition.key_invert'].isHidden()
+    from synth_inspector import control_group
+    panel.group.setCurrentText(control_group('signal_repetition.outside_mix'))
     panel.controls['signal_repetition.outside_mix'].input.setValue(1.)
     assert not panel.controls['signal_repetition.outside_level'].isHidden()
 

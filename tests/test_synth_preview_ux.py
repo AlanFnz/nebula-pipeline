@@ -46,6 +46,8 @@ def test_slider_edits_only_commit_on_release_and_keep_wheel_protection():
 def test_all_effect_controls_are_discoverable_without_more_button(window):
     panel=window.composer.effects_panel
     panel.inspect_effect('raster')
+    for header in panel.group_labels.values():
+        if not header.isHidden() and not header.isChecked(): header.click()
     assert all(not c.isHidden() for c in panel.controls.values())
     panel.filter.setText('chroma')
     assert not panel.controls['raster.chroma'].isHidden()
@@ -53,6 +55,8 @@ def test_all_effect_controls_are_discoverable_without_more_button(window):
     panel.filter.setText('no such control'); assert not panel.no_matches.isHidden()
     panel.inspect_effect('tape')
     assert panel.filter.text()==''
+    panel.parameter_tabs.setCurrentIndex(1)
+    panel.filter.setText('Mix')
     assert not panel.controls['tape.mix'].isHidden()
 
 
