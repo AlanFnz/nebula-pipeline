@@ -20,6 +20,9 @@ and effect-scoped auditions. A4 adds preset previews, current-frame explanations
 and a composition breakdown. A5 adds timed parameter gestures. Audio reactivity,
 selectable frequency mappings and multitrack routing remain planned.
 
+The [Studio interface plan](docs/studio-design-plan.md) and
+[delivery notes](docs/studio-design-delivery.md) describe the 0.9.0 redesign.
+
 ## Launch on this Mac
 
 The installed **Nebula Studio.app** lives in `~/Applications`. Open it in Finder

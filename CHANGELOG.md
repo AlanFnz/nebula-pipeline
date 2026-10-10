@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.9.0 — 2026-10-10
+
+- Introduce the Studio interface: neutral charcoal panels, readable sans-serif
+  labels, monospace values, restrained phosphor-green selections and amber
+  automation curves. Apply consistent controls, focus states and menus across
+  the workspace, Studies, effect discovery and dialogs.
+- Compact effect parameters into responsive rows with wider dropdowns, inline
+  automation and contextual provenance. Preserve saved numeric precision.
+- Give effects direct Restore, Bypass and Remove actions. Collapse logical
+  control groups, remember their session state, and reveal matching controls
+  through search, filters and diagnostic links.
+- Place Arrange clips and Automations beside the timeline, and preview quality
+  beside playback. Keep saved window layout and viewer zoom.
+- Existing rendering, Studies, document formats and editing-scope rules are
+  unchanged.
+
 ## 0.8.0 — 2026-10-05
 
 - Add opt-in Band flow, Sync loss, Slip frequency and Line flutter controls to
