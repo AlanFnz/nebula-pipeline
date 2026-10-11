@@ -255,7 +255,7 @@ do not change the visual response. Analysis follows project time, including
 soundtrack In/Out, Start, looping and silence, and is deterministic when seeking
 or exporting a range. Missing/changed active audio requires relinking.
 
-The first targets are Radial bloom expansion/detail/light, Bloom strength,
+The first targets are Radial bloom expansion/detail/light/ray vibration, Bloom strength,
 Raster grain, Signal drift amount, Tape pull/mix, Frame jitter strength, Color
 separation and Signal repetition mix. This release analyzes band energy, not beat
 triggers or isolated instruments. Analysis uses approximately 25 Hz frequency
@@ -276,6 +276,15 @@ controls how often its fault pattern changes. Set the effects' base Strength/Mix
 to zero to recover the untreated picture during silence. **Tape damage → Fault
 edges → Extend edge pixels** fills exposed edges without wrapping the picture.
 These two audio targets and Fault edges require Studio 0.11.1 or later.
+
+For motion **inside the rays**, use **Radial bloom → Ray vibration** (Studio
+0.11.2+). Intensity bends the rays along their length, Speed sets their oscillation
+rate, Wave length controls the distance between bends, and Ray independence
+varies the phase around the center. The deformation retains the existing origin
+and radial distances; Center drift remains a separate control. Zero intensity
+retains the previous image exactly. The local **Radial / vibrating rays** Study
+connects 25–100 Hz bass to this intensity, with no additional whole-frame jitter
+or tape damage. Edit that connection in **Soundtrack… → React to audio…**.
 
 Reactive documents use schema 5 and require Studio 0.11.0 or later; ordinary
 soundtrack documents remain schema 4. Save/Open, history, snapshots, detailed

@@ -113,3 +113,19 @@ so the extra treatments recover during silence. An opt-in Tape damage Fault
 edges mode extends edge pixels to avoid exposed blank bands during tracking
 slips; default rendering remains unchanged. All effects and mappings remain
 editable in Studio.
+
+## Clarification: vibration inside the rays — 0.11.2
+
+The requested movement is in the rays themselves, from their shared origin,
+rather than a shake of the whole image. Add an opt-in angular deformation to
+Radial bloom: a traveling wave bends each ray along its length while retaining
+radial distances and the center. Integer angular harmonics vary the phase between
+ray groups without opening a seam. The existing center drift remains independent.
+Controls expose intensity, oscillation speed, wave length and ray independence.
+Zero intensity follows the previous rendering path exactly.
+
+The local **Radial / vibrating rays** example starts from the original audio
+bloom, retaining its three responses and adding 25–100 Hz → Ray vibration.
+It contains no frame-jitter, tape or RGB-separation additions from the preceding
+variant. The traveling phase is procedural; audio controls its amplitude. This
+is not a physical wave simulation with delayed audio at each distance.

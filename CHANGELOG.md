@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.11.2 — 2026-10-11
+
+- Add Ray vibration to Radial bloom: outward-traveling bends along the rays,
+  with intensity, speed, wave length and independent phases around the origin.
+  The deformation leaves the center and radial distances unchanged.
+- Expose Ray vibration as an audio response target. The local Radial / vibrating
+  rays Study uses bass to bend the rays, without the preceding demonstration's
+  whole-frame jitter or tape faults. Previous Studies remain available.
+- Ray vibration defaults to zero and preserves previous radial renders exactly.
+
 ## 0.11.1 — 2026-10-11
 
 - Connect audio bands to Frame jitter strength and Tape damage mix, including
