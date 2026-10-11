@@ -96,3 +96,20 @@ returned to about 1% after the layout fix. A further 76 parameter/audio tests
 passed (one optional native smoke skipped in that run); the separate native Qt
 smoke and 11 soundtrack integration tests passed. Rejected replacement audio
 now preserves the current track and reports incompatible frequency limits.
+
+## Bass-disruption refinement — 0.11.1
+
+Keep the original local example and save **Radial / bass disruption** separately.
+It retains the same 24-second soundtrack and radial source. Bass at 25–100 Hz
+drives Frame jitter strength with an 8 ms rise and 65 ms fall; 40–180 Hz drives
+Tape damage mix with a 5 ms rise and 75 ms fall, plus restrained color separation.
+The source expansion responds slightly faster while the mids/detail and
+highs/light mappings retain their previous settings. These are energy responses,
+not new onset detection or authored beat events.
+
+Expose Frame jitter strength and Tape damage mix as reusable audio targets for
+any source, including effect instances. Both use zero base intensity in the demo
+so the extra treatments recover during silence. An opt-in Tape damage Fault
+edges mode extends edge pixels to avoid exposed blank bands during tracking
+slips; default rendering remains unchanged. All effects and mappings remain
+editable in Studio.

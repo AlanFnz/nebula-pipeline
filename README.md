@@ -256,9 +256,10 @@ soundtrack In/Out, Start, looping and silence, and is deterministic when seeking
 or exporting a range. Missing/changed active audio requires relinking.
 
 The first targets are Radial bloom expansion/detail/light, Bloom strength,
-Raster grain, Signal drift amount, Tape pull, Color separation and Signal
-repetition mix. This release analyzes band energy, not beat triggers or isolated
-instruments. Analysis uses approximately 25 Hz frequency resolution and a 50 Hz
+Raster grain, Signal drift amount, Tape pull/mix, Frame jitter strength, Color
+separation and Signal repetition mix. This release analyzes band energy, not beat
+triggers or isolated instruments. Analysis uses approximately 25 Hz frequency
+resolution and a 50 Hz
 response clock. Up to 16 connections share one soundtrack.
 
 **Studies → Radial / chromatic bloom** creates expanding crowns, branching rays
@@ -267,6 +268,14 @@ source while retaining treatments. Source controls expose geometry, flow,
 variation, center drift, palette, light, softness and grain. The built-in Study
 has no bundled audio; import your own track to make it reactive. A local
 **Radial / audio bloom** demonstration includes the selected user soundtrack.
+The local **Radial / bass disruption** variation adds faster bass-driven vibration,
+brief tracking slips and small RGB offsets. In **Soundtrack… → React to audio…**,
+adjust Frame jitter Strength's Amount for vibration and Tape damage Mix's Amount
+for disruption. Rise/Fall control their response time; the effect's own rate
+controls how often its fault pattern changes. Set the effects' base Strength/Mix
+to zero to recover the untreated picture during silence. **Tape damage → Fault
+edges → Extend edge pixels** fills exposed edges without wrapping the picture.
+These two audio targets and Fault edges require Studio 0.11.1 or later.
 
 Reactive documents use schema 5 and require Studio 0.11.0 or later; ordinary
 soundtrack documents remain schema 4. Save/Open, history, snapshots, detailed
