@@ -583,6 +583,29 @@ none require a text source. New operations are off by default in older documents
 Text is a generated object in this stage. Video remains a separate source;
 independent text-over-video layers and custom font imports are future work.
 
+### Liquid words
+
+Choose **Studies → Text / liquid words → Load** for the 7.2-second monochrome
+word-morphing example. Edit the phrase in **Object → Wording → Apply text**.
+**Object → Motion & timing… → Show → Morph words** enables the same mode on any
+text source. Reading time holds each word; Morph duration reshapes it into the
+next. Morph easing and Liquid motion control the transition. Phrase ending can
+hold the final word or morph back to the beginning. Spaces and line breaks
+separate words in this mode; repetitions and line wrapping are not used.
+
+Object's Text size and Line width limit set the word envelope. Long-word height
+can condense long words to keep them substantial beside short words. Zero keeps
+uniform fitting. Serif weight applies to Bodoni Moda; other bundled fonts keep
+their own weight. Canvas resizing still preserves the artwork's proportions.
+
+**Effects → Contour melt** independently controls the luminous rims, solid/hollow
+breathing, traveling exposure, glow, softness and grain. It also works with other
+shapes and footage. Existing text modes and Studies retain their approved looks.
+Changing the wording or timing does not resize the timeline: extend the clip to
+allow the whole phrase to play. This Study is silent; audio-triggered word
+advancement remains planned.
+
+
 ### Photocopy and foreground studies
 
 **Effects → Photocopy** processes either generated artwork or imported footage.

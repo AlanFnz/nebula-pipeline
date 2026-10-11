@@ -5,6 +5,33 @@ from synth import MODULE_BY_ID
 from test_synth_composer_ui import window, wait_until
 
 
+def test_liquid_words_exposes_working_controls_and_undo(window):
+    window.set_composition(starter_composition('text-liquid-words'))
+    composer = window.composer
+    composer.look_tabs.setCurrentWidget(composer.object_panel)
+    obj = composer.object_panel
+    assert not obj.controls['text.morph_balance'].isHidden()
+    assert not obj.controls['text.weight'].isHidden()
+    assert obj.controls['text.copies'].isHidden()
+    assert obj.controls['text.fit'].isHidden()
+    obj.timing.click()
+    panel = composer.effects_panel
+    assert panel.effect_id == 'text' and panel.parameter_tabs.currentIndex() == 1
+    assert not panel.controls['text.morph_hold'].isHidden()
+    assert not panel.controls['text.morph_seconds'].isHidden()
+    assert panel.controls['text.word_seconds'].isHidden()
+    panel.controls['text.morph_seconds'].input.setValue(.6)
+    assert window.composition['effects']['text']['params']['text.morph_seconds'] == .6
+    window.undo_composition()
+    assert panel.controls['text.morph_seconds'].input.value() == 1.05
+    panel.inspect_effect('contour_melt')
+    panel.controls['contour_melt.fill'].input.setValue(.4)
+    assert window.composition['effects']['contour_melt']['params']['contour_melt.fill'] == .4
+    window.undo_composition()
+    assert panel.controls['contour_melt.fill'].input.value() == .9
+    wait_until(lambda: not window.render_running and not window.render_queued)
+
+
 def test_opium_wording_echo_and_etch_controls_apply_and_undo(window):
     window.set_composition(starter_composition('text-opium'))
     composer=window.composer

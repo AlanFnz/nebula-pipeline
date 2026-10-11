@@ -6,6 +6,33 @@ from synth_composition import composition_from_sequence, normalize_composition
 from synth_sequence import normalize_sequence
 
 
+def word_morph_composition():
+    """White emulsion lettering, traveling contours and two whole-word morphs."""
+    common = {
+        'text': {'content': 'REVOLUTION IS NOW', 'font': 3, 'weight': 800, 'size': .34,
+                 'fit_width': .86, 'tracking': -.015, 'saturation': 0.,
+                 'brightness': .92, 'back_brightness': 0., 'reveal': 3,
+                 'morph_hold': 1.35, 'morph_seconds': 1.05,
+                 'morph_ease': 1., 'morph_flow': .55, 'morph_balance': .55, 'morph_loop': 0},
+        'contour_melt': {'fill': .9, 'hollow': .95, 'period': 2.4,
+                         'width': 2.8, 'separation': 5., 'drift': .75,
+                         'softness': 1.65, 'glow': .4, 'grain': .14},
+        'raster': {'softness': .8, 'lines': 0., 'grain': .045, 'chroma': 0., 'line_noise': 0.},
+    }
+    settings = {'speed': 1., 'depth': 0., 'treatment_fps': 25}
+    for module, changes in common.items():
+        settings.update({f'{module}.{spec.key}': spec.default for spec in MODULE_BY_ID[module].params})
+        settings.update({f'{module}.{key}': value for key, value in changes.items()})
+    source = normalize_sequence(dict(schema_version=1, render_version=2,
+        name='Text / liquid words', duration=7.2, fps=25, seed=61126,
+        canvas={'width':720, 'height':900, 'framing':'native'},
+        states={'words': {'preset':'Reference blinds', 'enabled':list(common), 'overrides':settings}},
+        cues=[{'time':0., 'state':'words', 'transition':'cut'}]))
+    project = composition_from_sequence(source)
+    project['phrases']['custom']['name'] = 'Revolution / is / now'
+    return normalize_composition(project)
+
+
 def opium_composition():
     common = {
         'text': {'content': 'OPIUM', 'font': 0, 'size': .115, 'fit': 2,

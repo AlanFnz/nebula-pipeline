@@ -23,6 +23,7 @@ from synth_tape import render_tape_damage
 from synth_instances import InstanceRegistry, instance_base, base_id
 from synth_photocopy import render_photocopy
 from synth_text import FONTS, validate_text, render_text
+from synth_contour import modules as contour_modules, render_contour_melt
 from synth_broadcast import render_broadcast, render_broadcast_exposure
 from synth_echo import render_stretch_echo, render_signal_etch
 from synth_chroma import render_chroma_print, render_slice_echo, render_screen_mesh
@@ -471,6 +472,7 @@ MODULES += (
     Module('text', 'Text', 'Editable typography rendered before the image treatments. Fonts travel with the Studio.', (
         P('content', 'Wording', 'REVOLUTION IS NOW', kind='text', hint='Up to 512 characters and eight lines. Line breaks are preserved.'),
         P('font', 'Typeface', 0, 0, len(FONTS)-1, 1, choices=FONTS),
+        P('weight', 'Serif weight', 400, 400, 900, 10, 'Weight of the bundled Bodoni serif. Other typefaces retain their own weight.'),
         P('size', 'Text size', .14, .01, 1.5, .01, 'Line height relative to the authored canvas height. Canvas resizing preserves the lettering.'),
         P('tracking', 'Letter spacing', 0., -.15, .8, .01, 'Extra spacing as a fraction of the font size.'),
         P('leading', 'Line spacing', 1., .6, 2.5, .05),
@@ -488,7 +490,13 @@ MODULES += (
         P('back_hue', 'Backdrop hue', .6, 0, 1, .01),
         P('back_saturation', 'Backdrop saturation', .75, 0, 1, .01),
         P('back_brightness', 'Backdrop brightness', .045, 0, 1, .005),
-        P('reveal', 'Show', 0, 0, 2, 1, choices=('Whole phrase', 'One word at a time', 'Type on')),
+        P('reveal', 'Show', 0, 0, 3, 1, choices=('Whole phrase', 'One word at a time', 'Type on', 'Morph words')),
+        P('morph_hold', 'Reading time', 1.1, .05, 15, .05, 'How long each word remains readable before reshaping.'),
+        P('morph_seconds', 'Morph duration', .8, .05, 10, .05, 'Time spent reshaping one whole word into the next.'),
+        P('morph_ease', 'Morph easing', 1., 0, 1, .05, 'Zero moves evenly; one accelerates and settles gently.'),
+        P('morph_flow', 'Liquid motion', .65, 0, 2, .05, 'Bend the moving strokes, settling at each readable word.'),
+        P('morph_balance', 'Long-word height', 0., 0, 1, .05, 'Zero fits words uniformly. Raise to keep long words taller by condensing their letters; short words keep their size.'),
+        P('morph_loop', 'Phrase ending', 0, 0, 1, 1, 'Hold finishes on the last word. Loop morphs it back to the first.', choices=('Hold final word', 'Loop phrase')),
         P('word_seconds', 'Word / character interval', .65, .03, 10, .05, 'Seconds between words or characters. Whole phrase ignores this control.'),
         P('motion', 'Size motion', 0, 0, 3, 1, choices=('Still', 'Recede', 'Breathe', 'Perspective pullback')),
         P('zoom_start', 'Starting magnification', 1.7, .05, 8, .05),
@@ -675,6 +683,7 @@ MODULES += (
 MODULES += modulation_modules(Module, P)
 MODULES += repetition_modules(Module, P)
 MODULES += radial_modules(Module, P)
+MODULES += contour_modules(Module, P)
 MODULE_BY_ID = InstanceRegistry({module.id: module for module in MODULES})
 
 
@@ -1318,7 +1327,7 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
     generators = {'slab', 'blinds', 'particles', 'silhouette', 'ink_bloom', 'flare'}
     source_end = max((i for i, m in enumerate(p['modules']) if m.get('enabled', True) and m['id'] in generators), default=-1) + 1
     source_effects = {entry['id']: entry['params'] for entry in p['modules']
-                      if entry['enabled'] and entry['id'] in ('chroma_print', 'slice_echo', 'stretch_echo', 'signal_etch', 'scan_modulation', 'signal_repetition')}
+                      if entry['enabled'] and entry['id'] in ('chroma_print', 'slice_echo', 'stretch_echo', 'signal_etch', 'scan_modulation', 'signal_repetition', 'contour_melt')}
     def treat_source(image):
         reference = content_size(p, (width, height))
         source_pixels = untreated if untreated is not None else image
@@ -1327,6 +1336,9 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
         if 'slice_echo' in source_effects:
             image = render_slice_echo(image, source_effects['slice_echo'], continuous_time,
                                       p['speed'], _seed(p['seed'], 'slice-echo'), reference)
+        if 'contour_melt' in source_effects:
+            image = render_contour_melt(image, source_effects['contour_melt'], continuous_time,
+                                        p['speed'], _seed(p['seed'], 'contour-melt'), reference)
         original = image
         if 'stretch_echo' in source_effects:
             dx, dy = object_offset(p, (width, height))

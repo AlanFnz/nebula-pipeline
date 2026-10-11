@@ -34,6 +34,7 @@ def paths(module, keys=None):
 
 
 EFFECTS = (
+    Effect('contour_melt', 'Contour melt', 'Luminous double contours and drifting solid-to-hollow exposure, with soft glow and emulsion grain. Works on text, shapes and footage.', paths('contour_melt'), ('contour_melt',)),
     Effect('radial_bloom', 'Radial bloom', 'Nested expanding crowns and branching rays. Flow, center drift, palette and optical softness are independent controls. Ray vibration bends the rays from their origin; audio can drive its intensity, expansion, detail and light.', paths('radial_bloom'), ('radial_bloom',)),
     Effect('scan_modulation', 'Scan modulation', 'Interrupt source rows with coupled oscillators, color-lock failures and bright points. Apply to the whole picture, highlights or a color range; Selection view helps tune the key. Works with footage, text and generated objects.', paths('scan_modulation'), ('scan_modulation',)),
     Effect('signal_repetition', 'Signal repetition', 'Compress and repeat source fragments inside an image selection. Moving scan bands, silhouette-following contours and colored fringes work with footage, text or generated objects.', paths('signal_repetition'), ('signal_repetition',),

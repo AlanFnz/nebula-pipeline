@@ -15,6 +15,7 @@ SECONDS = frozenset({
     'ink_bloom.period', 'ink_bloom.unfold_seconds', 'ink_bloom.unfolded_seconds',
     'ink_bloom.fold_seconds', 'ink_bloom.folded_seconds',
     'photocopy.period', 'subject_cutout.retention_seconds',
+    'text.morph_hold', 'text.morph_seconds', 'contour_melt.period',
     'text.word_seconds', 'text.period', 'broadcast.period', 'broadcast.reverse_period',
     'stretch_echo.period', 'signal_etch.period', 'signal_etch.pulse_seconds',
     'slice_echo.period', 'slice_echo.flash_period', 'slice_echo.flash_seconds',

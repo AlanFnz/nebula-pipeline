@@ -316,7 +316,10 @@ For future word morphing, distinguish Trigger (a detected hit advances to the
 next word and starts its transition) from Continuous (audio energy controls
 progress between shapes). Trigger timing must remain deterministic when seeking;
 define retrigger/hold behavior so bursts of hits do not accidentally skip words.
-These are future mapping targets and depend on implementing word morphing.
+These remain future audio mapping targets. Version 0.12.0 delivers deterministic,
+time-driven whole-word morphing and the Text / liquid words Study; audio-triggered
+word advancement, retrigger policy and continuous morph-progress mappings remain
+to be implemented. The source and reusable Contour melt treatment are independent.
 
 Design saved mappings around stable track IDs from the first single-track
 release. Reordering, renaming or relinking a track must not redirect its mappings.

@@ -27,7 +27,10 @@ def source_frame(preset, size, time, anchor='auto', continuous_time=None):
         return LocalFrame(center, max(1., unit * .5 * p['expansion']),
                           -p['rotation'] * seconds * preset['speed'])
     if anchor == 'text':
-        from synth_text import text_layout
+        from synth_text import text_layout, text_pose
+        if p['reveal'] == 3:
+            _, zoom = text_pose(p, time if continuous_time is None else continuous_time, preset['speed'])
+            return LocalFrame((w / 2 + dx, h / 2 + dy), max(1., ch * p['size'] * p['stretch_y'] * zoom / 2), -p['rotation'])
         mask, sx, sy = text_layout(p, time if continuous_time is None else continuous_time, preset['speed'], (cw, ch))
         return LocalFrame((w / 2 + dx, h / 2 + dy), max(1., mask.height * sy / 2), -p['rotation'])
     if anchor == 'silhouette':
