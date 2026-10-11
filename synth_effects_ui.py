@@ -563,7 +563,7 @@ class EffectsPanel(QWidget):
                 if mode == (2, 2):
                     visible_paths = tuple(p for p in visible_paths if p != 'edge_phosphor.fade_anchor')
                 self.description.setText('Profile preset keeps the original neck blend. Choose Object to attach a reusable fade to a source, or Canvas to hold it in the viewport. The region affects contours, echoes, fill and surrounding light; it leaves the final background texture intact.')
-                sources = ('silhouette', 'forms', 'ink_bloom', 'particles', 'rays', 'text')
+                sources = ('silhouette', 'forms', 'ink_bloom', 'particles', 'rays', 'text', 'radial_bloom')
                 anchor = self.summary['edge_phosphor']['ranges']['edge_phosphor.fade_anchor']
                 missing = mode == (1, 1) and (not any(self.summary[s]['active'] for s in sources) if anchor == (0, 0) else
                           anchor[0] == anchor[1] and not self.summary[sources[int(anchor[0]) - 1]]['active'])

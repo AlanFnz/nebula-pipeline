@@ -7,7 +7,7 @@ from synth_effects import EFFECTS, EFFECT_BY_ID, effects_for
 from synth_instances import instance_ids, base_id
 
 
-SOURCE_EFFECT_IDS = frozenset(('forms', 'rays', 'ink_bloom', 'particles', 'silhouette', 'text'))
+SOURCE_EFFECT_IDS = frozenset(('radial_bloom', 'forms', 'rays', 'ink_bloom', 'particles', 'silhouette', 'text'))
 CATEGORIES = ('Distortion', 'Texture', 'Light & color', 'Motion & echoes', 'Cutout', 'Finishing', 'Other')
 EFFECT_CATEGORIES = {
     'signal_repetition': 'Motion & echoes',
@@ -84,6 +84,7 @@ def effect_catalog(allowed_effects=None, *, query='', category=''):
 
 # Capability sentences, separate from frozen recipes and measured visibility.
 CONTRIBUTIONS = {
+    'radial_bloom': 'Radial bloom creates expanding crowns and branching rays.',
     'forms': 'Luminous forms provide the geometric source.',
     'rays': 'Rays provide a striped light source.',
     'text': 'Text provides the lettering.',

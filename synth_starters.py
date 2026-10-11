@@ -4,9 +4,11 @@ from synth_composition import normalize_composition
 from synth_compat import starter_snapshot
 from synth_profile_recipes import clear_profile_composition, doryphoros_composition
 from synth_text_recipes import text_composition, opium_composition
+from synth_radial_recipes import radial_composition
 
 
 STARTERS = (
+    ("radial-bloom", "Radial / chromatic bloom · 12s", radial_composition),
     ("refined", "Refined signal · 15s", lambda: reference_composition(refined=True)),
     ("approved", "Approved signal · 15s", reference_composition),
     ("particle-head", "Particle head · 15s", lambda: particle_composition(refined=True)),
@@ -32,6 +34,7 @@ STARTERS = (
 
 # First appearance in the repository, retained independently of app builds.
 STARTER_DATES = {
+    'radial-bloom': '2026-10-11',
     'refined': '2026-09-26', 'approved': '2026-09-26',
     'particle-head': '2026-09-26', 'particle-orbit': '2026-09-26',
     'original-particles': '2026-09-26',
@@ -49,7 +52,7 @@ STARTER_DATES = {
 def starter_composition(identifier):
     for key, _label, factory in STARTERS:
         if key == identifier:
-            project = starter_snapshot(identifier)
+            project = factory() if identifier == 'radial-bloom' else starter_snapshot(identifier)
             project['render_version'] = 2
             project['source']['render_version'] = 2
             return normalize_composition(project)

@@ -9,6 +9,7 @@ from synth_inspector import grouped_paths
 
 
 OBJECT_PATHS = {
+    'radial': tuple('radial_bloom.'+key for key in ('expansion','petals','detail','branching','flow','variation','center_drift','palette','light')),
     'text': tuple('text.' + key for key in ('content', 'font', 'size', 'tracking', 'leading', 'align', 'wrap_columns', 'fit', 'block_width', 'fit_width', 'copies', 'copy_gap', 'copy_floor', 'hue', 'saturation', 'brightness', 'stretch_x', 'stretch_y')),
     'silhouette': ('silhouette.model', 'silhouette.scale', 'silhouette.yaw', 'silhouette.definition', 'silhouette.pitch', 'silhouette.roll', 'silhouette.center_x', 'silhouette.center_y', 'silhouette.neck_length', 'silhouette.neck_fullness', 'silhouette.softness'),
     'ink': ('ink_bloom.shape', 'ink_bloom.artwork', 'ink_bloom.shape_width', 'ink_bloom.shape_height',
@@ -94,7 +95,7 @@ class SubjectPanel(QWidget):
         if not self.updating and index >= 0: self.selected.emit(self.selector.itemData(index))
 
     def open_details(self, timing):
-        effect = {'ink': 'ink_bloom', 'particles': 'particles', 'signal': self.signal_effect, 'silhouette': 'silhouette', 'text': 'text'}.get(self.kind)
+        effect = {'radial': 'radial_bloom', 'ink': 'ink_bloom', 'particles': 'particles', 'signal': self.signal_effect, 'silhouette': 'silhouette', 'text': 'text'}.get(self.kind)
         if effect: self.details_requested.emit(effect, timing)
 
     def refresh(self, summary, entries, parent_entries, local, *, context_key=None, scope_label=None):
@@ -105,7 +106,7 @@ class SubjectPanel(QWidget):
         with QSignalBlocker(self.selector): self.selector.setCurrentIndex(self.selector.findData(self.kind))
         self.restore.setEnabled(any(entries.get(key, {}).get('mode', 'recipe') != 'recipe' for key in SOURCE_EFFECTS))
         scope = 'this clip' if local else 'the entire project'
-        notes = {'silhouette': 'A fixed human silhouette. Adjust its pose and framing here; Edge phosphor and Scan drag treat its outline.',
+        notes = {'radial': 'Expanding crowns and fine branching rays. Source controls opens the full motion, palette and optical settings.', 'silhouette': 'A fixed human silhouette. Adjust its pose and framing here; Edge phosphor and Scan drag treat its outline.',
                  'text': 'Edit your wording below and apply it. Text appearance opens background, opacity and rotation; Motion & timing controls word changes and animation.',
                  'ink': 'Edit the printed silhouette here. Its unfold, turn and refold motion stays with it.',
                  'particles': 'The model is the target of the particles. Adjust its size, pose and point density here.',

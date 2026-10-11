@@ -5,6 +5,11 @@ def control_group(path):
     from synth_instances import base_path
     path = base_path(path)
     module, key = path.split('.')
+    if module == 'radial_bloom':
+        if key in ('expansion', 'petals'): return 'Shape & layout'
+        if key in ('flow', 'variation', 'rotation', 'phase', 'center_drift', 'drift_speed'): return 'Motion & timing'
+        if key in ('palette', 'color_phase', 'color_speed', 'light'): return 'Color & light'
+        return 'Texture & detail'
     if module == 'particles' and key in ('assembly', 'breathing', 'motion', 'release', 'turn_scope', 'orbit_start', 'orbit_handoff'):
         return 'Motion & timing'
     if module == 'signal_repetition':
