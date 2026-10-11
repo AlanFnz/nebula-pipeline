@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.11.1 — 2026-10-11
+
+- Connect audio bands to Frame jitter strength and Tape damage mix, including
+  additional effect instances. Fast Rise/Fall settings can make bass-driven
+  vibration and brief tracking faults recover between louder passages.
+- Add an opt-in Tape damage Fault edges setting that extends edge pixels during
+  tracking, jitter and chroma delay. Existing settings retain their blanking and
+  rendered output.
+- Save a separate local Radial / bass disruption demonstration with the selected
+  soundtrack, retaining the original Radial / audio bloom Study.
+
 ## 0.11.0 — 2026-10-11
 
 - Add the Radial bloom source and a vertical chromatic-bloom Study with editable

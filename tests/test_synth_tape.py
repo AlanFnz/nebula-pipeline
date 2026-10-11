@@ -113,3 +113,20 @@ def test_pull_edge_mode_does_not_change_unrelated_tape_faults():
     image = np.random.default_rng(8).random((96,120,3)).astype('float32')
     p = settings()
     assert np.array_equal(render_tape_damage(image,p,.31,1.,7),render_tape_damage(image,dict(p,pull_edges=1),.31,1.,7))
+
+
+def test_fault_edge_extension_prevents_blanking_and_is_opt_in():
+    # Tracking and jitter should only resample this bright textured source.
+    image = (.35 + .4*np.random.default_rng(4).random((96,120,3))).astype('float32')
+    p = settings(tracking=.2, jitter=.015, chroma_delay=0., bleed=0., dropouts=0., head_switch=0., mix=1.)
+    legacy = dict(p); legacy.pop('fault_edges')
+    blanked = render_tape_damage(image,p,.31,1.,7)
+    assert np.array_equal(blanked,render_tape_damage(image,legacy,.31,1.,7))
+    assert blanked.min() < .1
+    result = render_tape_damage(image,dict(p,fault_edges=1),.31,1.,7)
+    assert result.min() >= image.min()-1e-7 and result.max() <= image.max()+1e-7
+    assert not np.allclose(result,image)
+    # A constant colored signal also survives chroma delay at the picture edge.
+    constant = np.full_like(image,(.6,.4,.8))
+    delayed = dict(p,fault_edges=1,chroma_delay=.04,bleed=.03)
+    assert np.allclose(render_tape_damage(constant,delayed,.31,1.,7),constant,atol=1e-7)

@@ -4,8 +4,8 @@ import math
 import numpy as np
 
 
-def _sample_rows(signal, shifts):
-    """Subpixel horizontal delay with blanking instead of wraparound."""
+def _sample_rows(signal, shifts, *, fill_edges=False):
+    """Subpixel delay with explicit blanking or edge extension; never wraps."""
     h, w = signal.shape[:2]
     x = np.arange(w)[None, :] - np.asarray(shifts)
     left = np.floor(x).astype(int)
@@ -14,6 +14,8 @@ def _sample_rows(signal, shifts):
     a = signal[y, np.clip(left, 0, w - 1)]
     b = signal[y, np.clip(left + 1, 0, w - 1)]
     result = a * (1 - fraction[..., None]) + b * fraction[..., None]
+    if fill_edges:
+        return result
     return result * ((x >= 0) & (x <= w - 1))[..., None]
 
 
@@ -72,16 +74,17 @@ def render_tape_damage(arr, p, time, speed, seed, *, pull_time=None):
             shifts = (shift + w * p['pull'] * .42 * profile * ripple)[:, None]
     else:
         shifts = shift[:, None]
-    warped = _sample_rows(signal, shifts)
+    fill_edges = p.get('fault_edges', 0) == 1
+    warped = _sample_rows(signal, shifts, fill_edges=fill_edges)
 
     # Delay and low-pass the chroma while retaining the sharper luminance.
     luminance = warped @ np.array((.299, .587, .114))
     chroma = warped - luminance[..., None]
     delay = w * p["chroma_delay"] * (1 + .15 * math.sin(tick * .71))
     spread = w * p["bleed"]
-    chroma = (_sample_rows(chroma, delay) * .55
-              + _sample_rows(chroma, delay + spread * .5) * .3
-              + _sample_rows(chroma, delay + spread) * .15)
+    chroma = (_sample_rows(chroma, delay, fill_edges=fill_edges) * .55
+              + _sample_rows(chroma, delay + spread * .5, fill_edges=fill_edges) * .3
+              + _sample_rows(chroma, delay + spread, fill_edges=fill_edges) * .15)
     treated = luminance[..., None] + chroma
 
     # Short missing stretches of scanline, rather than full-frame rectangles.
