@@ -297,7 +297,7 @@ def test_partial_export_matches_full_project_clock(tones, tmp_path, monkeypatch)
     assert partial == full[12:25]
 
 
-@pytest.mark.parametrize('parameter,amount', [('expansion', .6), ('detail', -.5), ('light', .7)])
+@pytest.mark.parametrize('parameter,amount', [('expansion', .6), ('detail', -.5), ('light', .7), ('vibration', 1.)])
 def test_radial_targets_affect_pixels_and_zero_amount_matches_original(tones, parameter, amount):
     item = mapping(tones, path='radial_bloom.' + parameter); item['amount'] = amount
     sequence = document(tones, [item])
