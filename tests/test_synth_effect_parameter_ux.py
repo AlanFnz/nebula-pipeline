@@ -347,3 +347,63 @@ def test_integrated_inspector_resizes_rows_before_placing_neighbors(make_window)
     wide = check_rows()
     assert narrow and all(narrow[path] > wide[path] for path in narrow)
     assert window.composition == before
+
+
+def test_height_queries_never_reflow_or_invalidate_parameter_rows(app):
+    """Ancestor width probes must not alternate the actual grid arrangement."""
+    from PySide6.QtCore import QEvent, QObject
+    from studio_theme import apply_theme
+
+    class LayoutRequests(QObject):
+        def __init__(self):
+            super().__init__()
+            self.count = 0
+
+        def eventFilter(self, watched, event):
+            if event.type() == QEvent.Type.LayoutRequest:
+                self.count += 1
+            return False
+
+    old_style, old_sheet = app.style().objectName(), app.styleSheet()
+    old_font, old_palette = app.font(), app.palette()
+    host = QWidget()
+    try:
+        apply_theme(app)
+        layout = QVBoxLayout(host)
+        control = EffectParameter('radial_bloom.expansion')
+        layout.addWidget(control)
+        layout.addStretch()
+        control.refresh((1., 1.), 1., False, True, scope_label='Entire project')
+        host.resize(788, 500)
+        host.show()
+        for _ in range(4):
+            app.processEvents()
+        mode = control._row_mode
+        cells = [control._row.getItemPosition(index) for index in range(control._row.count())]
+        counter = LayoutRequests()
+        host.installEventFilter(counter)
+        # Qt asks about both a constrained width and a wide preferred size.
+        for _ in range(20):
+            control._row.heightForWidth(300)
+            control._row.heightForWidth(788)
+        assert control._row_mode == mode
+        assert [control._row.getItemPosition(index) for index in range(control._row.count())] == cells
+        app.processEvents()
+        assert counter.count == 0
+        host.resize(380, 500)
+        for _ in range(4):
+            app.processEvents()
+        assert control._row_mode[0] is True
+        counter.count = 0
+        for _ in range(4):
+            app.processEvents()
+        assert counter.count == 0  # Reflow settles once actual geometry arrives.
+        assert control.input.height() >= control.input.minimumSizeHint().height()
+    finally:
+        host.close()
+        host.deleteLater()
+        app.processEvents()
+        app.setStyle(old_style)
+        app.setFont(old_font)
+        app.setPalette(old_palette)
+        app.setStyleSheet(old_sheet)
