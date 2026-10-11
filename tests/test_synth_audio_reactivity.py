@@ -311,6 +311,30 @@ def test_radial_targets_affect_pixels_and_zero_amount_matches_original(tones, pa
     assert target_parameter(item['path']).kind == 'float'
 
 
+@pytest.mark.parametrize('path', ['frame_jitter.strength', 'tape.mix', 'tape@2.mix'])
+def test_disruption_targets_recover_in_silence_and_respect_bypass(tones, path):
+    module = path.split('.')[0]
+    item = mapping(tones, path=path); item['amount'] = 1.
+    sequence = document(tones, [item])
+    for state in sequence['states'].values():
+        state['enabled'] = ['radial_bloom', module]
+        state['overrides'][path] = 0.
+    sequence = normalize_sequence(sequence)
+    baseline = copy.deepcopy(sequence); baseline.pop('audio_reactivity')
+    original = render_sequence_frame(baseline, .5, (96, 72)).tobytes()
+    active = render_sequence_frame(sequence, .5, (96, 72)).tobytes()
+    assert active != original
+    assert render_sequence_frame(sequence, 2.5, (96, 72)).tobytes() == render_sequence_frame(baseline, 2.5, (96, 72)).tobytes()
+    assert render_sequence_frame(sequence, .5, (96, 72)).tobytes() == active
+    sequence['audio_reactivity']['enabled'] = False
+    assert render_sequence_frame(sequence, .5, (96, 72)).tobytes() == original
+    sequence['audio_reactivity']['enabled'] = True
+    for state in sequence['states'].values():
+        state['enabled'].remove(module)
+    preset = resolve_sequence_frame(sequence, .5)[-1]
+    assert apply_reactivity(preset, sequence, .5) is preset
+
+
 def test_portable_study_preserves_mapping_and_track_ids_after_library_move(tones, tmp_path):
     from synth_studies import save_study, study_composition
     copied = tmp_path / 'original.wav'; copied.write_bytes(Path(tones['path']).read_bytes())

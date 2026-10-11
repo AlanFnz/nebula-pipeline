@@ -35,6 +35,8 @@ _TARGETS = (
     ('radial_bloom.light', 'Radial bloom · Light'),
     ('bloom.strength', 'Bloom · Strength'), ('raster.grain', 'Raster · Grain'),
     ('warp.amount', 'Warp · Amount'), ('tape.pull', 'Tape · Pull'),
+    ('frame_jitter.strength', 'Frame jitter · Strength'),
+    ('tape.mix', 'Tape damage · Mix'),
     ('separation.amount', 'Separation · Amount'),
     ('signal_repetition.mix', 'Signal repetition · Mix'),
 )
