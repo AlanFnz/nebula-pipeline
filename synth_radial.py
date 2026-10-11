@@ -30,6 +30,10 @@ def modules(Module, P):
         P('light', 'Light', 1., 0, 2, .01),
         P('softness', 'Optical softness', 1.8, 0, 8, .1, 'Pixels at the artwork reference width. Softens contours like a filmed display.'),
         P('grain', 'Film grain', .026, 0, .2, .001),
+        P('vibration', 'Ray vibration', 0., 0, 2, .01, 'Bend the rays around their shared origin. Waves travel outward along the rays without shifting the canvas or its center. Audio can drive this intensity.'),
+        P('vibration_speed', 'Vibration speed', 7., 0, 12, .1, 'Oscillations per second at global speed 1. Zero holds the wave deformation.'),
+        P('vibration_wavelength', 'Wave length', .26, .05, 1, .01, 'Distance between bends as a fraction of the artwork reference edge. Smaller values make tighter ripples.'),
+        P('vibration_irregularity', 'Ray independence', .65, 0, 1, .01, 'Vary the phase around the center so neighboring rays do not all sway together.'),
     )),)
 
 
@@ -56,6 +60,24 @@ def radial_frame(p, size, seconds, preset):
     return (cx, cy), unit
 
 
+def vibrating_angle(angle, radius, seconds, p):
+    """Angular deformation only: the origin and radial distances stay fixed.
+
+    Retarded wave phase travels toward larger radii. Integer angular harmonics
+    keep the polar seam continuous; no history or frame-rate state is involved.
+    """
+    strength = p.get('vibration', 0.)
+    if not strength:
+        return angle
+    clock = seconds * p.get('vibration_speed', 7.)
+    phase = 2*np.pi*(clock-radius/p.get('vibration_wavelength', .26))
+    irregularity = p.get('vibration_irregularity', .65)
+    wave = np.sin(phase + irregularity*1.6*np.sin(3*angle+.17*clock))
+    wave += .35*irregularity*np.sin(phase*.61+2*np.cos(5*angle)-.31*clock)
+    # Relative to petal spacing, so adding petals does not fold the rays over.
+    return angle + strength*1.25/p['petals']*wave/(1+.35*irregularity)
+
+
 def render_radial_bloom(arr, p, seconds, preset):
     h, w = arr.shape[:2]
     (cx, cy), unit = radial_frame(p, (w, h), seconds, preset)
@@ -64,6 +86,7 @@ def render_radial_bloom(arr, p, seconds, preset):
     x = (x-cx)/unit; y = (y-cy)/unit
     radius = np.maximum(np.hypot(x,y), .35/unit)
     angle = np.arctan2(y,x) - np.deg2rad(p['rotation'])*t
+    angle = vibrating_angle(angle, radius, t, p)
     # Integrated variable speed stays monotonic, avoiding a reversing zoom.
     travel = p['flow']*(t + p['variation']*.34*np.sin(t*1.65)/1.65)
     u = np.log(radius/(.05*p['expansion'])) - travel + p['phase']*2.65

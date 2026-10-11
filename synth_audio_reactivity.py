@@ -33,6 +33,7 @@ _TARGETS = (
     ('radial_bloom.expansion', 'Radial bloom · Expansion'),
     ('radial_bloom.detail', 'Radial bloom · Detail'),
     ('radial_bloom.light', 'Radial bloom · Light'),
+    ('radial_bloom.vibration', 'Radial bloom · Ray vibration'),
     ('bloom.strength', 'Bloom · Strength'), ('raster.grain', 'Raster · Grain'),
     ('warp.amount', 'Warp · Amount'), ('tape.pull', 'Tape · Pull'),
     ('frame_jitter.strength', 'Frame jitter · Strength'),

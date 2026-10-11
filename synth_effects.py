@@ -34,7 +34,7 @@ def paths(module, keys=None):
 
 
 EFFECTS = (
-    Effect('radial_bloom', 'Radial bloom', 'Nested expanding crowns and branching rays. Flow, center drift, palette and optical softness are independent controls; audio can pulse expansion, detail and light.', paths('radial_bloom'), ('radial_bloom',)),
+    Effect('radial_bloom', 'Radial bloom', 'Nested expanding crowns and branching rays. Flow, center drift, palette and optical softness are independent controls. Ray vibration bends the rays from their origin; audio can drive its intensity, expansion, detail and light.', paths('radial_bloom'), ('radial_bloom',)),
     Effect('scan_modulation', 'Scan modulation', 'Interrupt source rows with coupled oscillators, color-lock failures and bright points. Apply to the whole picture, highlights or a color range; Selection view helps tune the key. Works with footage, text and generated objects.', paths('scan_modulation'), ('scan_modulation',)),
     Effect('signal_repetition', 'Signal repetition', 'Compress and repeat source fragments inside an image selection. Moving scan bands, silhouette-following contours and colored fringes work with footage, text or generated objects.', paths('signal_repetition'), ('signal_repetition',),
            looks=(('Dense signal', {}), ('Broad echoes', {'signal_repetition.spacing': 120., 'signal_repetition.sample_width': 280., 'signal_repetition.wave': 24.}), ('Fine comb', {'signal_repetition.spacing': 22., 'signal_repetition.sample_width': 300., 'signal_repetition.wave': 8.}),

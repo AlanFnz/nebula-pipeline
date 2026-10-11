@@ -6,6 +6,7 @@ def control_group(path):
     path = base_path(path)
     module, key = path.split('.')
     if module == 'radial_bloom':
+        if key.startswith('vibration'): return 'Ray vibration'
         if key in ('expansion', 'petals'): return 'Shape & layout'
         if key in ('flow', 'variation', 'rotation', 'phase', 'center_drift', 'drift_speed'): return 'Motion & timing'
         if key in ('palette', 'color_phase', 'color_speed', 'light'): return 'Color & light'
