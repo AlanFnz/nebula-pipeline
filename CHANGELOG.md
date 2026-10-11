@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.11.3 — 2026-10-11
+
+- Keep the effect inspector's scroll position and active control stable when
+  adjusting a parameter. Value refreshes no longer hide and re-show unchanged
+  rows, which could transfer focus and jump down the panel.
+- Preserve control-group expansion, search and deliberate navigation behavior.
+  Rendering and saved composition settings are unchanged.
+
 ## 0.11.2 — 2026-10-11
 
 - Add Ray vibration to Radial bloom: outward-traveling bends along the rays,

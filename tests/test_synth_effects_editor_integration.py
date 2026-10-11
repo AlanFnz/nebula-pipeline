@@ -5,11 +5,13 @@ import os
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 
 import pytest
-from PySide6.QtCore import QPoint, QThreadPool
+from PySide6.QtCore import QPoint, QThreadPool, Qt
+from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
 
 from studio_theme import apply_theme
 from synth_composition import load_composition
+from synth_effects import effect_preset
 from synth_sequence import reference_sequence
 from synth_starters import starter_composition
 from synth_studio import SynthStudio
@@ -129,3 +131,46 @@ def test_pinned_timeline_fps_updates_preview_export_and_undo(make_window):
     assert window.composition == before
     assert window.composer.fps.value() == before['fps']
     assert not window.has_unsaved_changes()
+
+
+@pytest.mark.parametrize('scope', (0, 1))
+@pytest.mark.parametrize('editor', ('slider', 'drag', 'input'))
+def test_editing_scrolled_parameter_keeps_focus_and_viewport(make_window, scope, editor):
+    window = make_window()
+    panel = window.composer
+    panel.change_scope(scope)
+    panel.change_effect('scan_drag', effect_preset('scan_drag'), 'effect-apply')
+    effect = panel.effects_panel
+    effect.inspect_effect('scan_drag')
+    QApplication.processEvents()
+    control = effect.controls['scan_drag.glow']
+    widget = control.slider if editor == 'drag' else getattr(control, editor)
+    window.activateWindow()
+    widget.setFocus()
+    effect.parameter_scroll.ensureWidgetVisible(control)
+    QApplication.processEvents()
+    scroll = effect.parameter_scroll.verticalScrollBar()
+    before_scroll = scroll.value()
+    before_y = control.mapTo(effect.parameter_scroll.viewport(), QPoint()).y()
+    assert before_scroll > 0 and widget.hasFocus()
+    before_value = control.input.value()
+
+    for _ in range(3):
+        if editor == 'drag':
+            from PySide6.QtWidgets import QStyle, QStyleOptionSlider
+            option = QStyleOptionSlider(); widget.initStyleOption(option)
+            handle = widget.style().subControlRect(QStyle.ComplexControl.CC_Slider, option,
+                                                   QStyle.SubControl.SC_SliderHandle, widget)
+            start = handle.center(); end = start + QPoint(12, 0)
+            QTest.mousePress(widget, Qt.MouseButton.LeftButton, pos=start)
+            QTest.mouseMove(widget, end)
+            QTest.mouseRelease(widget, Qt.MouseButton.LeftButton, pos=end)
+        else:
+            QTest.keyClick(widget, Qt.Key.Key_PageUp if editor == 'slider' else Qt.Key.Key_Up)
+        # Let queued layout, focus and preview work settle after the real commit.
+        for _ in range(3): QApplication.processEvents()
+        assert scroll.value() == before_scroll
+        assert control.mapTo(effect.parameter_scroll.viewport(), QPoint()).y() == before_y
+        assert widget.hasFocus()
+    assert control.input.value() > before_value
+    assert panel.target()['effects']['scan_drag']['params']['scan_drag.glow'] == control.input.value()

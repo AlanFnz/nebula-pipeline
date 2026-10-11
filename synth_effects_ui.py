@@ -602,8 +602,10 @@ class EffectsPanel(QWidget):
             visible_paths = next(paths for title, paths in groups if title == selected_group)
         query = self.filter.text().strip().casefold()
         shown = {p for p in visible_paths if not query or query in parameter(p).label.casefold() or query in p.casefold()}
-        for control in self.controls.values(): control.hide()
-        for label in self.group_labels.values(): label.hide()
+        # Keep unchanged rows visible during value refreshes. Hiding a focused
+        # editor makes Qt transfer focus and scroll to a different control.
+        visible_controls = set()
+        visible_groups = set()
         index = 0
         for title, paths in grouped_paths(visible_paths):
             matching = [p for p in paths if p in shown]
@@ -621,11 +623,13 @@ class EffectsPanel(QWidget):
             label.setText(title.replace('&', '&&') + (' ▾' if expanded else ' ▸'))
             label.setAccessibleName(title + ' controls')
             label.setToolTip('Matching controls are expanded while searching.' if query else 'Collapse or expand this control group.')
-            label.show()
-            for path in matching: self.controls[path].setVisible(expanded)
+            visible_groups.add(title)
+            if expanded: visible_controls.update(matching)
             for widget in (label, *(self.controls[p] for p in matching)):
                 if self.parameter_layout.indexOf(widget) != index: self.parameter_layout.insertWidget(index, widget)
                 index += 1
+        for path, control in self.controls.items(): control.setVisible(path in visible_controls)
+        for title, label in self.group_labels.items(): label.setVisible(title in visible_groups)
         self.no_matches.setVisible(not creative and not shown)
         if timing:
             loops = self.shared_summary['loop_seconds']
