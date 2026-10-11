@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.11.0 — 2026-10-11
+
+- Add the Radial bloom source and a vertical chromatic-bloom Study with editable
+  crowns, branching rays, flow, center drift, palette, light, softness and grain.
+- Connect an imported soundtrack to continuous effect controls through custom
+  frequency ranges, Amount, Sensitivity, Rise/Fall and response meters. Connections
+  add over existing animation, sum before clamping, and support exact bypass.
+- Keep analysis cancellable, cached and deterministic on project time, including
+  trim, offset, looping, seeking and partial exports. Monitor/export audio choices
+  remain independent of visual reactivity.
+- Preserve mappings through history, snapshots, detailed copies and portable
+  Studies. Reactive documents use schema 5; previous Studies keep their pixels.
+- First release supports energy responses from one soundtrack and up to 16
+  connections. Onsets, gesture triggers, multiple tracks and live input remain
+  planned.
+- Prevent responsive parameter measurements from repeatedly rebuilding the
+  layout. Let late soundtrack readiness recover after a loading delay while
+  retaining explicit decoder errors.
+
 ## 0.10.0 — 2026-10-10
 
 - Import one soundtrack from the timeline or File menu. Add a compact waveform,

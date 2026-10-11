@@ -127,6 +127,7 @@ class SoundtrackDialog(QDialog):
     importRequested = Signal()
     relinkRequested = Signal()
     removeRequested = Signal()
+    reactivityRequested = Signal()
     monitorVolumeChanged = Signal(float)
     monitorMutedChanged = Signal(bool)
 
@@ -153,6 +154,10 @@ class SoundtrackDialog(QDialog):
             actions.addWidget(button)
             button.clicked.connect(signal.emit)
         layout.addLayout(actions)
+        self.reactivity_button = QPushButton('React to audio…')
+        self.reactivity_button.setToolTip('Make visual parameters respond to soundtrack frequency bands.')
+        self.reactivity_button.clicked.connect(self.reactivityRequested.emit)
+        layout.addWidget(self.reactivity_button)
         self.editor = QWidget()
         form = QFormLayout(self.editor)
         self.in_control = self._seconds('Soundtrack In')
@@ -283,6 +288,7 @@ class SoundtrackDialog(QDialog):
         self.import_button.setEnabled(not self._busy)
         self.relink_button.setEnabled(exists and not self._busy)
         self.remove_button.setEnabled(exists and not self._busy)
+        self.reactivity_button.setEnabled(exists and not self._busy)
         draft = self._draft()
         valid = draft and draft['in'] < draft['out'] <= draft['duration']
         self.apply_button.setEnabled(bool(valid and draft != self.track and not self._busy))

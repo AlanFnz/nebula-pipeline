@@ -19,7 +19,7 @@ A2 adds the first creative-control pilot; A3 adds named snapshots, A/B compariso
 and effect-scoped auditions. A4 adds preset previews, current-frame explanations
 and a composition breakdown. A5 adds timed parameter gestures. B1 adds an imported
 soundtrack, waveform, audible preview and synchronized export. Audio-to-effect
-mappings, selectable frequency analysis and multitrack routing remain planned.
+mappings and frequency ranges arrive in 0.11.0. Multitrack routing remains planned.
 
 The [Studio interface plan](docs/studio-design-plan.md) and
 [delivery notes](docs/studio-design-delivery.md) describe the 0.9.0 redesign.
@@ -238,8 +238,40 @@ Soundtracks survive Save/Open, Undo/Redo, snapshots and detailed copies. **Save
 as study…** includes a local copy of soundtrack media, including snapshot tracks.
 Documents containing a soundtrack use schema 4 and need this version of Studio;
 existing documents and study pixels are unchanged. See the
-[implementation plan](docs/imported-soundtrack-plan.md). Frequency-to-effect
-mapping is the next audio milestone.
+[soundtrack implementation plan](docs/imported-soundtrack-plan.md).
+
+### Audio responses and radial bloom
+
+Open **Soundtrack… → React to audio…**, then **Add response**. Choose the effect
+control, a Bass/Mids/Highs/Full band or custom Hz limits, and set Amount. Sensitivity
+sets the input level; Rise and Fall smooth how quickly the response arrives and
+settles. Press **Apply** to save the draft. Meters show the analyzed response.
+The target effect must already be active; adding a response never enables it.
+
+Connections add bounded changes over the authored animation. Connections to the
+same control add together before clamping. Individual/global bypass or zero
+Amount restores the base look. Preview mute, volume and the export audio choice
+do not change the visual response. Analysis follows project time, including
+soundtrack In/Out, Start, looping and silence, and is deterministic when seeking
+or exporting a range. Missing/changed active audio requires relinking.
+
+The first targets are Radial bloom expansion/detail/light, Bloom strength,
+Raster grain, Signal drift amount, Tape pull, Color separation and Signal
+repetition mix. This release analyzes band energy, not beat triggers or isolated
+instruments. Analysis uses approximately 25 Hz frequency resolution and a 50 Hz
+response clock. Up to 16 connections share one soundtrack.
+
+**Studies → Radial / chromatic bloom** creates expanding crowns, branching rays
+and drifting colors. **Object → Radial bloom** also replaces another generated
+source while retaining treatments. Source controls expose geometry, flow,
+variation, center drift, palette, light, softness and grain. The built-in Study
+has no bundled audio; import your own track to make it reactive. A local
+**Radial / audio bloom** demonstration includes the selected user soundtrack.
+
+Reactive documents use schema 5 and require Studio 0.11.0 or later; ordinary
+soundtrack documents remain schema 4. Save/Open, history, snapshots, detailed
+copies and portable Studies retain the mappings. See the
+[radial/audio implementation plan](docs/radial-audio-study-plan.md).
 
 ### Cyan portrait treatment
 

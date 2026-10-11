@@ -4,8 +4,9 @@ Recorded: 2026-10-01.
 Status: A1 starting points, A2 creative-control pilot and A3 snapshots/controlled
 exploration shipped in 0.3.0 on 2026-10-02. A4 visual discovery shipped in
 0.4.0 on 2026-10-02; A5 timed gestures shipped in 0.5.0 on 2026-10-04.
-Reviewed against 0.10.0 on 2026-10-10. B1 imported soundtrack/transport is
-implemented; B2 audio-to-effect mappings remain unimplemented.
+Reviewed against 0.11.0 on 2026-10-11. B1 imported soundtrack/transport is
+implemented; B2/B3 continuous band-energy mappings and deterministic modulation
+are implemented. Onset/gesture triggers and multitrack routing remain planned.
 Expanded: 2026-10-01 with selectable frequency ranges and future multitrack routing.
 Order: independent visual experimentation first, imported-audio reactivity next,
 then multiple imported tracks and optional live input. Future milestones do not
@@ -264,9 +265,16 @@ Current code already exports each section's imported video audio, including
 independent sources, trim, loop/hold, muted gaps and pitch-preserving speed changes,
 through synth_video_audio.py. B1 retains that behavior as the explicit Footage
 audio output choice. Imported soundtrack playback/export is now available;
-audio-reactive visual modulation is still separate work.
+band-energy visual modulation is available in 0.11.0.
 
 ### B2. Analysis and visual connections
+
+First continuous-energy slice implemented in 0.11.0: custom frequency bands,
+16 stable-ID mappings, sensitivity/rise/fall, meters, bypass, selected continuous
+visual targets and deterministic rendering/export. Radial bloom supplies an
+editable generated example. Onset detection, gesture triggers, spectrum-drag
+selection and the broader target set below remain future work. See the
+[delivery plan](radial-audio-study-plan.md).
 
 Analyze the imported file once, in cancellable background work. Initial signals:
 overall loudness, frequency-band energy, and transient/onset strength. Low/mid/high
@@ -397,7 +405,8 @@ control signal. No hardware is required for the imported-file milestone.
 - [x] A4: previews, explanations and composition breakdown, included in 0.4.0.
 - [x] A5: bounded timed parameter gestures and envelope controls; arbitrary keyframes deferred.
 - [x] B1 imported soundtrack, waveform, transport and synchronized audio export.
-- [ ] B2 audio-to-effect mappings and B3 deterministic modulation/export verification.
+- [x] B2/B3 first slice: continuous band-energy mappings and deterministic rendering/export.
+- [ ] B2 follow-up: onset/event triggers, spectrum selection and broader creative targets.
 - [ ] Extend to B4 multiple imported tracks with independent routing and explicit audio output.
 - [ ] Consider C live input after the file-based workflow is established.
 

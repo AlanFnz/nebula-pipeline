@@ -58,6 +58,15 @@ def export_synth_video(preset, output, start=0, count=None, cancel=None, progres
     count = total - start if count is None else int(count)
     if start < 0 or count < 1 or start + count > total:
         raise ValueError("Empty or out-of-range synth export")
+    if sequence_data and 'audio_reactivity' in sequence_data:
+        from synth_audio_reactivity import prepare_reactivity
+        try:
+            prepare_reactivity(sequence_data, cancel)
+        except Exception as error:
+            if provider: provider.close()
+            if isinstance(error, Cancelled):
+                raise ValueError('Synth export cancelled') from None
+            raise
     output.parent.mkdir(parents=True, exist_ok=True)
     fd, name = tempfile.mkstemp(prefix=".nebula-synth-", suffix=".mp4", dir=output.parent)
     os.close(fd)
@@ -77,7 +86,7 @@ def export_synth_video(preset, output, start=0, count=None, cancel=None, progres
                 cancel.check()
                 time_seconds = index / export_fps
                 if sequence_renderer:
-                    image = sequence_renderer(sequence_data, time_seconds, size=(width, height), frame_provider=provider) if provider else sequence_renderer(sequence_data, time_seconds, size=(width, height))
+                    image = sequence_renderer(sequence_data, time_seconds, size=(width, height), frame_provider=provider, cancel=cancel) if provider else sequence_renderer(sequence_data, time_seconds, size=(width, height), cancel=cancel)
                 else:
                     treatment_frame = round(time_seconds * p["treatment_fps"])
                     image = render_synth_frame(p, frame=treatment_frame, time_seconds=time_seconds, size=(width, height))

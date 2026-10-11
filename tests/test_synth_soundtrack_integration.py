@@ -213,3 +213,36 @@ def test_selected_short_gap_forces_audio_seek(studio, soundtrack, monkeypatch):
     assert studio.timeline.value() == 2
     assert studio.soundtrack_playback.syncs[-1][0] == pytest.approx(.09)
     assert studio.soundtrack_playback.syncs[-1][2]
+
+
+@pytest.mark.parametrize('relink', [False, True])
+def test_rejected_lower_sample_rate_import_preserves_project_monitor_and_error(studio, soundtrack, tmp_path, relink):
+    assert studio.apply_soundtrack(soundtrack)
+    config = {'enabled': True, 'mappings': [dict(
+        id='full-range', track_id=soundtrack['id'], path='radial_bloom.expansion',
+        low_hz=0., high_hz=soundtrack['sample_rate'] / 2, amount=.5,
+        sensitivity=1., attack=.05, release=.2, enabled=True)]}
+    studio.apply_audio_reactivity(config)
+    before = copy.deepcopy(studio.composition)
+    sequence = copy.deepcopy(studio.sequence)
+    undo = copy.deepcopy(studio.undo_compositions)
+    monitored = copy.deepcopy(studio.soundtrack_playback.track)
+    path = tmp_path / 'lower-rate.wav'
+    with wave.open(str(path), 'wb') as stream:
+        stream.setparams((1, 2, 4000, 0, 'NONE', 'not compressed'))
+        stream.writeframes(b'\0\0' * 40000)
+    replacement = probe_soundtrack(path)
+    job = SoundtrackJob(path=str(path))
+    job.document_identity = studio.document_identity
+    job.previous_track = copy.deepcopy(soundtrack)
+    job.relink = relink
+    studio.soundtrack_import_job = job
+    studio.pending_jobs.append(job)
+    assert studio.soundtrack_imported(job, replacement) is False
+    assert studio.composition == before and studio.sequence == sequence
+    assert studio.undo_compositions == undo
+    assert studio.soundtrack_playback.track == monitored
+    assert studio.soundtrack_import_job is None and job not in studio.pending_jobs
+    assert 'Adjust the response frequency range first' in studio.soundtrack_lane.status
+    assert 'Adjust the response frequency range first' in studio.status.text()
+    assert 'Soundtrack ready' not in studio.status.text()

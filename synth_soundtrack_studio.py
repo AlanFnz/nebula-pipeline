@@ -89,6 +89,7 @@ class SoundtrackStudio:
             dialog.removeRequested.connect(lambda: self.apply_soundtrack(None))
             dialog.monitorVolumeChanged.connect(self.set_soundtrack_monitor_volume)
             dialog.monitorMutedChanged.connect(self.set_soundtrack_monitor_muted)
+            dialog.reactivityRequested.connect(self.open_audio_reactivity)
             dialog.finished.connect(lambda _result: self.cancel_soundtrack_import())
         self.soundtrack_dialog.set_track(self.authored_soundtrack(), self.sequence['duration'])
         self.soundtrack_dialog.set_monitor(self.soundtrack_monitor_volume, self.soundtrack_monitor_muted)
@@ -155,13 +156,15 @@ class SoundtrackStudio:
                     self.soundtrack_status_changed('Replacement audio is shorter than Out. Choose a longer file, or use Replace to reset the trim.')
                     return
                 for key in ('in', 'out', 'name'): track[key] = previous[key]
+        if not self.apply_soundtrack(track):
+            return False
         if job.relink:
-            # Relinking the same file is also an explicit retry after a device
-            # or decoder failure, even when no authored setting changes.
+            # Retry playback only after the replacement passes validation.
+            # Rejected media must not disconnect the original track.
             self.soundtrack_playback.set_track(None)
-        self.apply_soundtrack(track)
         self.refresh_soundtrack()
         self.status.setText('Soundtrack ready. Clip durations are unchanged.')
+        return True
 
     def soundtrack_import_failed(self, job, error):
         self._release_soundtrack_job(job)
@@ -172,19 +175,32 @@ class SoundtrackStudio:
         self.status.setText(f'Soundtrack import: {error}')
 
     def apply_soundtrack(self, track):
-        if not self.composition or not self.composer or self.audition_pending(): return
+        if not self.composition or not self.composer or self.audition_pending(): return False
         try:
             track = normalize_soundtrack(track) if track is not None else None
-            if track == self.authored_soundtrack(): return
+            if track == self.authored_soundtrack(): return True
             project = copy.deepcopy(self.composition)
             if track is None:
                 project.pop('soundtrack', None)
                 project.get('source', {}).pop('soundtrack', None)
+                project.pop('audio_reactivity', None)
+                project.get('source', {}).pop('audio_reactivity', None)
             else:
                 project['soundtrack'] = track
+            # Composer reports validation failures through a signal rather than
+            # raising. Validate here so import completion can report success.
+            from synth_composition import normalize_composition
+            project = normalize_composition(project)
             self.composer.commit(project, 'soundtrack')
+            return True
         except (ValueError, TypeError, KeyError) as error:
-            self.soundtrack_status_changed(str(error))
+            message = str(error)
+            if 'Audio mapping' in message and 'Hz' in message:
+                message = ('Replacement audio cannot cover an existing response frequency band. '
+                           'Adjust the response frequency range first, then replace or relink the soundtrack.')
+            self.soundtrack_status_changed(message)
+            self.status.setText(message)
+            return False
 
     def refresh_soundtrack(self):
         if not hasattr(self, 'soundtrack_lane'): return
@@ -223,6 +239,7 @@ class SoundtrackStudio:
                 job.signals.failed.connect(lambda error, j=job: self.soundtrack_wave_failed(j, error))
                 self.jobs.start(job, -1)
         self.sync_soundtrack(force=True)
+        self.refresh_audio_reactivity()
 
     def soundtrack_wave_ready(self, job, peaks):
         self._release_soundtrack_job(job)
@@ -257,8 +274,10 @@ class SoundtrackStudio:
         # Sampled effect auditions are separate from the project transport.
         playing = self.play.isChecked() and not self.discovery_session
         self.soundtrack_playback.sync(seconds, playing, force=force)
+        self.sync_audio_reactivity(seconds)
 
     def reset_soundtrack_work(self):
+        self.reset_audio_reactivity_work()
         self.cancel_soundtrack_import()
         if self.soundtrack_wave_job: self.soundtrack_wave_job.cancel.cancel()
         self.soundtrack_wave_job = None

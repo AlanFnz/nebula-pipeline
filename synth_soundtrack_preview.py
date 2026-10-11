@@ -21,6 +21,7 @@ class AudioPreviewUnavailable(RuntimeError):
 
 class _QtAudioBackend(QObject):
     readyChanged = Signal(bool)
+    loadDelayed = Signal(str)
     ended = Signal()
     error = Signal(str)
 
@@ -100,12 +101,13 @@ class _QtAudioBackend(QObject):
     def _timed_out(self):
         if self._closed or self._ready:
             return
-        if not self._player.hasAudio():
-            self.error.emit('The soundtrack could not load a playable audio stream.')
-        elif not self._player.isSeekable():
-            self.error.emit('The soundtrack cannot be sought; relink to a local audio file.')
-        else:
-            self.error.emit('The soundtrack took too long to load; try reloading it.')
+        # A busy GUI can deliver this timer before queued media notifications.
+        # Check current state, then report a delay rather than declaring a
+        # decoder failure. Native errors remain terminal; readiness can arrive
+        # later without reloading the source or losing the latest transport.
+        self._readiness_changed()
+        if not self._ready:
+            self.loadDelayed.emit('Soundtrack is taking longer to load… Waiting for audio.')
 
     def _error_occurred(self, _error, message):
         if not self._closed:
@@ -165,6 +167,7 @@ class SoundtrackPreview(QObject):
     readyChanged(bool), ended(), error(str) signals and the methods implemented
     by _QtAudioBackend above. Construction/load may raise; those failures become
     status messages. There is no queue of sync requests or delayed play actions.
+    Optional ``loadDelayed(str)`` reports a recoverable loading delay.
     Monitor volume and authored gain multiply on Qt's linear 0..1 output scale.
     """
     statusChanged = Signal(str)
@@ -265,6 +268,11 @@ class SoundtrackPreview(QObject):
             ):
                 signal.connect(callback)
                 self._connections.append((signal, callback))
+            delayed = getattr(backend, 'loadDelayed', None)
+            if delayed is not None:
+                callback = lambda message: self._on_load_delayed(backend, message)
+                delayed.connect(callback)
+                self._connections.append((delayed, callback))
             self._apply_volume()
             backend.load(path)
         except Exception as exc:
@@ -362,6 +370,10 @@ class SoundtrackPreview(QObject):
             self._apply(force=True)
         else:
             self._set_status('Loading soundtrack…')
+
+    def _on_load_delayed(self, backend, message):
+        if backend is self._backend and not self._closed and not self._failed and not self._ready:
+            self._set_status(str(message))
 
     def _on_ended(self, backend):
         if backend is self._backend and not self._closed:

@@ -49,6 +49,7 @@ from synth_preview import PreviewScheduler, resolve_scope, RenderValidity, previ
 from synth_comparison_preview import ComparisonFrames
 from synth_exploration_studio import ExplorationStudio
 from synth_soundtrack_studio import SoundtrackStudio
+from synth_audio_reactivity_studio import AudioReactivityStudio
 
 
 class SynthControl(QWidget):
@@ -160,16 +161,19 @@ class RenderJob(QRunnable):
         self.settings_generation, self.request_serial = settings_generation, request_serial
         self.sequence = copy.deepcopy(sequence)
         self.signals = JobSignals()
+        self.cancel = Cancellation()
         self.frame_provider, self.bypass = frame_provider, bypass
 
     def run(self):
         try:
+            self.cancel.check()
             began = time.monotonic()
             if self.sequence is not None:
-                image = render_sequence_frame(self.sequence, self.time_seconds, self.size, self.frame_provider, self.bypass)
+                image = render_sequence_frame(self.sequence, self.time_seconds, self.size, self.frame_provider, self.bypass, cancel=self.cancel)
             else:
                 treatment_frame = round(self.time_seconds * self.preset["treatment_fps"])
                 image = render_synth_frame(self.preset, treatment_frame, self.time_seconds, self.size)
+            self.cancel.check()
             self.signals.done.emit((self.settings_generation, self.request_serial, self.time_seconds, image.size, image.tobytes(), time.monotonic()-began))
         except Exception as exc:
             self.signals.failed.emit(str(exc))
@@ -193,7 +197,7 @@ class PreparePreviewJob(QRunnable):
                 for done, frame in enumerate(self.frames, 1):
                     self.cancel.check(); seconds = frame / self.fps
                     if self.sequence is not None:
-                        image = render_sequence_frame(self.sequence, seconds, self.size, provider, self.bypass)
+                        image = render_sequence_frame(self.sequence, seconds, self.size, provider, self.bypass, cancel=self.cancel)
                     else:
                         image = render_synth_frame(self.preset, round(seconds*self.preset['treatment_fps']), seconds, self.size)
                     self.cancel.check()
@@ -220,7 +224,7 @@ class ExportJob(QRunnable):
             self.signals.failed.emit(str(exc))
 
 
-class SynthStudio(SoundtrackStudio, ExplorationStudio, QMainWindow):
+class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QMainWindow):
     def __init__(self, preset=None, sequence=None, composition=None, settings=None):
         super().__init__()
         self.workspace_settings = settings
@@ -265,6 +269,7 @@ class SynthStudio(SoundtrackStudio, ExplorationStudio, QMainWindow):
         self.jobs = QThreadPool.globalInstance()
         self.pending_jobs = []
         self.render_running = False
+        self.render_job = None
         self.render_queued = False
         self.preview_frames = ComparisonFrames()
         self.preview_validity = None
@@ -295,6 +300,7 @@ class SynthStudio(SoundtrackStudio, ExplorationStudio, QMainWindow):
         self.play_timer.setTimerType(Qt.TimerType.PreciseTimer)
         self.play_timer.timeout.connect(self.advance)
         self.init_soundtrack()
+        self.init_audio_reactivity()
         self.build_ui()
         self.build_actions()
         QApplication.instance().installEventFilter(self)
@@ -1665,6 +1671,7 @@ class SynthStudio(SoundtrackStudio, ExplorationStudio, QMainWindow):
         return True
 
     def invalidate(self, *, force_clear=False, comparison_switch=False):
+        self.cancel_foreground_render()
         self.update_document_title()
         current = self.capture_preview_validity()
         retain = None if force_clear else retained_frame_predicate(self.preview_validity, current)
@@ -1868,25 +1875,33 @@ class SynthStudio(SoundtrackStudio, ExplorationStudio, QMainWindow):
             self.render_queued = True; return
         self.render_running = True
         job = RenderJob(self.preset, self.current_time, size, self.settings_generation, self.request_serial, sequence, self.video_frames, self.preview_bypass())
+        self.render_job = job
         job.reserved_bytes = size[0]*size[1]*3 if size[0]*size[1]*3 <= self.preview_frames.budget else 0
         self.preview_frames.reserve(job.reserved_bytes, (self.timeline.value(),))
         self.cached_ranges.set_ranges(self.preview_frames.ranges())
         self.pending_jobs.append(job)
         job.signals.done.connect(lambda result, j=job: self._receive_foreground_frame(j, result))
         job.signals.done.connect(lambda _result, j=job: self._release_job(j))
-        job.signals.failed.connect(lambda error, j=job: self.render_failed(error) if j.settings_generation == self.settings_generation and not self.closing else None)
+        job.signals.failed.connect(lambda error, j=job: self.render_failed(error) if j.settings_generation == self.settings_generation and not self.closing and not j.cancel.event.is_set() else None)
         job.signals.failed.connect(lambda _error, j=job: self._release_job(j))
         self.jobs.start(job)
 
     def _receive_foreground_frame(self, job, result):
         self.preview_frames.release(getattr(job, 'reserved_bytes', 0)); job.reserved_bytes = 0
+        if job.cancel.event.is_set(): return
         self.frame_ready(result)
+
+    def cancel_foreground_render(self):
+        if self.render_job is not None:
+            self.render_job.cancel.cancel()
 
     def _release_job(self, job):
         self.preview_frames.release(getattr(job, 'reserved_bytes', 0)); job.reserved_bytes = 0
         if job in self.pending_jobs:
             self.pending_jobs.remove(job)
-        self.render_running = False
+        if self.render_job is job:
+            self.render_job = None
+            self.render_running = False
         if self.render_queued and not self.closing and not self.preview_debounce.isActive():
             self.render_queued = False
             QTimer.singleShot(0, self.request_frame)
@@ -1933,6 +1948,7 @@ class SynthStudio(SoundtrackStudio, ExplorationStudio, QMainWindow):
         self.preview_status.setText('Preview unavailable · see the operation status for details.')
     def scrub(self, value):
         if not self.advancing:
+            self.cancel_foreground_render()
             self.cancel_preparation(); self.schedule_auto_preparation()
         if self.play.isChecked() and not self.advancing:
             self.play_origin = self.active_preview_scope().position(value); self.play_started = time.monotonic(); self.display_times.clear()
@@ -2098,6 +2114,7 @@ class SynthStudio(SoundtrackStudio, ExplorationStudio, QMainWindow):
             return
         self.save_workspace()
         self.closing = True
+        self.cancel_foreground_render()
         self.close_soundtrack()
         self.study_browser_priority_timer.stop()
         if self.studies_dialog is not None: self.studies_dialog.close()

@@ -24,6 +24,7 @@ class Clock:
 
 class FakeBackend(QObject):
     readyChanged = Signal(bool)
+    loadDelayed = Signal(str)
     ended = Signal()
     error = Signal(str)
 
@@ -311,6 +312,50 @@ def test_backend_error_stops_monitor_until_track_changes(monitor):
     assert not backend.playing
 
 
+@pytest.mark.parametrize('playing', [False, True])
+def test_loading_delay_recovers_at_latest_transport_without_reload(monitor, playing):
+    preview, track, backends, clock = monitor
+    track['end_mode'] = 'loop'
+    preview.set_track(track)
+    backend = backends[-1]
+    preview.sync(1.0, True)
+    backend.loadDelayed.emit('Still loading audio')
+    assert preview.status == 'Still loading audio'
+    assert not preview._failed
+    preview.sync(2.0, playing, force=True)
+    clock.advance(10.5)
+    backend.readyChanged.emit(True)
+    expected_project = 12.5 if playing else 2.0
+    assert backend.seeks == [pytest.approx(source_time(track, expected_project))]
+    assert backend.playing is playing
+    assert backend.plays == int(playing)
+    assert len(backend.loaded) == 1
+    assert preview.status == ''
+
+
+def test_delayed_loading_does_not_override_terminal_error_or_stale_track(monitor):
+    preview, track, backends, _ = monitor
+    preview.set_track(track)
+    old = backends[-1]
+    old.loadDelayed.emit('Still loading audio')
+    old.error.emit('Cannot decode audio')
+    old.loadDelayed.emit('Late delay')
+    old.readyChanged.emit(True)
+    assert 'Cannot decode audio' in preview.status
+    assert old.plays == 0
+    preview.set_track(dict(track, id='replacement'))
+    current = backends[-1]
+    old.loadDelayed.emit('Obsolete delay')
+    assert preview.status == 'Loading soundtrack…'
+    current.readyChanged.emit(True)
+    current.loadDelayed.emit('Delay after readiness')
+    assert preview.status == ''
+    preview.close()
+    current.loadDelayed.emit('Delay after close')
+    current.readyChanged.emit(True)
+    assert preview.status == '' and current.plays == 0
+
+
 def test_remove_and_close_cancel_playback_and_late_events(monitor):
     preview, track, backend, _ = loaded(monitor)
     preview.sync(1.0, True)
@@ -383,10 +428,24 @@ def deferred_qt_backend(monkeypatch):
         seekableChanged = Signal(bool)
         hasAudioChanged = Signal(bool)
         errorOccurred = Signal(object, str)
+        MediaStatus = SimpleNamespace(LoadedMedia=1, BufferingMedia=2, BufferedMedia=3,
+                                      StalledMedia=4, EndOfMedia=5, InvalidMedia=6)
 
         def __init__(self, parent):
             super().__init__(parent)
             self.sources = []
+            self.status = 0
+            self.seekable = False
+            self.audio = False
+
+        def mediaStatus(self):
+            return self.status
+
+        def isSeekable(self):
+            return self.seekable
+
+        def hasAudio(self):
+            return self.audio
 
         def setSource(self, source):
             self.sources.append(source.toLocalFile())
@@ -454,6 +513,39 @@ def test_qt_replacement_cancels_old_deferred_source(deferred_qt_backend):
     app.processEvents()
     assert old_player.sources == ['']
     assert current._player.sources == ['/tmp/current.wav']
+
+
+def test_qt_timeout_reports_delay_then_accepts_late_valid_media(deferred_qt_backend):
+    app, factory = deferred_qt_backend
+    backend = factory()
+    errors, delays, readiness = [], [], []
+    backend.error.connect(errors.append)
+    backend.loadDelayed.connect(delays.append)
+    backend.readyChanged.connect(readiness.append)
+    backend.load('/tmp/slow.wav')
+    app.processEvents()
+    backend._timed_out()
+    assert len(delays) == 1 and errors == [] and readiness == []
+    backend._player.status = backend._media_type.MediaStatus.LoadedMedia
+    backend._player.seekable = backend._player.audio = True
+    backend._readiness_changed()
+    assert readiness == [True] and not backend._load_timeout.isActive()
+    backend._timed_out()
+    assert len(delays) == 1 and errors == []
+
+
+def test_qt_timeout_checks_current_media_before_queued_readiness(deferred_qt_backend):
+    app, factory = deferred_qt_backend
+    backend = factory()
+    delays, readiness = [], []
+    backend.loadDelayed.connect(delays.append)
+    backend.readyChanged.connect(readiness.append)
+    backend.load('/tmp/ready.wav')
+    app.processEvents()
+    backend._player.status = backend._media_type.MediaStatus.LoadedMedia
+    backend._player.seekable = backend._player.audio = True
+    backend._timed_out()
+    assert readiness == [True] and delays == []
 
 
 @pytest.mark.skipif(os.environ.get('NEBULA_AUDIO_SMOKE') != '1',

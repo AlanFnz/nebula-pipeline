@@ -2,6 +2,9 @@
 
 Recorded: 2026-10-10. Scope: roadmap B1. Status: delivered in 0.10.0.
 
+Follow-up: continuous frequency-band responses shipped in 0.11.0; see the
+[radial/audio Study plan](radial-audio-study-plan.md). The scope below records B1.
+
 ## User outcome
 
 Import one soundtrack into an existing piece, see its waveform, trim it and

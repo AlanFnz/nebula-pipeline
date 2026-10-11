@@ -98,9 +98,13 @@ def composition_from_sequence(sequence):
         result['source'].pop('automations')
     if 'footage' in source:
         result.update(schema_version=2, render_version=2, footage=copy.deepcopy(source['footage']))
-    if 'soundtrack' in source:
-        result.update(schema_version=4, soundtrack=copy.deepcopy(source['soundtrack']))
-        source.pop('soundtrack')
+    promoted_audio = False
+    for key, schema in (('soundtrack', 4), ('audio_reactivity', 5)):
+        if key in source:
+            result[key] = copy.deepcopy(source.pop(key))
+            result['schema_version'] = schema
+            promoted_audio = True
+    if promoted_audio:
         result['source'] = normalize_sequence(source)
     return result
 
@@ -536,14 +540,14 @@ def _geometry(raw, section=False):
 
 
 def normalize_composition(raw):
-    if not isinstance(raw, dict) or raw.get("format") != FORMAT or raw.get("schema_version") not in (1, 2, 3, 4):
+    if not isinstance(raw, dict) or raw.get("format") != FORMAT or raw.get("schema_version") not in (1, 2, 3, 4, 5):
         raise ValueError("Unsupported composition document")
     snapshots = None
     if 'snapshots' in raw:
         from synth_exploration import normalize_snapshots
         snapshots = normalize_snapshots(raw['snapshots'])
     result = copy.deepcopy(raw)
-    if raw.get('schema_version') == 4:
+    if raw.get('schema_version') in (4, 5):
         result['schema_version'] = 1
     if raw.get('soundtrack') is not None:
         from synth_soundtrack import normalize_soundtrack
@@ -657,6 +661,12 @@ def normalize_composition(raw):
         else: result.pop('snapshots', None)
     if 'soundtrack' in result:
         result['schema_version'] = 4
+    if raw.get('audio_reactivity') is not None:
+        from synth_audio_reactivity import normalize_reactivity
+        result['audio_reactivity'] = normalize_reactivity(raw['audio_reactivity'], result.get('soundtrack'))
+        result['schema_version'] = 5
+    else:
+        result.pop('audio_reactivity', None)
     return result
 
 
@@ -854,6 +864,9 @@ def compile_composition(raw, *, base_states=None, project_states=None, project_b
     if project_base_states is not None: project_base_states.clear()
     result = copy.deepcopy(project["source"])
     result.pop("soundtrack", None)
+    result.pop("audio_reactivity", None)
+    if "audio_reactivity" in project:
+        result["audio_reactivity"] = copy.deepcopy(project["audio_reactivity"])
     if "soundtrack" in project:
         result["soundtrack"] = copy.deepcopy(project["soundtrack"])
     result['render_version'] = project['render_version']

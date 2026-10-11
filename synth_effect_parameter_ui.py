@@ -22,10 +22,11 @@ class ParameterRowLayout(QGridLayout):
         self.control = control
 
     def heightForWidth(self, width):
-        # Ancestor layouts ask for a height before assigning the new geometry.
-        # Reflow now so a scroll area's cached height includes the wrapped row.
-        self.control._arrange_row(width)
-        return super().heightForWidth(width)
+        # Qt probes several candidate widths while activating ancestor layouts.
+        # Rebuilding this grid during a probe invalidates those same ancestors;
+        # widths on opposite sides of the wrapping threshold never settle.
+        # Actual geometry changes reflow the row through resizeEvent instead.
+        return self.control._row_height(width)
 
     def minimumSize(self):
         # The wide arrangement must allow its host to shrink far enough to
@@ -152,13 +153,9 @@ class EffectParameter(QWidget):
         super().resizeEvent(event)
         self._arrange_row()
 
-    def _arrange_row(self, width=None):
-        """Wrap controls before their useful editing widths become cramped."""
+    def _row_metrics(self, width):
+        """Read-only measurements shared by layout probes and actual reflow."""
         animated = self.value_stack.currentWidget() is self.animated_value
-        if not self._block_input:
-            maximum_height = 16777215 if animated else self.input.sizeHint().height()
-            if self.value_stack.maximumHeight() != maximum_height:
-                self.value_stack.setMaximumHeight(maximum_height)
         label_width = self.label.fontMetrics().horizontalAdvance(self.label.text())
         if self.hue_swatch: label_width += self.hue_swatch.width() + 5
         label_width = max(120, min(160, label_width))
@@ -171,7 +168,35 @@ class EffectParameter(QWidget):
             value_width = max(110, self.input.minimumSizeHint().width())
         needed = label_width + action_width + value_width + 18
         if self.slider and not animated: needed += 106
-        wrapped = self._block_input or (self.width() if width is None else width) < needed
+        wrapped = self._block_input or width < needed
+        return wrapped, animated, label_width, action_width, value_width
+
+    def _row_height(self, width):
+        wrapped, animated, label_width, action_width, value_width = self._row_metrics(width)
+        left, top, right, bottom = self._row.getContentsMargins()
+        available = max(1, width-left-right)
+
+        def height(widget, space):
+            requested = widget.heightForWidth(max(1, int(space))) if widget.hasHeightForWidth() else -1
+            return max(widget.minimumSizeHint().height(), widget.sizeHint().height() if requested < 0 else requested)
+
+        label_space = available-action_width-6 if wrapped else label_width
+        first = max(height(self._label_container, label_space), self.reset_button.sizeHint().height(),
+                    self.animate_button.sizeHint().height() if self.animate_button else 0)
+        if self._block_input:
+            return first+top+bottom
+        value_space = available if wrapped and (not self.slider or animated) else value_width
+        value = height(self.value_stack, value_space) if animated else self.input.sizeHint().height()
+        second = max(value, self.slider.sizeHint().height() if self.slider and not animated else 0)
+        return (first+self._row.verticalSpacing()+second if wrapped else max(first, second))+top+bottom
+
+    def _arrange_row(self, width=None):
+        """Wrap controls before their useful editing widths become cramped."""
+        wrapped, animated, label_width, _action_width, _value_width = self._row_metrics(self.width() if width is None else width)
+        if not self._block_input:
+            maximum_height = 16777215 if animated else self.input.sizeHint().height()
+            if self.value_stack.maximumHeight() != maximum_height:
+                self.value_stack.setMaximumHeight(maximum_height)
         mode = (wrapped, animated)
         if mode == self._row_mode: return
         self._row_mode = mode

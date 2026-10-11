@@ -121,7 +121,7 @@ def test_legacy_defaults_and_starters_do_not_follow_live_parameter_defaults(monk
     old = starter_snapshot('profile-echoes')
     before = render_sequence_frame(compile_composition(old), .7, (160, 90)).tobytes()
     module = MODULE_BY_ID['edge_phosphor']
-    monkeypatch.setitem(MODULE_BY_ID, module.id, replace(module, params=tuple(replace(p, default=.8) if p.key == 'hue' else p for p in module.params)))
+    monkeypatch.setitem(MODULE_BY_ID.definitions, module.id, replace(module, params=tuple(replace(p, default=.8) if p.key == 'hue' else p for p in module.params)))
     assert render_sequence_frame(compile_composition(old), .7, (160, 90)).tobytes() == before
     assert render_sequence_frame(compile_composition(starter_composition('profile-echoes')), .7, (160, 90)).tobytes() == before
     old_preset = normalize_synth({'modules': [{'id': 'edge_phosphor'}]})
