@@ -5,6 +5,12 @@ def control_group(path):
     from synth_instances import base_path
     path = base_path(path)
     module, key = path.split('.')
+    if module == 'text' and key == 'morph_balance': return 'Shape & layout'
+    if module == 'text' and key.startswith('morph_'): return 'Motion & timing'
+    if module == 'contour_melt':
+        if key in ('fill', 'hollow', 'drift', 'period', 'phase'): return 'Moving exposure'
+        if key in ('width', 'separation'): return 'Contours'
+        return 'Texture & light'
     if module == 'radial_bloom':
         if key.startswith('vibration'): return 'Ray vibration'
         if key in ('expansion', 'petals'): return 'Shape & layout'

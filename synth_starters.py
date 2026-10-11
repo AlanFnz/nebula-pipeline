@@ -3,11 +3,12 @@ from synth_composition import ink_bloom_composition, mixed_media_composition, pa
 from synth_composition import normalize_composition
 from synth_compat import starter_snapshot
 from synth_profile_recipes import clear_profile_composition, doryphoros_composition
-from synth_text_recipes import text_composition, opium_composition
+from synth_text_recipes import text_composition, opium_composition, word_morph_composition
 from synth_radial_recipes import radial_composition
 
 
 STARTERS = (
+    ('text-liquid-words', 'Text / liquid words · 7.2s', word_morph_composition),
     ("radial-bloom", "Radial / chromatic bloom · 12s", radial_composition),
     ("refined", "Refined signal · 15s", lambda: reference_composition(refined=True)),
     ("approved", "Approved signal · 15s", reference_composition),
@@ -34,6 +35,7 @@ STARTERS = (
 
 # First appearance in the repository, retained independently of app builds.
 STARTER_DATES = {
+    'text-liquid-words': '2026-10-11',
     'radial-bloom': '2026-10-11',
     'refined': '2026-09-26', 'approved': '2026-09-26',
     'particle-head': '2026-09-26', 'particle-orbit': '2026-09-26',

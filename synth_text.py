@@ -43,7 +43,7 @@ def text_pose(p, time, speed):
 
 
 @lru_cache(maxsize=24)
-def glyph_mask(text, font_index, tracking, leading, alignment, visible=None, wrapped=False):
+def glyph_mask(text, font_index, tracking, leading, alignment, visible=None, wrapped=False, weight=400):
     """Bounded canonical masks keep preview/export type and spacing identical."""
     # Layout can insert up to seven breaks into a valid 512-character source.
     validate_text(text.replace('\n', '') if wrapped else text)
@@ -53,12 +53,14 @@ def glyph_mask(text, font_index, tracking, leading, alignment, visible=None, wra
     lines = text.split('\n')
     font_size = 256
     font = ImageFont.truetype(str(path), font_size)
+    if font_index == 3 and weight != 400: font.set_variation_by_axes([weight, 11])
     def line_width(line):
         return max(0., font.getlength(line) + max(0, len(line) - 1) * tracking * font_size)
     extent = max(max(map(line_width, lines)), len(lines) * leading * font_size, 1)
     if extent > 3800:
         font_size = max(4, int(font_size * 3800 / extent))
         font = ImageFont.truetype(str(path), font_size)
+        if font_index == 3 and weight != 400: font.set_variation_by_axes([weight, 11])
     widths = [line_width(line) for line in lines]
     # Extra room preserves negative bearings, descenders and diacritics.
     padding = font_size
@@ -116,6 +118,9 @@ def wrapped_text(text, columns):
 def text_layout(p, time, speed, size):
     cw, ch = size
     clock, zoom = text_pose(p, time, speed)
+    if p['reveal'] == 3:
+        from synth_word_morph import morph_layout
+        return morph_layout(p, clock, size, zoom)
     text = p['content']; visible = None
     if p['reveal'] == 1:
         words = text.split()
@@ -126,7 +131,7 @@ def text_layout(p, time, speed, size):
         text, indices = wrapped_text(text, p['wrap_columns'])
         if visible is not None:
             visible = max((i+1 for i, source in enumerate(indices) if source is not None and source < visible), default=0)
-    mask = glyph_mask(text, p['font'], p['tracking'], p['leading'], p['align'], visible, bool(p.get('wrap_columns', 0)))
+    mask = glyph_mask(text, p['font'], p['tracking'], p['leading'], p['align'], visible, bool(p.get('wrap_columns', 0)), p.get('weight', 400))
     height = ch * p['size'] * max(1, text.count('\n') + 1)
     copies = p.get('copies', 1)
     if copies > 1:

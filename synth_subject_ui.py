@@ -10,7 +10,7 @@ from synth_inspector import grouped_paths
 
 OBJECT_PATHS = {
     'radial': tuple('radial_bloom.'+key for key in ('expansion','petals','detail','branching','flow','variation','center_drift','palette','light')),
-    'text': tuple('text.' + key for key in ('content', 'font', 'size', 'tracking', 'leading', 'align', 'wrap_columns', 'fit', 'block_width', 'fit_width', 'copies', 'copy_gap', 'copy_floor', 'hue', 'saturation', 'brightness', 'stretch_x', 'stretch_y')),
+    'text': tuple('text.' + key for key in ('content', 'font', 'weight', 'morph_balance', 'size', 'tracking', 'leading', 'align', 'wrap_columns', 'fit', 'block_width', 'fit_width', 'copies', 'copy_gap', 'copy_floor', 'hue', 'saturation', 'brightness', 'stretch_x', 'stretch_y')),
     'silhouette': ('silhouette.model', 'silhouette.scale', 'silhouette.yaw', 'silhouette.definition', 'silhouette.pitch', 'silhouette.roll', 'silhouette.center_x', 'silhouette.center_y', 'silhouette.neck_length', 'silhouette.neck_fullness', 'silhouette.softness'),
     'ink': ('ink_bloom.shape', 'ink_bloom.artwork', 'ink_bloom.shape_width', 'ink_bloom.shape_height',
             'ink_bloom.sides', 'ink_bloom.shape_rotation', 'ink_bloom.size', 'ink_bloom.count',
@@ -157,9 +157,15 @@ class SubjectPanel(QWidget):
             model = summary['particles']['ranges']['particles.attractor']
             self.controls['particles.neck_fade'].setVisible(model[0] != model[1] or model[0] in (0, 3, 4, 5))
         if self.kind == 'text':
-            fit = summary['text']['ranges']['text.fit']
-            self.controls['text.block_width'].setVisible(fit[0] != fit[1] or fit[0] == 2)
-            self.controls['text.fit_width'].setVisible(fit[0] != fit[1] or fit[0] == 1)
-            self.controls['text.copy_floor'].setVisible(fit[0] != fit[1] or fit[0] == 1)
+            ranges = summary['text']['ranges']
+            morph = ranges['text.reveal'][0] == ranges['text.reveal'][1] == 3
+            self.controls['text.weight'].setVisible(ranges['text.font'][0] != ranges['text.font'][1] or ranges['text.font'][0] == 3)
+            self.controls['text.morph_balance'].setVisible(morph)
+            for key in ('leading', 'align', 'wrap_columns', 'fit', 'copies', 'copy_gap'):
+                self.controls['text.' + key].setVisible(not morph)
+            fit = ranges['text.fit']
+            self.controls['text.block_width'].setVisible(not morph and (fit[0] != fit[1] or fit[0] == 2))
+            self.controls['text.fit_width'].setVisible(morph or fit[0] != fit[1] or fit[0] == 1)
+            self.controls['text.copy_floor'].setVisible(not morph and (fit[0] != fit[1] or fit[0] == 1))
         self.details.setVisible(bool(active)); self.timing.setVisible(self.kind in ('ink', 'text'))
         self.updating = False
