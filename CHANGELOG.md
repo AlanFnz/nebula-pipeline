@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.12.0 — 2026-10-11
+
+- Add the **Text / liquid words** Study: REVOLUTION → IS → NOW, with whole-word
+  shape transitions, luminous double contours, monochrome grain and a black field.
+  The 7.2-second, 720×900 Study is stored as an independent frozen recipe.
+- Add Text → Timing → Morph words with reading time, transition duration, easing,
+  liquid motion and a hold/loop ending. Long-word height balances long and short
+  wording; Bodoni Serif weight is now editable without changing old font defaults.
+- Add reusable **Contour melt** for text, shapes and footage: solid/hollow exposure,
+  moving fill, contour width/spacing, softness, glow and emulsion grain.
+- Existing text modes, Studies and default renders are unchanged. Morphing uses
+  deterministic time and bounded cached word fields; no new dependency is needed.
+
 ## 0.11.3 — 2026-10-11
 
 - Keep the effect inspector's scroll position and active control stable when
