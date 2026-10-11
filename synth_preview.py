@@ -151,7 +151,11 @@ def preview_context(sequence, size, bypass, proxy_root=None):
             identity = (_file_fingerprint(footage['path']), _file_fingerprint(proxy))
             if identity not in sources: sources.append(identity)
         media = tuple(sources)
-    return (tuple(size), bool(bypass), media)
+    context = (tuple(size), bool(bypass), media)
+    inputs = audio_reactivity_inputs(sequence) if not bypass else None
+    if inputs is not None:
+        context += (('audio', inputs['version'], _file_fingerprint(inputs['track']['path'])),)
+    return context
 
 
 @dataclass(frozen=True)
@@ -168,16 +172,42 @@ class RenderValidity:
                    copy.deepcopy(preset) if sequence is None else None, context)
 
 
-def _visual_document(document):
-    """B1 soundtrack authoring does not change rendered pixels or their cache.
+def audio_reactivity_inputs(document):
+    """Active authored analysis dependencies; no media access or decoding."""
+    if not document:
+        return None
+    config = document.get('audio_reactivity')
+    if not config or not config.get('enabled', True):
+        return None
+    mappings = [copy.deepcopy(mapping) for mapping in config.get('mappings', ())
+                if mapping.get('enabled', True) and mapping.get('amount', 0.) != 0.
+                and mapping.get('sensitivity', 1.) != 0.]
+    if not mappings:
+        return None
+    track = document.get('soundtrack')
+    if not track:
+        return None  # Normalization reports active mappings without their track.
+    from synth_audio_reactivity import ANALYSIS_VERSION
+    keys = ('id', 'path', 'identity', 'duration', 'sample_rate', 'channels',
+            'in', 'out', 'offset', 'end_mode')
+    return {'version': ANALYSIS_VERSION,
+            'track': {key: copy.deepcopy(track[key]) for key in keys if key in track},
+            'mappings': mappings, 'duration': document.get('duration')}
 
-    Audio-driven mappings must become explicit visual inputs when B2 is added.
-    Schema versions describe persistence; render_version describes pixels.
-    """
+
+def _visual_document(document):
+    """Keep audio inputs only when enabled connections can change pixels."""
     if document is None: return None
     result = copy.deepcopy(document)
-    result.pop('soundtrack', None)
-    if result.get('schema_version') == 4:
+    inputs = audio_reactivity_inputs(document)
+    if inputs is None:
+        result.pop('soundtrack', None)
+        result.pop('audio_reactivity', None)
+    else:
+        result['soundtrack'] = inputs['track']
+        result['audio_reactivity'] = {'enabled': True, 'mappings': inputs['mappings'],
+                                      'analysis_version': inputs['version']}
+    if inputs is None and result.get('schema_version') in (4, 5):
         result['schema_version'] = (3 if result.get('video_segments') or
             any('footage' in clip for clip in result.get('sections', ())) else
             2 if 'footage' in result else 1)
