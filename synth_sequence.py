@@ -50,7 +50,7 @@ def normalize_sequence(raw=None):
         return reference_sequence()
     if not isinstance(raw, dict):
         raise ValueError("Synth sequence must be a JSON object")
-    if raw.get("schema_version", 0) not in (1, 2, 3, 4):
+    if raw.get("schema_version", 0) not in (1, 2, 3, 4, 5):
         raise ValueError(f"Unsupported sequence schema version: {raw.get('schema_version')}")
     result = copy.deepcopy(reference_sequence())
     if raw.get('schema_version') in (2, 3) or 'footage' in raw:
@@ -134,6 +134,10 @@ def normalize_sequence(raw=None):
         if events: result["automations"] = events
     if 'soundtrack' in result:
         result['schema_version'] = 4
+    if raw.get('audio_reactivity') is not None:
+        from synth_audio_reactivity import normalize_reactivity
+        result['audio_reactivity'] = normalize_reactivity(raw['audio_reactivity'], result.get('soundtrack'))
+        result['schema_version'] = 5
     return result
 
 
@@ -264,13 +268,16 @@ def resolve_sequence_frame(sequence, time_seconds, *, normalized=False):
     return seq, t, effect_time, video_time, cue, transition, amount, base
 
 
-def render_sequence_frame(sequence, time_seconds, size=None, frame_provider=None, bypass=False):
+def render_sequence_frame(sequence, time_seconds, size=None, frame_provider=None, bypass=False, *, cancel=None):
     seq = normalize_sequence(sequence)
     if 'footage' in seq and frame_provider is None:
         from synth_video import VideoFrameProvider
-        with VideoFrameProvider() as provider:
-            return render_sequence_frame(seq, time_seconds, size, provider, bypass)
+        with VideoFrameProvider(cancel=cancel) as provider:
+            return render_sequence_frame(seq, time_seconds, size, provider, bypass, cancel=cancel)
     seq, t, effect_time, video_time, cue, transition, amount, base = resolve_sequence_frame(seq, time_seconds, normalized=True)
+    if not bypass and 'audio_reactivity' in seq:
+        from synth_audio_reactivity import apply_reactivity
+        base = apply_reactivity(base, seq, t, cancel=cancel)
     output, working, sampling = render_resolution(base, size)
     source_image = None
     source_mask = None
