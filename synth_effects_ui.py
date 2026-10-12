@@ -24,7 +24,7 @@ from synth_creative_ui import CreativeControlsPanel
 INK_DURATIONS = {f'ink_bloom.{key}' for key in DURATION_KEYS}
 INK_TIMING = tuple(f'ink_bloom.{key}' for key in TIMING_KEYS)
 SHARED_TIMING_CONTROLS = INK_TIMING[:8]
-TEXT_TIMING = tuple('text.' + key for key in ('reveal', 'word_seconds', 'morph_hold', 'morph_seconds', 'morph_ease', 'morph_flow', 'morph_loop', 'motion', 'zoom_start', 'zoom_end', 'period', 'ease', 'phase', 'cadence'))
+TEXT_TIMING = tuple('text.' + key for key in ('reveal', 'word_seconds', 'morph_hold', 'morph_seconds', 'morph_ease', 'morph_flow', 'morph_living', 'morph_loop', 'motion', 'zoom_start', 'zoom_end', 'period', 'ease', 'phase', 'cadence'))
 POLARITY_CONTROLS = tuple('broadcast.' + key for key in ('reverse', 'reverse_period', 'reverse_phase', 'reverse_blend', 'field_spread', 'reverse_stage', 'reverse_hue', 'reverse_saturation'))
 SIGNAL_CONTROLS = tuple('broadcast.' + key for key in ('static_style', 'static', 'outages', 'sync_tear', 'period', 'duration', 'phase', 'rate', 'static_chroma', 'band', 'roll'))
 SCREEN_CONTROLS = tuple('broadcast.' + key for key in ('screen', 'screen_inset', 'screen_wear', 'halo', 'halo_radius', 'halo_hue', 'curve', 'vignette', 'halo_threshold'))
@@ -543,7 +543,7 @@ class EffectsPanel(QWidget):
         if text:
             visible_paths = TEXT_TIMING if text_timing else tuple(path for path in effect.paths if path not in TEXT_TIMING)
             ranges = self.summary['text']['ranges']
-            if ranges['text.font'][0] == ranges['text.font'][1] and ranges['text.font'][0] != 3:
+            if ranges['text.font'][0] == ranges['text.font'][1] and ranges['text.font'][0] not in (3, 4):
                 visible_paths = tuple(path for path in visible_paths if path != 'text.weight')
             reveal = ranges['text.reveal']
             morph = reveal[0] == reveal[1] == 3
@@ -564,6 +564,8 @@ class EffectsPanel(QWidget):
             visible_paths = groups[self.parameter_tabs.currentIndex()]
         if self.allowed_effects is not None and 'forms' not in self.allowed_effects:
             visible_paths = tuple(path for path in visible_paths if not path.startswith('slab.'))
+        if effect.id == 'contour_melt' and self.summary['contour_melt']['ranges']['contour_melt.style'] == (0, 0):
+            visible_paths = tuple(path for path in visible_paths if path != 'contour_melt.groove')
         if phosphor:
             if region:
                 mode = self.summary['edge_phosphor']['ranges']['edge_phosphor.fade_mode']

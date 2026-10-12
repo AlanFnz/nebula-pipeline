@@ -589,18 +589,25 @@ Choose **Studies → Text / liquid words → Load** for the 7.2-second monochrom
 word-morphing example. Edit the phrase in **Object → Wording → Apply text**.
 **Object → Motion & timing… → Show → Morph words** enables the same mode on any
 text source. Reading time holds each word; Morph duration reshapes it into the
-next. Morph easing and Liquid motion control the transition. Phrase ending can
+next. Morph easing and Liquid motion control the transition. Living strokes adds
+gentle bending and swelling during the readable holds as well. Phrase ending can
 hold the final word or morph back to the beginning. Spaces and line breaks
 separate words in this mode; repetitions and line wrapping are not used.
 
 Object's Text size and Line width limit set the word envelope. Long-word height
 can condense long words to keep them substantial beside short words. Zero keeps
-uniform fitting. Serif weight applies to Bodoni Moda; other bundled fonts keep
-their own weight. Canvas resizing still preserves the artwork's proportions.
+uniform fitting. Soft letter shape rounds corners and smooths the merging ink.
+Serif weight applies to Bodoni Moda and the bundled Fraunces soft serif; other
+fonts keep their own weight. Canvas resizing still preserves the artwork's proportions.
 
 **Effects → Contour melt** independently controls the luminous rims, solid/hollow
-breathing, traveling exposure, glow, softness and grain. It also works with other
-shapes and footage. Existing text modes and Studies retain their approved looks.
+breathing, traveling exposure, glow, softness and grain. Its **Contours → Contour
+style → Inset ink** adds a dark groove inside the luminous silhouette; Inset
+darkness sets its strength. Spacing and exposure drift change its placement and
+width. It also works with other shapes and footage, using a luminance silhouette.
+The refined Study uses this treatment and Fraunces. **Text / liquid words (first
+version)** retains the original Bodoni composition. Old saved documents keep
+their original rendering; the new shape motion and contour style are opt-in.
 Changing the wording or timing does not resize the timeline: extend the clip to
 allow the whole phrase to play. This Study is silent; audio-triggered word
 advancement remains planned.

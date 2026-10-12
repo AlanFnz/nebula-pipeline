@@ -1,5 +1,8 @@
 """Whole-word morphs remain readable, seekable and compatible with old studies."""
 import copy
+import hashlib
+import json
+from pathlib import Path
 import numpy as np
 import pytest
 from PIL import Image
@@ -94,3 +97,53 @@ def test_contours_bypass_exactly_and_work_on_non_text_sources():
     preset['modules'] = [dict(id='contour_melt', enabled=True, params=p)]
     rendered = render_synth_frame(preset, time_seconds=.5, source_image=Image.fromarray(np.uint8(image * 255)))
     assert rendered.size == (240,180)
+
+
+def test_first_liquid_words_keeps_012_pixels():
+    hashes = json.loads(Path('tests/fixtures/text-liquid-words-v1-hashes.json').read_text())
+    seq = compile_composition(starter_composition('text-liquid-words-original'))
+    for time, expected in hashes.items():
+        assert hashlib.sha256(render_sequence_frame(seq, float(time), (288,360)).tobytes()).hexdigest() == expected
+
+
+def test_living_words_remain_continuous_at_transition_end_and_seekable():
+    p = params(content='REVOLUTION IS NOW', font=4, weight=800, morph_roundness=.45, morph_living=.55)
+    first = np.asarray(text_layout(p, .1, 1., (720,900))[0]).astype(float)
+    later = np.asarray(text_layout(p, .8, 1., (720,900))[0]).astype(float)
+    assert np.mean(abs(first - later)) > .1  # holds remain alive
+    before = np.asarray(text_layout(p, 1.999999, 1., (720,900))[0]).astype(float)
+    after = np.asarray(text_layout(p, 2., 1., (720,900))[0]).astype(float)
+    assert np.mean(abs(before - after)) < .05
+    assert text_layout(p, .1, 1., (720,900))[0].tobytes() == first.astype('uint8').tobytes()
+
+
+def test_refined_words_canvas_resize_preserves_rounded_animated_geometry():
+    p = default_synth_preset(); p.update(width=400, height=300, speed=1.)
+    p['modules'] = [dict(id='text', enabled=True, params=params(content='IS NOW', font=4,
+        weight=800, morph_roundness=.7, morph_living=.8))]
+    before = np.asarray(render_synth_frame(p, time_seconds=1.5))
+    p.update(resize_canvas(p, {'width':600, 'height':800}))
+    after = np.asarray(render_synth_frame(p, time_seconds=1.5))
+    assert np.array_equal(before, after[250:550, 100:500])
+
+
+def test_inset_ink_preserves_black_and_letter_gaps_and_has_editable_groove():
+    p = {s.key:s.default for s in MODULE_BY_ID['contour_melt'].params}
+    p.update(style=1, hollow=0., fill=1., glow=0., softness=0., grain=0., groove=1.)
+    blank = np.zeros((160,240,3), dtype=np.float32)
+    assert not render_contour_melt(blank,p,0.,1.,17,(720,480)).any()
+    ink = blank.copy(); ink[30:130,40:110] = 1.; ink[30:130,116:186] = 1.
+    out = render_contour_melt(ink,p,.3,1.,17,(720,480))
+    assert out[80,113].max() < .01  # preserve the six-pixel gap
+    plain = render_contour_melt(ink,dict(p,groove=0.),.3,1.,17,(720,480))
+    assert (plain - out)[ink[...,0] > 0].mean() > .05
+    assert not (plain - out)[ink[...,0] == 0].any()
+    hollow = render_contour_melt(ink,dict(p,fill=0.),.3,1.,17,(720,480))
+    assert hollow[80,75].max() < .001 and hollow.max() > .5
+    assert np.array_equal(out,render_contour_melt(ink,p,.3,1.,17,(720,480)))
+    assert render_contour_melt(ink,dict(p,mix=0.),.3,1.,17,(720,480)) is ink
+    preset = default_synth_preset(); preset.update(width=240,height=160)
+    preset['modules'] = [dict(id='contour_melt',enabled=True,params=p)]
+    footage = Image.fromarray(np.uint8(ink * 255))
+    rendered = render_synth_frame(preset,time_seconds=.3,source_image=footage)
+    assert rendered.size == footage.size and rendered.tobytes() != footage.tobytes()

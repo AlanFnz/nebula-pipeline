@@ -1,0 +1,181 @@
+{
+  "format": "nebula-composition",
+  "schema_version": 1,
+  "render_version": 2,
+  "name": "Text / liquid words",
+  "fps": 25,
+  "seed": 61126,
+  "source": {
+    "schema_version": 1,
+    "name": "Text / liquid words",
+    "duration": 7.2,
+    "fps": 25,
+    "seed": 61126,
+    "field": {
+      "valley_start": 0.0,
+      "valley_end": 0.0,
+      "valley_gain": 1.0,
+      "cloud_start": 0.0,
+      "cloud_strength": 0.0,
+      "cloud_late_start": 0.0,
+      "cloud_late_rate": 0.0
+    },
+    "states": {
+      "words": {
+        "preset": "Reference blinds",
+        "overrides": {
+          "speed": 1.0,
+          "depth": 0.0,
+          "treatment_fps": 25,
+          "text.content": "REVOLUTION IS NOW",
+          "text.font": 4,
+          "text.weight": 800,
+          "text.size": 0.42,
+          "text.tracking": 0.03,
+          "text.leading": 1.0,
+          "text.align": 1,
+          "text.fit": 1,
+          "text.block_width": 0.65,
+          "text.fit_width": 0.86,
+          "text.hue": 0.22,
+          "text.saturation": 0.0,
+          "text.brightness": 0.92,
+          "text.opacity": 1.0,
+          "text.stretch_x": 1.0,
+          "text.stretch_y": 1.0,
+          "text.rotation": 0.0,
+          "text.back_hue": 0.6,
+          "text.back_saturation": 0.75,
+          "text.back_brightness": 0.0,
+          "text.reveal": 3,
+          "text.morph_hold": 1.35,
+          "text.morph_seconds": 1.05,
+          "text.morph_ease": 1.0,
+          "text.morph_flow": 0.28,
+          "text.morph_balance": 0.5,
+          "text.morph_roundness": 0.45,
+          "text.morph_living": 0.55,
+          "text.morph_loop": 0,
+          "text.word_seconds": 0.65,
+          "text.motion": 0,
+          "text.zoom_start": 1.7,
+          "text.zoom_end": 0.4,
+          "text.period": 2.0,
+          "text.ease": 2.0,
+          "text.phase": 0.0,
+          "text.cadence": 0.0,
+          "text.copies": 1,
+          "text.copy_gap": 0.3,
+          "text.wrap_columns": 0,
+          "text.copy_floor": 0.0,
+          "contour_melt.style": 1,
+          "contour_melt.fill": 1.0,
+          "contour_melt.hollow": 0.7,
+          "contour_melt.period": 3.3,
+          "contour_melt.phase": 0.1,
+          "contour_melt.width": 3.8,
+          "contour_melt.separation": 9.0,
+          "contour_melt.drift": 0.75,
+          "contour_melt.groove": 0.96,
+          "contour_melt.softness": 2.2,
+          "contour_melt.glow": 0.2,
+          "contour_melt.grain": 0.32,
+          "contour_melt.mix": 1.0,
+          "raster.softness": 0.5,
+          "raster.lines": 0.0,
+          "raster.grain": 0.0,
+          "raster.chroma": 0.0,
+          "raster.line_noise": 0.0
+        },
+        "enabled": [
+          "text",
+          "contour_melt",
+          "raster"
+        ]
+      }
+    },
+    "cues": [
+      {
+        "time": 0.0,
+        "state": "words",
+        "transition": "cut",
+        "duration": 0.0
+      }
+    ],
+    "render_version": 2,
+    "canvas": {
+      "width": 720,
+      "height": 900,
+      "framing": "native"
+    }
+  },
+  "canvas": {
+    "width": 720,
+    "height": 900,
+    "framing": "native"
+  },
+  "master": {
+    "enabled": true,
+    "brightness": 0.0,
+    "contrast": 1.0,
+    "saturation": 1.0
+  },
+  "phrases": {
+    "custom": {
+      "name": "Revolution / is / now",
+      "start": 0.0,
+      "end": 7.2
+    }
+  },
+  "macros": {
+    "rhythm": 1.0,
+    "width": 1.0,
+    "motion": 1.0,
+    "texture": 1.0,
+    "glow": 1.0,
+    "flashes": 1.0,
+    "color": 1.0
+  },
+  "geometry": {
+    "shape": "original",
+    "height": 1.0,
+    "diameter": 0.6,
+    "sides": 6,
+    "rotation": 0.0,
+    "position_x": 0.0,
+    "position_y": 0.0
+  },
+  "effects": {},
+  "ink_timing": {},
+  "variation": 0,
+  "locks": [],
+  "sections": [
+    {
+      "id": "section-1",
+      "phrase": "custom",
+      "duration": 7.2,
+      "loops": 1,
+      "macros": {
+        "rhythm": 1.0,
+        "width": 1.0,
+        "motion": 1.0,
+        "texture": 1.0,
+        "glow": 1.0,
+        "flashes": 1.0,
+        "color": 1.0
+      },
+      "geometry": {
+        "shape": "inherit",
+        "height": 1.0,
+        "diameter": 0.6,
+        "sides": 6,
+        "rotation": 0.0,
+        "position_x": 0.0,
+        "position_y": 0.0
+      },
+      "effects": {},
+      "variation": 0,
+      "locks": []
+    }
+  ]
+}
