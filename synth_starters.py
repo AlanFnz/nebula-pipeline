@@ -8,7 +8,8 @@ from synth_radial_recipes import radial_composition
 
 
 STARTERS = (
-    ('text-liquid-words', 'Text / liquid words · 7.2s', word_morph_composition),
+    ('text-liquid-words', 'Text / liquid words · 6s', word_morph_composition),
+    ('text-liquid-words-soft', 'Text / liquid words (soft motion) · 7.2s', lambda: starter_snapshot('text-liquid-words-soft')),
     ('text-liquid-words-original', 'Text / liquid words (first version) · 7.2s', lambda: starter_snapshot('text-liquid-words-original')),
     ("radial-bloom", "Radial / chromatic bloom · 12s", radial_composition),
     ("refined", "Refined signal · 15s", lambda: reference_composition(refined=True)),
@@ -37,6 +38,7 @@ STARTERS = (
 # First appearance in the repository, retained independently of app builds.
 STARTER_DATES = {
     'text-liquid-words': '2026-10-12', 'text-liquid-words-original': '2026-10-11',
+    'text-liquid-words-soft': '2026-10-12',
     'radial-bloom': '2026-10-11',
     'refined': '2026-09-26', 'approved': '2026-09-26',
     'particle-head': '2026-09-26', 'particle-orbit': '2026-09-26',

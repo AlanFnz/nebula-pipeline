@@ -88,6 +88,17 @@ def sample(field, x, y):
             + (field[iy + 1, ix] * (1 - fx) + field[iy + 1, ix + 1] * fx) * fy)
 
 
+def morph_progress(raw, easing, snap=0.):
+    """Front-load the change, then let the incoming word settle into place.
+
+    Both ends have zero velocity with full easing. Zero snap retains the
+    original symmetric curve exactly, including previously saved studies.
+    """
+    phase = 1 - (1 - raw) ** (1 + 2 * snap) if snap else raw
+    eased = phase * phase * phase * (phase * (phase * 6 - 15) + 10)
+    return raw + (eased - raw) * easing
+
+
 def morph_layout(p, clock, size, zoom=1.):
     cw, ch = size
     # Canonical geometry is independent of preview resolution and saved canvas.
@@ -96,8 +107,7 @@ def morph_layout(p, clock, size, zoom=1.):
     w, h = grid
     first, second, raw = word_state(p['content'], clock, p['morph_hold'], p['morph_seconds'], p['morph_loop'])
     if not first: return Image.new('L', grid), cw / w * zoom, ch / h * zoom
-    eased = raw * raw * raw * (raw * (raw * 6 - 15) + 10)
-    amount = raw + (eased - raw) * p['morph_ease']
+    amount = morph_progress(raw, p['morph_ease'], p.get('morph_snap', 0.))
     args = (p['font'], p.get('weight', 400), p['tracking'], h * p['size'], w * p['fit_width'], p['stretch_x'], p['stretch_y'], p['morph_balance'], grid, p.get('morph_roundness', 0.))
     a, qa, ya = word_field(first, *args)
     b, qb, yb = word_field(second, *args)
@@ -114,6 +124,13 @@ def morph_layout(p, clock, size, zoom=1.):
     flow = p['morph_flow'] * h * (.0015 + .018 * envelope)
     dx = flow * (np.sin(yy / h * 18 + clock * 3.1) + .35 * np.sin(xx / w * 27 - clock * 2.3))
     dy = flow * (.65 * np.sin(xx / w * 14 + clock * 2.7) + .25 * np.sin(yy / h * 23 - clock * 1.9))
+    if p.get('morph_settle', 0.):
+        # A stroke-level recoil follows the main transport; the whole word
+        # stays centered. The envelope and its slope vanish at both boundaries,
+        # so slow renders, seeking, and loops share the same continuous result.
+        recoil = p['morph_settle'] * 16 * raw ** 2 * (1 - raw) ** 2 * math.sin(math.tau * raw)
+        dx += h * .03 * recoil * (np.sin(yy / h * 7 + .7) + .3 * np.sin(xx / w * 11))
+        dy += h * .025 * recoil * np.sin(xx / w * 8 - .4)
     living = p.get('morph_living', 0.)
     if living:
         dx += living * h * .005 * np.sin(yy / h * 15 + clock * 1.8)

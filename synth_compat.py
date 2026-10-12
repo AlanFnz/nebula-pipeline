@@ -28,6 +28,8 @@ def starter_snapshot(identifier):
         return copy.deepcopy(_word_morph_snapshot())
     if identifier == 'text-liquid-words-original':
         return copy.deepcopy(_word_morph_snapshot(1))
+    if identifier == 'text-liquid-words-soft':
+        return copy.deepcopy(_word_morph_snapshot(2))
     if identifier == 'text-opium':
         return copy.deepcopy(_opium_snapshot())
     if identifier == 'text-pressure':
@@ -43,8 +45,8 @@ def starter_snapshot(identifier):
     return copy.deepcopy(_snapshot()['starters'][identifier])
 
 
-@lru_cache(maxsize=2)
-def _word_morph_snapshot(version=2):
+@lru_cache(maxsize=3)
+def _word_morph_snapshot(version=3):
     return json.loads((Path(__file__).parent / f'presets/text-liquid-words-v{version}.json').read_text())
 
 
