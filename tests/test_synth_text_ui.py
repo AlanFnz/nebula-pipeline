@@ -11,6 +11,7 @@ def test_liquid_words_exposes_working_controls_and_undo(window):
     composer.look_tabs.setCurrentWidget(composer.object_panel)
     obj = composer.object_panel
     assert not obj.controls['text.morph_balance'].isHidden()
+    assert not obj.controls['text.morph_roundness'].isHidden()
     assert not obj.controls['text.weight'].isHidden()
     assert obj.controls['text.copies'].isHidden()
     assert obj.controls['text.fit'].isHidden()
@@ -19,6 +20,7 @@ def test_liquid_words_exposes_working_controls_and_undo(window):
     assert panel.effect_id == 'text' and panel.parameter_tabs.currentIndex() == 1
     assert not panel.controls['text.morph_hold'].isHidden()
     assert not panel.controls['text.morph_seconds'].isHidden()
+    assert not panel.controls['text.morph_living'].isHidden()
     assert panel.controls['text.word_seconds'].isHidden()
     panel.controls['text.morph_seconds'].input.setValue(.6)
     assert window.composition['effects']['text']['params']['text.morph_seconds'] == .6
@@ -28,7 +30,13 @@ def test_liquid_words_exposes_working_controls_and_undo(window):
     panel.controls['contour_melt.fill'].input.setValue(.4)
     assert window.composition['effects']['contour_melt']['params']['contour_melt.fill'] == .4
     window.undo_composition()
-    assert panel.controls['contour_melt.fill'].input.value() == .9
+    assert panel.controls['contour_melt.fill'].input.value() == 1.
+    panel.reveal_control('contour_melt.groove')
+    assert not panel.controls['contour_melt.groove'].isHidden()
+    panel.controls['contour_melt.groove'].input.setValue(.5)
+    assert window.composition['effects']['contour_melt']['params']['contour_melt.groove'] == .5
+    window.undo_composition()
+    assert panel.controls['contour_melt.groove'].input.value() == .96
     wait_until(lambda: not window.render_running and not window.render_queued)
 
 

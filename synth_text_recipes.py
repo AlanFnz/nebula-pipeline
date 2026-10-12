@@ -9,15 +9,16 @@ from synth_sequence import normalize_sequence
 def word_morph_composition():
     """White emulsion lettering, traveling contours and two whole-word morphs."""
     common = {
-        'text': {'content': 'REVOLUTION IS NOW', 'font': 3, 'weight': 800, 'size': .34,
-                 'fit_width': .86, 'tracking': -.015, 'saturation': 0.,
+        'text': {'content': 'REVOLUTION IS NOW', 'font': 4, 'weight': 800, 'size': .42,
+                 'fit_width': .86, 'tracking': .03, 'saturation': 0.,
                  'brightness': .92, 'back_brightness': 0., 'reveal': 3,
                  'morph_hold': 1.35, 'morph_seconds': 1.05,
-                 'morph_ease': 1., 'morph_flow': .55, 'morph_balance': .55, 'morph_loop': 0},
-        'contour_melt': {'fill': .9, 'hollow': .95, 'period': 2.4,
-                         'width': 2.8, 'separation': 5., 'drift': .75,
-                         'softness': 1.65, 'glow': .4, 'grain': .14},
-        'raster': {'softness': .8, 'lines': 0., 'grain': .045, 'chroma': 0., 'line_noise': 0.},
+                 'morph_ease': 1., 'morph_flow': .28, 'morph_balance': .5,
+                 'morph_roundness': .45, 'morph_living': .55, 'morph_loop': 0},
+        'contour_melt': {'style': 1, 'fill': 1., 'hollow': .7, 'period': 3.3, 'phase': .1,
+                         'width': 3.8, 'separation': 9., 'drift': .75, 'groove': .96,
+                         'softness': 2.2, 'glow': .2, 'grain': .32},
+        'raster': {'softness': .5, 'lines': 0., 'grain': 0., 'chroma': 0., 'line_noise': 0.},
     }
     settings = {'speed': 1., 'depth': 0., 'treatment_fps': 25}
     for module, changes in common.items():

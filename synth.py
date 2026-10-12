@@ -472,7 +472,7 @@ MODULES += (
     Module('text', 'Text', 'Editable typography rendered before the image treatments. Fonts travel with the Studio.', (
         P('content', 'Wording', 'REVOLUTION IS NOW', kind='text', hint='Up to 512 characters and eight lines. Line breaks are preserved.'),
         P('font', 'Typeface', 0, 0, len(FONTS)-1, 1, choices=FONTS),
-        P('weight', 'Serif weight', 400, 400, 900, 10, 'Weight of the bundled Bodoni serif. Other typefaces retain their own weight.'),
+        P('weight', 'Serif weight', 400, 400, 900, 10, 'Weight of Bodoni Moda or Fraunces. Other typefaces retain their own weight.'),
         P('size', 'Text size', .14, .01, 1.5, .01, 'Line height relative to the authored canvas height. Canvas resizing preserves the lettering.'),
         P('tracking', 'Letter spacing', 0., -.15, .8, .01, 'Extra spacing as a fraction of the font size.'),
         P('leading', 'Line spacing', 1., .6, 2.5, .05),
@@ -496,6 +496,8 @@ MODULES += (
         P('morph_ease', 'Morph easing', 1., 0, 1, .05, 'Zero moves evenly; one accelerates and settles gently.'),
         P('morph_flow', 'Liquid motion', .65, 0, 2, .05, 'Bend the moving strokes, settling at each readable word.'),
         P('morph_balance', 'Long-word height', 0., 0, 1, .05, 'Zero fits words uniformly. Raise to keep long words taller by condensing their letters; short words keep their size.'),
+        P('morph_roundness', 'Soft letter shape', 0., 0, 1, .05, 'Round and gently inflate serif tips and corners during word morphing.'),
+        P('morph_living', 'Living strokes', 0., 0, 1, .05, 'Traveling pressure bends and swells the letters even while a word is held for reading.'),
         P('morph_loop', 'Phrase ending', 0, 0, 1, 1, 'Hold finishes on the last word. Loop morphs it back to the first.', choices=('Hold final word', 'Loop phrase')),
         P('word_seconds', 'Word / character interval', .65, .03, 10, .05, 'Seconds between words or characters. Whole phrase ignores this control.'),
         P('motion', 'Size motion', 0, 0, 3, 1, choices=('Still', 'Recede', 'Breathe', 'Perspective pullback')),

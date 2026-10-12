@@ -26,6 +26,8 @@ def frozen_data(key):
 def starter_snapshot(identifier):
     if identifier == 'text-liquid-words':
         return copy.deepcopy(_word_morph_snapshot())
+    if identifier == 'text-liquid-words-original':
+        return copy.deepcopy(_word_morph_snapshot(1))
     if identifier == 'text-opium':
         return copy.deepcopy(_opium_snapshot())
     if identifier == 'text-pressure':
@@ -41,9 +43,9 @@ def starter_snapshot(identifier):
     return copy.deepcopy(_snapshot()['starters'][identifier])
 
 
-@lru_cache(maxsize=1)
-def _word_morph_snapshot():
-    return json.loads((Path(__file__).parent / 'presets/text-liquid-words-v1.json').read_text())
+@lru_cache(maxsize=2)
+def _word_morph_snapshot(version=2):
+    return json.loads((Path(__file__).parent / f'presets/text-liquid-words-v{version}.json').read_text())
 
 
 @lru_cache(maxsize=1)

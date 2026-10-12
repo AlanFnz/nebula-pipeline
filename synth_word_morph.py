@@ -8,7 +8,7 @@ from functools import lru_cache
 import math
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFilter
 
 
 def word_state(content, clock, hold, transition, loop):
@@ -39,8 +39,16 @@ def _distance(seeds):
     return d
 
 
+def _round_field(field, radius):
+    """Smooth a bounded distance band while preserving distant interior/exterior."""
+    extent = max(4., radius * 5)
+    encoded = Image.fromarray(np.uint8(np.clip(field / extent * .5 + .5, 0, 1) * 255))
+    smooth = (np.asarray(encoded.filter(ImageFilter.GaussianBlur(radius)), dtype=np.float32) / 255. - .5) * 2 * extent
+    return np.where(np.abs(field) < extent * .75, smooth + radius * .7, field)
+
+
 @lru_cache(maxsize=24)
-def word_field(word, font, weight, tracking, height, width_limit, stretch_x, stretch_y, balance, grid):
+def word_field(word, font, weight, tracking, height, width_limit, stretch_x, stretch_y, balance, grid, roundness=0.):
     from synth_text import glyph_mask
     w, h = grid
     mask = glyph_mask(word, font, tracking, 1., 1, weight=weight)
@@ -57,6 +65,10 @@ def word_field(word, font, weight, tracking, height, width_limit, stretch_x, str
     field = _distance(~inside) - _distance(inside)
     # Preserve antialiasing at the narrow serifs as well as thick stems.
     field = np.where(np.abs(field) <= 1., ink - .5, field - np.sign(field) * .5)
+    if roundness:
+        # Smooth distance rather than opacity, with an outward pressure bias
+        # to keep delicate serifs connected. Cached with the unchanging word.
+        field = _round_field(field, h * .004 * roundness)
     quantiles = []
     for axis in (0, 1):
         mass = ink.sum(axis=axis) + .025
@@ -86,7 +98,7 @@ def morph_layout(p, clock, size, zoom=1.):
     if not first: return Image.new('L', grid), cw / w * zoom, ch / h * zoom
     eased = raw * raw * raw * (raw * (raw * 6 - 15) + 10)
     amount = raw + (eased - raw) * p['morph_ease']
-    args = (p['font'], p.get('weight', 400), p['tracking'], h * p['size'], w * p['fit_width'], p['stretch_x'], p['stretch_y'], p['morph_balance'], grid)
+    args = (p['font'], p.get('weight', 400), p['tracking'], h * p['size'], w * p['fit_width'], p['stretch_x'], p['stretch_y'], p['morph_balance'], grid, p.get('morph_roundness', 0.))
     a, qa, ya = word_field(first, *args)
     b, qb, yb = word_field(second, *args)
     yy, xx = np.mgrid[:h, :w].astype(np.float32)
@@ -102,6 +114,21 @@ def morph_layout(p, clock, size, zoom=1.):
     flow = p['morph_flow'] * h * (.0015 + .018 * envelope)
     dx = flow * (np.sin(yy / h * 18 + clock * 3.1) + .35 * np.sin(xx / w * 27 - clock * 2.3))
     dy = flow * (.65 * np.sin(xx / w * 14 + clock * 2.7) + .25 * np.sin(yy / h * 23 - clock * 1.9))
+    living = p.get('morph_living', 0.)
+    if living:
+        dx += living * h * .005 * np.sin(yy / h * 15 + clock * 1.8)
+        dy += living * h * .007 * np.sin(xx / w * 12 - clock * 2.1)
     field = sample(a, ax + dx, ay + dy) * (1 - amount) + sample(b, bx + dx, by + dy) * amount
+    rounding = p.get('morph_roundness', 0.) * envelope
+    if rounding > .001:
+        # Whole words have many more merging strokes than individual glyphs.
+        # Relax their transported boundary into a smooth, connected ink shape.
+        softened = _round_field(field, h * .015 * rounding)
+        field += (softened - field) * envelope
+    if living:
+        # Traveling pressure changes the actual stroke thickness continuously,
+        # including the reading holds; it never resets at a word boundary.
+        field += living * h * .005 * (.7 + .3 * np.sin(xx / w * 13 + yy / h * 7 - clock * 2.4)
+                                      + .15 * np.sin(yy / h * 21 + clock * 1.3))
     alpha = np.clip(field + .5, 0, 1)
     return Image.fromarray((alpha * 255).astype(np.uint8)), cw / w * zoom, ch / h * zoom

@@ -8,12 +8,14 @@ in preview, export and another installation.
 - Anton Regular — The Anton Project Authors; `anton-OFL.txt`.
 - Space Mono Bold — The Space Mono Project Authors; `spacemono-OFL.txt`.
 - Bodoni Moda — The Bodoni Moda Project Authors; `bodonimoda-OFL.txt`.
+- Fraunces — The Fraunces Project Authors; `fraunces-OFL.txt`.
 
-All four ship under their included SIL Open Font License 1.1. The original
+All five ship under their included SIL Open Font License 1.1. The original
 copyright notices and licenses are retained beside the fonts. These licenses
 permit bundling the fonts with the application; the fonts are not sold separately.
 
 Downloaded from the [Google Fonts repository](https://github.com/google/fonts)
-at revision `23e54b51ddffbc7713c583748e3bd86f62b1fa4a`. Exact source URLs and SHA-256
+at revision `23e54b51ddffbc7713c583748e3bd86f62b1fa4a` (Fraunces:
+`4024282d9b0cffcdb8e3024560862746178d741f`). Exact source URLs and SHA-256
 hashes for the font and license bytes are in `sources.json`. The Mac bundle
 includes this directory. Rendering requires no font download or GUI session.
