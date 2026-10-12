@@ -494,6 +494,8 @@ MODULES += (
         P('morph_hold', 'Reading time', 1.1, .05, 15, .05, 'How long each word remains readable before reshaping.'),
         P('morph_seconds', 'Morph duration', .8, .05, 10, .05, 'Time spent reshaping one whole word into the next.'),
         P('morph_ease', 'Morph easing', 1., 0, 1, .05, 'Zero moves evenly; one accelerates and settles gently.'),
+        P('morph_snap', 'Fast attack', 0., 0, 1, .05, 'Concentrate the change near the start, with a longer deceleration into the next word. Requires Morph easing above zero.'),
+        P('morph_settle', 'Elastic settle', 0., 0, 1, .05, 'Let individual strokes flex and recoil after the main movement. The word stays centered and lands cleanly.'),
         P('morph_flow', 'Liquid motion', .65, 0, 2, .05, 'Bend the moving strokes, settling at each readable word.'),
         P('morph_balance', 'Long-word height', 0., 0, 1, .05, 'Zero fits words uniformly. Raise to keep long words taller by condensing their letters; short words keep their size.'),
         P('morph_roundness', 'Soft letter shape', 0., 0, 1, .05, 'Round and gently inflate serif tips and corners during word morphing.'),

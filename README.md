@@ -585,11 +585,16 @@ independent text-over-video layers and custom font imports are future work.
 
 ### Liquid words
 
-Choose **Studies → Text / liquid words → Load** for the 7.2-second monochrome
+Choose **Studies → Text / liquid words → Load** for the 6-second, 1000×800 monochrome
 word-morphing example. Edit the phrase in **Object → Wording → Apply text**.
 **Object → Motion & timing… → Show → Morph words** enables the same mode on any
 text source. Reading time holds each word; Morph duration reshapes it into the
-next. Morph easing and Liquid motion control the transition. Living strokes adds
+next. Morph easing and Liquid motion control the transition. **Fast attack**
+concentrates the morph near its beginning and gives the incoming word more time
+to settle. **Elastic settle** makes the strokes flex and recoil without shifting
+the whole word. Both are in Text's Timing tab and default to zero in older files.
+The current Study uses a 0.6-second morph with a fast attack, after 1.4 seconds of
+reading time. Living strokes adds
 gentle bending and swelling during the readable holds as well. Phrase ending can
 hold the final word or morph back to the beginning. Spaces and line breaks
 separate words in this mode; repetitions and line wrapping are not used.
@@ -605,8 +610,10 @@ breathing, traveling exposure, glow, softness and grain. Its **Contours → Cont
 style → Inset ink** adds a dark groove inside the luminous silhouette; Inset
 darkness sets its strength. Spacing and exposure drift change its placement and
 width. It also works with other shapes and footage, using a luminance silhouette.
-The refined Study uses this treatment and Fraunces. **Text / liquid words (first
-version)** retains the original Bodoni composition. Old saved documents keep
+The refined Study uses this treatment and Fraunces at weight 900, a wider canvas
+and less hollow breathing so thin stems stay visible. **Text / liquid words
+(soft motion)** keeps the previous 7.2-second portrait composition; **Text / liquid
+words (first version)** retains the original Bodoni composition. Old saved documents keep
 their original rendering; the new shape motion and contour style are opt-in.
 Changing the wording or timing does not resize the timeline: extend the clip to
 allow the whole phrase to play. This Study is silent; audio-triggered word

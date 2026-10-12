@@ -14,7 +14,7 @@ from synth_contour import render_contour_melt
 from synth_sequence import render_sequence_frame
 from synth_starters import starter_composition
 from synth_text import text_layout
-from synth_word_morph import word_state, word_field
+from synth_word_morph import word_state, word_field, morph_progress
 
 
 def params(**changes):
@@ -106,6 +106,53 @@ def test_first_liquid_words_keeps_012_pixels():
         assert hashlib.sha256(render_sequence_frame(seq, float(time), (288,360)).tobytes()).hexdigest() == expected
 
 
+def test_soft_motion_liquid_words_keeps_013_pixels():
+    hashes = json.loads(Path('tests/fixtures/text-liquid-words-v2-hashes.json').read_text())
+    seq = compile_composition(starter_composition('text-liquid-words-soft'))
+    for time, expected in hashes.items():
+        assert hashlib.sha256(render_sequence_frame(seq, float(time), (288,360)).tobytes()).hexdigest() == expected
+
+
+def test_fast_attack_moves_early_then_decelerates_without_progress_reversal():
+    for snap in (0., .3, .8, 1.):
+        curve = np.array([morph_progress(t, 1., snap) for t in np.linspace(0,1,101)])
+        assert curve[0] == 0. and curve[-1] == 1.
+        assert np.min(np.diff(curve)) >= -1e-12
+        assert curve[1] < .001 and 1 - curve[-2] < .001
+    assert morph_progress(.3, 1., .8) > .65
+    assert morph_progress(.3, 1., 0.) < .2
+    assert morph_progress(.37, 0., 1.) == .37  # no easing means linear
+
+
+def test_liquid_words_holds_keep_a_lit_body_under_the_moving_contours():
+    project = starter_composition('text-liquid-words')
+    plain = copy.deepcopy(project)
+    plain['source']['states']['words']['enabled'] = ['text']
+    sequence, bare = compile_composition(project), compile_composition(plain)
+    # Sample both the long word and NOW through their exposure cycle. Most of
+    # the letter body must remain lit, rather than reducing to faint outlines.
+    for time in (0., .4, .8, 1.2, 4., 4.4, 4.8, 5.2, 5.6, 5.96):
+        image = np.asarray(render_sequence_frame(sequence,time,(500,400))).max(axis=2)
+        mask = np.asarray(render_sequence_frame(bare,time,(500,400))).max(axis=2) > 128
+        assert (image[mask] > 75).mean() > .8
+
+
+def test_elastic_strokes_land_continuously_and_seek_without_history():
+    p = params(content='REVOLUTION IS NOW', font=4, weight=900,
+               morph_snap=.8, morph_settle=.65, morph_roundness=.45)
+    def ink(time, settings=p):
+        return np.asarray(text_layout(settings, time, 1., (1000,800))[0]).astype(float)
+    plain = dict(p, morph_settle=0.)
+    assert np.mean(abs(ink(1.3) - ink(1.3,plain))) > .1
+    for boundary in (1., 2., 3., 4.):
+        assert np.mean(abs(ink(boundary-1e-6) - ink(boundary))) < .05
+    middle = ink(1.3)
+    ink(100.)
+    assert np.array_equal(ink(1.3),middle)
+    assert np.array_equal(ink(0.),ink(0.,plain))
+    assert np.array_equal(ink(4.),ink(4.,plain))
+
+
 def test_living_words_remain_continuous_at_transition_end_and_seekable():
     p = params(content='REVOLUTION IS NOW', font=4, weight=800, morph_roundness=.45, morph_living=.55)
     first = np.asarray(text_layout(p, .1, 1., (720,900))[0]).astype(float)
@@ -120,7 +167,7 @@ def test_living_words_remain_continuous_at_transition_end_and_seekable():
 def test_refined_words_canvas_resize_preserves_rounded_animated_geometry():
     p = default_synth_preset(); p.update(width=400, height=300, speed=1.)
     p['modules'] = [dict(id='text', enabled=True, params=params(content='IS NOW', font=4,
-        weight=800, morph_roundness=.7, morph_living=.8))]
+        weight=800, morph_roundness=.7, morph_living=.8, morph_snap=.8, morph_settle=.65))]
     before = np.asarray(render_synth_frame(p, time_seconds=1.5))
     p.update(resize_canvas(p, {'width':600, 'height':800}))
     after = np.asarray(render_synth_frame(p, time_seconds=1.5))

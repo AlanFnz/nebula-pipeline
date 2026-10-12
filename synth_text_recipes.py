@@ -9,14 +9,15 @@ from synth_sequence import normalize_sequence
 def word_morph_composition():
     """White emulsion lettering, traveling contours and two whole-word morphs."""
     common = {
-        'text': {'content': 'REVOLUTION IS NOW', 'font': 4, 'weight': 800, 'size': .42,
+        'text': {'content': 'REVOLUTION IS NOW', 'font': 4, 'weight': 900, 'size': .46,
                  'fit_width': .86, 'tracking': .03, 'saturation': 0.,
                  'brightness': .92, 'back_brightness': 0., 'reveal': 3,
-                 'morph_hold': 1.35, 'morph_seconds': 1.05,
-                 'morph_ease': 1., 'morph_flow': .28, 'morph_balance': .5,
+                 'morph_hold': 1.4, 'morph_seconds': .6,
+                 'morph_ease': 1., 'morph_snap': .8, 'morph_settle': .65,
+                 'morph_flow': .28, 'morph_balance': .3,
                  'morph_roundness': .45, 'morph_living': .55, 'morph_loop': 0},
-        'contour_melt': {'style': 1, 'fill': 1., 'hollow': .7, 'period': 3.3, 'phase': .1,
-                         'width': 3.8, 'separation': 9., 'drift': .75, 'groove': .96,
+        'contour_melt': {'style': 1, 'fill': 1., 'hollow': .38, 'period': 3.3, 'phase': .1,
+                         'width': 3.8, 'separation': 9., 'drift': .75, 'groove': .85,
                          'softness': 2.2, 'glow': .2, 'grain': .32},
         'raster': {'softness': .5, 'lines': 0., 'grain': 0., 'chroma': 0., 'line_noise': 0.},
     }
@@ -25,8 +26,8 @@ def word_morph_composition():
         settings.update({f'{module}.{spec.key}': spec.default for spec in MODULE_BY_ID[module].params})
         settings.update({f'{module}.{key}': value for key, value in changes.items()})
     source = normalize_sequence(dict(schema_version=1, render_version=2,
-        name='Text / liquid words', duration=7.2, fps=25, seed=61126,
-        canvas={'width':720, 'height':900, 'framing':'native'},
+        name='Text / liquid words', duration=6., fps=25, seed=61126,
+        canvas={'width':1000, 'height':800, 'framing':'native'},
         states={'words': {'preset':'Reference blinds', 'enabled':list(common), 'overrides':settings}},
         cues=[{'time':0., 'state':'words', 'transition':'cut'}]))
     project = composition_from_sequence(source)

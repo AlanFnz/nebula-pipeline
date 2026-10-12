@@ -24,7 +24,7 @@ from synth_creative_ui import CreativeControlsPanel
 INK_DURATIONS = {f'ink_bloom.{key}' for key in DURATION_KEYS}
 INK_TIMING = tuple(f'ink_bloom.{key}' for key in TIMING_KEYS)
 SHARED_TIMING_CONTROLS = INK_TIMING[:8]
-TEXT_TIMING = tuple('text.' + key for key in ('reveal', 'word_seconds', 'morph_hold', 'morph_seconds', 'morph_ease', 'morph_flow', 'morph_living', 'morph_loop', 'motion', 'zoom_start', 'zoom_end', 'period', 'ease', 'phase', 'cadence'))
+TEXT_TIMING = tuple('text.' + key for key in ('reveal', 'word_seconds', 'morph_hold', 'morph_seconds', 'morph_ease', 'morph_snap', 'morph_settle', 'morph_flow', 'morph_living', 'morph_loop', 'motion', 'zoom_start', 'zoom_end', 'period', 'ease', 'phase', 'cadence'))
 POLARITY_CONTROLS = tuple('broadcast.' + key for key in ('reverse', 'reverse_period', 'reverse_phase', 'reverse_blend', 'field_spread', 'reverse_stage', 'reverse_hue', 'reverse_saturation'))
 SIGNAL_CONTROLS = tuple('broadcast.' + key for key in ('static_style', 'static', 'outages', 'sync_tear', 'period', 'duration', 'phase', 'rate', 'static_chroma', 'band', 'roll'))
 SCREEN_CONTROLS = tuple('broadcast.' + key for key in ('screen', 'screen_inset', 'screen_wear', 'halo', 'halo_radius', 'halo_hue', 'curve', 'vignette', 'halo_threshold'))

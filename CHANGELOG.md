@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.14.0 — 2026-10-12
+
+- Give **Text / liquid words** a quicker transition: a fast attack followed by
+  a small recoil in the strokes. Text's Timing tab exposes both **Fast attack**
+  and **Elastic settle** independently of morph duration and reading time.
+- Recompose the Study at 1000×800 for six seconds, with heavier Fraunces type,
+  less condensed long words and a stronger interior fill. Keep the monochrome
+  grain, soft edges and traveling inset contour.
+- Preserve the preceding portrait recipe as **Text / liquid words (soft motion)**.
+  The first version remains available too. New motion controls default to zero;
+  pixel checks protect both earlier versions and existing text Studies.
+
 ## 0.13.0 — 2026-10-12
 
 - Refine **Text / liquid words** with fuller Fraunces serif lettering, a dark
