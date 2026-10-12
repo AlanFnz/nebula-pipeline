@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.13.0 — 2026-10-12
+
+- Refine **Text / liquid words** with fuller Fraunces serif lettering, a dark
+  inset contour, soft monochrome emulsion grain and smoother whole-word merges.
+  The 7.2-second phrase remains REVOLUTION → IS → NOW.
+- Add **Soft letter shape** and **Living strokes** to word morphing. The first
+  rounds corners and relaxes merging strokes; the second keeps readable words
+  gently bending and swelling without resetting at transitions.
+- Add **Contour melt → Inset ink**, with editable inset darkness and drifting
+  groove width. It works on text, shapes and footage and preserves narrow gaps.
+- Bundle the unmodified, OFL-licensed Fraunces variable font with pinned source
+  hashes. Serif weight works with Fraunces and Bodoni Moda.
+- Keep **Text / liquid words (first version)** and the frozen v1 recipe.
+  Old saved compositions retain their pixels; new rendering controls default
+  off. No new runtime dependency is required.
+
 ## 0.12.0 — 2026-10-11
 
 - Add the **Text / liquid words** Study: REVOLUTION → IS → NOW, with whole-word
