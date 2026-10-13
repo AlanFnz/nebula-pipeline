@@ -20,7 +20,7 @@ PERSONAL_PREFIX = 'personal:'
 LIBRARY_FILE = '.library.json'
 CATEGORIES = ('Signals', 'Profiles', 'Particles', 'Mixed media', 'Text', 'Video', 'Other')
 BUILTIN_CATEGORIES = {
-    'prismatic-film': 'Signals',
+    'prismatic-film': 'Signals', 'prismatic-film-original': 'Signals',
     'radial-bloom': 'Signals',
     'refined': 'Signals', 'approved': 'Signals',
     'particle-head': 'Particles', 'particle-orbit': 'Particles', 'original-particles': 'Particles',

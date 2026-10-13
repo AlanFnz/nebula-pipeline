@@ -9,7 +9,7 @@ from synth_inspector import grouped_paths
 
 
 OBJECT_PATHS = {
-    'prismatic': tuple('prismatic_field.'+key for key in ('size','sides','gather','opening','fold_depth','rotation','palette','wash','saturation','light')),
+    'prismatic': tuple('prismatic_field.'+key for key in ('shape','sides','center_shape','size','gather','opening','fold_depth','rotation','transition_ease','turn_settle','palette','wash','saturation','light')),
     'radial': tuple('radial_bloom.'+key for key in ('expansion','petals','detail','branching','flow','variation','center_drift','palette','light')),
     'text': tuple('text.' + key for key in ('content', 'font', 'weight', 'morph_balance', 'morph_roundness', 'size', 'tracking', 'leading', 'align', 'wrap_columns', 'fit', 'block_width', 'fit_width', 'copies', 'copy_gap', 'copy_floor', 'hue', 'saturation', 'brightness', 'stretch_x', 'stretch_y')),
     'silhouette': ('silhouette.model', 'silhouette.scale', 'silhouette.yaw', 'silhouette.definition', 'silhouette.pitch', 'silhouette.roll', 'silhouette.center_x', 'silhouette.center_y', 'silhouette.neck_length', 'silhouette.neck_fullness', 'silhouette.softness'),
@@ -107,7 +107,7 @@ class SubjectPanel(QWidget):
         with QSignalBlocker(self.selector): self.selector.setCurrentIndex(self.selector.findData(self.kind))
         self.restore.setEnabled(any(entries.get(key, {}).get('mode', 'recipe') != 'recipe' for key in SOURCE_EFFECTS))
         scope = 'this clip' if local else 'the entire project'
-        notes = {'prismatic': 'Color planes hinge, turn and gather into a polygon. Source controls opens the fold rhythm, rotation, ribbon and color drift. Color emulsion adds the film texture separately.', 'radial': 'Expanding crowns and fine branching rays. Source controls opens the full motion, palette and optical settings.', 'silhouette': 'A fixed human silhouette. Adjust its pose and framing here; Edge phosphor and Scan drag treat its outline.',
+        notes = {'prismatic': 'Choose the final shape and its placement. Transition easing and Turn settle shape the authored movements. Source controls opens the fold rhythm, rotation, ribbon and color drift. Color emulsion adds the film texture separately.', 'radial': 'Expanding crowns and fine branching rays. Source controls opens the full motion, palette and optical settings.', 'silhouette': 'A fixed human silhouette. Adjust its pose and framing here; Edge phosphor and Scan drag treat its outline.',
                  'text': 'Edit your wording below and apply it. Text appearance opens background, opacity and rotation; Motion & timing controls word changes and animation.',
                  'ink': 'Edit the printed silhouette here. Its unfold, turn and refold motion stays with it.',
                  'particles': 'The model is the target of the particles. Adjust its size, pose and point density here.',
@@ -150,6 +150,9 @@ class SubjectPanel(QWidget):
             control.refresh(summary[effect]['ranges'][path], entry['params'].get(path),
                             path in parent_params, True, parent_value=parent_params.get(path),
                             context_key=context_key, scope_label=scope_label)
+        if self.kind == 'prismatic':
+            shape = summary['prismatic_field']['ranges']['prismatic_field.shape']
+            self.controls['prismatic_field.sides'].setVisible(shape[0] != shape[1] or shape[0] == 0)
         if self.kind == 'ink':
             shape = summary['ink_bloom']['ranges']['ink_bloom.shape']
             self.controls['ink_bloom.artwork'].setVisible(shape[0] == shape[1] == 5)
