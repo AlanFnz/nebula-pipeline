@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.15.0 — 2026-10-13
+
+- Add **Prismatic / color film**, a frozen 15-second portrait Study with crossed
+  color planes, closing folds and a final triangle. All geometry, motion and
+  colors are generated and editable; no reference media is bundled.
+- Add **Prismatic field** to Object: polygon shape, fold cycle, rotation, hinge
+  drift, edge ribbon, palette and evolving color clouds. Canvas changes retain
+  subject proportions and fill the newly exposed area.
+- Add reusable **Color emulsion** for objects, text and footage: optical softness,
+  chroma diffusion, color registration, dark edges, fresh grain and flutter.
+  Existing Studies leave the new modules off and keep their rendering order.
+- Clamp interpolated controls to their legal bounds, preventing floating-point
+  rounding from rejecting a morph at a parameter limit.
+
 ## 0.14.0 — 2026-10-12
 
 - Give **Text / liquid words** a quicker transition: a fast attack followed by
