@@ -9,17 +9,22 @@ from synth_canvas import content_size, object_offset, particle_framing, source_f
 from synth_regions import DirectionalRegion, LocalFrame
 from synth_render_context import RenderContext, SourceOutput
 
-ANCHORS = ('auto', 'silhouette', 'slab', 'ink_bloom', 'particles', 'blinds', 'text', 'radial_bloom')
+ANCHORS = ('auto', 'silhouette', 'slab', 'ink_bloom', 'particles', 'blinds', 'text', 'radial_bloom', 'prismatic_field')
 
 
 def source_frame(preset, size, time, anchor='auto', continuous_time=None):
     sources = {m['id']: m['params'] for m in preset.get('modules', ()) if m.get('enabled', True)}
     if anchor == 'auto':
-        anchor = next((key for key in ('text', 'radial_bloom', 'silhouette', 'ink_bloom', 'particles', 'slab', 'blinds') if key in sources), None)
+        anchor = next((key for key in ('text', 'prismatic_field', 'radial_bloom', 'silhouette', 'ink_bloom', 'particles', 'slab', 'blinds') if key in sources), None)
     if anchor not in sources:
         return None
     p = sources[anchor]
     w, h = size; cw, ch = content_size(preset, size); dx, dy = object_offset(preset, size)
+    if anchor == 'prismatic_field':
+        from synth_prismatic import prismatic_frame
+        seconds = time if continuous_time is None else continuous_time
+        center, unit, angle = prismatic_frame(p, size, seconds, preset)
+        return LocalFrame(center, max(1.,unit*.4*p['size']), -angle)
     if anchor == 'radial_bloom':
         from synth_radial import radial_frame
         seconds = time if continuous_time is None else continuous_time

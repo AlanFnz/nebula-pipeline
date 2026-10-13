@@ -24,6 +24,8 @@ def frozen_data(key):
 
 
 def starter_snapshot(identifier):
+    if identifier == 'prismatic-film':
+        return copy.deepcopy(_prismatic_snapshot())
     if identifier == 'text-liquid-words':
         return copy.deepcopy(_word_morph_snapshot())
     if identifier == 'text-liquid-words-original':
@@ -48,6 +50,11 @@ def starter_snapshot(identifier):
 @lru_cache(maxsize=3)
 def _word_morph_snapshot(version=3):
     return json.loads((Path(__file__).parent / f'presets/text-liquid-words-v{version}.json').read_text())
+
+
+@lru_cache(maxsize=1)
+def _prismatic_snapshot():
+    return json.loads((Path(__file__).parent / 'presets/prismatic-film-v1.json').read_text())
 
 
 @lru_cache(maxsize=1)

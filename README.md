@@ -620,6 +620,34 @@ allow the whole phrase to play. This Study is silent; audio-triggered word
 advancement remains planned.
 
 
+### Prismatic color film
+
+**Studies → Prismatic / color film → Load** opens a 15-second, 720×1280 optical
+Study. Opposing color planes turn, fold toward a thin edge and gather into a
+triangle. It is generated entirely inside the Studio, with no reference footage
+or external assets required. The Study is silent and its recipe is frozen.
+
+**Object → Prismatic field** replaces another generated source while retaining
+its treatments. Scale, Polygon sides and Gather into shape control the subject:
+zero Gather opens the planes beyond the canvas, and one makes a closed polygon.
+**Source controls…** exposes Plane opening, Fold depth/cycle/phase, Starting
+angle, Turn speed/variation, Hinge drift and Edge ribbon. Palette, Color phase,
+Color drift and Color clouds animate the color independently of the geometry.
+The Study authors the larger turns with transitions; Turn speed adds continuous
+rotation. Setting a parameter in Entire project overrides that parameter's
+recipe animation. Canvas resizing reveals or crops the field without stretching
+its subject. Shared Object X/Y moves the hinge and attached treatments together.
+
+**Effects → Color emulsion** is a separate treatment usable on generated
+objects, text or imported video. Optical softness, Color bleed, Color
+registration and Dark edge control the filmed edges. Grain amount/size/color,
+Grain cadence and Exposure flutter control the surface. Grain cadence holds
+only the grain; it does not slow the folds. Mix blends the finish with the
+untreated image. This treatment runs late in the existing image chain and
+before any added Tape damage instances and master adjustments. Old Studies
+leave both new modules disabled.
+
+
 ### Photocopy and foreground studies
 
 **Effects → Photocopy** processes either generated artwork or imported footage.

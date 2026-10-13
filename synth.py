@@ -31,6 +31,7 @@ from synth_modulation import render_scan_modulation, render_crt_capture
 from synth_modulation_controls import modules as modulation_modules
 from synth_repetition import modules as repetition_modules, render_signal_repetition
 from synth_radial import modules as radial_modules, render_radial_bloom
+from synth_prismatic import modules as prismatic_modules, render_prismatic_field, render_film_emulsion
 from synth_canvas import content_size, normalize_canvas, source_framing, object_offset
 from synth_print import render_ink_bloom, render_print_surface
 from synth_profile import render_silhouette, render_edge_phosphor, render_scan_drag
@@ -269,7 +270,7 @@ MODULES = (
         P("fade_width", "Fade width", .5, .01, 3, .01, "Distance from unchanged to fully faded in region units."),
         P("fade_angle", "Fade direction", 0., -180, 180, 1, "0 fades downward; 90 fades to the right, relative to the anchor."),
         P("fade_softness", "Light blending", .065, 0, .3, .005, "Soften the surrounding backlight inside the region before grain is applied."),
-        P("fade_anchor", "Object anchor", 0, 0, 7, 1, "Attach to the root of a source, including compound stamps or particle clouds.", choices=("Primary object", "Model silhouette", "Luminous forms", "Ink stamps", "Particles", "Rays", "Text", "Radial bloom")),
+        P("fade_anchor", "Object anchor", 0, 0, 8, 1, "Attach to the root of a source, including compound stamps or particle clouds.", choices=("Primary object", "Model silhouette", "Luminous forms", "Ink stamps", "Particles", "Rays", "Text", "Radial bloom", "Prismatic field")),
         P("fade_x", "Region X", 0., -3, 3, .01),
         P("fade_y", "Region Y", 0., -3, 3, .01),
         P("fade_curve", "Fade curve", 1, 0, 1, 1, choices=("Linear", "Smooth")),
@@ -688,6 +689,7 @@ MODULES += modulation_modules(Module, P)
 MODULES += repetition_modules(Module, P)
 MODULES += radial_modules(Module, P)
 MODULES += contour_modules(Module, P)
+MODULES += prismatic_modules(Module, P)
 MODULE_BY_ID = InstanceRegistry({module.id: module for module in MODULES})
 
 
@@ -1263,6 +1265,7 @@ def _breakup(arr, p, t, preset):
 
 
 RENDERERS = {
+    'film_emulsion': lambda arr, params, t, preset, index: render_film_emulsion(arr, params, t, preset['speed'], _seed(preset['seed'], 'film-emulsion'), content_size(preset, (arr.shape[1], arr.shape[0]))),
     'crt_capture': lambda arr, params, t, preset, index: render_crt_capture(arr, params, t, preset['speed'], _seed(preset['seed'], 'crt-capture'), content_size(preset, (arr.shape[1], arr.shape[0]))),
     'screen_mesh': lambda arr, params, t, preset, index: render_screen_mesh(arr, params, t, preset['speed'], _seed(preset['seed'], 'screen-mesh'), content_size(preset, (arr.shape[1], arr.shape[0]))),
     'broadcast': lambda arr, params, t, preset, index: render_broadcast(arr, params, t, preset['speed'], _seed(preset['seed'], 'broadcast')),
@@ -1305,6 +1308,9 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
     radial_source = next((entry for entry in p['modules'] if entry['id'] == 'radial_bloom' and entry['enabled']), None)
     if radial_source and source_image is None:
         arr = render_radial_bloom(arr, radial_source['params'], continuous_time, p)
+    prismatic_source = next((entry for entry in p['modules'] if entry['id'] == 'prismatic_field' and entry['enabled']), None)
+    if prismatic_source and source_image is None:
+        arr = render_prismatic_field(arr, prismatic_source['params'], continuous_time, p)
     text_source = next((entry for entry in p['modules'] if entry['id'] == 'text' and entry['enabled']), None)
     if text_source and source_image is None:
         arr = render_text(arr, text_source['params'], continuous_time, p)
@@ -1393,7 +1399,7 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
             params = dict(params, diameter=params["diameter"] * cw / ch)
         # Shared ink motion owns its hold clock across recipe sections. Other
         # effects retain the scene's speed and treatment cadence.
-        module_time = continuous_time if module_id in ('photocopy', 'broadcast', 'screen_mesh', 'crt_capture') or (module_id == 'ink_bloom' and params.get('clock_mode', 0)) else t
+        module_time = continuous_time if module_id in ('photocopy', 'broadcast', 'screen_mesh', 'crt_capture', 'film_emulsion') or (module_id == 'ink_bloom' and params.get('clock_mode', 0)) else t
         if module_id == 'edge_phosphor':
             if p['render_version'] == 1:
                 rendered = render_edge_phosphor_v1(arr, params, module_time, p, _seed(p['seed'], 'edge-phosphor'))

@@ -64,3 +64,21 @@ def test_event_geometry_starts_on_onset_and_flash_has_finite_duration():
     sequence["cues"][1].update(transition="flash", intensity=float("nan"))
     with pytest.raises(ValueError):
         normalize_sequence(sequence)
+
+
+def test_morph_at_parameter_limits_stays_in_range_at_every_frame():
+    from synth_sequence import _interpolate_presets
+    from synth import MODULE_BY_ID
+    first=curated_presets()['Reference blinds']
+    second=copy.deepcopy(first)
+    # Keep minimum/maximum values constant on alternating float controls.
+    for preset in (first,second):
+        for module in preset['modules']:
+            for i,spec in enumerate(MODULE_BY_ID[module['id']].params):
+                if spec.kind=='float': module['params'][spec.key]=spec.minimum if i%2 else spec.maximum
+    for frame in range(126):
+        result=_interpolate_presets(first,second,frame/125)
+        for module in result['modules']:
+            for spec in MODULE_BY_ID[module['id']].params:
+                if spec.kind=='float':
+                    assert spec.minimum<=module['params'][spec.key]<=spec.maximum

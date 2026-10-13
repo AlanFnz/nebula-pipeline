@@ -11,6 +11,7 @@ class ParameterPresentation:
 # Explicit paths avoid treating arbitrary angles, rates or normalized distances
 # as physical units. In particular, separation.angle is a normalized direction.
 SECONDS = frozenset({
+    'prismatic_field.fold_period',
     'particles.period', 'particles.expand_seconds', 'particles.gather_seconds',
     'ink_bloom.period', 'ink_bloom.unfold_seconds', 'ink_bloom.unfolded_seconds',
     'ink_bloom.fold_seconds', 'ink_bloom.folded_seconds',
@@ -21,6 +22,7 @@ SECONDS = frozenset({
     'slice_echo.period', 'slice_echo.flash_period', 'slice_echo.flash_seconds',
 })
 DEGREES = frozenset({
+    'prismatic_field.rotation',
     'slab.rotation', 'blinds.rotation', 'particles.yaw', 'particles.pitch',
     'silhouette.yaw', 'silhouette.pitch', 'silhouette.roll',
     'ink_bloom.shape_rotation', 'ink_bloom.rotation', 'ink_bloom.fan',
@@ -29,7 +31,7 @@ DEGREES = frozenset({
     'photocopy.screen_angle', 'text.rotation', 'slice_echo.angle',
     'screen_mesh.angle', 'crt_capture.angle',
 })
-DEGREES_PER_SECOND = frozenset({'particles.rotation_speed', 'particles.orbit_speed'})
+DEGREES_PER_SECOND = frozenset({'particles.rotation_speed', 'particles.orbit_speed', 'prismatic_field.rotation_speed'})
 PIXELS = frozenset({'low_res.resolution'})
 HUES = frozenset({
     'signal_repetition.key_hue', 'signal_repetition.hue', 'signal_repetition.fringe_hue', 'signal_repetition.outside_hue',
