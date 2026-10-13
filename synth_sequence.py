@@ -197,7 +197,7 @@ def _ease(value):
     return value * value * (3 - 2 * value)
 
 
-def _interpolate_presets(first, second, amount):
+def _interpolate_presets(first, second, amount, *, progress=None):
     """Interpolate numeric geometry/signal controls before rendering.
 
     This keeps a transition spatially coherent: rows, apertures, slab widths
@@ -228,7 +228,12 @@ def _interpolate_presets(first, second, amount):
                 entry.setdefault("params", {})[key] = original if amount < .5 else value
                 continue
             if isinstance(original, (int, float)) and isinstance(value, (int, float)):
-                interpolated = float(original) * (1 - amount) + float(value) * amount
+                parameter_amount = amount
+                if (progress is not None and entry.get('id') == 'prismatic_field'
+                        and key in ('rotation', 'opening', 'gather', 'drift')):
+                    from synth_prismatic import transition_progress
+                    parameter_amount = transition_progress(progress, amount, other['params'], rotation=key == 'rotation')
+                interpolated = float(original) * (1 - parameter_amount) + float(value) * parameter_amount
                 # Rounding can push an endpoint one ULP beyond its legal range
                 # (for example a constant font weight of 100 during a morph).
                 if spec:
@@ -265,7 +270,8 @@ def resolve_sequence_frame(sequence, time_seconds, *, normalized=False):
         # Sweeps and flashes are authored as event overlays: their target
         # geometry is visible on the first frame of the event. Only morphs
         # spend their onset frame on the previous geometry.
-        base = second if transition in {"sweep", "flash"} else _interpolate_presets(first, second, amount)
+        base = second if transition in {"sweep", "flash"} else _interpolate_presets(
+            first, second, amount, progress=(t-cue['time'])/cue['duration'])
     else:
         base = _state_preset(seq, cue["state"])
     base = apply_automations(base, seq.get("automations", ()), t)

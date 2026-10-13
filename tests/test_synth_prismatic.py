@@ -108,3 +108,76 @@ def test_shape_variants_render_finite_filled_frames(sides,gather):
     result=render_prismatic_field(np.zeros((128,80,3),np.float32),params,3.6,p)
     assert result.shape==(128,80,3) and np.isfinite(result).all()
     assert result.std()>.05 and result.min()>0
+
+
+def test_original_prismatic_study_retains_exact_pixels():
+    import hashlib, json
+    from pathlib import Path
+    manifest=json.loads((Path(__file__).parent/'fixtures/prismatic-film-v1-hashes.json').read_text())
+    sequence=compile_composition(starter_composition('prismatic-film-original'))
+    for row in manifest:
+        image=render_sequence_frame(sequence,row['time'],(144,256))
+        assert hashlib.sha256(image.tobytes()).hexdigest()==row['sha256']
+
+
+@pytest.mark.parametrize('shape', range(7))
+@pytest.mark.parametrize('angle', [0.,37.,360.])
+def test_final_shapes_center_visible_bounds_and_follow_object_offsets(shape,angle):
+    from synth_prismatic import prismatic_frame,closed_shape_field
+    p=default_synth_preset();p.update(width=360,height=640,object_x=13,object_y=-7)
+    params=dict(defaults('prismatic_field'),shape=shape,sides=7,gather=1.,center_shape=1,
+                rotation=angle,rotation_speed=0.,drift=.8)
+    yy,xx=np.mgrid[:640,:360].astype(np.float32)
+    bounds=[]
+    for t in (0.,4.,14.):
+        (cx,cy),unit,rotation=prismatic_frame(params,(360,640),t,p)
+        a=np.deg2rad(rotation);x=(xx-cx)/unit;y=(yy-cy)/unit
+        field=closed_shape_field(x*np.cos(a)+y*np.sin(a),-x*np.sin(a)+y*np.cos(a),params)
+        rows,columns=np.where(field>=0)
+        center=((columns.min()+columns.max())/2,(rows.min()+rows.max())/2)
+        assert center==pytest.approx((193.,313.),abs=1.)
+        bounds.append((cx,cy))
+    assert bounds[0]==bounds[1]==bounds[2]  # Final centering removes hinge drift.
+
+
+def test_square_and_diamond_have_distinct_readable_orientations():
+    from synth_prismatic import closed_shape_field
+    square=dict(defaults('prismatic_field'),shape=2)
+    diamond=dict(square,shape=3)
+    assert closed_shape_field(np.array(.27),np.array(.27),square)>0
+    assert closed_shape_field(np.array(.27),np.array(.27),diamond)<0
+    assert closed_shape_field(np.array(0.),np.array(.36),diamond)>0
+    assert closed_shape_field(np.array(0.),np.array(.36),square)<0
+
+
+def test_transition_curve_has_fast_middle_soft_endpoints_and_restrained_settle():
+    from synth_prismatic import transition_progress
+    from synth_sequence import _ease
+    values=np.linspace(0.,1.,501)
+    old=np.array([_ease(t) for t in values])
+    neutral=np.array([transition_progress(t,_ease(t),{},rotation=True) for t in values])
+    assert np.array_equal(old,neutral)
+    p=dict(transition_ease=.9,turn_settle=.6)
+    motion=np.array([transition_progress(t,_ease(t),p,rotation=True) for t in values])
+    assert motion[0]==0. and motion[-1]==1.
+    assert motion[250]>.8 and old[250]==.5
+    assert 1.01<motion.max()<1.08
+    assert abs(motion[1]-motion[0])<.0001 and abs(motion[-1]-motion[-2])<.0001
+    folds=np.array([transition_progress(t,_ease(t),p) for t in values])
+    assert folds.min()==0. and folds.max()==1. and np.all(np.diff(folds)>=0)
+
+
+def test_motion_controls_affect_authored_geometry_without_retiming_color_or_grain():
+    project=prismatic_composition()
+    old=copy.deepcopy(project)
+    old['effects']['prismatic_field']={'mode':'recipe','params':{'prismatic_field.transition_ease':0.,'prismatic_field.turn_settle':0.}}
+    new_sequence,old_sequence=compile_composition(project),compile_composition(old)
+    def modules_at(s,t):
+        return {m['id']:m['params'] for m in resolve_sequence_frame(s,t)[-1]['modules']}
+    new,legacy=modules_at(new_sequence,4.),modules_at(old_sequence,4.)
+    assert abs(new['prismatic_field']['rotation']-legacy['prismatic_field']['rotation'])>10
+    for key in ('palette','color_phase','color_speed','wash'):
+        assert new['prismatic_field'][key]==legacy['prismatic_field'][key]
+    assert new['film_emulsion']==legacy['film_emulsion']
+    for t in (0.,4.7,15.):
+        assert modules_at(new_sequence,t)['prismatic_field']['rotation']==modules_at(old_sequence,t)['prismatic_field']['rotation']

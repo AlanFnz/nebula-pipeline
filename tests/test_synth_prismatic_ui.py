@@ -10,11 +10,31 @@ def test_prismatic_controls_edit_and_undo_independent_geometry_and_finish(window
     composer=window.composer
     composer.look_tabs.setCurrentWidget(composer.object_panel)
     assert composer.object_panel.kind=='prismatic'
-    control=composer.object_panel.controls['prismatic_field.sides'].input
+    controls=composer.object_panel.controls
+    shape=controls['prismatic_field.shape'].input
+    assert shape.currentIndex()==1
+    assert controls['prismatic_field.sides'].isHidden()
+    shape.setCurrentIndex(2)
+    assert window.composition['effects']['prismatic_field']['params']['prismatic_field.shape']==2
+    window.undo_composition()
+    assert shape.currentIndex()==1
+    shape.setCurrentIndex(0)
+    assert not controls['prismatic_field.sides'].isHidden()
+    control=controls['prismatic_field.sides'].input
     control.setValue(5)
     assert window.composition['effects']['prismatic_field']['params']['prismatic_field.sides']==5
     window.undo_composition()
     assert control.value()==3
+    window.undo_composition()
+    assert shape.currentIndex()==1
+    controls['prismatic_field.transition_ease'].input.setValue(.5)
+    assert window.composition['effects']['prismatic_field']['params']['prismatic_field.transition_ease']==.5
+    window.undo_composition()
+    assert controls['prismatic_field.transition_ease'].input.value()==.9
+    controls['prismatic_field.turn_settle'].input.setValue(.25)
+    assert window.composition['effects']['prismatic_field']['params']['prismatic_field.turn_settle']==.25
+    window.undo_composition()
+    assert controls['prismatic_field.turn_settle'].input.value()==.6
     composer.object_panel.details.click()
     panel=composer.effects_panel
     assert panel.effect_id=='prismatic_field'

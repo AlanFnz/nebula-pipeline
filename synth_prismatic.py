@@ -16,15 +16,19 @@ def modules(Module, P):
         Module('prismatic_field', 'Prismatic field',
                'Crossed color planes fold into a polygon, over a drifting optical color field.', (
             P('size', 'Scale', 1., .15, 3, .01),
+            P('shape', 'Final shape', 0, 0, 6, 1, 'Shape formed when Gather into shape reaches one. Custom polygon uses Polygon sides.', choices=('Custom polygon', 'Triangle', 'Square', 'Diamond', 'Pentagon', 'Hexagon', 'Circle')),
             P('sides', 'Polygon sides', 3, 3, 8, 1),
+            P('center_shape', 'Final placement', 0, 0, 1, 1, 'Canvas center centers the closed shape as the planes gather. Object X/Y still adds your chosen offset.', choices=('Keep hinge position', 'Canvas center')),
             P('gather', 'Gather into shape', 0., 0, 1, .01, 'Zero opens the planes beyond the canvas; one gathers them into a closed polygon.'),
             P('opening', 'Plane opening', .48, .01, 1.5, .01, 'Width of the opposing wedges at their hinge.'),
             P('fold_depth', 'Fold depth', .9, 0, 1, .01, 'How far the planes close toward a thin edge during each cycle.'),
             P('fold_period', 'Fold cycle', 5.8, .2, 30, .1),
             P('fold_phase', 'Fold phase', .1, 0, 1, .01),
-            P('rotation', 'Starting angle', 28., -360, 360, 1),
+            P('rotation', 'Starting angle', 28., -1440, 1440, 1),
             P('rotation_speed', 'Turn speed', 12., -120, 120, .5, 'Degrees per second, before Turn variation.'),
             P('turn_variation', 'Turn variation', .65, 0, 1, .01, 'Accelerate and slow the rotation without reversing its direction.'),
+            P('transition_ease', 'Transition easing', 0., 0, 1, .01, 'Give authored turns and folds a stronger acceleration and a longer landing. Zero keeps the original transition curve.'),
+            P('turn_settle', 'Turn settle', 0., 0, 1, .01, 'Let an authored turn slightly pass its target, then settle back. Does not affect the color or grain.'),
             P('drift', 'Hinge drift', .1, 0, 1, .01),
             P('ribbon', 'Edge ribbon', .45, 0, 1, .01, 'A narrow secondary color plane travels beside the main fold.'),
             P('palette', 'Palette', 0, 0, 2, 1, choices=('Optical green / violet', 'Warm film / rose', 'Silver / ink')),
@@ -70,6 +74,41 @@ def _colors(coordinate, palette):
     return colors[index%len(colors)]*(1-blend)+colors[(index+1)%len(colors)]*blend
 
 
+def transition_progress(progress, eased, params, *, rotation=False):
+    """Endpoint-flat acceleration with an optional, restrained follow-through.
+
+    The unmodified curve is returned exactly for older documents. Color and
+    texture never use this curve, and no history is needed when scrubbing.
+    """
+    strength = params.get('transition_ease', 0.)
+    settle = params.get('turn_settle', 0.) if rotation else 0.
+    if not strength and not settle:
+        return eased
+    t = max(0., min(1., progress))
+    # Finish the main gesture early; give its arrival time to breathe.
+    u = min(1., t / .72)
+    driven = u*u*u*(u*(u*6-15)+10)
+    result = eased + strength*(driven-eased)
+    if settle and 0.35 < t < 1.:
+        tail = (t-.35)/.65
+        result += settle*.075*math.sin(math.pi*tail)**2
+    return result
+
+
+def _shape_spec(p):
+    shape = p.get('shape', 0)
+    if shape == 0: return int(p['sides']), 0.
+    return ((3, 0.), (4, math.pi/4), (4, 0.), (5, 0.), (6, 0.), (0, 0.))[shape-1]
+
+
+def _shape_bounds_center(p, angle):
+    sides, offset = _shape_spec(p)
+    if not sides: return 0., 0.
+    angles = np.arange(sides)*math.tau/sides + math.pi/2 + offset + math.radians(angle)
+    vertices = np.stack((np.cos(angles), np.sin(angles)), axis=-1)*.4
+    return (vertices.min(axis=0)+vertices.max(axis=0))*.5
+
+
 def prismatic_frame(p, size, seconds, preset):
     w,h = size
     cw,ch = content_size(preset,size)
@@ -81,6 +120,14 @@ def prismatic_frame(p, size, seconds, preset):
     angle = p['rotation']+turn
     cx = w*.5+dx+unit*p['drift']*.5*math.sin(t*.53)
     cy = h*.5-.06*ch+dy+unit*p['drift']*.65*math.sin(t*.41+.3)
+    if p.get('center_shape', 0):
+        # Center the visible bounds, including the triangle's uneven extents.
+        bx, by = _shape_bounds_center(p, angle)
+        centered_x = w*.5+dx-bx*unit*p['size']
+        centered_y = h*.5+dy-by*unit*p['size']
+        gather = p['gather']
+        cx += (centered_x-cx)*gather
+        cy += (centered_y-cy)*gather
     return (cx,cy),unit,angle
 
 
@@ -92,6 +139,14 @@ def _polygon_field(x,y,sides,radius):
         angle = math.pi/2+math.pi/sides+i*math.tau/sides
         result = np.minimum(result,apothem-x*math.cos(angle)-y*math.sin(angle))
     return result
+
+
+def closed_shape_field(u, v, p):
+    sides, angle = _shape_spec(p)
+    if not sides: return .4-np.hypot(u,v)
+    if angle:
+        u, v = u*math.cos(angle)+v*math.sin(angle), -u*math.sin(angle)+v*math.cos(angle)
+    return _polygon_field(u,v,sides,.4)
 
 
 def _cloud(x,y,time,seed):
@@ -121,7 +176,7 @@ def render_prismatic_field(arr,p,seconds,preset):
     phase=math.tau*(t/p['fold_period']+p['fold_phase'])
     aperture=p['opening']*(1-p['fold_depth']*(.5-.5*math.cos(phase)))
     wedge=(aperture*np.abs(v)-np.abs(u))/math.sqrt(1+aperture**2)
-    polygon=_polygon_field(u,v,p['sides'],.40)
+    polygon=closed_shape_field(u,v,p)
     field=wedge*(1-p['gather'])+polygon*p['gather']
     coverage=np.clip(field*unit*p['size']+.5,0,1)[...,None]
     cloud=(.19*_cloud(x*2.1,y*2.1,t*.43,int(preset['seed']))+

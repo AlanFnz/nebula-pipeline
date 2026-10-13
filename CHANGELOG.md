@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.16.0 — 2026-10-13
+
+- Refine **Prismatic / color film** with varied gesture durations, stronger
+  acceleration and a restrained rotational follow-through. Transition easing
+  and Turn settle are editable in Object and Source controls.
+- Add Final shape choices: triangle, square, diamond, pentagon, hexagon, circle
+  or a custom polygon. Final placement can center the visible shape as the
+  planes gather, honoring Object X/Y and preserving proportions.
+- Center the final figure in the 15-second Study and stop its hinge drift.
+  Keep the color-emulsion settings and preserve the original frozen Study as
+  **Prismatic / color film (first version)**. New controls default off in older files.
+
 ## 0.15.0 — 2026-10-13
 
 - Add **Prismatic / color film**, a frozen 15-second portrait Study with crossed

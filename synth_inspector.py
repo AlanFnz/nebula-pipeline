@@ -6,8 +6,8 @@ def control_group(path):
     path = base_path(path)
     module, key = path.split('.')
     if module == 'prismatic_field':
-        if key in ('size', 'sides', 'gather', 'opening', 'rotation', 'ribbon'): return 'Shape & layout'
-        if key in ('fold_depth', 'fold_period', 'fold_phase', 'rotation_speed', 'turn_variation', 'drift'): return 'Motion & timing'
+        if key in ('size', 'shape', 'sides', 'center_shape', 'gather', 'opening', 'rotation', 'ribbon'): return 'Shape & layout'
+        if key in ('fold_depth', 'fold_period', 'fold_phase', 'rotation_speed', 'turn_variation', 'transition_ease', 'turn_settle', 'drift'): return 'Motion & timing'
         return 'Color & light'
     if module == 'film_emulsion':
         if key in ('softness', 'bleed', 'registration', 'edge_ink'): return 'Optical finish'

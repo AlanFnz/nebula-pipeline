@@ -540,6 +540,10 @@ class EffectsPanel(QWidget):
         if not self.focused: self.scope_label.setText(self.context_scope_label)
         self.timing_selected.emit(timing and self.focused)
         visible_paths = SHARED_TIMING_CONTROLS if timing else tuple(path for path in effect.paths if not ink or path not in INK_TIMING)
+        if effect.id == 'prismatic_field':
+            shape = self.summary[effect.id]['ranges']['prismatic_field.shape']
+            if shape[0] == shape[1] and shape[0] != 0:
+                visible_paths = tuple(path for path in visible_paths if path != 'prismatic_field.sides')
         if text:
             visible_paths = TEXT_TIMING if text_timing else tuple(path for path in effect.paths if path not in TEXT_TIMING)
             ranges = self.summary['text']['ranges']

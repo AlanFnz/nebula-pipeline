@@ -630,11 +630,22 @@ or external assets required. The Study is silent and its recipe is frozen.
 **Object → Prismatic field** replaces another generated source while retaining
 its treatments. Scale, Polygon sides and Gather into shape control the subject:
 zero Gather opens the planes beyond the canvas, and one makes a closed polygon.
+**Final shape** chooses Triangle, Square, Diamond, Pentagon, Hexagon or Circle.
+Choose Custom polygon to expose Polygon sides. **Final placement → Canvas center**
+centers the visible bounds of the gathered figure, even when changing shape or
+rotating it; shared Object X/Y still adds your chosen offset. Keep hinge position
+retains the original placement. The revised Study ends centered with no hinge drift.
 **Source controls…** exposes Plane opening, Fold depth/cycle/phase, Starting
 angle, Turn speed/variation, Hinge drift and Edge ribbon. Palette, Color phase,
 Color drift and Color clouds animate the color independently of the geometry.
 The Study authors the larger turns with transitions; Turn speed adds continuous
-rotation. Setting a parameter in Entire project overrides that parameter's
+rotation. **Transition easing** gives authored turns and folds a stronger
+acceleration and a longer landing. **Turn settle** adds a small rotational
+follow-through before arriving at the target. The Study varies gesture durations
+and uses both controls; zero retains the old interpolation. These controls leave
+color and emulsion clocks alone. **Prismatic / color film (first version)**
+preserves the previous Study, and saved v1 files retain their pixels.
+Setting a parameter in Entire project overrides that parameter's
 recipe animation. Canvas resizing reveals or crops the field without stretching
 its subject. Shared Object X/Y moves the hinge and attached treatments together.
 
