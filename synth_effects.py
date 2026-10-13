@@ -34,6 +34,8 @@ def paths(module, keys=None):
 
 
 EFFECTS = (
+    Effect('prismatic_field', 'Prismatic field', 'Crossed color planes open, turn and gather into a polygon. Geometry, fold rhythm, palette and moving color clouds are independent controls.', paths('prismatic_field'), ('prismatic_field',)),
+    Effect('film_emulsion', 'Color emulsion', 'Soft optical edges, local color bleed, registration fringes and fresh colored grain. Applied after the image treatments; works with objects, text and footage.', paths('film_emulsion'), ('film_emulsion',), looks=(('Soft optical film', {}), ('Fine grain', {'film_emulsion.grain': .04, 'film_emulsion.grain_size': .7, 'film_emulsion.softness': 1.}), ('Rough emulsion', {'film_emulsion.grain': .12, 'film_emulsion.grain_size': 1.6, 'film_emulsion.registration': 4.}))),
     Effect('contour_melt', 'Contour melt', 'Luminous double contours and drifting solid-to-hollow exposure, with soft glow and emulsion grain. Works on text, shapes and footage.', paths('contour_melt'), ('contour_melt',)),
     Effect('radial_bloom', 'Radial bloom', 'Nested expanding crowns and branching rays. Flow, center drift, palette and optical softness are independent controls. Ray vibration bends the rays from their origin; audio can drive its intensity, expansion, detail and light.', paths('radial_bloom'), ('radial_bloom',)),
     Effect('scan_modulation', 'Scan modulation', 'Interrupt source rows with coupled oscillators, color-lock failures and bright points. Apply to the whole picture, highlights or a color range; Selection view helps tune the key. Works with footage, text and generated objects.', paths('scan_modulation'), ('scan_modulation',)),

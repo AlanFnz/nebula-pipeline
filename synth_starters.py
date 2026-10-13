@@ -5,9 +5,11 @@ from synth_compat import starter_snapshot
 from synth_profile_recipes import clear_profile_composition, doryphoros_composition
 from synth_text_recipes import text_composition, opium_composition, word_morph_composition
 from synth_radial_recipes import radial_composition
+from synth_prismatic_recipes import prismatic_composition
 
 
 STARTERS = (
+    ('prismatic-film', 'Prismatic / color film · 15s', prismatic_composition),
     ('text-liquid-words', 'Text / liquid words · 6s', word_morph_composition),
     ('text-liquid-words-soft', 'Text / liquid words (soft motion) · 7.2s', lambda: starter_snapshot('text-liquid-words-soft')),
     ('text-liquid-words-original', 'Text / liquid words (first version) · 7.2s', lambda: starter_snapshot('text-liquid-words-original')),
@@ -37,6 +39,7 @@ STARTERS = (
 
 # First appearance in the repository, retained independently of app builds.
 STARTER_DATES = {
+    'prismatic-film': '2026-10-13',
     'text-liquid-words': '2026-10-12', 'text-liquid-words-original': '2026-10-11',
     'text-liquid-words-soft': '2026-10-12',
     'radial-bloom': '2026-10-11',

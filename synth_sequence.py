@@ -229,6 +229,10 @@ def _interpolate_presets(first, second, amount):
                 continue
             if isinstance(original, (int, float)) and isinstance(value, (int, float)):
                 interpolated = float(original) * (1 - amount) + float(value) * amount
+                # Rounding can push an endpoint one ULP beyond its legal range
+                # (for example a constant font weight of 100 during a morph).
+                if spec:
+                    interpolated = max(spec.minimum, min(spec.maximum, interpolated))
                 entry.setdefault("params", {})[key] = round(interpolated) if spec and spec.kind == "int" else interpolated
             elif amount >= .5:
                 entry.setdefault("params", {})[key] = value

@@ -5,6 +5,14 @@ def control_group(path):
     from synth_instances import base_path
     path = base_path(path)
     module, key = path.split('.')
+    if module == 'prismatic_field':
+        if key in ('size', 'sides', 'gather', 'opening', 'rotation', 'ribbon'): return 'Shape & layout'
+        if key in ('fold_depth', 'fold_period', 'fold_phase', 'rotation_speed', 'turn_variation', 'drift'): return 'Motion & timing'
+        return 'Color & light'
+    if module == 'film_emulsion':
+        if key in ('softness', 'bleed', 'registration', 'edge_ink'): return 'Optical finish'
+        if key == 'mix': return 'Output & blending'
+        return 'Film texture'
     if module == 'text' and key in ('morph_balance', 'morph_roundness'): return 'Shape & layout'
     if module == 'text' and key.startswith('morph_'): return 'Motion & timing'
     if module == 'contour_melt':
