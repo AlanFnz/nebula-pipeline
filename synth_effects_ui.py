@@ -26,7 +26,7 @@ INK_TIMING = tuple(f'ink_bloom.{key}' for key in TIMING_KEYS)
 SHARED_TIMING_CONTROLS = INK_TIMING[:8]
 TEXT_TIMING = tuple('text.' + key for key in ('reveal', 'word_seconds', 'morph_hold', 'morph_seconds', 'morph_ease', 'morph_snap', 'morph_settle', 'morph_flow', 'morph_living', 'morph_loop', 'motion', 'zoom_start', 'zoom_end', 'period', 'ease', 'phase', 'cadence'))
 POLARITY_CONTROLS = tuple('broadcast.' + key for key in ('reverse', 'reverse_period', 'reverse_phase', 'reverse_blend', 'field_spread', 'reverse_stage', 'reverse_hue', 'reverse_saturation'))
-SIGNAL_CONTROLS = tuple('broadcast.' + key for key in ('static_style', 'static', 'outages', 'sync_tear', 'period', 'duration', 'phase', 'rate', 'static_chroma', 'band', 'roll'))
+SIGNAL_CONTROLS = tuple('broadcast.' + key for key in ('static_style', 'static', 'timing', 'period', 'duration', 'duration_variation', 'phase', 'outages', 'sync_tear', 'rate', 'static_chroma', 'band', 'roll'))
 SCREEN_CONTROLS = tuple('broadcast.' + key for key in ('screen', 'screen_inset', 'screen_wear', 'halo', 'halo_radius', 'halo_hue', 'curve', 'vignette', 'halo_threshold'))
 REGION_CONTROLS = tuple('edge_phosphor.' + key for key in (
     'fade_mode', 'neck_dissolve', 'fade_strength', 'fade_start', 'fade_width',
@@ -566,6 +566,8 @@ class EffectsPanel(QWidget):
             groups = (tuple(path for path in effect.paths if path not in POLARITY_CONTROLS + SIGNAL_CONTROLS + SCREEN_CONTROLS),
                       POLARITY_CONTROLS, SIGNAL_CONTROLS, SCREEN_CONTROLS)
             visible_paths = groups[self.parameter_tabs.currentIndex()]
+            if self.summary['broadcast']['ranges']['broadcast.timing'] == (0, 0):
+                visible_paths = tuple(path for path in visible_paths if path != 'broadcast.duration_variation')
         if self.allowed_effects is not None and 'forms' not in self.allowed_effects:
             visible_paths = tuple(path for path in visible_paths if not path.startswith('slab.'))
         if effect.id == 'contour_melt' and self.summary['contour_melt']['ranges']['contour_melt.style'] == (0, 0):

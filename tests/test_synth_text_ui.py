@@ -121,9 +121,20 @@ def test_refined_text_and_broadcast_controls_apply_and_undo(window):
     panel=composer.effects_panel;panel.inspect_effect('broadcast');panel.parameter_tabs.setCurrentIndex(2)
     assert not panel.controls['broadcast.static_style'].isHidden()
     assert panel.controls['broadcast.halo'].isHidden()
+    panel.group_labels['Motion & timing'].click()
     panel.controls['broadcast.outages'].input.setValue(.4)
     assert window.composition['effects']['broadcast']['params']['broadcast.outages']==.4
     window.undo_composition()
+    assert panel.controls['broadcast.duration_variation'].isHidden()
+    panel.controls['broadcast.timing'].input.setCurrentIndex(1)
+    assert window.composition['effects']['broadcast']['params']['broadcast.timing'] == 1
+    assert not panel.controls['broadcast.duration_variation'].isHidden()
+    panel.controls['broadcast.duration_variation'].input.setValue(.7)
+    assert window.composition['effects']['broadcast']['params']['broadcast.duration_variation'] == .7
+    window.undo_composition()
+    window.undo_composition()
+    assert panel.controls['broadcast.timing'].input.currentIndex() == 0
+    assert panel.controls['broadcast.duration_variation'].isHidden()
     panel.parameter_tabs.setCurrentIndex(3)
     assert not panel.controls['broadcast.screen'].isHidden()
     assert panel.controls['broadcast.static'].isHidden()

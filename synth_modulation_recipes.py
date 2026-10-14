@@ -75,7 +75,8 @@ def modulated_crt_composition(footage, *, effects=None):
     project['seed'] = 4297
     project['phrases']['custom']['name'] = 'Cyan / modulated CRT'
     for effect, changes in (MODULATED_CRT_EFFECTS if effects is None else effects).items():
-        entry = effect_preset(effect)
+        # Existing treatment recipes keep their authored regular timing.
+        entry = effect_preset(effect, 1 if effect == 'broadcast' else 0)
         entry['params'].update(changes)
         project['effects'][effect] = entry
     return normalize_composition(project)

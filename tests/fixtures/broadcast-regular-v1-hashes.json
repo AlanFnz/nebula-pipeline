@@ -1,0 +1,137 @@
+[
+  {
+    "changes": {},
+    "time": 0.0,
+    "hash": "4758d670ff88e8d16aa925dcab2e78151fd6129bf43f7ee1c2b174de917d6e1b"
+  },
+  {
+    "changes": {},
+    "time": 0.42,
+    "hash": "af040ad1e42ecc5cff7676cba52ffd12ced2695badee29e2c73370eca88261de"
+  },
+  {
+    "changes": {},
+    "time": 1.95,
+    "hash": "ec233c5be1929440aafc07caac054b7a3e5a5acadeecb067f158d9f89bfb5bea"
+  },
+  {
+    "changes": {},
+    "time": 2.02,
+    "hash": "6f503a71dd68564c65c8dec0a34cd40efb678c12aa51b9f008a099620850723e"
+  },
+  {
+    "changes": {},
+    "time": 8.9,
+    "hash": "5b83b11e2cd7a01cc213e670ec1aab8f3f048faea0817dbbf2d468784c4d5cf8"
+  },
+  {
+    "changes": {
+      "duration": 0.0,
+      "outages": 0.4,
+      "static_style": 1,
+      "screen": 0.8,
+      "halo": 0.5,
+      "wash": 0.2
+    },
+    "time": 0.0,
+    "hash": "2712f494b75fda46dd7c613e966f44a4860900964da68076ed212251011b9d35"
+  },
+  {
+    "changes": {
+      "duration": 0.0,
+      "outages": 0.4,
+      "static_style": 1,
+      "screen": 0.8,
+      "halo": 0.5,
+      "wash": 0.2
+    },
+    "time": 0.42,
+    "hash": "4b9b675f2e7cd4a4aa7be1e7b067e1a83eed4c19b28cee6732f4ffd72b98d67a"
+  },
+  {
+    "changes": {
+      "duration": 0.0,
+      "outages": 0.4,
+      "static_style": 1,
+      "screen": 0.8,
+      "halo": 0.5,
+      "wash": 0.2
+    },
+    "time": 1.95,
+    "hash": "2f02268e56544f1e2200a6804a1a4101d3f4546de5937fb84bf251ec6156bb4f"
+  },
+  {
+    "changes": {
+      "duration": 0.0,
+      "outages": 0.4,
+      "static_style": 1,
+      "screen": 0.8,
+      "halo": 0.5,
+      "wash": 0.2
+    },
+    "time": 2.02,
+    "hash": "b88d8c2f41e20b01e099927fe1a25b9d35e2333773dfa20d2171ee22ef677722"
+  },
+  {
+    "changes": {
+      "duration": 0.0,
+      "outages": 0.4,
+      "static_style": 1,
+      "screen": 0.8,
+      "halo": 0.5,
+      "wash": 0.2
+    },
+    "time": 8.9,
+    "hash": "2799703213446152fb9815f4da568324bbedf6b108ba8cb8986450f917ac91f9"
+  },
+  {
+    "changes": {
+      "duration": 0.4,
+      "period": 0.3,
+      "band": 0.2,
+      "reverse": 0.5
+    },
+    "time": 0.0,
+    "hash": "b27541508799fa082ea4cd1faa181025fcbdd5ef9766fc8bca4b7551ad1932a2"
+  },
+  {
+    "changes": {
+      "duration": 0.4,
+      "period": 0.3,
+      "band": 0.2,
+      "reverse": 0.5
+    },
+    "time": 0.42,
+    "hash": "bfcc4681f3bfb4d3c3c1e6b523f84b7b633f1d6563aae708e2dc3b16859ea26d"
+  },
+  {
+    "changes": {
+      "duration": 0.4,
+      "period": 0.3,
+      "band": 0.2,
+      "reverse": 0.5
+    },
+    "time": 1.95,
+    "hash": "38bb2d2c09afd9cf85e30a4a1d671abd53a8edd2aecaacbe89820f114e3012d6"
+  },
+  {
+    "changes": {
+      "duration": 0.4,
+      "period": 0.3,
+      "band": 0.2,
+      "reverse": 0.5
+    },
+    "time": 2.02,
+    "hash": "6f503a71dd68564c65c8dec0a34cd40efb678c12aa51b9f008a099620850723e"
+  },
+  {
+    "changes": {
+      "duration": 0.4,
+      "period": 0.3,
+      "band": 0.2,
+      "reverse": 0.5
+    },
+    "time": 8.9,
+    "hash": "83f32ba4b815fe5fce1602e03c3d64ecf9916f5e4c6aea98ea6bcb86ef335c0f"
+  }
+]
