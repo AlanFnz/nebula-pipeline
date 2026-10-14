@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.23.0 — 2026-10-14
+
+- Add Black glass to 3D solid with adjustable reflections, roughness,
+  transmission and screen-space background refraction. Works on imported
+  geometry and procedural solids; existing materials retain their pixels.
+- Add Model height for imported geometry: stretch the local vertical axis
+  without changing width or depth. Transform normals correctly under the
+  stretch and keep all three rotation controls independent.
+- Preserve the built-in die recipes and expose relevant controls in both
+  inspectors. Imported geometry remains embedded and unchanged by stretching.
+
 ## 0.22.0 — 2026-10-14
 
 - Import static GLB / glTF 2.0 geometry into 3D solid, with shared size,
