@@ -9,6 +9,7 @@ from synth_inspector import grouped_paths
 
 
 OBJECT_PATHS = {
+    'solid': tuple('solid.'+key for key in ('shape','scale','yaw','pitch','roll','turn_speed','tumble_speed','roll_speed','variation','perspective','pip_size','pip_light','palette','shading','light')),
     'prismatic': tuple('prismatic_field.'+key for key in ('shape','sides','center_shape','size','gather','opening','fold_depth','rotation','transition_ease','turn_settle','palette','wash','saturation','light')),
     'radial': tuple('radial_bloom.'+key for key in ('expansion','petals','detail','branching','flow','variation','center_drift','palette','light')),
     'text': tuple('text.' + key for key in ('content', 'font', 'weight', 'morph_balance', 'morph_roundness', 'size', 'tracking', 'leading', 'align', 'wrap_columns', 'fit', 'block_width', 'fit_width', 'copies', 'copy_gap', 'copy_floor', 'hue', 'saturation', 'brightness', 'stretch_x', 'stretch_y')),
@@ -96,7 +97,7 @@ class SubjectPanel(QWidget):
         if not self.updating and index >= 0: self.selected.emit(self.selector.itemData(index))
 
     def open_details(self, timing):
-        effect = {'prismatic': 'prismatic_field', 'radial': 'radial_bloom', 'ink': 'ink_bloom', 'particles': 'particles', 'signal': self.signal_effect, 'silhouette': 'silhouette', 'text': 'text'}.get(self.kind)
+        effect = {'solid': 'solid', 'prismatic': 'prismatic_field', 'radial': 'radial_bloom', 'ink': 'ink_bloom', 'particles': 'particles', 'signal': self.signal_effect, 'silhouette': 'silhouette', 'text': 'text'}.get(self.kind)
         if effect: self.details_requested.emit(effect, timing)
 
     def refresh(self, summary, entries, parent_entries, local, *, context_key=None, scope_label=None):
@@ -113,6 +114,7 @@ class SubjectPanel(QWidget):
                  'particles': 'The model is the target of the particles. Adjust its size, pose and point density here.',
                  'signal': 'The luminous form and ray aperture share this geometry.',
                  'none': 'Choose an object to introduce a source into the scene.'}
+        notes['solid'] = 'A die or cube rotating around its center. Adjust its pose, rotation speeds and dots here. Color field controls the background; Color emulsion textures both together.'
         note = f'{notes[self.kind]} Changes apply to {scope}.'
         if len(active) > 1:
             note += ' Also present: ' + ', '.join(SUBJECTS[key][0] for key in active[1:]) + '. Choosing a type replaces the source families in this scope.'
@@ -150,6 +152,10 @@ class SubjectPanel(QWidget):
             control.refresh(summary[effect]['ranges'][path], entry['params'].get(path),
                             path in parent_params, True, parent_value=parent_params.get(path),
                             context_key=context_key, scope_label=scope_label)
+        if self.kind == 'solid':
+            shape = summary['solid']['ranges']['solid.shape']
+            for key in ('pip_size', 'pip_light'):
+                self.controls['solid.'+key].setVisible(shape[0] != shape[1] or shape[0] == 0)
         if self.kind == 'prismatic':
             shape = summary['prismatic_field']['ranges']['prismatic_field.shape']
             self.controls['prismatic_field.sides'].setVisible(shape[0] != shape[1] or shape[0] == 0)

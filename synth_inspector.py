@@ -5,6 +5,17 @@ def control_group(path):
     from synth_instances import base_path
     path = base_path(path)
     module, key = path.split('.')
+    if module == 'solid':
+        if key in ('shape', 'scale', 'yaw', 'pitch', 'roll', 'perspective'): return 'Shape & layout'
+        if key in ('turn_speed', 'tumble_speed', 'roll_speed', 'variation', 'color_speed'): return 'Motion & timing'
+        if key in ('pip_size', 'pip_light'): return 'Texture & detail'
+        if key == 'mix': return 'Output & blending'
+        return 'Color & light'
+    if module == 'color_field':
+        if key in ('flow', 'color_speed'): return 'Motion & timing'
+        if key in ('scale', 'wash'): return 'Texture & detail'
+        if key == 'mix': return 'Output & blending'
+        return 'Color & light'
     if module == 'prismatic_field':
         if key in ('size', 'shape', 'sides', 'center_shape', 'gather', 'opening', 'rotation', 'ribbon'): return 'Shape & layout'
         if key in ('fold_depth', 'fold_period', 'fold_phase', 'rotation_speed', 'turn_variation', 'transition_ease', 'turn_settle', 'drift'): return 'Motion & timing'

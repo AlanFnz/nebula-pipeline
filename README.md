@@ -679,6 +679,31 @@ before any added Tape damage instances and master adjustments. Old Studies
 leave both new modules disabled.
 
 
+### Color film / rotating die
+
+**Studies → Color film / rotating die → Load** opens a separate 15-second,
+720×1280 Study with a centered rotating die over moving optical color clouds.
+Color emulsion gives the background and solid the same softness, color fringes
+and grain. Broadcast wear adds the curved screen edge; its interruptions are
+disabled in this Study. The existing Prismatic Studies retain their rendering.
+
+**Object → 3D solid** chooses a **Die** or an unmarked **Cube**. Size, starting
+turn/tilt/roll, three rotation speeds, Turn variation and Perspective are editable.
+The dots belong to each face and rotate with it; Dot size and Dot brightness
+appear for Die only. Opposite faces sum to seven. Shared Object X/Y moves the
+solid without moving its background. Source controls opens its palette, color
+drift, surface clouds, face shading and opacity. This source generates its own
+geometry and needs no external model file.
+
+**Effects → Color field** controls the independent background: Palette, Color
+phase/drift, Color clouds, Cloud size/motion, Saturation, Exposure and Mix.
+**Object → No object** leaves the background and finishing effects visible.
+The field also works behind other generated objects; opaque full-frame sources
+may cover it. It is not an imported-video overlay. Canvas resizing reveals more
+background while preserving the solid's proportions and reference size.
+Preview, scrubbing and export use the same absolute animation clock. These new
+modules default to off in existing documents; no old Study is rewritten.
+
 ### Photocopy and foreground studies
 
 **Effects → Photocopy** processes either generated artwork or imported footage.
