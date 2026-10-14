@@ -8,7 +8,7 @@ def rotating_die_composition():
     enabled = ('color_field', 'solid', 'film_emulsion', 'broadcast')
     settings = {'speed': 1., 'depth': 0., 'treatment_fps': 25, 'object_x': 0., 'object_y': 0.}
     for module in enabled:
-        settings.update({f'{module}.{spec.key}': spec.default for spec in MODULE_BY_ID[module].params})
+        settings.update({f'{module}.{spec.key}': spec.default for spec in MODULE_BY_ID[module].params if spec.kind != 'mesh'})
     settings.update({'solid.corner_radius': .13, 'solid.material': 1,
                      'solid.roughness': .27, 'solid.specular': .65,
                      'solid.pip_depth': .018, 'solid.pip_light': .075, 'solid.light': 1.,

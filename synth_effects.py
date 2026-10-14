@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 from synth import MODULE_BY_ID, Param, curated_presets
 from synth_artwork import validate_artwork
+from synth_mesh import validate_mesh
 from synth_text import validate_text
 from synth_ink_timing import stage_durations
 from synth_creative import creative_overrides, merged_creative, normalize_creative
@@ -167,6 +168,9 @@ def normalize_effects(raw):
             spec = parameter(path)
             if spec.kind == 'text':
                 values[path] = validate_text(value)
+                continue
+            if spec.kind == 'mesh':
+                values[path] = validate_mesh(value)
                 continue
             if spec.kind == "artwork":
                 values[path] = validate_artwork(value)

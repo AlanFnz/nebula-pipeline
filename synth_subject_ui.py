@@ -10,7 +10,7 @@ from synth_solids import hidden_controls as hidden_solid_controls
 
 
 OBJECT_PATHS = {
-    'solid': tuple('solid.'+key for key in ('shape','scale','yaw','pitch','roll','turn_speed','tumble_speed','roll_speed','variation','perspective','corner_radius','material','roughness','specular','pip_size','pip_light','pip_depth','palette','shading','light')),
+    'solid': tuple('solid.'+key for key in ('shape','model_data','scale','yaw','pitch','roll','turn_speed','tumble_speed','roll_speed','variation','perspective','corner_radius','material','roughness','specular','pip_size','pip_light','pip_depth','palette','shading','light')),
     'prismatic': tuple('prismatic_field.'+key for key in ('shape','sides','center_shape','size','gather','opening','fold_depth','rotation','transition_ease','turn_settle','palette','wash','saturation','light')),
     'radial': tuple('radial_bloom.'+key for key in ('expansion','petals','detail','branching','flow','variation','center_drift','palette','light')),
     'text': tuple('text.' + key for key in ('content', 'font', 'weight', 'morph_balance', 'morph_roundness', 'size', 'tracking', 'leading', 'align', 'wrap_columns', 'fit', 'block_width', 'fit_width', 'copies', 'copy_gap', 'copy_floor', 'hue', 'saturation', 'brightness', 'stretch_x', 'stretch_y')),
@@ -115,7 +115,7 @@ class SubjectPanel(QWidget):
                  'particles': 'The model is the target of the particles. Adjust its size, pose and point density here.',
                  'signal': 'The luminous form and ray aperture share this geometry.',
                  'none': 'Choose an object to introduce a source into the scene.'}
-        notes['solid'] = 'A die or cube rotating around its center. Adjust rounded corners, material, reflections, pose, rotation speeds and dots here. Color field controls the background; Color emulsion textures both together.'
+        notes['solid'] = 'A die, cube or imported GLB/glTF model rotating around its center. Adjust rounded corners, material, reflections, pose, rotation speeds and dots here. Imported models use static geometry and the studio material. Color field controls the background; Color emulsion textures both together.'
         note = f'{notes[self.kind]} Changes apply to {scope}.'
         if len(active) > 1:
             note += ' Also present: ' + ', '.join(SUBJECTS[key][0] for key in active[1:]) + '. Choosing a type replaces the source families in this scope.'

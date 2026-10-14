@@ -39,6 +39,7 @@ from synth_profile import render_silhouette, render_edge_phosphor, render_scan_d
 from synth_profile_v1 import render_edge_phosphor as render_edge_phosphor_v1
 from synth_compat import CURRENT_RENDER_VERSION, frozen_data, frozen_defaults, render_version
 from synth_artwork import validate_artwork
+from synth_mesh import validate_mesh
 from synth_jitter import render_frame_jitter
 from synth_resolution import finish_resolution, render_resolution
 
@@ -798,6 +799,9 @@ def normalize_synth(raw=None):
             value = incoming[spec.key]
             if spec.kind == 'text':
                 params[spec.key] = validate_text(value)
+                continue
+            if spec.kind == 'mesh':
+                params[spec.key] = validate_mesh(value)
                 continue
             if spec.kind == "artwork":
                 params[spec.key] = validate_artwork(value)

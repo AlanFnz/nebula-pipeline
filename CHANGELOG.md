@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.22.0 — 2026-10-14
+
+- Import static GLB / glTF 2.0 geometry into 3D solid, with shared size,
+  position, pose and independent rotation speeds on all three axes. Use
+  White plastic or Optical color; scene transforms and smooth normals are
+  preserved. Original materials, textures and skeletal animation are not imported.
+- Embed normalized geometry in saved projects, snapshots and personal Studies.
+  Replace and clear models with individual undo steps; existing die/cube Study
+  recipes and rendered pixels remain unchanged.
+- Add depth-tested, antialiased mesh rendering with bounded row buffers for
+  larger canvases. Import supports local companion buffers, limits geometry
+  complexity, and never fetches remote resources.
+
 ## 0.21.0 — 2026-10-14
 
 - Add adjustable rounded geometry and a White plastic material to 3D solid,

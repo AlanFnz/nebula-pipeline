@@ -17,8 +17,11 @@ PALETTES = ('Optical green / violet', 'Warm film / rose', 'Silver / ink')
 def hidden_controls(ranges):
     """Keep both inspectors aligned; mixed/animated choices expose all controls."""
     hidden = set()
-    if tuple(ranges['solid.shape']) == (1, 1):
+    if ranges['solid.shape'][0] == ranges['solid.shape'][1] and ranges['solid.shape'][0] != 0:
         hidden.update(('pip_size', 'pip_light', 'pip_depth'))
+    shape = tuple(ranges['solid.shape'])
+    if shape == (2, 2): hidden.add('corner_radius')
+    elif shape[0] == shape[1]: hidden.add('model_data')
     material = tuple(ranges['solid.material'])
     if material == (0, 0):
         hidden.update(('roughness', 'specular', 'pip_depth'))
@@ -41,8 +44,8 @@ def modules(Module, P):
             P('light', 'Exposure', 1., 0, 2, .01),
             P('mix', 'Mix', 1., 0, 1, .01),
         )),
-        Module('solid', '3D solid', 'A rotating die or unmarked cube. Treatments apply to the object and background together.', (
-            P('shape', 'Shape', 0, 0, 1, 1, choices=('Die', 'Cube')),
+        Module('solid', '3D solid', 'A rotating die, cube or imported static 3D model. Treatments apply to the object and background together.', (
+            P('shape', 'Shape', 0, 0, 2, 1, choices=('Die', 'Cube', 'Imported model')),
             P('scale', 'Size', .48, .05, 2, .01, 'Side length relative to the artwork reference. Canvas resizing never stretches the solid.'),
             P('yaw', 'Starting turn', 30., -180, 180, 1),
             P('pitch', 'Starting tilt', -22., -180, 180, 1),
@@ -68,6 +71,7 @@ def modules(Module, P):
             P('roughness', 'Surface roughness', .32, .08, 1., .01, 'Low values make tighter reflections; high values give a matte finish. White plastic only.'),
             P('specular', 'Reflection strength', .5, 0, 1, .01, 'Soft studio reflections on the white plastic.'),
             P('pip_depth', 'Dot recess', 0., 0, .04, .001, 'Shallow shading inside the dots. White plastic only; does not change the outer silhouette.'),
+            P('model_data', '3D model', '', kind='mesh', hint='Import static GLB/glTF geometry. Embedded in the project; uses the studio material. Up to 60,000 triangles. Set Shape to Imported model.'),
         )),
     )
 
@@ -221,6 +225,9 @@ def _plastic_surface(local, normal, face, rotation, direction, p):
 
 def render_solid(arr,p,seconds,preset):
     if not p['mix']: return arr
+    if p['shape'] == 2:
+        from synth_mesh_render import render_mesh
+        return render_mesh(arr,p,seconds,preset)
     h,w=arr.shape[:2]; (cx,cy),unit,rotation=solid_frame(p,(w,h),seconds,preset)
     # The projected bounding sphere encloses every orientation even at maximum
     # perspective. Crop work, not the model, to the canvas.

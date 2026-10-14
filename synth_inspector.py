@@ -6,6 +6,7 @@ def control_group(path):
     path = base_path(path)
     module, key = path.split('.')
     if module == 'solid':
+        if key == 'model_data': return 'Shape & layout'
         if key in ('shape', 'scale', 'yaw', 'pitch', 'roll', 'perspective', 'corner_radius'): return 'Shape & layout'
         if key in ('turn_speed', 'tumble_speed', 'roll_speed', 'variation', 'color_speed'): return 'Motion & timing'
         if key in ('pip_size', 'pip_light', 'pip_depth'): return 'Texture & detail'

@@ -703,7 +703,9 @@ class EffectsPanel(QWidget):
                 entry['params'].setdefault('edge_phosphor.fade_width', .38)
         if path == 'ink_bloom.artwork' and value:
             entry['params']['ink_bloom.shape'] = 5
-        self.edited.emit(effect_id, entry, f"effect-param:{path}")
+        if path == 'solid.model_data' and value:
+            entry['params']['solid.shape'] = 2
+        self.edited.emit(effect_id, entry, "model-replace" if path == "solid.model_data" else f"effect-param:{path}")
 
     def reset_parameter(self, path, effect_id=None):
         effect_id = effect_id or self.effect_id

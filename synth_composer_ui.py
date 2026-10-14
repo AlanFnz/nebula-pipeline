@@ -1200,7 +1200,9 @@ class CompositionPanel(QWidget):
         entry['params'][path] = value
         if path == 'ink_bloom.artwork' and value:
             entry['params']['ink_bloom.shape'] = 5
-        self.change_effect(effect, entry, f'effect-param:{path}')
+        if path == 'solid.model_data' and value:
+            entry['params']['solid.shape'] = 2
+        self.change_effect(effect, entry, 'model-replace' if path == 'solid.model_data' else f'effect-param:{path}')
 
     def reset_object_parameter(self, effect, path):
         if self.updating: return
