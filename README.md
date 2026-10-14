@@ -575,7 +575,18 @@ final-screen reversal and all new operations' neutral defaults remain available.
 **Look → Exposure wash** adds fresh uneven illumination, using Field hue and
 color spread. **Signal** offers the original Snow and the new Broken sync
 texture, static intensity/color, seeded Random outages and Sync tearing during
-interruptions. The existing cycle/duration and rolling band remain available.
+interruptions. **Interruption timing → Random** replaces the repeating beat
+with irregular gaps and occasional clusters. **Interruption interval** is the
+average time between starts; **Interruption duration** sets their length, and
+**Duration variation** varies that length independently. Random timing uses the
+project seed and signal clock, so seeking, preview quality and export preserve
+the same events. Static FPS controls the noise texture, not this event schedule.
+Newly added Broadcast wear uses the **Irregular signal** preset. Saved studies
+keep **Regular** timing unless you change it in **Signal → Motion & timing**;
+switch that control directly to preserve your other Broadcast wear settings.
+The **Regular signal** preset and rolling band remain available. Duration zero
+disables scheduled interruptions; the separate Random outages control can still
+add extra flashes.
 **Screen** controls CRT glass, inset and wear, plus highlight-driven colored
 halation, radius, hue and threshold. These controls also process imported video;
 none require a text source. New operations are off by default in older documents.

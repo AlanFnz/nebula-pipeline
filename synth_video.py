@@ -456,7 +456,8 @@ def apply_treatment(project, index):
     result['effects'] = {}
     result['master'] = normalize_master()
     for effect, params in TREATMENTS[index][1].items():
-        entry = effect_preset(effect)
+        # Existing treatment recipes keep their authored regular timing.
+        entry = effect_preset(effect, 1 if effect == 'broadcast' else 0)
         entry['params'].update(params)
         result['effects'][effect] = entry
     for section in result['sections']: section['effects'] = {}

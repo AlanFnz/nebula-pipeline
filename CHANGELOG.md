@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.17.0 — 2026-10-14
+
+- Add Broadcast wear → Signal → Interruption timing: Random replaces the fixed
+  cycle with irregular gaps and occasional clusters. Interruption interval is
+  the average interval; Duration variation adds independently varied lengths.
+- Keep random events stable when scrubbing, changing preview resolution or
+  exporting. Static FPS changes their texture without changing their timing.
+- Newly added Broadcast wear starts with Irregular signal. Existing saved
+  compositions, built-in Studies and video treatment recipes retain Regular
+  timing until changed explicitly. Other effects and the Prismatic Study are
+  unchanged.
+
 ## 0.16.0 — 2026-10-13
 
 - Refine **Prismatic / color film** with varied gesture durations, stronger

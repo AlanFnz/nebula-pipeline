@@ -1,11 +1,45 @@
 """Reusable broadcast field, signal-loss intervals and curved screen treatment."""
 import math
+from functools import lru_cache
 
 import numpy as np
 from PIL import Image
 
 from synth_text import color
 from synth_broadcast_detail import exposure_wash, broken_sync, glass_optics
+
+
+@lru_cache(maxsize=512)
+def _interruption_events(seed, cell):
+    """Stationary Poisson events in one unit interval, independent of render order.
+
+    Empty intervals allow longer gaps; several events allow short clusters.
+    Each event stores its onset and an independent duration multiplier sample.
+    Cache only seed/cell data, never frames or changing parameter values.
+    """
+    rng = np.random.default_rng(np.random.SeedSequence((seed, cell & 0xffffffffffffffff, 195)))
+    return tuple(sorted(map(tuple, rng.random((rng.poisson(1.), 2)))))
+
+
+def interruption_gate(p, clock, seed):
+    """Full-frame loss at regular or seeded random intervals, in signal time."""
+    if not p.get('timing', 0):
+        # Preserve the original branch exactly, including duration >= period.
+        return float((clock / p['period'] + p['phase']) % 1 < p['duration'] / p['period'])
+    if p['duration'] <= 0:
+        return 0.
+    position = clock / p['period'] + p['phase']
+    duration = p['duration'] / p['period']
+    variation = p.get('duration_variation', 0.)
+    # Include events that began in earlier cells and still cover this frame.
+    first = math.floor(position - duration * (1 + .8 * variation))
+    last = math.floor(position)
+    for cell in range(first, last + 1):
+        for onset, length_sample in _interruption_events(seed, cell):
+            length = duration * (1 + variation * .8 * (2 * length_sample - 1))
+            if 0 <= position - (cell + onset) < length:
+                return 1.
+    return 0.
 
 
 def render_polarity(arr, p, time, speed):
@@ -73,8 +107,7 @@ def render_broadcast(arr, p, time, speed, seed):
     if not p.get('reverse_stage', 0):
         out = render_broadcast_exposure(out, p, time, speed)
     if p.get('wash', 0.): out = exposure_wash(out, p, detail_rng)
-    event = (clock / p['period'] + p['phase']) % 1
-    gate = float(event < p['duration'] / p['period'])
+    gate = interruption_gate(p, clock, seed)
     if p.get('outages', 0.):
         # Event timing must not change with canvas resolution or wash/optics.
         timing_rng = np.random.default_rng(np.random.SeedSequence((seed, tick & 0xffffffffffffffff, 194)))
