@@ -115,8 +115,8 @@ def test_shape_variants_render_finite_filled_frames(sides,gather):
 def test_original_prismatic_study_regression_pixels():
     import hashlib, json
     from pathlib import Path
-    # 0.18 corrects the orphan ribbon at 8s and 11.9s. The other five hashes
-    # still protect the original open planes and fully gathered endpoint.
+    # 0.18 bounds the ribbon; 0.19 fades the central hinge as planes gather.
+    # The four fully open frames still protect the original rendering.
     manifest=json.loads((Path(__file__).parent/'fixtures/prismatic-film-v1-hashes.json').read_text())
     sequence=compile_composition(starter_composition('prismatic-film-original'))
     for row in manifest:
@@ -160,6 +160,53 @@ def test_ribbon_remains_visible_inside_fold_and_disappears_at_closed_shape():
         return synth_prismatic.render_prismatic_field(arr,dict(params,ribbon=ribbon,gather=gather),10.,preset)
     assert np.max(np.abs(render(1.,.65)-render(0.,.65)))>.05
     assert np.array_equal(render(1.,1.),render(0.,1.))
+
+
+@pytest.mark.parametrize('shape', range(7))
+@pytest.mark.parametrize('scale', [.15,.7,3.])
+def test_gathered_shapes_have_no_central_crease_but_keep_outer_seam(monkeypatch,shape,scale):
+    import synth_prismatic
+    # A flat white source makes unintended shading measurable without palette,
+    # grain or exposure disguising it. The boundary is measured separately.
+    monkeypatch.setattr(synth_prismatic,'_colors',
+                        lambda coordinate,palette: np.ones(coordinate.shape+(3,),np.float32))
+    preset=default_synth_preset();preset.update(width=240,height=320)
+    params=dict(defaults('prismatic_field'),shape=shape,sides=8,size=scale,
+                rotation=37.,rotation_speed=0.,gather=1.,shading=1.,drift=0.)
+    arr=np.zeros((320,240,3),np.float32)
+    rendered=synth_prismatic.render_prismatic_field(arr,params,14.64,preset)
+    (cx,cy),unit,angle=synth_prismatic.prismatic_frame(params,(240,320),14.64,preset)
+    yy,xx=np.mgrid[:320,:240].astype(np.float32);a=np.deg2rad(angle)
+    x=(xx-cx)/unit/scale;y=(yy-cy)/unit/scale
+    distance=synth_prismatic.closed_shape_field(x*np.cos(a)+y*np.sin(a),-x*np.sin(a)+y*np.cos(a),params)*unit*scale
+    # >7 pixels from the boundary: even maximum Fold shading stays flat.
+    interior=distance>7.
+    assert interior.any()
+    assert rendered[interior].min()>.99
+    rim=np.abs(distance)<.5
+    if rim.any():
+        assert rendered[rim].max()<.8
+
+
+def test_hinge_shadow_recedes_smoothly_during_gather(monkeypatch):
+    import synth_prismatic
+    monkeypatch.setattr(synth_prismatic,'_colors',
+                        lambda coordinate,palette: np.ones(coordinate.shape+(3,),np.float32))
+    preset=default_synth_preset();preset.update(width=240,height=320)
+    params=dict(defaults('prismatic_field'),shape=1,size=1.,shading=1.,ribbon=0.,
+                rotation=0.,rotation_speed=0.,drift=0.,center_shape=0,fold_depth=0.)
+    arr=np.zeros((320,240,3),np.float32)
+    # Fixed point along the hinge, comfortably inside every morph silhouette.
+    center,unit,_=synth_prismatic.prismatic_frame(params,(240,320),0.,preset)
+    row,col=round(center[1]+unit*.12),round(center[0])
+    brightness=[]
+    for gather in (0.,.25,.5,.65,.8,1.):
+        result=synth_prismatic.render_prismatic_field(arr,dict(params,gather=gather),0.,preset)
+        brightness.append(result[row,col,0])
+    assert brightness[0]<.6  # The original open-plane fold is retained.
+    assert np.all(np.diff(brightness)>0)
+    assert brightness[3]>.98  # No pronounced crease at the reported transition.
+    assert brightness[-1]>.999
 
 
 @pytest.mark.parametrize('shape', range(7))
