@@ -35,6 +35,11 @@ def render_mesh(arr,p,seconds,preset):
     from synth_solids import solid_frame,_plastic_surface,_grade
     from synth_prismatic import _cloud,_colors
     vertices,normals,faces,_=decode_mesh(p['model_data'])
+    stretch=p.get('height_stretch',1.)
+    if stretch != 1.:
+        vertices=vertices*np.array((1.,stretch,1.))
+        normals=normals/np.array((1.,stretch,1.))
+        normals/=np.maximum(np.linalg.norm(normals,axis=1,keepdims=True),1e-8)
     h,w=arr.shape[:2];(cx,cy),unit,rotation=solid_frame(p,(w,h),seconds,preset)
     world=vertices@rotation.T
     denominator=1-p['perspective']*world[:,2]/4
@@ -62,7 +67,10 @@ def render_mesh(arr,p,seconds,preset):
         direction=np.stack((sx*p['perspective']/4,sy*p['perspective']/4,-np.ones_like(sx)),axis=-1)@rotation
         # Both sides of open meshes remain visible with authored smooth normals.
         normal*=np.where(np.sum(normal*direction,axis=1)>0,-1.,1.)[:,None]
-        if p['material']==1:
+        if p['material']==2:
+            from synth_glass import glass_surface
+            color=glass_surface(normal,rotation,direction,p,arr,left+(xx+.5)*.5-.5,top+(yy+.5)*.5-.5,unit,local)
+        elif p['material']==1:
             color=_plastic_surface(local,normal,np.zeros(len(local),dtype=int),rotation,direction,dict(p,shape=2))
         else:
             t=seconds*preset['speed']

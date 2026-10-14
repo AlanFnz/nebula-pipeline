@@ -32,7 +32,7 @@ class MeshControl(QWidget):
             self.status.setText(f'{name} · {len(f):,} triangles · embedded in project')
             self.import_button.setText('Replace model…')
         else:
-            self.status.setText('GLB / glTF · static geometry · white plastic or optical color')
+            self.status.setText('GLB / glTF · static geometry · Studio materials, including Black glass')
             self.import_button.setText('Import model…')
         self.clear_button.setEnabled(bool(self._value))
 

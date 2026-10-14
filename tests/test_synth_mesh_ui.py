@@ -35,3 +35,19 @@ def test_import_replace_clear_and_undo_preserve_the_look(window,tmp_path,monkeyp
     panel.controls['solid.model_data'].input.setValue(fixture_mesh())
     window.undo_composition();assert panel.controls['solid.model_data'].input.value()==initial
     wait_until(lambda:not window.render_running and not window.render_queued)
+
+
+def test_glass_material_and_height_controls_are_editable(window):
+    window.set_composition(starter_composition('color-film-die'))
+    composer=window.composer;composer.look_tabs.setCurrentWidget(composer.object_panel);obj=composer.object_panel
+    obj.controls['solid.shape'].input.setCurrentIndex(2)
+    obj.controls['solid.model_data'].input.setValue(fixture_mesh())
+    obj.controls['solid.material'].input.setCurrentIndex(2)
+    assert not obj.controls['solid.height_stretch'].isHidden()
+    assert not obj.controls['solid.glass_transmission'].isHidden()
+    assert obj.controls['solid.shading'].isHidden()
+    obj.controls['solid.height_stretch'].input.setValue(1.8)
+    assert window.composition['effects']['solid']['params']['solid.height_stretch']==1.8
+    window.undo_composition()
+    assert obj.controls['solid.height_stretch'].input.value()==1.
+    wait_until(lambda:not window.render_running and not window.render_queued)

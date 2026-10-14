@@ -727,8 +727,16 @@ not needed. Saved Studies and snapshots also contain the geometry.
 material and treatments. **Clear** removes its geometry; Undo restores it. Use
 Scale and the shared Object position controls to frame it. Starting yaw, pitch
 and roll set its angle; each axis has its own rotation speed, with zero stopping
-that axis. **White plastic** and **Optical color** are the Studio materials;
+that axis. **White plastic**, **Optical color** and **Black glass** are the Studio materials;
 Color emulsion, grain and other effects can treat the model and background together.
+
+**Model height** stretches an imported figure along its own vertical axis while
+keeping its width and depth fixed. Size still scales the entire model uniformly.
+For **Black glass**, Surface roughness and Reflection strength control the studio
+highlights. Glass transmission controls how much background shows through;
+Glass refraction distorts that background within the object. This is a
+screen-space glass approximation, not a physically traced glass volume. Zero
+transmission makes the object opaque. Existing materials are unchanged.
 
 This importer supports static geometry with up to 60,000 triangles / 180,000
 vertices and files plus buffers totaling 64 MB. It preserves scene transforms

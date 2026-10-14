@@ -21,12 +21,15 @@ def hidden_controls(ranges):
         hidden.update(('pip_size', 'pip_light', 'pip_depth'))
     shape = tuple(ranges['solid.shape'])
     if shape == (2, 2): hidden.add('corner_radius')
-    elif shape[0] == shape[1]: hidden.add('model_data')
+    elif shape[0] == shape[1]: hidden.update(('model_data', 'height_stretch'))
     material = tuple(ranges['solid.material'])
     if material == (0, 0):
         hidden.update(('roughness', 'specular', 'pip_depth'))
-    elif material == (1, 1):
+    elif material in ((1, 1), (2, 2)):
         hidden.update(('palette', 'color_phase', 'color_speed', 'wash', 'saturation'))
+    if material[0] == material[1] and material[0] != 2:
+        hidden.update(('glass_transmission', 'glass_refraction'))
+    if material == (2, 2): hidden.update(('pip_size', 'pip_light', 'pip_depth', 'shading'))
     return {'solid.' + key for key in hidden}
 
 
@@ -67,11 +70,14 @@ def modules(Module, P):
             P('mix', 'Opacity', 1., 0, 1, .01),
             # Append controls so older definitions retain their parameter order.
             P('corner_radius', 'Corner radius', 0., 0, .22, .005, 'Round the actual edges and corners. Radius relative to the side length.'),
-            P('material', 'Material', 0, 0, 1, 1, choices=('Optical color', 'White plastic')),
-            P('roughness', 'Surface roughness', .32, .08, 1., .01, 'Low values make tighter reflections; high values give a matte finish. White plastic only.'),
-            P('specular', 'Reflection strength', .5, 0, 1, .01, 'Soft studio reflections on the white plastic.'),
+            P('material', 'Material', 0, 0, 2, 1, choices=('Optical color', 'White plastic', 'Black glass')),
+            P('roughness', 'Surface roughness', .32, .08, 1., .01, 'Low values make tighter reflections; high values give a matte finish. White plastic and Black glass.'),
+            P('specular', 'Reflection strength', .5, 0, 1, .01, 'Strength of studio reflections on White plastic or Black glass.'),
             P('pip_depth', 'Dot recess', 0., 0, .04, .001, 'Shallow shading inside the dots. White plastic only; does not change the outer silhouette.'),
             P('model_data', '3D model', '', kind='mesh', hint='Import static GLB/glTF geometry. Embedded in the project; uses the studio material. Up to 60,000 triangles. Set Shape to Imported model.'),
+            P('height_stretch', 'Model height', 1., .2, 3., .01, 'Stretch the imported model along its own vertical axis, keeping its width and depth unchanged.'),
+            P('glass_transmission', 'Glass transmission', .1, 0, .6, .01, 'How much background shows through the dark glass. Zero makes it opaque.'),
+            P('glass_refraction', 'Glass refraction', .18, 0, .6, .01, 'Screen-space distortion of the background inside the glass.'),
         )),
     )
 
@@ -258,7 +264,12 @@ def render_solid(arr,p,seconds,preset):
                 hit[hit] = rounded
             axis=np.abs(local).argmax(axis=-1)
             face=axis*2+(local[np.arange(len(local)),axis]<0)
-            if p.get('material', 0) == 1:
+            if p.get('material', 0) == 2:
+                from synth_glass import glass_surface
+                hy,hx=np.nonzero(hit)
+                surface=glass_surface(NORMALS[face] if normals is None else normals,rotation,direction[hit],p,
+                                      arr,xs[hx],ys[hy],unit,local)
+            elif p.get('material', 0) == 1:
                 surface = _plastic_surface(local, NORMALS[face] if normals is None else normals,
                                            face, rotation, direction[hit], p)
             else:
