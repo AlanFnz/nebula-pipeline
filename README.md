@@ -682,18 +682,28 @@ leave both new modules disabled.
 ### Color film / rotating die
 
 **Studies → Color film / rotating die → Load** opens a separate 15-second,
-720×1280 Study with a centered rotating die over moving optical color clouds.
+720×1280 Study with a centered, rounded white plastic die over moving optical color clouds.
 Color emulsion gives the background and solid the same softness, color fringes
 and grain. Broadcast wear adds the curved screen edge; its interruptions are
 disabled in this Study. The existing Prismatic Studies retain their rendering.
 
 **Object → 3D solid** chooses a **Die** or an unmarked **Cube**. Size, starting
 turn/tilt/roll, three rotation speeds, Turn variation and Perspective are editable.
+**Corner radius** rounds the actual geometry; zero keeps sharp edges. **Material**
+chooses Optical color or White plastic. The latter has soft studio reflections;
+**Surface roughness** changes their spread and **Reflection strength** their amount.
 The dots belong to each face and rotate with it; Dot size and Dot brightness
-appear for Die only. Opposite faces sum to seven. Shared Object X/Y moves the
-solid without moving its background. Source controls opens its palette, color
-drift, surface clouds, face shading and opacity. This source generates its own
-geometry and needs no external model file.
+appear for Die only. **Dot recess** adds shallow cavity shading to white plastic
+without changing the silhouette. Opposite faces sum to seven. Shared Object X/Y
+moves the solid without moving its background. Source controls opens the full
+material settings, face shading and opacity; Optical color also exposes palette,
+color drift and surface clouds. This source generates its own geometry and needs
+no external model file. The visual reference is a
+[rounded white plastic die](https://www.boardgamesmaker.com/print/round-corner-dice-16mm.html).
+
+The **Color film / rotating die (optical color)** Study preserves the original
+colored, sharp-edged version. Existing saved compositions keep those defaults;
+the rounded white version is a separate frozen recipe.
 
 **Effects → Color field** controls the independent background: Palette, Color
 phase/drift, Color clouds, Cloud size/motion, Saturation, Exposure and Mix.

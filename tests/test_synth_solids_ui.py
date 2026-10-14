@@ -11,10 +11,22 @@ def test_die_and_background_controls_can_be_edited_and_undone(window):
     composer.look_tabs.setCurrentWidget(composer.object_panel)
     obj=composer.object_panel
     assert obj.kind=='solid'
+    assert obj.controls['solid.material'].input.currentIndex()==1
+    assert obj.controls['solid.palette'].isHidden()
+    assert not obj.controls['solid.roughness'].isHidden()
+    obj.controls['solid.corner_radius'].input.setValue(.18)
+    assert window.composition['effects']['solid']['params']['solid.corner_radius']==.18
+    window.undo_composition()
+    assert obj.controls['solid.corner_radius'].input.value()==.13
+    obj.controls['solid.material'].input.setCurrentIndex(0)
+    assert obj.controls['solid.roughness'].isHidden()
+    assert not obj.controls['solid.palette'].isHidden()
+    window.undo_composition()
     shape=obj.controls['solid.shape'].input
     assert not obj.controls['solid.pip_size'].isHidden()
     shape.setCurrentIndex(1)
     assert obj.controls['solid.pip_size'].isHidden()
+    assert obj.controls['solid.pip_depth'].isHidden()
     window.undo_composition()
     assert shape.currentIndex()==0 and not obj.controls['solid.pip_size'].isHidden()
     obj.controls['solid.turn_speed'].input.setValue(42.)
