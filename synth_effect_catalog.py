@@ -7,9 +7,10 @@ from synth_effects import EFFECTS, EFFECT_BY_ID, effects_for
 from synth_instances import instance_ids, base_id
 
 
-SOURCE_EFFECT_IDS = frozenset(('radial_bloom', 'forms', 'rays', 'ink_bloom', 'particles', 'silhouette', 'text', 'prismatic_field'))
+SOURCE_EFFECT_IDS = frozenset(('radial_bloom', 'forms', 'rays', 'ink_bloom', 'particles', 'silhouette', 'text', 'prismatic_field', 'solid'))
 CATEGORIES = ('Distortion', 'Texture', 'Light & color', 'Motion & echoes', 'Cutout', 'Finishing', 'Other')
 EFFECT_CATEGORIES = {
+    'color_field': 'Light & color',
     'film_emulsion': 'Texture',
     'contour_melt': 'Light & color',
     'signal_repetition': 'Motion & echoes',
@@ -86,6 +87,8 @@ def effect_catalog(allowed_effects=None, *, query='', category=''):
 
 # Capability sentences, separate from frozen recipes and measured visibility.
 CONTRIBUTIONS = {
+    'solid': '3D solid provides a rotating die or cube.',
+    'color_field': 'Color field provides moving optical clouds behind the object.',
     'prismatic_field': 'Prismatic field creates turning color planes and a closed polygon.',
     'film_emulsion': 'Color emulsion adds optical fringes, softness and moving grain.',
     'radial_bloom': 'Radial bloom creates expanding crowns and branching rays.',

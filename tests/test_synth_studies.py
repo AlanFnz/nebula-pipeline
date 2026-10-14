@@ -174,7 +174,7 @@ def test_legacy_preferences_unknown_fields_and_corruption_are_preserved(tmp_path
 
 
 @pytest.mark.parametrize('identifier,category', [('refined', 'Signals'), ('profile-doryphoros', 'Profiles'),
-    ('particle-head', 'Particles'), ('text-phosphor', 'Text'), ('ink-bloom', 'Mixed media')])
+    ('particle-head', 'Particles'), ('text-phosphor', 'Text'), ('ink-bloom', 'Mixed media'), ('color-film-die', 'Signals')])
 def test_saved_categories_follow_source_capabilities(identifier, category, tmp_path):
     from synth_studies import composition_category
     project = starter_composition(identifier)

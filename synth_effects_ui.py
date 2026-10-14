@@ -540,6 +540,10 @@ class EffectsPanel(QWidget):
         if not self.focused: self.scope_label.setText(self.context_scope_label)
         self.timing_selected.emit(timing and self.focused)
         visible_paths = SHARED_TIMING_CONTROLS if timing else tuple(path for path in effect.paths if not ink or path not in INK_TIMING)
+        if effect.id == 'solid':
+            shape = self.summary[effect.id]['ranges']['solid.shape']
+            if shape[0] == shape[1] == 1:
+                visible_paths = tuple(path for path in visible_paths if path not in ('solid.pip_size', 'solid.pip_light'))
         if effect.id == 'prismatic_field':
             shape = self.summary[effect.id]['ranges']['prismatic_field.shape']
             if shape[0] == shape[1] and shape[0] != 0:
@@ -580,7 +584,7 @@ class EffectsPanel(QWidget):
                 if mode == (2, 2):
                     visible_paths = tuple(p for p in visible_paths if p != 'edge_phosphor.fade_anchor')
                 self.description.setText('Profile preset keeps the original neck blend. Choose Object to attach a reusable fade to a source, or Canvas to hold it in the viewport. The region affects contours, echoes, fill and surrounding light; it leaves the final background texture intact.')
-                sources = ('silhouette', 'forms', 'ink_bloom', 'particles', 'rays', 'text', 'radial_bloom', 'prismatic_field')
+                sources = ('silhouette', 'forms', 'ink_bloom', 'particles', 'rays', 'text', 'radial_bloom', 'prismatic_field', 'solid')
                 anchor = self.summary['edge_phosphor']['ranges']['edge_phosphor.fade_anchor']
                 missing = mode == (1, 1) and (not any(self.summary[s]['active'] for s in sources) if anchor == (0, 0) else
                           anchor[0] == anchor[1] and not self.summary[sources[int(anchor[0]) - 1]]['active'])

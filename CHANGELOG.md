@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.20.0 — 2026-10-14
+
+- Add the independent Color field background and a 3D solid source with Die
+  and Cube shapes. Size, pose, rotation speeds and variation, perspective,
+  face markings, palette, surface clouds and shading are editable. Shared
+  Object position moves only the solid; No object keeps the background.
+- Add Color film / rotating die, a frozen 15-second portrait Study sharing
+  one Color emulsion finish across the object and moving background, with a
+  subtle curved-screen finish. It requires no external assets.
+- Preserve existing module indices, defaults and Study pixels. Extend source
+  selection, attached effect anchors, inspector grouping and undo support.
+
 ## 0.19.0 — 2026-10-14
 
 - Fade Prismatic field's central hinge shadow as the planes gather, removing

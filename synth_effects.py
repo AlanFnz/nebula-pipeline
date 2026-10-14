@@ -34,6 +34,8 @@ def paths(module, keys=None):
 
 
 EFFECTS = (
+    Effect('solid', '3D solid', 'A centered rotating die or cube. Adjust its pose, rotation, dots and surface colors in Object. Image treatments texture the complete picture.', paths('solid'), ('solid',)),
+    Effect('color_field', 'Color field', 'Moving optical color clouds behind generated objects. Choose No object for the background alone. Full-frame sources can cover this background.', paths('color_field'), ('color_field',)),
     Effect('prismatic_field', 'Prismatic field', 'Crossed color planes open, turn and gather into a polygon. Geometry, fold rhythm, palette and moving color clouds are independent controls.', paths('prismatic_field'), ('prismatic_field',)),
     Effect('film_emulsion', 'Color emulsion', 'Soft optical edges, local color bleed, registration fringes and fresh colored grain. Applied after the image treatments; works with objects, text and footage.', paths('film_emulsion'), ('film_emulsion',), looks=(('Soft optical film', {}), ('Fine grain', {'film_emulsion.grain': .04, 'film_emulsion.grain_size': .7, 'film_emulsion.softness': 1.}), ('Rough emulsion', {'film_emulsion.grain': .12, 'film_emulsion.grain_size': 1.6, 'film_emulsion.registration': 4.}))),
     Effect('contour_melt', 'Contour melt', 'Luminous double contours and drifting solid-to-hollow exposure, with soft glow and emulsion grain. Works on text, shapes and footage.', paths('contour_melt'), ('contour_melt',)),

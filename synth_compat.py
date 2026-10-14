@@ -24,6 +24,8 @@ def frozen_data(key):
 
 
 def starter_snapshot(identifier):
+    if identifier == 'color-film-die':
+        return copy.deepcopy(_solid_snapshot())
     if identifier == 'prismatic-film-original':
         return copy.deepcopy(_prismatic_snapshot(1))
     if identifier == 'prismatic-film':
@@ -47,6 +49,11 @@ def starter_snapshot(identifier):
     if identifier in ('profile-clear', 'profile-doryphoros'):
         return copy.deepcopy(_profile_snapshot()[identifier])
     return copy.deepcopy(_snapshot()['starters'][identifier])
+
+
+@lru_cache(maxsize=1)
+def _solid_snapshot():
+    return json.loads((Path(__file__).parent / 'presets/color-film-die-v1.json').read_text())
 
 
 @lru_cache(maxsize=3)
