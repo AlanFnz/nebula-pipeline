@@ -649,13 +649,19 @@ retains the original placement. The revised Study ends centered with no hinge dr
 **Source controls…** exposes Plane opening, Fold depth/cycle/phase, Starting
 angle, Turn speed/variation, Hinge drift and Edge ribbon. Palette, Color phase,
 Color drift and Color clouds animate the color independently of the geometry.
+Edge ribbon follows the evolving fold silhouette as it gathers, including at
+small scales and with every final shape; it does not leave a diagonal across
+the exposed background.
 The Study authors the larger turns with transitions; Turn speed adds continuous
 rotation. **Transition easing** gives authored turns and folds a stronger
 acceleration and a longer landing. **Turn settle** adds a small rotational
 follow-through before arriving at the target. The Study varies gesture durations
 and uses both controls; zero retains the old interpolation. These controls leave
 color and emulsion clocks alone. **Prismatic / color film (first version)**
-preserves the previous Study, and saved v1 files retain their pixels.
+preserves the previous Study's motion and settings. Since 0.18.0, both versions
+clip the edge ribbon to the gathering silhouette; affected intermediate frames
+lose the stray background diagonal. Open planes and the closed endpoint retain
+their original pixels.
 Setting a parameter in Entire project overrides that parameter's
 recipe animation. Canvas resizing reveals or crops the field without stretching
 its subject. Shared Object X/Y moves the hinge and attached treatments together.

@@ -37,12 +37,14 @@ def test_study_roundtrip_preserves_motion_and_seek_pixels(tmp_path):
     assert project == prismatic_composition()
 
 
-@pytest.mark.parametrize('time', [.7, 13.2])
-def test_wider_canvas_reveals_field_without_stretching_geometry(time):
+@pytest.mark.parametrize('time', [.7, 10., 13.2])
+@pytest.mark.parametrize('scale', [.15,.7,3.])
+def test_wider_canvas_reveals_field_without_stretching_geometry(time,scale):
     preset=resolve_sequence_frame(compile_composition(prismatic_composition()),time)[-1]
     preset.update(width=180,height=320)
     for m in preset['modules']:
         if m['id']=='film_emulsion': m['enabled']=False
+        if m['id']=='prismatic_field': m['params']['size']=scale
     original=np.asarray(render_synth_frame(preset,time_seconds=time))
     wider=copy.deepcopy(preset)
     wider.update(resize_canvas(preset,dict(width=300,height=320)))
@@ -110,14 +112,54 @@ def test_shape_variants_render_finite_filled_frames(sides,gather):
     assert result.std()>.05 and result.min()>0
 
 
-def test_original_prismatic_study_retains_exact_pixels():
+def test_original_prismatic_study_regression_pixels():
     import hashlib, json
     from pathlib import Path
+    # 0.18 corrects the orphan ribbon at 8s and 11.9s. The other five hashes
+    # still protect the original open planes and fully gathered endpoint.
     manifest=json.loads((Path(__file__).parent/'fixtures/prismatic-film-v1-hashes.json').read_text())
     sequence=compile_composition(starter_composition('prismatic-film-original'))
     for row in manifest:
         image=render_sequence_frame(sequence,row['time'],(144,256))
         assert hashlib.sha256(image.tobytes()).hexdigest()==row['sha256']
+
+
+@pytest.mark.parametrize('shape', range(7))
+@pytest.mark.parametrize('scale', [.15,.7,1.,3.])
+def test_ribbon_stays_inside_gathering_silhouette_at_every_shape_and_scale(monkeypatch,shape,scale):
+    import synth_prismatic
+    # Flat colors isolate the actual rendered coverage, independently of the
+    # polygon-distance math: black background, white fold, red edge ribbon.
+    def render(params):
+        colors=iter(((0.,0.,0.),(1.,1.,1.),(1.,0.,0.)))
+        monkeypatch.setattr(synth_prismatic,'_colors',
+                            lambda coordinate,palette: np.broadcast_to(next(colors),coordinate.shape+(3,)))
+        return synth_prismatic.render_prismatic_field(np.zeros((128,96,3),np.float32),params,10.,preset)
+    preset=default_synth_preset();preset.update(width=96,height=128)
+    params=dict(defaults('prismatic_field'),shape=shape,sides=8,size=scale,
+                shading=0.,rotation=333.,rotation_speed=0.,fold_depth=0.,drift=0.)
+    background_pixels=0
+    for gather in (.01,.28,.65,.96,1.):
+        for opening in (.01,.7,1.5):
+            plain=render(dict(params,gather=gather,opening=opening,ribbon=0.))
+            ribbon=render(dict(params,gather=gather,opening=opening,ribbon=1.))
+            background=plain[...,0]==0.
+            background_pixels+=np.count_nonzero(background)
+            assert np.array_equal(ribbon[background],plain[background])
+            assert np.isfinite(ribbon).all()
+    assert background_pixels>0  # Large closed shapes can fill the entire view.
+
+
+def test_ribbon_remains_visible_inside_fold_and_disappears_at_closed_shape():
+    import synth_prismatic
+    preset=default_synth_preset();preset.update(width=240,height=320)
+    arr=np.zeros((320,240,3),np.float32)
+    params=dict(defaults('prismatic_field'),size=.7,shape=1,gather=.65,
+                opening=.74,rotation=333.58,rotation_speed=0.,fold_depth=0.,drift=0.)
+    def render(ribbon,gather):
+        return synth_prismatic.render_prismatic_field(arr,dict(params,ribbon=ribbon,gather=gather),10.,preset)
+    assert np.max(np.abs(render(1.,.65)-render(0.,.65)))>.05
+    assert np.array_equal(render(1.,1.),render(0.,1.))
 
 
 @pytest.mark.parametrize('shape', range(7))
