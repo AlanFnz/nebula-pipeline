@@ -39,6 +39,7 @@ from synth_new_piece_ui import NewPieceDialog
 from synth_add_section_ui import AddVideoSectionDialog
 from synth_starting_points import new_piece
 from synth_artwork_ui import ArtworkControl
+from synth_mesh_ui import MeshControl
 from synth_text_ui import TextControl
 from synth_text import validate_text
 from synth_master import normalize_master
@@ -60,8 +61,8 @@ class SynthControl(QWidget):
         self.spec = spec
         self.lock = QCheckBox("lock")
         self.lock.setToolTip("Keep this parameter fixed when Generate variation is pressed.")
-        if spec.kind in ('artwork', 'text'):
-            self.spin = ArtworkControl() if spec.kind == 'artwork' else TextControl(); self.spin.setValue(value)
+        if spec.kind in ('artwork', 'text', 'mesh'):
+            self.spin = {'artwork': ArtworkControl, 'text': TextControl, 'mesh': MeshControl}[spec.kind](); self.spin.setValue(value)
             self.spin.changed.connect(lambda _value: self.changed.emit())
             layout = QVBoxLayout(self); layout.addWidget(QLabel(spec.label)); layout.addWidget(self.spin)
             self.lock.setChecked(True); self.lock.hide()
@@ -1471,6 +1472,10 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
             control = self.sequence_state_controls['ink_bloom.shape']
             with QSignalBlocker(control): control.set_value(5)
             state['overrides']['ink_bloom.shape'] = 5
+        if path == 'solid.model_data' and state['overrides'][path]:
+            control = self.sequence_state_controls['solid.shape']
+            with QSignalBlocker(control): control.set_value(2)
+            state['overrides']['solid.shape'] = 2
         self.sequence = normalize_sequence(self.sequence); self.invalidate()
 
     def sequence_module_enabled_changed(self, module_id, checked):
@@ -1643,6 +1648,9 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
             if key == 'artwork' and control is self.sender() and control.value():
                 shape = self.controls[(index, 'shape')]
                 with QSignalBlocker(shape): shape.set_value(5)
+            if key == 'model_data' and control is self.sender() and control.value():
+                shape = self.controls[(index, 'shape')]
+                with QSignalBlocker(shape): shape.set_value(2)
         self.preset = self.collect(); self.mark_custom(); self.invalidate()
     def module_toggled(self, index, checked): self.preset["modules"][index]["enabled"] = checked; self.mark_custom(); self.invalidate()
 
@@ -2009,7 +2017,7 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
             self.sequence_state_updating = True
             try:
                 for path, control in self.sequence_state_controls.items():
-                    if control.lock.isChecked() or control.spec.kind in ('artwork', 'text'): continue
+                    if control.lock.isChecked() or control.spec.kind in ('artwork', 'text', 'mesh'): continue
                     spec = control.spec
                     delta = (spec.maximum - spec.minimum) * .12
                     value = max(spec.minimum, min(spec.maximum, control.value() + rng.uniform(-delta, delta)))
@@ -2027,7 +2035,7 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
         with QSignalBlocker(self.global_controls["seed"]):
             self.global_controls["seed"].setValue(self.preset["seed"])
         for (index, key), control in self.controls.items():
-            if control.lock.isChecked() or control.spec.kind in ('artwork', 'text'): continue
+            if control.lock.isChecked() or control.spec.kind in ('artwork', 'text', 'mesh'): continue
             spec = control.spec
             if spec.kind == "float": control.set_value(round(rng.uniform(spec.minimum, spec.maximum) / spec.step) * spec.step)
             else: control.set_value(rng.randint(int(spec.minimum), int(spec.maximum)))

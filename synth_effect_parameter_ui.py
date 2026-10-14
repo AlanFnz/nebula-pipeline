@@ -9,6 +9,7 @@ from studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBo
 from studio_widgets import Slider, configure_parameter_spin, parameter_number
 from synth_effects import parameter
 from synth_artwork_ui import ArtworkControl
+from synth_mesh_ui import MeshControl
 from synth_text_ui import TextControl
 from synth_ink_timing import DURATION_KEYS
 from synth_parameter_presentation import presentation
@@ -39,6 +40,7 @@ class ParameterRowLayout(QGridLayout):
 def format_value(path, value):
     spec = parameter(path)
     if spec.kind == 'text': return value.replace('\n', ' / ')[:60] or 'Empty text'
+    if spec.kind == 'mesh': return 'Embedded 3D model' if value else 'No model'
     if spec.kind == 'artwork': return 'Embedded artwork' if value else 'No artwork'
     if spec.choices:
         return spec.choices[int(value)]
@@ -76,8 +78,8 @@ class EffectParameter(QWidget):
             self.hue_swatch = QLabel(); self.hue_swatch.setFixedSize(14, 14)
             self.hue_swatch.setAccessibleName(spec.label + ' hue indication')
             label_row.addWidget(self.hue_swatch)
-        if spec.kind in ('artwork', 'text'):
-            self.input = ArtworkControl() if spec.kind == 'artwork' else TextControl()
+        if spec.kind in ('artwork', 'text', 'mesh'):
+            self.input = {'artwork': ArtworkControl, 'text': TextControl, 'mesh': MeshControl}[spec.kind]()
             self.input.changed.connect(self.emit_change)
         elif spec.choices:
             self.input = QComboBox(); self.input.addItems(spec.choices)
@@ -99,7 +101,7 @@ class EffectParameter(QWidget):
             self.slider.sliderMoved.connect(self.preview_slider)
             self.slider.valueChanged.connect(self.commit_slider)
             self.input.valueChanged.connect(self.sync_slider)
-        block_input = spec.kind in ('artwork', 'text')
+        block_input = spec.kind in ('artwork', 'text', 'mesh')
         self._block_input = block_input
         self.input.setMinimumWidth(0 if block_input or spec.choices else 110)
         if not block_input and not spec.choices: self.input.setMaximumWidth(145)

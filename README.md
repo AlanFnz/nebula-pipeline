@@ -714,6 +714,29 @@ background while preserving the solid's proportions and reference size.
 Preview, scrubbing and export use the same absolute animation clock. These new
 modules default to off in existing documents; no old Study is rewritten.
 
+
+### Importing a 3D model
+
+In **Object → 3D solid → Shape**, choose **Imported model**, then **Import model…**.
+Choose a static **GLB** or **glTF 2.0** file. For glTF, keep any companion `.bin`
+files in the model folder or its subfolders. Geometry is centered, uniformly
+normalized and embedded in the project; after saving, the original files are
+not needed. Saved Studies and snapshots also contain the geometry.
+
+**Replace model…** changes the figure while keeping its size, position, rotation,
+material and treatments. **Clear** removes its geometry; Undo restores it. Use
+Scale and the shared Object position controls to frame it. Starting yaw, pitch
+and roll set its angle; each axis has its own rotation speed, with zero stopping
+that axis. **White plastic** and **Optical color** are the Studio materials;
+Color emulsion, grain and other effects can treat the model and background together.
+
+This importer supports static geometry with up to 60,000 triangles / 180,000
+vertices and files plus buffers totaling 64 MB. It preserves scene transforms
+and smooth normals, but uses Studio materials instead of the model's original
+materials or textures. Export rigged or morphing objects as a baked static mesh;
+export compressed geometry without Draco or meshopt. Embedded animation is not
+played. Existing Die and Cube shapes and their Studies keep their original look.
+
 ### Photocopy and foreground studies
 
 **Effects → Photocopy** processes either generated artwork or imported footage.
