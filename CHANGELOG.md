@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.19.0 — 2026-10-14
+
+- Fade Prismatic field's central hinge shadow as the planes gather, removing
+  the dark crease from the final shape and softening it earlier in the closing
+  transition. Fold shading still controls the open folds and the outer seam.
+- Apply this rendering correction to every final shape and scale, including
+  existing compositions and both Prismatic Studies. Preserve the open-plane
+  rendering, geometry, animation, grain and Color emulsion settings.
+
 ## 0.18.0 — 2026-10-14
 
 - Keep Prismatic field's Edge ribbon inside the evolving silhouette as the

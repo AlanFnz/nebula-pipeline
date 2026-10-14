@@ -184,7 +184,11 @@ def render_prismatic_field(arr,p,seconds,preset):
     color=p['color_phase']+t*p['color_speed']
     background=_colors(color+x*.045+y*.07+cloud,p['palette'])
     front=_colors(color+.46+u*.05+v*.035+cloud*.45,p['palette'])
-    shade=1-p['shading']*.42*np.exp(-np.abs(u)/(np.abs(v)*.3+.03))
+    # The hinge shadow belongs to the open planes. Let it recede as they
+    # gather, with a flat landing at the closed shape, instead of leaving a
+    # permanent dark crease through the polygon. Keep the outer seam below.
+    hinge_shading=p['shading']*(1-p['gather'])**3
+    shade=1-hinge_shading*.42*np.exp(-np.abs(u)/(np.abs(v)*.3+.03))
     result=background*(1-coverage)+front*coverage*shade[...,None]
     # A narrow opposed blade is part of the geometry, not a full-screen stripe.
     ribbon_field=(aperture*.075*np.abs(v)-np.abs(u-v*aperture*.78))

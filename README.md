@@ -652,6 +652,8 @@ Color drift and Color clouds animate the color independently of the geometry.
 Edge ribbon follows the evolving fold silhouette as it gathers, including at
 small scales and with every final shape; it does not leave a diagonal across
 the exposed background.
+Fold shading keeps the outer seam while its central hinge shadow fades as
+Gather into shape increases. The closed figure has no residual center crease.
 The Study authors the larger turns with transitions; Turn speed adds continuous
 rotation. **Transition easing** gives authored turns and folds a stronger
 acceleration and a longer landing. **Turn settle** adds a small rotational
@@ -660,8 +662,9 @@ and uses both controls; zero retains the old interpolation. These controls leave
 color and emulsion clocks alone. **Prismatic / color film (first version)**
 preserves the previous Study's motion and settings. Since 0.18.0, both versions
 clip the edge ribbon to the gathering silhouette; affected intermediate frames
-lose the stray background diagonal. Open planes and the closed endpoint retain
-their original pixels.
+lose the stray background diagonal. Since 0.19.0, the central hinge shadow also
+fades during gathering and disappears in the closed shape. Fully open planes
+retain their original pixels.
 Setting a parameter in Entire project overrides that parameter's
 recipe animation. Canvas resizing reveals or crops the field without stretching
 its subject. Shared Object X/Y moves the hinge and attached treatments together.
