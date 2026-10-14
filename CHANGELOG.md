@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.21.0 — 2026-10-14
+
+- Add adjustable rounded geometry and a White plastic material to 3D solid,
+  with surface roughness, reflection strength and recessed-dot shading.
+  Lighting stays fixed as the die rotates; Color emulsion still textures both
+  the die and the background together. Both inspectors show relevant controls.
+- Update Color film / rotating die to the rounded white version, preserving
+  the original optical-color Study and existing saved compositions pixel for
+  pixel. No external model or texture assets are required.
+
 ## 0.20.0 — 2026-10-14
 
 - Add the independent Color field background and a 3D solid source with Die

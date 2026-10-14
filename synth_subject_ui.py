@@ -6,10 +6,11 @@ from studio_widgets import ComboBox, DoubleSpinBox, Slider
 from synth_effects_ui import EffectParameter
 from synth_subject import SUBJECTS, SOURCE_EFFECTS, active_subjects
 from synth_inspector import grouped_paths
+from synth_solids import hidden_controls as hidden_solid_controls
 
 
 OBJECT_PATHS = {
-    'solid': tuple('solid.'+key for key in ('shape','scale','yaw','pitch','roll','turn_speed','tumble_speed','roll_speed','variation','perspective','pip_size','pip_light','palette','shading','light')),
+    'solid': tuple('solid.'+key for key in ('shape','scale','yaw','pitch','roll','turn_speed','tumble_speed','roll_speed','variation','perspective','corner_radius','material','roughness','specular','pip_size','pip_light','pip_depth','palette','shading','light')),
     'prismatic': tuple('prismatic_field.'+key for key in ('shape','sides','center_shape','size','gather','opening','fold_depth','rotation','transition_ease','turn_settle','palette','wash','saturation','light')),
     'radial': tuple('radial_bloom.'+key for key in ('expansion','petals','detail','branching','flow','variation','center_drift','palette','light')),
     'text': tuple('text.' + key for key in ('content', 'font', 'weight', 'morph_balance', 'morph_roundness', 'size', 'tracking', 'leading', 'align', 'wrap_columns', 'fit', 'block_width', 'fit_width', 'copies', 'copy_gap', 'copy_floor', 'hue', 'saturation', 'brightness', 'stretch_x', 'stretch_y')),
@@ -114,7 +115,7 @@ class SubjectPanel(QWidget):
                  'particles': 'The model is the target of the particles. Adjust its size, pose and point density here.',
                  'signal': 'The luminous form and ray aperture share this geometry.',
                  'none': 'Choose an object to introduce a source into the scene.'}
-        notes['solid'] = 'A die or cube rotating around its center. Adjust its pose, rotation speeds and dots here. Color field controls the background; Color emulsion textures both together.'
+        notes['solid'] = 'A die or cube rotating around its center. Adjust rounded corners, material, reflections, pose, rotation speeds and dots here. Color field controls the background; Color emulsion textures both together.'
         note = f'{notes[self.kind]} Changes apply to {scope}.'
         if len(active) > 1:
             note += ' Also present: ' + ', '.join(SUBJECTS[key][0] for key in active[1:]) + '. Choosing a type replaces the source families in this scope.'
@@ -153,9 +154,9 @@ class SubjectPanel(QWidget):
                             path in parent_params, True, parent_value=parent_params.get(path),
                             context_key=context_key, scope_label=scope_label)
         if self.kind == 'solid':
-            shape = summary['solid']['ranges']['solid.shape']
-            for key in ('pip_size', 'pip_light'):
-                self.controls['solid.'+key].setVisible(shape[0] != shape[1] or shape[0] == 0)
+            hidden = hidden_solid_controls(summary['solid']['ranges'])
+            for path, control in self.controls.items():
+                control.setVisible(path not in hidden)
         if self.kind == 'prismatic':
             shape = summary['prismatic_field']['ranges']['prismatic_field.shape']
             self.controls['prismatic_field.sides'].setVisible(shape[0] != shape[1] or shape[0] == 0)

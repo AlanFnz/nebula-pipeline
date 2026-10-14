@@ -11,6 +11,7 @@ from synth_solid_recipes import rotating_die_composition
 
 STARTERS = (
     ('color-film-die', 'Color film / rotating die · 15s', rotating_die_composition),
+    ('color-film-die-original', 'Color film / rotating die (optical color) · 15s', lambda: starter_snapshot('color-film-die-original')),
     ('prismatic-film', 'Prismatic / color film · 15s', prismatic_composition),
     ('prismatic-film-original', 'Prismatic / color film (first version) · 15s', lambda: starter_snapshot('prismatic-film-original')),
     ('text-liquid-words', 'Text / liquid words · 6s', word_morph_composition),
@@ -43,6 +44,7 @@ STARTERS = (
 # First appearance in the repository, retained independently of app builds.
 STARTER_DATES = {
     'color-film-die': '2026-10-14',
+    'color-film-die-original': '2026-10-14',
     'prismatic-film': '2026-10-13', 'prismatic-film-original': '2026-10-13',
     'text-liquid-words': '2026-10-12', 'text-liquid-words-original': '2026-10-11',
     'text-liquid-words-soft': '2026-10-12',

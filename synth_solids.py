@@ -14,6 +14,19 @@ from synth_prismatic import _cloud, _colors
 PALETTES = ('Optical green / violet', 'Warm film / rose', 'Silver / ink')
 
 
+def hidden_controls(ranges):
+    """Keep both inspectors aligned; mixed/animated choices expose all controls."""
+    hidden = set()
+    if tuple(ranges['solid.shape']) == (1, 1):
+        hidden.update(('pip_size', 'pip_light', 'pip_depth'))
+    material = tuple(ranges['solid.material'])
+    if material == (0, 0):
+        hidden.update(('roughness', 'specular', 'pip_depth'))
+    elif material == (1, 1):
+        hidden.update(('palette', 'color_phase', 'color_speed', 'wash', 'saturation'))
+    return {'solid.' + key for key in hidden}
+
+
 def modules(Module, P):
     return (
         Module('color_field', 'Color field',
@@ -49,6 +62,12 @@ def modules(Module, P):
             P('saturation', 'Saturation', 1., 0, 1.5, .01),
             P('light', 'Exposure', 1.1, 0, 2, .01),
             P('mix', 'Opacity', 1., 0, 1, .01),
+            # Append controls so older definitions retain their parameter order.
+            P('corner_radius', 'Corner radius', 0., 0, .22, .005, 'Round the actual edges and corners. Radius relative to the side length.'),
+            P('material', 'Material', 0, 0, 1, 1, choices=('Optical color', 'White plastic')),
+            P('roughness', 'Surface roughness', .32, .08, 1., .01, 'Low values make tighter reflections; high values give a matte finish. White plastic only.'),
+            P('specular', 'Reflection strength', .5, 0, 1, .01, 'Soft studio reflections on the white plastic.'),
+            P('pip_depth', 'Dot recess', 0., 0, .04, .001, 'Shallow shading inside the dots. White plastic only; does not change the outer silhouette.'),
         )),
     )
 
@@ -117,6 +136,89 @@ def _surface(local, face, rotation, p, t, seed):
     return _grade(color,p)
 
 
+def _rounded_hits(origin, direction, near, far, radius):
+    """Intersect a rounded box inside its unchanged unit-cube bounds.
+
+    Trace only unresolved rays, including tangencies. The tolerance is in object
+    space so canvas reframing cannot change the intersection or its normals.
+    """
+    distance = near.copy()
+    active = np.arange(len(near))
+    found = np.zeros(len(near), dtype=bool)
+    lengths = np.linalg.norm(direction, axis=1)
+    for _ in range(96):
+        if not len(active): break
+        point = origin[active] + distance[active, None] * direction[active]
+        q = np.abs(point) - (.5 - radius)
+        sdf = np.linalg.norm(np.maximum(q, 0.), axis=1) + np.minimum(q.max(axis=1), 0.) - radius
+        arrived = sdf <= 2e-6
+        found[active[arrived]] = True
+        pending = active[~arrived]
+        distance[pending] += np.maximum(sdf[~arrived], 1e-6) / lengths[pending]
+        active = pending[distance[pending] <= far[pending] + 2e-6]
+    local = origin[found] + distance[found, None] * direction[found]
+    normal = np.sign(local) * np.maximum(np.abs(local) - (.5 - radius), 0.)
+    normal /= np.maximum(np.linalg.norm(normal, axis=1, keepdims=True), 1e-8)
+    return found, local, normal
+
+
+def _plastic_surface(local, normal, face, rotation, direction, p):
+    """White dielectric with broad studio lights and shallow recessed pip normals.
+
+    Lighting stays in world space while the solid turns. Linear-light diffuse,
+    Fresnel highlights and a darker pip cavity are converted to display RGB
+    before the common film/CRT treatments.
+    """
+    axis = face // 2
+    u_axis = np.where(axis == 0, 2, 0)
+    v_axis = np.where(axis == 1, 2, 1)
+    rows = np.arange(len(local))
+    u, v = local[rows, u_axis], local[rows, v_axis]
+    dots = np.zeros(len(local), dtype=bool)
+    cavity = np.ones(len(local), dtype=np.float32)
+    normal = normal.copy()
+    if p['shape'] == 0:
+        radius = p['pip_size']
+        for face_id, value in enumerate(FACE_VALUES):
+            # Pips belong to the flat face, never to a rounded edge.
+            selected = (face == face_id) & (np.abs(normal[rows, axis]) > .999)
+            for pu, pv in PIPS[value]:
+                du, dv = u - pu, v - pv
+                r2 = (du*du + dv*dv) / (radius*radius)
+                inside = selected & (r2 < 1.)
+                dots |= inside
+                gradient = 4 * p.get('pip_depth', 0.) / (radius*radius) * (1-r2[inside])
+                ids = rows[inside]
+                normal[ids, u_axis[inside]] -= gradient * du[inside]
+                normal[ids, v_axis[inside]] -= gradient * dv[inside]
+                cavity[inside] = 1 - .35 * min(1., p.get('pip_depth', 0.)/.02) * (1-r2[inside])
+    normal /= np.maximum(np.linalg.norm(normal, axis=1, keepdims=True), 1e-8)
+    normal = normal @ rotation.T
+    view = -direction @ rotation.T
+    view /= np.linalg.norm(view, axis=1, keepdims=True)
+    base = np.full((len(local), 3), .88, np.float32)
+    base[dots] = p['pip_light'] ** 2.2
+    ambient = (.16 + .10 * (normal[:, 1] + 1.) * .5)[:, None]
+    diffuse = ambient.copy()
+    reflection = np.zeros_like(base)
+    roughness = p.get('roughness', .32)
+    exponent = 2. / max(.08, roughness)**2
+    for vector, strength, tint in (((-.65,.85,1.2), .62, (1.,.97,.93)),
+                                   ((.9,.25,.55), .24, (.88,.94,1.))):
+        light = np.array(vector, np.float32); light /= np.linalg.norm(light)
+        ndotl = np.maximum(0., normal @ light)
+        diffuse += (strength * ndotl)[:, None]
+        half = view + light
+        half /= np.linalg.norm(half, axis=1, keepdims=True)
+        fresnel = .04 + .96 * (1-np.clip(np.sum(view*half, axis=1),0,1))**5
+        highlight = np.maximum(0., np.sum(normal*half, axis=1)) ** exponent
+        # Broad area-light response; black pigment retains a weaker reflection.
+        reflection += (highlight * fresnel * (exponent+2.)/8. * strength * ndotl)[:,None] * np.array(tint)
+    lit = base * ((1-p['shading']) + p['shading']*diffuse) * cavity[:,None]
+    lit += reflection * p.get('specular', .5) * np.where(dots,.35,1.)[:,None]
+    return _grade(np.maximum(lit,0.)**(1/2.2),p)
+
+
 def render_solid(arr,p,seconds,preset):
     if not p['mix']: return arr
     h,w=arr.shape[:2]; (cx,cy),unit,rotation=solid_frame(p,(w,h),seconds,preset)
@@ -143,9 +245,22 @@ def render_solid(arr,p,seconds,preset):
         tile=np.repeat(np.repeat(arr[start:end,left:right],2,axis=0),2,axis=1)
         if hit.any():
             local=origin[hit]+near[hit,None]*direction[hit]
+            normals = None
+            if p.get('corner_radius', 0.) > 0.:
+                rounded, local, normals = _rounded_hits(origin[hit], direction[hit], near[hit], far[hit], p['corner_radius'])
+                hit[hit] = rounded
             axis=np.abs(local).argmax(axis=-1)
             face=axis*2+(local[np.arange(len(local)),axis]<0)
-            surface=_surface(local,face,rotation,p,t,int(preset['seed']))
+            if p.get('material', 0) == 1:
+                surface = _plastic_surface(local, NORMALS[face] if normals is None else normals,
+                                           face, rotation, direction[hit], p)
+            else:
+                surface=_surface(local,face,rotation,p,t,int(preset['seed']))
+                if normals is not None:
+                    light=np.array((-.45,.65,1.),np.float32);light/=np.linalg.norm(light)
+                    old=1-p['shading']*(.5-.5*np.maximum(0.,(NORMALS[face]@rotation.T)@light))
+                    new=1-p['shading']*(.5-.5*np.maximum(0.,(normals@rotation.T)@light))
+                    surface *= (new/old)[:,None]
             tile[hit]=tile[hit]*(1-p['mix'])+surface*p['mix']
         result[start:end,left:right]=tile.reshape(end-start,2,width,2,3).mean(axis=(1,3))
     return result

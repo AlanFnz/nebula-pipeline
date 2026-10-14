@@ -9,7 +9,10 @@ def rotating_die_composition():
     settings = {'speed': 1., 'depth': 0., 'treatment_fps': 25, 'object_x': 0., 'object_y': 0.}
     for module in enabled:
         settings.update({f'{module}.{spec.key}': spec.default for spec in MODULE_BY_ID[module].params})
-    settings.update({'film_emulsion.grain': .115, 'film_emulsion.grain_size': 1.1,
+    settings.update({'solid.corner_radius': .13, 'solid.material': 1,
+                     'solid.roughness': .27, 'solid.specular': .65,
+                     'solid.pip_depth': .018, 'solid.pip_light': .075, 'solid.light': 1.,
+                     'film_emulsion.grain': .115, 'film_emulsion.grain_size': 1.1,
                      'film_emulsion.registration': 4.2, 'film_emulsion.softness': 2.9,
                      'film_emulsion.bleed': 2.7,
                      'broadcast.field': 0., 'broadcast.static': 0., 'broadcast.roll': 0.,

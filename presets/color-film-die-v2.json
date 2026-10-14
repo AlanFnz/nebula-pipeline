@@ -1,0 +1,208 @@
+{
+  "format": "nebula-composition",
+  "schema_version": 1,
+  "render_version": 2,
+  "name": "Color film / rotating die",
+  "fps": 25,
+  "seed": 13726,
+  "source": {
+    "schema_version": 1,
+    "name": "Color film / rotating die",
+    "duration": 15.0,
+    "fps": 25,
+    "seed": 13726,
+    "field": {
+      "valley_start": 0.0,
+      "valley_end": 0.0,
+      "valley_gain": 1.0,
+      "cloud_start": 0.0,
+      "cloud_strength": 0.0,
+      "cloud_late_start": 0.0,
+      "cloud_late_rate": 0.0
+    },
+    "states": {
+      "turn": {
+        "preset": "Reference blinds",
+        "overrides": {
+          "speed": 1.0,
+          "depth": 0.0,
+          "treatment_fps": 25,
+          "object_x": 0.0,
+          "object_y": 0.0,
+          "color_field.palette": 0,
+          "color_field.color_phase": 0.02,
+          "color_field.color_speed": 0.09,
+          "color_field.wash": 0.85,
+          "color_field.scale": 1.0,
+          "color_field.flow": 0.43,
+          "color_field.saturation": 1.0,
+          "color_field.light": 1.0,
+          "color_field.mix": 1.0,
+          "solid.shape": 0,
+          "solid.scale": 0.48,
+          "solid.yaw": 30.0,
+          "solid.pitch": -22.0,
+          "solid.roll": 8.0,
+          "solid.turn_speed": 24.0,
+          "solid.tumble_speed": 7.0,
+          "solid.roll_speed": 3.0,
+          "solid.variation": 0.45,
+          "solid.perspective": 0.7,
+          "solid.pip_size": 0.073,
+          "solid.pip_light": 0.075,
+          "solid.palette": 0,
+          "solid.color_phase": 0.48,
+          "solid.color_speed": 0.09,
+          "solid.wash": 0.55,
+          "solid.shading": 0.7,
+          "solid.saturation": 1.0,
+          "solid.light": 1.0,
+          "solid.mix": 1.0,
+          "solid.corner_radius": 0.13,
+          "solid.material": 1,
+          "solid.roughness": 0.27,
+          "solid.specular": 0.65,
+          "solid.pip_depth": 0.018,
+          "film_emulsion.softness": 2.9,
+          "film_emulsion.bleed": 2.7,
+          "film_emulsion.registration": 4.2,
+          "film_emulsion.edge_ink": 0.4,
+          "film_emulsion.grain": 0.115,
+          "film_emulsion.grain_size": 1.1,
+          "film_emulsion.chroma": 0.35,
+          "film_emulsion.flicker": 0.025,
+          "film_emulsion.cadence": 25.0,
+          "film_emulsion.mix": 1.0,
+          "broadcast.field": 0.0,
+          "broadcast.hue": 0.55,
+          "broadcast.hue_spread": 0.16,
+          "broadcast.drift": 0.7,
+          "broadcast.static": 0.0,
+          "broadcast.timing": 0,
+          "broadcast.period": 3.0,
+          "broadcast.duration": 0.12,
+          "broadcast.duration_variation": 0.0,
+          "broadcast.phase": 0.35,
+          "broadcast.band": 0.0,
+          "broadcast.roll": 0.0,
+          "broadcast.rate": 24.0,
+          "broadcast.reverse": 0.0,
+          "broadcast.reverse_period": 0.8,
+          "broadcast.reverse_hue": 0.045,
+          "broadcast.reverse_saturation": 0.9,
+          "broadcast.reverse_phase": 0.0,
+          "broadcast.reverse_blend": 0.0,
+          "broadcast.field_spread": 0.0,
+          "broadcast.reverse_stage": 0,
+          "broadcast.edge_fringe": 0.0,
+          "broadcast.edge_width": 0.004,
+          "broadcast.edge_hue": 0.8,
+          "broadcast.curve": 0.07,
+          "broadcast.vignette": 0.3,
+          "broadcast.wash": 0.0,
+          "broadcast.static_style": 0,
+          "broadcast.static_chroma": 0.6,
+          "broadcast.outages": 0.0,
+          "broadcast.sync_tear": 0.0,
+          "broadcast.halo": 0.0,
+          "broadcast.halo_radius": 0.06,
+          "broadcast.halo_hue": 0.61,
+          "broadcast.halo_threshold": 0.5,
+          "broadcast.screen": 0.0,
+          "broadcast.screen_inset": 0.045,
+          "broadcast.screen_wear": 0.5,
+          "broadcast.mix": 1.0
+        },
+        "enabled": [
+          "color_field",
+          "solid",
+          "film_emulsion",
+          "broadcast"
+        ]
+      }
+    },
+    "cues": [
+      {
+        "time": 0.0,
+        "state": "turn",
+        "transition": "cut",
+        "duration": 0.0
+      }
+    ],
+    "render_version": 2,
+    "canvas": {
+      "width": 720,
+      "height": 1280,
+      "framing": "native"
+    }
+  },
+  "canvas": {
+    "width": 720,
+    "height": 1280,
+    "framing": "native"
+  },
+  "master": {
+    "enabled": true,
+    "brightness": 0.0,
+    "contrast": 1.0,
+    "saturation": 1.0
+  },
+  "phrases": {
+    "custom": {
+      "name": "Rotating die / color field",
+      "start": 0.0,
+      "end": 15.0
+    }
+  },
+  "macros": {
+    "rhythm": 1.0,
+    "width": 1.0,
+    "motion": 1.0,
+    "texture": 1.0,
+    "glow": 1.0,
+    "flashes": 1.0,
+    "color": 1.0
+  },
+  "geometry": {
+    "shape": "original",
+    "height": 1.0,
+    "diameter": 0.6,
+    "sides": 6,
+    "rotation": 0.0,
+    "position_x": 0.0,
+    "position_y": 0.0
+  },
+  "effects": {},
+  "ink_timing": {},
+  "variation": 0,
+  "locks": [],
+  "sections": [
+    {
+      "id": "section-1",
+      "phrase": "custom",
+      "duration": 15.0,
+      "loops": 1,
+      "macros": {
+        "rhythm": 1.0,
+        "width": 1.0,
+        "motion": 1.0,
+        "texture": 1.0,
+        "glow": 1.0,
+        "flashes": 1.0,
+        "color": 1.0
+      },
+      "geometry": {
+        "shape": "inherit",
+        "height": 1.0,
+        "diameter": 0.6,
+        "sides": 6,
+        "rotation": 0.0,
+        "position_x": 0.0,
+        "position_y": 0.0
+      },
+      "effects": {},
+      "variation": 0,
+      "locks": []
+    }
+  ]
+}

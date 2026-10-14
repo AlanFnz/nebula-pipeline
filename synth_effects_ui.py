@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 from studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBox, SpinBox as QSpinBox
 from studio_widgets import Slider, configure_parameter_spin, parameter_number
 from synth_inspector import grouped_paths
+from synth_solids import hidden_controls as hidden_solid_controls
 
 from synth_effects import EFFECTS, EFFECT_BY_ID, describe_effects, is_removed_effect, parameter, effects_for
 from synth_instances import base_id, REPEATABLE
@@ -541,9 +542,8 @@ class EffectsPanel(QWidget):
         self.timing_selected.emit(timing and self.focused)
         visible_paths = SHARED_TIMING_CONTROLS if timing else tuple(path for path in effect.paths if not ink or path not in INK_TIMING)
         if effect.id == 'solid':
-            shape = self.summary[effect.id]['ranges']['solid.shape']
-            if shape[0] == shape[1] == 1:
-                visible_paths = tuple(path for path in visible_paths if path not in ('solid.pip_size', 'solid.pip_light'))
+            hidden = hidden_solid_controls(self.summary[effect.id]['ranges'])
+            visible_paths = tuple(path for path in visible_paths if path not in hidden)
         if effect.id == 'prismatic_field':
             shape = self.summary[effect.id]['ranges']['prismatic_field.shape']
             if shape[0] == shape[1] and shape[0] != 0:
