@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.18.0 — 2026-10-14
+
+- Keep Prismatic field's Edge ribbon inside the evolving silhouette as the
+  planes gather. Reducing Scale no longer exposes an infinite secondary
+  diagonal across the background; the same fix applies to every final shape,
+  rotation and canvas format.
+- This intentionally corrects intermediate gathering frames in existing
+  compositions and both Prismatic Studies. Open planes, fully gathered shapes,
+  authored motion, settings and the Color emulsion treatment are unchanged.
+
 ## 0.17.0 — 2026-10-14
 
 - Add Broadcast wear → Signal → Interruption timing: Random replaces the fixed

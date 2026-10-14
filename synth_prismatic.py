@@ -189,6 +189,12 @@ def render_prismatic_field(arr,p,seconds,preset):
     # A narrow opposed blade is part of the geometry, not a full-screen stripe.
     ribbon_field=(aperture*.075*np.abs(v)-np.abs(u-v*aperture*.78))
     ribbon=np.clip(ribbon_field*unit*p['size']+.5,0,1)*(1-p['gather'])*p['ribbon']
+    if p['gather'] > 0:
+        # The secondary plane must close with the primary fold. Fading its
+        # opacity alone leaves an infinite diagonal through the background,
+        # especially when the final shape is small. Reuse the evolving mask
+        # so every size/shape follows the same antialiased silhouette.
+        ribbon *= coverage[...,0]
     result=result*(1-ribbon[...,None])+_colors(color+.16+cloud,p['palette'])*ribbon[...,None]
     seam=np.exp(-np.abs(field)*unit*p['size']/2.)*p['shading']*.32
     result*=1-seam[...,None]
