@@ -680,6 +680,23 @@ Each treatment can be bypassed or reduced with its own **Intensity**. The echoes
 and object history suggest feedback; this remix does not add a recursive camera
 feedback buffer. It uses existing renderers and leaves the original study intact.
 
+**Memory / unstable tape** ([openable composition](examples/image-memory-unstable-tape.nebula.json))
+pushes the object's tracking slips, line jitter, color delay and short echoes
+further while retaining the same background texture and remembered motion.
+It is a separate version; the earlier Memory examples are unchanged.
+
+**Broadcast wear → Signal → Band motion → Irregular passes** replaces the
+continuous rolling noise stripe with seeded, uneven arrivals and quiet gaps.
+**Band interval** sets the average time between arrivals; **Band travel time**
+sets the typical screen crossing time (shorter is faster). **Band variation**
+varies width, opacity, travel time, easing and direction. Zero variation retains
+irregular arrivals with uniform downward passes. **Rolling static height** and
+**Static intensity** still control the band's overall size and strength.
+These passages are independent of the full-frame interruption schedule.
+The previous **Continuous sweep** mode keeps **Static roll speed** and exactly
+preserves existing projects. All times follow global source speed; static FPS
+changes the noise texture's cadence without rescheduling the passes.
+
 ### Lattice / chromatic pulse
 
 **Studies → Lattice / chromatic pulse → Load** opens a 20-second, 720×1280,
