@@ -5,6 +5,7 @@ from synth_effects import EFFECT_BY_ID, merge_effects, state_values, parameter
 from synth_automation import envelope
 from synth_sequence import resolve_sequence_frame
 from synth_instances import base_id
+from synth_intensity import intensity_path
 
 
 @dataclass(frozen=True)
@@ -56,7 +57,7 @@ def explain_effect(document, sequence, effect_id, seconds, section_id=None, reso
         target = event["path"]
         spec = parameter(target)
         effective = values[target]
-        displayed = f"{effective*100:.2f}%" if spec.step < .01 else f"{effective:.2f}"
+        displayed = f"{effective:.2f}%" if target == intensity_path(effect_id) else f"{effective*100:.2f}%" if spec.step < .01 else f"{effective:.2f}"
         fact("automation", f"{spec.label}: {displayed} with temporary automation; returns to the moving base.", target)
     zero = None
     if effect_id == 'edge_phosphor' and p('edge_phosphor.mix') == 0: zero = 'edge_phosphor.mix'
@@ -75,6 +76,8 @@ def explain_effect(document, sequence, effect_id, seconds, section_id=None, reso
         smear = 'smear' in enabled and p('smear.amount') > 0 and p('smear.opacity') > 0
         companion = 'slab' in enabled and p('slab.ghost_opacity') > 0
         if not smear and not companion: zero = 'smear.amount'
+    if intensity_path(effect_id) and p(intensity_path(effect_id)) == 0:
+        zero = intensity_path(effect_id)
     if zero:
         fact('zero', f'{effect.label} has zero contributing strength at this frame.', zero)
     else:

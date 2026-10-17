@@ -6,8 +6,9 @@ from synth_sequence import normalize_sequence
 
 def prismatic_composition():
     settings={'speed':1.,'depth':0.,'treatment_fps':25,'object_x':0.,'object_y':0.}
+    # Keep the published recipe sparse; later controls use their neutral defaults.
     for module in ('prismatic_field','film_emulsion'):
-        settings.update({f'{module}.{spec.key}':spec.default for spec in MODULE_BY_ID[module].params})
+        settings.update({f'{module}.{spec.key}':spec.default for spec in MODULE_BY_ID[module].params if spec.key != 'effect_intensity'})
     settings.update({'prismatic_field.rotation_speed':0.,'prismatic_field.shape':1,
                      'prismatic_field.center_shape':1,'prismatic_field.transition_ease':.9,
                      'prismatic_field.turn_settle':.6,'prismatic_field.fold_depth':.25,

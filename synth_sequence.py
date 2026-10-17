@@ -13,6 +13,7 @@ from PIL import Image
 from synth import MODULE_BY_ID, _seed, curated_presets, normalize_synth, render_synth_frame
 from synth_canvas import normalize_canvas, object_offset
 from synth_resolution import finish_resolution, render_resolution
+from synth_intensity import amount as effect_amount, blend_images, low_res_strength, with_low_res
 from synth_ink_timing import DURATION_KEYS, stage_durations
 from synth_master import apply_master, normalize_master
 from synth_compat import render_version
@@ -288,6 +289,16 @@ def render_sequence_frame(sequence, time_seconds, size=None, frame_provider=None
     if not bypass and 'audio_reactivity' in seq:
         from synth_audio_reactivity import apply_reactivity
         base = apply_reactivity(base, seq, t, cancel=cancel)
+    def render(base):
+        return _render_resolved_frame(seq, t, effect_time, video_time, cue, transition, amount, base, size, frame_provider, bypass)
+    strength = low_res_strength(base)
+    if not bypass and strength < 1:
+        dry = render(with_low_res(base, False))
+        return dry if strength <= 0 else blend_images(dry, render(with_low_res(base, True)), strength)
+    return render(base)
+
+
+def _render_resolved_frame(seq, t, effect_time, video_time, cue, transition, amount, base, size, frame_provider, bypass):
     output, working, sampling = render_resolution(base, size)
     source_image = None
     source_mask = None
@@ -301,12 +312,12 @@ def render_sequence_frame(sequence, time_seconds, size=None, frame_provider=None
         source_image = frame_on_canvas(source, footage, base, source_size)
         if bypass: return source_image
         cutout = next((entry for entry in base['modules'] if entry['id'] == 'subject_cutout' and entry['enabled']), None)
-        if cutout and cutout['params']['mix'] > 0:
+        if cutout and cutout['params']['mix'] > 0 and effect_amount(cutout['params']) > 0:
             p = cutout['params']
             continuity = {'retention': p['retention'], 'retention_seconds': p['retention_seconds']} if p['retention'] > 0 else {}
             source_mask = frame_provider.mask(footage, video_time, base, p['mode'], **continuity)
         repetition = next((entry for entry in base['modules'] if entry['id'] == 'signal_repetition' and entry['enabled']), None)
-        if repetition and repetition['params']['mix'] and repetition['params']['region'] == 3:
+        if repetition and repetition['params']['mix'] and repetition['params']['region'] == 3 and effect_amount(repetition['params']) > 0:
             repetition_mask = source_mask if source_mask is not None and cutout['params']['mode'] == 0 else frame_provider.mask(footage, video_time, base, 0)
         base['treatment_fps'] = footage['treatment_fps']
     # Keep transition overlays and sequence noise on the same working raster.

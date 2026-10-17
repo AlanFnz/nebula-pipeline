@@ -43,6 +43,7 @@ from synth_artwork import validate_artwork
 from synth_mesh import validate_mesh
 from synth_jitter import render_frame_jitter
 from synth_resolution import finish_resolution, render_resolution
+from synth_intensity import add_parameters, amount as effect_amount, blend_pass, blend_images, low_res_strength, with_low_res, SignalBranches
 
 SYNTH_SCHEMA_VERSION = 1
 SYNTH_PRESETS_DIR = Path.home() / ".nebula_pipeline" / "synth_presets"
@@ -697,6 +698,7 @@ MODULES += contour_modules(Module, P)
 MODULES += prismatic_modules(Module, P)
 MODULES += solid_modules(Module, P)
 MODULES += lattice_modules(Module, P)
+MODULES = add_parameters(MODULES, P)
 MODULE_BY_ID = InstanceRegistry({module.id: module for module in MODULES})
 
 
@@ -1305,6 +1307,17 @@ RENDERERS = {
 def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_image=None, source_mask=None, repetition_mask=None):
     """Render one frame at continuous time; `frame` is only a default clock."""
     p = normalize_synth(preset)
+    strength = low_res_strength(p)
+    if strength < 1:
+        def render_resolution_branch(enabled):
+            branch = with_low_res(p, enabled)
+            working = render_resolution(branch, size)[1]
+            source = source_image
+            if source is not None and source.size != working:
+                source = source.resize(working, Image.Resampling.BILINEAR)
+            return render_synth_frame(branch, frame, time_seconds, size, source, source_mask, repetition_mask)
+        dry = render_resolution_branch(False)
+        return dry if strength <= 0 else blend_images(dry, render_resolution_branch(True), strength)
     output, (width, height), sampling = render_resolution(p, size)
     continuous_time = frame / p["treatment_fps"] if time_seconds is None else float(time_seconds)
     # The scene treatment clock holds geometry as well as grain. Modules with
@@ -1317,7 +1330,7 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
     arr[..., 2] = .055
     color_field = next((entry for entry in p['modules'] if entry['id'] == 'color_field' and entry['enabled']), None)
     if color_field and source_image is None:
-        arr = render_color_field(arr, color_field['params'], continuous_time, p)
+        arr = blend_pass(arr, effect_amount(color_field['params']), lambda image: render_color_field(image, color_field['params'], continuous_time, p))
     radial_source = next((entry for entry in p['modules'] if entry['id'] == 'radial_bloom' and entry['enabled']), None)
     if radial_source and source_image is None:
         arr = render_radial_bloom(arr, radial_source['params'], continuous_time, p)
@@ -1333,17 +1346,17 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
     text_source = next((entry for entry in p['modules'] if entry['id'] == 'text' and entry['enabled']), None)
     if text_source and source_image is None:
         arr = render_text(arr, text_source['params'], continuous_time, p)
-    scan = next((entry['params'] for entry in p['modules'] if entry['id'] == 'scan_modulation' and entry['enabled'] and entry['params']['mix']), None)
+    scan = next((entry['params'] for entry in p['modules'] if entry['id'] == 'scan_modulation' and entry['enabled'] and entry['params']['mix'] and effect_amount(entry['params']) > 0), None)
     untreated = None
-    repetition = next((entry['params'] for entry in p['modules'] if entry['id'] == 'signal_repetition' and entry['enabled'] and entry['params']['mix']), None)
+    repetition = next((entry['params'] for entry in p['modules'] if entry['id'] == 'signal_repetition' and entry['enabled'] and entry['params']['mix'] and effect_amount(entry['params']) > 0), None)
     if ((scan and scan['input']) or (repetition and repetition['input'])) and source_image is not None:
         untreated = np.asarray(source_image.convert('RGB'), dtype=np.float32)/255
-    cutout = next((entry for entry in p['modules'] if entry['id'] == 'subject_cutout' and entry['enabled'] and entry['params']['mix'] > 0), None)
+    cutout = next((entry for entry in p['modules'] if entry['id'] == 'subject_cutout' and entry['enabled'] and entry['params']['mix'] > 0 and effect_amount(entry['params']) > 0), None)
     if cutout:
         if source_image is None or source_mask is None:
             raise ValueError('Subject cutout needs imported video and its foreground mask')
         from synth_cutout import render_cutout
-        source_image = render_cutout(source_image, source_mask, cutout['params'])
+        source_image = blend_images(source_image, render_cutout(source_image, source_mask, cutout['params']), effect_amount(cutout['params']))
     if source_image is not None:
         from synth_video import VIDEO_MODULES
         if source_image.size != (width, height):
@@ -1361,13 +1374,13 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
         reference = content_size(p, (width, height))
         source_pixels = untreated if untreated is not None else image
         if 'chroma_print' in source_effects:
-            image = render_chroma_print(image, source_effects['chroma_print'], reference)
+            image = blend_pass(image, effect_amount(source_effects['chroma_print']), lambda pixels: render_chroma_print(pixels, source_effects['chroma_print'], reference))
         if 'slice_echo' in source_effects:
-            image = render_slice_echo(image, source_effects['slice_echo'], continuous_time,
-                                      p['speed'], _seed(p['seed'], 'slice-echo'), reference)
+            image = blend_pass(image, effect_amount(source_effects['slice_echo']), lambda pixels: render_slice_echo(pixels, source_effects['slice_echo'], continuous_time,
+                                      p['speed'], _seed(p['seed'], 'slice-echo'), reference))
         if 'contour_melt' in source_effects:
-            image = render_contour_melt(image, source_effects['contour_melt'], continuous_time,
-                                        p['speed'], _seed(p['seed'], 'contour-melt'), reference)
+            image = blend_pass(image, effect_amount(source_effects['contour_melt']), lambda pixels: render_contour_melt(pixels, source_effects['contour_melt'], continuous_time,
+                                        p['speed'], _seed(p['seed'], 'contour-melt'), reference))
         original = image
         if 'stretch_echo' in source_effects:
             dx, dy = object_offset(p, (width, height))
@@ -1378,33 +1391,42 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
                 # effect receives pixels and remains usable with any source.
                 alternate = render_text(image, dict(text_source['params'], font=echo['typeface']-1,
                     back_brightness=0.), continuous_time, p)
-            image = render_stretch_echo(image, source_effects['stretch_echo'], continuous_time,
-                                        p['speed'], (width / 2 + dx, height / 2 + dy), reference, alternate)
+            image = blend_pass(image, effect_amount(source_effects['stretch_echo']), lambda pixels: render_stretch_echo(pixels, source_effects['stretch_echo'], continuous_time,
+                                        p['speed'], (width / 2 + dx, height / 2 + dy), reference, alternate))
         if 'signal_etch' in source_effects:
-            image = render_signal_etch(image, source_effects['signal_etch'], continuous_time,
-                                       p['speed'], _seed(p['seed'], 'signal-etch'), reference, original)
+            image = blend_pass(image, effect_amount(source_effects['signal_etch']), lambda pixels: render_signal_etch(pixels, source_effects['signal_etch'], continuous_time,
+                                       p['speed'], _seed(p['seed'], 'signal-etch'), reference, original))
         if 'scan_modulation' in source_effects:
-            image = render_scan_modulation(image, source_effects['scan_modulation'], continuous_time,
-                                           p['speed'], _seed(p['seed'], 'scan-modulation'), reference, source_pixels)
+            image = blend_pass(image, effect_amount(source_effects['scan_modulation']), lambda pixels: render_scan_modulation(pixels, source_effects['scan_modulation'], continuous_time,
+                                           p['speed'], _seed(p['seed'], 'scan-modulation'), reference, source_pixels))
         if 'signal_repetition' in source_effects:
-            image = render_signal_repetition(image, source_effects['signal_repetition'], continuous_time,
-                                             p['speed'], _seed(p['seed'], 'signal-repetition'), reference, source_pixels, repetition_mask)
+            image = blend_pass(image, effect_amount(source_effects['signal_repetition']), lambda pixels: render_signal_repetition(pixels, source_effects['signal_repetition'], continuous_time,
+                                             p['speed'], _seed(p['seed'], 'signal-repetition'), reference, source_pixels, repetition_mask))
         return image
     polarity_index = None
     if broadcast and broadcast['reverse_stage'] and (broadcast['reverse'] or broadcast['edge_fringe']) and broadcast['mix']:
         # Preserve existing module indices/seeds. The optional early reversal
         # follows source generators and precedes the remaining image finishes.
         polarity_index = source_end
+    signals = SignalBranches(arr)
+    ghost_strength = next((effect_amount(m['params']) for m in p['modules'] if m['id'] == 'smear'), 1.)
+
+    def early_exposure(image, omitted):
+        if 'broadcast' in omitted: return image
+        reversed_signal = render_broadcast_exposure(image, broadcast, continuous_time, p['speed'])
+        return image * (1 - broadcast['mix']) + reversed_signal * broadcast['mix']
+
     for index, entry in enumerate(p["modules"]):
         if index == polarity_index:
-            reversed_signal = render_broadcast_exposure(arr, broadcast, continuous_time, p['speed'])
-            arr = arr * (1 - broadcast['mix']) + reversed_signal * broadcast['mix']
+            signals.begin('broadcast', effect_amount(broadcast))
+            signals.apply(early_exposure)
         if index == source_end and source_effects:
-            arr = treat_source(arr)
-        if not entry.get("enabled", True):
-            continue
+            signals.apply(lambda image, omitted: treat_source(image))
         instance_id = entry.get("id")
         module_id = base_id(instance_id)
+        if not entry.get("enabled", True):
+            if module_id == 'smear': signals.end('ghosts')
+            continue
         if source_image is not None and module_id not in VIDEO_MODULES:
             if module_id != 'low_res':
                 raise ValueError(f'{module_id} requires a generated object, not a video source')
@@ -1416,25 +1438,40 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
         cw, ch = content_size(p, (width, height))
         if source_framing(p) == "adaptive" and cw < ch and module_id in {"slab", "blinds"} and int(params.get("shape", 0)) in (2, 3):
             params = dict(params, diameter=params["diameter"] * cw / ch)
-        # Shared ink motion owns its hold clock across recipe sections. Other
-        # effects retain the scene's speed and treatment cadence.
         module_time = continuous_time if module_id in ('photocopy', 'broadcast', 'screen_mesh', 'crt_capture', 'film_emulsion') or (module_id == 'ink_bloom' and params.get('clock_mode', 0)) else t
-        if module_id == 'edge_phosphor':
-            if p['render_version'] == 1:
-                rendered = render_edge_phosphor_v1(arr, params, module_time, p, _seed(p['seed'], 'edge-phosphor'))
-            else:
-                rendered = render_edge_phosphor(arr, params, module_time, p, _seed(p['seed'], 'edge-phosphor'), continuous_time)
-        elif module_id == "tape" and (params.get("pull", 0) or instance_base(instance_id)):
-            rendered = render_tape_damage(arr, params, module_time, p["speed"], _seed(p["seed"], instance_id), pull_time=continuous_time)
-        else:
-            rendered = renderer(arr, params, module_time, p, index)
-        if rendered is not None:
-            arr = rendered
+        if module_id in ('slab', 'smear'): signals.begin('ghosts', ghost_strength)
+        if module_id == 'slab': signals.begin('cloud', params.get('cloud_intensity', 100.) / 100.)
+        if module_id == 'broadcast': signals.begin('broadcast', effect_amount(params))
+
+        def render_stage(image, omitted):
+            stage_params = params
+            if module_id == 'slab':
+                if 'ghosts' in omitted: stage_params = dict(stage_params, ghost_opacity=0.)
+                if 'cloud' in omitted: stage_params = dict(stage_params, cloud_strength=0., cloud_detail=0.)
+            if (module_id == 'smear' and 'ghosts' in omitted) or (module_id == 'broadcast' and 'broadcast' in omitted):
+                return image
+            def render(pixels):
+                if module_id == 'edge_phosphor':
+                    if p['render_version'] == 1:
+                        return render_edge_phosphor_v1(pixels, stage_params, module_time, p, _seed(p['seed'], 'edge-phosphor'))
+                    return render_edge_phosphor(pixels, stage_params, module_time, p, _seed(p['seed'], 'edge-phosphor'), continuous_time)
+                if module_id == "tape" and (stage_params.get("pull", 0) or instance_base(instance_id)):
+                    return render_tape_damage(pixels, stage_params, module_time, p["speed"], _seed(p["seed"], instance_id), pull_time=continuous_time)
+                return renderer(pixels, stage_params, module_time, p, index)
+            # Compound effects blend once, after all their contributions.
+            strength = 1. if module_id in ('slab', 'smear', 'broadcast') else effect_amount(params)
+            return blend_pass(image, strength, render)
+
+        signals.apply(render_stage)
+        if module_id == 'slab': signals.end('cloud')
+        if module_id == 'smear': signals.end('ghosts')
+        if module_id == 'broadcast': signals.end('broadcast')
     if polarity_index == len(p['modules']):
-        reversed_signal = render_broadcast_exposure(arr, broadcast, continuous_time, p['speed'])
-        arr = arr * (1 - broadcast['mix']) + reversed_signal * broadcast['mix']
+        signals.begin('broadcast', effect_amount(broadcast))
+        signals.apply(early_exposure)
     if source_end == len(p['modules']) and source_effects:
-        arr = treat_source(arr)
+        signals.apply(lambda image, omitted: treat_source(image))
+    arr = signals.result()
     image = Image.fromarray(np.clip(arr * 255, 0, 255).astype(np.uint8), "RGB")
     return finish_resolution(image, output, sampling)
 

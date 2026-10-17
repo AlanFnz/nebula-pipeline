@@ -1,5 +1,6 @@
 """Native inspector for reusable effects and their authored parameter ranges."""
 from __future__ import annotations
+from synth_intensity import intensity_path
 
 import copy
 import math
@@ -195,6 +196,10 @@ class EffectsPanel(QWidget):
         row.addWidget(self.restore)
         row.addStretch(1)
         editor_layout.addLayout(row)
+        self.intensity_host = QWidget()
+        self.intensity_layout = QVBoxLayout(self.intensity_host)
+        self.intensity_layout.setContentsMargins(0, 0, 0, 0)
+        editor_layout.addWidget(self.intensity_host)
         self.frame_status = QLabel(); self.frame_status.setWordWrap(True); self.frame_status.setObjectName('muted'); self.frame_status.hide()
         editor_layout.addWidget(self.frame_status)
         self.explanation_link = QPushButton('Open relevant control'); self.explanation_link.setProperty('compact', True); self.explanation_link.hide()
@@ -424,6 +429,9 @@ class EffectsPanel(QWidget):
         self.remove_button.setToolTip(removal_hint)
         for item in self.effect_choices.values(): item.remove.setToolTip(removal_hint)
         if tuple(self.controls) != effect.paths:
+            while self.intensity_layout.count():
+                widget = self.intensity_layout.takeAt(0).widget()
+                if widget: widget.hide()
             while self.parameter_layout.count():
                 widget = self.parameter_layout.takeAt(0).widget()
                 if widget: widget.hide()
@@ -438,7 +446,9 @@ class EffectsPanel(QWidget):
                     control.reset.connect(lambda path=path, effect_id=effect.id: self.reset_parameter(path, effect_id))
                     self.controls[path] = control
                 self.control_cache[effect.id] = self.controls
-            for control in self.controls.values(): self.parameter_layout.addWidget(control)
+            for path, control in self.controls.items():
+                layout = self.intensity_layout if path == intensity_path(effect.id) else self.parameter_layout
+                layout.addWidget(control)
             with QSignalBlocker(self.look):
                 self.look.clear()
                 for label, _ in effect.looks or (("Default settings", {}),): self.look.addItem(label)
@@ -617,6 +627,9 @@ class EffectsPanel(QWidget):
                 visible_paths = tuple(path for path in visible_paths if path != 'signal_repetition.edge_distance')
         if self.revealed_path in self.controls and self.revealed_path not in visible_paths:
             visible_paths = (*visible_paths, self.revealed_path)
+        mix_path = intensity_path(effect.id)
+        self.intensity_host.setVisible(mix_path is not None)
+        visible_paths = tuple(path for path in visible_paths if path != mix_path)
         groups = grouped_paths(visible_paths)
         titles = tuple(title for title, _paths in groups)
         if tuple(self.group.itemText(i) for i in range(1, self.group.count())) != titles:
@@ -655,7 +668,7 @@ class EffectsPanel(QWidget):
             for widget in (label, *(self.controls[p] for p in matching)):
                 if self.parameter_layout.indexOf(widget) != index: self.parameter_layout.insertWidget(index, widget)
                 index += 1
-        for path, control in self.controls.items(): control.setVisible(path in visible_controls)
+        for path, control in self.controls.items(): control.setVisible(path == mix_path or path in visible_controls)
         for title, label in self.group_labels.items(): label.setVisible(title in visible_groups)
         self.no_matches.setVisible(not creative and not shown)
         if timing:
