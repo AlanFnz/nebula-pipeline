@@ -7,7 +7,7 @@ from synth_effects import EFFECTS, EFFECT_BY_ID, effects_for
 from synth_instances import instance_ids, base_id
 
 
-SOURCE_EFFECT_IDS = frozenset(('radial_bloom', 'forms', 'rays', 'ink_bloom', 'particles', 'silhouette', 'text', 'prismatic_field', 'solid'))
+SOURCE_EFFECT_IDS = frozenset(('chromatic_lattice', 'radial_bloom', 'forms', 'rays', 'ink_bloom', 'particles', 'silhouette', 'text', 'prismatic_field', 'solid'))
 CATEGORIES = ('Distortion', 'Texture', 'Light & color', 'Motion & echoes', 'Cutout', 'Finishing', 'Other')
 EFFECT_CATEGORIES = {
     'color_field': 'Light & color',
@@ -87,6 +87,7 @@ def effect_catalog(allowed_effects=None, *, query='', category=''):
 
 # Capability sentences, separate from frozen recipes and measured visibility.
 CONTRIBUTIONS = {
+    'chromatic_lattice': 'Chromatic lattice creates luminous cells with traveling size and color waves.',
     'solid': '3D solid provides a rotating die or cube.',
     'color_field': 'Color field provides moving optical clouds behind the object.',
     'prismatic_field': 'Prismatic field creates turning color planes and a closed polygon.',

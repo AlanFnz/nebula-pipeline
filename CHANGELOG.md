@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.24.0 — 2026-10-17
+
+- Add Lattice / chromatic pulse: a portable 20-second, 720×1280, 30 fps Study
+  with fixed luminous cells, traveling size waves and optical color cycles.
+- Add Chromatic lattice as a generated Object. Configure circles, squares,
+  diamonds or 3–12-sided polygons; spacing, pulse size, wave geometry,
+  direction and period; four palettes, color timing, glow, softness and grain.
+- Integrate scoped editing, undo, source switching and directional anchors.
+  The new source is opt-in and appended after existing render modules;
+  historical Studies retain their recipes and rendering.
+
 ## 0.23.0 — 2026-10-14
 
 - Add Black glass to 3D solid with adjustable reflections, roughness,

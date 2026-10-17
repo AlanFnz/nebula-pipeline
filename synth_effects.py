@@ -35,6 +35,7 @@ def paths(module, keys=None):
 
 
 EFFECTS = (
+    Effect('chromatic_lattice', 'Chromatic lattice', 'Fixed luminous cells carry traveling size and color waves. Shape, grid spacing, wave geometry, palette and glow can be adjusted independently.', paths('chromatic_lattice'), ('chromatic_lattice',)),
     Effect('solid', '3D solid', 'A centered rotating die or cube. Adjust its pose, rotation, dots and surface colors in Object. Image treatments texture the complete picture.', paths('solid'), ('solid',)),
     Effect('color_field', 'Color field', 'Moving optical color clouds behind generated objects. Choose No object for the background alone. Full-frame sources can cover this background.', paths('color_field'), ('color_field',)),
     Effect('prismatic_field', 'Prismatic field', 'Crossed color planes open, turn and gather into a polygon. Geometry, fold rhythm, palette and moving color clouds are independent controls.', paths('prismatic_field'), ('prismatic_field',)),
