@@ -631,6 +631,37 @@ allow the whole phrase to play. This Study is silent; audio-triggered word
 advancement remains planned.
 
 
+### Memory / afterimage garden
+
+**Studies → Memory / afterimage garden → Load** opens a 15-second, 720×960,
+24 fps piece. A luminous ring draws changing loops while its earlier positions
+drift into overlapping amber, coral and turquoise traces. It needs no external
+media. **Object → Image memory** exposes the main exploration controls first:
+
+- **Persistence**: seconds of remembered motion. Zero leaves only the current
+  object; longer values allow earlier paths to overlap.
+- **Drift**: how far deposited traces travel independently of the object.
+  Zero leaves each trace at its original position.
+- **Dissolution**: how much older traces soften and erode before fading.
+
+Choose a **Sphere**, **Ring** or **Polygon**, then adjust size, path, travel,
+motion period, variation and palette. **Source controls…** opens trace strength,
+direction, expansion, rotation, color aging, light, softness and glow. Motion
+period and Persistence use source seconds at global speed 1; clip retiming and
+global speed retime the source and its history together. The history builds
+from the start of the source clock, so this study is not a seamless loop.
+
+The memory is reconstructed from bounded samples of the generated object's
+past poses: seeking, preview and export agree without warming a feedback
+buffer. This first version generates its own form and traces; it does not
+sample the history of imported footage, text or arbitrary 3D models. **Color
+emulsion** supplies grain and optical texture; **Broadcast wear** supplies the
+subtle screen curvature. Both remain separate, editable effects with Intensity.
+Project/clip scope, Undo, Reset, snapshots and saved compositions work normally.
+The source is opt-in, and existing studies retain their rendering.
+
+See the [implementation plan](docs/image-memory-plan.md).
+
 ### Lattice / chromatic pulse
 
 **Studies → Lattice / chromatic pulse → Load** opens a 20-second, 720×1280,
