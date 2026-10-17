@@ -8,9 +8,11 @@ from synth_radial_recipes import radial_composition
 from synth_prismatic_recipes import prismatic_composition
 from synth_solid_recipes import rotating_die_composition
 from synth_lattice_recipes import lattice_composition
+from synth_memory_recipes import memory_composition
 
 
 STARTERS = (
+    ('image-memory', 'Memory / afterimage garden · 15s', memory_composition),
     ('chromatic-lattice', 'Lattice / chromatic pulse · 20s', lattice_composition),
     ('color-film-die', 'Color film / rotating die · 15s', rotating_die_composition),
     ('color-film-die-original', 'Color film / rotating die (optical color) · 15s', lambda: starter_snapshot('color-film-die-original')),
@@ -45,6 +47,7 @@ STARTERS = (
 
 # First appearance in the repository, retained independently of app builds.
 STARTER_DATES = {
+    'image-memory': '2026-10-17',
     'chromatic-lattice': '2026-10-17',
     'color-film-die': '2026-10-14',
     'color-film-die-original': '2026-10-14',

@@ -10,6 +10,7 @@ from synth_solids import hidden_controls as hidden_solid_controls
 
 
 OBJECT_PATHS = {
+    'memory': tuple('image_memory.'+key for key in ('persistence','drift','dissolve','trail_opacity','shape','size','sides','path','travel','period','variation','palette')),
     'lattice': tuple('chromatic_lattice.'+key for key in ('shape','sides','spacing','size','minimum','rotation','wave_shape','wavelength','period','phase','direction','angle','pulse','palette','color_period','color_phase','color_spread','gradient','saturation','light','rim','softness','glow','glow_radius','grain','background')),
     'solid': tuple('solid.'+key for key in ('shape','model_data','height_stretch','scale','yaw','pitch','roll','turn_speed','tumble_speed','roll_speed','variation','perspective','corner_radius','material','roughness','specular','glass_transmission','glass_refraction','pip_size','pip_light','pip_depth','palette','shading','light')),
     'prismatic': tuple('prismatic_field.'+key for key in ('shape','sides','center_shape','size','gather','opening','fold_depth','rotation','transition_ease','turn_settle','palette','wash','saturation','light')),
@@ -99,7 +100,7 @@ class SubjectPanel(QWidget):
         if not self.updating and index >= 0: self.selected.emit(self.selector.itemData(index))
 
     def open_details(self, timing):
-        effect = {'lattice': 'chromatic_lattice', 'solid': 'solid', 'prismatic': 'prismatic_field', 'radial': 'radial_bloom', 'ink': 'ink_bloom', 'particles': 'particles', 'signal': self.signal_effect, 'silhouette': 'silhouette', 'text': 'text'}.get(self.kind)
+        effect = {'memory': 'image_memory', 'lattice': 'chromatic_lattice', 'solid': 'solid', 'prismatic': 'prismatic_field', 'radial': 'radial_bloom', 'ink': 'ink_bloom', 'particles': 'particles', 'signal': self.signal_effect, 'silhouette': 'silhouette', 'text': 'text'}.get(self.kind)
         if effect: self.details_requested.emit(effect, timing)
 
     def refresh(self, summary, entries, parent_entries, local, *, context_key=None, scope_label=None):
@@ -116,6 +117,7 @@ class SubjectPanel(QWidget):
                  'particles': 'The model is the target of the particles. Adjust its size, pose and point density here.',
                  'signal': 'The luminous form and ray aperture share this geometry.',
                  'none': 'Choose an object to introduce a source into the scene.'}
+        notes['memory'] = 'Persistence holds past positions; Drift carries the traces away; Dissolution erodes old silhouettes. This object generates its own history. Source controls opens trace direction, expansion, color aging and optical finish.'
         notes['lattice'] = 'A fixed grid with traveling waves of size and color. Choose the cell shape, wave geometry and palette. Pulse period controls size movement; Color cycle controls color movement. Glow and softness shape the optical finish.'
         notes['solid'] = 'A die, cube or imported GLB/glTF model rotating around its center. Adjust rounded corners, material, reflections, pose, rotation speeds and dots here. Imported models use static geometry and the studio material. Color field controls the background; Color emulsion textures both together.'
         note = f'{notes[self.kind]} Changes apply to {scope}.'
@@ -130,6 +132,12 @@ class SubjectPanel(QWidget):
         self.timing.setText('Creative motion…' if self.kind == 'particles' else 'Motion & timing…')
         paths = OBJECT_PATHS.get(self.kind, ())
         if set(self.controls) != set(paths):
+            # Memory's exploration controls precede placement. Only move the
+            # host when the source family changes, keeping edits scroll-stable.
+            host_layout = self.layout()
+            host_layout.removeWidget(self.control_host)
+            anchor = self.position_host if self.kind == 'memory' else self.details
+            host_layout.insertWidget(host_layout.indexOf(anchor), self.control_host)
             for host_layout in (self.control_layout, self.wording_layout):
                 while host_layout.count():
                     widget = host_layout.takeAt(0).widget()
@@ -155,6 +163,9 @@ class SubjectPanel(QWidget):
             control.refresh(summary[effect]['ranges'][path], entry['params'].get(path),
                             path in parent_params, True, parent_value=parent_params.get(path),
                             context_key=context_key, scope_label=scope_label)
+        if self.kind == 'memory':
+            shape = summary['image_memory']['ranges']['image_memory.shape']
+            self.controls['image_memory.sides'].setVisible(shape[0] != shape[1] or shape[0] == 2)
         if self.kind == 'lattice':
             ranges=summary['chromatic_lattice']['ranges']
             shape=ranges['chromatic_lattice.shape']

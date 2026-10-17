@@ -20,6 +20,7 @@ PERSONAL_PREFIX = 'personal:'
 LIBRARY_FILE = '.library.json'
 CATEGORIES = ('Signals', 'Profiles', 'Particles', 'Mixed media', 'Text', 'Video', 'Other')
 BUILTIN_CATEGORIES = {
+    'image-memory': 'Signals',
     'chromatic-lattice': 'Signals',
     'color-film-die': 'Signals',
     'prismatic-film': 'Signals', 'prismatic-film-original': 'Signals',
@@ -57,7 +58,7 @@ def composition_category(project):
                 ('text', 'Text'), ('silhouette', 'Profiles'), ('particles', 'Particles'),
                 ('ink_bloom', 'Mixed media')) if module in modules}
             # Rays, forms and flare also treat named primary objects.
-            kinds.update(primary or ({'Signals'} if modules & {'slab', 'blinds', 'flare', 'radial_bloom', 'prismatic_field', 'solid', 'color_field', 'chromatic_lattice'} else set()))
+            kinds.update(primary or ({'Signals'} if modules & {'slab', 'blinds', 'flare', 'radial_bloom', 'prismatic_field', 'solid', 'color_field', 'chromatic_lattice', 'image_memory'} else set()))
     return 'Mixed media' if len(kinds) > 1 else next(iter(kinds), 'Other')
 
 
