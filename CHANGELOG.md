@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.27.0 — 2026-10-18
+
+- Add opt-in Irregular passes to Broadcast wear's rolling static band, with
+  configurable average interval, travel time and variation of width, brightness,
+  speed, easing and direction. Passes have quiet gaps and occasional overlaps;
+  seeking and export reproduce the same seeded events without frame history.
+- Preserve Continuous sweep and its exact rendering for existing documents.
+  The Signal inspector shows the controls relevant to the selected band mode.
+- Add the portable Memory / unstable tape example, combining stronger tape
+  distortion and horizontal echoes on the object with irregular static passes.
+  Both earlier Memory studies remain unchanged.
+
 ## 0.26.0 — 2026-10-17
 
 - Add Memory / afterimage garden: an original, portable 15-second Study in

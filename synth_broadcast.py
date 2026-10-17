@@ -42,6 +42,53 @@ def interruption_gate(p, clock, seed):
     return 0.
 
 
+@lru_cache(maxsize=512)
+def _band_events(seed, cell):
+    """Independent passage starts and traits, without sampling an image buffer."""
+    rng = np.random.default_rng(np.random.SeedSequence((seed, cell & 0xffffffffffffffff, 196)))
+    return tuple(sorted(map(tuple, rng.random((rng.poisson(1.), 6)))))
+
+
+def band_passes(p, clock, seed):
+    """Visible irregular passes as (center, half-height, opacity).
+
+    Only a bounded source-time window is visited. Event traits never depend on
+    resolution, rendering order, or the static texture's held-frame cadence.
+    """
+    interval = max(.25, p.get('band_interval', 3.2))
+    travel = min(12., max(.1, p.get('band_travel', 1.4)))
+    variation = min(1., max(0., p.get('band_variation', .75)))
+    position = clock / interval + p['phase']
+    lifetime = travel / interval
+    first = math.floor(position - lifetime * (1 + .75 * variation))
+    for cell in range(first, math.floor(position) + 1):
+        for onset, pace, breadth, level, direction, pulse in _band_events(seed, cell):
+            duration = lifetime * (1 + .75 * variation * (2 * pace - 1))
+            u = (position - cell - onset) / duration
+            if not 0 <= u < 1:
+                continue
+            eased = u*u*(3 - 2*u)
+            progress = u + .7*variation*(eased-u)
+            width = min(1., p['band'] * (1 + .85*variation*(2*breadth-1)))
+            # The envelope is entirely outside the picture at both endpoints.
+            sign = -1 if direction < .5*variation else 1
+            center = sign * (2*progress-1) * (1+width)
+            height = width * (1 - .22*variation*math.sin(math.pi*u)**2
+                              * (.5+.5*math.sin(math.tau*(u+pulse))))
+            opacity = 1 - variation*(.15+.55*level)
+            yield center, height, opacity
+
+
+def irregular_band(rows, p, clock, seed):
+    """Row envelope: work stays O(height), independently of canvas width."""
+    result = np.zeros_like(rows)
+    if p['band'] <= 0:
+        return result
+    for center, height, opacity in band_passes(p, clock, seed):
+        result = np.maximum(result, np.clip(1-np.abs(rows-center)/max(.0001, height), 0, 1)*opacity)
+    return result
+
+
 def render_polarity(arr, p, time, speed):
     """Stateless positive/negative field overlap, usable before or after wear."""
     if not p['reverse']: return arr
@@ -119,8 +166,12 @@ def render_broadcast(arr, p, time, speed, seed):
         static = np.clip(noise * .8 + rows * .65 - .2, 0, 1)
         chroma = np.stack((np.roll(static, 2, 1), static, np.roll(static, -2, 1)), axis=2)
         if p.get('static_style', 0): chroma = broken_sync(out, p, detail_rng)
-        center = ((clock * p['roll'] + .35) % 1) * 2 - 1
-        band = np.clip(1 - np.abs(y - center) / max(.001, p['band']), 0, 1)
+        if p.get('band_motion', 0):
+            band = irregular_band(y[:, :1], p, clock, seed)
+        else:
+            # Keep the original sweep's operation order and pixels unchanged.
+            center = ((clock * p['roll'] + .35) % 1) * 2 - 1
+            band = np.clip(1 - np.abs(y - center) / max(.001, p['band']), 0, 1)
         amount = np.maximum(gate, band) * p['static']
         out = out * (1 - amount[..., None]) + chroma * amount[..., None]
     if p['curve']:

@@ -30,7 +30,7 @@ def render(p=None, t=7., size=(96,128), **settings):
 
 def test_recipe_is_portable_independent_and_seekable(tmp_path):
     project = starter_composition('image-memory')
-    assert project == memory_composition()
+    authored = compile_composition(memory_composition())
     assert composition_category(project) == 'Signals'
     assert active_subjects(describe_effects(scope_states(project))) == ('memory',)
     assert 'image_memory' not in {item.id for item in effect_catalog()}
@@ -39,6 +39,10 @@ def test_recipe_is_portable_independent_and_seekable(tmp_path):
     assert (seq['canvas']['width'],seq['canvas']['height']) == (720,960)
     before = copy.deepcopy(project)
     frames = {t: render_sequence_frame(seq,t,(96,128)).tobytes() for t in (0.,3.,7.2,14.9)}
+    # New disabled controls may be explicit in the factory and absent from the
+    # frozen document. Their rendered contract must still agree exactly.
+    for t, pixels in frames.items():
+        assert render_sequence_frame(authored,t,(96,128)).tobytes() == pixels
     for t in (14.9,7.2,0.,3.,7.2):
         assert render_sequence_frame(seq,t,(96,128)).tobytes() == frames[t]
     save_composition(tmp_path/'study.json',project)

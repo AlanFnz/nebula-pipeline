@@ -23,7 +23,7 @@ def test_regular_and_missing_timing_retain_exact_old_pixels():
     image = np.random.default_rng(120).random((53, 71, 3), dtype=np.float32)
     for case in fixtures:
         p = params(**case['changes'])
-        for settings in (p, {k: v for k, v in p.items() if k not in ('timing', 'duration_variation')}):
+        for settings in (p, {k: v for k, v in p.items() if k not in ('timing', 'duration_variation', 'band_motion', 'band_interval', 'band_travel', 'band_variation')}):
             frame = render_broadcast(image, settings, case['time'], 1., 17)
             assert hashlib.sha256(frame.tobytes()).hexdigest() == case['hash']
 
