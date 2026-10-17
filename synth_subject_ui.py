@@ -10,7 +10,7 @@ from synth_solids import hidden_controls as hidden_solid_controls
 
 
 OBJECT_PATHS = {
-    'memory': tuple('image_memory.'+key for key in ('persistence','drift','dissolve','trail_opacity','shape','size','sides','path','travel','period','variation','palette')),
+    'memory': tuple('image_memory.'+key for key in ('persistence','drift','dissolve','trail_opacity','shape','size','sides','path','travel','amplitude_x','amplitude_y','period','variation','palette')),
     'lattice': tuple('chromatic_lattice.'+key for key in ('shape','sides','spacing','size','minimum','rotation','wave_shape','wavelength','period','phase','direction','angle','pulse','palette','color_period','color_phase','color_spread','gradient','saturation','light','rim','softness','glow','glow_radius','grain','background')),
     'solid': tuple('solid.'+key for key in ('shape','model_data','height_stretch','scale','yaw','pitch','roll','turn_speed','tumble_speed','roll_speed','variation','perspective','corner_radius','material','roughness','specular','glass_transmission','glass_refraction','pip_size','pip_light','pip_depth','palette','shading','light')),
     'prismatic': tuple('prismatic_field.'+key for key in ('shape','sides','center_shape','size','gather','opening','fold_depth','rotation','transition_ease','turn_settle','palette','wash','saturation','light')),
