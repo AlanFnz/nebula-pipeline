@@ -11,6 +11,7 @@ import hashlib
 import uuid
 from synth import MODULE_BY_ID
 from synth_instances import base_path
+from synth_intensity import PATHS
 
 TARGETS = frozenset({
     'signal_repetition.spacing', 'signal_repetition.wave', 'signal_repetition.mix',
@@ -22,6 +23,7 @@ TARGETS = frozenset({
     'raster.chroma', 'raster.line_noise', 'chroma_print.exposure',
     'chroma_print.mid_saturation', 'chroma_print.warm_color', 'chroma_print.mix',
 })
+TARGETS |= frozenset(PATHS.values())
 STAGES = ('start', 'attack', 'hold', 'recovery')
 MAX_SECTION_EVENTS = 131072
 MAX_SEQUENCE_EVENTS = 131072
@@ -148,7 +150,11 @@ def apply_automations(preset, events, seconds):
         if delta == 0: continue
         module, key = event['path'].split('.')
         original = next((m for m in preset['modules'] if m['id'] == module), None)
-        if original is None or not original.get('enabled', True): continue
+        if original is None: continue
+        companion_ghost = (event['path'] == 'smear.effect_intensity' and any(
+            m['id']=='slab' and m.get('enabled', True) and m['params'].get('ghost_opacity', 0)
+            for m in preset['modules']))
+        if not original.get('enabled', True) and not companion_ghost: continue
         if result is preset:
             result = copy.deepcopy(preset)
             modules = {m['id']: m for m in result['modules']}

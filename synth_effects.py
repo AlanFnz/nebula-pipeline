@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import copy
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from synth import MODULE_BY_ID, Param, curated_presets
 from synth_artwork import validate_artwork
@@ -16,6 +16,7 @@ from synth_text import validate_text
 from synth_ink_timing import stage_durations
 from synth_creative import creative_overrides, merged_creative, normalize_creative
 from synth_instances import InstanceRegistry, instance_ids, state_instance_ids
+from synth_intensity import intensity_path
 
 
 @dataclass(frozen=True)
@@ -129,6 +130,9 @@ EFFECTS = (
                   ("Fine / 720 px", {"low_res.resolution": 720}),
                   ("Crisp pixels / 240 px", {"low_res.resolution": 240, "low_res.sampling": 1}))),
 )
+EFFECTS = tuple(replace(effect, paths=(*effect.paths, intensity_path(effect.id)))
+                if intensity_path(effect.id) and intensity_path(effect.id) not in effect.paths else effect
+                for effect in EFFECTS)
 EFFECT_BY_ID = InstanceRegistry({effect.id: effect for effect in EFFECTS}, effects=True)
 
 
@@ -287,7 +291,7 @@ def describe_effects(states):
         ranges = {}
         for path in effect.paths:
             module = path.split(".")[0]
-            values = [values[path] for values, enabled in active if module in enabled]
+            values = [values[path] for values, enabled in active if module in enabled or path == intensity_path(effect.id)]
             ranges[path] = (min(values), max(values)) if values else (parameter(path).default,) * 2
         if effect.id == 'ink_bloom' and not active:
             defaults = {spec.key: spec.default for spec in MODULE_BY_ID['ink_bloom'].params}
