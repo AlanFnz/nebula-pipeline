@@ -1,0 +1,149 @@
+{
+  "format": "nebula-composition",
+  "schema_version": 1,
+  "render_version": 2,
+  "name": "Lattice / chromatic pulse",
+  "fps": 30,
+  "seed": 171026,
+  "source": {
+    "schema_version": 1,
+    "name": "Lattice / chromatic pulse",
+    "duration": 20.0,
+    "fps": 30,
+    "seed": 171026,
+    "field": {
+      "valley_start": 0.0,
+      "valley_end": 0.0,
+      "valley_gain": 1.0,
+      "cloud_start": 0.0,
+      "cloud_strength": 0.0,
+      "cloud_late_start": 0.0,
+      "cloud_late_rate": 0.0
+    },
+    "states": {
+      "pulse": {
+        "preset": "Reference blinds",
+        "overrides": {
+          "speed": 1.0,
+          "depth": 0.0,
+          "treatment_fps": 30,
+          "object_x": 0.0,
+          "object_y": 0.0,
+          "chromatic_lattice.shape": 0,
+          "chromatic_lattice.sides": 6,
+          "chromatic_lattice.spacing": 79.2,
+          "chromatic_lattice.size": 0.94,
+          "chromatic_lattice.minimum": 0.0,
+          "chromatic_lattice.rotation": 0.0,
+          "chromatic_lattice.wave_shape": 0,
+          "chromatic_lattice.wavelength": 10.0,
+          "chromatic_lattice.period": 5.0,
+          "chromatic_lattice.phase": 0.0,
+          "chromatic_lattice.direction": 0,
+          "chromatic_lattice.angle": 45.0,
+          "chromatic_lattice.pulse": 1.0,
+          "chromatic_lattice.palette": 0,
+          "chromatic_lattice.color_period": 10.0,
+          "chromatic_lattice.color_phase": 0.0,
+          "chromatic_lattice.color_spread": 0.8,
+          "chromatic_lattice.gradient": 0.8,
+          "chromatic_lattice.saturation": 1.0,
+          "chromatic_lattice.light": 1.0,
+          "chromatic_lattice.rim": 0.4,
+          "chromatic_lattice.softness": 1.4,
+          "chromatic_lattice.glow": 1.2,
+          "chromatic_lattice.glow_radius": 16.0,
+          "chromatic_lattice.grain": 0.009,
+          "chromatic_lattice.background": 0.0,
+          "chromatic_lattice.mix": 1.0
+        },
+        "enabled": [
+          "chromatic_lattice"
+        ]
+      }
+    },
+    "cues": [
+      {
+        "time": 0.0,
+        "state": "pulse",
+        "transition": "cut",
+        "duration": 0.0
+      }
+    ],
+    "render_version": 2,
+    "canvas": {
+      "width": 720,
+      "height": 1280,
+      "framing": "native"
+    }
+  },
+  "canvas": {
+    "width": 720,
+    "height": 1280,
+    "framing": "native"
+  },
+  "master": {
+    "enabled": true,
+    "brightness": 0.0,
+    "contrast": 1.0,
+    "saturation": 1.0
+  },
+  "phrases": {
+    "custom": {
+      "name": "Luminous cells / traveling waves",
+      "start": 0.0,
+      "end": 20.0
+    }
+  },
+  "macros": {
+    "rhythm": 1.0,
+    "width": 1.0,
+    "motion": 1.0,
+    "texture": 1.0,
+    "glow": 1.0,
+    "flashes": 1.0,
+    "color": 1.0
+  },
+  "geometry": {
+    "shape": "original",
+    "height": 1.0,
+    "diameter": 0.6,
+    "sides": 6,
+    "rotation": 0.0,
+    "position_x": 0.0,
+    "position_y": 0.0
+  },
+  "effects": {},
+  "ink_timing": {},
+  "variation": 0,
+  "locks": [],
+  "sections": [
+    {
+      "id": "section-1",
+      "phrase": "custom",
+      "duration": 20.0,
+      "loops": 1,
+      "macros": {
+        "rhythm": 1.0,
+        "width": 1.0,
+        "motion": 1.0,
+        "texture": 1.0,
+        "glow": 1.0,
+        "flashes": 1.0,
+        "color": 1.0
+      },
+      "geometry": {
+        "shape": "inherit",
+        "height": 1.0,
+        "diameter": 0.6,
+        "sides": 6,
+        "rotation": 0.0,
+        "position_x": 0.0,
+        "position_y": 0.0
+      },
+      "effects": {},
+      "variation": 0,
+      "locks": []
+    }
+  ]
+}

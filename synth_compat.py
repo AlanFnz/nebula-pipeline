@@ -24,6 +24,8 @@ def frozen_data(key):
 
 
 def starter_snapshot(identifier):
+    if identifier == 'chromatic-lattice':
+        return copy.deepcopy(_lattice_snapshot())
     if identifier == 'color-film-die':
         return copy.deepcopy(_solid_snapshot())
     if identifier == 'color-film-die-original':
@@ -51,6 +53,11 @@ def starter_snapshot(identifier):
     if identifier in ('profile-clear', 'profile-doryphoros'):
         return copy.deepcopy(_profile_snapshot()[identifier])
     return copy.deepcopy(_snapshot()['starters'][identifier])
+
+
+@lru_cache(maxsize=1)
+def _lattice_snapshot():
+    return json.loads((Path(__file__).parent / 'presets/chromatic-lattice-v1.json').read_text())
 
 
 @lru_cache(maxsize=2)

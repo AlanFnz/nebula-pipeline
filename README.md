@@ -631,6 +631,32 @@ allow the whole phrase to play. This Study is silent; audio-triggered word
 advancement remains planned.
 
 
+### Lattice / chromatic pulse
+
+**Studies → Lattice / chromatic pulse → Load** opens a 20-second, 720×1280,
+30 fps Study inspired by the luminous grid reference. The grid stays fixed
+while diamond-shaped waves change each cell’s size and color. It is generated
+entirely in Nebula; the reference video is not embedded or needed at playback.
+
+In **Object → Chromatic lattice**, choose Circle, Square, Diamond or Polygon
+(3–12 sides). Cell spacing controls density; Maximum size and Minimum size
+control the pulse range. Square and polygon shapes stay inside their cells
+when rotated. The Wave shape can be diamond rings, circular rings or parallel
+bands; Band angle appears only for parallel bands.
+
+**Pulse period** controls size timing and **Color cycle** controls color timing,
+independently of Timeline FPS. Lower periods are faster. Pulse depth 0 holds
+cell size; global Speed 0 freezes the source. Choose one of four palettes and
+adjust Color wave depth, Color across each cell, saturation and brightness.
+Glow amount/spread, the luminous rim, optical softness and fine grain remain
+separate controls. Source controls exposes the complete parameter set, including
+Mix. All settings use the existing project/clip scopes, save format and undo.
+
+The default size wave repeats every five seconds and the color cycle every ten;
+the grain changes continuously. Export and preview evaluate the same absolute
+clock. Changing the canvas preserves shape proportions and reveals or crops the
+grid around its center; Object position moves the grid and wave center together.
+
 ### Prismatic color film
 
 **Studies → Prismatic / color film → Load** opens a 15-second, 720×1280 optical
