@@ -20,6 +20,7 @@ SECONDS = frozenset({
     'photocopy.period', 'subject_cutout.retention_seconds',
     'text.morph_hold', 'text.morph_seconds', 'contour_melt.period',
     'text.word_seconds', 'text.period', 'broadcast.period', 'broadcast.reverse_period',
+    'broadcast.band_interval', 'broadcast.band_travel',
     'stretch_echo.period', 'signal_etch.period', 'signal_etch.pulse_seconds',
     'slice_echo.period', 'slice_echo.flash_period', 'slice_echo.flash_seconds',
 })
