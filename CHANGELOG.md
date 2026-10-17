@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.27.1 — 2026-10-18
+
+- Add independent Horizontal amplitude and Vertical amplitude to Image memory
+  in Object and the detailed source inspector. Set 0–200% of the existing path
+  without stretching the object, changing its rotation or altering trace drift.
+  The current object and remembered positions follow the same scaled path.
+- Existing Memory studies default to 100% per axis and retain their exact output;
+  the new controls support clip overrides, undo, reset and saved compositions.
+
 ## 0.27.0 — 2026-10-18
 
 - Add opt-in Irregular passes to Broadcast wear's rolling static band, with

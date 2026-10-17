@@ -645,7 +645,13 @@ media. **Object → Image memory** exposes the main exploration controls first:
 - **Dissolution**: how much older traces soften and erode before fading.
 
 Choose a **Sphere**, **Ring** or **Polygon**, then adjust size, path, travel,
-motion period, variation and palette. **Source controls…** opens trace strength,
+motion period, variation and palette. **Horizontal amplitude** and **Vertical
+amplitude** independently scale the path: 100% preserves its current extent,
+0% stops movement along that axis, and 200% doubles its reach. **Travel distance**
+still scales both axes together. These controls move the object and its remembered
+positions without stretching their shapes; **Drift** remains separate. Existing
+documents default to 100% on both axes and render unchanged.
+**Source controls…** opens trace strength,
 direction, expansion, rotation, color aging, light, softness and glow. Motion
 period and Persistence use source seconds at global speed 1; clip retiming and
 global speed retime the source and its history together. The history builds
