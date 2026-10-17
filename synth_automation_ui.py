@@ -125,8 +125,11 @@ class AutomationEditor(QDialog):
 
     def configure_amount(self):
         spec = target_parameter(self.target.currentData()); configure_parameter_spin(self.amount, spec)
+        from synth_intensity import PATHS
+        intensity = base_path(self.target.currentData()) in PATHS.values()
+        self.amount.setSuffix(' %' if intensity else '')
         span = spec.maximum-spec.minimum; self.amount.setRange(-span, span)
-        self.amount.setValue(min(span, max(spec.step, span*(.15 if base_path(self.target.currentData()) == "tape.pull" else .3))))
+        self.amount.setValue((-1 if intensity else 1) * min(span, max(spec.step, span*(.15 if base_path(self.target.currentData()) == "tape.pull" else .3))))
 
     def section_changed(self):
         section = self.current_section(); duration = section['duration']

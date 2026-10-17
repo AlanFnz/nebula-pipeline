@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.25.0 — 2026-10-17
+
+- Add a pinned 0–100% Intensity control to every image effect, independent of
+  its existing settings. Old projects and Studies default to 100% and preserve
+  their rendered output. Generated Object sources retain their own controls.
+- Support project/clip overrides, independent Tape damage instances, timed
+  intensity automation, reset, undo and portable saved compositions.
+- Blend compound Ghosts and Broadcast wear across their contributing stages.
+  Low-res finish blends complete resolution paths; zero-intensity Subject
+  cutout does not request a foreground mask.
+
 ## 0.24.0 — 2026-10-17
 
 - Add Lattice / chromatic pulse: a portable 20-second, 720×1280, 30 fps Study

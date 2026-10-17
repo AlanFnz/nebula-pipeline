@@ -47,5 +47,8 @@ HUES = frozenset({
 
 
 def presentation(path):
+    from synth_instances import base_path
+    from synth_intensity import PATHS
+    if base_path(path) in PATHS.values(): return ParameterPresentation(unit=' %')
     unit = ' s' if path in SECONDS else '°' if path in DEGREES else '°/s' if path in DEGREES_PER_SECOND else ' px' if path in PIXELS else ''
     return ParameterPresentation(unit=unit, hue=path in HUES)

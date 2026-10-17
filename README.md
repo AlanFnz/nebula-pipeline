@@ -1061,6 +1061,21 @@ detailed sequence/preset windows disable composition Undo/Redo.
   **Compare without this effect** auditions a temporary bypass with no undo entry.
   Scope and current-frame explanations distinguish bypass/off, verified zero
   strength and missing dependencies. Brightness advice is conditional guidance.
+- **Intensity**, pinned beneath each image effect's action buttons, mixes its
+  processed result with the image without that effect: **0%** removes its
+  contribution, **100%** preserves the full configured look. Existing Studies
+  default to 100%. It does not rewrite the effect's other controls, including
+  any existing Mix or Strength setting. Sources such as Text and 3D solid use
+  their own source controls instead.
+  Intensity follows the selected project/clip scope, supports **↶**, Undo/Redo
+  and Save/Open, and stays visible while searching or switching parameter tabs.
+  **Animate…** creates a timed change in percentage points (for example, −30
+  changes a 100% base to 70% at the peak). Bypass still takes priority.
+  Additional Tape damage instances have independent intensity controls.
+  Low-res finish mixes full-resolution and low-resolution renders, including
+  sequence overlays and finishing. Intermediate values cost an additional render;
+  0% and 100% take a single path. Compound Ghosts and Broadcast wear similarly
+  preserve the intervening treatments while mixing their complete contribution.
 - **Bypass / Resume** temporarily disables an image effect while retaining its
   parameters and authored activation timing, including after Save/Open and
   Undo/Redo. Bypassed effects remain in the applied overview. A clip can resume
