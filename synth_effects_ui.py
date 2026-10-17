@@ -551,6 +551,10 @@ class EffectsPanel(QWidget):
         if not self.focused: self.scope_label.setText(self.context_scope_label)
         self.timing_selected.emit(timing and self.focused)
         visible_paths = SHARED_TIMING_CONTROLS if timing else tuple(path for path in effect.paths if not ink or path not in INK_TIMING)
+        if effect.id == 'image_memory':
+            shape = self.summary[effect.id]['ranges']['image_memory.shape']
+            if shape[0] == shape[1] and shape[0] != 2:
+                visible_paths = tuple(path for path in visible_paths if path != 'image_memory.sides')
         if effect.id == 'chromatic_lattice':
             ranges=self.summary[effect.id]['ranges']
             for selector,value,path in (('shape',3,'sides'),('wave_shape',2,'angle')):
@@ -600,7 +604,7 @@ class EffectsPanel(QWidget):
                 if mode == (2, 2):
                     visible_paths = tuple(p for p in visible_paths if p != 'edge_phosphor.fade_anchor')
                 self.description.setText('Profile preset keeps the original neck blend. Choose Object to attach a reusable fade to a source, or Canvas to hold it in the viewport. The region affects contours, echoes, fill and surrounding light; it leaves the final background texture intact.')
-                sources = ('silhouette', 'forms', 'ink_bloom', 'particles', 'rays', 'text', 'radial_bloom', 'prismatic_field', 'solid', 'chromatic_lattice')
+                sources = ('silhouette', 'forms', 'ink_bloom', 'particles', 'rays', 'text', 'radial_bloom', 'prismatic_field', 'solid', 'chromatic_lattice', 'image_memory')
                 anchor = self.summary['edge_phosphor']['ranges']['edge_phosphor.fade_anchor']
                 missing = mode == (1, 1) and (not any(self.summary[s]['active'] for s in sources) if anchor == (0, 0) else
                           anchor[0] == anchor[1] and not self.summary[sources[int(anchor[0]) - 1]]['active'])

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.26.0 — 2026-10-17
+
+- Add Memory / afterimage garden: an original, portable 15-second Study in
+  which a luminous ring leaves drifting, eroding, color-shifting traces.
+- Add the opt-in Image memory Object with Persistence, Drift and Dissolution;
+  sphere/ring/polygon shapes, three motion paths, smooth speed variation, four
+  palettes, trace expansion, color aging and optical finish controls.
+- Reconstruct bounded history analytically for deterministic seeks, preview
+  and export. Integrate project/clip editing, reset, undo and source anchors.
+  Existing studies and effects retain their defaults and rendered pixels.
+
 ## 0.25.0 — 2026-10-17
 
 - Add a pinned 0–100% Intensity control to every image effect, independent of

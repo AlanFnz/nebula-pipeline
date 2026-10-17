@@ -24,6 +24,8 @@ def frozen_data(key):
 
 
 def starter_snapshot(identifier):
+    if identifier == 'image-memory':
+        return copy.deepcopy(_memory_snapshot())
     if identifier == 'chromatic-lattice':
         return copy.deepcopy(_lattice_snapshot())
     if identifier == 'color-film-die':
@@ -53,6 +55,11 @@ def starter_snapshot(identifier):
     if identifier in ('profile-clear', 'profile-doryphoros'):
         return copy.deepcopy(_profile_snapshot()[identifier])
     return copy.deepcopy(_snapshot()['starters'][identifier])
+
+
+@lru_cache(maxsize=1)
+def _memory_snapshot():
+    return json.loads((Path(__file__).parent / 'presets/image-memory-v1.json').read_text())
 
 
 @lru_cache(maxsize=1)

@@ -5,6 +5,13 @@ def control_group(path):
     from synth_instances import base_path
     path = base_path(path)
     module, key = path.split('.')
+    if module == 'image_memory':
+        if key in ('persistence', 'drift', 'dissolve', 'trail_opacity', 'drift_angle', 'expansion'): return 'Memory'
+        if key in ('shape', 'size', 'sides', 'rotation'): return 'Shape & layout'
+        if key in ('path', 'travel', 'period', 'variation', 'phase', 'spin'): return 'Motion & timing'
+        if key in ('palette', 'color_speed', 'color_shift', 'light', 'background'): return 'Color & light'
+        if key == 'mix': return 'Output & blending'
+        return 'Optical finish'
     if module == 'chromatic_lattice':
         if key in ('shape','sides','spacing','size','minimum','rotation'): return 'Shape & layout'
         if key in ('wave_shape','wavelength','period','phase','direction','angle','pulse'): return 'Motion & timing'

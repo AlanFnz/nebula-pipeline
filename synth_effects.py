@@ -36,6 +36,7 @@ def paths(module, keys=None):
 
 
 EFFECTS = (
+    Effect('image_memory', 'Image memory', 'A moving form leaves a history of colored traces. Persistence holds past positions, Drift carries the traces away, and Dissolution erodes their silhouettes. Generates its own sphere, ring or polygon.', paths('image_memory'), ('image_memory',)),
     Effect('chromatic_lattice', 'Chromatic lattice', 'Fixed luminous cells carry traveling size and color waves. Shape, grid spacing, wave geometry, palette and glow can be adjusted independently.', paths('chromatic_lattice'), ('chromatic_lattice',)),
     Effect('solid', '3D solid', 'A centered rotating die or cube. Adjust its pose, rotation, dots and surface colors in Object. Image treatments texture the complete picture.', paths('solid'), ('solid',)),
     Effect('color_field', 'Color field', 'Moving optical color clouds behind generated objects. Choose No object for the background alone. Full-frame sources can cover this background.', paths('color_field'), ('color_field',)),

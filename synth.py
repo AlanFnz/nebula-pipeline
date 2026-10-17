@@ -34,6 +34,7 @@ from synth_radial import modules as radial_modules, render_radial_bloom
 from synth_prismatic import modules as prismatic_modules, render_prismatic_field, render_film_emulsion
 from synth_solids import modules as solid_modules, render_color_field, render_solid
 from synth_lattice import modules as lattice_modules, render_chromatic_lattice
+from synth_memory import modules as memory_modules, render_image_memory
 from synth_canvas import content_size, normalize_canvas, source_framing, object_offset
 from synth_print import render_ink_bloom, render_print_surface
 from synth_profile import render_silhouette, render_edge_phosphor, render_scan_drag
@@ -274,7 +275,7 @@ MODULES = (
         P("fade_width", "Fade width", .5, .01, 3, .01, "Distance from unchanged to fully faded in region units."),
         P("fade_angle", "Fade direction", 0., -180, 180, 1, "0 fades downward; 90 fades to the right, relative to the anchor."),
         P("fade_softness", "Light blending", .065, 0, .3, .005, "Soften the surrounding backlight inside the region before grain is applied."),
-        P("fade_anchor", "Object anchor", 0, 0, 10, 1, "Attach to the root of a source, including compound stamps or particle clouds.", choices=("Primary object", "Model silhouette", "Luminous forms", "Ink stamps", "Particles", "Rays", "Text", "Radial bloom", "Prismatic field", "3D solid", "Chromatic lattice")),
+        P("fade_anchor", "Object anchor", 0, 0, 11, 1, "Attach to the root of a source, including compound stamps or particle clouds.", choices=("Primary object", "Model silhouette", "Luminous forms", "Ink stamps", "Particles", "Rays", "Text", "Radial bloom", "Prismatic field", "3D solid", "Chromatic lattice", "Image memory")),
         P("fade_x", "Region X", 0., -3, 3, .01),
         P("fade_y", "Region Y", 0., -3, 3, .01),
         P("fade_curve", "Fade curve", 1, 0, 1, 1, choices=("Linear", "Smooth")),
@@ -698,6 +699,7 @@ MODULES += contour_modules(Module, P)
 MODULES += prismatic_modules(Module, P)
 MODULES += solid_modules(Module, P)
 MODULES += lattice_modules(Module, P)
+MODULES += memory_modules(Module, P)
 MODULES = add_parameters(MODULES, P)
 MODULE_BY_ID = InstanceRegistry({module.id: module for module in MODULES})
 
@@ -1343,6 +1345,9 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
     lattice_source = next((entry for entry in p['modules'] if entry['id'] == 'chromatic_lattice' and entry['enabled']), None)
     if lattice_source and source_image is None:
         arr = render_chromatic_lattice(arr, lattice_source['params'], continuous_time, p)
+    memory_source = next((entry for entry in p['modules'] if entry['id'] == 'image_memory' and entry['enabled']), None)
+    if memory_source and source_image is None:
+        arr = render_image_memory(arr, memory_source['params'], continuous_time, p)
     text_source = next((entry for entry in p['modules'] if entry['id'] == 'text' and entry['enabled']), None)
     if text_source and source_image is None:
         arr = render_text(arr, text_source['params'], continuous_time, p)
