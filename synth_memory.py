@@ -31,7 +31,9 @@ def modules(Module, P):
         P('rotation', 'Starting rotation', 0., -180, 180, 1),
         P('spin', 'Rotation speed', 12., -120, 120, 1),
         P('path', 'Motion path', 2, 0, 2, 1, choices=('Orbit', 'Figure eight', 'Wandering loops')),
-        P('travel', 'Travel distance', .58, 0, 1, .01, 'Extent of the path within the artwork. Zero holds the object at the center.'),
+        P('travel', 'Travel distance', .58, 0, 1, .01, 'Overall extent of the path before horizontal and vertical amplitude. Zero holds the object at the center.'),
+        P('amplitude_x', 'Horizontal amplitude', 100., 0, 200, 1, 'Left/right motion relative to Travel distance. 0 stops this axis, 100% keeps the original path, 200% doubles its reach. Changes positions, not object width; trace Drift is separate.'),
+        P('amplitude_y', 'Vertical amplitude', 100., 0, 200, 1, 'Up/down motion relative to Travel distance. 0 stops this axis, 100% keeps the original path, 200% doubles its reach. Changes positions, not object height; trace Drift is separate.'),
         P('period', 'Motion period', 6.4, 2, 30, .1, 'Seconds per main turn at global speed 1. Wandering loops evolve over several turns.'),
         P('variation', 'Motion variation', .65, 0, 1, .01, 'Smooth changes of speed and curvature. No sudden position jumps.'),
         P('phase', 'Starting phase', .12, 0, 1, .01),
@@ -72,7 +74,11 @@ def memory_pose(p, seconds):
     else:
         x = .67*math.sin(angle) + .20*math.sin(angle*.43+1.1)
         y = .62*math.sin(2*angle+.65) + .18*math.cos(angle*.71+.5)
-    return x*p['travel']*.5, y*p['travel']*.5, p['rotation']+p['spin']*seconds
+    # Multiply the completed legacy path by neutral defaults so old documents
+    # retain exact positions. Both the live object and its history use this pose.
+    return (x*p['travel']*.5*(p.get('amplitude_x', 100.)/100.),
+            y*p['travel']*.5*(p.get('amplitude_y', 100.)/100.),
+            p['rotation']+p['spin']*seconds)
 
 
 def memory_frame(p, size, seconds, preset):

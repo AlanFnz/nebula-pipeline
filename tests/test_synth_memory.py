@@ -100,6 +100,41 @@ def test_continuous_motion_and_history_births_do_not_pop():
         assert memory_pose(still,0)[:2] == memory_pose(still,19)[:2] == (0.,0.)
 
 
+@pytest.mark.parametrize('path', range(3))
+def test_motion_amplitudes_scale_only_the_requested_axis(path):
+    p = dict(defaults(), path=path)
+    preset = dict(default_synth_preset(), width=144, height=192, speed=1., object_x=17., object_y=-9.)
+    for t in (0., 1.3, 7., 19.):
+        x, y, angle = memory_pose(p, t)
+        assert memory_pose(dict(p, amplitude_x=0.), t) == (0., y, angle)
+        assert memory_pose(dict(p, amplitude_y=0.), t) == (x, 0., angle)
+        assert memory_pose(dict(p, amplitude_x=200., amplitude_y=50.), t) == (x*2, y*.5, angle)
+        center, radius, rotation = memory_frame(p, (144,192), t, preset)
+        fixed, same_radius, same_rotation = memory_frame(dict(p, amplitude_x=0., amplitude_y=0.), (144,192), t, preset)
+        assert fixed == (89., 87.)
+        assert (same_radius, same_rotation) == (radius, rotation)
+    # Frozen recipes omit the new controls; neutral values preserve every pixel.
+    legacy = {k:v for k,v in p.items() if not k.startswith('amplitude_')}
+    assert np.array_equal(render(legacy), render(p))
+
+
+def test_amplitudes_reposition_history_without_scaling_shapes_or_drift(monkeypatch):
+    import synth_memory
+    calls = []
+    monkeypatch.setattr(synth_memory, '_stamp', lambda canvas, center, radius, *args: calls.append((center, radius)))
+    p = dict(defaults(), drift=0.)
+    render(p); original = list(calls); calls.clear()
+    render(dict(p, amplitude_x=0., amplitude_y=50.)); narrowed = list(calls); calls.clear()
+    assert len(original) == len(narrowed) > 1
+    for ((x,y),radius), ((nx,ny),nradius) in zip(original,narrowed):
+        assert nx == 48. and ny == pytest.approx(64.+(y-64.)*.5)
+        assert nradius == radius
+    render(dict(p, amplitude_x=0., amplitude_y=0., drift=.5, drift_angle=0.))
+    assert all(center[1] == 64. for center,_ in calls)
+    assert any(center[0] > 48. for center,_ in calls[:-1])
+    assert calls[-1][0] == (48.,64.)
+
+
 def test_sample_work_is_bounded_and_neutral_history_skips_it(monkeypatch):
     import synth_memory
     calls=[]

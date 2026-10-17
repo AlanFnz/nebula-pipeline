@@ -8,7 +8,7 @@ def control_group(path):
     if module == 'image_memory':
         if key in ('persistence', 'drift', 'dissolve', 'trail_opacity', 'drift_angle', 'expansion'): return 'Memory'
         if key in ('shape', 'size', 'sides', 'rotation'): return 'Shape & layout'
-        if key in ('path', 'travel', 'period', 'variation', 'phase', 'spin'): return 'Motion & timing'
+        if key in ('path', 'travel', 'amplitude_x', 'amplitude_y', 'period', 'variation', 'phase', 'spin'): return 'Motion & timing'
         if key in ('palette', 'color_speed', 'color_shift', 'light', 'background'): return 'Color & light'
         if key == 'mix': return 'Output & blending'
         return 'Optical finish'

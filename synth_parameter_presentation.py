@@ -39,6 +39,7 @@ DEGREES = frozenset({
 })
 DEGREES_PER_SECOND = frozenset({'image_memory.spin', 'particles.rotation_speed', 'particles.orbit_speed', 'prismatic_field.rotation_speed', 'solid.turn_speed', 'solid.tumble_speed', 'solid.roll_speed'})
 PIXELS = frozenset({'low_res.resolution'})
+PERCENTAGES = frozenset({'image_memory.amplitude_x', 'image_memory.amplitude_y'})
 HUES = frozenset({
     'signal_repetition.key_hue', 'signal_repetition.hue', 'signal_repetition.fringe_hue', 'signal_repetition.outside_hue',
     'particles.hue', 'edge_phosphor.hue', 'edge_phosphor.fringe_hue',
@@ -52,6 +53,6 @@ HUES = frozenset({
 def presentation(path):
     from synth_instances import base_path
     from synth_intensity import PATHS
-    if base_path(path) in PATHS.values(): return ParameterPresentation(unit=' %')
+    if base_path(path) in PATHS.values() or path in PERCENTAGES: return ParameterPresentation(unit=' %')
     unit = ' s' if path in SECONDS else '°' if path in DEGREES else '°/s' if path in DEGREES_PER_SECOND else ' px' if path in PIXELS else ''
     return ParameterPresentation(unit=unit, hue=path in HUES)
