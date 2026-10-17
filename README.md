@@ -662,6 +662,24 @@ The source is opt-in, and existing studies retain their rendering.
 
 See the [implementation plan](docs/image-memory-plan.md).
 
+**Memory / tape garden** is an independent remix available as
+[`examples/image-memory-tape.nebula.json`](examples/image-memory-tape.nebula.json).
+Open it, then use **Save as study…** to keep it in your local Studies library.
+It retains the original motion, canvas and duration, combining existing effects:
+
+- **Signal background** raises the blacks into a green-gray tape-noise field.
+  Background level, Fine grain and Horizontal grain control its presence.
+- **Ghosts / trails** adds short horizontal echoes around the remembered forms.
+- **Tape damage** adds restrained tracking slips, line jitter and color delay.
+- **Raster / grain** and **CRT capture** add scan lines, phosphor texture,
+  optical softness and a little screen instability.
+- **Broadcast wear** adds curved glass and brief, irregular static interruptions.
+- **Color emulsion** keeps a light optical texture without masking the tape grain.
+
+Each treatment can be bypassed or reduced with its own **Intensity**. The echoes
+and object history suggest feedback; this remix does not add a recursive camera
+feedback buffer. It uses existing renderers and leaves the original study intact.
+
 ### Lattice / chromatic pulse
 
 **Studies → Lattice / chromatic pulse → Load** opens a 20-second, 720×1280,
