@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.27.2 — 2026-10-18
+
+- Add Object → Center path for Image memory. Balance the full current figure's
+  travel in the editing scope, updating both position axes in one undoable edit.
+- Limit new horizontal/vertical amplitude edits to the available canvas and
+  retain the path's bounding center while adjusting either axis. Limits account
+  for object shape, size, rotation, clip retiming and canvas framing. Old saved
+  amplitudes remain intact until edited; rendering and existing studies are
+  unchanged. Traces, glow and later image treatments are outside these bounds.
+
 ## 0.27.1 — 2026-10-18
 
 - Add independent Horizontal amplitude and Vertical amplitude to Image memory

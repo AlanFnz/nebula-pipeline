@@ -34,6 +34,7 @@ class SubjectPanel(QWidget):
     details_requested = Signal(str, bool)
     position_changed = Signal(str, float)
     position_reset = Signal()
+    center_path_requested = Signal()
 
     def __init__(self):
         super().__init__()
@@ -74,6 +75,13 @@ class SubjectPanel(QWidget):
         self.signal_layout.setContentsMargins(0, 0, 0, 0); layout.addWidget(self.signal_host)
         self.control_host = QWidget(); self.control_layout = QVBoxLayout(self.control_host)
         self.control_layout.setContentsMargins(0, 0, 0, 0); layout.addWidget(self.control_host)
+        self.motion_frame = QWidget(); motion_layout = QVBoxLayout(self.motion_frame)
+        motion_layout.setContentsMargins(0,0,0,6); motion_layout.setSpacing(4)
+        self.center_path = QPushButton('Center path'); self.center_path.setProperty('compact',True)
+        self.center_path.setToolTip('Balance the object’s left/right and top/bottom extremes over the editing scope. Updates Position X/Y in one undoable edit. Trails and later image effects can extend beyond the path.')
+        self.center_path.clicked.connect(self.center_path_requested.emit); motion_layout.addWidget(self.center_path)
+        self.motion_note = QLabel(); self.motion_note.setObjectName('muted'); self.motion_note.setWordWrap(True)
+        motion_layout.addWidget(self.motion_note); self.motion_frame.hide()
         self.details = QPushButton('Source controls…'); self.details.clicked.connect(lambda: self.open_details(False)); layout.addWidget(self.details)
         self.timing = QPushButton('Motion & timing…'); self.timing.clicked.connect(lambda: self.open_details(True)); layout.addWidget(self.timing)
         layout.addStretch(1)
@@ -157,6 +165,8 @@ class SubjectPanel(QWidget):
                     control = self.control_cache[path]
                     (self.wording_layout if path == 'text.content' else self.control_layout).addWidget(control)
                     control.show(); self.controls[path] = control
+                    if path == 'image_memory.amplitude_y':
+                        self.control_layout.addWidget(self.motion_frame); self.motion_frame.show()
         for path, control in self.controls.items():
             effect = path.split('.')[0]; entry = entries.get(effect, {'params': {}})
             parent_params = parent_entries.get(effect, {}).get('params', {})
@@ -200,3 +210,21 @@ class SubjectPanel(QWidget):
             self.controls['text.copy_floor'].setVisible(not morph and (fit[0] != fit[1] or fit[0] == 1))
         self.details.setVisible(bool(active)); self.timing.setVisible(self.kind in ('ink', 'text'))
         self.updating = False
+
+    def set_motion_bounds(self, bounds, local):
+        if self.kind != 'memory': return
+        self.center_path.setEnabled(bounds is not None)
+        maxima = [bounds.maximum(axis) if bounds is not None else None for axis in range(2)]
+        for axis,key in enumerate(('amplitude_x','amplitude_y')):
+            control=self.controls['image_memory.'+key]
+            control.set_numeric_maximum(maxima[axis])
+            control.setEnabled(maxima[axis] is not None)
+        scope='this clip' if local else 'the project'
+        note=f'Canvas limits across {scope} · Center path balances both axes. Amplitude edits keep that center.'
+        if bounds is None:
+            note='No visible Image memory object in this scope.'
+        elif any(value is None for value in maxima):
+            note += ' An axis with no available travel is disabled. Check Travel distance, Center path, Object size or clip overrides.'
+        elif any(self.controls['image_memory.'+key].input.value()>maxima[axis]+.01 for axis,key in enumerate(('amplitude_x','amplitude_y'))):
+            note += ' Existing travel exceeds the canvas; the next amplitude edit uses its new limit.'
+        self.motion_note.setText(note)

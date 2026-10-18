@@ -100,6 +100,7 @@ class EffectsPanel(QWidget):
     timing_reset = Signal()
     timing_selected = Signal(bool)
     navigation_changed = Signal()
+    controls_refreshed = Signal()
     object_requested = Signal()
     source_requested = Signal()
     finishing_requested = Signal()
@@ -478,6 +479,7 @@ class EffectsPanel(QWidget):
             self.status.setText('Import artwork to supply the custom silhouette, or choose a built-in shape.')
         self.show_controls()
         self.updating = False
+        self.controls_refreshed.emit()
         self.navigation_changed.emit()
 
     def set_automation_counts(self, counts):

@@ -817,6 +817,7 @@ class CompositionPanel(QWidget):
         self.effects_panel.timing_reset.connect(self.reset_ink_timing)
         self.effects_panel.timing_selected.connect(self.show_timing_scope)
         self.effects_panel.navigation_changed.connect(self.emit_reset_context)
+        self.effects_panel.controls_refreshed.connect(self.update_memory_limits)
         self.effects_panel.object_requested.connect(lambda: self.look_tabs.setCurrentWidget(self.object_panel))
         self.look_tabs.addTab(self.effects_panel, "Effects")
         self.object_panel = SubjectPanel(); geometry_page = self.object_panel
@@ -828,6 +829,7 @@ class CompositionPanel(QWidget):
         self.object_panel.details_requested.connect(self.open_object_details)
         self.object_panel.position_changed.connect(self.change_geometry)
         self.object_panel.position_reset.connect(self.reset_object_position)
+        self.object_panel.center_path_requested.connect(self.center_memory_path)
         treatment_page = QWidget(); treatment_layout = QVBoxLayout(treatment_page)
         self.look_tabs.addTab(geometry_page, "Object"); self.look_tabs.addTab(treatment_page, "Finishing")
         self.master_panel = MasterPanel()
@@ -1006,7 +1008,30 @@ class CompositionPanel(QWidget):
             self.take_label.setText("Default controls in this scope" if pristine else (f"Take {target['variation']}" if target["variation"] else "Custom adjustments"))
         finally:
             self.updating = False
+        self.update_memory_limits()
         self.emit_reset_context()
+
+    def update_memory_limits(self):
+        if self.updating or not hasattr(self, 'compiled'): return
+        if self.object_panel.kind != 'memory' and self.effects_panel.effect_id != 'image_memory': return
+        from synth_memory_framing import motion_bounds, AMPLITUDES
+        bounds=motion_bounds(self.document,self.index if self.scope else None,self.compiled)
+        self.object_panel.set_motion_bounds(bounds,bool(self.scope))
+        if self.effects_panel.effect_id == 'image_memory':
+            for axis,path in enumerate(AMPLITUDES):
+                control=self.effects_panel.controls[path]
+                maximum=bounds.maximum(axis) if bounds else None
+                control.set_numeric_maximum(maximum)
+                control.setEnabled(maximum is not None)
+
+    def center_memory_path(self):
+        if self.updating: return
+        from synth_memory_framing import center_path
+        try:
+            document=center_path(self.document,self.index if self.scope else None,self.compiled)
+        except ValueError as exc:
+            self.failed.emit(str(exc)); return
+        if document != self.document: self.commit(document,'memory-center-path')
 
     def commit(self, document, action):
         try:
@@ -1040,6 +1065,15 @@ class CompositionPanel(QWidget):
 
     def change_effect(self, effect_id, entry, action):
         if self.updating: return
+        from synth_memory_framing import AMPLITUDES, edit_amplitude
+        path=action.removeprefix('effect-param:')
+        if effect_id == 'image_memory' and path in AMPLITUDES and entry is not None:
+            try:
+                document=edit_amplitude(self.document,path,entry['params'][path],self.index if self.scope else None,self.compiled)
+            except ValueError as exc:
+                self.refresh(); self.failed.emit(str(exc)); return
+            self.commit(document,f'memory-amplitude:{self.scope}:{self.index}:{path}')
+            return
         document = copy.deepcopy(self.document)
         effects = self.target(document)["effects"]
         if entry is None:

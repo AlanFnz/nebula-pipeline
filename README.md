@@ -651,6 +651,22 @@ amplitude** independently scale the path: 100% preserves its current extent,
 still scales both axes together. These controls move the object and its remembered
 positions without stretching their shapes; **Drift** remains separate. Existing
 documents default to 100% on both axes and render unchanged.
+
+**Object → Center path**, beneath the amplitude controls, balances the figure's
+left/right and top/bottom extremes across the current editing scope. It updates
+Position X/Y together in one undoable edit. Later amplitude edits retain that
+path center. Each slider's maximum is calculated from the canvas, object size,
+rotation and the rendered frames of that scope: a centered path reaches both
+edges; a manually offset path reaches the nearer edge. The percentage still
+means a multiplier of the original travel, so the maximum need not be 100%.
+Clip overrides, loops, retiming and preserved artwork framing are respected.
+Older oversized values are kept on load; the new limits apply when editing.
+Recenter after changing the path, period, size or clip duration if needed.
+The bounds describe the current figure before image treatments; drifting
+traces, optical glow and VHS distortion may extend beyond them. A stationary
+axis or a figure too large/off-center to fit disables that amplitude control;
+change Travel distance, center it, or reduce Object size first.
+
 **Source controls…** opens trace strength,
 direction, expansion, rotation, color aging, light, softness and glow. Motion
 period and Persistence use source seconds at global speed 1; clip retiming and

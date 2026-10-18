@@ -62,6 +62,7 @@ class EffectParameter(QWidget):
         self._context_key = None
         self._text_drafts = {}
         self.fixed_start = spec.default
+        self.numeric_maximum = None
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
         layout = QVBoxLayout(self); layout.setContentsMargins(0, 0, 0, 6); layout.setSpacing(4)
         self.slider = None
@@ -246,8 +247,19 @@ class EffectParameter(QWidget):
             self._arrange_row()
 
     def emit_change(self, value):
+        if self.numeric_maximum is not None:
+            value = min(value, self.numeric_maximum)
+            with QSignalBlocker(self.input): self.input.setValue(value)
         self.update_swatch(value)
         self.changed.emit(value)
+
+    def set_numeric_maximum(self, maximum):
+        """Constrain new edits without silently clamping an existing document."""
+        self.numeric_maximum = maximum
+        if self.slider is None: return
+        with QSignalBlocker(self.input):
+            self.input.setMaximum(max(self.input.value(), maximum) if maximum is not None else self.spec.maximum)
+        self.sync_slider(self.input.value())
 
     def update_swatch(self, value, *, animated=False):
         if self.hue_swatch is None: return
@@ -264,6 +276,8 @@ class EffectParameter(QWidget):
     def slider_value(self, position):
         spec = self.spec
         low, high = self.input.minimum(), self.input.maximum()
+        if self.numeric_maximum is not None: high = min(high, self.numeric_maximum)
+        if self.numeric_maximum is not None and position == 1000: return high
         raw = low + position / 1000 * (high - low)
         value = max(low, min(high, round(raw / spec.step) * spec.step))
         return round(value) if spec.kind == 'int' else value
@@ -280,8 +294,9 @@ class EffectParameter(QWidget):
 
     def sync_slider(self, value):
         if self.slider:
+            high = self.input.maximum() if self.numeric_maximum is None else self.numeric_maximum
             with QSignalBlocker(self.slider):
-                self.slider.setValue(round(1000 * (value-self.input.minimum()) / max(1e-12, self.input.maximum()-self.input.minimum())))
+                self.slider.setValue(round(1000 * (value-self.input.minimum()) / max(1e-12, high-self.input.minimum())))
 
     def draft_state(self):
         """Presentation draft for panels that recreate controls while navigating."""
@@ -333,7 +348,9 @@ class EffectParameter(QWidget):
         self.fixed_choice.setVisible(animated); self.use_fixed.setEnabled(available)
         with QSignalBlocker(self.input):
             if self.spec.choices: self.input.setCurrentIndex(int(value))
-            else: self.input.setValue(value)
+            else:
+                if self.numeric_maximum is not None: self.input.setMaximum(max(value,self.numeric_maximum))
+                self.input.setValue(value)
         if context_changed and self.spec.kind == 'text':
             # TextControl skips identical setValue calls to preserve edits on a
             # mere refresh. A different scope must start from its own baseline.
