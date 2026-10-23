@@ -26,7 +26,7 @@ from synth_creative_ui import CreativeControlsPanel
 INK_DURATIONS = {f'ink_bloom.{key}' for key in DURATION_KEYS}
 INK_TIMING = tuple(f'ink_bloom.{key}' for key in TIMING_KEYS)
 SHARED_TIMING_CONTROLS = INK_TIMING[:8]
-TEXT_TIMING = tuple('text.' + key for key in ('reveal', 'word_seconds', 'morph_hold', 'morph_seconds', 'morph_ease', 'morph_snap', 'morph_settle', 'morph_flow', 'morph_living', 'morph_loop', 'motion', 'zoom_start', 'zoom_end', 'period', 'ease', 'phase', 'cadence'))
+TEXT_TIMING = tuple('text.' + key for key in ('reveal', 'reading_duration', 'reading_final', 'reading_transition', 'reading_weight', 'reading_breakup', 'reading_fragments', 'reading_loop', 'word_seconds', 'morph_hold', 'morph_seconds', 'morph_ease', 'morph_snap', 'morph_settle', 'morph_flow', 'morph_living', 'morph_loop', 'motion', 'zoom_start', 'zoom_end', 'period', 'ease', 'phase', 'cadence'))
 POLARITY_CONTROLS = tuple('broadcast.' + key for key in ('reverse', 'reverse_period', 'reverse_phase', 'reverse_blend', 'field_spread', 'reverse_stage', 'reverse_hue', 'reverse_saturation'))
 SIGNAL_CONTROLS = tuple('broadcast.' + key for key in ('static_style', 'static', 'timing', 'period', 'duration', 'duration_variation', 'phase', 'outages', 'sync_tear', 'rate', 'static_chroma', 'band', 'band_motion', 'band_interval', 'band_travel', 'band_variation', 'roll'))
 SCREEN_CONTROLS = tuple('broadcast.' + key for key in ('screen', 'screen_inset', 'screen_wear', 'halo', 'halo_radius', 'halo_hue', 'curve', 'vignette', 'halo_threshold'))
@@ -580,13 +580,15 @@ class EffectsPanel(QWidget):
             if reveal[0] == reveal[1]:
                 morph = reveal[0] == 3
                 visible_paths = tuple(path for path in visible_paths if
+                    (reveal[0] == 4 or not path.startswith('text.reading_')) and
+                    (reveal[0] != 4 or path not in ('text.word_seconds', 'text.fit', 'text.block_width', 'text.copies', 'text.copy_gap', 'text.copy_floor', 'text.wrap_columns')) and
                     (morph or not path.startswith('text.morph_')) and
                     (not morph or path not in ('text.word_seconds', 'text.fit', 'text.block_width', 'text.copies', 'text.copy_gap', 'text.copy_floor', 'text.wrap_columns', 'text.leading', 'text.align')))
             if ranges['text.motion'][0] == ranges['text.motion'][1] and ranges['text.motion'][0] != 1:
                 visible_paths = tuple(path for path in visible_paths if path != 'text.ease')
             if ranges['text.fit'][0] == ranges['text.fit'][1] and ranges['text.fit'][0] != 2:
                 visible_paths = tuple(path for path in visible_paths if path != 'text.block_width')
-            if not morph and ranges['text.fit'][0] == ranges['text.fit'][1] and ranges['text.fit'][0] != 1:
+            if not morph and reveal != (4, 4) and ranges['text.fit'][0] == ranges['text.fit'][1] and ranges['text.fit'][0] != 1:
                 visible_paths = tuple(path for path in visible_paths if path not in ('text.fit_width', 'text.copy_floor'))
         if broadcast:
             groups = (tuple(path for path in effect.paths if path not in POLARITY_CONTROLS + SIGNAL_CONTROLS + SCREEN_CONTROLS),

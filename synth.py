@@ -497,7 +497,14 @@ MODULES += (
         P('back_hue', 'Backdrop hue', .6, 0, 1, .01),
         P('back_saturation', 'Backdrop saturation', .75, 0, 1, .01),
         P('back_brightness', 'Backdrop brightness', .045, 0, 1, .005),
-        P('reveal', 'Show', 0, 0, 3, 1, choices=('Whole phrase', 'One word at a time', 'Type on', 'Morph words')),
+        P('reveal', 'Show', 0, 0, 4, 1, choices=('Whole phrase', 'One word at a time', 'Type on', 'Morph words', 'Reading montage')),
+        P('reading_duration', 'Montage duration', 7., 1, 120, .1, 'Seconds for all words and the final phrase. Match the clip duration to show one complete montage. Longer phrases need more reading time.'),
+        P('reading_final', 'Final phrase hold', 2., .2, 30, .1, 'Reserve this many seconds for the complete phrase, up to 80% of the montage. Hold ending keeps it visible afterward.'),
+        P('reading_transition', 'Interruption duration', .25, 0, 2, .01, 'Maximum seconds per interruption. Dense phrases shorten interruptions to preserve reading time.'),
+        P('reading_weight', 'More time for long words', .65, 0, 1, .05, 'Zero gives every word equal time; one distributes reading time by letter count.'),
+        P('reading_breakup', 'Interruption strength', .85, 0, 1, .05, 'Scales the burst in Print collage and Film burn when their reading controls are enabled. Zero keeps complete words throughout.'),
+        P('reading_fragments', 'Interruption inserts', 2, 0, 2, 1, 'Select complete words or letters, including their accents. No fixed image crops.', choices=('Whole words', 'Whole letters', 'Words & letters')),
+        P('reading_loop', 'Montage ending', 0, 0, 1, 1, choices=('Hold final phrase', 'Repeat montage')),
         P('morph_hold', 'Reading time', 1.1, .05, 15, .05, 'How long each word remains readable before reshaping.'),
         P('morph_seconds', 'Morph duration', .8, .05, 10, .05, 'Time spent reshaping one whole word into the next.'),
         P('morph_ease', 'Morph easing', 1., 0, 1, .05, 'Zero moves evenly; one accelerates and settles gently.'),
@@ -1356,8 +1363,13 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
     if memory_source and source_image is None:
         arr = render_image_memory(arr, memory_source['params'], continuous_time, p)
     text_source = next((entry for entry in p['modules'] if entry['id'] == 'text' and entry['enabled']), None)
+    reading = None
     if text_source and source_image is None:
         arr = render_text(arr, text_source['params'], continuous_time, p)
+        if text_source['params']['reveal'] == 4:
+            from synth_text import text_pose
+            from synth_reading_montage import reading_beat
+            reading = reading_beat(text_source['params'], text_pose(text_source['params'], continuous_time, p['speed'])[0])
     scan = next((entry['params'] for entry in p['modules'] if entry['id'] == 'scan_modulation' and entry['enabled'] and entry['params']['mix'] and effect_amount(entry['params']) > 0), None)
     untreated = None
     repetition = next((entry['params'] for entry in p['modules'] if entry['id'] == 'signal_repetition' and entry['enabled'] and entry['params']['mix'] and effect_amount(entry['params']) > 0), None)
@@ -1386,7 +1398,7 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
         reference = content_size(p, (width, height))
         source_pixels = untreated if untreated is not None else image
         if 'print_collage' in source_effects:
-            image = blend_pass(image, effect_amount(source_effects['print_collage']), lambda pixels: render_print_collage(pixels, source_effects['print_collage'], continuous_time, p['speed'], _seed(p['seed'], 'print-collage'), reference))
+            image = blend_pass(image, effect_amount(source_effects['print_collage']), lambda pixels: render_print_collage(pixels, source_effects['print_collage'], continuous_time, p['speed'], _seed(p['seed'], 'print-collage'), reference, reading))
         if 'chroma_print' in source_effects:
             image = blend_pass(image, effect_amount(source_effects['chroma_print']), lambda pixels: render_chroma_print(pixels, source_effects['chroma_print'], reference))
         if 'slice_echo' in source_effects:
@@ -1449,6 +1461,9 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
         if renderer is None:
             continue
         params = entry.get("params", {})
+        if module_id == 'film_burn' and reading is not None:
+            from synth_reading_montage import film_reading_params
+            params = film_reading_params(params, reading)
         cw, ch = content_size(p, (width, height))
         if source_framing(p) == "adaptive" and cw < ch and module_id in {"slab", "blinds"} and int(params.get("shape", 0)) in (2, 3):
             params = dict(params, diameter=params["diameter"] * cw / ch)

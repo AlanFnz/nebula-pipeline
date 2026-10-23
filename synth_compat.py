@@ -24,6 +24,8 @@ def frozen_data(key):
 
 
 def starter_snapshot(identifier):
+    if identifier == 'text-reading-print':
+        return copy.deepcopy(_reading_print_snapshot())
     if identifier == 'text-film-burn':
         return copy.deepcopy(_film_print_snapshot())
     if identifier == 'image-memory':
@@ -57,6 +59,11 @@ def starter_snapshot(identifier):
     if identifier in ('profile-clear', 'profile-doryphoros'):
         return copy.deepcopy(_profile_snapshot()[identifier])
     return copy.deepcopy(_snapshot()['starters'][identifier])
+
+
+@lru_cache(maxsize=1)
+def _reading_print_snapshot():
+    return json.loads((Path(__file__).parent / 'presets/text-reading-print-v1.json').read_text())
 
 
 @lru_cache(maxsize=1)

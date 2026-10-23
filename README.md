@@ -625,6 +625,38 @@ reference rather than reproducing its original type design or exact particles.
   value to replace one parameter, or **Open detailed copy…** to edit its cuts.
   Other studies keep their previous render; the new modules start disabled.
 
+### Text / reading print
+
+**Studies → Text / reading print · 7s** is the phrase-friendly companion to
+Burning print. It shows complete words in order, gives longer words more time,
+keeps optical interruptions between reading holds, and ends on the full phrase.
+The original Burning print and its authored cuts remain unchanged.
+
+- **Object → Wording → Apply text** replaces the phrase directly. There is one
+  wording value, so no conversion from an animated range is needed. Words and
+  accented letters are selected as text rather than cropped from fixed regions.
+- The main **Object** controls set **Montage duration**, **Final phrase hold**,
+  **Interruption duration / strength**, **More time for long words**, insert type
+  (words, letters, or both), and **Montage ending** (hold or repeat). These also
+  appear under **Text → Timing → Show: Reading montage** in any composition.
+- Montage duration includes the finale. Match the timeline clip duration for
+  one complete pass; changing this control does not resize the clip. Hold keeps
+  the final phrase visible after the cycle. Long phrases need a longer cycle
+  and/or a larger canvas for comfortable reading. The final hold is capped at
+  80% of the cycle, and interruptions at 30% of the remaining word sequence.
+- **Text size / Line width limit** set the reading size and margins. Whole units
+  fit proportionally; short words have a height limit, and explicit line breaks
+  are preserved in the finale. There is no automatic wrapping.
+- **Print collage → Follow reading montage** centers complete impressions during
+  holds and enables overprints during interruptions. **Film burn → Reading
+  clarity** reduces occlusion/softness during holds and boosts exposure during
+  interruptions; grain, dust and palette keep moving. Both controls are opt-in,
+  default off, and have no effect on footage or other text modes. They do not
+  protect text from other effects added later in the chain.
+- Interruption strength zero retains whole words and suppresses these coordinated
+  bursts. The individual effects still have their own Intensity, bypass, scope
+  and ordinary parameter overrides. Other typography modes retain their output.
+
 ### Liquid words
 
 Choose **Studies → Text / liquid words → Load** for the 6-second, 1000×800 monochrome

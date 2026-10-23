@@ -125,6 +125,17 @@ def text_layout(p, time, speed, size):
     if p['reveal'] == 3:
         from synth_word_morph import morph_layout
         return morph_layout(p, clock, size, zoom)
+    if p['reveal'] == 4:
+        from synth_reading_montage import reading_beat
+        beat = reading_beat(p, clock)
+        mask = glyph_mask(beat.text, p['font'], p['tracking'], p['leading'], p['align'], weight=p.get('weight', 400))
+        sx, sy = p['stretch_x'], p['stretch_y']
+        # Fit complete units inside the authored canvas. Explicit line breaks
+        # survive in the finale; long phrases are not silently wrapped.
+        scale = min(ch * p['size'] * zoom / max(1, mask.height),
+                    cw * min(.94, p.get('fit_width', .9)) / max(1, mask.width * sx),
+                    ch * .65 / max(1, mask.height * sy))
+        return mask, max(.001, scale * sx), max(.001, scale * sy)
     text = p['content']; visible = None
     if p['reveal'] == 1:
         words = text.split()
