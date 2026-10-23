@@ -11,8 +11,8 @@ from PIL import Image, ImageDraw, ImageFont
 
 from synth_canvas import content_size, object_offset
 
-FONTS = ('Archivo Black', 'Anton / condensed', 'Space Mono Bold', 'Bodoni Moda / serif', 'Fraunces / soft serif')
-FONT_FILES = ('ArchivoBlack-Regular.ttf', 'Anton-Regular.ttf', 'SpaceMono-Bold.ttf', 'BodoniModa.ttf', 'Fraunces.ttf')
+FONTS = ('Archivo Black', 'Anton / condensed', 'Space Mono Bold', 'Bodoni Moda / serif', 'Fraunces / soft serif', 'Fredoka / rounded')
+FONT_FILES = ('ArchivoBlack-Regular.ttf', 'Anton-Regular.ttf', 'SpaceMono-Bold.ttf', 'BodoniModa.ttf', 'Fraunces.ttf', 'Fredoka.ttf')
 
 
 def validate_text(value):
@@ -55,6 +55,7 @@ def glyph_mask(text, font_index, tracking, leading, alignment, visible=None, wra
     font = ImageFont.truetype(str(path), font_size)
     if font_index == 3 and weight != 400: font.set_variation_by_axes([weight, 11])
     if font_index == 4: font.set_variation_by_axes([24, weight, 100, 1])
+    if font_index == 5: font.set_variation_by_axes([min(700, weight), 100])
     def line_width(line):
         return max(0., font.getlength(line) + max(0, len(line) - 1) * tracking * font_size)
     extent = max(max(map(line_width, lines)), len(lines) * leading * font_size, 1)
@@ -63,6 +64,7 @@ def glyph_mask(text, font_index, tracking, leading, alignment, visible=None, wra
         font = ImageFont.truetype(str(path), font_size)
         if font_index == 3 and weight != 400: font.set_variation_by_axes([weight, 11])
         if font_index == 4: font.set_variation_by_axes([24, weight, 100, 1])
+        if font_index == 5: font.set_variation_by_axes([min(700, weight), 100])
     widths = [line_width(line) for line in lines]
     # Extra room preserves negative bearings, descenders and diacritics.
     padding = font_size

@@ -34,6 +34,14 @@ def control_group(path):
         if key in ('size', 'shape', 'sides', 'center_shape', 'gather', 'opening', 'rotation', 'ribbon'): return 'Shape & layout'
         if key in ('fold_depth', 'fold_period', 'fold_phase', 'rotation_speed', 'turn_variation', 'transition_ease', 'turn_settle', 'drift'): return 'Motion & timing'
         return 'Color & light'
+    if module == 'film_burn':
+        if key in ('print_mix', 'paper_hue', 'paper_light', 'ink_hue', 'ink_light', 'color_spread', 'exposure', 'leak_x', 'leak_y', 'leak_height', 'leak_hue', 'leak_width', 'reversal'): return 'Color & light'
+        if key in ('drift', 'rate', 'opening', 'gate_x', 'roughness', 'cadence'): return 'Motion & timing'
+        return 'Optical finish'
+    if module == 'print_collage':
+        if key in ('weave', 'cadence'): return 'Motion & timing'
+        if key in ('poster', 'poster_scale', 'poster_y', 'poster_start', 'poster_end', 'echo', 'echo_x', 'echo_y', 'bars', 'bar_angle', 'bar_count'): return 'Repetitions'
+        return 'Shape & layout'
     if module == 'film_emulsion':
         if key in ('softness', 'bleed', 'registration', 'edge_ink'): return 'Optical finish'
         if key == 'mix': return 'Output & blending'

@@ -9,9 +9,11 @@ from synth_prismatic_recipes import prismatic_composition
 from synth_solid_recipes import rotating_die_composition
 from synth_lattice_recipes import lattice_composition
 from synth_memory_recipes import memory_composition
+from synth_film_recipes import film_print_composition
 
 
 STARTERS = (
+    ('text-film-burn', 'Text / burning print · 10.25s', film_print_composition),
     ('image-memory', 'Memory / afterimage garden · 15s', memory_composition),
     ('chromatic-lattice', 'Lattice / chromatic pulse · 20s', lattice_composition),
     ('color-film-die', 'Color film / rotating die · 15s', rotating_die_composition),
@@ -47,6 +49,7 @@ STARTERS = (
 
 # First appearance in the repository, retained independently of app builds.
 STARTER_DATES = {
+    'text-film-burn': '2026-10-23',
     'image-memory': '2026-10-17',
     'chromatic-lattice': '2026-10-17',
     'color-film-die': '2026-10-14',

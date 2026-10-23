@@ -32,6 +32,7 @@ from synth_modulation_controls import modules as modulation_modules
 from synth_repetition import modules as repetition_modules, render_signal_repetition
 from synth_radial import modules as radial_modules, render_radial_bloom
 from synth_prismatic import modules as prismatic_modules, render_prismatic_field, render_film_emulsion
+from synth_film_print import modules as film_print_modules, render_print_collage, render_film_burn
 from synth_solids import modules as solid_modules, render_color_field, render_solid
 from synth_lattice import modules as lattice_modules, render_chromatic_lattice
 from synth_memory import modules as memory_modules, render_image_memory
@@ -478,7 +479,7 @@ MODULES += (
     Module('text', 'Text', 'Editable typography rendered before the image treatments. Fonts travel with the Studio.', (
         P('content', 'Wording', 'REVOLUTION IS NOW', kind='text', hint='Up to 512 characters and eight lines. Line breaks are preserved.'),
         P('font', 'Typeface', 0, 0, len(FONTS)-1, 1, choices=FONTS),
-        P('weight', 'Serif weight', 400, 400, 900, 10, 'Weight of Bodoni Moda or Fraunces. Other typefaces retain their own weight.'),
+        P('weight', 'Font weight', 400, 400, 900, 10, 'Weight of Bodoni Moda, Fraunces or Fredoka. Fredoka stops at 700. Other typefaces retain their own weight.'),
         P('size', 'Text size', .14, .01, 1.5, .01, 'Line height relative to the authored canvas height. Canvas resizing preserves the lettering.'),
         P('tracking', 'Letter spacing', 0., -.15, .8, .01, 'Extra spacing as a fraction of the font size.'),
         P('leading', 'Line spacing', 1., .6, 2.5, .05),
@@ -704,6 +705,7 @@ MODULES += prismatic_modules(Module, P)
 MODULES += solid_modules(Module, P)
 MODULES += lattice_modules(Module, P)
 MODULES += memory_modules(Module, P)
+MODULES += film_print_modules(Module, P)
 MODULES = add_parameters(MODULES, P)
 MODULE_BY_ID = InstanceRegistry({module.id: module for module in MODULES})
 
@@ -1283,6 +1285,7 @@ def _breakup(arr, p, t, preset):
 
 
 RENDERERS = {
+    'film_burn': lambda arr, params, t, preset, index: render_film_burn(arr, params, t, preset['speed'], _seed(preset['seed'], 'film-burn'), content_size(preset, (arr.shape[1], arr.shape[0]))),
     'film_emulsion': lambda arr, params, t, preset, index: render_film_emulsion(arr, params, t, preset['speed'], _seed(preset['seed'], 'film-emulsion'), content_size(preset, (arr.shape[1], arr.shape[0]))),
     'crt_capture': lambda arr, params, t, preset, index: render_crt_capture(arr, params, t, preset['speed'], _seed(preset['seed'], 'crt-capture'), content_size(preset, (arr.shape[1], arr.shape[0]))),
     'screen_mesh': lambda arr, params, t, preset, index: render_screen_mesh(arr, params, t, preset['speed'], _seed(preset['seed'], 'screen-mesh'), content_size(preset, (arr.shape[1], arr.shape[0]))),
@@ -1378,10 +1381,12 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
     generators = {'slab', 'blinds', 'particles', 'silhouette', 'ink_bloom', 'flare'}
     source_end = max((i for i, m in enumerate(p['modules']) if m.get('enabled', True) and m['id'] in generators), default=-1) + 1
     source_effects = {entry['id']: entry['params'] for entry in p['modules']
-                      if entry['enabled'] and entry['id'] in ('chroma_print', 'slice_echo', 'stretch_echo', 'signal_etch', 'scan_modulation', 'signal_repetition', 'contour_melt')}
+                      if entry['enabled'] and entry['id'] in ('chroma_print', 'slice_echo', 'stretch_echo', 'signal_etch', 'scan_modulation', 'signal_repetition', 'contour_melt', 'print_collage')}
     def treat_source(image):
         reference = content_size(p, (width, height))
         source_pixels = untreated if untreated is not None else image
+        if 'print_collage' in source_effects:
+            image = blend_pass(image, effect_amount(source_effects['print_collage']), lambda pixels: render_print_collage(pixels, source_effects['print_collage'], continuous_time, p['speed'], _seed(p['seed'], 'print-collage'), reference))
         if 'chroma_print' in source_effects:
             image = blend_pass(image, effect_amount(source_effects['chroma_print']), lambda pixels: render_chroma_print(pixels, source_effects['chroma_print'], reference))
         if 'slice_echo' in source_effects:
@@ -1447,7 +1452,7 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
         cw, ch = content_size(p, (width, height))
         if source_framing(p) == "adaptive" and cw < ch and module_id in {"slab", "blinds"} and int(params.get("shape", 0)) in (2, 3):
             params = dict(params, diameter=params["diameter"] * cw / ch)
-        module_time = continuous_time if module_id in ('photocopy', 'broadcast', 'screen_mesh', 'crt_capture', 'film_emulsion') or (module_id == 'ink_bloom' and params.get('clock_mode', 0)) else t
+        module_time = continuous_time if module_id in ('photocopy', 'broadcast', 'screen_mesh', 'crt_capture', 'film_emulsion', 'film_burn') or (module_id == 'ink_bloom' and params.get('clock_mode', 0)) else t
         if module_id in ('slab', 'smear'): signals.begin('ghosts', ghost_strength)
         if module_id == 'slab': signals.begin('cloud', params.get('cloud_intensity', 100.) / 100.)
         if module_id == 'broadcast': signals.begin('broadcast', effect_amount(params))

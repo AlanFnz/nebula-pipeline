@@ -199,7 +199,7 @@ class SubjectPanel(QWidget):
         if self.kind == 'text':
             ranges = summary['text']['ranges']
             morph = ranges['text.reveal'][0] == ranges['text.reveal'][1] == 3
-            self.controls['text.weight'].setVisible(ranges['text.font'][0] != ranges['text.font'][1] or ranges['text.font'][0] in (3, 4))
+            self.controls['text.weight'].setVisible(ranges['text.font'][0] != ranges['text.font'][1] or ranges['text.font'][0] in (3, 4, 5))
             self.controls['text.morph_balance'].setVisible(morph)
             self.controls['text.morph_roundness'].setVisible(morph)
             for key in ('leading', 'align', 'wrap_columns', 'fit', 'copies', 'copy_gap'):
