@@ -28,6 +28,17 @@ def test_reading_wording_timing_and_clarity_are_editable_and_undoable(window):
     assert window.composition['effects']['film_burn']['params']['film_burn.reading_clarity']==.8
     window.undo_composition()
     assert panel.controls['film_burn.reading_clarity'].input.value()==1.
+    panel.reveal_control('film_burn.reading_motion')
+    assert not panel.controls['film_burn.reading_motion'].isHidden()
+    panel.controls['film_burn.reading_motion'].input.setValue(.4)
+    assert window.composition['effects']['film_burn']['params']['film_burn.reading_motion']==.4
+    window.undo_composition()
+    assert panel.controls['film_burn.reading_motion'].input.value()==1.
+    panel.inspect_effect('print_collage');panel.reveal_control('print_collage.reading_reframe')
+    panel.controls['print_collage.reading_reframe'].input.setValue(.3)
+    assert window.composition['effects']['print_collage']['params']['print_collage.reading_reframe']==.3
+    window.undo_composition()
+    assert panel.controls['print_collage.reading_reframe'].input.value()==.8
     wait_until(lambda: not window.render_running and not window.render_queued)
 
 
