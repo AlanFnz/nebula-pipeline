@@ -632,6 +632,10 @@ Burning print. It shows complete words in order, gives longer words more time,
 keeps optical interruptions between reading holds, and ends on the full phrase.
 The original Burning print and its authored cuts remain unchanged.
 
+The current version adds moving pink/amber exposures, ink reversals, luminous
+edges and subtle optical reframing during the reading holds. The wording order,
+seven-second timing and two-second complete-phrase ending stay the same.
+
 - **Object → Wording → Apply text** replaces the phrase directly. There is one
   wording value, so no conversion from an animated range is needed. Words and
   accented letters are selected as text rather than cropped from fixed regions.
@@ -656,6 +660,14 @@ The original Burning print and its authored cuts remain unchanged.
 - Interruption strength zero retains whole words and suppresses these coordinated
   bursts. The individual effects still have their own Intensity, bypass, scope
   and ordinary parameter overrides. Other typography modes retain their output.
+- **Film burn → Timing → Reading print motion** develops the exposure and ink
+  within each word's reading time. **Print collage → Timing → Reading reframe**
+  adds restrained scale/position changes inside the fitted word bounds. Both
+  support automation and require their effect's reading coordination control.
+  They default to zero in saved projects from earlier versions; the current
+  built-in Study enables them. Set either to zero to quiet that part of the look.
+  Film hue, leak hue/position, exposure, softness and grain remain editable.
+  The previous frozen recipe remains in `presets/text-reading-print-v1.json`.
 
 ### Liquid words
 

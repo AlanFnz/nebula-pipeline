@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.30.0 — 2026-10-23
+
+- Refine Text / reading print with pink and amber exposures, evolving ink
+  reversals, luminous edges and gentle optical reframing during complete words.
+  Keep the reading schedule and two-second full-phrase ending; retain the v1
+  snapshot and existing saved projects' output.
+- Add opt-in Film burn → Reading print motion and Print collage → Reading
+  reframe, including automation. They follow semantic word timing and respect
+  the existing optical controls. Defaults remain zero outside the new recipe.
+
 ## 0.29.0 — 2026-10-23
 
 - Add Text / reading print, a separate seven-second phrase montage with complete
