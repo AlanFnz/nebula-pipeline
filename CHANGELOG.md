@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.29.0 — 2026-10-23
+
+- Add Text / reading print, a separate seven-second phrase montage with complete
+  words, longer holds for longer words, short optical interruptions and a final
+  full-phrase hold. Wording edits adapt the semantic selection automatically.
+- Add Text → Reading montage with cycle/finale timing, word-length weighting,
+  interruption duration/strength, whole-word/letter inserts and hold/repeat ending.
+  Expose its controls directly in Object; preserve explicit final line breaks.
+- Add opt-in reading coordination to Print collage and Film burn, keeping words
+  fitted and centered and reducing occlusion during their reading intervals.
+  Other sources, text modes and the original Burning print retain their output.
+
 ## 0.28.0 — 2026-10-23
 
 - Add Text / burning print: a portable 10.25-second, 12 fps typography montage
