@@ -139,6 +139,14 @@ class SubjectPanel(QWidget):
         self.details.setText('Text appearance…' if self.kind == 'text' else 'Source controls…')
         self.timing.setText('Creative motion…' if self.kind == 'particles' else 'Motion & timing…')
         paths = OBJECT_PATHS.get(self.kind, ())
+        reading = self.kind == 'text' and summary['text']['ranges']['text.reveal'] == (4, 4)
+        if reading:
+            paths = tuple('text.' + key for key in ('reading_duration', 'reading_final', 'reading_transition',
+                          'reading_weight', 'reading_breakup', 'reading_fragments', 'reading_loop')) + paths
+            self.note.setText(f'Edit Wording and apply it: the montage adapts to complete words and letters. '
+                             f'Montage duration includes the final phrase; match the clip duration for one full pass. '
+                             f'Print collage and Film burn follow these reading beats. Changes apply to {scope}.')
+            self.timing.setText('Reading & interruptions…')
         if set(self.controls) != set(paths):
             # Memory's exploration controls precede placement. Only move the
             # host when the source family changes, keeping edits scroll-stable.
@@ -203,11 +211,11 @@ class SubjectPanel(QWidget):
             self.controls['text.morph_balance'].setVisible(morph)
             self.controls['text.morph_roundness'].setVisible(morph)
             for key in ('leading', 'align', 'wrap_columns', 'fit', 'copies', 'copy_gap'):
-                self.controls['text.' + key].setVisible(not morph)
+                self.controls['text.' + key].setVisible(not morph and (not reading or key in ('leading', 'align')))
             fit = ranges['text.fit']
-            self.controls['text.block_width'].setVisible(not morph and (fit[0] != fit[1] or fit[0] == 2))
-            self.controls['text.fit_width'].setVisible(morph or fit[0] != fit[1] or fit[0] == 1)
-            self.controls['text.copy_floor'].setVisible(not morph and (fit[0] != fit[1] or fit[0] == 1))
+            self.controls['text.block_width'].setVisible(not morph and not reading and (fit[0] != fit[1] or fit[0] == 2))
+            self.controls['text.fit_width'].setVisible(reading or morph or fit[0] != fit[1] or fit[0] == 1)
+            self.controls['text.copy_floor'].setVisible(not morph and not reading and (fit[0] != fit[1] or fit[0] == 1))
         self.details.setVisible(bool(active)); self.timing.setVisible(self.kind in ('ink', 'text'))
         self.updating = False
 

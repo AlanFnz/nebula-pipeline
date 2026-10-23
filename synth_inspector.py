@@ -35,10 +35,12 @@ def control_group(path):
         if key in ('fold_depth', 'fold_period', 'fold_phase', 'rotation_speed', 'turn_variation', 'transition_ease', 'turn_settle', 'drift'): return 'Motion & timing'
         return 'Color & light'
     if module == 'film_burn':
+        if key == 'reading_clarity': return 'Motion & timing'
         if key in ('print_mix', 'paper_hue', 'paper_light', 'ink_hue', 'ink_light', 'color_spread', 'exposure', 'leak_x', 'leak_y', 'leak_height', 'leak_hue', 'leak_width', 'reversal'): return 'Color & light'
         if key in ('drift', 'rate', 'opening', 'gate_x', 'roughness', 'cadence'): return 'Motion & timing'
         return 'Optical finish'
     if module == 'print_collage':
+        if key == 'reading_layout': return 'Motion & timing'
         if key in ('weave', 'cadence'): return 'Motion & timing'
         if key in ('poster', 'poster_scale', 'poster_y', 'poster_start', 'poster_end', 'echo', 'echo_x', 'echo_y', 'bars', 'bar_angle', 'bar_count'): return 'Repetitions'
         return 'Shape & layout'
@@ -48,6 +50,7 @@ def control_group(path):
         return 'Film texture'
     if module == 'text' and key in ('morph_balance', 'morph_roundness'): return 'Shape & layout'
     if module == 'text' and key.startswith('morph_'): return 'Motion & timing'
+    if module == 'text' and key.startswith('reading_'): return 'Motion & timing'
     if module == 'contour_melt':
         if key in ('fill', 'hollow', 'drift', 'period', 'phase'): return 'Moving exposure'
         if key in ('style', 'width', 'separation', 'groove'): return 'Contours'

@@ -6,6 +6,43 @@ from synth_composition import composition_from_sequence, normalize_composition
 from synth_sequence import normalize_sequence
 
 
+def reading_print_composition():
+    """One editable phrase; semantic timing adapts to replacement wording."""
+    enabled = ('text', 'print_collage', 'film_burn')
+    settings = {'speed': 1., 'depth': 0., 'treatment_fps': 12}
+    for module in enabled:
+        settings.update({f'{module}.{spec.key}': spec.default for spec in MODULE_BY_ID[module].params})
+    settings.update({
+        'text.content': 'REVOLUTION IS NOW', 'text.font': 5, 'text.weight': 700,
+        'text.reveal': 4, 'text.reading_duration': 7., 'text.reading_final': 2.,
+        'text.reading_transition': .25, 'text.reading_breakup': .85,
+        'text.size': .36, 'text.fit_width': .88, 'text.tracking': .015,
+        'text.saturation': 0., 'text.back_brightness': 0.,
+        'print_collage.reading_layout': 1., 'print_collage.width': .9,
+        'print_collage.poster': .65, 'print_collage.poster_scale': 2.8,
+        'print_collage.echo': .65, 'print_collage.bars': .75,
+        'print_collage.x': .12, 'print_collage.y': -.06,
+        'print_collage.weave': .006,
+        'film_burn.reading_clarity': 1., 'film_burn.print_mix': 1.,
+        'film_burn.paper_hue': .985, 'film_burn.paper_light': .94,
+        'film_burn.ink_hue': .63, 'film_burn.ink_light': .06,
+        'film_burn.exposure': 1.3, 'film_burn.drift': .25,
+        'film_burn.reversal': 1.1, 'film_burn.halo': 1.15,
+        'film_burn.halo_width': 13., 'film_burn.softness': 3.2,
+        'film_burn.ink_spread': 4.5, 'film_burn.damage': .5,
+        'film_burn.melt': 3.8, 'film_burn.color_spread': .35,
+        'film_burn.grain': .075, 'film_burn.dust': .45,
+    })
+    source = normalize_sequence(dict(schema_version=1, render_version=2,
+        name='Text / reading print', duration=7., fps=12, seed=231026,
+        canvas={'width': 956, 'height': 720, 'framing': 'native'},
+        states={'reading': {'preset': 'Reference blinds', 'enabled': list(enabled), 'overrides': settings}},
+        cues=[{'time': 0., 'state': 'reading', 'transition': 'cut'}]))
+    project = composition_from_sequence(source)
+    project['phrases']['custom']['name'] = 'Words / interruptions / final phrase'
+    return normalize_composition(project)
+
+
 def film_print_composition():
     enabled=('text','print_collage','film_burn')
     common={'speed':1.,'depth':0.,'treatment_fps':12,'object_x':0.,'object_y':0.}
