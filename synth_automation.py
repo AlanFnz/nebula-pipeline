@@ -17,6 +17,7 @@ TARGETS = frozenset({
     'film_burn.exposure', 'film_burn.leak_x', 'film_burn.leak_y',
     'film_burn.leak_width', 'film_burn.leak_height', 'film_burn.reversal',
     'film_burn.halo', 'film_burn.melt', 'film_burn.opening', 'film_burn.grain',
+    'film_burn.reading_motion', 'print_collage.reading_reframe',
     'print_collage.width', 'print_collage.height', 'print_collage.x',
     'print_collage.y', 'print_collage.poster', 'print_collage.echo',
     'signal_repetition.spacing', 'signal_repetition.wave', 'signal_repetition.mix',

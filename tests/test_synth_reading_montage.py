@@ -64,7 +64,7 @@ def test_reading_layout_and_collage_preserve_complete_letter_bounds(text):
     assert mask.width*sx <= 480*.94 and mask.height*sy <= 360*.65
     preset = default_synth_preset()
     arr = render_text(np.zeros((360,480,3),np.float32),p,6,preset)
-    collage = dict(defaults('print_collage'), reading_layout=1., start=.4,end=.5,
+    collage = dict(defaults('print_collage'), reading_layout=1., reading_reframe=1., start=.4,end=.5,
                    poster=1., echo=1., copies=3, width=2.,height=4.)
     output = render_print_collage(arr,collage,6,1,1,(480,360),reading_beat(p,6))
     # Bright ink remains wholly inside the margins despite hostile manual crops.
@@ -82,6 +82,50 @@ def test_reading_protection_is_optional_and_keeps_optical_edits():
     assert quiet['grain']==p['grain'] and quiet['paper_hue']==p['paper_hue']
     brighter=film_reading_params(dict(protected,exposure=p['exposure']*2),beat)
     assert brighter['exposure']==quiet['exposure']*2
+
+
+def test_optical_motion_follows_word_and_finale_progress_without_mutation():
+    p = text_params()
+    holds = [(a,b) for a,b,_,_,burst in reading_schedule(p)[0] if not burst]
+    for a,b in holds:
+        assert reading_beat(p,a+(b-a)*.25).progress == pytest.approx(.25)
+        assert reading_beat(p,a+(b-a)*.75).progress == pytest.approx(.75)
+    assert reading_beat(p,6.).progress == pytest.approx(.5)
+    assert reading_beat(p,70.).progress == 1.
+    optical = dict(defaults('film_burn'), reading_clarity=1., reading_motion=1.)
+    original = copy.deepcopy(optical)
+    frames = [film_reading_params(optical,reading_beat(p,t)) for t in (.4,1.2,2.2)]
+    assert max(f['leak_x'] for f in frames)-min(f['leak_x'] for f in frames) > .5
+    assert max(f['reversal'] for f in frames)-min(f['reversal'] for f in frames) > .5
+    assert all(f['opening']==1.1 for f in frames)  # no gate cuts in readable holds
+    assert optical == original
+    assert film_reading_params(optical,None) is optical
+    off=dict(optical,reading_clarity=0.)
+    assert film_reading_params(off,reading_beat(p,1.)) is off
+    # User exposure overrides and palette continue to drive the result.
+    baseline=film_reading_params(optical,reading_beat(p,1.))
+    doubled=film_reading_params(dict(optical,exposure=optical['exposure']*2),reading_beat(p,1.))
+    assert doubled['exposure']==pytest.approx(baseline['exposure']*2)
+
+
+def test_motion_controls_zero_preserve_old_print_and_support_automation():
+    from synth_automation import target_parameter
+    from synth_reading_montage import collage_reading_params, reading_reframe
+    beat=reading_beat(text_params(),1.)
+    optical=dict(defaults('film_burn'),reading_clarity=1.)
+    missing=dict(optical);missing.pop('reading_motion')
+    a=film_reading_params(optical,beat);b=film_reading_params(missing,beat)
+    a.pop('reading_motion')
+    assert a==b
+    collage=dict(defaults('print_collage'),reading_layout=1.)
+    assert reading_reframe(collage,beat)==(1.,0.,0.)
+    moving=dict(collage,reading_reframe=1.)
+    assert reading_reframe(moving,None)==(1.,0.,0.)
+    assert reading_reframe(moving,reading_beat(text_params(),.1))==(1.,0.,0.)
+    assert reading_reframe(moving,beat)[0] < 1
+    assert collage_reading_params(moving,beat)['copies']==1
+    for path in ('film_burn.reading_motion','print_collage.reading_reframe'):
+        assert target_parameter(path).default == 0.
 
 
 def test_new_study_text_edit_seek_persistence_and_effect_intensity(tmp_path):
