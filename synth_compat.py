@@ -24,6 +24,8 @@ def frozen_data(key):
 
 
 def starter_snapshot(identifier):
+    if identifier == 'text-film-burn':
+        return copy.deepcopy(_film_print_snapshot())
     if identifier == 'image-memory':
         return copy.deepcopy(_memory_snapshot())
     if identifier == 'chromatic-lattice':
@@ -55,6 +57,11 @@ def starter_snapshot(identifier):
     if identifier in ('profile-clear', 'profile-doryphoros'):
         return copy.deepcopy(_profile_snapshot()[identifier])
     return copy.deepcopy(_snapshot()['starters'][identifier])
+
+
+@lru_cache(maxsize=1)
+def _film_print_snapshot():
+    return json.loads((Path(__file__).parent / 'presets/text-film-burn-v1.json').read_text())
 
 
 @lru_cache(maxsize=1)

@@ -12,6 +12,8 @@ CATEGORIES = ('Distortion', 'Texture', 'Light & color', 'Motion & echoes', 'Cuto
 EFFECT_CATEGORIES = {
     'color_field': 'Light & color',
     'film_emulsion': 'Texture',
+    'film_burn': 'Texture',
+    'print_collage': 'Motion & echoes',
     'contour_melt': 'Light & color',
     'signal_repetition': 'Motion & echoes',
     'scan_modulation': 'Distortion',
@@ -92,6 +94,8 @@ CONTRIBUTIONS = {
     'solid': '3D solid provides a rotating die or cube.',
     'color_field': 'Color field provides moving optical clouds behind the object.',
     'prismatic_field': 'Prismatic field creates turning color planes and a closed polygon.',
+    'film_burn': 'Film burn exposes the print with moving leaks, luminous edges and rough film gates.',
+    'print_collage': 'Print collage crops, repeats and overprints impressions of the source.',
     'film_emulsion': 'Color emulsion adds optical fringes, softness and moving grain.',
     'radial_bloom': 'Radial bloom creates expanding crowns and branching rays.',
     'forms': 'Luminous forms provide the geometric source.',

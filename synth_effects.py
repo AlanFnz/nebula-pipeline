@@ -36,6 +36,8 @@ def paths(module, keys=None):
 
 
 EFFECTS = (
+    Effect('print_collage', 'Print collage', 'Crop, enlarge and overprint the source. Bright artwork on a dark backdrop works especially well. Pair with Film burn for exposed typography.', paths('print_collage'), ('print_collage',), looks=(('Single impression', {}), ('Poster overprint', {'print_collage.poster': .7, 'print_collage.poster_scale': 3.}), ('Three impressions', {'print_collage.width': .25, 'print_collage.copies': 3}))),
+    Effect('film_burn', 'Film burn', 'Drifting film exposure with luminous ink edges, uneven gate closures and moving grain. Color print turns bright source details into ink; zero preserves footage colors.', paths('film_burn'), ('film_burn',), looks=(('Warm light leak', {}), ('Burning red print', {'film_burn.print_mix': 1., 'film_burn.exposure': 1.25, 'film_burn.reversal': .8}), ('Quiet print', {'film_burn.print_mix': 1., 'film_burn.exposure': .05, 'film_burn.halo': .1, 'film_burn.reversal': 0.}))),
     Effect('image_memory', 'Image memory', 'A moving form leaves a history of colored traces. Persistence holds past positions, Drift carries the traces away, and Dissolution erodes their silhouettes. Generates its own sphere, ring or polygon.', paths('image_memory'), ('image_memory',)),
     Effect('chromatic_lattice', 'Chromatic lattice', 'Fixed luminous cells carry traveling size and color waves. Shape, grid spacing, wave geometry, palette and glow can be adjusted independently.', paths('chromatic_lattice'), ('chromatic_lattice',)),
     Effect('solid', '3D solid', 'A centered rotating die or cube. Adjust its pose, rotation, dots and surface colors in Object. Image treatments texture the complete picture.', paths('solid'), ('solid',)),

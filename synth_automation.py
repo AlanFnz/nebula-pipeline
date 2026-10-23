@@ -14,6 +14,11 @@ from synth_instances import base_path
 from synth_intensity import PATHS
 
 TARGETS = frozenset({
+    'film_burn.exposure', 'film_burn.leak_x', 'film_burn.leak_y',
+    'film_burn.leak_width', 'film_burn.leak_height', 'film_burn.reversal',
+    'film_burn.halo', 'film_burn.melt', 'film_burn.opening', 'film_burn.grain',
+    'print_collage.width', 'print_collage.height', 'print_collage.x',
+    'print_collage.y', 'print_collage.poster', 'print_collage.echo',
     'signal_repetition.spacing', 'signal_repetition.wave', 'signal_repetition.mix',
     'signal_repetition.fringe', 'signal_repetition.exposure',
     'signal_repetition.band_flow', 'signal_repetition.sync_loss', 'signal_repetition.line_flutter',

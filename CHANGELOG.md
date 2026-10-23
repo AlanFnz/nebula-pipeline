@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.28.0 — 2026-10-23
+
+- Add Text / burning print: a portable 10.25-second, 12 fps typography montage
+  reconstructed from ref-10, with editable lettering and a frozen initial recipe.
+- Add Print collage for source crops, repeated/scaled impressions, overprints
+  and diagonal bars. Add Film burn for colored ink, localized light leaks,
+  reversal, emulsion damage, luminous edges, rough gates, grain and dust.
+  Both treatments accept footage and generated sources, expose Intensity and
+  support timed automation on their main optical/composition controls.
+- Bundle licensed Fredoka variable typography and expose its supported weight.
+  New effects default off for existing documents; old font indices, Study
+  recipes, seeds and rendering remain unchanged.
+
 ## 0.27.2 — 2026-10-18
 
 - Add Object → Center path for Image memory. Balance the full current figure's

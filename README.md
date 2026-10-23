@@ -594,6 +594,37 @@ none require a text source. New operations are off by default in older documents
 Text is a generated object in this stage. Video remains a separate source;
 independent text-over-video layers and custom font imports are future work.
 
+### Text / burning print
+
+**Studies → Text / burning print · 10.25s** reconstructs the typographic cuts,
+red/magenta film, light leaks and dark gate flashes of ref-10. It uses a 956×720
+canvas at 12 fps and bundled Fredoka lettering. The initial recipe is frozen;
+loading it creates an independent editable copy. No reference video is required
+or embedded in the Study. Typography and procedural grain approximate the
+reference rather than reproducing its original type design or exact particles.
+
+- **Text → Wording / Typeface / Font weight** changes the lettering. The recipe
+  alternates uppercase and mixed case; a project-level wording override replaces
+  both. Fredoka supports weights up to 700. Existing font indices are unchanged.
+- **Print collage** reframes a window of the bright source, scales or repeats it,
+  and adds larger/smaller overprints and diagonal bars. Its source window is
+  relative to the visible non-black bounds, so replacing the wording may need
+  new window positions for isolated letters. It also works on other images.
+- **Film burn → Color print** remaps bright source details into ink on colored
+  stock. Set it to zero to retain a video's colors beneath the exposure. Film,
+  ink and leak hues are independent. Leak position, width, height, drift and
+  strength control the light; reversal, luminous edges, ink spread, damage,
+  optical softness, grain and dust control the emulsion. Gate opening closes
+  the picture into an uneven aperture; zero is fully closed.
+- Both effects have **Intensity**, bypass, restore and project/clip scope.
+  Animate light-leak strength/position/size, reversal, luminous edges, distortion,
+  gate opening or grain; collage width/height/position and overprint strengths
+  also support timed automation. Cadence and the project seed make scrubbing
+  and export repeatable. The effects' clocks are independent of the source.
+- Controls marked **Animated · Study** follow the authored montage. Use a fixed
+  value to replace one parameter, or **Open detailed copy…** to edit its cuts.
+  Other studies keep their previous render; the new modules start disabled.
+
 ### Liquid words
 
 Choose **Studies → Text / liquid words → Load** for the 6-second, 1000×800 monochrome
