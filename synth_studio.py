@@ -348,13 +348,20 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
             local_editor = False
             widget = focus
             while widget and widget is not self:
-                if isinstance(widget, (QLineEdit, QPlainTextEdit, QTextEdit, QAbstractSpinBox, NativeComboBox, QAbstractSlider)):
+                if isinstance(widget, (QLineEdit, QPlainTextEdit, QTextEdit, QAbstractSpinBox)):
                     if widget is not self.timeline: local_editor = True
+                if transport and isinstance(widget, (NativeComboBox, QAbstractSlider)) and widget is not self.timeline:
+                    local_editor = True
+                if undo and isinstance(widget, NativeComboBox) and widget.isEditable(): local_editor = True
                 if transport and widget is self.soundtrack_lane: local_editor = True
                 if transport and isinstance(widget, QAbstractButton): local_editor = True
                 widget = widget.parentWidget()
             if (transport or undo) and (local_editor or QApplication.activePopupWidget() or QApplication.activeModalWidget()):
                 event.accept(); return True
+            if undo:
+                # Non-editable combo boxes claim Undo's letter key even though
+                # they have no text history. Let the window action handle it.
+                event.ignore(); return True
         return super().eventFilter(watched, event)
 
     def step_frame(self, delta):
@@ -1169,6 +1176,16 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
 
     def refresh_canvas_controls(self):
         canvas = self.current_canvas()
+        if getattr(self, '_custom_canvas_document', None) is not self.document_identity:
+            self._custom_canvas_document = self.document_identity
+            self._custom_canvas = None
+        formats = {(w, h) for _key, _label, w, h in CANVAS_FORMATS}
+        if (canvas['width'], canvas['height']) not in formats:
+            self._custom_canvas = copy.deepcopy(canvas)
+        elif self._custom_canvas is None and 'reference' in canvas:
+            reference = canvas['reference']
+            if (reference['width'], reference['height']) not in formats:
+                self._custom_canvas = copy.deepcopy(reference)
         is_video = self.sequence is not None and 'footage' in self.sequence
         self.fit_subject.setVisible(not is_video)
         self.source_preview.setVisible(is_video)
@@ -1178,9 +1195,10 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
             while self.canvas_combo.count() > len(CANVAS_FORMATS):
                 self.canvas_combo.removeItem(self.canvas_combo.count() - 1)
             index = next((i for i, (_key, _label, w, h) in enumerate(CANVAS_FORMATS) if (w, h) == (canvas["width"], canvas["height"])), -1)
-            if index < 0:
-                self.canvas_combo.addItem(f"Custom · {canvas['width']}×{canvas['height']}", "custom")
-                index = self.canvas_combo.count() - 1
+            if self._custom_canvas is not None:
+                custom = self._custom_canvas
+                self.canvas_combo.addItem(f"Custom · {custom['width']}×{custom['height']}", "custom")
+                if index < 0: index = self.canvas_combo.count() - 1
             self.canvas_combo.setCurrentIndex(index)
             self.fit_subject.setChecked(canvas["framing"] in ('adaptive', 'fit'))
         self.canvas_label.setText(f"Export / {canvas['width']} × {canvas['height']}")
@@ -1190,7 +1208,9 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
 
     def canvas_selected(self, index):
         identifier = self.canvas_combo.itemData(index)
-        if identifier and identifier != "custom":
+        if identifier == 'custom' and self._custom_canvas is not None:
+            self.apply_canvas(self._custom_canvas)
+        elif identifier:
             self.apply_canvas(resize_canvas(self.current_canvas(), format_canvas(identifier)))
 
     def framing_changed(self, checked):
@@ -1202,8 +1222,7 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
         if canvas == self.current_canvas(): return
         if self.composition is not None:
             document = copy.deepcopy(self.composition); document["canvas"] = canvas
-            self.composer.document = copy.deepcopy(document)
-            self.composition_changed(document, "canvas")
+            self.composer.commit(document, "canvas")
         elif self.sequence is not None:
             self.sequence = normalize_sequence(dict(self.sequence, canvas=canvas))
             self.refresh_canvas_controls(); self.invalidate()

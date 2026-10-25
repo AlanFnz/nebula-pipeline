@@ -7,6 +7,7 @@ from pathlib import Path
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 from PySide6.QtCore import QThreadPool, Qt
+from PySide6.QtGui import QKeySequence
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QFileDialog, QTableWidget, QPushButton
 
@@ -526,6 +527,32 @@ def test_particle_example_controls_undo_save_and_threaded_export(window, tmp_pat
     assert not window.composer.effects_panel.summary["particles"]["active"]
 
 
+def test_custom_canvas_shortcuts_restore_exact_size_and_keep_custom_choice(window):
+    project = copy.deepcopy(window.composition)
+    project['canvas'] = {'width': 956, 'height': 720, 'framing': 'native'}
+    window.set_composition(project, guard=False)
+    before = copy.deepcopy(window.composition)
+    window.canvas_combo.setCurrentIndex(window.canvas_combo.findData('stories'))
+    window.activateWindow(); window.canvas_combo.setFocus(); QApplication.processEvents()
+    QTest.keySequence(window.canvas_combo, QKeySequence(QKeySequence.StandardKey.Undo))
+    QApplication.processEvents()
+    assert window.composition == before
+    assert window.canvas_combo.currentText() == 'Custom · 956×720'
+    QTest.keySequence(window.canvas_combo, QKeySequence(QKeySequence.StandardKey.Redo))
+    QApplication.processEvents()
+    assert window.canvas_combo.currentData() == 'stories'
+    assert window.composer.compiled['canvas'] == window.current_canvas()
+    assert window.canvas_combo.findData('custom') >= 0
+    stories = copy.deepcopy(window.composition)
+    # Recover the reference's custom size even after saving and reopening.
+    window.set_composition(stories, guard=False)
+    window.canvas_combo.setCurrentIndex(window.canvas_combo.findData('custom'))
+    assert window.composition == before
+    # A different document must not inherit this project's custom option.
+    window.set_composition(dict(project, canvas={'width': 720, 'height': 576}), guard=False)
+    assert window.canvas_combo.findData('custom') == -1
+
+
 def test_canvas_switch_is_undoable_and_preserves_scene_and_playhead(window, tmp_path, monkeypatch):
     choose_starter(window, "particle-orbit")
     window.timeline.setValue(160)
@@ -793,17 +820,24 @@ def test_low_res_finish_native_controls_scope_undo_and_save(window, tmp_path, mo
     effects.apply_button.click()
     assert effects.controls['low_res.resolution'].input.value() == 360
     assert effects.controls['low_res.sampling'].input.currentText() == 'Soft'
-    effects.controls['low_res.resolution'].input.setValue(240)
+    resolution = effects.controls['low_res.resolution']
+    assert resolution.presets.currentData() == 360
+    resolution.input.setValue(500)
+    assert resolution.presets.currentText() == 'Custom · 500 px'
+    window.undo_composition()
+    assert resolution.presets.currentData() == 360
+    resolution.presets.setCurrentIndex(resolution.presets.findData(240))
     effects.controls['low_res.sampling'].input.setCurrentIndex(1)
     changed = copy.deepcopy(window.composition)
     assert changed['source'] == before['source']
     assert changed['effects']['low_res']['params'] == {'low_res.resolution': 240, 'low_res.sampling': 1}
     window.undo_composition()
-    assert window.composition['effects']['low_res']['params']['low_res.sampling'] == 0
+    assert effects.controls['low_res.sampling'].input.currentIndex() == 0
     window.redo_composition(); assert window.composition == changed
     panel.select_section(1)
-    effects.controls['low_res.resolution'].input.setValue(180)
+    resolution.presets.setCurrentIndex(resolution.presets.findData(180))
     assert window.composition['sections'][1]['effects']['low_res']['params']['low_res.resolution'] == 180
+    assert window.composition['effects']['low_res']['params'] == changed['effects']['low_res']['params']
     assert not window.composition['sections'][0]['effects']
     saved = copy.deepcopy(window.composition)
     path = tmp_path / 'low-res.json'

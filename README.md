@@ -1606,9 +1606,20 @@ their own temporary layout without overwriting the main workspace preferences.
 the texture of the 360 px preview in a full-size export. Choose the project
 scope to apply it throughout, or choose **Editing: Clip** for a local treatment.
 **Working resolution** sets the longest edge of the internal raster; the saved
-canvas supplies its proportions. **Enlargement → Soft** smoothly enlarges the
+canvas supplies its proportions. **Resolution preset** offers 180, 240, 360, 480,
+720, 1080, 1440 and 2160 px without typing. It changes only Working resolution;
+sampling, intensity and other effects stay as authored. Manual values remain
+available and show as **Custom** when they do not match a preset. These are
+longest-edge pixel sizes, not video-height labels such as 720p; the working
+resolution is capped at the canvas size. **Enlargement → Soft** smoothly enlarges the
 grain and softened edges, while **Crisp pixels** preserves hard pixel edges.
 The 180 px, 720 px and crisp 240 px looks provide other starting points.
+
+Canvas changes support Undo/Redo even while the Canvas menu has focus. The last
+custom size stays in that document's Canvas menu after choosing a standard
+format. When reopening, a custom size retained as the artwork reference is
+available again. Selecting Custom restores that canvas and framing without
+replacing the project's effects, text or clip edits.
 
 This renders sources, grain, backgrounds and sequence transitions at the chosen
 resolution before scaling the finished frame. Preview quality changes only the

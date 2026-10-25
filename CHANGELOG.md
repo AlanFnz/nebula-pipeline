@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.37.1 — 2026-10-26
+
+- Restore composition Undo/Redo shortcuts when a non-editable menu or slider
+  has focus, including Canvas. Keep the current document's custom canvas size
+  available after selecting a standard format, and recover a saved custom
+  artwork reference when reopening. Canvas changes refresh the inspector too.
+- Add a visible resolution preset selector to Low-res finish with 180, 240,
+  360, 480, 720, 1080, 1440 and 2160 px choices. Manual values remain available
+  as Custom. Presets change only working resolution, preserve other settings
+  and existing studies, and support the current editing scope and Undo/Redo.
+
 ## 0.37.0 — 2026-10-25
 
 - Choose active macOS system fonts through a shared searchable picker with style
