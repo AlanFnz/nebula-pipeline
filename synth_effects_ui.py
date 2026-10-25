@@ -112,14 +112,16 @@ class EffectsPanel(QWidget):
     navigation_changed = Signal()
     controls_refreshed = Signal()
     object_requested = Signal()
+    object_details_requested = Signal(str)
     source_requested = Signal()
     finishing_requested = Signal()
     master_requested = Signal()
     variation_requested = Signal(str)
     discovery_requested = Signal(str, int, str)
 
-    def __init__(self):
+    def __init__(self, *, route_sources=False):
         super().__init__()
+        self.route_sources = route_sources
         self.automation_counts = {}
         self.entries = {}; self.parent_entries = {}; self.summary = {}; self.authored_summary = {}
         self.effect_id = "rays"; self.controls = {}; self.rows = {}; self.control_cache = {}
@@ -357,9 +359,11 @@ class EffectsPanel(QWidget):
         active = [effect for effect in visible_effects if self.summary[effect.id]['active'] or self.is_bypassed(effect.id)]
         initial_context = self.context_key is None
         changed_context = context_key != self.context_key
-        if visible_effects and (self.effect_id not in {e.id for e in visible_effects} or
+        editable = [e for e in visible_effects if not self.route_sources or e.id not in SOURCE_EFFECTS]
+        editable_active = [e for e in active if e in editable]
+        if editable and (self.effect_id not in {e.id for e in editable} or
                 (changed_context and not self.summary[self.effect_id]['active'] and not self.is_bypassed(self.effect_id) and active)):
-            self.effect_id = (active or visible_effects)[0].id
+            self.effect_id = (editable_active or editable)[0].id
         self.context_key = context_key
         self.applied_ids = tuple(effect.id for effect in active)
         self.available_ids = tuple(effect.id for effect in visible_effects if effect.id not in self.applied_ids)
@@ -399,8 +403,9 @@ class EffectsPanel(QWidget):
         self.clip_note.setVisible(local)
         object_available = allowed_effects is None or any(key in allowed_effects for key in SOURCE_EFFECTS)
         self.source_title.setText(f'OBJECT · {len(sources)} ' + ('source' if len(sources) == 1 else 'sources') if sources else 'OBJECT · no source')
+        if self.route_sources: self.source_title.setText('Content, layout and motion → Object')
         self.source_title.setVisible(object_available); self.source_header.setVisible(object_available)
-        self.source_host.setVisible(bool(sources)); self.object_button.setVisible(object_available)
+        self.source_host.setVisible(bool(sources) and not self.route_sources); self.object_button.setVisible(object_available)
         for choice in self.effect_choices.values(): choice.hide()
         display_ids = [*self.project_effect_ids, *self.clip_effect_ids]
         display_ids += [e.id for e in self.context_effects if e.id not in display_ids]
@@ -421,7 +426,7 @@ class EffectsPanel(QWidget):
         self.updating = False
         self.refresh_effect()
         if changed_context: self.parameter_scroll.verticalScrollBar().setValue(0)
-        if initial_context and not active: self.show_overview()
+        if initial_context and not editable_active: self.show_overview()
 
     def move_effect_step(self, identifier, delta):
         ids = self.applied_host.identifiers
@@ -433,6 +438,8 @@ class EffectsPanel(QWidget):
 
     def inspect_effect(self, effect_id):
         if self.updating or effect_id not in EFFECT_BY_ID: return
+        if self.route_sources and effect_id in SOURCE_EFFECTS:
+            self.object_details_requested.emit(effect_id); return
         if self.allowed_effects is not None and base_id(effect_id) not in self.allowed_effects: return
         switched = self.effect_id != effect_id
         self.revealed_path = None

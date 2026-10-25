@@ -29,7 +29,7 @@ The [Studio interface plan](docs/studio-design-plan.md) and
 **Studies → Text / FAC51 contact film** is an eight-second, 12 fps study
 of red/magenta contact-film exposures with the **FAC51 / THE HAÇIENDA** label.
 The new **Contact print** effect provides film/ink color, positive or negative
-impressions, light leaks, gate/shutter movement, grain and dust. **Text → Framed
+impressions, light leaks, gate/shutter movement, grain and dust. **Object → Text → Framed
 label** provides multiline wording/subtitles, a **Show subtitle** checkbox that
 preserves hidden wording and centers the main text, optional rectangular, rounded,
 circular, square or diamond frames, and independent padding. The original 3.25-second **reference cut**
@@ -566,7 +566,7 @@ source so it does not grow with the echo. The two cycle controls are independent
 set both to the same duration and phase to keep opening and flashes synchronized.
 New effects are disabled in existing Studies.
 
-**Effects → Text → Timing** controls word/character reveals, receding/breathing
+**Object → Motion** controls word/character reveals, receding/breathing
 size motion, start/end magnification, cycle, acceleration and held motion FPS.
 **Perspective pullback** follows a camera-like depth curve, with a fast initial
 retreat that settles as the lettering gets farther away.
@@ -654,7 +654,7 @@ seven-second timing and two-second complete-phrase ending stay the same.
 - The main **Object** controls set **Montage duration**, **Final phrase hold**,
   **Interruption duration / strength**, **More time for long words**, insert type
   (words, letters, or both), and **Montage ending** (hold or repeat). These also
-  appear under **Text → Timing → Show: Reading montage** in any composition.
+  appear under **Object → Motion → Show: Reading montage** in any composition.
 - Montage duration includes the finale. Match the timeline clip duration for
   one complete pass; changing this control does not resize the clip. Hold keeps
   the final phrase visible after the cycle. Long phrases need a longer cycle
@@ -689,7 +689,7 @@ pigment and circular exposure flashes surround a readable phrase. The canvas is
 956×720 at 12 fps. No pixels from the reference video are required or bundled.
 
 - Edit **Object → Wording → Apply text**. The initial phrase is `REVOLUTION IS NOW`.
-  **Text → Timing → Reading montage** controls word timing, interruptions and the
+  **Object → Motion → Reading montage** controls word timing, interruptions and the
   final full-phrase hold. Longer words receive more time. Explicit line breaks
   are preserved in the finale; increase the cycle for very long phrases.
 - **Effects → Optical overprint → Timing → Protect reading moments** coordinates
@@ -729,7 +729,7 @@ their own frozen recipes.
 
 Choose **Studies → Text / liquid words → Load** for the 6-second, 1000×800 monochrome
 word-morphing example. Edit the phrase in **Object → Wording → Apply text**.
-**Object → Motion & timing… → Show → Morph words** enables the same mode on any
+**Object → Motion → Show → Morph words** enables the same mode on any
 text source. Reading time holds each word; Morph duration reshapes it into the
 next. Morph easing and Liquid motion control the transition. **Fast attack**
 concentrates the morph near its beginning and gives the incoming word more time
@@ -1118,7 +1118,10 @@ controls show at most two decimal places while retaining saved precision.
 Small normalized values use percentages (`0.0007` becomes `0.07%`). Sliders
 commit on release, and typed edits commit with Enter or focus change. The
 composer reuses its compiled state, and preview requests debounce rapid edits.
-Text wording appears at the top of Object; **Apply text** commits the phrase.
+For text objects, **Object → Text** edits **Main text** and **Subtitle** together.
+**Show subtitle** hides it without clearing the wording. **Layout** controls typography,
+frame, padding and position; **Motion** controls reveals and animation. Each text
+field has its own Apply button. Effects contains image treatments, not text editors.
 
 The header and window title identify the current document; an asterisk marks
 unsaved changes. **Save** (Command-S) writes to its associated file, asking for
@@ -1352,7 +1355,8 @@ detailed sequence/preset windows disable composition Undo/Redo.
   projects the bundled head as a fixed solid shape with angle, tilt, scale, framing
   and neck shaping controls. Irrelevant geometry
   controls are hidden. **Motion & timing** opens the shared ink Timing controls;
-  **Source controls** (or **Text appearance**) opens the complete Effects inspector.
+  **Source controls** opens the full source editor inside Object; Back to Object
+  returns to its overview. Text uses Text, Layout and Motion tabs inside Object.
   Choosing an object type replaces source families in the selected scope while
   keeping treatments, canvas, timeline and durations. Whole-clip replacement also
   resets local source activation overrides, retaining their parameter values.

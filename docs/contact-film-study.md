@@ -13,8 +13,8 @@ No video frames, sampled reference textures or original audio are bundled.
 
 ## Source and effect
 
-Text → Framed label is opt-in. In **Wording**, enter line breaks for up to eight
-main lines; **Label subtitle** accepts up to eight additional lines. Uncheck
+**Object → Text → Framed label** is opt-in. In **Main text**, enter line breaks for up to eight
+main lines; **Subtitle** accepts up to eight additional lines. Uncheck
 **Show subtitle** to hide it without deleting its wording, changing its animation,
 or leaving reserved space. The main wording centers in the frame. Re-enable the
 checkbox to restore the existing subtitle and layout; no “Use fixed value” step
@@ -58,3 +58,13 @@ exposures and final transport. The first 39 frames must match the reference-cut
 snapshot. Test random seeking, saved document reload, video input, 0–100% intensity,
 explicit order and Broadcast wear on the completed picture. Compare previous
 built-in studies against raw-pixel captures before adding the effect.
+
+### Editing home
+
+Main text, subtitle and Show subtitle live together in **Object → Text**.
+**Object → Layout** contains typeface, size, frame shape, border, padding and
+subtitle spacing. **Object → Motion** contains reveals and animation. These
+controls retain the selected project/clip scope. The Effects tab edits Contact
+print, Broadcast wear and other treatments applied to this content; it no longer
+opens a second text editor. Turning the subtitle off preserves its draft and
+saved wording. Navigation does not change the study or rendered output.

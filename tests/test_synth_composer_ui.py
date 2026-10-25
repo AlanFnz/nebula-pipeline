@@ -382,8 +382,8 @@ def test_object_tab_follows_starter_and_edits_the_visible_stamp(window):
     assert render_sequence_frame(window.sequence, 1.3, (160, 160)).tobytes() != before
     assert window.sequence['duration'] == pytest.approx(106 / 15)
     obj.timing.click()
-    assert panel.look_tabs.currentWidget() is panel.effects_panel
-    assert panel.effects_panel.effect_id == 'ink_bloom' and panel.effects_panel.parameter_tabs.currentIndex() == 1
+    assert panel.look_tabs.currentWidget() is obj
+    assert panel.object_editor.effect_id == 'ink_bloom' and panel.object_editor.parameter_tabs.currentIndex() == 1
     assert panel.timing_scope_label.isVisible()
 
 
@@ -520,7 +520,8 @@ def test_particle_example_controls_undo_save_and_threaded_export(window, tmp_pat
     assert "nb_frames=6" in probe
     choose_starter(window, "original-particles")
     assert len(window.composition["sections"]) == 1
-    assert window.composer.effects_panel.controls["particles.motion"].input.currentText() == "Gentle"
+    window.composer.open_object_details("particles", False)
+    assert window.composer.object_editor.controls["particles.motion"].input.currentText() == "Gentle"
     choose_starter(window, "refined")
     assert not window.composer.effects_panel.summary["particles"]["active"]
 
@@ -641,11 +642,13 @@ def test_ink_starter_exposes_both_effects_and_persists_customization(window, tmp
     choose_starter(window, 'ink-bloom')
     assert window.composition['fps'] == 15
     assert len(window.composition['sections']) == 1
-    assert window.composer.effects_panel.effect_id == 'ink_bloom'
+    assert window.composer.object_panel.kind == 'ink'
     before = copy.deepcopy(window.composition)
-    panel = window.composer.effects_panel
+    window.composer.open_object_details('ink_bloom', False)
+    panel = window.composer.object_editor
     panel.controls['ink_bloom.count'].input.setValue(9)
     panel.controls['ink_bloom.size'].input.setValue(.18)
+    panel = window.composer.effects_panel
     panel.inspect_effect('print_surface')
     panel.controls['print_surface.ink_wear'].input.setValue(.6)
     changed = copy.deepcopy(window.composition)
@@ -814,8 +817,8 @@ def test_low_res_finish_native_controls_scope_undo_and_save(window, tmp_path, mo
 
 def test_ink_timing_tabs_seconds_scope_reset_undo_and_save(window, tmp_path, monkeypatch):
     choose_starter(window, 'mixed-media')
-    panel = window.composer; effects = panel.effects_panel
-    effects.inspect_effect('ink_bloom')
+    panel = window.composer; effects = panel.object_editor
+    panel.open_object_details('ink_bloom', False)
     effects.parameter_tabs.setCurrentIndex(1)
     QApplication.processEvents()
     assert not effects.controls['ink_bloom.shape'].isVisible()

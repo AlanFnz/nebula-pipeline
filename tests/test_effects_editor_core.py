@@ -156,7 +156,7 @@ def test_reset_isolated_by_focused_effect_object_finishing_master(panel):
 def text_panel(panel):
     document = blank_composition(); document['effects']['text'] = effect_preset('text')
     panel.document = document; panel.refresh(); panel.effects_panel.inspect_effect('text')
-    return panel.effects_panel.controls['text.content']
+    return panel.object_panel.controls['text.content']
 
 
 def test_hidden_effect_text_draft_saves_without_changing_selected_effect(panel):
@@ -172,7 +172,7 @@ def test_distinct_section_drafts_save_in_original_scopes(panel):
     text_panel(panel)
     second = copy.deepcopy(panel.document['sections'][0]); second['id'] = 'section-2'
     panel.document['sections'].append(second); panel.refresh()
-    panel.change_scope(1); text = panel.effects_panel.controls['text.content']
+    panel.change_scope(1); text = panel.object_panel.controls['text.content']
     text.input.editor.setPlainText('First section wording')
     panel.select_section(1); text.input.editor.setPlainText('Second section wording')
     panel.prepare_text_save()
@@ -181,13 +181,17 @@ def test_distinct_section_drafts_save_in_original_scopes(panel):
     assert not panel.pending_text_edits()
 
 
-def test_conflicting_same_scope_drafts_do_not_commit(panel):
-    text = text_panel(panel); original = copy.deepcopy(panel.document)
-    text.input.editor.setPlainText('Effects draft')
-    panel.object_panel.controls['text.content'].input.editor.setPlainText('Object draft')
-    with pytest.raises(ValueError, match='different unapplied wording'):
-        panel.prepare_text_save()
-    assert panel.document == original
+def test_source_navigation_reuses_the_single_wording_draft(panel):
+    text = text_panel(panel)
+    text.input.editor.setPlainText('One wording draft')
+    panel.effects_panel.inspect_effect('tape')
+    panel.effects_panel.inspect_effect('text')
+    assert panel.look_tabs.currentWidget() is panel.object_panel
+    assert panel.object_panel.controls['text.content'] is text
+    assert 'text' not in panel.effects_panel.control_cache
+    assert text.input.editor.toPlainText() == 'One wording draft'
+    panel.prepare_text_save()
+    assert panel.document['effects']['text']['params']['text.content'] == 'One wording draft'
 
 
 def test_hidden_text_draft_after_source_switch_stays_off(panel):
@@ -243,7 +247,7 @@ def test_removed_section_draft_is_inactive_until_undo_restores_its_scope(panel):
     second = copy.deepcopy(panel.document['sections'][0]); second['id'] = 'section-2'
     panel.document['sections'].append(second); panel.refresh(); panel.change_scope(1)
     original = copy.deepcopy(panel.document)
-    text = panel.effects_panel.controls['text.content']; text.input.editor.setPlainText('Deleted section draft')
+    text = panel.object_panel.controls['text.content']; text.input.editor.setPlainText('Deleted section draft')
     panel.remove_section()
     assert not panel.pending_text_edits() and panel.prepare_text_save()
     assert panel.document['sections'][0]['id'] == 'section-2'

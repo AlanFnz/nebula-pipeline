@@ -34,8 +34,9 @@ def test_die_and_background_controls_can_be_edited_and_undone(window):
     window.undo_composition()
     assert obj.controls['solid.turn_speed'].input.value()==24.
     obj.details.click()
-    panel=composer.effects_panel
+    panel=composer.object_editor
     assert panel.effect_id=='solid'
+    panel=composer.effects_panel
     panel.inspect_effect('color_field')
     panel.reveal_control('color_field.flow')
     panel.controls['color_field.flow'].input.setValue(.8)

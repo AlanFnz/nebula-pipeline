@@ -9,8 +9,11 @@ def test_print_inspector_edits_and_undo_preserve_authored_montage(window):
     panel=window.composer.effects_panel
     window.composer.look_tabs.setCurrentWidget(panel)
     panel.inspect_effect('text')
+    panel=window.composer.object_panel
     panel.reveal_control('text.weight')
     assert not panel.controls['text.weight'].isHidden()
+    panel=window.composer.effects_panel
+    window.composer.look_tabs.setCurrentWidget(panel)
     panel.inspect_effect('film_burn')
     panel.reveal_control('film_burn.grain')
     assert not panel.controls['film_burn.grain'].isHidden()

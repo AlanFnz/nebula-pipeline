@@ -30,7 +30,9 @@ def test_intensity_is_always_visible_and_survives_navigation(make_window):
         QApplication.processEvents()
         assert control.isVisible()
     panel.inspect_effect('text'); QApplication.processEvents()
-    assert panel.intensity_host.isHidden() and not control.isVisible()
+    assert window.composer.look_tabs.currentWidget() is window.composer.object_panel
+    assert not control.isVisible()
+    window.composer.look_tabs.setCurrentWidget(panel)
     panel.inspect_effect('broadcast'); QApplication.processEvents()
     assert panel.controls['broadcast.effect_intensity'] is control and control.isVisible()
     panel.inspect_effect('tape'); QApplication.processEvents()
