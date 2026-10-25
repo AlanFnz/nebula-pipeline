@@ -1,6 +1,7 @@
 # Run through scripts/build_macos.py so the .icns is generated first.
 from pathlib import Path
 import plistlib
+from PyInstaller.utils.hooks import collect_submodules
 
 root = Path(SPECPATH).parent
 metadata = plistlib.loads((root / "packaging" / "Info.plist").read_bytes())
@@ -8,7 +9,7 @@ analysis = Analysis(
     [str(root / "mac_app.py")], pathex=[str(root)],
     datas=[(str(root / "assets"), "assets"), (str(root / "presets"), "presets")],
     binaries=[(str(root / "build/native/nebula-mask"), "native")],
-    hiddenimports=["PySide6.QtSvg"],
+    hiddenimports=["PySide6.QtSvg"] + collect_submodules('fontTools.ttLib.tables'),
     excludes=["tkinter", "pytest", "PySide6.QtWebEngineCore", "PySide6.QtWebEngineWidgets"],
 )
 archive = PYZ(analysis.pure)

@@ -23,6 +23,7 @@ from synth_tape import render_tape_damage
 from synth_instances import InstanceRegistry, instance_base, base_id
 from synth_photocopy import render_photocopy
 from synth_text import FONTS, validate_text, render_text
+from synth_fonts import validate_font
 from synth_contour import modules as contour_modules, render_contour_melt
 from synth_broadcast import render_broadcast, render_broadcast_exposure
 from synth_echo import render_stretch_echo, render_signal_etch
@@ -480,7 +481,7 @@ MODULES = (
 MODULES += (
     Module('text', 'Text', 'Editable typography rendered before the image treatments. Fonts travel with the Studio.', (
         P('content', 'Wording', 'REVOLUTION IS NOW', kind='text', hint='Up to 512 characters and eight lines. Line breaks are preserved.'),
-        P('font', 'Typeface', 0, 0, len(FONTS)-1, 1, choices=FONTS),
+        P('font', 'Typeface', 0, 0, len(FONTS)-1, 1, choices=FONTS, kind='font'),
         P('weight', 'Font weight', 400, 400, 900, 10, 'Weight of Bodoni Moda, Fraunces or Fredoka. Fredoka stops at 700. Other typefaces retain their own weight.'),
         P('size', 'Text size', .14, .01, 1.5, .01, 'Line height relative to the authored canvas height. Canvas resizing preserves the lettering.'),
         P('tracking', 'Letter spacing', 0., -.15, .8, .01, 'Extra spacing as a fraction of the font size.'),
@@ -590,7 +591,7 @@ MODULES += (
 
 MODULES += (
     Module('stretch_echo', 'Stretch echo', 'Animated contours stretched around the source. Works on text, objects and footage before finishing.', (
-        P('typeface', 'Echo typeface', 0, 0, len(FONTS), 1, 'Optional alternate typeface when the source is Text. Other sources always use their own pixels.', choices=('Source pixels',) + FONTS),
+        P('typeface', 'Echo typeface', 0, 0, len(FONTS), 1, 'Optional alternate typeface when the source is Text. Other sources always use their own pixels.', choices=('Source pixels',) + FONTS, kind='font'),
         P('stretch_y', 'Vertical stretch', 4., .1, 12, .05),
         P('stretch_x', 'Horizontal stretch', 1., .1, 6, .05),
         P('minimum', 'Starting stretch', 1., .1, 12, .05),
@@ -834,6 +835,9 @@ def normalize_synth(raw=None):
             if spec.key not in incoming:
                 continue
             value = incoming[spec.key]
+            if spec.kind == 'font':
+                params[spec.key] = validate_font(value, spec.maximum)
+                continue
             if spec.kind == 'text':
                 params[spec.key] = validate_text(value)
                 continue
@@ -1449,7 +1453,7 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
             if echo['typeface'] and text_source and source_image is None:
                 # Source-specific typography stays in the adapter. The image
                 # effect receives pixels and remains usable with any source.
-                alternate = render_text(image, dict(text_source['params'], font=echo['typeface']-1,
+                alternate = render_text(image, dict(text_source['params'], font=echo['typeface'] if isinstance(echo['typeface'], str) else echo['typeface']-1,
                     back_brightness=0.), continuous_time, p)
             image = blend_pass(image, effect_amount(source_effects['stretch_echo']), lambda pixels: render_stretch_echo(pixels, source_effects['stretch_echo'], continuous_time,
                                         p['speed'], (width / 2 + dx, height / 2 + dy), reference, alternate))

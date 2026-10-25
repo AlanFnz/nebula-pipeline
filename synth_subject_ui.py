@@ -8,6 +8,7 @@ from synth_effects import EFFECT_BY_ID
 from synth_subject import SUBJECTS, SOURCE_EFFECTS, active_subjects
 from synth_inspector import grouped_paths
 from synth_solids import hidden_controls as hidden_solid_controls
+from synth_fonts import variable_weight
 
 
 OBJECT_PATHS = {
@@ -281,7 +282,7 @@ class SubjectPanel(QWidget):
         visible = set(TEXT_PAGE_PATHS if tab == 0 else TEXT_TIMING if tab == 2 else
                       (p for p in self.controls if p not in TEXT_PAGE_PATHS and p not in TEXT_TIMING))
         hidden = set()
-        if ranges['text.font'][0] == ranges['text.font'][1] and ranges['text.font'][0] not in (3, 4, 5): hidden.add('text.weight')
+        if ranges['text.font'][0] == ranges['text.font'][1] and not variable_weight(ranges['text.font'][0]): hidden.add('text.weight')
         if reveal[0] == reveal[1]:
             if not morph: hidden.update(p for p in self.controls if p.startswith('text.morph_'))
             if not reading: hidden.update(p for p in self.controls if p.startswith('text.reading_'))

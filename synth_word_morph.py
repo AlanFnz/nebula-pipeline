@@ -100,6 +100,9 @@ def morph_progress(raw, easing, snap=0.):
 
 
 def morph_layout(p, clock, size, zoom=1.):
+    if isinstance(p['font'], str):
+        from synth_fonts import resolve_font
+        resolve_font(p['font'])
     cw, ch = size
     # Canonical geometry is independent of preview resolution and saved canvas.
     grid_scale = 576. / max(cw, ch)

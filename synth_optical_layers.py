@@ -42,7 +42,8 @@ def secondary_exposures(source, p, cut, progress, seed, reference, reading, prot
         # A complete grapheme from the current word, never a fixed decorative
         # string. The primary font and its reading schedule remain untouched.
         selected=units[int(rng.integers(0,len(units)))]
-        sample=glyph_mask(selected,2+int(p['fragment_typeface']),0.,1.,1,weight=700)
+        face=p['fragment_typeface']
+        sample=glyph_mask(selected,face if isinstance(face,str) else 2+int(face),0.,1.,1,weight=700)
     else:
         # Footage and source-pixel mode use an adjustable-size source detail.
         span=max(1,round(original.width/max(1.,p['enlargement'])))

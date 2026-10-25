@@ -27,7 +27,7 @@ def modules(Module, P):
           'Replace the repeated background with varied closeups, dark exposures and a second ink impression. The main word keeps its size, timing and focus. Zero retains the original background.'),
         P('fragment_typeface', 'Fragment typeface', 0, 0, 2, 1,
           'Optional alternate typeface for background fragments in Reading montage. The main text stays unchanged. Other sources use their own pixels.',
-          choices=('Source pixels', 'Bodoni / serif', 'Fraunces / soft serif')),
+          choices=('Source pixels', 'Bodoni / serif', 'Fraunces / soft serif'), kind='font'),
         P('halation', 'Exposure halation', 0., 0, 1, .05,
           'Red light diffusion around secondary exposures and a brighter pale flash core. Does not blur the main word.'),
         P('registration', 'Registration drift', .035, 0, .2, .005),

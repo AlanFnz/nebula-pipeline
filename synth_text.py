@@ -1,18 +1,15 @@
 """Editable, portable typography. Rasterization and motion need no GUI runtime."""
 from functools import lru_cache
-from pathlib import Path
 import colorsys
 import math
 import textwrap
 import unicodedata
 
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
+from synth_fonts import FONTS, FONT_FILES, load_font, resolve_font
 
 from synth_canvas import content_size, object_offset
-
-FONTS = ('Archivo Black', 'Anton / condensed', 'Space Mono Bold', 'Bodoni Moda / serif', 'Fraunces / soft serif', 'Fredoka / rounded')
-FONT_FILES = ('ArchivoBlack-Regular.ttf', 'Anton-Regular.ttf', 'SpaceMono-Bold.ttf', 'BodoniModa.ttf', 'Fraunces.ttf', 'Fredoka.ttf')
 
 
 def validate_text(value):
@@ -42,29 +39,27 @@ def text_pose(p, time, speed):
     return clock, zoom
 
 
-@lru_cache(maxsize=24)
 def glyph_mask(text, font_index, tracking, leading, alignment, visible=None, wrapped=False, weight=400):
+    if isinstance(font_index, str): resolve_font(font_index)
+    return _glyph_mask(text, font_index, tracking, leading, alignment, visible, wrapped, weight)
+
+
+@lru_cache(maxsize=24)
+def _glyph_mask(text, font_index, tracking, leading, alignment, visible=None, wrapped=False, weight=400):
     """Bounded canonical masks keep preview/export type and spacing identical."""
     # Layout can insert up to seven breaks into a valid 512-character source.
     validate_text(text.replace('\n', '') if wrapped else text)
     if text.count('\n') > 7: raise ValueError('Text supports up to eight lines.')
     if not text.strip(): return Image.new('L', (1, 1))
-    path = Path(__file__).parent / 'assets/fonts' / FONT_FILES[font_index]
     lines = text.split('\n')
     font_size = 256
-    font = ImageFont.truetype(str(path), font_size)
-    if font_index == 3 and weight != 400: font.set_variation_by_axes([weight, 11])
-    if font_index == 4: font.set_variation_by_axes([24, weight, 100, 1])
-    if font_index == 5: font.set_variation_by_axes([min(700, weight), 100])
+    font = load_font(font_index, font_size, weight)
     def line_width(line):
         return max(0., font.getlength(line) + max(0, len(line) - 1) * tracking * font_size)
     extent = max(max(map(line_width, lines)), len(lines) * leading * font_size, 1)
     if extent > 3800:
         font_size = max(4, int(font_size * 3800 / extent))
-        font = ImageFont.truetype(str(path), font_size)
-        if font_index == 3 and weight != 400: font.set_variation_by_axes([weight, 11])
-        if font_index == 4: font.set_variation_by_axes([24, weight, 100, 1])
-        if font_index == 5: font.set_variation_by_axes([min(700, weight), 100])
+        font = load_font(font_index, font_size, weight)
     widths = [line_width(line) for line in lines]
     # Extra room preserves negative bearings, descenders and diacritics.
     padding = font_size
