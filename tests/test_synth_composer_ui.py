@@ -7,6 +7,7 @@ from pathlib import Path
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 from PySide6.QtCore import QThreadPool, Qt
+from PySide6.QtGui import QKeySequence
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QFileDialog, QTableWidget, QPushButton
 
@@ -524,6 +525,32 @@ def test_particle_example_controls_undo_save_and_threaded_export(window, tmp_pat
     assert window.composer.object_editor.controls["particles.motion"].input.currentText() == "Gentle"
     choose_starter(window, "refined")
     assert not window.composer.effects_panel.summary["particles"]["active"]
+
+
+def test_custom_canvas_shortcuts_restore_exact_size_and_keep_custom_choice(window):
+    project = copy.deepcopy(window.composition)
+    project['canvas'] = {'width': 956, 'height': 720, 'framing': 'native'}
+    window.set_composition(project, guard=False)
+    before = copy.deepcopy(window.composition)
+    window.canvas_combo.setCurrentIndex(window.canvas_combo.findData('stories'))
+    window.activateWindow(); window.canvas_combo.setFocus(); QApplication.processEvents()
+    QTest.keySequence(window.canvas_combo, QKeySequence(QKeySequence.StandardKey.Undo))
+    QApplication.processEvents()
+    assert window.composition == before
+    assert window.canvas_combo.currentText() == 'Custom · 956×720'
+    QTest.keySequence(window.canvas_combo, QKeySequence(QKeySequence.StandardKey.Redo))
+    QApplication.processEvents()
+    assert window.canvas_combo.currentData() == 'stories'
+    assert window.composer.compiled['canvas'] == window.current_canvas()
+    assert window.canvas_combo.findData('custom') >= 0
+    stories = copy.deepcopy(window.composition)
+    # Recover the reference's custom size even after saving and reopening.
+    window.set_composition(stories, guard=False)
+    window.canvas_combo.setCurrentIndex(window.canvas_combo.findData('custom'))
+    assert window.composition == before
+    # A different document must not inherit this project's custom option.
+    window.set_composition(dict(project, canvas={'width': 720, 'height': 576}), guard=False)
+    assert window.canvas_combo.findData('custom') == -1
 
 
 def test_canvas_switch_is_undoable_and_preserves_scene_and_playhead(window, tmp_path, monkeypatch):

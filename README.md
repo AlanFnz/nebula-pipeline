@@ -1615,6 +1615,12 @@ resolution is capped at the canvas size. **Enlargement → Soft** smoothly enlar
 grain and softened edges, while **Crisp pixels** preserves hard pixel edges.
 The 180 px, 720 px and crisp 240 px looks provide other starting points.
 
+Canvas changes support Undo/Redo even while the Canvas menu has focus. The last
+custom size stays in that document's Canvas menu after choosing a standard
+format. When reopening, a custom size retained as the artwork reference is
+available again. Selecting Custom restores that canvas and framing without
+replacing the project's effects, text or clip edits.
+
 This renders sources, grain, backgrounds and sequence transitions at the chosen
 resolution before scaling the finished frame. Preview quality changes only the
 monitor size when the effect is on; the artistic raster stays the same in the
