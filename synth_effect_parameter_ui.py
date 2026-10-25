@@ -4,7 +4,7 @@ from __future__ import annotations
 from PySide6.QtCore import QSignalBlocker, Signal, Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                               QPushButton, QStackedWidget, QSizePolicy, QGridLayout)
+                               QPushButton, QStackedWidget, QSizePolicy, QGridLayout, QCheckBox)
 from studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBox, SpinBox as QSpinBox
 from studio_widgets import Slider, configure_parameter_spin, parameter_number
 from synth_effects import parameter
@@ -82,6 +82,9 @@ class EffectParameter(QWidget):
         if spec.kind in ('artwork', 'text', 'mesh'):
             self.input = {'artwork': ArtworkControl, 'text': TextControl, 'mesh': MeshControl}[spec.kind]()
             self.input.changed.connect(self.emit_change)
+        elif self.presentation.checkbox:
+            self.input = QCheckBox()
+            self.input.toggled.connect(self.toggle_checkbox)
         elif spec.choices:
             self.input = QComboBox(); self.input.addItems(spec.choices)
             self.input.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
@@ -253,6 +256,10 @@ class EffectParameter(QWidget):
         self.update_swatch(value)
         self.changed.emit(value)
 
+    def toggle_checkbox(self, checked):
+        self.input.setText(self.spec.choices[int(checked)])
+        self.emit_change(int(checked))
+
     def set_numeric_maximum(self, maximum):
         """Constrain new edits without silently clamping an existing document."""
         self.numeric_maximum = maximum
@@ -347,7 +354,10 @@ class EffectParameter(QWidget):
         self.use_fixed.setToolTip(proposal + ' Other parameters keep following their animation.')
         self.fixed_choice.setVisible(animated); self.use_fixed.setEnabled(available)
         with QSignalBlocker(self.input):
-            if self.spec.choices: self.input.setCurrentIndex(int(value))
+            if self.presentation.checkbox:
+                self.input.setChecked(bool(value))
+                self.input.setText(self.spec.choices[int(value)])
+            elif self.spec.choices: self.input.setCurrentIndex(int(value))
             else:
                 if self.numeric_maximum is not None: self.input.setMaximum(max(value,self.numeric_maximum))
                 self.input.setValue(value)
@@ -378,7 +388,8 @@ class EffectParameter(QWidget):
         self.input.setToolTip(self._input_hint + ' ' + explanation)
         if self.spec.choices:
             self.input.setToolTip(self.spec.choices[int(value)] + '. ' + self.input.toolTip())
-            self.input.view().setMinimumWidth(max(self.input.fontMetrics().horizontalAdvance(choice) for choice in self.spec.choices) + 40)
+            if not self.presentation.checkbox:
+                self.input.view().setMinimumWidth(max(self.input.fontMetrics().horizontalAdvance(choice) for choice in self.spec.choices) + 40)
         self.animated_value.setAccessibleDescription(explanation + ' ' + self.animated_value.toolTip())
         if self.slider: self.slider.setAccessibleDescription(explanation)
         self._arrange_row()
