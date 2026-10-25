@@ -30,7 +30,8 @@ The [Studio interface plan](docs/studio-design-plan.md) and
 of red/magenta contact-film exposures with the **FAC51 / THE HAÇIENDA** label.
 The new **Contact print** effect provides film/ink color, positive or negative
 impressions, light leaks, gate/shutter movement, grain and dust. **Text → Framed
-label** adds the border and second line. The original 3.25-second **reference cut**
+label** provides multiline wording/subtitles, optional rectangular, rounded,
+circular, square or diamond frames, and independent padding. The original 3.25-second **reference cut**
 remains available in Studies. Both effects are opt-in; existing studies retain
 their output. See [the study notes](docs/contact-film-study.md) for timing and controls.
 

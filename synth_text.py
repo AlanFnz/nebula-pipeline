@@ -149,7 +149,15 @@ def text_layout(p, time, speed, size):
     mask = glyph_mask(text, p['font'], p['tracking'], p['leading'], p['align'], visible, bool(p.get('wrap_columns', 0)), p.get('weight', 400))
     if p.get('badge', 0):
         mask = badge_mask(mask, p.get('badge_subtitle', ''), p['font'],
-                          p.get('weight', 400), p.get('badge_border', .022))
+                          p.get('weight', 400), p.get('badge_border', .022),
+                          shape=p.get('badge_shape', 0),
+                          padding_x=p.get('badge_padding_x', 90.),
+                          padding_y=p.get('badge_padding_y', 72.5),
+                          keep_proportions=bool(p.get('badge_type_fit', 0)),
+                          subtitle_scale=p.get('badge_subtitle_scale', .3),
+                          gap=p.get('badge_gap', 35.), radius=p.get('badge_radius', .12),
+                          main_lines=text.count('\n') + 1, leading=p['leading'],
+                          alignment=p['align'])
     height = ch * p['size'] * max(1, text.count('\n') + 1)
     copies = p.get('copies', 1)
     if copies > 1:
@@ -173,19 +181,62 @@ def text_layout(p, time, speed, size):
     return mask, sx, sy
 
 
-def badge_mask(main, subtitle, font, weight, border):
-    """Opt-in two-line label. All dimensions are canonical, never output pixels."""
-    result = Image.new('L', (1000, 460))
-    draw = ImageDraw.Draw(result)
-    if border:
-        draw.rounded_rectangle((10, 10, 990, 450), radius=7,
-                               outline=255, width=max(1, round(border * 1000)))
-    main = main.resize((800, 200), Image.Resampling.LANCZOS)
-    result.paste(main, (100, 91))
+def badge_mask(main, subtitle, font, weight, border, *, shape=0, padding_x=90.,
+               padding_y=72.5, keep_proportions=False, subtitle_scale=.3, gap=35.,
+               radius=.12, main_lines=1, leading=1., alignment=1):
+    """Bounded multiline label; defaults preserve the original FAC51 pixels."""
+    def fitted(mask, width, height):
+        width, height = max(1, round(width)), max(1, round(height))
+        if keep_proportions:
+            factor = min(width / mask.width, height / mask.height)
+            width, height = max(1, round(mask.width * factor)), max(1, round(mask.height * factor))
+        return mask.resize((width, height), Image.Resampling.LANCZOS)
+
+    main = fitted(main, 800, 200 * main_lines)
+    sub = None
     if subtitle.strip():
-        sub = glyph_mask(subtitle, font, .12, 1., 1, weight=min(700, weight+150))
-        sub = sub.resize((780, 60), Image.Resampling.LANCZOS)
-        result.paste(sub, (110, 326))
+        sub = glyph_mask(subtitle, font, .12, leading, alignment, weight=min(700, weight+150))
+        sub = fitted(sub, 780, 200 * subtitle_scale * (subtitle.count('\n') + 1))
+    # The reference deliberately reserves the lower line even in positive flashes.
+    sub_height = sub.height if sub is not None else (0 if keep_proportions else round(200 * subtitle_scale))
+    gap = gap if sub_height else 0
+    content_height = main.height + gap + sub_height
+    content = Image.new('L', (800, math.ceil(content_height)))
+    content.paste(main, ((800-main.width)//2, 0))
+    if sub is not None:
+        content.paste(sub, ((800-sub.width)//2, round(main.height + gap)))
+
+    # Preserve the reference's small optical baseline correction for rectangles.
+    baseline = min(8.5, padding_y) if not keep_proportions and shape in (0, 5) else 0.
+    inner_width = 800 + 2 * padding_x
+    inner_height = content.height + 2 * padding_y
+    if shape == 2:
+        inner_width = inner_height = math.hypot(inner_width, inner_height)
+    elif shape == 3:
+        inner_width = inner_height = max(inner_width, inner_height)
+    elif shape == 4:
+        inner_width = inner_height = inner_width + inner_height
+    width, height = math.ceil(inner_width + 20), math.ceil(inner_height + 20)
+    factor = min(1., 4096 / max(width, height))
+    width, height = max(1, round(width*factor)), max(1, round(height*factor))
+    result = Image.new('L', (width, height))
+    if factor != 1:
+        content = content.resize((max(1,round(content.width*factor)), max(1,round(content.height*factor))), Image.Resampling.LANCZOS)
+    # Draw behind the text, so padding zero never erases strokes.
+    draw = ImageDraw.Draw(result)
+    stroke = max(1, round(border * 1000 * factor))
+    inset = max(10 * factor, stroke/2 + 1) if shape == 4 else 10 * factor
+    bounds = (inset, inset, width-inset, height-inset)
+    if border and shape != 5:
+        if shape == 2:
+            draw.ellipse(bounds, outline=255, width=stroke)
+        elif shape == 4:
+            points = [(width/2,inset), (width-inset,height/2), (width/2,height-inset), (inset,height/2), (width/2,inset)]
+            draw.line(points, fill=255, width=stroke, joint='curve')
+        else:
+            corner = min(inner_width,inner_height)*radius*factor if shape == 1 else 7*factor
+            draw.rounded_rectangle(bounds, radius=corner, outline=255, width=stroke)
+    result.paste(content, ((width-content.width)//2, round((height-content.height)/2 + baseline*factor)))
     return result
 
 

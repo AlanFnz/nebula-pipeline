@@ -13,11 +13,25 @@ No video frames, sampled reference textures or original audio are bundled.
 
 ## Source and effect
 
-Text → Framed label is opt-in. Wording, second line, font, size and border width
-are saved text controls. The framed layout is a deliberately condensed label;
-it stretches the two lines into fixed proportions. It is supported by Whole
-phrase, One word and Type on, not Morph words or Reading montage. Existing text
-studies have the label disabled and retain their previous layout.
+Text → Framed label is opt-in. In **Wording**, enter line breaks for up to eight
+main lines; **Label subtitle** accepts up to eight additional lines. Empty subtitle
+text hides that block. **Label type fitting → Keep proportions** also removes its
+reserved space and preserves the typeface proportions. **Reference proportions**
+retains the original condensed FAC51 layout and its reserved subtitle space.
+
+**Frame shape** offers Rectangle, Rounded rectangle, Circle, Square, Diamond and
+None. **None** removes the outline while keeping both text blocks; border width
+zero does the same. Turning Framed label off returns to the ordinary Wording layout
+and hides its subtitle. Horizontal/vertical padding, subtitle size and gap, border
+width and rounded corner radius are independent saved controls. Padding and gap
+use reference-label units, scaled by Text size. Padding increases the frame around
+the lettering; Text size fits the complete label, so the lettering occupies less
+of it. Circle/square/diamond enclose the padded text. Explicit width/height stretch
+still affects the entire label afterward.
+
+The layout is supported by Whole phrase, One word and Type on, not Morph words or
+Reading montage. Defaults retain existing FAC51 pixels; other text studies have
+the label disabled and retain their previous layout.
 
 Contact print is a separate image effect available for generated sources and
 footage. Bright input supplies the printing mask. It exposes controls for dye

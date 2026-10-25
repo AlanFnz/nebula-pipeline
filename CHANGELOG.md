@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.36.0 — 2026-10-25
+
+- Add configurable text-label frames: none, rectangle, rounded rectangle, circle,
+  square and diamond; independent horizontal/vertical padding and corner radius.
+- Support multiline label wording and subtitles, adjustable subtitle size/gap,
+  and optional proportional typography. Keep original FAC51 label pixels by default.
+
 ## 0.35.0 — 2026-10-25
 
 - Extend Text / FAC51 contact film to eight seconds with new exposure bursts,
