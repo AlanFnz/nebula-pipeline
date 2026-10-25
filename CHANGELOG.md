@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.36.3 — 2026-10-25
+
+- Place Typeface at the top of Object → Text, beside the main wording and
+  subtitle. Show Font weight there for variable typefaces; retain size, spacing
+  and framing in Layout. The chosen typeface applies to both text blocks.
+- Preserve existing typefaces, study rendering, project/clip scope and undo.
+
 ## 0.36.2 — 2026-10-25
 
 - Give generated content one editing home in Object. Text and subtitle are
