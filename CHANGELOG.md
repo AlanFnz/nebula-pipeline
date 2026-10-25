@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.31.0 — 2026-10-25
+
+- Add Text / dark optical print, a separate 7.5-second study inspired by ref-11:
+  red and violet impressions, pale pigment, dark stock, circular exposures and
+  irregular cuts. Complete word holds and a full-phrase finale retain readability.
+- Add Optical overprint for generated sources and footage. Expose ink hues,
+  enlargement, registration, focus, grain, pigment erosion, flashes and cut rate,
+  with effect intensity and automation on the main image controls.
+- Reuse Text → Reading montage for editable wording. Protect reading moments
+  and Readable hold balance whole-word framing with optical excursions; exposure
+  flashes avoid protected word bounds. Existing studies and saved output remain
+  unchanged; the new recipe is frozen independently.
+
 ## 0.30.0 — 2026-10-23
 
 - Refine Text / reading print with pink and amber exposures, evolving ink
