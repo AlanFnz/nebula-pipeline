@@ -4,14 +4,13 @@ import os
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 
 import pytest
-from PySide6.QtCore import QMimeData, QPoint, QPointF, QThreadPool, Qt
+from PySide6.QtCore import QPoint, QThreadPool, Qt
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QMessageBox, QScrollArea
+from PySide6.QtWidgets import QApplication, QMenu, QMessageBox, QScrollArea
 
 from studio_theme import apply_theme
 from synth_composition import blank_composition, compile_composition, save_composition, load_composition
 from synth_composer_ui import CompositionPanel
-from synth_effect_order_ui import MIME
 from synth_effects import effect_preset
 from synth_studio import SynthStudio
 
@@ -31,18 +30,6 @@ def panel():
     widget.close(); widget.deleteLater(); app.processEvents()
 
 
-class Drop:
-    def __init__(self, source, y):
-        self._source, self.y, self.accepted = source, y, False
-        self.mime = QMimeData(); self.mime.setData(MIME, source.identifier.encode())
-    def source(self): return self._source
-    def position(self): return QPointF(2, self.y)
-    def mimeData(self): return self.mime
-    def setDropAction(self, action): self.action = action
-    def accept(self): self.accepted = True
-    def ignore(self): self.accepted = False
-
-
 def test_drop_commits_once_preserves_settings_and_reset_restores_recipe(panel):
     effects = panel.effects_panel; rack = effects.applied_host
     before = copy.deepcopy(panel.document)
@@ -50,17 +37,16 @@ def test_drop_commits_once_preserves_settings_and_reset_restores_recipe(panel):
     changes = []; panel.changed.connect(lambda *args: changes.append(args))
     handle = effects.effect_choices['broadcast'].order_handle
     handle.drag_context = rack.context
-    event = Drop(handle, effects.effect_choices['optical_print'].y())
-    rack.dragEnterEvent(event); assert event.accepted
-    rack.dragMoveEvent(event); assert rack.marker is not None
-    rack.dropEvent(event)
-    assert event.accepted and len(changes) == 1 and rack.marker is None
+    target = rack.mapToGlobal(QPoint(10, effects.effect_choices['optical_print'].y()))
+    rack.move_drag(handle, target); assert rack.marker is not None
+    rack.finish_drag(handle, target)
+    assert len(changes) == 1 and rack.marker is None
     assert effects.project_effect_ids == ('broadcast', 'optical_print', 'tape@2', 'low_res')
     assert panel.document['effects'] == before['effects']
     assert panel.document['sections'] == before['sections']
     # The no-op drop does not create another undo entry.
     handle.drag_context = rack.context
-    rack.dropEvent(Drop(handle, effects.effect_choices['optical_print'].y()))
+    rack.finish_drag(handle, rack.mapToGlobal(QPoint(10, effects.effect_choices['optical_print'].y())))
     assert len(changes) == 1
     effects.order_reset.click()
     assert len(changes) == 2 and panel.document == before
@@ -83,17 +69,46 @@ def test_keyboard_movement_and_scope_guards(panel):
     assert panel.document == old
 
 
+def test_handle_mouse_click_opens_move_menu(panel):
+    handle = panel.effects_panel.effect_choices['broadcast'].order_handle
+    QTest.mouseClick(handle, Qt.MouseButton.LeftButton)
+    popup = QApplication.activePopupWidget()
+    assert isinstance(popup, QMenu)
+    assert [action.text() for action in popup.actions()] == ['Move earlier', 'Move later']
+    popup.close()
+    assert handle.focusPolicy() == Qt.FocusPolicy.StrongFocus
+
+
+def test_pointer_drag_and_escape(panel):
+    effects = panel.effects_panel
+    handle = effects.effect_choices['broadcast'].order_handle
+    target = effects.effect_choices['optical_print'].mapToGlobal(QPoint(10, 2))
+    end = handle.mapFromGlobal(target)
+    QTest.mousePress(handle, Qt.MouseButton.LeftButton)
+    QTest.mouseMove(handle, end)
+    assert effects.applied_host.marker is not None
+    QTest.keyClick(handle, Qt.Key.Key_Escape)
+    QTest.mouseRelease(handle, Qt.MouseButton.LeftButton, pos=end)
+    assert effects.project_effect_ids[:2] == ('optical_print', 'broadcast')
+    QTest.mousePress(handle, Qt.MouseButton.LeftButton)
+    QTest.mouseMove(handle, end)
+    QTest.mouseRelease(handle, Qt.MouseButton.LeftButton, pos=end)
+    assert effects.project_effect_ids[:2] == ('broadcast', 'optical_print')
+
+
 def test_cancel_external_and_stale_drag_do_not_edit(panel):
     effects = panel.effects_panel; rack = effects.applied_host
     handle = effects.effect_choices['broadcast'].order_handle
     original = copy.deepcopy(panel.document)
     handle.drag_context = rack.context
-    event = Drop(handle, 0)
-    rack.dragMoveEvent(event); assert rack.marker is not None
-    rack.dragLeaveEvent(event)
+    target = rack.mapToGlobal(QPoint(10, 1))
+    rack.move_drag(handle, target); assert rack.marker is not None
+    rack.cancel_drag()
     assert rack.marker is None and not rack.scroll_timer.isActive()
+    rack.finish_drag(handle, rack.mapToGlobal(QPoint(-20, -20)))
+    assert panel.document == original
     handle.drag_context = 'old document'
-    rack.dropEvent(event); assert not event.accepted
+    rack.finish_drag(handle, target)
     assert panel.document == original
 
 
