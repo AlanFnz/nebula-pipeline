@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.37.0 — 2026-10-25
+
+- Choose active macOS system fonts through a shared searchable picker with style
+  names and a rendered sample. Available to all text objects and studies, label
+  subtitles, Stretch echo and Optical print's alternate typography.
+- Preserve the six bundled font identifiers and existing study pixels. Save
+  exact system-face identity, collection index, named variation coordinates and
+  file fingerprint; report missing or changed fonts without silent substitution.
+- Keep font choices scoped, undoable and consistent in preview and export.
+
 ## 0.36.3 — 2026-10-25
 
 - Place Typeface at the top of Object → Text, beside the main wording and
