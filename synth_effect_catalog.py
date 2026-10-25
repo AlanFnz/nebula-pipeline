@@ -10,6 +10,7 @@ from synth_instances import instance_ids, base_id
 SOURCE_EFFECT_IDS = frozenset(('image_memory', 'chromatic_lattice', 'radial_bloom', 'forms', 'rays', 'ink_bloom', 'particles', 'silhouette', 'text', 'prismatic_field', 'solid'))
 CATEGORIES = ('Distortion', 'Texture', 'Light & color', 'Motion & echoes', 'Cutout', 'Finishing', 'Other')
 EFFECT_CATEGORIES = {
+    'contact_print': 'Texture',
     'optical_print': 'Texture',
     'color_field': 'Light & color',
     'film_emulsion': 'Texture',
@@ -90,6 +91,7 @@ def effect_catalog(allowed_effects=None, *, query='', category=''):
 
 # Capability sentences, separate from frozen recipes and measured visibility.
 CONTRIBUTIONS = {
+    'contact_print': 'Contact print exposes the source on colored film with grain, gate travel and polarity changes.',
     'optical_print': 'Optical overprint layers enlarged, distressed impressions on dark stock with irregular exposure cuts.',
     'image_memory': 'Image memory deposits colored traces of its moving object; older traces drift and dissolve.',
     'chromatic_lattice': 'Chromatic lattice creates luminous cells with traveling size and color waves.',

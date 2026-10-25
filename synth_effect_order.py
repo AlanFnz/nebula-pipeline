@@ -8,7 +8,7 @@ from synth_instances import base_id
 
 SOURCES = frozenset(('slab', 'blinds', 'particles', 'silhouette', 'ink_bloom',
     'text', 'radial_bloom', 'prismatic_field', 'solid', 'chromatic_lattice', 'image_memory'))
-SOURCE_PASSES = ('optical_print', 'print_collage', 'chroma_print', 'slice_echo',
+SOURCE_PASSES = ('optical_print', 'contact_print', 'print_collage', 'chroma_print', 'slice_echo',
                  'contour_melt', 'stretch_echo', 'signal_etch', 'scan_modulation', 'signal_repetition')
 FIXED = {
     'color_field': 'Source background · stays behind generated objects.',

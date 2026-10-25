@@ -11,9 +11,11 @@ from synth_lattice_recipes import lattice_composition
 from synth_memory_recipes import memory_composition
 from synth_film_recipes import film_print_composition, reading_print_composition
 from synth_optical_recipes import dark_print_composition
+from synth_contact_recipes import contact_print_composition
 
 
 STARTERS = (
+    ('text-contact-film', 'Text / FAC51 contact film · 3.25s', contact_print_composition),
     ('text-dark-print', 'Text / dark optical print · 7.5s', dark_print_composition),
     ('text-reading-print', 'Text / reading print · 7s', reading_print_composition),
     ('text-film-burn', 'Text / burning print · 10.25s', film_print_composition),
@@ -52,6 +54,7 @@ STARTERS = (
 
 # First appearance in the repository, retained independently of app builds.
 STARTER_DATES = {
+    'text-contact-film': '2026-10-25',
     'text-dark-print': '2026-10-25',
     'text-reading-print': '2026-10-23',
     'text-film-burn': '2026-10-23',

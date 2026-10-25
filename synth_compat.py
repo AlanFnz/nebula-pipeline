@@ -24,6 +24,8 @@ def frozen_data(key):
 
 
 def starter_snapshot(identifier):
+    if identifier == 'text-contact-film':
+        return copy.deepcopy(_contact_film_snapshot())
     if identifier == 'text-dark-print':
         return copy.deepcopy(_dark_print_snapshot())
     if identifier == 'text-reading-print':
@@ -145,3 +147,8 @@ def frozen_defaults(module):
         if entry['id'] == module:
             return copy.deepcopy(entry['params'])
     return {}
+
+
+@lru_cache(maxsize=1)
+def _contact_film_snapshot():
+    return json.loads((Path(__file__).parent / 'presets/text-contact-film-v1.json').read_text())
