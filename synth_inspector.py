@@ -5,6 +5,12 @@ def control_group(path):
     from synth_instances import base_path
     path = base_path(path)
     module, key = path.split('.')
+    if module == 'optical_print':
+        if key in ('reading_clarity', 'reading_hold', 'cuts', 'motion', 'cadence', 'registration'): return 'Motion & timing'
+        if key in ('red_hue', 'second_hue', 'light_hue', 'brightness', 'pale_ink', 'stock'): return 'Color & light'
+        if key in ('width', 'position_x', 'position_y', 'enlargement', 'overprint', 'primary'): return 'Shape & layout'
+        if key == 'effect_intensity': return 'Output & blending'
+        return 'Optical finish'
     if module == 'image_memory':
         if key in ('persistence', 'drift', 'dissolve', 'trail_opacity', 'drift_angle', 'expansion'): return 'Memory'
         if key in ('shape', 'size', 'sides', 'rotation'): return 'Shape & layout'

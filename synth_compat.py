@@ -24,6 +24,8 @@ def frozen_data(key):
 
 
 def starter_snapshot(identifier):
+    if identifier == 'text-dark-print':
+        return copy.deepcopy(_dark_print_snapshot())
     if identifier == 'text-reading-print':
         return copy.deepcopy(_reading_print_snapshot())
     if identifier == 'text-film-burn':
@@ -59,6 +61,11 @@ def starter_snapshot(identifier):
     if identifier in ('profile-clear', 'profile-doryphoros'):
         return copy.deepcopy(_profile_snapshot()[identifier])
     return copy.deepcopy(_snapshot()['starters'][identifier])
+
+
+@lru_cache(maxsize=1)
+def _dark_print_snapshot():
+    return json.loads((Path(__file__).parent / 'presets/text-dark-print-v1.json').read_text())
 
 
 @lru_cache(maxsize=1)
