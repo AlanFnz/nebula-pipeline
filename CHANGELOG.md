@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.33.0 — 2026-10-25
+
+- Reorder project image effects by dragging their six-dot handles, with an
+  insertion guide, scrolling near the list edges, cancellation and accessible
+  move commands. Show processing direction and fixed source/output roles.
+- Save explicit top-to-bottom image order independently of module slots and
+  seeds. Numbered Tape damage passes, intensity, clip overrides, automation,
+  snapshots, detailed sequences, preview and export retain their identities.
+- Keep existing studies on their original render path until an order edit.
+  Custom order builds the source first and then applies image treatments;
+  Broadcast's early polarity and source companion ghosts retain their explicit
+  source roles. Study order and Undo restore the original processing.
+
 ## 0.32.1 — 2026-10-25
 
 - Fix Optical overprint running after screen and tape finishes. Build its complete
