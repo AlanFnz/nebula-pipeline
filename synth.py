@@ -1294,7 +1294,6 @@ def _breakup(arr, p, t, preset):
 
 
 RENDERERS = {
-    'optical_print': lambda arr, params, t, preset, index: render_optical_print(arr, params, t, preset['speed'], _seed(preset['seed'], 'optical_print'), content_size(preset, (arr.shape[1], arr.shape[0]))),
     'film_burn': lambda arr, params, t, preset, index: render_film_burn(arr, params, t, preset['speed'], _seed(preset['seed'], 'film-burn'), content_size(preset, (arr.shape[1], arr.shape[0]))),
     'film_emulsion': lambda arr, params, t, preset, index: render_film_emulsion(arr, params, t, preset['speed'], _seed(preset['seed'], 'film-emulsion'), content_size(preset, (arr.shape[1], arr.shape[0]))),
     'crt_capture': lambda arr, params, t, preset, index: render_crt_capture(arr, params, t, preset['speed'], _seed(preset['seed'], 'crt-capture'), content_size(preset, (arr.shape[1], arr.shape[0]))),
@@ -1395,6 +1394,17 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
     # serialized orders (whose indices also determine existing random seeds).
     generators = {'slab', 'blinds', 'particles', 'silhouette', 'ink_bloom', 'flare'}
     source_end = max((i for i, m in enumerate(p['modules']) if m.get('enabled', True) and m['id'] in generators), default=-1) + 1
+    optical = next((entry['params'] for entry in p['modules'] if entry['id'] == 'optical_print' and entry['enabled']), None)
+
+    def compose_optical(image, omitted):
+        # Optical printing constructs a new picture (background and impressions),
+        # so screen/tape finishes must receive that complete picture. Execute it
+        # at the source boundary, without rewriting serialized slots or seeds.
+        return blend_pass(image, effect_amount(optical), lambda pixels:
+            render_optical_print(pixels, optical, continuous_time, p['speed'],
+                                 _seed(p['seed'], 'optical_print'),
+                                 content_size(p, (width, height)), reading))
+
     source_effects = {entry['id']: entry['params'] for entry in p['modules']
                       if entry['enabled'] and entry['id'] in ('chroma_print', 'slice_echo', 'stretch_echo', 'signal_etch', 'scan_modulation', 'signal_repetition', 'contour_melt', 'print_collage')}
     def treat_source(image):
@@ -1446,6 +1456,8 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
         return image * (1 - broadcast['mix']) + reversed_signal * broadcast['mix']
 
     for index, entry in enumerate(p["modules"]):
+        if index == source_end and optical:
+            signals.apply(compose_optical)
         if index == polarity_index:
             signals.begin('broadcast', effect_amount(broadcast))
             signals.apply(early_exposure)
@@ -1470,7 +1482,7 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
         cw, ch = content_size(p, (width, height))
         if source_framing(p) == "adaptive" and cw < ch and module_id in {"slab", "blinds"} and int(params.get("shape", 0)) in (2, 3):
             params = dict(params, diameter=params["diameter"] * cw / ch)
-        module_time = continuous_time if module_id in ('photocopy', 'broadcast', 'screen_mesh', 'crt_capture', 'film_emulsion', 'film_burn', 'optical_print') or (module_id == 'ink_bloom' and params.get('clock_mode', 0)) else t
+        module_time = continuous_time if module_id in ('photocopy', 'broadcast', 'screen_mesh', 'crt_capture', 'film_emulsion', 'film_burn') or (module_id == 'ink_bloom' and params.get('clock_mode', 0)) else t
         if module_id in ('slab', 'smear'): signals.begin('ghosts', ghost_strength)
         if module_id == 'slab': signals.begin('cloud', params.get('cloud_intensity', 100.) / 100.)
         if module_id == 'broadcast': signals.begin('broadcast', effect_amount(params))
@@ -1483,8 +1495,6 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
             if (module_id == 'smear' and 'ghosts' in omitted) or (module_id == 'broadcast' and 'broadcast' in omitted):
                 return image
             def render(pixels):
-                if module_id == 'optical_print':
-                    return render_optical_print(pixels, stage_params, module_time, p['speed'], _seed(p['seed'], instance_id), (cw, ch), reading)
                 if module_id == 'edge_phosphor':
                     if p['render_version'] == 1:
                         return render_edge_phosphor_v1(pixels, stage_params, module_time, p, _seed(p['seed'], 'edge-phosphor'))
@@ -1500,6 +1510,8 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
         if module_id == 'slab': signals.end('cloud')
         if module_id == 'smear': signals.end('ghosts')
         if module_id == 'broadcast': signals.end('broadcast')
+    if source_end == len(p['modules']) and optical:
+        signals.apply(compose_optical)
     if polarity_index == len(p['modules']):
         signals.begin('broadcast', effect_amount(broadcast))
         signals.apply(early_exposure)
