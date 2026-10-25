@@ -26,11 +26,12 @@ The [Studio interface plan](docs/studio-design-plan.md) and
 
 ## FAC51 contact film
 
-**Studies → Text / FAC51 contact film** is a separate 3.25-second, 12 fps study
+**Studies → Text / FAC51 contact film** is an eight-second, 12 fps study
 of red/magenta contact-film exposures with the **FAC51 / THE HAÇIENDA** label.
 The new **Contact print** effect provides film/ink color, positive or negative
 impressions, light leaks, gate/shutter movement, grain and dust. **Text → Framed
-label** adds the border and second line. Both are opt-in; existing studies retain
+label** adds the border and second line. The original 3.25-second **reference cut**
+remains available in Studies. Both effects are opt-in; existing studies retain
 their output. See [the study notes](docs/contact-film-study.md) for timing and controls.
 
 ## Launch on this Mac

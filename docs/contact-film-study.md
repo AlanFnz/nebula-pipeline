@@ -3,7 +3,11 @@
 New independent study, `Text / FAC51 contact film`, based on the supplied
 `ref-12.mp4`. The target is its FAC51 / THE HAÇIENDA mark, red/magenta exposure,
 positive-to-negative transition, black interval and final film transport.
-The canvas is 956 × 720; 39 authored exposures at 12 fps last 3.25 seconds.
+The canvas is 956 × 720. The current study has 96 authored exposures at 12 fps
+and lasts eight seconds. Its first 39 frames retain the original reference cut;
+the extension adds unequal light bursts, luminous afterimages, longer readable
+negative impressions, a short shutter interruption and a final gate slip to black.
+The unchanged 3.25-second version is available as **FAC51 contact film (reference cut)**.
 This is a procedural reconstruction, not a pixel-exact copy of photographed film.
 No video frames, sampled reference textures or original audio are bundled.
 
@@ -30,7 +34,8 @@ Contact print to bend the complete film image. Existing studies are unchanged.
 
 ## Verification
 
-Check all 39 frames, including the four-frame blackout and the last transport
-frames. Test random seeking, saved document reload, video input, 0–100% intensity,
+Check all 96 frames, including the original four-frame blackout, extended
+exposures and final transport. The first 39 frames must match the reference-cut
+snapshot. Test random seeking, saved document reload, video input, 0–100% intensity,
 explicit order and Broadcast wear on the completed picture. Compare previous
 built-in studies against raw-pixel captures before adding the effect.
