@@ -4,7 +4,7 @@ from PySide6.QtCore import QPoint
 from PySide6.QtWidgets import QApplication
 from test_synth_effects_editor_integration import make_window
 from synth_starters import starter_composition
-from synth_composition import compile_composition
+from synth_composition import compile_composition, load_composition, save_composition
 from synth_sequence import render_sequence_frame
 from synth_subject import SOURCE_EFFECTS
 
@@ -17,6 +17,8 @@ def test_text_and_subtitle_share_object_and_navigation_does_not_author_changes(m
     assert obj.controls['text.content'].isVisible()
     assert obj.controls['text.badge_subtitle'].isVisible()
     assert obj.controls['text.badge_show_subtitle'].isVisible()
+    assert obj.controls['text.font'].isVisible()
+    assert obj.wording_layout.itemAt(0).widget() is obj.controls['text.font']
     assert obj.controls['text.content'].input.value() == 'FAC51'
     assert obj.controls['text.badge_subtitle'].input.value()
     subtitle = obj.controls['text.badge_subtitle'].input
@@ -24,6 +26,7 @@ def test_text_and_subtitle_share_object_and_navigation_does_not_author_changes(m
     assert obj.controls['text.badge_shape'].isVisible()
     assert obj.controls['text.badge_padding_x'].isVisible()
     assert obj.position_host.isVisible()
+    assert not obj.controls['text.font'].isVisible()
     obj.text_tabs.setCurrentIndex(2)
     assert obj.controls['text.reveal'].isVisible()
     c.look_tabs.setCurrentWidget(c.effects_panel)
@@ -35,6 +38,39 @@ def test_text_and_subtitle_share_object_and_navigation_does_not_author_changes(m
     assert window.composition == original and not window.has_unsaved_changes()
     for t in (0., 2.08, 7.3):
         assert render_sequence_frame(compile_composition(original),t,(96,72)).tobytes() == render_sequence_frame(window.sequence,t,(96,72)).tobytes()
+
+
+def test_typeface_edits_scope_renders_and_restores_without_losing_wording(make_window, tmp_path):
+    window = make_window(composition=starter_composition('text-contact-film'))
+    c = window.composer; obj = c.object_panel
+    c.look_tabs.setCurrentWidget(obj)
+    c.change_scope(1)
+    original = copy.deepcopy(window.composition)
+    before = render_sequence_frame(window.sequence, 2.08, (192,144)).tobytes()
+    weight_was_visible = obj.controls['text.weight'].isVisible()
+    main = obj.controls['text.content'].input
+    subtitle = obj.controls['text.badge_subtitle'].input
+    wording = (main.value(), subtitle.value())
+    font = obj.controls['text.font'].input
+    font.setCurrentIndex(4)  # Fraunces supports variable weight.
+    assert obj.controls['text.weight'].isVisible()
+    assert window.composition['sections'][0]['effects']['text']['params']['text.font'] == 4
+    assert window.composition['effects'] == original['effects']
+    assert (main.value(), subtitle.value()) == wording
+    assert render_sequence_frame(window.sequence,2.08,(192,144)).tobytes() != before
+    path = tmp_path/'typeface.nebula.json'; save_composition(path, window.composition)
+    assert load_composition(path)['sections'][0]['effects']['text']['params']['text.font'] == 4
+    obj.text_tabs.setCurrentIndex(1)
+    assert obj.reveal_control('text.font') and obj.text_tabs.currentIndex() == 0
+    window.undo_composition()
+    assert window.composition == original
+    assert obj.controls['text.weight'].isVisible() == weight_was_visible
+    assert render_sequence_frame(window.sequence,2.08,(192,144)).tobytes() == before
+    font.setCurrentIndex(0)  # Archivo Black has a fixed weight.
+    assert not obj.controls['text.weight'].isVisible()
+    window.undo_composition()
+    assert window.composition == original
+    assert obj.controls['text.weight'].isVisible() == weight_was_visible
 
 
 def test_subtitle_draft_survives_tabs_effects_scopes_and_hidden_subtitle(make_window):

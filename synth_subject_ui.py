@@ -25,7 +25,8 @@ OBJECT_PATHS = {
                   'particles.yaw', 'particles.pitch',
                   'particles.neck_fade'),
 }
-TEXT_WORDING = ('text.content', 'text.badge', 'text.badge_show_subtitle', 'text.badge_subtitle')
+TEXT_PAGE_PATHS = ('text.font', 'text.weight', 'text.content', 'text.badge',
+                   'text.badge_show_subtitle', 'text.badge_subtitle')
 
 
 class SubjectPanel(QWidget):
@@ -131,7 +132,7 @@ class SubjectPanel(QWidget):
     def reveal_control(self, path):
         if path not in self.controls or self.kind != 'text': return False
         self.show_overview()
-        self.text_tabs.setCurrentIndex(0 if path in TEXT_WORDING else 2 if path in TEXT_TIMING else 1)
+        self.text_tabs.setCurrentIndex(0 if path in TEXT_PAGE_PATHS else 2 if path in TEXT_TIMING else 1)
         self.overview_scroll.ensureWidgetVisible(self.controls[path])
         return True
 
@@ -171,7 +172,7 @@ class SubjectPanel(QWidget):
         self.restore.setEnabled(any(entries.get(key, {}).get('mode', 'recipe') != 'recipe' for key in SOURCE_EFFECTS))
         scope = 'this clip' if local else 'the entire project'
         notes = {'prismatic': 'Choose the final shape and its placement. Transition easing and Turn settle shape the authored movements. Source controls opens the fold rhythm, rotation, ribbon and color drift. Color emulsion adds the film texture separately.', 'radial': 'Expanding crowns and fine branching rays. Source controls opens the full motion, palette and optical settings.', 'silhouette': 'A fixed human silhouette. Adjust its pose and framing here; Edge phosphor and Scan drag treat its outline.',
-                 'text': 'Text edits the main wording and subtitle. Layout controls typography, frame and placement; Motion controls word changes and animation. Effects treats the resulting image.',
+                 'text': 'Text edits the typeface, main wording and subtitle. The typeface applies to both text blocks. Layout controls size, spacing, frame and placement; Motion controls word changes and animation. Effects treats the resulting image.',
                  'ink': 'Edit the printed silhouette here. Its unfold, turn and refold motion stays with it.',
                  'particles': 'The model is the target of the particles. Adjust its size, pose and point density here.',
                  'signal': 'The luminous form and ray aperture share this geometry.',
@@ -223,7 +224,7 @@ class SubjectPanel(QWidget):
                         control.animate.connect(self.automation_requested.emit)
                         self.control_cache[path] = control
                     control = self.control_cache[path]
-                    (self.wording_layout if path in TEXT_WORDING else self.control_layout).addWidget(control)
+                    if path not in TEXT_PAGE_PATHS: self.control_layout.addWidget(control)
                     if path in ('text.content', 'text.badge_subtitle'):
                         name = 'Main text' if path == 'text.content' else 'Subtitle'
                         control.label.setText(name)
@@ -232,6 +233,10 @@ class SubjectPanel(QWidget):
                     control.show(); self.controls[path] = control
                     if path == 'image_memory.amplitude_y':
                         self.control_layout.addWidget(self.motion_frame); self.motion_frame.show()
+            # Keep shared typography above the text editors, independent of the
+            # parameter registry's grouping and the length of either text block.
+            for path in TEXT_PAGE_PATHS:
+                if path in self.controls: self.wording_layout.addWidget(self.controls[path])
         for path, control in self.controls.items():
             effect = path.split('.')[0]; entry = entries.get(effect, {'params': {}})
             parent_params = parent_entries.get(effect, {}).get('params', {})
@@ -273,8 +278,8 @@ class SubjectPanel(QWidget):
         tab = self.text_tabs.currentIndex()
         reveal, fit = ranges['text.reveal'], ranges['text.fit']
         morph, reading = reveal == (3, 3), reveal == (4, 4)
-        visible = set(TEXT_WORDING if tab == 0 else TEXT_TIMING if tab == 2 else
-                      (p for p in self.controls if p not in TEXT_WORDING and p not in TEXT_TIMING))
+        visible = set(TEXT_PAGE_PATHS if tab == 0 else TEXT_TIMING if tab == 2 else
+                      (p for p in self.controls if p not in TEXT_PAGE_PATHS and p not in TEXT_TIMING))
         hidden = set()
         if ranges['text.font'][0] == ranges['text.font'][1] and ranges['text.font'][0] not in (3, 4, 5): hidden.add('text.weight')
         if reveal[0] == reveal[1]:
@@ -292,7 +297,7 @@ class SubjectPanel(QWidget):
             control.setVisible(path in visible)
             if path.startswith('text.badge_'): control.setEnabled(label_active)
         for title, paths in grouped_paths(self.controls):
-            self.group_labels[title].setVisible(bool(visible.intersection(p for p in paths if p not in TEXT_WORDING)))
+            self.group_labels[title].setVisible(bool(visible.intersection(p for p in paths if p not in TEXT_PAGE_PATHS)))
         self.wording_host.setVisible(tab == 0)
         self.position_host.setVisible(tab == 1)
         self.control_host.setVisible(tab != 0)

@@ -61,8 +61,9 @@ built-in studies against raw-pixel captures before adding the effect.
 
 ### Editing home
 
-Main text, subtitle and Show subtitle live together in **Object → Text**.
-**Object → Layout** contains typeface, size, frame shape, border, padding and
+Typeface, main text, subtitle and Show subtitle live together in **Object → Text**.
+Typeface applies to both text blocks; variable typefaces also expose Font weight.
+**Object → Layout** contains size, spacing, frame shape, border, padding and
 subtitle spacing. **Object → Motion** contains reveals and animation. These
 controls retain the selected project/clip scope. The Effects tab edits Contact
 print, Broadcast wear and other treatments applied to this content; it no longer

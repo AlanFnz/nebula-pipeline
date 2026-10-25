@@ -12,9 +12,12 @@ def test_liquid_words_exposes_working_controls_and_undo(window):
     obj = composer.object_panel; obj.text_tabs.setCurrentIndex(1)
     assert not obj.controls['text.morph_balance'].isHidden()
     assert not obj.controls['text.morph_roundness'].isHidden()
-    assert not obj.controls['text.weight'].isHidden()
+    assert obj.controls['text.weight'].isHidden()
     assert obj.controls['text.copies'].isHidden()
     assert obj.controls['text.fit'].isHidden()
+    obj.text_tabs.setCurrentIndex(0)
+    assert not obj.controls['text.font'].isHidden()
+    assert not obj.controls['text.weight'].isHidden()
     obj.text_tabs.setCurrentIndex(2)
     panel = obj
     assert panel.text_tabs.currentIndex() == 2

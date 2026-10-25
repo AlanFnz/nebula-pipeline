@@ -1118,9 +1118,10 @@ controls show at most two decimal places while retaining saved precision.
 Small normalized values use percentages (`0.0007` becomes `0.07%`). Sliders
 commit on release, and typed edits commit with Enter or focus change. The
 composer reuses its compiled state, and preview requests debounce rapid edits.
-For text objects, **Object → Text** edits **Main text** and **Subtitle** together.
-**Show subtitle** hides it without clearing the wording. **Layout** controls typography,
-frame, padding and position; **Motion** controls reveals and animation. Each text
+For text objects, **Object → Text** edits **Typeface**, **Main text** and **Subtitle** together.
+Typeface applies to both text blocks; **Font weight** appears for variable typefaces.
+**Show subtitle** hides it without clearing the wording. **Layout** controls size,
+spacing, frame, padding and position; **Motion** controls reveals and animation. Each text
 field has its own Apply button. Effects contains image treatments, not text editors.
 
 The header and window title identify the current document; an asterisk marks
