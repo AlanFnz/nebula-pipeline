@@ -15,6 +15,8 @@ def test_dark_print_wording_and_reading_protection_are_editable(window):
     panel.inspect_effect('optical_print')
     for path,value,original in [('optical_print.reading_hold',.9,.65),
                                 ('optical_print.cuts',4.,6.),
+                                ('optical_print.fragment_mix',.3,1.),
+                                ('optical_print.halation',.4,.85),
                                 ('optical_print.effect_intensity',50.,100.)]:
         panel.reveal_control(path)
         assert not panel.controls[path].isHidden()

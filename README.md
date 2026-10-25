@@ -688,6 +688,12 @@ pigment and circular exposure flashes surround a readable phrase. The canvas is
 - **Cut rate** makes unequal optical exposures; zero freezes their layout while
   **Print cadence** still advances grain. **Optical movement** changes scale and
   registration; **Focus breathing** softens the unprotected impressions.
+- **Fragment montage** replaces the repeated background with varied macro details,
+  darker exposures and a second ink impression. **Fragment typeface** can use
+  Bodoni or Fraunces for those background details, drawn from the current word;
+  the main text keeps its own typeface, size, focus and reading schedule. Footage
+  and other sources always use their own pixels. **Exposure halation** adds light
+  diffusion to the secondary layers and a pale, brighter flash core.
 - Change **First ink hue**, **Second ink hue**, **Pale ink hue**, **Ink brightness**
   and **Stock brightness** for a different palette. **Large impression strength**
   and **scale** control the enlarged source behind the main impression. **Exposure
@@ -698,7 +704,9 @@ pigment and circular exposure flashes surround a readable phrase. The canvas is
   zero leaves the input unchanged. Main image controls support automation. Protection
   does not undo distortion from other effects or deliberate manual position offsets.
 
-The previous print studies keep their own frozen recipes and rendering.
+The current dark-print recipe uses these secondary exposures. Saved projects from
+0.31.0 default the new controls to zero and retain their original rendering; the
+v1 recipe is preserved. The other print studies keep their own frozen recipes.
 
 ### Liquid words
 

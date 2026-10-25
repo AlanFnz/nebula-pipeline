@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.32.0 — 2026-10-25
+
+- Refine Text / dark optical print with cropped serif exposures, a second violet
+  impression, broad pigment islands, darker cuts and brighter pale flashes.
+  Preserve the main text's typeface, size, focus, word timing and readable holds.
+- Add Optical overprint controls for Fragment montage, Fragment typeface and
+  Exposure halation. Montage and halation support timed automation; alternate
+  typefaces apply only to the background in Reading montage.
+- Keep the v1 frozen recipe and existing saved projects' rendering. The new
+  controls default to zero and the updated study opts in through a v2 recipe.
+
 ## 0.31.0 — 2026-10-25
 
 - Add Text / dark optical print, a separate 7.5-second study inspired by ref-11:

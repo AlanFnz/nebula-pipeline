@@ -8,7 +8,7 @@ def control_group(path):
     if module == 'optical_print':
         if key in ('reading_clarity', 'reading_hold', 'cuts', 'motion', 'cadence', 'registration'): return 'Motion & timing'
         if key in ('red_hue', 'second_hue', 'light_hue', 'brightness', 'pale_ink', 'stock'): return 'Color & light'
-        if key in ('width', 'position_x', 'position_y', 'enlargement', 'overprint', 'primary'): return 'Shape & layout'
+        if key in ('width', 'position_x', 'position_y', 'enlargement', 'overprint', 'primary', 'fragment_mix', 'fragment_typeface'): return 'Shape & layout'
         if key == 'effect_intensity': return 'Output & blending'
         return 'Optical finish'
     if module == 'image_memory':
