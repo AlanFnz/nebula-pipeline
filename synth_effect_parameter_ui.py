@@ -54,8 +54,9 @@ class EffectParameter(QWidget):
     reset = Signal()
     animate = Signal(str)
 
-    def __init__(self, path):
+    def __init__(self, path, *, editable_text=False):
         super().__init__()
+        self.editable_text = editable_text
         self.path = path
         self.spec = spec = parameter(path)
         self.presentation = presentation(path)
@@ -341,10 +342,12 @@ class EffectParameter(QWidget):
         self._context_key = context_key
         inherited_fixed = fixed is None and inherited and parent_value is not None
         value = fixed if fixed is not None else parent_value if inherited_fixed else low
+        direct_text = self.editable_text and self.spec.kind == 'text'
+        if direct_text and fixed is None and not inherited_fixed: value = low or high
         self.fixed_start = low
         if self.path in INK_DURATIONS: self.fixed_start = max(0, low)
         animated = fixed is None and not inherited_fixed and low != high
-        self.value_stack.setCurrentIndex(1 if animated else 0)
+        self.value_stack.setCurrentIndex(1 if animated and not direct_text else 0)
         range_text = f'{format_value(self.path, low)} … {format_value(self.path, high)}'
         self.animated_value.setText(range_text)
         self.animated_value.setToolTip('Read-only animated range. Use fixed value below to replace this animation in the selected scope.')
@@ -352,7 +355,7 @@ class EffectParameter(QWidget):
         proposal = 'Proposed initial fixed value from the displayed range; this is not a sampled playhead value.'
         self.proposed_value.setToolTip(proposal)
         self.use_fixed.setToolTip(proposal + ' Other parameters keep following their animation.')
-        self.fixed_choice.setVisible(animated); self.use_fixed.setEnabled(available)
+        self.fixed_choice.setVisible(animated and not direct_text); self.use_fixed.setEnabled(available)
         with QSignalBlocker(self.input):
             if self.presentation.checkbox:
                 self.input.setChecked(bool(value))
@@ -378,6 +381,9 @@ class EffectParameter(QWidget):
         self.origin.setText(origin_label or f'{state} · {provenance}' + ('' if available else ' · Unavailable'))
         explanation = f'{state} value from {scope_label or "this scope" if fixed is not None else provenance.lower()}. ' + \
                       ('Enable or add this effect to edit its values.' if not available else 'Editing authors a fixed value in the selected scope.')
+        if direct_text and animated:
+            explanation = 'The study varies this wording. Apply replaces it in the selected scope; Restore follows the study again.'
+            self.origin.setText('Study wording varies · Apply to replace')
         self.origin.setToolTip(explanation)
         self.origin.setAccessibleDescription(explanation)
         ordinary_project = available and not animated and not inherited and not origin_label and scope_label == 'Entire project'

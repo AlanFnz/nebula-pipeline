@@ -30,7 +30,7 @@ def test_import_replace_clear_and_undo_preserve_the_look(window,tmp_path,monkeyp
     importer.clear_button.click();assert importer.value()==''
     window.undo_composition();assert importer.value()==initial
     assert obj.controls['solid.turn_speed'].input.value()==24.
-    obj.details.click();panel=composer.effects_panel
+    obj.details.click();panel=composer.object_editor
     assert isinstance(panel.controls['solid.model_data'].input,MeshControl)
     panel.controls['solid.model_data'].input.setValue(fixture_mesh())
     window.undo_composition();assert panel.controls['solid.model_data'].input.value()==initial

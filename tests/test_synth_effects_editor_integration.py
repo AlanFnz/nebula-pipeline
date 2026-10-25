@@ -76,7 +76,7 @@ def test_hidden_text_draft_marks_document_and_saves_original_scope(make_window, 
     panel = window.composer; effect = panel.effects_panel
     effect.inspect_effect('text'); panel.change_scope(1)
     first_id = panel.document['sections'][0]['id']
-    control = effect.controls['text.content']
+    control = panel.object_panel.controls['text.content']
     control.input.editor.setPlainText('A FIRST SECTION DRAFT')
     assert window.document_title.text().startswith('* ')
     panel.select_section(1)
@@ -101,8 +101,8 @@ def test_subtitle_visibility_keeps_recipe_and_wording_and_can_be_undone(make_win
     from synth_sequence import render_sequence_frame
     window = make_window(composition=starter_composition('text-contact-film'))
     before = copy.deepcopy(window.composition)
-    panel = window.composer.effects_panel
-    panel.inspect_effect('text')
+    panel = window.composer.object_panel
+    window.composer.look_tabs.setCurrentWidget(panel)
     toggle = panel.controls['text.badge_show_subtitle'].input
     assert toggle.isChecked()
     toggle.click()
@@ -124,8 +124,8 @@ def test_subtitle_visibility_keeps_recipe_and_wording_and_can_be_undone(make_win
 def test_save_keeps_main_and_subtitle_drafts_in_their_own_fields(make_window, scope):
     window = make_window(composition=starter_composition('text-contact-film'))
     window.composer.change_scope(scope)
-    panel = window.composer.effects_panel
-    panel.inspect_effect('text')
+    panel = window.composer.object_panel
+    window.composer.look_tabs.setCurrentWidget(panel)
     panel.controls['text.content'].input.editor.setPlainText('REVOLUTION\nIS NOW')
     panel.controls['text.badge_subtitle'].input.editor.setPlainText('STOP THEM')
     assert window.prepare_document_save()

@@ -25,7 +25,7 @@ def test_lattice_shapes_palettes_timing_and_undo_are_editable(window):
     obj.controls['chromatic_lattice.wave_shape'].input.setCurrentIndex(2)
     assert not obj.controls['chromatic_lattice.angle'].isHidden()
     obj.details.click()
-    panel=composer.effects_panel
+    panel=composer.object_editor
     assert panel.effect_id=='chromatic_lattice'
     assert not panel.remove_button.isVisible()
     panel.reveal_control('chromatic_lattice.shape')

@@ -944,10 +944,13 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
             self.composer.changed.connect(self.bind_pending_text_titles)
             self.composer.playhead_seconds = lambda: self.timeline.value()/self.composition["fps"]
             self.composer.effects_panel.navigation_changed.connect(self.bind_pending_text_titles)
+            self.composer.object_panel.navigation_changed.connect(self.bind_pending_text_titles)
+            self.composer.object_editor.navigation_changed.connect(self.bind_pending_text_titles)
             self.composer.failed.connect(lambda message: self.status.setText(f"Composition edit ignored: {message}"))
             self.composer.sectionSelected.connect(self.composition_section_selected)
             self.composer.detailsRequested.connect(self.open_detailed_copy)
             self.composer.effects_panel.variation_requested.connect(self.open_effect_variation)
+            self.composer.object_editor.variation_requested.connect(self.open_effect_variation)
             self.composer.effects_panel.discovery_enabled = True
             self.composer.effects_panel.refresh_breakdown()
             self.composer.effects_panel.discovery_requested.connect(self.open_effect_discovery)
@@ -1077,10 +1080,9 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
         with QSignalBlocker(self.starter_combo):
             self.starter_combo.setCurrentIndex(self.starter_combo.findData(identifier))
         self.load_starter_button.setEnabled(True)
-        if identifier in ("particle-head", "particle-orbit", "original-particles"):
-            self.composer.effects_panel.inspect_effect("particles")
-        elif identifier == "ink-bloom":
-            self.composer.effects_panel.inspect_effect("ink_bloom")
+        if identifier in ("particle-head", "particle-orbit", "original-particles", "ink-bloom"):
+            self.composer.object_panel.show_overview()
+            self.composer.look_tabs.setCurrentWidget(self.composer.object_panel)
         elif identifier == "mixed-media":
             self.composer.effects_panel.inspect_effect("frame_jitter")
 

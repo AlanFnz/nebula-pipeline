@@ -242,26 +242,20 @@ def test_invalid_unapplied_text_prevents_save_and_close(make_window, monkeypatch
     assert not path.exists() and errors
 
 
-@pytest.mark.parametrize('matching', [False, True])
-def test_duplicate_text_drafts_are_saved_only_if_they_agree(make_window, monkeypatch, tmp_path, matching):
+def test_object_wording_draft_closes_and_saves_after_effect_navigation(make_window, monkeypatch, tmp_path):
     window = make_window(); window.load_starter_id('text-transmission')
-    window.composer.effects_panel.inspect_effect('text')
     object_control = window.composer.object_panel.controls['text.content'].input
-    effect_control = window.composer.effects_panel.controls['text.content'].input
     object_control.editor.setPlainText('Object wording')
-    effect_control.editor.setPlainText('Object wording' if matching else 'Effect wording')
-    path = tmp_path / 'text.json'; errors = []
+    window.composer.effects_panel.inspect_effect('tape')
+    window.composer.effects_panel.inspect_effect('text')
+    assert 'text' not in window.composer.effects_panel.control_cache
+    assert object_control.editor.toPlainText() == 'Object wording'
+    path = tmp_path / 'text.json'
     monkeypatch.setattr(QMessageBox, 'warning', lambda *args: QMessageBox.StandardButton.Save)
     monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *args: (str(path), ''))
-    monkeypatch.setattr(QMessageBox, 'critical', lambda *args: errors.append(args[2]))
-    assert window.close() is matching
-    if matching:
-        assert load_composition(path)['effects']['text']['params']['text.content'] == 'Object wording'
-        assert not window.has_unsaved_changes()
-    else:
-        assert not path.exists() and errors and window.has_unsaved_changes()
-        assert object_control.editor.toPlainText() == 'Object wording'
-        assert effect_control.editor.toPlainText() == 'Effect wording'
+    assert window.close()
+    assert load_composition(path)['effects']['text']['params']['text.content'] == 'Object wording'
+    assert not window.has_unsaved_changes()
 
 
 @pytest.mark.parametrize('mode', ['composition', 'sequence', 'preset'])

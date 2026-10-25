@@ -98,7 +98,9 @@ class VaryEffectDialog(QDialog):
         self.amount = ComboBox(); self.amount.setAccessibleName('Variation amount')
         for name in ('subtle', 'moderate', 'strong'): self.amount.addItem(name.title(), name)
         layout.addWidget(self.amount); self.controls = {}
-        editor = studio.composer.effects_panel.creative_panel
+        from synth_subject import SOURCE_EFFECTS
+        owner = studio.composer.object_editor if effect_id in SOURCE_EFFECTS else studio.composer.effects_panel
+        editor = owner.creative_panel
         for spec in CREATIVE_CONTROLS[effect_id]:
             check = QCheckBox(spec.label + (' · timing' if spec.key in TIMING_CONTROLS else ''))
             available = editor.controls[spec.key].input.isEnabled()

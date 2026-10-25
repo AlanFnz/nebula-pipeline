@@ -9,15 +9,15 @@ def test_liquid_words_exposes_working_controls_and_undo(window):
     window.set_composition(starter_composition('text-liquid-words'))
     composer = window.composer
     composer.look_tabs.setCurrentWidget(composer.object_panel)
-    obj = composer.object_panel
+    obj = composer.object_panel; obj.text_tabs.setCurrentIndex(1)
     assert not obj.controls['text.morph_balance'].isHidden()
     assert not obj.controls['text.morph_roundness'].isHidden()
     assert not obj.controls['text.weight'].isHidden()
     assert obj.controls['text.copies'].isHidden()
     assert obj.controls['text.fit'].isHidden()
-    obj.timing.click()
-    panel = composer.effects_panel
-    assert panel.effect_id == 'text' and panel.parameter_tabs.currentIndex() == 1
+    obj.text_tabs.setCurrentIndex(2)
+    panel = obj
+    assert panel.text_tabs.currentIndex() == 2
     assert not panel.controls['text.morph_hold'].isHidden()
     assert not panel.controls['text.morph_seconds'].isHidden()
     assert not panel.controls['text.morph_living'].isHidden()
@@ -36,6 +36,7 @@ def test_liquid_words_exposes_working_controls_and_undo(window):
     assert window.composition['effects']['text']['params']['text.morph_settle'] == .3
     window.undo_composition()
     assert panel.controls['text.morph_settle'].input.value() == .65
+    panel = composer.effects_panel
     panel.inspect_effect('contour_melt')
     panel.controls['contour_melt.fill'].input.setValue(.4)
     assert window.composition['effects']['contour_melt']['params']['contour_melt.fill'] == .4
@@ -83,11 +84,9 @@ def test_native_wording_apply_undo_and_text_timing(window,tmp_path):
     assert load_composition(path)['effects']['text']==window.composition['effects']['text']
     window.undo_composition()
     assert panel.object_panel.controls['text.content'].input.value()=='REVOLUTION IS NOW'
-    panel.object_panel.timing.click()
-    assert panel.effects_panel.effect_id=='text'
-    assert panel.effects_panel.parameter_tabs.currentIndex()==1
-    assert not panel.effects_panel.controls['text.period'].isHidden()
-    assert panel.effects_panel.controls['text.content'].isHidden()
+    panel.object_panel.text_tabs.setCurrentIndex(2)
+    assert not panel.object_panel.controls['text.period'].isHidden()
+    assert panel.object_panel.controls['text.content'].isHidden()
     assert panel.scope_combo.isVisible()  # Text timing honors whole clip/section scope.
     spec=MODULE_BY_ID['text'].params[0]
     detail=SynthControl(spec,'NOW'); detail.spin.editor.setPlainText('LATER');detail.spin.apply.click()
@@ -97,6 +96,7 @@ def test_native_wording_apply_undo_and_text_timing(window,tmp_path):
 def test_pressure_exposes_block_layout_and_polarity_tab(window):
     window.set_composition(starter_composition('text-pressure'))
     composer=window.composer
+    composer.object_panel.text_tabs.setCurrentIndex(1)
     assert not composer.object_panel.controls['text.block_width'].isHidden()
     composer.look_tabs.setCurrentWidget(composer.effects_panel)
     panel=composer.effects_panel;panel.inspect_effect('broadcast');panel.parameter_tabs.setCurrentIndex(1)
@@ -106,13 +106,13 @@ def test_pressure_exposes_block_layout_and_polarity_tab(window):
     assert window.composition['effects']['broadcast']['params']['broadcast.field_spread']==.18
     window.undo_composition()
     assert panel.controls['broadcast.field_spread'].input.value()==.11
-    panel.inspect_effect('text');panel.parameter_tabs.setCurrentIndex(1)
-    assert panel.controls['text.ease'].isHidden()
+    composer.object_panel.text_tabs.setCurrentIndex(2)
+    assert composer.object_panel.controls['text.ease'].isHidden()
 
 
 def test_refined_text_and_broadcast_controls_apply_and_undo(window):
     window.set_composition(starter_composition('text-transmission'))
-    composer=window.composer;obj=composer.object_panel
+    composer=window.composer;obj=composer.object_panel;obj.text_tabs.setCurrentIndex(1)
     assert not obj.controls['text.fit_width'].isHidden()
     obj.controls['text.copies'].input.setValue(4)
     assert window.composition['effects']['text']['params']['text.copies']==4
@@ -138,9 +138,9 @@ def test_refined_text_and_broadcast_controls_apply_and_undo(window):
     panel.parameter_tabs.setCurrentIndex(3)
     assert not panel.controls['broadcast.screen'].isHidden()
     assert panel.controls['broadcast.static'].isHidden()
-    panel.inspect_effect('text')
-    assert panel.parameter_tabs.currentIndex() < 2
-    assert not panel.parameter_tabs.isTabVisible(2)
+    panel=composer.object_panel;composer.look_tabs.setCurrentWidget(panel);panel.text_tabs.setCurrentIndex(1)
+    assert panel.text_tabs.currentIndex() == 1
+    assert composer.look_tabs.currentWidget() is composer.object_panel
 
 
 def test_text_wrapping_controls_apply_and_undo_in_native_inspector(window):

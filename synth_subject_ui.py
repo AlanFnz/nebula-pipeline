@@ -1,9 +1,10 @@
 """One object inspector with controls for the actual source family."""
 from PySide6.QtCore import Qt, QSignalBlocker, Signal
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QStackedWidget, QScrollArea, QFrame, QTabBar
 
 from studio_widgets import ComboBox, DoubleSpinBox, Slider
-from synth_effects_ui import EffectParameter
+from synth_effects_ui import EffectParameter, EffectsPanel, TEXT_TIMING
+from synth_effects import EFFECT_BY_ID
 from synth_subject import SUBJECTS, SOURCE_EFFECTS, active_subjects
 from synth_inspector import grouped_paths
 from synth_solids import hidden_controls as hidden_solid_controls
@@ -15,7 +16,7 @@ OBJECT_PATHS = {
     'solid': tuple('solid.'+key for key in ('shape','model_data','height_stretch','scale','yaw','pitch','roll','turn_speed','tumble_speed','roll_speed','variation','perspective','corner_radius','material','roughness','specular','glass_transmission','glass_refraction','pip_size','pip_light','pip_depth','palette','shading','light')),
     'prismatic': tuple('prismatic_field.'+key for key in ('shape','sides','center_shape','size','gather','opening','fold_depth','rotation','transition_ease','turn_settle','palette','wash','saturation','light')),
     'radial': tuple('radial_bloom.'+key for key in ('expansion','petals','detail','branching','flow','variation','center_drift','palette','light')),
-    'text': tuple('text.' + key for key in ('content', 'font', 'weight', 'morph_balance', 'morph_roundness', 'size', 'tracking', 'leading', 'align', 'wrap_columns', 'fit', 'block_width', 'fit_width', 'copies', 'copy_gap', 'copy_floor', 'hue', 'saturation', 'brightness', 'stretch_x', 'stretch_y')),
+    'text': EFFECT_BY_ID['text'].paths,
     'silhouette': ('silhouette.model', 'silhouette.scale', 'silhouette.yaw', 'silhouette.definition', 'silhouette.pitch', 'silhouette.roll', 'silhouette.center_x', 'silhouette.center_y', 'silhouette.neck_length', 'silhouette.neck_fullness', 'silhouette.softness'),
     'ink': ('ink_bloom.shape', 'ink_bloom.artwork', 'ink_bloom.shape_width', 'ink_bloom.shape_height',
             'ink_bloom.sides', 'ink_bloom.shape_rotation', 'ink_bloom.size', 'ink_bloom.count',
@@ -24,6 +25,7 @@ OBJECT_PATHS = {
                   'particles.yaw', 'particles.pitch',
                   'particles.neck_fade'),
 }
+TEXT_WORDING = ('text.content', 'text.badge', 'text.badge_show_subtitle', 'text.badge_subtitle')
 
 
 class SubjectPanel(QWidget):
@@ -35,12 +37,29 @@ class SubjectPanel(QWidget):
     position_changed = Signal(str, float)
     position_reset = Signal()
     center_path_requested = Signal()
+    automation_requested = Signal(str)
+    navigation_changed = Signal()
 
     def __init__(self):
         super().__init__()
         self.kind = 'none'; self.updating = False; self.controls = {}; self.control_cache = {}; self.group_labels = {}
-        layout = QVBoxLayout(self)
-        title = QLabel('OBJECT / source'); title.setObjectName('sectionTitle'); layout.addWidget(title)
+        root = QVBoxLayout(self); root.setContentsMargins(0, 0, 0, 0)
+        self.header = QWidget(); header = QVBoxLayout(self.header)
+        header.setContentsMargins(8, 4, 8, 0); header.setSpacing(5); root.addWidget(self.header)
+        self.pages = QStackedWidget(); root.addWidget(self.pages)
+        self.overview = QWidget(); layout = QVBoxLayout(self.overview)
+        self.overview_scroll = QScrollArea(); self.overview_scroll.setWidgetResizable(True)
+        self.overview_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.overview_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.overview_scroll.setWidget(self.overview); self.pages.addWidget(self.overview_scroll)
+        self.details_editor = EffectsPanel()
+        self.details_editor.scope_label.hide(); self.details_editor.add_button.hide()
+        self.details_editor.back_button.clicked.disconnect()
+        self.details_editor.back_button.setText('← Object')
+        self.details_editor.back_button.setAccessibleName('Back to object')
+        self.details_editor.back_button.clicked.connect(self.show_overview)
+        self.pages.addWidget(self.details_editor)
+        title = QLabel('OBJECT / content'); title.setObjectName('sectionTitle'); header.addWidget(title)
         row = QHBoxLayout()
         self.selector = ComboBox(); self.selector.setAccessibleName('Object type')
         for key, (label, _) in SUBJECTS.items(): self.selector.addItem(label, key)
@@ -48,8 +67,13 @@ class SubjectPanel(QWidget):
         self.selector.currentIndexChanged.connect(self.choose); row.addWidget(self.selector, 1)
         self.restore = QPushButton('↶'); self.restore.setAccessibleName('Restore study object')
         self.restore.setToolTip('Follow the study or project source activation again. Keep your object parameters.')
-        self.restore.clicked.connect(self.restored.emit); row.addWidget(self.restore); layout.addLayout(row)
-        self.note = QLabel(); self.note.setWordWrap(True); self.note.setObjectName('muted'); layout.addWidget(self.note)
+        self.restore.clicked.connect(self.restored.emit); row.addWidget(self.restore); header.addLayout(row)
+        self.note = QLabel(); self.note.setWordWrap(True); self.note.setObjectName('muted'); header.addWidget(self.note)
+        self.text_tabs = QTabBar()
+        for label in ('Text', 'Layout', 'Motion'): self.text_tabs.addTab(label)
+        self.text_tabs.currentChanged.connect(self.change_text_tab); header.addWidget(self.text_tabs)
+        self.text_layout_note = QLabel(); self.text_layout_note.setWordWrap(True)
+        self.text_layout_note.setObjectName('muted'); layout.addWidget(self.text_layout_note)
         self.wording_host = QWidget(); self.wording_layout = QVBoxLayout(self.wording_host)
         self.wording_layout.setContentsMargins(0, 0, 0, 0); layout.addWidget(self.wording_host)
         self.position_host = QWidget(); position_layout = QVBoxLayout(self.position_host)
@@ -86,6 +110,31 @@ class SubjectPanel(QWidget):
         self.timing = QPushButton('Motion & timing…'); self.timing.clicked.connect(lambda: self.open_details(True)); layout.addWidget(self.timing)
         layout.addStretch(1)
 
+    def show_overview(self):
+        self.pages.setCurrentWidget(self.overview_scroll)
+        self.navigation_changed.emit()
+
+    def change_text_tab(self, index):
+        self.show_text_controls(index)
+        self.overview_scroll.verticalScrollBar().setValue(0)
+
+    def show_details(self, effect, timing=False):
+        if effect == 'text':
+            self.show_overview(); self.text_tabs.setCurrentIndex(2 if timing else 1)
+        else:
+            from synth_creative import CREATIVE_CONTROLS
+            self.details_editor.inspect_effect(effect)
+            self.details_editor.parameter_tabs.setCurrentIndex((0 if timing else 1) if effect in CREATIVE_CONTROLS else (1 if timing else 0))
+            self.pages.setCurrentWidget(self.details_editor)
+        self.navigation_changed.emit()
+
+    def reveal_control(self, path):
+        if path not in self.controls or self.kind != 'text': return False
+        self.show_overview()
+        self.text_tabs.setCurrentIndex(0 if path in TEXT_WORDING else 2 if path in TEXT_TIMING else 1)
+        self.overview_scroll.ensureWidgetVisible(self.controls[path])
+        return True
+
     def change_position(self, axis, value):
         if self.updating: return
         with QSignalBlocker(self.position_sliders[axis]): self.position_sliders[axis].setValue(round(value))
@@ -114,13 +163,15 @@ class SubjectPanel(QWidget):
     def refresh(self, summary, entries, parent_entries, local, *, context_key=None, scope_label=None):
         self.updating = True
         active = active_subjects(summary)
+        previous_kind = self.kind
         self.kind = active[0] if active else 'none'
+        if self.kind != previous_kind: self.show_overview()
         self.signal_effect = 'forms' if summary['forms']['active'] else 'rays'
         with QSignalBlocker(self.selector): self.selector.setCurrentIndex(self.selector.findData(self.kind))
         self.restore.setEnabled(any(entries.get(key, {}).get('mode', 'recipe') != 'recipe' for key in SOURCE_EFFECTS))
         scope = 'this clip' if local else 'the entire project'
         notes = {'prismatic': 'Choose the final shape and its placement. Transition easing and Turn settle shape the authored movements. Source controls opens the fold rhythm, rotation, ribbon and color drift. Color emulsion adds the film texture separately.', 'radial': 'Expanding crowns and fine branching rays. Source controls opens the full motion, palette and optical settings.', 'silhouette': 'A fixed human silhouette. Adjust its pose and framing here; Edge phosphor and Scan drag treat its outline.',
-                 'text': 'Edit your wording below and apply it. Text appearance opens background, opacity and rotation; Motion & timing controls word changes and animation.',
+                 'text': 'Text edits the main wording and subtitle. Layout controls typography, frame and placement; Motion controls word changes and animation. Effects treats the resulting image.',
                  'ink': 'Edit the printed silhouette here. Its unfold, turn and refold motion stays with it.',
                  'particles': 'The model is the target of the particles. Adjust its size, pose and point density here.',
                  'signal': 'The luminous form and ray aperture share this geometry.',
@@ -136,13 +187,13 @@ class SubjectPanel(QWidget):
         self.signal_host.setVisible(self.kind == 'signal')
         self.control_host.setVisible(self.kind in OBJECT_PATHS)
         self.wording_host.setVisible(self.kind == 'text')
+        self.text_tabs.setVisible(self.kind == 'text')
+        self.text_layout_note.hide()
         self.details.setText('Text appearance…' if self.kind == 'text' else 'Source controls…')
         self.timing.setText('Creative motion…' if self.kind == 'particles' else 'Motion & timing…')
         paths = OBJECT_PATHS.get(self.kind, ())
         reading = self.kind == 'text' and summary['text']['ranges']['text.reveal'] == (4, 4)
         if reading:
-            paths = tuple('text.' + key for key in ('reading_duration', 'reading_final', 'reading_transition',
-                          'reading_weight', 'reading_breakup', 'reading_fragments', 'reading_loop')) + paths
             self.note.setText(f'Edit Wording and apply it: the montage adapts to complete words and letters. '
                              f'Montage duration includes the final phrase; match the clip duration for one full pass. '
                              f'Print collage and Film burn follow these reading beats. Changes apply to {scope}.')
@@ -150,7 +201,7 @@ class SubjectPanel(QWidget):
         if set(self.controls) != set(paths):
             # Memory's exploration controls precede placement. Only move the
             # host when the source family changes, keeping edits scroll-stable.
-            host_layout = self.layout()
+            host_layout = self.overview.layout()
             host_layout.removeWidget(self.control_host)
             anchor = self.position_host if self.kind == 'memory' else self.details
             host_layout.insertWidget(host_layout.indexOf(anchor), self.control_host)
@@ -166,12 +217,18 @@ class SubjectPanel(QWidget):
                 label = self.group_labels[title]; self.control_layout.addWidget(label); label.show()
                 for path in members:
                     if path not in self.control_cache:
-                        control = EffectParameter(path); effect = path.split('.')[0]
+                        control = EffectParameter(path, editable_text=True); effect = path.split('.')[0]
                         control.changed.connect(lambda value, e=effect, p=path: self.parameter_changed.emit(e, p, value))
                         control.reset.connect(lambda e=effect, p=path: self.parameter_reset.emit(e, p))
+                        control.animate.connect(self.automation_requested.emit)
                         self.control_cache[path] = control
                     control = self.control_cache[path]
-                    (self.wording_layout if path == 'text.content' else self.control_layout).addWidget(control)
+                    (self.wording_layout if path in TEXT_WORDING else self.control_layout).addWidget(control)
+                    if path in ('text.content', 'text.badge_subtitle'):
+                        name = 'Main text' if path == 'text.content' else 'Subtitle'
+                        control.label.setText(name)
+                        control.input.editor.setAccessibleName(name)
+                        control.input.apply.setText('Apply main text' if path == 'text.content' else 'Apply subtitle')
                     control.show(); self.controls[path] = control
                     if path == 'image_memory.amplitude_y':
                         self.control_layout.addWidget(self.motion_frame); self.motion_frame.show()
@@ -205,19 +262,44 @@ class SubjectPanel(QWidget):
             model = summary['particles']['ranges']['particles.attractor']
             self.controls['particles.neck_fade'].setVisible(model[0] != model[1] or model[0] in (0, 3, 4, 5))
         if self.kind == 'text':
-            ranges = summary['text']['ranges']
-            morph = ranges['text.reveal'][0] == ranges['text.reveal'][1] == 3
-            self.controls['text.weight'].setVisible(ranges['text.font'][0] != ranges['text.font'][1] or ranges['text.font'][0] in (3, 4, 5))
-            self.controls['text.morph_balance'].setVisible(morph)
-            self.controls['text.morph_roundness'].setVisible(morph)
-            for key in ('leading', 'align', 'wrap_columns', 'fit', 'copies', 'copy_gap'):
-                self.controls['text.' + key].setVisible(not morph and (not reading or key in ('leading', 'align')))
-            fit = ranges['text.fit']
-            self.controls['text.block_width'].setVisible(not morph and not reading and (fit[0] != fit[1] or fit[0] == 2))
-            self.controls['text.fit_width'].setVisible(reading or morph or fit[0] != fit[1] or fit[0] == 1)
-            self.controls['text.copy_floor'].setVisible(not morph and not reading and (fit[0] != fit[1] or fit[0] == 1))
-        self.details.setVisible(bool(active)); self.timing.setVisible(self.kind in ('ink', 'text'))
+            self.text_ranges = summary['text']['ranges']
+            self.show_text_controls()
+        self.details.setVisible(bool(active) and self.kind != 'text'); self.timing.setVisible(self.kind == 'ink')
         self.updating = False
+
+    def show_text_controls(self, _index=None):
+        if self.kind != 'text' or not hasattr(self, 'text_ranges'): return
+        ranges = self.text_ranges
+        tab = self.text_tabs.currentIndex()
+        reveal, fit = ranges['text.reveal'], ranges['text.fit']
+        morph, reading = reveal == (3, 3), reveal == (4, 4)
+        visible = set(TEXT_WORDING if tab == 0 else TEXT_TIMING if tab == 2 else
+                      (p for p in self.controls if p not in TEXT_WORDING and p not in TEXT_TIMING))
+        hidden = set()
+        if ranges['text.font'][0] == ranges['text.font'][1] and ranges['text.font'][0] not in (3, 4, 5): hidden.add('text.weight')
+        if reveal[0] == reveal[1]:
+            if not morph: hidden.update(p for p in self.controls if p.startswith('text.morph_'))
+            if not reading: hidden.update(p for p in self.controls if p.startswith('text.reading_'))
+            if morph or reading:
+                hidden.update('text.'+p for p in ('word_seconds','fit','block_width','copies','copy_gap','copy_floor','wrap_columns'))
+            if morph: hidden.update(('text.leading','text.align'))
+        if fit[0] == fit[1] and fit[0] != 2: hidden.add('text.block_width')
+        if not morph and not reading and fit[0] == fit[1] and fit[0] != 1: hidden.update(('text.fit_width','text.copy_floor'))
+        if ranges['text.motion'][0] == ranges['text.motion'][1] and ranges['text.motion'][0] != 1: hidden.add('text.ease')
+        visible -= hidden
+        label_active = ranges['text.badge'] != (0, 0) and not (morph or reading)
+        for path, control in self.controls.items():
+            control.setVisible(path in visible)
+            if path.startswith('text.badge_'): control.setEnabled(label_active)
+        for title, paths in grouped_paths(self.controls):
+            self.group_labels[title].setVisible(bool(visible.intersection(p for p in paths if p not in TEXT_WORDING)))
+        self.wording_host.setVisible(tab == 0)
+        self.position_host.setVisible(tab == 1)
+        self.control_host.setVisible(tab != 0)
+        self.text_layout_note.setText('This word animation uses the main text only. Choose Whole phrase, One word or Type on in Motion to use a subtitle and frame.' if morph or reading else
+                                     'Turn on Framed label to use a subtitle and frame. Choose Frame shape → None in Layout for text without an outline.')
+        self.text_layout_note.setVisible(tab == 0 and not label_active)
+        self.navigation_changed.emit()
 
     def set_motion_bounds(self, bounds, local):
         if self.kind != 'memory': return

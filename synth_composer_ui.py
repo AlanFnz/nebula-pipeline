@@ -686,7 +686,7 @@ class InspectorTabs(QTabWidget):
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
     def addTab(self, page, label):
-        if isinstance(page, EffectsPanel): return super().addTab(page, label)
+        if isinstance(page, (EffectsPanel, SubjectPanel)): return super().addTab(page, label)
         scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         scroll.setWidget(page); self._scroll_pages[page] = scroll
@@ -807,7 +807,7 @@ class CompositionPanel(QWidget):
         self.source_scope_label = QLabel('Editing: Entire project · source video'); self.source_scope_label.hide()
         shape_layout.addWidget(self.source_scope_label)
         self.look_tabs = InspectorTabs()
-        self.effects_panel = EffectsPanel()
+        self.effects_panel = EffectsPanel(route_sources=True)
         # The composer owns the persistent scope selector for every page.
         self.effects_panel.scope_label.hide()
         self.effects_panel.edited.connect(self.change_effect)
@@ -832,6 +832,18 @@ class CompositionPanel(QWidget):
         self.object_panel.position_changed.connect(self.change_geometry)
         self.object_panel.position_reset.connect(self.reset_object_position)
         self.object_panel.center_path_requested.connect(self.center_memory_path)
+        self.object_panel.automation_requested.connect(self.parameter_automation)
+        self.object_panel.navigation_changed.connect(self.emit_reset_context)
+        self.object_editor = self.object_panel.details_editor
+        self.object_editor.edited.connect(self.change_effect)
+        self.object_editor.automation_requested.connect(self.parameter_automation)
+        self.object_editor.timing_edited.connect(self.change_ink_timing)
+        self.object_editor.timing_reset.connect(self.reset_ink_timing)
+        self.object_editor.timing_selected.connect(self.show_timing_scope)
+        self.object_editor.navigation_changed.connect(self.emit_reset_context)
+        self.object_editor.controls_refreshed.connect(self.update_memory_limits)
+        self.object_panel.navigation_changed.connect(lambda: self.show_timing_scope(False))
+        self.effects_panel.object_details_requested.connect(lambda effect: self.open_object_details(effect, False))
         treatment_page = QWidget(); treatment_layout = QVBoxLayout(treatment_page)
         self.look_tabs.addTab(geometry_page, "Object"); self.look_tabs.addTab(treatment_page, "Finishing")
         self.master_panel = MasterPanel()
@@ -986,9 +998,14 @@ class CompositionPanel(QWidget):
                 for event in owner.get("automations", ()):
                     counts[event["path"]] = counts.get(event["path"], 0) + 1
             self.effects_panel.set_automation_counts(counts)
+            from synth_subject import SOURCE_EFFECTS
+            self.object_editor_context = (target['effects'], self.document['effects'] if self.scope else {}, states, label, bool(self.scope), (self.scope, context_key), self.document['ink_timing'], all_states, tuple(key for key in SOURCE_EFFECTS if key != 'text'), authored_states)
+            if self.object_editor.summary: self.object_editor.set_context(*self.object_editor_context)
+            self.object_editor.set_automation_counts(counts)
             total_events = sum(len(owner.get("automations", ())) for owner in self.document["sections"])
             self.automations_button.setText(f"Automations ({total_events})…" if total_events else "Automations…")
             self.object_panel.refresh(self.effects_panel.summary, target['effects'], self.document['effects'] if self.scope else {}, bool(self.scope), context_key=(self.scope, context_key), scope_label=label.removeprefix('Editing: '))
+            for path, control in self.object_panel.controls.items(): control.set_automation_count(counts.get(path, 0))
             for key, control in self.macro_controls.items():
                 control.set_value(target["macros"][key], key in target["locks"])
             geometry = target["geometry"]
@@ -1017,13 +1034,13 @@ class CompositionPanel(QWidget):
 
     def update_memory_limits(self):
         if self.updating or not hasattr(self, 'compiled'): return
-        if self.object_panel.kind != 'memory' and self.effects_panel.effect_id != 'image_memory': return
+        if self.object_panel.kind != 'memory' and self.object_editor.effect_id != 'image_memory': return
         from synth_memory_framing import motion_bounds, AMPLITUDES
         bounds=motion_bounds(self.document,self.index if self.scope else None,self.compiled)
         self.object_panel.set_motion_bounds(bounds,bool(self.scope))
-        if self.effects_panel.effect_id == 'image_memory':
+        if self.object_editor.effect_id == 'image_memory':
             for axis,path in enumerate(AMPLITUDES):
-                control=self.effects_panel.controls[path]
+                control=self.object_editor.controls[path]
                 maximum=bounds.maximum(axis) if bounds else None
                 control.set_numeric_maximum(maximum)
                 control.setEnabled(maximum is not None)
@@ -1186,7 +1203,9 @@ class CompositionPanel(QWidget):
         except ValueError as exc: self.failed.emit(str(exc))
 
     def show_timing_scope(self, timing):
-        timing = timing and self.effects_panel.focused and self.look_tabs.currentIndex() == 0
+        timing = (hasattr(self, 'object_editor') and self.look_tabs.currentWidget() is self.object_panel
+                  and self.object_panel.pages.currentWidget() is self.object_editor
+                  and self.object_editor.effect_id == 'ink_bloom' and self.object_editor.parameter_tabs.currentIndex() == 1)
         master = self.look_tabs.currentWidget() is self.master_panel
         self.scope_combo.setVisible(not (timing or master))
         self.timing_scope_label.setVisible(timing)
@@ -1264,10 +1283,11 @@ class CompositionPanel(QWidget):
         self.change_effect(effect, entry, 'effect-reset-param')
 
     def open_object_details(self, effect, timing):
-        from synth_creative import CREATIVE_CONTROLS
-        self.effects_panel.inspect_effect(effect)
-        self.effects_panel.parameter_tabs.setCurrentIndex((0 if timing else 1) if effect in CREATIVE_CONTROLS else (1 if timing else 0))
-        self.look_tabs.setCurrentWidget(self.effects_panel)
+        if effect != 'text' and not self.object_editor.summary:
+            self.object_editor.set_context(*self.object_editor_context)
+        self.object_panel.show_details(effect, timing)
+        self.look_tabs.setCurrentWidget(self.object_panel)
+        self.show_timing_scope(False)
 
     def change_master(self, key, value):
         if self.updating: return
@@ -1524,6 +1544,7 @@ class CompositionPanel(QWidget):
     def _pending_text_records(self):
         controls = list(self.object_panel.control_cache.values())
         controls += [control for members in self.effects_panel.control_cache.values() for control in members.values()]
+        controls += [control for members in self.object_editor.control_cache.values() for control in members.values()]
         section_ids = {section['id'] for section in self.document['sections']}
         return [(control, context, draft) for control in controls
                 for context, draft in control.pending_text_drafts()
@@ -1578,7 +1599,10 @@ class CompositionPanel(QWidget):
         if self.arrangement_button.isChecked(): return ''
         page = self.look_tabs.currentWidget()
         if page is self.master_panel: return 'Reset master'
-        if page is self.object_panel: return 'Restore object controls'
+        if page is self.object_panel:
+            if self.object_panel.pages.currentWidget() is self.object_editor and self.object_editor.effect_id == 'ink_bloom' and self.object_editor.parameter_tabs.currentIndex() == 1:
+                return 'Restore shared timing'
+            return 'Restore object controls'
         if page is self.video_panel:
             if self.scope and 'footage' not in self.document['sections'][self.index]: return ''
             return 'Reset source controls'
@@ -1603,6 +1627,8 @@ class CompositionPanel(QWidget):
         if page is self.effects_panel: return
         document = copy.deepcopy(self.document); target = self.target(document)
         if page is self.object_panel:
+            if self.reset_label() == 'Restore shared timing':
+                self.reset_ink_timing(); return
             from synth_subject import SOURCE_EFFECTS
             for key in SOURCE_EFFECTS: target['effects'].pop(key, None)
             target['geometry'] = default_geometry(section=bool(self.scope))

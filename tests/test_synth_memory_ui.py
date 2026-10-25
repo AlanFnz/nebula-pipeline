@@ -42,7 +42,7 @@ def test_center_path_and_canvas_maximum_are_one_step_edits_in_both_inspectors(ma
     x.slider.setValue(1000)
     assert motion_bounds(window.composition).bounds(0)==pytest.approx((0.,720.),abs=.1)
     window.undo_composition();assert window.composition==centered
-    obj.details.click();panel=composer.effects_panel
+    obj.details.click();panel=composer.object_editor
     panel.reveal_control('image_memory.amplitude_y')
     y=panel.controls['image_memory.amplitude_y']
     assert y.numeric_maximum<1000
@@ -70,7 +70,7 @@ def test_motion_amplitudes_edit_scope_undo_reset_and_roundtrip(make_window,tmp_p
     window.undo_composition()
     assert obj.controls['image_memory.amplitude_y'].input.value()==100.
     obj.controls['image_memory.amplitude_y'].input.setValue(150.)
-    obj.details.click();panel=composer.effects_panel
+    obj.details.click();panel=composer.object_editor
     panel.reveal_control('image_memory.amplitude_y')
     assert panel.controls['image_memory.amplitude_y'].input.value()==150.
     assert panel.controls['image_memory.amplitude_y'].isVisible()
@@ -89,7 +89,7 @@ def test_memory_controls_are_discoverable_scoped_and_undoable(make_window,tmp_pa
     composer.look_tabs.setCurrentWidget(composer.object_panel)
     obj=composer.object_panel
     assert obj.kind=='memory'
-    assert obj.layout().indexOf(obj.control_host)<obj.layout().indexOf(obj.position_host)
+    assert obj.overview.layout().indexOf(obj.control_host)<obj.overview.layout().indexOf(obj.position_host)
     assert list(obj.controls)[:3]==['image_memory.persistence','image_memory.drift','image_memory.dissolve']
     assert obj.controls['image_memory.persistence'].input.suffix()==' s'
     obj.controls['image_memory.persistence'].input.setValue(4.)
@@ -107,7 +107,7 @@ def test_memory_controls_are_discoverable_scoped_and_undoable(make_window,tmp_pa
     save_composition(tmp_path/'memory.json',window.composition)
     assert load_composition(tmp_path/'memory.json')==window.composition
     obj.details.click()
-    panel=composer.effects_panel
+    panel=composer.object_editor
     assert panel.effect_id=='image_memory' and panel.intensity_host.isHidden()
     panel.reveal_control('image_memory.shape')
     panel.controls['image_memory.shape'].input.setCurrentIndex(1)

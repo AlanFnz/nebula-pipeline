@@ -26,7 +26,9 @@ def panels():
     def make(effect='tape', width=380):
         widget = CompositionPanel(animated(effect)); widget.resize(width, 750)
         widget.show(); widgets.append(widget)
-        widget.effects_panel.inspect_effect(effect); app.processEvents()
+        widget.effects_panel.inspect_effect(effect)
+        if effect == 'particles': widget.object_editor.parameter_tabs.setCurrentIndex(0)
+        app.processEvents()
         return widget
     yield make
     for widget in widgets: widget.close()
@@ -35,7 +37,7 @@ def panels():
 
 @pytest.mark.parametrize('effect', tuple(CREATIVE_CONTROLS))
 def test_pilot_navigation_is_read_only_and_first_creative_value_visible(panels, effect):
-    panel = panels(effect); editor = panel.effects_panel
+    panel = panels(effect); editor = panel.object_editor if effect == 'particles' else panel.effects_panel
     original = copy.deepcopy(panel.document)
     assert editor.parameter_tabs.tabText(0) == 'Creative'
     assert editor.creative_panel.isVisible() and not editor.parameter_host.isVisible()
@@ -117,7 +119,7 @@ def test_bypass_and_effect_restore_keep_other_adjustments(panels):
 
 
 def test_particle_controls_explain_required_motion_and_groups(panels):
-    panel = panels('particles'); editor = panel.effects_panel
+    panel = panels('particles'); editor = panel.object_editor
     assert editor.creative_panel.controls['outward'].input.isEnabled()
     panel.document = new_piece('model', model='particles'); panel.refresh(); editor.inspect_effect('particles')
     assert not editor.creative_panel.controls['outward'].input.isEnabled()

@@ -36,13 +36,14 @@ def test_prismatic_controls_edit_and_undo_independent_geometry_and_finish(window
     window.undo_composition()
     assert controls['prismatic_field.turn_settle'].input.value()==.6
     composer.object_panel.details.click()
-    panel=composer.effects_panel
+    panel=composer.object_editor
     assert panel.effect_id=='prismatic_field'
     panel.reveal_control('prismatic_field.fold_period')
     assert not panel.controls['prismatic_field.fold_period'].isHidden()
     panel.controls['prismatic_field.fold_period'].input.setValue(4.)
     assert window.composition['effects']['prismatic_field']['params']['prismatic_field.fold_period']==4.
     window.undo_composition()
+    panel=composer.effects_panel
     panel.inspect_effect('film_emulsion')
     panel.reveal_control('film_emulsion.grain')
     assert not panel.controls['film_emulsion.grain'].isHidden()
