@@ -15,7 +15,8 @@ from synth_contact_recipes import contact_print_composition
 
 
 STARTERS = (
-    ('text-contact-film', 'Text / FAC51 contact film · 3.25s', contact_print_composition),
+    ('text-contact-film', 'Text / FAC51 contact film · 8s', contact_print_composition),
+    ('text-contact-film-original', 'Text / FAC51 contact film (reference cut) · 3.25s', lambda: contact_print_composition(extended=False)),
     ('text-dark-print', 'Text / dark optical print · 7.5s', dark_print_composition),
     ('text-reading-print', 'Text / reading print · 7s', reading_print_composition),
     ('text-film-burn', 'Text / burning print · 10.25s', film_print_composition),
@@ -55,6 +56,7 @@ STARTERS = (
 # First appearance in the repository, retained independently of app builds.
 STARTER_DATES = {
     'text-contact-film': '2026-10-25',
+    'text-contact-film-original': '2026-10-25',
     'text-dark-print': '2026-10-25',
     'text-reading-print': '2026-10-23',
     'text-film-burn': '2026-10-23',

@@ -1,10 +1,12 @@
-"""FAC51 contact-print study: 39 authored exposures at 12 fps."""
+"""FAC51 contact film: reference opening and an eight-second extended cut."""
+import copy
+import math
 from synth import MODULE_BY_ID
 from synth_composition import composition_from_sequence, normalize_composition
 from synth_sequence import normalize_sequence
 
 
-def contact_print_composition():
+def _reference_sequence():
     enabled=('text','contact_print')
     common={'speed':1.,'depth':0.,'treatment_fps':12}
     for module in enabled:
@@ -79,6 +81,87 @@ def contact_print_composition():
     seq=normalize_sequence(dict(schema_version=1,render_version=2,name='Text / FAC51 contact film',
         duration=3.25,fps=12,seed=251012,canvas={'width':956,'height':720,'framing':'native'},
         states=states,cues=cues))
-    project=composition_from_sequence(seq)
-    project['phrases']['custom']['name']='FAC51 / positive / blackout / negative'
+    return seq
+
+
+def _extend_exposures(seq):
+    """Append seven unequal film gestures; keep the reference's opening intact."""
+    base = seq['states']['exposure-25']['overrides']
+
+    def append(settings, **text):
+        frame = len(seq['cues'])
+        overrides = dict(base)
+        overrides.update({f'contact_print.{key}': value for key, value in settings.items()})
+        overrides.update({f'text.{key}': value for key, value in text.items()})
+        name = f'exposure-{frame:02}'
+        seq['states'][name] = dict(preset='Reference blinds', enabled=['text', 'contact_print'],
+                                  overrides=overrides)
+        seq['cues'].append(dict(time=frame / 12, state=name, transition='cut'))
+
+    # A quick catch in the film transport opens into a new, uneven light burst.
+    for i, exposure in enumerate((.12, .6, 1.35, 2., 1.1, 1.65, .45)):
+        ease = 1 - (1 - i / 6) ** 3
+        append(dict(opening=.16 + .84 * ease, exposure=exposure,
+                    gate_angle=14 * (1 - ease), gate_x=.41 + .09 * ease,
+                    leak_x=.62 - .23 * ease, leak_y=.7, ink_lift=.3,
+                    edge_dye=.5, scale=1.04, neighbor=.4 * (1 - ease)))
+
+    # Luminous ink hangs for a different length, then briefly loses its exposure.
+    for i, exposure in enumerate((.04, .12, .08, .32, .16, .05, .04, .65, .02)):
+        append(dict(exposure=exposure, positive=1., ink_lift=0.,
+                    erosion=(.32, .18, .12, .24, .1, .16, .22, .5, .7)[i],
+                    halation=.6, edge_dye=.12, scale=.96, melt=2.2,
+                    leak_x=.44, density=.25 if i < 7 else .72),
+               badge_border=.009, badge_subtitle='')
+
+    # Longer negative dwell: the label can be read while the light travels across it.
+    for i, exposure in enumerate((.15, 1.35, 2.1, 1.8, 2., 2.25, 2.3,
+                                  1.95, 1.6, 1.85, .65, 1.2, .2)):
+        ease = (1 - math.cos(math.pi * i / 12)) / 2
+        append(dict(exposure=exposure, leak_x=.28 + .34 * ease,
+                    leak_y=.62 - .12 * ease, leak_width=.33,
+                    ink_lift=.45, scale=1., edge_dye=.65,
+                    grain=.18, erosion=.055, melt=.8))
+
+    # A short mechanical interruption, deliberately shorter than the first blackout.
+    for opening, shutter, angle in ((.6, .22, -12), (.18, .4, -18), (0., 0., 0.)):
+        append(dict(opening=opening, shutter=shutter, shutter_x=.54,
+                    shutter_angle=18., gate_angle=angle, exposure=.1, density=.9))
+
+    # A ghosted positive impression recovers out of dense stock.
+    for i, exposure in enumerate((.02, .04, .08, .15, .06, .35, .7, .25)):
+        ease = 1 - (1 - i / 7) ** 3
+        append(dict(exposure=exposure, positive=1., ink_lift=0.,
+                    opening=.68 + .32 * ease, density=.9 - .65 * ease,
+                    erosion=.68 - .52 * ease, brightness=.6 + .32 * ease,
+                    halation=.7, melt=2.6, grain=.22, scale=1.02,
+                    edge_dye=.3, leak_y=.72, leak_x=.48),
+               badge_border=.012, badge_subtitle='')
+
+    # One clear final impression; the exposure breathes without repeating a cycle.
+    for i, exposure in enumerate((2.15, 2.35, 2.05, 1.8, 2.1, 1.95, 1.7, 1.5, 1.65, 1.1)):
+        ease = (1 - math.cos(math.pi * i / 9)) / 2
+        append(dict(exposure=exposure, leak_x=.35 + .1 * ease,
+                    leak_y=.5 + .18 * ease, ink_lift=.62, edge_dye=.8,
+                    erosion=.035, grain=.18, scale=1.02, melt=.7))
+
+    # Gate slip and a diminishing red sliver finish the extended piece.
+    for i, opening in enumerate((1., .9, .74, .34, .12, .03, 0.)):
+        ease = (i / 6) ** 2
+        append(dict(opening=opening, gate_angle=24 * ease,
+                    gate_x=.5 + .18 * ease, gate_y=.5 - .12 * ease,
+                    exposure=(.9, 1.1, .3, .1, .04, .01, 0.)[i],
+                    density=.55 * ease, edge_dye=.2, ink_lift=.2),
+               opacity=1. if i < 3 else 0.)
+    seq['duration'] = 8.
+
+
+def contact_print_composition(extended=True):
+    seq = copy.deepcopy(_reference_sequence())
+    if extended:
+        _extend_exposures(seq)
+    project=composition_from_sequence(normalize_sequence(seq))
+    project['phrases']['custom']['name'] = (
+        'FAC51 / exposures / afterimages / film transport' if extended
+        else 'FAC51 / positive / blackout / negative')
     return normalize_composition(project)

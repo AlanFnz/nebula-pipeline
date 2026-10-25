@@ -18,14 +18,27 @@ def test_study_roundtrip_authored_frames_and_seek_order(tmp_path):
     assert p == contact_print_composition()
     save_composition(tmp_path/'study.json',p)
     s=compile_composition(load_composition(tmp_path/'study.json'))
-    assert s['fps']==12 and s['duration']==3.25
+    assert s['fps']==12 and s['duration']==8.
     assert s['canvas']['width']==956 and s['canvas']['height']==720
-    assert len(s['cues'])==39
-    originals={n:render_sequence_frame(s,n/12,(128,96)).tobytes() for n in (0,7,14,16,25,38)}
-    for n in (38,14,7,25,0,16):
+    assert len(s['cues'])==96
+    originals={n:render_sequence_frame(s,n/12,(128,96)).tobytes() for n in (0,7,14,16,25,38,39,54,67,78,88,94)}
+    for n in (94,88,78,67,54,39,38,14,7,25,0,16):
         assert render_sequence_frame(s,n/12,(128,96)).tobytes()==originals[n]
     assert set(originals[16])=={0}
-    assert len(set(originals.values()))==6
+    assert len(set(originals.values()))==12
+
+
+def test_extended_cut_retains_reference_opening_and_does_not_loop():
+    original=starter_composition('text-contact-film-original')
+    assert original==contact_print_composition(extended=False)
+    short=compile_composition(original)
+    long=compile_composition(contact_print_composition())
+    assert short['duration']==3.25
+    for frame in range(39):
+        assert render_sequence_frame(short,frame/12,(96,72)).tobytes()==render_sequence_frame(long,frame/12,(96,72)).tobytes()
+    assert set(render_sequence_frame(long,95/12,(96,72)).tobytes())=={0}
+    assert len(long['cues'])==96
+    assert all(cue['transition']=='cut' for cue in long['cues'])
 
 
 @pytest.mark.parametrize('source_kind',['text','video'])
