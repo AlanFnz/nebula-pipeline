@@ -570,6 +570,9 @@ def normalize_composition(raw):
     result["macros"] = _controls(raw.get("macros", {}))
     result["geometry"] = _geometry(raw.get("geometry", {}))
     result["effects"] = normalize_effects(raw.get("effects", {}))
+    if 'effect_order' in raw:
+        from synth_effect_order import normalize_order
+        result['effect_order'] = normalize_order(raw['effect_order'])
     result["variation"] = _number(raw.get("variation", 0), "Variation", 0, 2**31 - 1, True)
     result["locks"] = [key for key in raw.get("locks", []) if key in MACROS]
     phrases = result.get("phrases")
@@ -863,6 +866,8 @@ def compile_composition(raw, *, base_states=None, project_states=None, project_b
     if project_states is not None: project_states.clear()
     if project_base_states is not None: project_base_states.clear()
     result = copy.deepcopy(project["source"])
+    if 'effect_order' in project:
+        result['effect_order'] = list(project['effect_order'])
     result.pop("soundtrack", None)
     result.pop("audio_reactivity", None)
     if "audio_reactivity" in project:

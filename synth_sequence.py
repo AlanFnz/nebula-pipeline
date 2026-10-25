@@ -61,6 +61,9 @@ def normalize_sequence(raw=None):
         from synth_soundtrack import normalize_soundtrack
         result['soundtrack'] = normalize_soundtrack(raw['soundtrack'])
     result['render_version'] = render_version(raw)
+    if 'effect_order' in raw:
+        from synth_effect_order import normalize_order
+        result['effect_order'] = normalize_order(raw['effect_order'])
     result["name"] = str(raw.get("name", result["name"]))
     if "canvas" in raw:
         result["canvas"] = normalize_canvas(raw["canvas"])
@@ -178,6 +181,8 @@ def _state_preset(sequence, state_name):
         preset['modules'].append(dict(id=identifier, enabled=False,
                                       params={p.key: p.default for p in MODULE_BY_ID[identifier].params}))
     preset['render_version'] = render_version(sequence)
+    if 'effect_order' in sequence:
+        preset['effect_order'] = sequence['effect_order']
     for path, value in state.get("overrides", {}).items():
         _apply_override(preset, path, value)
     if "enabled" in state:

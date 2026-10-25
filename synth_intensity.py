@@ -103,3 +103,10 @@ class SignalBranches:
     def result(self):
         for effect in tuple(self.active): self.end(effect)
         return self.signals[frozenset()]
+
+    def snapshot(self):
+        """Read the mixed source without closing compound effects in flight."""
+        branch = SignalBranches(None)
+        branch.signals = self.signals.copy()
+        branch.active = self.active.copy()
+        return branch.result().copy()
