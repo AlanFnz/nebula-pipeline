@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.35.0 — 2026-10-25
+
+- Extend Text / FAC51 contact film to eight seconds with new exposure bursts,
+  luminous afterimages, longer readable impressions and an irregular film-gate
+  exit. Retain the original opening and its 12 fps cadence.
+- Keep the unchanged 3.25-second reference cut available as a separate study.
+  Existing saved compositions and effect rendering remain unchanged.
+
 ## 0.34.0 — 2026-10-25
 
 - Add Text / FAC51 contact film: a separate 3.25-second, 956×720 study with
