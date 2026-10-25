@@ -4,7 +4,8 @@ os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 
 import pytest
 from PySide6.QtCore import QPoint, QPointF, QSettings, Qt, QThreadPool
-from PySide6.QtTest import QTest
+from PySide6.QtGui import QWheelEvent
+from PySide6.QtTest import QSignalSpy, QTest
 from PySide6.QtWidgets import QApplication
 
 from synth_studio import SynthStudio
@@ -35,18 +36,62 @@ def test_fit_percent_zoom_panning_and_reset_use_canvas_dimensions(app):
     finally: viewer.close()
 
 
-def test_wheel_zoom_retains_point_under_cursor_and_plain_scroll_only_pans(app):
+@pytest.mark.parametrize('modifier', [Qt.KeyboardModifier.NoModifier,
+                                     Qt.KeyboardModifier.ControlModifier,
+                                     Qt.KeyboardModifier.MetaModifier])
+def test_wheel_zoom_retains_point_under_cursor_and_shift_scroll_pans(app, modifier):
     viewer = SynthViewer(); viewer.resize(400, 320); viewer.show(); viewer.set_zoom(2.); app.processEvents()
     try:
         anchor = QPoint(260, 170)
         before = viewer.target_rect(); position = (QPointF(anchor) - before.topLeft()) / viewer.display_scale()
-        QTest.wheelEvent(viewer.windowHandle(), anchor, QPoint(0, 120), stateKey=Qt.KeyboardModifier.ControlModifier)
+        QTest.wheelEvent(viewer.windowHandle(), anchor, QPoint(0, 120), stateKey=modifier)
         after = viewer.target_rect()
         assert viewer.zoom > 2.
         assert ((QPointF(anchor) - after.topLeft()) / viewer.display_scale() - position).manhattanLength() < .001
         zoom = viewer.zoom; pan = QPointF(viewer.pan)
-        QTest.wheelEvent(viewer.windowHandle(), anchor, QPoint(0, -120))
+        QTest.wheelEvent(viewer.windowHandle(), anchor, QPoint(0, -120), stateKey=Qt.KeyboardModifier.ShiftModifier)
         assert viewer.zoom == zoom and viewer.pan != pan
+        QTest.wheelEvent(viewer.windowHandle(), anchor, QPoint(0, -120), stateKey=modifier)
+        assert viewer.zoom == pytest.approx(2.)
+    finally: viewer.close()
+
+
+def send_trackpad_scroll(viewer, pixels, *, angle=QPoint(), phase=Qt.ScrollPhase.ScrollUpdate):
+    anchor = QPointF(260, 170)
+    event = QWheelEvent(anchor, viewer.mapToGlobal(anchor), pixels, angle,
+                        Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier, phase, False)
+    QApplication.sendEvent(viewer, event)
+
+
+def test_trackpad_zoom_is_continuous_and_gesture_boundaries_preserve_fit(app):
+    viewer = SynthViewer(); viewer.resize(400, 320); viewer.show(); app.processEvents()
+    try:
+        spy = QSignalSpy(viewer.zoomChanged)
+        for phase in (Qt.ScrollPhase.ScrollBegin, Qt.ScrollPhase.ScrollEnd):
+            send_trackpad_scroll(viewer, QPoint(), phase=phase)
+        # A trackpad's horizontal component is not a vertical zoom fallback.
+        send_trackpad_scroll(viewer, QPoint(10, 0), angle=QPoint(0, 120))
+        assert viewer.zoom == 0. and spy.count() == 0
+        fit_scale = viewer.display_scale()
+        send_trackpad_scroll(viewer, QPoint(0, 1), angle=QPoint(0, 120))
+        assert fit_scale < viewer.zoom < fit_scale * 1.01
+
+        viewer.set_zoom(2.)
+        anchor = QPointF(260, 170)
+        position = (anchor - viewer.target_rect().topLeft()) / viewer.display_scale()
+        for _ in range(12):
+            send_trackpad_scroll(viewer, QPoint(0, 1))
+        assert viewer.zoom == pytest.approx(2. * 2 ** .1)
+        assert ((anchor - viewer.target_rect().topLeft()) / viewer.display_scale() - position).manhattanLength() < .001
+        for _ in range(12):
+            send_trackpad_scroll(viewer, QPoint(0, -1))
+        assert viewer.zoom == pytest.approx(2.)
+        send_trackpad_scroll(viewer, QPoint(0, 1000000))
+        assert viewer.zoom == 8.
+        send_trackpad_scroll(viewer, QPoint(0, -1000000))
+        assert viewer.zoom == .05
+        QTest.mouseDClick(viewer, Qt.MouseButton.LeftButton, pos=QPoint(200, 160))
+        assert viewer.zoom == 0. and viewer.pan.isNull()
     finally: viewer.close()
 
 
@@ -57,6 +102,10 @@ def test_workspace_zoom_and_column_width_do_not_change_the_document(app):
         generation = window.settings_generation
         window.view_zoom.setValue(150)
         assert window.viewer.zoom == 1.5
+        send_trackpad_scroll(window.viewer, QPoint(0, 12))
+        assert window.viewer.zoom > 1.5
+        assert window.view_zoom.value() == pytest.approx(window.viewer.zoom * 100, abs=.05)
+        assert not window.fit_view_button.isChecked()
         before = window.splitter.sizes()
         window.splitter.moveSplitter(before[0] - 100, 1); app.processEvents()
         assert window.splitter.sizes()[1] > before[1] + 70

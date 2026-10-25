@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.37.2 — 2026-10-26
+
+- Zoom the monitor directly with the mouse wheel or two-finger trackpad scroll,
+  anchored around the pointer. Preserve smooth trackpad input, bounded zoom,
+  drag panning and double-click Fit; Shift-scroll pans. Keep the zoom readout
+  synchronized without changing the composition, preview quality or export.
+
 ## 0.37.1 — 2026-10-26
 
 - Restore composition Undo/Redo shortcuts when a non-editable menu or slider
