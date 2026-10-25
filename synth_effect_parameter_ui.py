@@ -11,6 +11,8 @@ from synth_effects import parameter
 from synth_artwork_ui import ArtworkControl
 from synth_mesh_ui import MeshControl
 from synth_text_ui import TextControl
+from synth_font_ui import FontControl
+from synth_fonts import font_label
 from synth_ink_timing import DURATION_KEYS
 from synth_parameter_presentation import presentation
 
@@ -39,6 +41,7 @@ class ParameterRowLayout(QGridLayout):
 
 def format_value(path, value):
     spec = parameter(path)
+    if spec.kind == 'font': return font_label(value, spec.choices)
     if spec.kind == 'text': return value.replace('\n', ' / ')[:60] or 'Empty text'
     if spec.kind == 'mesh': return 'Embedded 3D model' if value else 'No model'
     if spec.kind == 'artwork': return 'Embedded artwork' if value else 'No artwork'
@@ -80,7 +83,9 @@ class EffectParameter(QWidget):
             self.hue_swatch = QLabel(); self.hue_swatch.setFixedSize(14, 14)
             self.hue_swatch.setAccessibleName(spec.label + ' hue indication')
             label_row.addWidget(self.hue_swatch)
-        if spec.kind in ('artwork', 'text', 'mesh'):
+        if spec.kind == 'font':
+            self.input = FontControl(spec.choices); self.input.changed.connect(self.emit_change)
+        elif spec.kind in ('artwork', 'text', 'mesh'):
             self.input = {'artwork': ArtworkControl, 'text': TextControl, 'mesh': MeshControl}[spec.kind]()
             self.input.changed.connect(self.emit_change)
         elif self.presentation.checkbox:
@@ -106,7 +111,7 @@ class EffectParameter(QWidget):
             self.slider.sliderMoved.connect(self.preview_slider)
             self.slider.valueChanged.connect(self.commit_slider)
             self.input.valueChanged.connect(self.sync_slider)
-        block_input = spec.kind in ('artwork', 'text', 'mesh')
+        block_input = spec.kind in ('artwork', 'text', 'mesh', 'font')
         self._block_input = block_input
         self.input.setMinimumWidth(0 if block_input or spec.choices else 110)
         if not block_input and not spec.choices: self.input.setMaximumWidth(145)
@@ -360,6 +365,7 @@ class EffectParameter(QWidget):
             if self.presentation.checkbox:
                 self.input.setChecked(bool(value))
                 self.input.setText(self.spec.choices[int(value)])
+            elif self.spec.kind == 'font': self.input.setValue(value)
             elif self.spec.choices: self.input.setCurrentIndex(int(value))
             else:
                 if self.numeric_maximum is not None: self.input.setMaximum(max(value,self.numeric_maximum))
@@ -392,7 +398,7 @@ class EffectParameter(QWidget):
         self.label.setAccessibleDescription(explanation)
         self.input.setAccessibleDescription(explanation)
         self.input.setToolTip(self._input_hint + ' ' + explanation)
-        if self.spec.choices:
+        if self.spec.choices and self.spec.kind != 'font':
             self.input.setToolTip(self.spec.choices[int(value)] + '. ' + self.input.toolTip())
             if not self.presentation.checkbox:
                 self.input.view().setMinimumWidth(max(self.input.fontMetrics().horizontalAdvance(choice) for choice in self.spec.choices) + 40)

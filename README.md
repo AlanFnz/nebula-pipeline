@@ -541,9 +541,17 @@ Repeat size floor reduces copies when needed, keeping shorter words large too.
 Automatic wrapping is off in this study. Its updated layout is frozen in
 `presets/text-transmission-v4.json`; earlier snapshots and saved documents
 retain their existing layouts.
-Four bundled fonts (Archivo Black, Anton, Space Mono Bold and Bodoni Moda) render identically
+Six bundled fonts (Archivo Black, Anton, Space Mono Bold, Bodoni Moda, Fraunces and Fredoka) render identically
 without depending on installed system fonts; their licenses and pinned source
 hashes are in [`assets/fonts`](assets/fonts/README.md).
+
+**Object → Text → Typeface** also offers the active fonts on your Mac, with
+search, family/style names and a preview sample. This works across every text
+study, including word morphs, reading montages and subtitles. System styles keep
+their installed weight; bundled variable fonts expose Font weight. Existing
+studies retain their bundled fonts unless explicitly changed. Missing system
+fonts are reported without substituting another font. See
+[system typefaces](docs/system-typefaces.md) for portability and supported formats.
 
 **Text / opium · 4.5s** adds a monochrome study with three exposure pulses.
 Change **Object → Wording → Apply text** to replace OPIUM; the bold center and

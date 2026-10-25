@@ -630,7 +630,8 @@ class EffectsPanel(QWidget):
         if text:
             visible_paths = TEXT_TIMING if text_timing else tuple(path for path in effect.paths if path not in TEXT_TIMING)
             ranges = self.summary['text']['ranges']
-            if ranges['text.font'][0] == ranges['text.font'][1] and ranges['text.font'][0] not in (3, 4, 5):
+            from synth_fonts import variable_weight
+            if ranges['text.font'][0] == ranges['text.font'][1] and not variable_weight(ranges['text.font'][0]):
                 visible_paths = tuple(path for path in visible_paths if path != 'text.weight')
             reveal = ranges['text.reveal']
             morph = reveal[0] == reveal[1] == 3

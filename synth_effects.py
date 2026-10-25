@@ -13,6 +13,7 @@ from synth import MODULE_BY_ID, Param, curated_presets
 from synth_artwork import validate_artwork
 from synth_mesh import validate_mesh
 from synth_text import validate_text
+from synth_fonts import validate_font
 from synth_ink_timing import stage_durations
 from synth_creative import creative_overrides, merged_creative, normalize_creative
 from synth_instances import InstanceRegistry, instance_ids, state_instance_ids
@@ -176,6 +177,9 @@ def normalize_effects(raw):
             if path not in EFFECT_BY_ID[key].paths:
                 raise ValueError(f"Unknown {key} parameter: {path}")
             spec = parameter(path)
+            if spec.kind == 'font':
+                values[path] = validate_font(value, spec.maximum)
+                continue
             if spec.kind == 'text':
                 values[path] = validate_text(value)
                 continue
@@ -297,7 +301,11 @@ def describe_effects(states):
         for path in effect.paths:
             module = path.split(".")[0]
             values = [values[path] for values, enabled in active if module in enabled or path == intensity_path(effect.id)]
-            ranges[path] = (min(values), max(values)) if values else (parameter(path).default,) * 2
+            if values and parameter(path).kind == 'font':
+                ordered = sorted(values, key=lambda value: (isinstance(value, str), value))
+                ranges[path] = (ordered[0], ordered[-1])
+            else:
+                ranges[path] = (min(values), max(values)) if values else (parameter(path).default,) * 2
         if effect.id == 'ink_bloom' and not active:
             defaults = {spec.key: spec.default for spec in MODULE_BY_ID['ink_bloom'].params}
             for key, value in stage_durations(defaults).items():

@@ -38,6 +38,7 @@ from synth_studies_ui import StudiesDialog
 from synth_new_piece_ui import NewPieceDialog
 from synth_add_section_ui import AddVideoSectionDialog
 from synth_starting_points import new_piece
+from synth_font_ui import FontControl
 from synth_artwork_ui import ArtworkControl
 from synth_mesh_ui import MeshControl
 from synth_text_ui import TextControl
@@ -61,8 +62,9 @@ class SynthControl(QWidget):
         self.spec = spec
         self.lock = QCheckBox("lock")
         self.lock.setToolTip("Keep this parameter fixed when Generate variation is pressed.")
-        if spec.kind in ('artwork', 'text', 'mesh'):
-            self.spin = {'artwork': ArtworkControl, 'text': TextControl, 'mesh': MeshControl}[spec.kind](); self.spin.setValue(value)
+        if spec.kind in ('artwork', 'text', 'mesh', 'font'):
+            self.spin = FontControl(spec.choices) if spec.kind == 'font' else {'artwork': ArtworkControl, 'text': TextControl, 'mesh': MeshControl}[spec.kind]()
+            self.spin.setValue(value)
             self.spin.changed.connect(lambda _value: self.changed.emit())
             layout = QVBoxLayout(self); layout.addWidget(QLabel(spec.label)); layout.addWidget(self.spin)
             self.lock.setChecked(True); self.lock.hide()
@@ -107,10 +109,10 @@ class SynthControl(QWidget):
         layout.addWidget(self.lock)
 
     def value(self):
-        return self.spin.currentIndex() if self.spec.choices else self.spin.value()
+        return self.spin.currentIndex() if self.spec.choices and self.spec.kind != 'font' else self.spin.value()
 
     def set_value(self, value):
-        if self.spec.choices:
+        if self.spec.choices and self.spec.kind != 'font':
             self.spin.setCurrentIndex(int(value))
         else:
             self.spin.setValue(value)
@@ -2019,7 +2021,7 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
             self.sequence_state_updating = True
             try:
                 for path, control in self.sequence_state_controls.items():
-                    if control.lock.isChecked() or control.spec.kind in ('artwork', 'text', 'mesh'): continue
+                    if control.lock.isChecked() or control.spec.kind in ('artwork', 'text', 'mesh', 'font'): continue
                     spec = control.spec
                     delta = (spec.maximum - spec.minimum) * .12
                     value = max(spec.minimum, min(spec.maximum, control.value() + rng.uniform(-delta, delta)))
@@ -2037,7 +2039,7 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
         with QSignalBlocker(self.global_controls["seed"]):
             self.global_controls["seed"].setValue(self.preset["seed"])
         for (index, key), control in self.controls.items():
-            if control.lock.isChecked() or control.spec.kind in ('artwork', 'text', 'mesh'): continue
+            if control.lock.isChecked() or control.spec.kind in ('artwork', 'text', 'mesh', 'font'): continue
             spec = control.spec
             if spec.kind == "float": control.set_value(round(rng.uniform(spec.minimum, spec.maximum) / spec.step) * spec.step)
             else: control.set_value(rng.randint(int(spec.minimum), int(spec.maximum)))
