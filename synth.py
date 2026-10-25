@@ -771,6 +771,9 @@ def normalize_synth(raw=None):
     if int(raw.get("schema_version", 1)) != SYNTH_SCHEMA_VERSION:
         raise ValueError(f"Unsupported synth schema version: {raw.get('schema_version')}")
     result = copy.deepcopy(base)
+    if 'effect_order' in raw:
+        from synth_effect_order import normalize_order
+        result['effect_order'] = normalize_order(raw['effect_order'])
     result.update(normalize_canvas(raw))
     for key in ("name", "variation_mode"):
         if key in raw:
@@ -1407,21 +1410,24 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
 
     source_effects = {entry['id']: entry['params'] for entry in p['modules']
                       if entry['enabled'] and entry['id'] in ('chroma_print', 'slice_echo', 'stretch_echo', 'signal_etch', 'scan_modulation', 'signal_repetition', 'contour_melt', 'print_collage')}
-    def treat_source(image):
+    def treat_source(image, only=None, original_source=None):
         reference = content_size(p, (width, height))
-        source_pixels = untreated if untreated is not None else image
-        if 'print_collage' in source_effects:
+        source_pixels = untreated if untreated is not None else original_source if original_source is not None else image
+        # The legacy group retains its exact intermediate samples. Explicit
+        # ordering dispatches one independent pass with a stable original input.
+        effects = source_effects if only is None else {only: source_effects[only]}
+        if 'print_collage' in effects:
             image = blend_pass(image, effect_amount(source_effects['print_collage']), lambda pixels: render_print_collage(pixels, source_effects['print_collage'], continuous_time, p['speed'], _seed(p['seed'], 'print-collage'), reference, reading))
-        if 'chroma_print' in source_effects:
+        if 'chroma_print' in effects:
             image = blend_pass(image, effect_amount(source_effects['chroma_print']), lambda pixels: render_chroma_print(pixels, source_effects['chroma_print'], reference))
-        if 'slice_echo' in source_effects:
+        if 'slice_echo' in effects:
             image = blend_pass(image, effect_amount(source_effects['slice_echo']), lambda pixels: render_slice_echo(pixels, source_effects['slice_echo'], continuous_time,
                                       p['speed'], _seed(p['seed'], 'slice-echo'), reference))
-        if 'contour_melt' in source_effects:
+        if 'contour_melt' in effects:
             image = blend_pass(image, effect_amount(source_effects['contour_melt']), lambda pixels: render_contour_melt(pixels, source_effects['contour_melt'], continuous_time,
                                         p['speed'], _seed(p['seed'], 'contour-melt'), reference))
-        original = image
-        if 'stretch_echo' in source_effects:
+        original = original_source if original_source is not None else image
+        if 'stretch_echo' in effects:
             dx, dy = object_offset(p, (width, height))
             alternate = None
             echo = source_effects['stretch_echo']
@@ -1432,13 +1438,13 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
                     back_brightness=0.), continuous_time, p)
             image = blend_pass(image, effect_amount(source_effects['stretch_echo']), lambda pixels: render_stretch_echo(pixels, source_effects['stretch_echo'], continuous_time,
                                         p['speed'], (width / 2 + dx, height / 2 + dy), reference, alternate))
-        if 'signal_etch' in source_effects:
+        if 'signal_etch' in effects:
             image = blend_pass(image, effect_amount(source_effects['signal_etch']), lambda pixels: render_signal_etch(pixels, source_effects['signal_etch'], continuous_time,
                                        p['speed'], _seed(p['seed'], 'signal-etch'), reference, original))
-        if 'scan_modulation' in source_effects:
+        if 'scan_modulation' in effects:
             image = blend_pass(image, effect_amount(source_effects['scan_modulation']), lambda pixels: render_scan_modulation(pixels, source_effects['scan_modulation'], continuous_time,
                                            p['speed'], _seed(p['seed'], 'scan-modulation'), reference, source_pixels))
-        if 'signal_repetition' in source_effects:
+        if 'signal_repetition' in effects:
             image = blend_pass(image, effect_amount(source_effects['signal_repetition']), lambda pixels: render_signal_repetition(pixels, source_effects['signal_repetition'], continuous_time,
                                              p['speed'], _seed(p['seed'], 'signal-repetition'), reference, source_pixels, repetition_mask))
         return image
@@ -1455,13 +1461,35 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
         reversed_signal = render_broadcast_exposure(image, broadcast, continuous_time, p['speed'])
         return image * (1 - broadcast['mix']) + reversed_signal * broadcast['mix']
 
-    for index, entry in enumerate(p["modules"]):
-        if index == source_end and optical:
+    custom_order = bool(p.get('effect_order'))
+    scheduled = list(enumerate(p['modules']))
+    original_pixels = None
+    needs_original = bool((scan and scan['input']) or (repetition and repetition['input']) or 'signal_etch' in source_effects)
+    ordered_boundary = None
+    if custom_order:
+        from synth_effect_order import SOURCES, ALIASES, resolved_order, movable
+        sources = [(index, entry) for index, entry in scheduled if entry['id'] in SOURCES]
+        rank = {key: index for index, key in enumerate(resolved_order(p))}
+        image_passes = [(index, entry) for index, entry in scheduled
+                        if movable(ALIASES.get(entry['id'], entry['id']))]
+        image_passes.sort(key=lambda item: rank[ALIASES.get(item[1]['id'], item[1]['id'])])
+        scheduled = sources + image_passes
+        ordered_boundary = len(sources)
+
+    for step, (index, entry) in enumerate(scheduled):
+        if custom_order and step == ordered_boundary:
+            # Original-source inputs retain the generated source even after
+            # compound effects rejoin. Do not close those branches to sample it.
+            if needs_original: original_pixels = signals.snapshot()
+            if polarity_index is not None:
+                signals.begin('broadcast', effect_amount(broadcast))
+                signals.apply(early_exposure)
+        if not custom_order and index == source_end and optical:
             signals.apply(compose_optical)
-        if index == polarity_index:
+        if not custom_order and index == polarity_index:
             signals.begin('broadcast', effect_amount(broadcast))
             signals.apply(early_exposure)
-        if index == source_end and source_effects:
+        if not custom_order and index == source_end and source_effects:
             signals.apply(lambda image, omitted: treat_source(image))
         instance_id = entry.get("id")
         module_id = base_id(instance_id)
@@ -1471,6 +1499,14 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
         if source_image is not None and module_id not in VIDEO_MODULES:
             if module_id != 'low_res':
                 raise ValueError(f'{module_id} requires a generated object, not a video source')
+            continue
+        if custom_order and module_id == 'optical_print':
+            signals.apply(compose_optical)
+            continue
+        if custom_order and module_id in source_effects:
+            def ordered_treatment(image, omitted):
+                return treat_source(image, module_id, original_pixels)
+            signals.apply(ordered_treatment)
             continue
         renderer = RENDERERS.get(module_id)
         if renderer is None:
@@ -1510,12 +1546,12 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
         if module_id == 'slab': signals.end('cloud')
         if module_id == 'smear': signals.end('ghosts')
         if module_id == 'broadcast': signals.end('broadcast')
-    if source_end == len(p['modules']) and optical:
+    if not custom_order and source_end == len(p['modules']) and optical:
         signals.apply(compose_optical)
-    if polarity_index == len(p['modules']):
+    if not custom_order and polarity_index == len(p['modules']):
         signals.begin('broadcast', effect_amount(broadcast))
         signals.apply(early_exposure)
-    if source_end == len(p['modules']) and source_effects:
+    if not custom_order and source_end == len(p['modules']) and source_effects:
         signals.apply(lambda image, omitted: treat_source(image))
     arr = signals.result()
     image = Image.fromarray(np.clip(arr * 255, 0, 255).astype(np.uint8), "RGB")

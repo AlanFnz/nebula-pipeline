@@ -1,7 +1,7 @@
 """Stable identities for additional image passes, without altering legacy slots.
 
-Only Tape damage is currently repeatable. New passes run in creation order
-after the established image chain; the original module order/seeds stay intact.
+Only Tape damage is currently repeatable. New passes default to creation order
+after the image chain; explicit effect order can move them without changing seeds.
 """
 from collections.abc import Mapping
 from dataclasses import replace
@@ -63,5 +63,5 @@ class InstanceRegistry(Mapping):
             remap = lambda path: key + path[len(base):]
             changes.update(paths=tuple(map(remap, original.paths)), modules=(key,),
                            looks=tuple((label, {remap(p): v for p, v in values.items()}) for label, values in original.looks),
-                           description=original.description + ' Independent pass after the existing image effects. Each pass has its own settings and automation.')
+                           description=original.description + ' Independent pass with its own settings and automation; movable in project effect order.')
         return replace(original, **changes)
