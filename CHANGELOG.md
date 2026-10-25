@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.32.1 — 2026-10-25
+
+- Fix Optical overprint running after screen and tape finishes. Build its complete
+  composition before image finishing, so Broadcast wear curves and interrupts
+  the background and text together instead of turning the CRT frame into part
+  of the text impression. This also fixes the order for CRT and tape treatments.
+- Preserve project/clip scope, intensity, bypass, independent Tape damage passes,
+  module slots and seeds. Untreated optical-print studies and other existing
+  studies retain their pixels; combinations with finishing effects intentionally
+  render in the corrected order.
+
 ## 0.32.0 — 2026-10-25
 
 - Refine Text / dark optical print with cropped serif exposures, a second violet
