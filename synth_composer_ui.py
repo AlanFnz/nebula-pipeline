@@ -811,6 +811,8 @@ class CompositionPanel(QWidget):
         # The composer owns the persistent scope selector for every page.
         self.effects_panel.scope_label.hide()
         self.effects_panel.edited.connect(self.change_effect)
+        self.effects_panel.order_requested.connect(self.reorder_effect)
+        self.effects_panel.order_reset_requested.connect(self.reset_effect_order)
         self.effects_panel.automation_requested.connect(self.parameter_automation)
         self.effects_panel.instance_requested.connect(self.add_effect_instance)
         self.effects_panel.timing_edited.connect(self.change_ink_timing)
@@ -975,7 +977,9 @@ class CompositionPanel(QWidget):
                 authored_states = [state for name, state in base_states.items() if name.startswith(prefix)] if self.scope else list(base_states.values())
             if not self.scope: authored_states = list(project_base_states.values())
             self.effects_panel.set_context(target["effects"], self.document["effects"] if self.scope else {}, states, label, bool(self.scope), (self.scope, context_key), self.document['ink_timing'], all_states, VIDEO_EFFECTS if video else tuple(effect.id for effect in EFFECTS if effect.id != 'subject_cutout'), authored_states=authored_states,
-                                           clip_automations=section.get('automations', ()) if self.scope else ())
+                                           clip_automations=section.get('automations', ()) if self.scope else (),
+                                           effect_order=self.document.get('effect_order', self.document['source'].get('effect_order')),
+                                           custom_order='effect_order' in self.document)
             automation_sections = [section] if self.scope else self.document["sections"]
             counts = {}
             for owner in automation_sections:
@@ -1062,6 +1066,22 @@ class CompositionPanel(QWidget):
         document = copy.deepcopy(self.document)
         self.target(document)["macros"][key] = value
         self.commit(document, f"macro:{self.scope}:{self.index}:{key}")
+
+    def reorder_effect(self, identifier, before):
+        if self.updating or self.scope: return
+        from synth_effect_order import move_before
+        visible = self.effects_panel.applied_host.identifiers
+        if identifier not in visible or (before is not None and before not in visible): return
+        if move_before(visible, identifier, before) == visible: return
+        order = move_before(self.effects_panel.render_order, identifier, before)
+        document = copy.deepcopy(self.document)
+        document['effect_order'] = order
+        self.commit(document, 'effect-reorder')
+
+    def reset_effect_order(self):
+        if self.updating or self.scope or 'effect_order' not in self.document: return
+        document = copy.deepcopy(self.document); document.pop('effect_order')
+        self.commit(document, 'effect-order-reset')
 
     def change_effect(self, effect_id, entry, action):
         if self.updating: return

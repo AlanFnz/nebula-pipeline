@@ -22,6 +22,8 @@ from synth_ink_timing import DURATION_KEYS, TIMING_KEYS
 from synth_subject import SOURCE_EFFECTS
 from synth_creative import CREATIVE_CONTROLS
 from synth_creative_ui import CreativeControlsPanel
+from synth_effect_order import FIXED, movable, order_for_states
+from synth_effect_order_ui import EffectDragHandle, EffectRack
 
 INK_DURATIONS = {f'ink_bloom.{key}' for key in DURATION_KEYS}
 INK_TIMING = tuple(f'ink_bloom.{key}' for key in TIMING_KEYS)
@@ -63,6 +65,12 @@ class EffectChoice(QFrame):
         super().__init__()
         self.setObjectName('effectChoice')
         row = QHBoxLayout(self); row.setContentsMargins(2, 0, 7, 0); row.setSpacing(4)
+        self.order_handle = EffectDragHandle(effect.id, effect.label, self)
+        self.order_handle.hide(); row.addWidget(self.order_handle)
+        self.fixed_order = QLabel('·'); self.fixed_order.setFixedWidth(24)
+        self.fixed_order.setToolTip(FIXED.get(effect.id, ''))
+        self.fixed_order.setAccessibleName('Fixed position: ' + effect.label)
+        self.fixed_order.hide(); row.addWidget(self.fixed_order)
         self.button = EffectNameButton(effect.label); self.button.setObjectName('effectChoiceButton')
         self.button.setProperty('compact', True)
         self.button.clicked.connect(lambda: self.selected.emit(effect.id))
@@ -94,6 +102,8 @@ class EffectChoice(QFrame):
 
 class EffectsPanel(QWidget):
     edited = Signal(str, object, str)
+    order_requested = Signal(str, object)
+    order_reset_requested = Signal()
     automation_requested = Signal(str)
     instance_requested = Signal(str)
     timing_edited = Signal(str, object)
@@ -130,9 +140,17 @@ class EffectsPanel(QWidget):
         self.available_button = QPushButton('Add effect…'); self.available_button.clicked.connect(self.open_browser)
         self.available_button.setProperty('compact', True); applied_header.addWidget(self.available_button)
         overview_layout.addLayout(applied_header)
+        order_header = QHBoxLayout()
+        self.order_hint = QLabel('Top → bottom · drag to reorder'); self.order_hint.setObjectName('muted')
+        self.order_hint.setWordWrap(True); order_header.addWidget(self.order_hint, 1)
+        self.order_reset = QPushButton('Study order'); self.order_reset.setProperty('compact', True)
+        self.order_reset.setToolTip('Restore the embedded study’s processing order. Effect settings and automation stay intact.')
+        self.order_reset.clicked.connect(self.order_reset_requested.emit); order_header.addWidget(self.order_reset)
+        overview_layout.addLayout(order_header)
         rack_scroll = QScrollArea(); rack_scroll.setWidgetResizable(True); rack_scroll.setFrameShape(QFrame.Shape.NoFrame)
         rack = QWidget(); rack_layout = QVBoxLayout(rack); rack_layout.setContentsMargins(0, 0, 0, 0); rack_layout.setSpacing(4)
-        self.applied_host = QWidget(); self.applied_layout = QVBoxLayout(self.applied_host)
+        self.applied_host = EffectRack(); self.applied_layout = QVBoxLayout(self.applied_host)
+        self.applied_host.reorderRequested.connect(self.order_requested.emit)
         self.applied_layout.setContentsMargins(0, 0, 0, 0); self.applied_layout.setSpacing(3)
         rack_layout.addWidget(self.applied_host)
         self.empty_applied = QLabel('No image effects applied. Add an effect to treat the source.'); self.empty_applied.setWordWrap(True)
@@ -172,6 +190,7 @@ class EffectsPanel(QWidget):
             choice.bypassRequested.connect(self.toggle_bypass)
             choice.removeRequested.connect(self.remove_effect)
             choice.restoreRequested.connect(lambda key: self.edited.emit(key, None, 'effect-restore'))
+            choice.order_handle.stepRequested.connect(self.move_effect_step)
             self.available_layout.addWidget(choice); self.effect_choices[effect.id] = choice
         self.editor = QWidget(); editor_layout = QVBoxLayout(self.editor); editor_layout.setContentsMargins(0, 0, 0, 0); editor_layout.setSpacing(4)
         row = QHBoxLayout()
@@ -314,7 +333,7 @@ class EffectsPanel(QWidget):
         entry['bypassed'] = not self.is_bypassed(effect_id)
         self.edited.emit(effect_id, entry, 'effect-bypass')
 
-    def set_context(self, entries, parent_entries, states, scope_label, local, context_key, shared_timing=None, shared_states=None, allowed_effects=None, authored_states=None, *, clip_automations=()):
+    def set_context(self, entries, parent_entries, states, scope_label, local, context_key, shared_timing=None, shared_states=None, allowed_effects=None, authored_states=None, *, clip_automations=(), effect_order=None, custom_order=False):
         self.updating = True
         self.entries = copy.deepcopy(entries); self.parent_entries = copy.deepcopy(parent_entries); self.local = local
         self.summary = describe_effects(states); self.authored_summary = describe_effects(authored_states) if authored_states is not None else self.summary
@@ -329,6 +348,7 @@ class EffectsPanel(QWidget):
                 choice = EffectChoice(effect); choice.selected.connect(self.inspect_choice)
                 choice.bypassRequested.connect(self.toggle_bypass); choice.removeRequested.connect(self.remove_effect)
                 choice.restoreRequested.connect(lambda key: self.edited.emit(key, None, 'effect-restore'))
+                choice.order_handle.stepRequested.connect(self.move_effect_step)
                 self.available_layout.addWidget(choice); self.effect_choices[effect.id] = choice
         visible_effects = [e for e in self.context_effects if allowed_effects is None or base_id(e.id) in allowed_effects]
         self.shared_timing = copy.deepcopy(shared_timing or {})
@@ -349,6 +369,18 @@ class EffectsPanel(QWidget):
         self.clip_effect_ids = tuple(e.id for e in visible_effects if local and e.id not in SOURCE_EFFECTS and
                                      (e.id in entries or automated.intersection(e.paths)))
         self.project_effect_ids = tuple(e.id for e in treatments if e.id not in self.clip_effect_ids)
+        self.render_order = order_for_states(shared_states if shared_states is not None else states, effect_order)
+        rank = {key: index for index, key in enumerate(self.render_order)}
+        def position(key):
+            if key in FIXED: return (2 if key == 'low_res' else 0, list(FIXED).index(key))
+            return (1, rank.get(key, len(rank)))
+        self.project_effect_ids = tuple(sorted(self.project_effect_ids, key=position))
+        self.clip_effect_ids = tuple(sorted(self.clip_effect_ids, key=position))
+        self.order_hint.setText('Order follows the project · select Entire project to reorder' if local else
+                                'Top → bottom · drag to reorder' if custom_order else 'Study order · drag to customize top → bottom')
+        self.order_hint.setToolTip('Custom order processes image effects from top to bottom after the source. Dotted rows have a fixed source or output role. Early Broadcast polarity and the source companion in Ghosts stay with the source.')
+        self.order_reset.setVisible(not local)
+        self.order_reset.setEnabled(custom_order)
         self.rack_ids = set(self.applied_ids) | set(self.clip_effect_ids)
         for button in (self.available_button, self.add_button):
             button.setText('Add clip effect…' if local else 'Add project effect…')
@@ -370,16 +402,34 @@ class EffectsPanel(QWidget):
         self.source_title.setVisible(object_available); self.source_header.setVisible(object_available)
         self.source_host.setVisible(bool(sources)); self.object_button.setVisible(object_available)
         for choice in self.effect_choices.values(): choice.hide()
-        for effect in self.context_effects:
+        display_ids = [*self.project_effect_ids, *self.clip_effect_ids]
+        display_ids += [e.id for e in self.context_effects if e.id not in display_ids]
+        for key in display_ids:
+            effect = EFFECT_BY_ID[key]
             target = self.source_layout if effect.id in SOURCE_EFFECTS else self.clip_layout if effect.id in self.clip_effect_ids else self.applied_layout
             target.addWidget(self.effect_choices[effect.id])
             self.effect_choices[effect.id].setVisible(effect.id in self.rack_ids)
+            choice = self.effect_choices[key]
+            draggable = not local and key in self.project_effect_ids and movable(key)
+            choice.order_handle.rack = self.applied_host if draggable else None
+            choice.order_handle.setVisible(draggable)
+            choice.fixed_order.setVisible(key in FIXED and key in self.rack_ids)
+        self.applied_host.configure([key for key in self.project_effect_ids if not local and movable(key)],
+                                    self.effect_choices, context_key)
         with QSignalBlocker(self.mode): self.mode.setItemText(0, 'Follow entire project / study' if local else 'Follow study')
         self.refresh_breakdown()
         self.updating = False
         self.refresh_effect()
         if changed_context: self.parameter_scroll.verticalScrollBar().setValue(0)
         if initial_context and not active: self.show_overview()
+
+    def move_effect_step(self, identifier, delta):
+        ids = self.applied_host.identifiers
+        if self.local or identifier not in ids: return
+        index = ids.index(identifier)
+        if not 0 <= index + delta < len(ids): return
+        before = ids[index - 1] if delta < 0 else ids[index + 2] if index + 2 < len(ids) else None
+        self.order_requested.emit(identifier, before)
 
     def inspect_effect(self, effect_id):
         if self.updating or effect_id not in EFFECT_BY_ID: return

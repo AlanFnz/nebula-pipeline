@@ -1203,6 +1203,26 @@ detailed sequence/preset windows disable composition Undo/Redo.
   **Object / sources** group. Click an entry to open its focused editor;
   **Back to effects** returns to the overview. Scope, effect navigation and
   parameter search stay visible while the parameter body scrolls.
+- In **Editing: Entire project**, drag the six-dot handle beside an image effect
+  to change processing order. The insertion line shows the destination; effects
+  process **top to bottom**. Click the handle for **Move earlier / Move later**,
+  or focus it and use **Option + Up/Down**. Escape or dropping outside the list
+  cancels. Undo/Redo restores the order as one edit.
+  The first reorder opts this composition into an explicit image chain, after
+  the generated object or footage. **Study order** restores the embedded recipe's
+  original processing, retaining parameters, intensity, automation and clip
+  overrides. Unedited studies keep their original rendering.
+  Order is shared across clips and saved with the project, studies, snapshots
+  and detailed sequences; preview and MP4 export use the same chain. Clip view
+  retains its project/clip groups and follows project order; select Entire
+  project to reorder. Clip overrides still control activation and parameters.
+  **Color field**, **Granular halo**, **Subject cutout** and **Low-res finish**
+  have fixed source/output roles, marked with a dot and an explanatory tooltip.
+  Broadcast's explicit early-polarity setting stays before image treatments;
+  its screen/static pass follows the list. Ghosts' companion form stays with the
+  source, while its image trails follow the list. Timeline transitions and Master
+  output adjustments retain their existing final stages. Custom orders require
+  Nebula 0.33.0 or newer.
 - **Add effect…** opens a searchable library with categories, descriptions and
   starting presets. Search or inspect candidates without changing the composition,
   then choose **Apply effect** after its still preview succeeds. **Before / Preview**
@@ -1212,8 +1232,8 @@ detailed sequence/preset windows disable composition Undo/Redo.
   original timeline; it does not change monitor preferences or Timeline FPS.
   Already applied effects offer **Inspect effect**;
   **Choose object…** takes you to source selection. Imported videos show only
-  compatible image treatments. Effects can be combined per clip in the
-  renderer's established order.
+  compatible image treatments. Effects can be combined per clip; project order
+  controls how their image passes combine.
 - **Animate…** beside supported treatment parameters creates a timed clip
   gesture. Set **Start**, **Rise**, **Hold**, **Recover**, signed **Change amount**,
   **Easing**, and **Enabled**, then **Apply**. The shown parameter remains its base;
@@ -1260,7 +1280,8 @@ detailed sequence/preset windows disable composition Undo/Redo.
   **Pull edges → Keep canvas filled** holds both frame edges in place and
   stretches the interior. New clean passes use it by default; **Allow blanking**
   preserves the older sideways shift. This choice affects only Horizontal pull.
-  Added passes run after the established image effects in creation order; a
+  Added passes run after the established image effects in creation order unless
+  moved in the project's effect list; a
   neutral pass leaves the image unchanged. This first instance implementation
   supports Tape damage (up to 64 slots) and requires Nebula 0.5.1 or newer.
 - **How this look is built** in the Effects overview explains the actual sources
@@ -1360,9 +1381,9 @@ detailed sequence/preset windows disable composition Undo/Redo.
   geometric Object controls and Finishing; creative adjustments act after those
   fixed values. A luminous form's companion ghost and granular halo require
   that form; ghost trails also apply to rays. Exposure flares are independent
-  of the timeline's flash/sweep transitions. Effects use the renderer's
-  established order. Tape damage additionally supports independent numbered
-  passes after that chain; other families currently use one instance each.
+  of the timeline's flash/sweep transitions. Effects use the study order until
+  you customize project order. Tape damage additionally supports independent
+  numbered passes; other families currently use one instance each.
 - **Snapshots…** beside View zoom captures a complete named composition. Use
   **Compare with B** to switch saved A and working B at the same playhead and
   preview quality, or **Restore as working B** to recover its source, canvas,
