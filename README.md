@@ -669,6 +669,37 @@ seven-second timing and two-second complete-phrase ending stay the same.
   Film hue, leak hue/position, exposure, softness and grain remain editable.
   The previous frozen recipe remains in `presets/text-reading-print-v1.json`.
 
+### Text / dark optical print
+
+**Studies → Text / dark optical print · 7.5s → Load** opens a separate dark-stock
+montage inspired by ref-11. Red enlargements, violet and pale ink, distressed
+pigment and circular exposure flashes surround a readable phrase. The canvas is
+956×720 at 12 fps. No pixels from the reference video are required or bundled.
+
+- Edit **Object → Wording → Apply text**. The initial phrase is `REVOLUTION IS NOW`.
+  **Text → Timing → Reading montage** controls word timing, interruptions and the
+  final full-phrase hold. Longer words receive more time. Explicit line breaks
+  are preserved in the finale; increase the cycle for very long phrases.
+- **Effects → Optical overprint → Timing → Protect reading moments** coordinates
+  the image treatment with those word holds. **Readable hold** sets the fraction
+  of each hold that keeps the whole word in frame before enlargements take over.
+  Set it to 1 for fully protected holds. The final phrase remains protected.
+  These controls have no special behavior on footage or other text modes.
+- **Cut rate** makes unequal optical exposures; zero freezes their layout while
+  **Print cadence** still advances grain. **Optical movement** changes scale and
+  registration; **Focus breathing** softens the unprotected impressions.
+- Change **First ink hue**, **Second ink hue**, **Pale ink hue**, **Ink brightness**
+  and **Stock brightness** for a different palette. **Large impression strength**
+  and **scale** control the enlarged source behind the main impression. **Exposure
+  flashes**, **Flash size**, **Pigment erosion**, **Film grain** and **Dust & scratches**
+  control the optical texture. Flashes avoid the whole word during protected holds.
+- Optical overprint also accepts footage and other generated objects, using their
+  bright pixels as ink. **Intensity** blends the complete result with its input;
+  zero leaves the input unchanged. Main image controls support automation. Protection
+  does not undo distortion from other effects or deliberate manual position offsets.
+
+The previous print studies keep their own frozen recipes and rendering.
+
 ### Liquid words
 
 Choose **Studies → Text / liquid words → Load** for the 6-second, 1000×800 monochrome

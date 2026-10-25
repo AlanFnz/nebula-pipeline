@@ -12,7 +12,7 @@ from synth_instances import base_id
 
 
 IMAGE_MODULES = (
-    'film_emulsion', 'film_burn', 'print_collage', 'contour_melt', 'scan_modulation', 'signal_repetition',
+    'film_emulsion', 'film_burn', 'print_collage', 'optical_print', 'contour_melt', 'scan_modulation', 'signal_repetition',
     'crt_capture', 'stretch_echo', 'signal_etch', 'chroma_print', 'slice_echo',
     'screen_mesh', 'broadcast', 'subject_cutout', 'photocopy', 'signal_background',
     'edge_phosphor', 'scan_drag', 'breakup', 'tape', 'flare', 'separation',

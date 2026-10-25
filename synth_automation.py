@@ -14,6 +14,11 @@ from synth_instances import base_path
 from synth_intensity import PATHS
 
 TARGETS = frozenset({
+    'optical_print.primary', 'optical_print.width', 'optical_print.position_x',
+    'optical_print.position_y', 'optical_print.enlargement', 'optical_print.overprint',
+    'optical_print.brightness', 'optical_print.pale_ink', 'optical_print.focus',
+    'optical_print.softness', 'optical_print.damage', 'optical_print.grain',
+    'optical_print.stripes', 'optical_print.spot', 'optical_print.spot_size',
     'film_burn.exposure', 'film_burn.leak_x', 'film_burn.leak_y',
     'film_burn.leak_width', 'film_burn.leak_height', 'film_burn.reversal',
     'film_burn.halo', 'film_burn.melt', 'film_burn.opening', 'film_burn.grain',
