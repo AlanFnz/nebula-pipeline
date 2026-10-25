@@ -1586,8 +1586,9 @@ its full explanation. Effect control groups can collapse; searching or following
 a diagnostic reveals the matching controls. Numeric displays keep saved precision.
 
 **View zoom** in the monitor header changes only the view. Choose **Fit**, **100%**,
-enter a percentage, or use **− / +**. Drag to pan a zoomed image, double-click to
-fit, or use Ctrl/⌘ + wheel to zoom around the pointer. Zoom does not change
+enter a percentage, or use **− / +**. Scroll with the mouse wheel or two fingers
+on the trackpad over the monitor to zoom around the pointer. Drag or **Shift +
+scroll** to pan a zoomed image; double-click to fit. Zoom does not change
 preview quality, export resolution or the composition.
 
 Drag the horizontal divider below the playback controls up or down to

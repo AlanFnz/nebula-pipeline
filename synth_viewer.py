@@ -18,7 +18,8 @@ class SynthViewer(QWidget):
         self.drag_position = None
         self.setMinimumSize(320, 240)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-        self.setToolTip('Zoom changes only this view. Drag to pan when zoomed in. Double-click to fit. Ctrl/⌘ + wheel zooms.')
+        self.setToolTip('Scroll or use two fingers on the trackpad to zoom around the pointer. '
+                        'Drag or Shift-scroll to pan. Double-click to fit. Zoom changes only this view.')
 
     def set_packet(self, packet):
         self.packet = packet
@@ -86,10 +87,13 @@ class SynthViewer(QWidget):
         self.set_zoom(0.)
 
     def wheelEvent(self, event):
-        if event.modifiers() & (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.MetaModifier):
-            delta = event.pixelDelta().y() or event.angleDelta().y() / 8
-            self.zoom_by(2 ** (delta / 120), event.position())
-        else:
+        if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
             delta = event.pixelDelta() if not event.pixelDelta().isNull() else event.angleDelta() / 4
             self.pan += QPointF(delta); self.clamp_pan(); self.update()
+        else:
+            # Keep high-resolution trackpad motion continuous; gesture begin/end
+            # and horizontal-only events must not leave Fit or emit a zoom change.
+            delta = event.pixelDelta().y() if not event.pixelDelta().isNull() else event.angleDelta().y() / 8
+            if delta:
+                self.zoom_by(2 ** max(-8., min(8., delta / 120)), event.position())
         event.accept()
