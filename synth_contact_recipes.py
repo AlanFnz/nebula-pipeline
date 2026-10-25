@@ -10,7 +10,10 @@ def _reference_sequence():
     enabled=('text','contact_print')
     common={'speed':1.,'depth':0.,'treatment_fps':12}
     for module in enabled:
-        common.update({f'{module}.{s.key}':s.default for s in MODULE_BY_ID[module].params})
+        # Later label controls keep implicit defaults, preserving frozen recipes.
+        common.update({f'{module}.{s.key}':s.default for s in MODULE_BY_ID[module].params
+                       if not (module == 'text' and s.key.startswith('badge_')
+                               and s.key not in ('badge_subtitle', 'badge_border'))})
     common.update({'text.content':'FAC51','text.font':5,'text.weight':500,
         'text.size':.322,'text.saturation':0.,'text.back_brightness':0.,
         'text.tracking':.065,'text.badge':1,'text.badge_subtitle':'THE HAÇIENDA',
