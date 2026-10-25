@@ -703,10 +703,15 @@ pigment and circular exposure flashes surround a readable phrase. The canvas is
   bright pixels as ink. **Intensity** blends the complete result with its input;
   zero leaves the input unchanged. Main image controls support automation. Protection
   does not undo distortion from other effects or deliberate manual position offsets.
+  The optical composition is built before image finishing, so Broadcast wear's
+  screen curvature, static and shading affect the background and impressions
+  together. Tape damage and CRT treatments also receive the complete composition.
 
 The current dark-print recipe uses these secondary exposures. Saved projects from
-0.31.0 default the new controls to zero and retain their original rendering; the
-v1 recipe is preserved. The other print studies keep their own frozen recipes.
+0.31.0 default the new controls to zero; the v1 recipe is preserved. The standalone
+print recipes retain their rendering. Since 0.32.1, combinations with image
+finishing use the corrected order described above. Other print studies keep
+their own frozen recipes.
 
 ### Liquid words
 
