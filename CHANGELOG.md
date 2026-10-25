@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.36.1 — 2026-10-25
+
+- Add a Show subtitle checkbox to Text → Framed label. Hide the subtitle without
+  deleting its wording or authored animation, remove its reserved space and center
+  the main wording. Re-enabling restores the existing label. Existing studies
+  remain unchanged by default.
+- Save pending main-text and subtitle edits to their own fields and scopes,
+  instead of treating every text draft as the main wording.
+
 ## 0.36.0 — 2026-10-25
 
 - Add configurable text-label frames: none, rectangle, rounded rectangle, circle,

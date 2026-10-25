@@ -58,6 +58,21 @@ def test_natural_label_preserves_type_proportions_and_omits_empty_subtitle_space
     assert with_subtitle.height>label.height
 
 
+@pytest.mark.parametrize('shape', range(6))
+@pytest.mark.parametrize('keep_proportions', [False, True])
+def test_hidden_subtitle_removes_space_and_centers_main_text(shape, keep_proportions):
+    main = Image.new('L', (800, 400), 255)
+    options = dict(shape=shape, keep_proportions=keep_proportions, main_lines=2,
+                   show_subtitle=False)
+    hidden = badge_mask(main, 'KEPT\nSUBTITLE', 0, 400, 0., **options)
+    empty = badge_mask(main, '', 0, 400, 0., **options)
+    assert hidden.tobytes() == empty.tobytes() and hidden.size == empty.size
+    x0, y0, x1, y1 = hidden.getbbox()
+    assert abs(x0 - (hidden.width-x1)) <= 1
+    assert abs(y0 - (hidden.height-y1)) <= 1
+    if shape == 0: assert hidden.height == 565  # 400 main + padding, no gap/subtitle
+
+
 def test_shape_outline_geometry_and_zero_border():
     blank=Image.new('L',(800,200))
     for shape in (1,2,3,4):
@@ -73,6 +88,7 @@ def test_new_label_controls_survive_document_reload(tmp_path):
     p=starter_composition('text-contact-film')
     p['effects']['text']={'mode':'recipe','params':{
         'text.content':'REVOLUTION\nIS NOW', 'text.badge_subtitle':'TWO\nLINES',
+        'text.badge_show_subtitle':0,
         'text.badge_shape':2, 'text.badge_padding_x':35., 'text.badge_padding_y':25.,
         'text.badge_type_fit':1, 'text.badge_gap':20., 'text.badge_subtitle_scale':.2}}
     original=render_sequence_frame(compile_composition(p),2.08,(192,144))

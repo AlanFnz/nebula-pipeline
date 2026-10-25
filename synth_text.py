@@ -157,7 +157,7 @@ def text_layout(p, time, speed, size):
                           subtitle_scale=p.get('badge_subtitle_scale', .3),
                           gap=p.get('badge_gap', 35.), radius=p.get('badge_radius', .12),
                           main_lines=text.count('\n') + 1, leading=p['leading'],
-                          alignment=p['align'])
+                          alignment=p['align'], show_subtitle=bool(p.get('badge_show_subtitle', 1)))
     height = ch * p['size'] * max(1, text.count('\n') + 1)
     copies = p.get('copies', 1)
     if copies > 1:
@@ -183,7 +183,7 @@ def text_layout(p, time, speed, size):
 
 def badge_mask(main, subtitle, font, weight, border, *, shape=0, padding_x=90.,
                padding_y=72.5, keep_proportions=False, subtitle_scale=.3, gap=35.,
-               radius=.12, main_lines=1, leading=1., alignment=1):
+               radius=.12, main_lines=1, leading=1., alignment=1, show_subtitle=True):
     """Bounded multiline label; defaults preserve the original FAC51 pixels."""
     def fitted(mask, width, height):
         width, height = max(1, round(width)), max(1, round(height))
@@ -194,11 +194,11 @@ def badge_mask(main, subtitle, font, weight, border, *, shape=0, padding_x=90.,
 
     main = fitted(main, 800, 200 * main_lines)
     sub = None
-    if subtitle.strip():
+    if show_subtitle and subtitle.strip():
         sub = glyph_mask(subtitle, font, .12, leading, alignment, weight=min(700, weight+150))
         sub = fitted(sub, 780, 200 * subtitle_scale * (subtitle.count('\n') + 1))
     # The reference deliberately reserves the lower line even in positive flashes.
-    sub_height = sub.height if sub is not None else (0 if keep_proportions else round(200 * subtitle_scale))
+    sub_height = sub.height if sub is not None else (0 if keep_proportions or not show_subtitle else round(200 * subtitle_scale))
     gap = gap if sub_height else 0
     content_height = main.height + gap + sub_height
     content = Image.new('L', (800, math.ceil(content_height)))
@@ -207,7 +207,7 @@ def badge_mask(main, subtitle, font, weight, border, *, shape=0, padding_x=90.,
         content.paste(sub, ((800-sub.width)//2, round(main.height + gap)))
 
     # Preserve the reference's small optical baseline correction for rectangles.
-    baseline = min(8.5, padding_y) if not keep_proportions and shape in (0, 5) else 0.
+    baseline = min(8.5, padding_y) if show_subtitle and not keep_proportions and shape in (0, 5) else 0.
     inner_width = 800 + 2 * padding_x
     inner_height = content.height + 2 * padding_y
     if shape == 2:

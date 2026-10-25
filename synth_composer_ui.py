@@ -1545,29 +1545,31 @@ class CompositionPanel(QWidget):
             value = validate_text(draft['text'])
             if not isinstance(context, tuple) or len(context) != 2 or context[0] not in (0, 1):
                 raise ValueError('The wording draft no longer has an editing scope. Apply it before saving.')
-            previous = grouped.get(context)
+            target_key = (context, control.path)
+            previous = grouped.get(target_key)
             if previous is not None and previous != value:
                 raise ValueError('The text editors contain different unapplied wording in the same scope. Apply the text you want before saving.')
-            grouped[context] = value
+            grouped[target_key] = value
         compiled = compile_composition(self.document)
-        for _control, context, draft in records:
+        for control, context, draft in records:
             scope, identifier = context
+            effect_id = control.path.split('.')[0]
             if scope and not any(section['id'] == identifier for section in self.document['sections']):
                 raise ValueError('A wording draft belongs to a removed clip. Apply or discard it before saving.')
             states = [state for name, state in compiled['states'].items() if not scope or name.startswith(identifier + ':')]
             original_target = next(section for section in self.document['sections'] if section['id'] == identifier) if scope else self.document
-            baseline = original_target['effects'].get('text', {}).get('params', {}).get('text.content')
-            if baseline is None and scope: baseline = self.document['effects'].get('text', {}).get('params', {}).get('text.content')
+            baseline = original_target['effects'].get(effect_id, {}).get('params', {}).get(control.path)
+            if baseline is None and scope: baseline = self.document['effects'].get(effect_id, {}).get('params', {}).get(control.path)
             if baseline is None:
-                values = [state_values(state)[0]['text.content'] for state in states]
+                values = [state_values(state)[0][control.path] for state in states]
                 baseline = draft['value'] if draft['value'] in values else values[0]
             if baseline != draft['value']:
                 raise ValueError('The authored wording changed while a draft was pending. Apply the wording you want before saving.')
         document = copy.deepcopy(self.document)
-        for (scope, identifier), value in grouped.items():
+        for ((scope, identifier), path), value in grouped.items():
             target = next(section for section in document['sections'] if section['id'] == identifier) if scope else document
-            entry = target['effects'].setdefault('text', {'mode': 'recipe', 'params': {}})
-            entry['params']['text.content'] = value
+            entry = target['effects'].setdefault(path.split('.')[0], {'mode': 'recipe', 'params': {}})
+            entry['params'][path] = value
         self.commit(document, 'text-save')
         for control, context, draft in records: control.acknowledge_text_draft(context, draft['text'])
         return True

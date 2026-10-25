@@ -96,6 +96,46 @@ def test_hidden_text_draft_marks_document_and_saves_original_scope(make_window, 
     assert not window.has_unsaved_changes()
 
 
+def test_subtitle_visibility_keeps_recipe_and_wording_and_can_be_undone(make_window):
+    from synth_composition import compile_composition
+    from synth_sequence import render_sequence_frame
+    window = make_window(composition=starter_composition('text-contact-film'))
+    before = copy.deepcopy(window.composition)
+    panel = window.composer.effects_panel
+    panel.inspect_effect('text')
+    toggle = panel.controls['text.badge_show_subtitle'].input
+    assert toggle.isChecked()
+    toggle.click()
+    entry = window.composition['effects']['text']['params']
+    assert entry == {'text.badge_show_subtitle': 0}
+    assert window.composition['sections'] == before['sections']
+    assert window.has_unsaved_changes()
+    toggle.click()
+    sequence = compile_composition(window.composition)
+    original = compile_composition(before)
+    for time in (0., .6, 2.08, 4.5, 6.8):
+        assert render_sequence_frame(sequence,time,(96,72)).tobytes() == render_sequence_frame(original,time,(96,72)).tobytes()
+    window.undo_composition()
+    assert window.composition == before
+    assert not window.has_unsaved_changes()
+
+
+@pytest.mark.parametrize('scope', [0, 1])
+def test_save_keeps_main_and_subtitle_drafts_in_their_own_fields(make_window, scope):
+    window = make_window(composition=starter_composition('text-contact-film'))
+    window.composer.change_scope(scope)
+    panel = window.composer.effects_panel
+    panel.inspect_effect('text')
+    panel.controls['text.content'].input.editor.setPlainText('REVOLUTION\nIS NOW')
+    panel.controls['text.badge_subtitle'].input.editor.setPlainText('STOP THEM')
+    assert window.prepare_document_save()
+    target = window.composition['sections'][0] if scope else window.composition
+    assert target['effects']['text']['params']['text.content'] == 'REVOLUTION\nIS NOW'
+    assert target['effects']['text']['params']['text.badge_subtitle'] == 'STOP THEM'
+    assert not window.pending_text_edits()
+    if scope: assert 'text' not in window.composition['effects']
+
+
 def test_lazy_object_text_editor_participates_in_dirty_status(make_window):
     window = make_window()
     panel = window.composer; panel.change_object('text')

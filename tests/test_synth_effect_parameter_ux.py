@@ -18,6 +18,24 @@ def app():
     return QApplication.instance() or QApplication([])
 
 
+def test_subtitle_checkbox_handles_refresh_inheritance_and_keyboard(app):
+    from PySide6.QtWidgets import QCheckBox
+    control = EffectParameter('text.badge_show_subtitle')
+    changes = []; control.changed.connect(changes.append)
+    control.refresh((1, 1), None, False, True, scope_label='Entire project')
+    control.show(); app.processEvents()
+    assert isinstance(control.input, QCheckBox) and control.input.isChecked()
+    assert not control.fixed_choice.isVisible() and changes == []
+    control.input.setFocus(); QTest.keyClick(control.input, Qt.Key.Key_Space)
+    assert changes == [0] and control.input.text() == 'Hidden'
+    control.refresh((0, 0), None, True, True, parent_value=0, scope_label='Clip 1')
+    assert not control.input.isChecked() and not control.reset_button.isEnabled()
+    control.input.click(); assert changes == [0, 1]
+    control.refresh((1, 1), 1, False, False)
+    control.input.click(); assert changes == [0, 1]
+    control.close()
+
+
 @pytest.mark.parametrize('path,bounds', [
     ('tape.jitter', (.00073123456, .0027)),
     ('text.font', (0, 2)),

@@ -14,10 +14,15 @@ No video frames, sampled reference textures or original audio are bundled.
 ## Source and effect
 
 Text → Framed label is opt-in. In **Wording**, enter line breaks for up to eight
-main lines; **Label subtitle** accepts up to eight additional lines. Empty subtitle
-text hides that block. **Label type fitting → Keep proportions** also removes its
-reserved space and preserves the typeface proportions. **Reference proportions**
-retains the original condensed FAC51 layout and its reserved subtitle space.
+main lines; **Label subtitle** accepts up to eight additional lines. Uncheck
+**Show subtitle** to hide it without deleting its wording, changing its animation,
+or leaving reserved space. The main wording centers in the frame. Re-enable the
+checkbox to restore the existing subtitle and layout; no “Use fixed value” step
+is needed. This visibility setting is saved in the selected project/clip scope
+and supports Undo. **Label type fitting → Keep proportions** preserves the typeface
+proportions and also removes reserved space when the subtitle text is empty.
+With Show subtitle enabled, **Reference proportions** retains the original
+condensed FAC51 layout, including reserved space during empty subtitle flashes.
 
 **Frame shape** offers Rectangle, Rounded rectangle, Circle, Square, Diamond and
 None. **None** removes the outline while keeping both text blocks; border width
