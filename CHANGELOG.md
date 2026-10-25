@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.34.0 — 2026-10-25
+
+- Add Text / FAC51 contact film: a separate 3.25-second, 956×720 study with
+  39 authored exposures, the reference wording, positive-to-negative ink,
+  red/magenta light, black intervals and final film transport.
+- Add reusable Contact print for text, objects and footage, with independent
+  exposure, ink, gate/shutter, grain, dust, halation and intensity controls.
+  Its complete image precedes screen/tape finishing unless explicitly reordered.
+- Add opt-in Text framed labels with an editable second line and border width.
+  Keep previous text and image studies unchanged; no reference pixels are bundled.
+
 ## 0.33.0 — 2026-10-25
 
 - Reorder project image effects by dragging their six-dot handles, with an

@@ -34,6 +34,7 @@ from synth_radial import modules as radial_modules, render_radial_bloom
 from synth_prismatic import modules as prismatic_modules, render_prismatic_field, render_film_emulsion
 from synth_film_print import modules as film_print_modules, render_print_collage, render_film_burn
 from synth_optical_print import modules as optical_print_modules, render_optical_print
+from synth_contact_print import modules as contact_print_modules, render_contact_print
 from synth_solids import modules as solid_modules, render_color_field, render_solid
 from synth_lattice import modules as lattice_modules, render_chromatic_lattice
 from synth_memory import modules as memory_modules, render_image_memory
@@ -528,6 +529,9 @@ MODULES += (
         P('copy_gap', 'Copy spacing', .3, 0, 3, .05, 'Gap between repetitions, relative to the letter height.'),
         P('wrap_columns', 'Wrap after characters', 0, 0, 80, 1, 'Zero keeps manual line breaks. Otherwise wrap at this width, preferring spaces and splitting long words. Reveals still follow the original wording. Very long text uses wider lines to stay within eight lines.'),
         P('copy_floor', 'Repeat size floor', 0., 0, 1, .05, 'In Fit long lines, reduce the number of copies when fitting would shrink below this fraction of Text size. Zero always keeps all copies. One copy may still shrink to fit.'),
+        P('badge', 'Framed label', 0, 0, 1, 1, 'Frame the wording with a smaller second line. Uses Whole phrase, One word or Type on.', choices=('Off', 'On')),
+        P('badge_subtitle', 'Label second line', '', kind='text'),
+        P('badge_border', 'Label border width', .022, 0, .08, .001),
     )),
     Module('broadcast', 'Broadcast wear', 'Color drift in shadows, static interruptions, polarity reversals and curved CRT framing. Works on any source.', (
         P('field', 'Color field', .18, 0, 1, .01, 'Soft color variation in shadows, across the full canvas.'),
@@ -715,6 +719,7 @@ MODULES += lattice_modules(Module, P)
 MODULES += memory_modules(Module, P)
 MODULES += film_print_modules(Module, P)
 MODULES += optical_print_modules(Module, P)
+MODULES += contact_print_modules(Module, P)
 MODULES = add_parameters(MODULES, P)
 MODULE_BY_ID = InstanceRegistry({module.id: module for module in MODULES})
 
@@ -1409,13 +1414,15 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
                                  content_size(p, (width, height)), reading))
 
     source_effects = {entry['id']: entry['params'] for entry in p['modules']
-                      if entry['enabled'] and entry['id'] in ('chroma_print', 'slice_echo', 'stretch_echo', 'signal_etch', 'scan_modulation', 'signal_repetition', 'contour_melt', 'print_collage')}
+                      if entry['enabled'] and entry['id'] in ('chroma_print', 'slice_echo', 'stretch_echo', 'signal_etch', 'scan_modulation', 'signal_repetition', 'contour_melt', 'print_collage', 'contact_print')}
     def treat_source(image, only=None, original_source=None):
         reference = content_size(p, (width, height))
         source_pixels = untreated if untreated is not None else original_source if original_source is not None else image
         # The legacy group retains its exact intermediate samples. Explicit
         # ordering dispatches one independent pass with a stable original input.
         effects = source_effects if only is None else {only: source_effects[only]}
+        if 'contact_print' in effects:
+            image = blend_pass(image, effect_amount(effects['contact_print']), lambda pixels: render_contact_print(pixels, effects['contact_print'], continuous_time, p['speed'], _seed(p['seed'], 'contact-print'), reference))
         if 'print_collage' in effects:
             image = blend_pass(image, effect_amount(source_effects['print_collage']), lambda pixels: render_print_collage(pixels, source_effects['print_collage'], continuous_time, p['speed'], _seed(p['seed'], 'print-collage'), reference, reading))
         if 'chroma_print' in effects:

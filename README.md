@@ -24,6 +24,15 @@ mappings and frequency ranges arrive in 0.11.0. Multitrack routing remains plann
 The [Studio interface plan](docs/studio-design-plan.md) and
 [delivery notes](docs/studio-design-delivery.md) describe the 0.9.0 redesign.
 
+## FAC51 contact film
+
+**Studies → Text / FAC51 contact film** is a separate 3.25-second, 12 fps study
+of red/magenta contact-film exposures with the **FAC51 / THE HAÇIENDA** label.
+The new **Contact print** effect provides film/ink color, positive or negative
+impressions, light leaks, gate/shutter movement, grain and dust. **Text → Framed
+label** adds the border and second line. Both are opt-in; existing studies retain
+their output. See [the study notes](docs/contact-film-study.md) for timing and controls.
+
 ## Launch on this Mac
 
 The installed **Nebula Studio.app** lives in `~/Applications`. Open it in Finder
