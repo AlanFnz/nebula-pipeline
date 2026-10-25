@@ -1,9 +1,11 @@
 """Portable, opt-in optical printing and semantic text readability."""
 import copy
+import json
+from pathlib import Path
 
 import numpy as np
 import pytest
-from PIL import Image
+from PIL import Image, ImageFilter
 
 from synth import MODULE_BY_ID, curated_presets, default_synth_preset, render_synth_frame
 from synth_automation import TARGETS, target_parameter
@@ -105,3 +107,49 @@ def test_saved_study_factory_and_replaced_wording(tmp_path):
     assert render_sequence_frame(changed,1.,(160,120)).tobytes()!=render_sequence_frame(seq,1.,(160,120)).tobytes()
     events,_,_=reading_schedule(dict(content='MEMORIA EN MOVIMIENTO',reading_duration=7.5))
     assert [word for _,_,word,_,transition in events if not transition]==['MEMORIA','EN','MOVIMIENTO']
+
+
+@pytest.mark.parametrize('typeface',[0,1,2])
+def test_secondary_layers_preserve_foreground_and_seek_deterministically(typeface):
+    p=dict(defaults(),reading_clarity=1.,reading_hold=1.,softness=0.,focus=0.,
+           damage=0.,pale_ink=0.,grain=0.,dust=0.,spot=0.,stock=0.,brightness=1.)
+    beat=ReadingBeat('REVOLUTION',progress=.4)
+    a=source((160,120))
+    wet=dict(p,fragment_mix=1.,fragment_typeface=typeface,halation=.8)
+    for t in (.4,1.2,3.3):
+        dry=render_optical_print(a,dict(p,overprint=0.,stripes=0.),t,1.,23,(160,120),beat)
+        base=render_optical_print(a,p,t,1.,23,(160,120),beat)
+        out=render_optical_print(a,wet,t,1.,23,(160,120),beat)
+        # Foreground cores from a separately rendered isolated impression stay
+        # identical. Only the secondary exposures may change around the word.
+        cores=np.asarray(Image.fromarray(np.uint8(dry.max(axis=2)>.65)*255).filter(ImageFilter.MinFilter(5)))>0
+        assert cores.sum()>30
+        assert np.max(abs(base[cores]-out[cores]))<.005
+        assert np.mean(abs(base-out))>.002
+        render_optical_print(a,wet,19.,1.,23,(160,120),beat)
+        assert np.array_equal(out,render_optical_print(a,wet,t,1.,23,(160,120),beat))
+
+
+def test_secondary_font_does_not_generate_lettering_on_footage():
+    p=dict(defaults(),fragment_mix=1.,halation=.8)
+    a=source()
+    original=render_optical_print(a,p,1.3,1.,42,(128,96))
+    for font in (1,2):
+        assert np.array_equal(original,render_optical_print(a,dict(p,fragment_typeface=font),1.3,1.,42,(128,96)))
+
+
+def test_old_saved_settings_default_to_original_print_and_reading_is_unchanged():
+    old=json.loads((Path(__file__).parents[1]/'presets/text-dark-print-v1.json').read_text())
+    old_seq=compile_composition(old)
+    new_seq=compile_composition(dark_print_composition())
+    old_state=next(iter(old_seq['states'].values()))
+    new_state=next(iter(new_seq['states'].values()))
+    # Typography, semantic timing and every pre-existing main-impression control
+    # are authored exactly as before; only the secondary exposures opt in.
+    for key,value in old_state['overrides'].items():
+        if key!='optical_print.spot': assert new_state['overrides'][key]==value
+    assert old_seq['duration']==new_seq['duration'] and old_seq['fps']==new_seq['fps']
+    p=defaults();a=source();beat=ReadingBeat('word',progress=.9)
+    missing={k:v for k,v in p.items() if k not in ('fragment_mix','fragment_typeface','halation')}
+    assert np.array_equal(render_optical_print(a,p,.8,1.,23,(128,96),beat),
+                          render_optical_print(a,missing,.8,1.,23,(128,96),beat))

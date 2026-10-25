@@ -19,6 +19,8 @@ def dark_print_composition():
         'optical_print.damage': .6, 'optical_print.motion': 1.,
         'optical_print.grain': .09, 'optical_print.pale_ink': .85,
         'optical_print.cuts': 6., 'optical_print.reading_hold': .65,
+        'optical_print.fragment_mix': 1., 'optical_print.fragment_typeface': 1,
+        'optical_print.halation': .85, 'optical_print.spot': 1.,
     })
     sequence = normalize_sequence(dict(schema_version=1, render_version=2,
         name='Text / dark optical print', duration=7.5, fps=12, seed=251026,

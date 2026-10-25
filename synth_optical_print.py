@@ -23,6 +23,13 @@ def modules(Module, P):
         P('position_y', 'Position Y', 0., -.5, .5, .01),
         P('enlargement', 'Large impression scale', 3.8, 1, 8, .1),
         P('overprint', 'Large impression strength', .7, 0, 1, .01),
+        P('fragment_mix', 'Fragment montage', 0., 0, 1, .05,
+          'Replace the repeated background with varied closeups, dark exposures and a second ink impression. The main word keeps its size, timing and focus. Zero retains the original background.'),
+        P('fragment_typeface', 'Fragment typeface', 0, 0, 2, 1,
+          'Optional alternate typeface for background fragments in Reading montage. The main text stays unchanged. Other sources use their own pixels.',
+          choices=('Source pixels', 'Bodoni / serif', 'Fraunces / soft serif')),
+        P('halation', 'Exposure halation', 0., 0, 1, .05,
+          'Red light diffusion around secondary exposures and a brighter pale flash core. Does not blur the main word.'),
         P('registration', 'Registration drift', .035, 0, .2, .005),
         P('red_hue', 'First ink hue', .99, 0, 1, .01),
         P('second_hue', 'Second ink hue', .72, 0, 1, .01),
@@ -145,6 +152,16 @@ def render_optical_print(arr, p, seconds, speed, seed, reference, reading=None):
     background=np.maximum(giant*p['overprint'],stripe)
     background*=1-protection*.45
     stock+=red[None,None,:]*background[...,None]*(.7+.3*cloud[...,None])
+    if p.get('fragment_mix',0.):
+        from synth_optical_layers import secondary_exposures
+        layered=secondary_exposures(source,p,cut,progress,seed,reference,reading,
+                                    protection,red,purple,cream)
+        if protection and bounds:
+            left,right,top,bottom=bounds
+            clear=((xx>=left-8*unit)&(xx<=right+8*unit)&
+                   (yy>=top-8*unit)&(yy<=bottom+8*unit)).astype(np.float32)
+            layered*=1-_blur(clear,24*unit)[...,None]*protection*.72
+        stock=stock*(1-p['fragment_mix'])+layered*p['fragment_mix']
     # An irregular registration rim and chipped cream pigment mimic two passes
     # through a printer. The center remains legible during protected holds.
     rim=_blur(main,2.5*unit)
@@ -178,10 +195,20 @@ def render_optical_print(arr, p, seconds, speed, seed, reference, reading=None):
         spot*=spot_strength*(.94+.06*cloud)
         spot_color=cream[None,None,:]*(1-np.clip((cloud-.5)*4,0,.45)[...,None])
         spot_color+=purple[None,None,:]*np.clip((cloud-.5)*4,0,.45)[...,None]
+        if p.get('halation',0.):
+            pale=cream[None,None,:]*(.96+.04*cloud[...,None])
+            pale=pale*(1-np.clip((cloud-.62)*5,0,.55)[...,None])+purple*np.clip((cloud-.62)*5,0,.55)[...,None]
+            spot_color=spot_color*(1-p['halation'])+pale*p['halation']
         stock=stock*(1-spot[...,None])+spot_color*spot[...,None]
         stock+=_blur(spot,5*unit)[...,None]*red*.09
+        if p.get('halation',0.):
+            stock+=_blur(spot,9*unit)[...,None]*purple*p['halation']*.12
     if p['dust']:
         dirt=np.clip((chips-.76)*12,0,1)*p['dust']
+        # New exposure layers use sparse dust; retain the main impression's
+        # original erosion and the exact legacy path when montage is disabled.
+        if p.get('fragment_mix',0.):
+            dirt*=1-p['fragment_mix']*(1-main)*.85
         stock*=1-dirt[...,None]
         # Sparse fine dust, neither a full-frame uniform grid nor large blobs.
         specks=(texture.random((h,w))<p['dust']*.0015)

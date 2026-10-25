@@ -17,6 +17,7 @@ TARGETS = frozenset({
     'optical_print.primary', 'optical_print.width', 'optical_print.position_x',
     'optical_print.position_y', 'optical_print.enlargement', 'optical_print.overprint',
     'optical_print.brightness', 'optical_print.pale_ink', 'optical_print.focus',
+    'optical_print.fragment_mix', 'optical_print.halation',
     'optical_print.softness', 'optical_print.damage', 'optical_print.grain',
     'optical_print.stripes', 'optical_print.spot', 'optical_print.spot_size',
     'film_burn.exposure', 'film_burn.leak_x', 'film_burn.leak_y',

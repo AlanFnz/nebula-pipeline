@@ -65,7 +65,7 @@ def starter_snapshot(identifier):
 
 @lru_cache(maxsize=1)
 def _dark_print_snapshot():
-    return json.loads((Path(__file__).parent / 'presets/text-dark-print-v1.json').read_text())
+    return json.loads((Path(__file__).parent / 'presets/text-dark-print-v2.json').read_text())
 
 
 @lru_cache(maxsize=1)

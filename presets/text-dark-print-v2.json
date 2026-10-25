@@ -1,0 +1,202 @@
+{
+  "format": "nebula-composition",
+  "schema_version": 1,
+  "render_version": 2,
+  "name": "Text / dark optical print",
+  "fps": 12,
+  "seed": 251026,
+  "source": {
+    "schema_version": 1,
+    "name": "Text / dark optical print",
+    "duration": 7.5,
+    "fps": 12,
+    "seed": 251026,
+    "field": {
+      "valley_start": 0.0,
+      "valley_end": 0.0,
+      "valley_gain": 1.0,
+      "cloud_start": 0.0,
+      "cloud_strength": 0.0,
+      "cloud_late_start": 0.0,
+      "cloud_late_rate": 0.0
+    },
+    "states": {
+      "print": {
+        "preset": "Reference blinds",
+        "overrides": {
+          "speed": 1.0,
+          "depth": 0.0,
+          "treatment_fps": 12,
+          "text.content": "REVOLUTION IS NOW",
+          "text.font": 1,
+          "text.weight": 900,
+          "text.size": 0.48,
+          "text.tracking": 0.01,
+          "text.leading": 1.0,
+          "text.align": 1,
+          "text.fit": 1,
+          "text.block_width": 0.65,
+          "text.fit_width": 0.88,
+          "text.hue": 0.22,
+          "text.saturation": 0.0,
+          "text.brightness": 1.0,
+          "text.opacity": 1.0,
+          "text.stretch_x": 1.0,
+          "text.stretch_y": 1.0,
+          "text.rotation": 0.0,
+          "text.back_hue": 0.6,
+          "text.back_saturation": 0.75,
+          "text.back_brightness": 0.0,
+          "text.reveal": 4,
+          "text.reading_duration": 7.5,
+          "text.reading_final": 1.75,
+          "text.reading_transition": 0.33,
+          "text.reading_weight": 0.65,
+          "text.reading_breakup": 1.0,
+          "text.reading_fragments": 2,
+          "text.reading_loop": 0,
+          "text.morph_hold": 1.1,
+          "text.morph_seconds": 0.8,
+          "text.morph_ease": 1.0,
+          "text.morph_snap": 0.0,
+          "text.morph_settle": 0.0,
+          "text.morph_flow": 0.65,
+          "text.morph_balance": 0.0,
+          "text.morph_roundness": 0.0,
+          "text.morph_living": 0.0,
+          "text.morph_loop": 0,
+          "text.word_seconds": 0.65,
+          "text.motion": 0,
+          "text.zoom_start": 1.7,
+          "text.zoom_end": 0.4,
+          "text.period": 2.0,
+          "text.ease": 2.0,
+          "text.phase": 0.0,
+          "text.cadence": 0.0,
+          "text.copies": 1,
+          "text.copy_gap": 0.3,
+          "text.wrap_columns": 0,
+          "text.copy_floor": 0.0,
+          "optical_print.reading_clarity": 1.0,
+          "optical_print.reading_hold": 0.65,
+          "optical_print.primary": 1.0,
+          "optical_print.width": 0.86,
+          "optical_print.position_x": 0.0,
+          "optical_print.position_y": 0.0,
+          "optical_print.enlargement": 3.8,
+          "optical_print.overprint": 0.7,
+          "optical_print.fragment_mix": 1.0,
+          "optical_print.fragment_typeface": 1,
+          "optical_print.halation": 0.85,
+          "optical_print.registration": 0.035,
+          "optical_print.red_hue": 0.99,
+          "optical_print.second_hue": 0.72,
+          "optical_print.light_hue": 0.12,
+          "optical_print.brightness": 0.95,
+          "optical_print.pale_ink": 0.85,
+          "optical_print.stock": 0.008,
+          "optical_print.cuts": 6.0,
+          "optical_print.motion": 1.0,
+          "optical_print.focus": 0.6,
+          "optical_print.softness": 2.4,
+          "optical_print.damage": 0.6,
+          "optical_print.grain": 0.09,
+          "optical_print.dust": 0.4,
+          "optical_print.stripes": 0.6,
+          "optical_print.stripe_angle": -35.0,
+          "optical_print.spot": 1.0,
+          "optical_print.spot_size": 0.14,
+          "optical_print.cadence": 12.0,
+          "optical_print.effect_intensity": 100.0
+        },
+        "enabled": [
+          "text",
+          "optical_print"
+        ]
+      }
+    },
+    "cues": [
+      {
+        "time": 0.0,
+        "state": "print",
+        "transition": "cut",
+        "duration": 0.0
+      }
+    ],
+    "render_version": 2,
+    "canvas": {
+      "width": 956,
+      "height": 720,
+      "framing": "native"
+    }
+  },
+  "canvas": {
+    "width": 956,
+    "height": 720,
+    "framing": "native"
+  },
+  "master": {
+    "enabled": true,
+    "brightness": 0.0,
+    "contrast": 1.0,
+    "saturation": 1.0
+  },
+  "phrases": {
+    "custom": {
+      "name": "Words / dark exposures / final phrase",
+      "start": 0.0,
+      "end": 7.5
+    }
+  },
+  "macros": {
+    "rhythm": 1.0,
+    "width": 1.0,
+    "motion": 1.0,
+    "texture": 1.0,
+    "glow": 1.0,
+    "flashes": 1.0,
+    "color": 1.0
+  },
+  "geometry": {
+    "shape": "original",
+    "height": 1.0,
+    "diameter": 0.6,
+    "sides": 6,
+    "rotation": 0.0,
+    "position_x": 0.0,
+    "position_y": 0.0
+  },
+  "effects": {},
+  "ink_timing": {},
+  "variation": 0,
+  "locks": [],
+  "sections": [
+    {
+      "id": "section-1",
+      "phrase": "custom",
+      "duration": 7.5,
+      "loops": 1,
+      "macros": {
+        "rhythm": 1.0,
+        "width": 1.0,
+        "motion": 1.0,
+        "texture": 1.0,
+        "glow": 1.0,
+        "flashes": 1.0,
+        "color": 1.0
+      },
+      "geometry": {
+        "shape": "inherit",
+        "height": 1.0,
+        "diameter": 0.6,
+        "sides": 6,
+        "rotation": 0.0,
+        "position_x": 0.0,
+        "position_y": 0.0
+      },
+      "effects": {},
+      "variation": 0,
+      "locks": []
+    }
+  ]
+}
