@@ -145,6 +145,17 @@ class EffectParameter(QWidget):
         self.reset_button = QPushButton('↶'); self.reset_button.setFixedSize(30, 28)
         self.reset_button.setAccessibleName(f'Restore {spec.label}')
         self.reset_button.clicked.connect(self.reset.emit)
+        self.presets = None
+        if self.presentation.presets:
+            preset_row = QHBoxLayout(); preset_row.setContentsMargins(0, 0, 0, 0)
+            preset_row.addWidget(QLabel('Resolution preset'))
+            self.presets = QComboBox(); self.presets.setAccessibleName('Resolution preset')
+            self.presets.addItem('Custom…', None)
+            for value in self.presentation.presets:
+                self.presets.addItem(format_value(path, value), value)
+            self.presets.setToolTip('Pixels on the longest edge, limited to the canvas size. Changes only Working resolution; other effect settings and export dimensions stay the same. Custom keeps the manual value.')
+            self.presets.currentIndexChanged.connect(self.apply_numeric_preset)
+            preset_row.addWidget(self.presets, 1); layout.addLayout(preset_row)
         layout.addLayout(self._row)
         if block_input: layout.addWidget(self.value_stack)
         self.fixed_choice = QWidget(); choice = QHBoxLayout(self.fixed_choice)
@@ -260,7 +271,22 @@ class EffectParameter(QWidget):
             value = min(value, self.numeric_maximum)
             with QSignalBlocker(self.input): self.input.setValue(value)
         self.update_swatch(value)
+        self.sync_numeric_preset(value)
         self.changed.emit(value)
+
+    def apply_numeric_preset(self, index):
+        value = self.presets.itemData(index)
+        if value is None:
+            self.input.setFocus(); self.input.selectAll()
+        else:
+            self.input.setValue(value)
+
+    def sync_numeric_preset(self, value):
+        if self.presets is None: return
+        index = self.presets.findData(value)
+        with QSignalBlocker(self.presets):
+            self.presets.setItemText(0, f'Custom · {format_value(self.path, value)}' if index < 0 else 'Custom…')
+            self.presets.setCurrentIndex(max(0, index))
 
     def toggle_checkbox(self, checked):
         self.input.setText(self.spec.choices[int(checked)])
@@ -299,6 +325,7 @@ class EffectParameter(QWidget):
         value = self.slider_value(position)
         with QSignalBlocker(self.input): self.input.setValue(value)
         self.update_swatch(value)
+        self.sync_numeric_preset(value)
 
     def commit_slider(self, position):
         value = self.slider_value(position)
@@ -376,6 +403,9 @@ class EffectParameter(QWidget):
             self.input.editor.setPlainText(value)
             self.restore_draft(self._text_drafts.get(context_key))
         self.input.setEnabled(available)
+        self.sync_numeric_preset(value)
+        if self.presets:
+            self.presets.setEnabled(available and not animated)
         self.update_swatch(value, animated=animated)
         if self.slider:
             self.sync_slider(value); self.slider.setVisible(not animated); self.slider.setEnabled(available)
