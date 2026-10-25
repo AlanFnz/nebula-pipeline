@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.36.2 — 2026-10-25
+
+- Give generated content one editing home in Object. Text and subtitle are
+  together under Text; Layout contains typography, frame, padding and position;
+  Motion contains reveals and animation. Keep those tabs visible while scrolling.
+- Open other objects' advanced controls inside Object, with a Back to Object
+  action. Effects lists image treatments and links to Object without duplicating
+  source rows or editors. Preserve project/clip scope and shared ink timing.
+- Edit animated wording directly with explicit Apply buttons. Preserve study
+  animation until applied, pending drafts across navigation, undo and save.
+  No changes to rendering, saved parameters or study output.
+
 ## 0.36.1 — 2026-10-25
 
 - Add a Show subtitle checkbox to Text → Framed label. Hide the subtitle without
