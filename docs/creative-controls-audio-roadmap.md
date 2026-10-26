@@ -1,4 +1,4 @@
-# Creative controls and audio reactivity
+# Creative controls, audio reactivity and visual sound synthesis
 
 Recorded: 2026-10-01.
 Status: A1 starting points, A2 creative-control pilot and A3 snapshots/controlled
@@ -8,9 +8,11 @@ Reviewed against 0.11.0 on 2026-10-11. B1 imported soundtrack/transport is
 implemented; B2/B3 continuous band-energy mappings and deterministic modulation
 are implemented. Onset/gesture triggers and multitrack routing remain planned.
 Expanded: 2026-10-01 with selectable frequency ranges and future multitrack routing.
-Order: independent visual experimentation first, imported-audio reactivity next,
-then multiple imported tracks and optional live input. Future milestones do not
-start automatically; no scheduled work is configured.
+Expanded: 2026-10-26 with visual-to-sound synthesis as a near-term priority,
+starting with Tension / elastic signal. This capability is planned, not shipped
+in 0.40.0. The first sound prototype takes priority over multitrack and live-input
+expansion; those remain in the roadmap. Future milestones do not start
+automatically; no scheduled work is configured.
 
 Related work: [effects editor UX](effects-editor-ux-plan.md),
 [reusable effects](reusable-effects-plan.md), and
@@ -374,6 +376,101 @@ reorder, relink, missing-media recovery and export preserve track identities,
 routing and synchronization. This milestone does not require a general-purpose
 DAW, instrument separation or live capture.
 
+## Visual-to-sound synthesis
+
+Priority: near-term creative milestone, recorded 2026-10-26. Generate sound from
+the fluctuations of applied visual effects. The artist should hear the tension,
+motion, disruption and settling of the image as one audiovisual gesture.
+Start with internal effect signals; analysis of the rendered image comes later.
+
+### V1. Tension sound prototype
+
+Use **Tension / elastic signal** for a first audible demonstration, with one
+synthesized voice and three editable connections. Start with a tonal body,
+filtered noise and short resonant attacks. Favor hum, friction, tape texture and
+quiet intervals; musical scales and melody are later options.
+
+The source must be the effect's evolving behavior, not simply a slider value.
+For example, Tension can remain fixed at 0.9 while the actual pull accelerates,
+hesitates and recoils. Expose that motion through reusable effect signals:
+
+| Visual behavior | Initial sound connection |
+| --- | --- |
+| Actual elastic pull | Pitch or filter brightness rises with tension |
+| Speed of the pull | Friction/noise becomes more present during fast movement |
+| Recoil onset | A short resonant attack follows the release |
+
+Tune these mappings by listening alongside the image before expanding the
+instrument. Preserve pauses and avoid making every minor fluctuation equally
+loud. Future connections can use layer offsets for pitch/stereo fluctuations
+and fading impressions for decay or echoes.
+
+Acceptance: audition a full Tension piece, change a mapping and hear the
+relationship change, bypass generated sound without changing any pixels, then
+export an MP4 with the same synchronized sound. Save/Open must reproduce it.
+
+### V2. Reusable sound connections and controls
+
+- Offer a compact **Generate sound** entry point, with presets for a quick
+  starting sound and editable connections beneath it. Labels are provisional.
+- Each connection identifies an effect instance and its changing signal,
+  a sound destination, an amount/range, response curve, smoothing and bypass.
+  Distinguish continuous modulation from event-triggered attacks; define
+  thresholds, retrigger rules and cooldown for events.
+- Initial destinations: volume, pitch, filter brightness, noise/distortion and
+  stereo position. Add several voices only after the single-voice workflow works.
+- Make connection activity visible. Respect clip/project scope, effect timing,
+  intensity and bypass; a disabled effect must not continue triggering attacks.
+  Define neutral values and release behavior explicitly rather than abruptly
+  cutting an audible waveform.
+- Use stable effect-instance and connection IDs. Duplicating, removing or
+  reordering effects/clips must not silently redirect a sound connection.
+  Support Undo/Redo, snapshots and portable Studies with optional versioned data.
+
+### Timing and integration
+
+The app already has imported soundtrack monitoring/export and audio-to-effect
+mappings. Sound synthesis, visual signal outputs and reverse connections are
+new work. Reuse transport and document boundaries, not the existing direction
+of audio analysis as if it were a synthesizer.
+
+Extract shared time-dependent signal evaluators from effects so the image and
+sound use the same motion, seed and effective scoped settings. Do not create a
+parallel approximation of each animation or branch on study names. Effects
+without a defined signal can be added incrementally.
+
+Audio must run on a sample clock independent of preview frame completion.
+Smooth continuous controls at audio rate; preserve deliberate event timing.
+Skipping preview frames must not interrupt or alter the generated sound.
+Seeking, clip loops, reordering, resizing and speed changes need explicit clock
+rules; use deterministic reconstruction or bounded checkpoints for stateful
+oscillators, filters and tails so preview and export agree.
+
+Start with an explicit generated-sound output choice alongside the existing
+soundtrack, footage-audio and silent choices. Do not silently combine sources.
+Keep monitor mute/level separate from export inclusion/level, use bounded output
+levels and click-free starts/stops, and defer general multitrack mixing.
+The first version is one-way: generated audio does not feed audio-reactive
+effects back into its own source. Bidirectional routing needs a separate design.
+
+Validation must cover repeatable PCM for a fixed project/seed, seek/export
+agreement, event timing, silence, disabled mappings, rapid edits and cancellation,
+clip/instance identity, save/reopen and existing audio-output modes. Old projects
+must stay silent or retain their authored audio, with unchanged visual frames.
+
+### V3. Image-driven sound and later exploration
+
+Measure the rendered image to derive brightness, color, occupied area or motion
+signals. This could sonify imported footage and visual interactions that are not
+represented by an individual effect's internal signals. It is distinct from V1
+and requires its own cost, sampling and caching design. Multiple voices,
+musical scales and broader audiovisual routing follow the first listening tests.
+
+Before implementation, choose the prototype's three signal definitions, audible
+ranges and sound palette, the synthesis/cache backend, and exact seek/loop/tail
+behavior. The first deliverable is an audible Tension demo and reusable signal
+contract, followed by the authoring UI. No implementation date is committed.
+
 ## Phase C: live input, later
 
 After file-based reactivity is reliable, investigate microphone and system-audio
@@ -409,8 +506,11 @@ control signal. No hardware is required for the imported-file milestone.
 - [x] A5: bounded timed parameter gestures and envelope controls; arbitrary keyframes deferred.
 - [x] B1 imported soundtrack, waveform, transport and synchronized audio export.
 - [x] B2/B3 first slice: continuous band-energy mappings and deterministic rendering/export.
+- [ ] **Next creative priority — V1:** Tension visual-to-sound prototype, one voice and three editable connections.
+- [ ] V2: reusable visual-signal routing, sound controls and document/export integration.
 - [ ] B2 follow-up: onset/event triggers, spectrum selection and broader creative targets.
 - [ ] Extend to B4 multiple imported tracks with independent routing and explicit audio output.
+- [ ] V3: sound from measured final-image features, after the internal-signal prototype.
 - [ ] Consider C live input after the file-based workflow is established.
 
 Audio depends on stable creative targets, reversible adjustments and deterministic

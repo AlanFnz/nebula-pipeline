@@ -20,6 +20,10 @@ and effect-scoped auditions. A4 adds preset previews, current-frame explanations
 and a composition breakdown. A5 adds timed parameter gestures. B1 adds an imported
 soundtrack, waveform, audible preview and synchronized export. Audio-to-effect
 mappings and frequency ranges arrive in 0.11.0. Multitrack routing remains planned.
+The next creative priority is [visual-to-sound synthesis](docs/creative-controls-audio-roadmap.md#visual-to-sound-synthesis):
+generate sound from the actual motion of effects, starting with a Tension demo
+using one synthesized voice and three editable connections. This is planned
+work; the current app does not yet synthesize sound from visual effects.
 
 The [Studio interface plan](docs/studio-design-plan.md) and
 [delivery notes](docs/studio-design-delivery.md) describe the 0.9.0 redesign.
