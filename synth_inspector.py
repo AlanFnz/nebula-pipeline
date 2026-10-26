@@ -19,6 +19,13 @@ def control_group(path):
         if key in ('width', 'position_x', 'position_y', 'enlargement', 'overprint', 'primary', 'fragment_mix', 'fragment_typeface'): return 'Shape & layout'
         if key == 'effect_intensity': return 'Output & blending'
         return 'Optical finish'
+    if module == 'signal_tension':
+        if key in ('tension', 'cohesion', 'persistence', 'instability', 'texture'): return 'Gesture'
+        if key in ('period', 'timing', 'phase'): return 'Motion & timing'
+        if key in ('direction', 'spacing', 'bend'): return 'Filaments'
+        if key in ('palette', 'color', 'glow'): return 'Color & light'
+        if key in ('region', 'threshold', 'softness'): return 'Signal selection'
+        return 'Output & blending'
     if module == 'image_memory':
         if key in ('persistence', 'drift', 'dissolve', 'trail_opacity', 'drift_angle', 'expansion'): return 'Memory'
         if key in ('shape', 'size', 'sides', 'rotation'): return 'Shape & layout'

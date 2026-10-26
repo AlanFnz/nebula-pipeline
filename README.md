@@ -770,6 +770,34 @@ allow the whole phrase to play. This Study is silent; audio-triggered word
 advancement remains planned.
 
 
+### Tension / elastic signal
+
+**Studies → Tension / elastic signal → Load** opens an original 15-second,
+960×720 study at 24 fps. A luminous circular form strains into copper and cyan
+filaments, recoils, then gathers while impressions fade. Signal background,
+Color emulsion and Broadcast wear supply the tape floor and CRT finish.
+
+Open **Effects → Signal tension → Gesture** for the five main controls:
+
+- **Tension:** reach of the pull; zero keeps the input unchanged.
+- **Cohesion:** preserve more of the original silhouette or let it fragment.
+- **Persistence:** seconds of residual deformation poses; zero removes echoes.
+- **Instability:** uneven threads and recoil.
+- **Texture:** moving grain within the strained signal.
+
+Further groups expose pull direction, filament spacing/bend, gesture interval,
+timing variation, palette, color, glow and highlight selection. The source shape
+stays in **Object → Geometric signal**. Replace it with Text or another object
+while keeping the treatments. Signal tension is also available for imported
+footage under **Add effect → Distortion**, with three starting presets.
+
+The default Highlights region preserves the dark input floor. Whole image
+also deforms darker details. Reflected edge sampling avoids introducing black
+margins. Persistence samples earlier deformation poses of the **current image**,
+not earlier frames of a video; it uses no playback-dependent history buffer.
+Project/clip scope, Intensity, effect order, Undo/Redo and saved compositions
+use the existing editor behavior. Existing studies retain their original output.
+
 ### Memory / afterimage garden
 
 **Studies → Memory / afterimage garden → Load** opens a 15-second, 720×960,
