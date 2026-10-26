@@ -775,8 +775,10 @@ advancement remains planned.
 **Studies → Tension / elastic signal → Load** opens an original 15-second,
 960×720 study at 24 fps. A luminous circular form strains into copper and cyan
 filaments, recoils, then gathers while impressions fade. Each gesture changes
-its direction, reach, hesitation and recovery. Signal background, Color emulsion
-and Broadcast wear supply a grainy blue/violet tape floor and CRT finish.
+its direction, reach, hesitation and recovery. Its outline wanders and the
+foreground and residual impressions drift slightly out of registration.
+Signal background, Film burn, Color emulsion and Broadcast wear supply a quiet
+charcoal/red film floor, moving exposure, grain and a CRT finish.
 
 Open **Effects → Signal tension → Gesture** for the five main controls:
 
@@ -790,14 +792,26 @@ Further groups expose pull direction, filament spacing/bend, gesture interval,
 timing variation, palette, color, glow and highlight selection. In **Motion &
 timing**, **Gesture variation** changes the character of each pull; **Filament
 flutter** adds irregular movement inside the threads without shaking the canvas.
-These controls default to zero in older saved projects to preserve their motion;
-load the revised study or choose an effect preset to try the new behavior.
+**Subject drift** lets the figure travel around its authored position;
+**Contour wander** loosens the outline, including the faint coherent impression.
+**Layer offset** gives the figure, pulled signal and echoes independent small
+position/angle changes; **Offset cadence** controls how often these offsets
+change. These motion amounts default to zero in older saved projects to preserve
+their rendering. Load the revised study to try the complete new look.
+
+For the background, open **Film burn**: adjust **Light leak strength** and
+**Light leak hue** for its amount and color; **Light leak drift**, **Film
+movement** and **Film cadence** control its motion. **Film grain** and **Dust &
+scratches** control the film texture. Bypass Film burn to return to the quiet
+tape floor below it.
 The source shape
 stays in **Object → Geometric signal**. Replace it with Text or another object
 while keeping the treatments. Signal tension is also available for imported
 footage under **Add effect → Distortion**, with three starting presets.
 
-The default Highlights region preserves the dark input floor. Whole image
+The default Highlights region preserves the dark input floor. When figure
+motion is enabled it carries a small dim fringe with each highlight, preventing
+a stationary outline beneath the moving form. Whole image
 also deforms darker details. Reflected edge sampling avoids introducing black
 margins. Persistence samples earlier deformation poses of the **current image**,
 not earlier frames of a video; it uses no playback-dependent history buffer.

@@ -21,7 +21,7 @@ def control_group(path):
         return 'Optical finish'
     if module == 'signal_tension':
         if key in ('tension', 'cohesion', 'persistence', 'instability', 'texture'): return 'Gesture'
-        if key in ('period', 'timing', 'phase', 'variation', 'flutter'): return 'Motion & timing'
+        if key in ('period', 'timing', 'phase', 'variation', 'flutter', 'drift', 'contour', 'registration', 'registration_fps'): return 'Motion & timing'
         if key in ('direction', 'spacing', 'bend'): return 'Filaments'
         if key in ('palette', 'color', 'glow'): return 'Color & light'
         if key in ('region', 'threshold', 'softness'): return 'Signal selection'

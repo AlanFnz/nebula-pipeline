@@ -36,6 +36,16 @@ def test_saved_original_study_retains_its_exact_motion_and_background():
         assert hashlib.sha256(frame.tobytes()).hexdigest()==digest
 
 
+def test_saved_organic_revision_retains_its_exact_rendering():
+    old=load_composition(Path(__file__).resolve().parents[1]/'presets/tension-v2.json')
+    seq=compile_composition(old)
+    expected={.19:'302e222f36b9f2e9594bfb4e71eb4f3d22cb757c84151392739f6d04d1f0c45c',
+              .73:'65f16fccbc6049d5b6cec48247c31b6a742b7a5c8f8a90bbc7f4120e7433f07a'}
+    for fraction,digest in expected.items():
+        frame=render_sequence_frame(seq,seq['duration']*fraction,(96,96))
+        assert hashlib.sha256(frame.tobytes()).hexdigest()==digest
+
+
 def source(size=(96,72)):
     w,h=size; yy,xx=np.mgrid[:h,:w]
     result=np.full((h,w,3),.06,np.float32)
@@ -84,7 +94,7 @@ def test_extreme_parameters_are_finite_and_bounded(shape,region,organic):
     arr=source(shape)
     p=defaults(tension=1.,cohesion=0.,persistence=4.,instability=1.,texture=1.,
                direction=173.,spacing=3.,bend=1.,period=1.5,timing=1.,region=region,
-               variation=organic,flutter=organic)
+               variation=organic,flutter=organic,drift=organic,contour=organic,registration=organic)
     for t in (0.,.001,3.,3600.):
         actual=render(p,t,arr)
         assert actual.shape==arr.shape and actual.dtype==np.float32
@@ -125,6 +135,8 @@ def test_clock_seed_and_echo_sampling_are_bounded(monkeypatch):
     assert len(calls)==MAX_ECHOES+1
     calls.clear(); render(defaults(persistence=0.))
     assert len(calls)==1
+    calls.clear(); render(defaults(drift=1.,contour=1.,registration=1.),t=3600.)
+    assert len(calls)==MAX_ECHOES+2
 
 
 @pytest.mark.parametrize('variation',[.25,.65,1.])
@@ -171,8 +183,60 @@ def test_new_controls_start_smoothly_without_replacing_the_underlying_pose():
     p=defaults(texture=0.)
     for t in (1.7,2.5,6.3):
         baseline=render(p,t)
-        for key in ('variation','flutter'):
+        for key in ('variation','flutter','drift','contour','registration'):
             assert np.mean(abs(render(dict(p,**{key:.000001}),t)-baseline))<.0001
+
+
+def centroid(image):
+    weights=np.maximum(0,image.max(axis=2)-.06)
+    yy,xx=np.mgrid[:image.shape[0],:image.shape[1]]
+    return np.array([(xx*weights).sum(),(yy*weights).sum()])/weights.sum()
+
+
+def test_figure_drifts_during_holds_and_its_outline_keeps_changing():
+    p=defaults(period=20.,timing=0.,texture=0.,glow=0.,palette=0,persistence=0.,
+               cohesion=1.,drift=1.,contour=1.)
+    positions=[centroid(render(p,t)) for t in (0.,1.,2.,3.,4.)]
+    assert np.ptp(positions,axis=0).max()>3
+    assert np.mean(abs(render(p,0.)-render(dict(p,contour=0.),0.)))>.005
+    # Continuous drift/contour do not jump without the separately enabled offset.
+    for t in (0.,1.,3.,5.):
+        assert np.mean(abs(render(p,t)-render(p,t+.00001)))<.0001
+
+
+def test_foreground_and_coherent_impression_have_independent_held_offsets():
+    p=defaults(period=20.,timing=0.,texture=0.,glow=0.,palette=0,persistence=0.,
+               cohesion=0.,registration=1.,registration_fps=12.)
+    centers=[]
+    for t in (0.,1/12):
+        front=render(p,t)
+        composite=render(dict(p,cohesion=1.),t)
+        core=(composite-front*.22)/.78
+        centers.append((centroid(front),centroid(core)))
+        assert np.linalg.norm(centers[-1][0]-centers[-1][1])>.2
+    front_step=centers[1][0]-centers[0][0]
+    core_step=centers[1][1]-centers[0][1]
+    assert np.linalg.norm(front_step-core_step)>.2
+    # Before the next cadence boundary the tiny anticipation is imperceptible;
+    # crossing it changes the registration visibly. Global speed also freezes it.
+    assert np.mean(abs(render(p,0.)-render(p,.04)))<.0001
+    assert np.mean(abs(render(p,0.)-render(p,1/12)))>.001
+    assert np.array_equal(render(p,0.),render(p,12.,speed=0.))
+    assert np.array_equal(render(p,1.),render(p,.5,speed=2.))
+
+
+def test_moving_highlights_carry_their_dim_fringe_without_moving_the_dark_floor():
+    arr=source();yy,xx=np.mgrid[:72,:96]
+    radius=np.hypot(xx-48,yy-36)
+    arr[(radius>15)&(radius<18)]=.20
+    p=defaults(period=20.,timing=0.,texture=0.,glow=0.,palette=0,persistence=0.,
+               cohesion=1.,drift=1.,contour=.8,registration=.8)
+    moved=render(p,0.,arr)
+    assert np.max(abs(moved[:10]-arr[:10]))<1e-6
+    # A displaced dim rim must not remain painted in its original ring.
+    ring=(radius>15)&(radius<18)
+    assert np.count_nonzero(moved.max(axis=2)[ring]<.10)>10
+    assert render(dict(p,tension=0.),0.,arr) is arr
 
 
 @pytest.mark.parametrize('ordered',[False,True])

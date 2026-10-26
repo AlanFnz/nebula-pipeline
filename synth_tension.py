@@ -27,6 +27,10 @@ def modules(Module, P):
         P('timing', 'Timing variation', .75, 0, 1, .01, 'Unequal anticipation, hold and release durations. Zero repeats the same timing.'),
         P('variation', 'Gesture variation', 0., 0, 1, .01, 'Change the strength, direction, filament shape and recovery of each pull. Zero preserves the original gesture.'),
         P('flutter', 'Filament flutter', 0., 0, 1, .01, 'Small irregular movements within the threads as they pull and recover. Does not shake the whole canvas.'),
+        P('drift', 'Subject drift', 0., 0, 1, .01, 'Slow, uneven travel of the figure and its impressions around the source position. Leaves the dark background in place.'),
+        P('contour', 'Contour wander', 0., 0, 1, .01, 'Gently change the outline of both the coherent figure and its stretched impressions. Zero keeps the original contour.'),
+        P('registration', 'Layer offset', 0., 0, 1, .01, 'Small independent position and angle changes of the figure, pulled signal and echoes. Gives each impression its own registration.'),
+        P('registration_fps', 'Offset cadence', 24., 1, 60, 1, 'Changes per second of Layer offset, at global speed 1. Lower values hold each offset longer; preview and export use the same clock.'),
         P('phase', 'Starting phase', 0., 0, 1, .01),
         P('palette', 'Filament palette', 1, 0, 3, 1, choices=('Source colors', 'Copper / ice', 'Violet / acid', 'Silver / phosphor')),
         P('color', 'Filament color', .70, 0, 1, .01, 'Color added to pulled details and residual impressions. Zero retains the source colors.'),
@@ -170,6 +174,15 @@ def render_signal_tension(arr, p, seconds, speed, seed, reference):
     lum=arr.max(axis=2)
     mask=np.ones_like(lum) if p['region'] else _smooth((lum-p['threshold'])/p['softness'])
     if not np.any(mask): return arr
+    drift=p.get('drift',0.); contour=p.get('contour',0.); registration=p.get('registration',0.)
+    mobile=max(drift,contour,registration)
+    if mobile and not p['region']:
+        # Carry the dim fringe of selected highlights too, so an antialiased
+        # outline cannot remain as a stationary circle beneath a moving figure.
+        radius=max(1,min(15,round(unit*5)))
+        expanded=np.asarray(Image.fromarray(np.uint8(mask*255)).filter(
+            ImageFilter.MaxFilter(radius*2+1)),np.float32)/255.
+        mask+=np.maximum(0.,expanded-mask)*min(1.,mobile*4)
     # Preserve a low source floor so vacated highlights retain the original dark
     # stock. This floor is zero in Whole image mode, where the full signal moves.
     floor=0. if p['region'] else np.minimum(np.min(arr,axis=(0,1)),p['threshold'])
@@ -184,7 +197,29 @@ def render_signal_tension(arr, p, seconds, speed, seed, reference):
     thread=.5+.5*np.sin(v*edge/pitch*math.tau + .6*np.sin(v*31+phase))
     rib=thread**6
 
-    def deform(time):
+    def mobile_coordinates(sx,sy,time,layer):
+        # Common slow travel, independent held registration and local contour
+        # wander. Each echo samples its own past pose; no playback state is used.
+        dx=drift*edge*.085*_wander(time,seed,110,.31)
+        dy=drift*edge*.070*_wander(time,seed,111,.24)
+        lane=120+layer*8
+        tick=math.floor(time*p.get('registration_fps',24.)+1e-8)
+        dx+=registration*unit*10*(2*_random(seed,tick,lane)-1)
+        dy+=registration*unit*10*(2*_random(seed,tick,lane+1)-1)
+        turn=registration*.024*(2*_random(seed,tick,lane+2)-1)
+        cx=(w-1)*.5; cy=(h-1)*.5
+        qx=sx-cx-dx; qy=sy-cy-dy
+        rx=qx*math.cos(turn)+qy*math.sin(turn)
+        ry=-qx*math.sin(turn)+qy*math.cos(turn)
+        if contour:
+            a=_wander(time,seed,lane+3,.78)
+            b=_wander(time,seed,lane+4,1.13)
+            nx=rx/edge; ny=ry/edge
+            rx+=edge*contour*.025*(np.sin(ny*12+a*3)+.35*np.sin(nx*17+ny*23-b*2))
+            ry+=edge*contour*.025*(np.sin(nx*13-b*3)+.35*np.sin(ny*19-nx*21+a*2))
+        return rx+cx,ry+cy
+
+    def deform(time,layer=1):
         force,direction=gesture(p,time,seed)
         force*=p['tension']
         variation=p.get('variation',0.); flutter=p.get('flutter',0.)
@@ -225,19 +260,22 @@ def render_signal_tension(arr, p, seconds, speed, seed, reference):
             sv=v+force*p['bend']*.065*np.sin(u*8+v*11+time*.65)*np.minimum(1.,np.abs(u)*2+.2)
             sx=(su*cs-sv*sn)*edge+(w-1)*.5
             sy=(su*sn+sv*cs)*edge+(h-1)*.5
+        if mobile:
+            sx,sy=mobile_coordinates(sx,sy,time,layer)
         return _sample(source,sx,sy), abs(force)
 
     pulled,force=deform(t)
     # Protect a readable core while allowing separate, much longer fine threads.
     protected=p['cohesion']*.78
-    live=source*protected+pulled*(1-protected)
+    core=_sample(source,*mobile_coordinates(xx,yy,t,0)) if mobile and protected else source
+    live=core*protected+pulled*(1-protected)
     trace=np.zeros_like(arr)
     if p['persistence'] > 0:
         for i in range(1,MAX_ECHOES+1):
             age=i/(MAX_ECHOES+1)
             lag=age*p['persistence']
             if t < lag: continue
-            echo,energy=deform(t-lag)
+            echo,energy=deform(t-lag,i+1)
             trace+=echo*(energy*(1-age)**1.7*.27*float(_smooth((t-lag)/.3)))
     if p['palette']:
         colors=np.array((((1.,.44,.18),(.18,.87,1.)),

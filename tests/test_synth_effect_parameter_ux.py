@@ -343,11 +343,17 @@ def test_integrated_inspector_resizes_rows_before_placing_neighbors(make_window)
         QApplication.processEvents(); QApplication.processEvents()
 
     def check_rows():
-        controls = sorted((control for control in panel.controls.values() if control.isVisible()),
-                          key=lambda control: control.y())
+        controls = [control for control in panel.controls.values() if control.isVisible()]
         assert len(controls) >= 7
-        for first, second in zip(controls, controls[1:]):
-            assert first.geometry().bottom() < second.y()
+        # Intensity lives in the fixed header; other rows live in the scroll
+        # content. Local y coordinates can only be compared within one parent.
+        groups = {}
+        for control in controls:
+            groups.setdefault(control.parentWidget(), []).append(control)
+        for siblings in groups.values():
+            siblings.sort(key=lambda control: control.y())
+            for first, second in zip(siblings, siblings[1:]):
+                assert first.geometry().bottom() < second.y()
         for control in controls:
             if not control.slider: continue
             assert control.slider.height() >= control.slider.sizeHint().height()

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.40.0 — 2026-10-26
+
+- Revise Tension / elastic signal with a drifting, imperfect figure and
+  independently offset foreground, coherent impression and echoes. Carry the
+  dim source fringe along so it cannot leave a stationary circular outline.
+- Add Subject drift, Contour wander, Layer offset and Offset cadence under
+  Signal tension → Motion & timing. New motion amounts default to zero for
+  saved projects, preserving both previous study revisions and other studies.
+- Add subtle red/plum light leaks, film grain and dust to this study using
+  existing Film burn controls. Keep the background darker than the figure.
+
 ## 0.39.0 — 2026-10-26
 
 - Revise Tension / elastic signal with distinct pulls, hesitations, quick
