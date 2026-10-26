@@ -1,5 +1,7 @@
 """Elastic image treatment: input independence, timing and rendering contract."""
 import copy
+import hashlib
+from pathlib import Path
 import subprocess
 
 import numpy as np
@@ -22,6 +24,16 @@ from synth_video import VIDEO_EFFECTS, VIDEO_MODULES
 
 def defaults(**changes):
     return {**{p.key:p.default for p in MODULE_BY_ID['signal_tension'].params},**changes}
+
+
+def test_saved_original_study_retains_its_exact_motion_and_background():
+    old=load_composition(Path(__file__).resolve().parents[1]/'presets/tension-v1.json')
+    seq=compile_composition(old)
+    expected={.19:'eceac5ab65bc11450f65c46835b54d7330e59a1d47a928fad8570b1d1eef55cb',
+              .73:'4fb70c919531edbbaaa4e366931c16ba89d6ded5dc2cd676799bcb7ab9fd9aba'}
+    for fraction,digest in expected.items():
+        frame=render_sequence_frame(seq,seq['duration']*fraction,(96,96))
+        assert hashlib.sha256(frame.tobytes()).hexdigest()==digest
 
 
 def source(size=(96,72)):
@@ -67,10 +79,12 @@ def test_neutral_and_dark_signal_do_not_fabricate_content_or_mutate_input():
 
 @pytest.mark.parametrize('shape',[(1,1),(64,20),(21,79),(96,72)])
 @pytest.mark.parametrize('region',[0,1])
-def test_extreme_parameters_are_finite_and_bounded(shape,region):
+@pytest.mark.parametrize('organic',[0.,1.])
+def test_extreme_parameters_are_finite_and_bounded(shape,region,organic):
     arr=source(shape)
     p=defaults(tension=1.,cohesion=0.,persistence=4.,instability=1.,texture=1.,
-               direction=173.,spacing=3.,bend=1.,period=1.5,timing=1.,region=region)
+               direction=173.,spacing=3.,bend=1.,period=1.5,timing=1.,region=region,
+               variation=organic,flutter=organic)
     for t in (0.,.001,3.,3600.):
         actual=render(p,t,arr)
         assert actual.shape==arr.shape and actual.dtype==np.float32
@@ -100,7 +114,7 @@ def test_exploration_controls_visibly_change_the_result(change):
 
 def test_clock_seed_and_echo_sampling_are_bounded(monkeypatch):
     import synth_tension
-    p=defaults()
+    p=defaults(variation=1.,flutter=.8)
     assert np.array_equal(render(p,2.),render(p,1.,speed=2.))
     assert np.array_equal(render(p,0.),render(p,5.,speed=0.))
     assert not np.array_equal(render(seed=90),render(seed=91))
@@ -111,6 +125,54 @@ def test_clock_seed_and_echo_sampling_are_bounded(monkeypatch):
     assert len(calls)==MAX_ECHOES+1
     calls.clear(); render(defaults(persistence=0.))
     assert len(calls)==1
+
+
+@pytest.mark.parametrize('variation',[.25,.65,1.])
+def test_organic_motion_has_no_jumps_when_gesture_geometry_changes(variation):
+    from synth_tension import _gesture_cell
+    p=defaults(variation=variation,flutter=.8,texture=0.,persistence=.9)
+    for seed in (90,91,11457814282385738528):
+        for index in range(1,5):
+            from synth_tension import _random
+            boundary=(index+(.20+.16*variation)*(2*_random(seed,index,1)-1)*p['timing'])*p['period']
+            before=render(p,boundary-.00001,seed=seed)
+            after=render(p,boundary+.00001,seed=seed)
+            assert _gesture_cell(p,boundary-.00001,seed)[0] != _gesture_cell(p,boundary+.00001,seed)[0]
+            assert np.mean(abs(after-before))<.0001
+
+
+def test_study_gestures_differ_in_motion_and_direction_and_expose_controls():
+    from synth_sequence import resolve_sequence_frame
+    from synth_tension import _gesture_cell
+    from synth_inspector import control_group
+    preset=resolve_sequence_frame(compile_composition(tension_composition()),0)[-1]
+    p=next(m['params'] for m in preset['modules'] if m['id']=='signal_tension')
+    seed=synth._seed(preset['seed'],'signal-tension')
+    times=np.arange(0,15,.02)
+    groups=[[] for _ in range(3)]
+    for t in times:
+        i,_=_gesture_cell(p,t,seed)
+        if i<3:groups[i].append((t,gesture(p,t,seed)[0]))
+    signatures=[];peaks=[]
+    for group in groups:
+        data=np.array(group); t,f=data.T
+        peaks.append(t[np.argmax(f)])
+        signatures.append(np.interp(np.linspace(t[0],t[-1],100),t,f))
+    # Compare complete gestures at normalized phase, not only unequal spacing.
+    for a,b in ((0,1),(1,2),(0,2)):
+        assert np.mean(abs(signatures[a]-signatures[b]))>.10
+        assert np.mean(abs(render(p,peaks[a],seed=seed)-render(p,peaks[b],seed=seed)))>.01
+    assert np.mean(abs(render(p,peaks[0],seed=seed)-render(dict(p,flutter=0),peaks[0],seed=seed)))>.001
+    for key in ('variation','flutter'):
+        assert control_group('signal_tension.'+key)=='Motion & timing'
+
+
+def test_new_controls_start_smoothly_without_replacing_the_underlying_pose():
+    p=defaults(texture=0.)
+    for t in (1.7,2.5,6.3):
+        baseline=render(p,t)
+        for key in ('variation','flutter'):
+            assert np.mean(abs(render(dict(p,**{key:.000001}),t)-baseline))<.0001
 
 
 @pytest.mark.parametrize('ordered',[False,True])
