@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.38.0 — 2026-10-26
+
+- Add Tension / elastic signal, an original 15-second study with luminous
+  filaments, unequal pulls, damped releases and a textured CRT finish.
+- Add reusable Signal tension with Tension, Cohesion, Persistence, Instability
+  and Texture controls; adjustable direction, timing, palettes and selection.
+  Supports shapes, text and footage, effect ordering, intensity and clip scope.
+  Persistence echoes earlier deformations of the current frame deterministically.
+- Preserve existing study recipes and rendering output.
+
 ## 0.37.2 — 2026-10-26
 
 - Zoom the monitor directly with the mouse wheel or two-finger trackpad scroll,
