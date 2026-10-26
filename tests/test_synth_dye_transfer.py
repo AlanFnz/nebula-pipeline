@@ -1,5 +1,6 @@
 """Reusable dye printing, editable reference montage and ordering regressions."""
 import copy
+from pathlib import Path
 import numpy as np
 import pytest
 from PIL import Image
@@ -35,6 +36,45 @@ def test_seeks_cadence_and_no_mutation():
     assert np.array_equal(first,render_dye_transfer(a,p,.21,1,53,(160,90)))
     assert not np.array_equal(first,render_dye_transfer(a,p,.3,1,53,(160,90)))
     assert np.array_equal(a,old) and p==settings
+
+
+def test_optical_finish_is_deterministic_and_optional():
+    a=source(); p=defaults(); old=a.copy()
+    original=render_dye_transfer(a,p,.2,1,53,(160,90))
+    # Old settings dictionaries may not contain any new optional controls.
+    keys=('emulsion','streaks','edge_bloom','registration','focus_flutter','shutter')
+    legacy={k:v for k,v in p.items() if k not in keys}
+    assert np.array_equal(original,render_dye_transfer(a,legacy,.2,1,53,(160,90)))
+    p.update(emulsion=.6,streaks=.5,edge_bloom=.7,registration=.4,focus_flutter=2,shutter=-.3)
+    result=render_dye_transfer(a,p,.2,1,53,(160,90))
+    render_dye_transfer(a,p,91,1,53,(160,90))
+    assert np.array_equal(result,render_dye_transfer(a,p,.21,1,53,(160,90)))
+    assert not np.array_equal(original,result)
+    assert np.array_equal(a,old)
+    assert all(target_parameter('dye_transfer.'+k) is not None for k in keys)
+
+
+def test_shutter_trails_follow_direction_without_opposite_edge_wrap():
+    a=source((160,90));p=defaults()
+    p.update(paper_light=0,ink_light=1,ink_saturation=0,weave=0,warp=0,
+             erosion=0,grain=0,dust=0,wash=0,dye=0,softness=0,drag=0)
+    up=render_dye_transfer(a,dict(p,shutter=-.7),0,1,53,(160,90)).mean(axis=2)
+    down=render_dye_transfer(a,dict(p,shutter=.7),0,1,53,(160,90)).mean(axis=2)
+    def centroid(image): return (image*np.arange(90)[:,None]).sum()/image.sum()
+    assert centroid(up)<44<centroid(down)
+    assert up[-1].max()==0 and down[0].max()==0
+    # The exposure is continuous, not a row of translated glyph copies.
+    assert np.all(up[:20].sum(axis=1)>0)
+    assert np.all(down[70:].sum(axis=1)>0)
+
+
+def test_first_study_revision_keeps_its_saved_appearance():
+    import hashlib
+    root=Path(__file__).resolve().parents[1]
+    seq=compile_composition(load_composition(root/'presets/text-dye-transfer-v1.json'))
+    expected=[(0.0, '828c6d7baee1b88e6e2133d847928406f951395817e622258a9e3b9bdef4a88c'), (1.3, '71e370fd206c44f78a910c157c3a9f01ccc5ac557136bd3ce143f4108b8ff978'), (11.036666666666667, 'd694791262986153d069571a08febf1b4a28757b925c04346c4b2d1ee5d94882')]
+    for t,digest in expected:
+        assert hashlib.sha256(render_sequence_frame(seq,t,(160,90)).tobytes()).hexdigest()==digest
 
 
 @pytest.mark.parametrize('size',[(1,1),(31,127),(131,29)])

@@ -22,8 +22,9 @@ def test_dye_controls_scope_undo_and_separate_wording(make_window,tmp_path):
     panel.group.setCurrentIndex(panel.group.findData('Optical finish'))
     QApplication.processEvents()
     assert panel.controls['dye_transfer.drag'].isVisible()
-    panel.controls['dye_transfer.drag'].input.setValue(.3)
-    assert window.composition['sections'][0]['effects']['dye_transfer']['params']['dye_transfer.drag']==.3
+    assert panel.controls['dye_transfer.emulsion'].isVisible()
+    panel.controls['dye_transfer.emulsion'].input.setValue(.3)
+    assert window.composition['sections'][0]['effects']['dye_transfer']['params']['dye_transfer.emulsion']==.3
     assert 'dye_transfer' not in window.composition['sections'][1]['effects']
     save_composition(tmp_path/'scope.json',window.composition)
     assert load_composition(tmp_path/'scope.json')==window.composition

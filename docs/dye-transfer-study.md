@@ -1,6 +1,7 @@
 # Text / one more try
 
-Reference-13 reconstruction added in 0.41.0. Load **Studies → Text / one more try**.
+Reference-13 reconstruction added in 0.41.0 and optically refined in 0.42.0.
+Load **Studies → Text / one more try**.
 It is an editable 720 × 406 composition at 30 fps, lasting 473 frames / 15.77 s.
 The film texture updates at 15 fps. No source-video frames are required to render it.
 
@@ -38,9 +39,15 @@ reference montage first; automatic alternate-phrase adaptation is future work.
 - Color & light: stock and ink hue/saturation/brightness, uneven exposure,
   edge dye, exposure halo and exposure level.
 - Shape & layout: impression scale, position and rotation.
-- Motion & timing: gate weave and film cadence.
 - Optical finish: wet ink displacement, vertical exposure drag, dragged-impression
-  strength, softness, edge thinning, erosion, grain and dust.
+  strength, softness, edge thinning, erosion, grain and dust. Mottled emulsion
+  adds unequal density and rubbed texture; Exposure streaks varies vertical
+  density bands; Edge bloom adds a narrow light rim around the impression.
+- Motion & timing: gate weave and film cadence. Local registration bends parts of the impression independently;
+  Focus flutter varies focus irregularly; Shutter pull drags selected columns
+  upward (negative) or downward (positive), leaving a continuous exposure trail.
+  These controls can be animated for brief interruptions while readable holds
+  keep their own settings.
 - Film gate: aperture width, horizontal position and edge softness.
 - Intensity: dry/wet mix without changing the underlying settings.
 
@@ -55,9 +62,12 @@ scale, position, drag, exposure and grain are available to automation.
 `synth_dye_transfer.py` has no reference-specific text or montage. Absolute-time,
 seeded sampling makes seeks reproducible, with no history buffer. Transform and
 blur allocations are bounded by output dimensions. `synth_dye_recipes.py` carries
-the 69 authored cuts. `presets/text-dye-transfer-v1.json` freezes this study.
-The new module is appended to the catalog and disabled by default. Existing
-render seeds and recipes are unchanged.
+the 69 authored cuts.
+The module is appended to the catalog and disabled by default. The current
+study is frozen in `presets/text-dye-transfer-v2.json`; the original v1 file
+remains intact. All six optical-refinement controls default to zero, so saved
+compositions retain the original renderer's pixels. The revised study opts in
+explicitly. Other render seeds and recipes are unchanged.
 
 Coverage includes every authored cue, extreme settings/aspect ratios, random
 seeks, retained texture cadence, input ownership, footage, 0/50/100% intensity,
@@ -65,6 +75,10 @@ explicit pass ordering including Broadcast wear, save/load, editable wording,
 project/clip scope and Undo. Additional comparison checks preserve 72 raw pixel
 fingerprints across all 36 pre-existing studies. The delivered MP4 is checked
 for complete decoding, 473 frames and agreement with direct frame rendering.
+The refinement adds signed shutter/no-wrap tests, zero-control compatibility,
+random seeks with the new finish, and original-study pixel fingerprints.
+An additional 111-frame comparison covers all 36 earlier studies plus the
+original dye-transfer study.
 
 The built-in study is self-contained and silent. Any reference soundtrack used
 for a local demonstration stays separate from the distributable recipe.

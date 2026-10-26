@@ -21,6 +21,8 @@ TARGETS = frozenset({
     'dye_transfer.warp', 'dye_transfer.erosion', 'dye_transfer.halo',
     'dye_transfer.opening', 'dye_transfer.gate_x', 'dye_transfer.level',
     'dye_transfer.grain',
+    'dye_transfer.emulsion', 'dye_transfer.streaks', 'dye_transfer.edge_bloom',
+    'dye_transfer.registration', 'dye_transfer.focus_flutter', 'dye_transfer.shutter',
     'contact_print.exposure', 'contact_print.leak_x', 'contact_print.leak_y',
     'contact_print.leak_width', 'contact_print.leak_height', 'contact_print.positive',
     'contact_print.ink_density', 'contact_print.ink_lift', 'contact_print.density',
