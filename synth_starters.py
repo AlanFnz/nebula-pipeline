@@ -10,12 +10,14 @@ from synth_solid_recipes import rotating_die_composition
 from synth_lattice_recipes import lattice_composition
 from synth_memory_recipes import memory_composition
 from synth_tension_recipes import tension_composition
+from synth_dye_recipes import dye_transfer_composition
 from synth_film_recipes import film_print_composition, reading_print_composition
 from synth_optical_recipes import dark_print_composition
 from synth_contact_recipes import contact_print_composition
 
 
 STARTERS = (
+    ('text-dye-transfer', 'Text / one more try · 15.77s', dye_transfer_composition),
     ('tension', 'Tension / elastic signal · 15s', tension_composition),
     ('text-contact-film', 'Text / FAC51 contact film · 8s', contact_print_composition),
     ('text-contact-film-original', 'Text / FAC51 contact film (reference cut) · 3.25s', lambda: contact_print_composition(extended=False)),
@@ -57,6 +59,7 @@ STARTERS = (
 
 # First appearance in the repository, retained independently of app builds.
 STARTER_DATES = {
+    'text-dye-transfer': '2026-10-26',
     'tension': '2026-10-26',
     'text-contact-film': '2026-10-25',
     'text-contact-film-original': '2026-10-25',

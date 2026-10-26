@@ -24,6 +24,8 @@ def frozen_data(key):
 
 
 def starter_snapshot(identifier):
+    if identifier == 'text-dye-transfer':
+        return copy.deepcopy(_dye_transfer_snapshot())
     if identifier == 'tension':
         return copy.deepcopy(_tension_snapshot())
     if identifier == 'text-contact-film':
@@ -161,3 +163,8 @@ def _contact_film_snapshot(version=2):
 @lru_cache(maxsize=1)
 def _tension_snapshot():
     return json.loads((Path(__file__).parent / 'presets/tension-v3.json').read_text())
+
+
+@lru_cache(maxsize=1)
+def _dye_transfer_snapshot():
+    return json.loads((Path(__file__).parent / 'presets/text-dye-transfer-v1.json').read_text())

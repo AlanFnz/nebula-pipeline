@@ -5,6 +5,13 @@ def control_group(path):
     from synth_instances import base_path
     path = base_path(path)
     module, key = path.split('.')
+    if module == 'dye_transfer':
+        if key in ('scale', 'x', 'y', 'angle'): return 'Shape & layout'
+        if key in ('weave', 'cadence'): return 'Motion & timing'
+        if key in ('opening', 'gate_x', 'gate_softness'): return 'Film gate'
+        if key in ('warp', 'drag', 'drag_mix', 'softness', 'erosion', 'choke', 'grain', 'dust'): return 'Optical finish'
+        if key == 'effect_intensity': return 'Output & blending'
+        return 'Color & light'
     if module == 'contact_print':
         if key in ('cadence', 'weave'): return 'Motion & timing'
         if key.startswith(('gate_', 'shutter')) or key in ('opening', 'neighbor', 'roughness'): return 'Film gate'
