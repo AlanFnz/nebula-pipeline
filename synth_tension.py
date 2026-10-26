@@ -25,6 +25,8 @@ def modules(Module, P):
         P('bend', 'Filament bend', .55, 0, 1, .01, 'Curvature of individual threads as they stretch away from the form.'),
         P('period', 'Gesture interval', 4.6, 1.5, 20, .1, 'Average seconds between pulls at global speed 1.'),
         P('timing', 'Timing variation', .75, 0, 1, .01, 'Unequal anticipation, hold and release durations. Zero repeats the same timing.'),
+        P('variation', 'Gesture variation', 0., 0, 1, .01, 'Change the strength, direction, filament shape and recovery of each pull. Zero preserves the original gesture.'),
+        P('flutter', 'Filament flutter', 0., 0, 1, .01, 'Small irregular movements within the threads as they pull and recover. Does not shake the whole canvas.'),
         P('phase', 'Starting phase', 0., 0, 1, .01),
         P('palette', 'Filament palette', 1, 0, 3, 1, choices=('Source colors', 'Copper / ice', 'Violet / acid', 'Silver / phosphor')),
         P('color', 'Filament color', .70, 0, 1, .01, 'Color added to pulled details and residual impressions. Zero retains the source colors.'),
@@ -48,7 +50,7 @@ def _random(seed, index, lane):
     return ((x ^ (x >> 16)) & 0xffffffff)/0xffffffff
 
 
-def gesture(p, seconds, seed):
+def _legacy_gesture(p, seconds, seed):
     """Continuous anticipation, sharply accelerating pull, then damped release."""
     clock = max(0., seconds)/p['period'] + p['phase']
     nominal = math.floor(clock)
@@ -77,6 +79,68 @@ def gesture(p, seconds, seed):
     # Direction changes only while the motion has returned to zero at a boundary.
     sign = 1. if _random(seed,index,6) > .5 else -1.
     return strength*amplitude, sign
+
+
+def _gesture_cell(p, seconds, seed):
+    clock = max(0., seconds)/p['period'] + p['phase']
+    amount = p.get('variation', 0.)
+    def boundary(i):
+        return i + ((.20+.16*amount)*(2*_random(seed,i,1)-1)*p['timing'] if i > 0 else 0.)
+    index = max(0, math.floor(clock))
+    if clock < boundary(index): index -= 1
+    elif clock >= boundary(index+1): index += 1
+    start, end = boundary(index), boundary(index+1)
+    return index, (clock-start)/(end-start)
+
+
+def _wander(seconds, seed, lane, rate=1.):
+    """Continuous, nonperiodic drift; reproducible without playback history."""
+    clock = seconds*rate
+    left = math.floor(clock)
+    blend = float(_smooth(clock-left))
+    return 2*((1-blend)*_random(seed,left,lane)+blend*_random(seed,left+1,lane))-1
+
+
+def gesture(p, seconds, seed):
+    amount = p.get('variation', 0.)
+    if not amount:
+        return _legacy_gesture(p, seconds, seed)
+    index, u = _gesture_cell(p, seconds, seed)
+    r = lambda lane: _random(seed,index,lane)
+    # Separate anticipation, loading, release and settling lengths. Each pull
+    # gets a different peak and hesitation; no repeated fixed envelope.
+    kind = min(2, int(r(36)*3))
+    phrases = ((.23,.10,.07,.04,.05,.10,.23,.18),
+               (.10,.15,.24,.07,.06,.17,.13,.08),
+               (.18,.10,.15,.07,.10,.12,.18,.10))
+    durations = np.array(phrases[kind])
+    durations *= [1+amount*(1.5*r(20+i)-.65) for i in range(8)]
+    knots = np.concatenate(([0.], np.cumsum(durations)/durations.sum()))
+    peak = 1+amount*(.70*r(28)-.42)
+    values = [0., -.035-.065*amount*r(29), .06+.12*amount*r(30),
+              peak, peak*(1-amount*(.22+.50*r(31))),
+              peak*(1+amount*(.75*r(32)-.48)),
+              -(.08+.27*r(33))*amount*p['instability'],
+              .09*amount*p['instability']*r(34), 0.]
+    if kind == 0:
+        values[4:6] = (peak*.40, peak*.14)
+    elif kind == 1:
+        values[4:6] = (peak*(.86+.10*r(31)), peak*(.58+.20*r(32)))
+    segment = min(7, max(0, int(np.searchsorted(knots,u,side='right')-1)))
+    v = (u-knots[segment])/(knots[segment+1]-knots[segment])
+    # Asymmetric acceleration: rapid releases coexist with slow resistance.
+    power = 1+amount*(2.2*r(40+segment)-.55)
+    weight = float(_smooth(np.clip(v,0,1)**power))
+    strength = values[segment]+(values[segment+1]-values[segment])*weight
+    # Fade in the new phrasing when the control is adjusted from zero.
+    # Map the old envelope into the same cell before blending. Mixing two
+    # independently jittered clocks would flip direction while still stretched.
+    start=index+(.20*(2*_random(seed,index,1)-1)*p['timing'] if index else 0.)
+    end=index+1+.20*(2*_random(seed,index+1,1)-1)*p['timing']
+    legacy_time=(start+u*(end-start)-p['phase'])*p['period']
+    legacy,_=_legacy_gesture(p,legacy_time,seed)
+    sign=1. if r(6)>.5 else -1.
+    return legacy*(1-amount)+strength*amount, sign
 
 
 def _sample(arr, x, y):
@@ -123,14 +187,44 @@ def render_signal_tension(arr, p, seconds, speed, seed, reference):
     def deform(time):
         force,direction=gesture(p,time,seed)
         force*=p['tension']
-        slow=np.sin(v*17+time*.7+phase)+.32*np.sin(v*41-time*.9)
-        disorder=(.5+.5*np.sin(v*83+phase+time*.6))*p['instability']
-        pull=force*direction*(.15*slow + rib*(.18+.27*disorder))
-        stretch=1+abs(force)*(.25+rib*(1.5+disorder*2))
-        su=u/stretch-pull
-        sv=v+force*p['bend']*.065*np.sin(u*8+v*11+time*.65)*np.minimum(1.,np.abs(u)*2+.2)
-        sx=(su*cs-sv*sn)*edge+(w-1)*.5
-        sy=(su*sn+sv*cs)*edge+(h-1)*.5
+        variation=p.get('variation',0.); flutter=p.get('flutter',0.)
+        if variation or flutter:
+            index,_=_gesture_cell(p,time,seed)
+            r=lambda lane:_random(seed,index,lane)
+            turn=angle+math.radians(variation*100*(r(60)-.5))
+            dc,ds=math.cos(turn),math.sin(turn)
+            du=(x*dc+y*ds)/edge; dv=(-x*ds+y*dc)/edge
+            a=_wander(time,seed,70,2.7); b=_wander(time,seed,71,5.3)
+            local_phase=phase+variation*math.tau*r(61)
+            local_pitch=pitch*(1+variation*(r(62)-.45))
+            flutter_field=(np.sin(dv*47+local_phase+a*3)
+                           +.45*np.sin(dv*113-local_phase+b*2))
+            thread_phase=dv*edge/local_pitch*math.tau
+            thread_phase+=(1-variation)*.6*np.sin(dv*31+phase)
+            thread_phase+=variation*1.3*np.sin(dv*29+local_phase)
+            thread_phase+=flutter*.65*abs(force)*flutter_field
+            strands=(.5+.5*np.sin(thread_phase))**(6+variation*5*r(63))
+            slow=np.sin(dv*(17+variation*(14*r(64)-6))+local_phase+time*(.7-.45*variation))
+            slow+=.32*np.sin(dv*(41-2*variation)-time*(.9-.5*variation)+variation*local_phase)
+            disorder=(.5+.5*np.sin(dv*83+local_phase+time*.6))*p['instability']
+            local_force=force*(1+flutter*.30*flutter_field)
+            pull=local_force*direction*(.15*slow+strands*(.18+.27*disorder))
+            stretch=1+np.abs(local_force)*(.25+strands*(1.5+disorder*2))
+            su=du/stretch-pull
+            bend=p['bend']*(1+variation*(1.5*r(65)-.75))
+            sv=dv+local_force*bend*.065*np.sin(du*8+dv*11+time*.65*(1-variation)+variation*local_phase)*np.minimum(1.,np.abs(du)*2+.2)
+            sv+=abs(force)*flutter*.004*flutter_field*np.sin(du*19+b)
+            sx=(su*dc-sv*ds)*edge+(w-1)*.5
+            sy=(su*ds+sv*dc)*edge+(h-1)*.5
+        else:
+            slow=np.sin(v*17+time*.7+phase)+.32*np.sin(v*41-time*.9)
+            disorder=(.5+.5*np.sin(v*83+phase+time*.6))*p['instability']
+            pull=force*direction*(.15*slow + rib*(.18+.27*disorder))
+            stretch=1+abs(force)*(.25+rib*(1.5+disorder*2))
+            su=u/stretch-pull
+            sv=v+force*p['bend']*.065*np.sin(u*8+v*11+time*.65)*np.minimum(1.,np.abs(u)*2+.2)
+            sx=(su*cs-sv*sn)*edge+(w-1)*.5
+            sy=(su*sn+sv*cs)*edge+(h-1)*.5
         return _sample(source,sx,sy), abs(force)
 
     pulled,force=deform(t)

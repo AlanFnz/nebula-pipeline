@@ -774,8 +774,9 @@ advancement remains planned.
 
 **Studies → Tension / elastic signal → Load** opens an original 15-second,
 960×720 study at 24 fps. A luminous circular form strains into copper and cyan
-filaments, recoils, then gathers while impressions fade. Signal background,
-Color emulsion and Broadcast wear supply the tape floor and CRT finish.
+filaments, recoils, then gathers while impressions fade. Each gesture changes
+its direction, reach, hesitation and recovery. Signal background, Color emulsion
+and Broadcast wear supply a grainy blue/violet tape floor and CRT finish.
 
 Open **Effects → Signal tension → Gesture** for the five main controls:
 
@@ -786,7 +787,12 @@ Open **Effects → Signal tension → Gesture** for the five main controls:
 - **Texture:** moving grain within the strained signal.
 
 Further groups expose pull direction, filament spacing/bend, gesture interval,
-timing variation, palette, color, glow and highlight selection. The source shape
+timing variation, palette, color, glow and highlight selection. In **Motion &
+timing**, **Gesture variation** changes the character of each pull; **Filament
+flutter** adds irregular movement inside the threads without shaking the canvas.
+These controls default to zero in older saved projects to preserve their motion;
+load the revised study or choose an effect preset to try the new behavior.
+The source shape
 stays in **Object → Geometric signal**. Replace it with Text or another object
 while keeping the treatments. Signal tension is also available for imported
 footage under **Add effect → Distortion**, with three starting presets.

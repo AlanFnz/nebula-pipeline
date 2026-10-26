@@ -43,7 +43,29 @@ signal). The same treatment was inspected with two-line lettering as well.
 
 The main five controls open together in Gesture. The other groups stay collapsed
 until needed. Source shape and typography remain in Object. The original study
-is frozen in `presets/tension-v1.json`; editing it creates an independent copy.
+was frozen in `presets/tension-v1.json`; editing it creates an independent copy.
+
+## Organic motion revision
+
+The initial version varied timing but repeated too much of the same gesture.
+Revision 2 gives each deterministic event an independently shaped anticipation,
+pull, hesitation, release and settling curve. Short snaps, sustained resistance
+and second tugs have different duration distributions and asymmetrical easing.
+Each event also varies filament direction, density, bend and reach. Continuous
+seeded drift adds local flutter; it does not translate the entire canvas.
+
+Gesture variation and Filament flutter live in Motion & timing. Both default
+to zero for saved compositions, preserving the original renderer exactly. New
+effect presets enable them explicitly. The updated study is frozen in
+`presets/tension-v2.json`; revision 1 remains available for reproduction tests.
+Existing Signal background and Broadcast wear create a restrained blue/violet
+grain field behind the figure, without adding a background-specific effect.
+
+Revision verification: 172 integration tests passed, followed by 51 focused tests
+after smoothing the new controls' entry from zero. Tests compare the actual three
+study gestures at normalized phase, check direction-change boundaries and
+seeking, and exercise extreme parameters. All 72 comparison frames from existing
+recipes (including revision 1 of Tension) stayed byte-identical.
 
 ## Verification
 
