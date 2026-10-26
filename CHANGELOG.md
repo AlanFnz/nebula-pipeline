@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.42.0 — 2026-10-26
+
+- Refine Text / one more try with uneven film density, vertical exposure bands,
+  local ink registration, narrow edge bloom, focus loss and continuous shutter
+  pulls. Retain its original wording, 15.77-second montage and shorter interlude.
+- Expose Mottled emulsion, Exposure streaks, Edge bloom, Local registration,
+  Focus flutter and signed Shutter pull in Dye transfer. All support scoped
+  editing and automation, with zero defaults preserving saved compositions.
+- Retain the original frozen study and existing studies' rendered output.
+
 ## 0.41.0 — 2026-10-26
 
 - Add Text / one more try, a 15.77-second reconstruction of reference 13
