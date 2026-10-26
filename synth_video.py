@@ -31,8 +31,8 @@ VIDEO_MODULES = frozenset(('subject_cutout', 'photocopy', 'broadcast', 'stretch_
                           'warp', 'flare', 'separation', 'interference', 'frame_jitter',
                           'bloom', 'raster', 'print_surface', 'low_res'))
 PROXY_EDGE = 720
-VIDEO_EFFECTS += ('scan_modulation', 'crt_capture', 'signal_repetition', 'film_emulsion', 'film_burn', 'print_collage', 'optical_print', 'contact_print')
-VIDEO_MODULES |= {'scan_modulation', 'crt_capture', 'signal_repetition', 'contour_melt', 'film_emulsion', 'film_burn', 'print_collage', 'optical_print', 'contact_print'}
+VIDEO_EFFECTS += ('signal_tension', 'scan_modulation', 'crt_capture', 'signal_repetition', 'film_emulsion', 'film_burn', 'print_collage', 'optical_print', 'contact_print')
+VIDEO_MODULES |= {'signal_tension', 'scan_modulation', 'crt_capture', 'signal_repetition', 'contour_melt', 'film_emulsion', 'film_burn', 'print_collage', 'optical_print', 'contact_print'}
 _PROXY_LOCK = threading.Lock()
 
 

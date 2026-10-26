@@ -13,6 +13,7 @@ class ParameterPresentation:
 # Explicit paths avoid treating arbitrary angles, rates or normalized distances
 # as physical units. In particular, separation.angle is a normalized direction.
 SECONDS = frozenset({
+    'signal_tension.persistence', 'signal_tension.period',
     'image_memory.persistence', 'image_memory.period',
     'chromatic_lattice.period', 'chromatic_lattice.color_period',
     'prismatic_field.fold_period',
@@ -27,6 +28,7 @@ SECONDS = frozenset({
     'slice_echo.period', 'slice_echo.flash_period', 'slice_echo.flash_seconds',
 })
 DEGREES = frozenset({
+    'signal_tension.direction',
     'print_collage.bar_angle',
     'image_memory.rotation', 'image_memory.drift_angle',
     'chromatic_lattice.rotation', 'chromatic_lattice.angle',

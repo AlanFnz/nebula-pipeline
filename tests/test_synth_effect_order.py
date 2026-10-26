@@ -128,7 +128,10 @@ def test_all_studies_can_opt_into_ordering_without_mutating_recipe(identifier):
     frame = render_sequence_frame(compile_composition(project), seq['duration'] * .65, (96, 72))
     assert frame.size == (96, 72)
     assert project['source'] == before['source']
-    project.pop('effect_order')
+    if 'effect_order' in before:
+        project['effect_order'] = before['effect_order']
+    else:
+        project.pop('effect_order')
     assert project == before
 
 

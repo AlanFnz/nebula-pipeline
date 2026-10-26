@@ -24,6 +24,8 @@ def frozen_data(key):
 
 
 def starter_snapshot(identifier):
+    if identifier == 'tension':
+        return copy.deepcopy(_tension_snapshot())
     if identifier == 'text-contact-film':
         return copy.deepcopy(_contact_film_snapshot())
     if identifier == 'text-contact-film-original':
@@ -154,3 +156,8 @@ def frozen_defaults(module):
 @lru_cache(maxsize=2)
 def _contact_film_snapshot(version=2):
     return json.loads((Path(__file__).parent / f'presets/text-contact-film-v{version}.json').read_text())
+
+
+@lru_cache(maxsize=1)
+def _tension_snapshot():
+    return json.loads((Path(__file__).parent / 'presets/tension-v1.json').read_text())
