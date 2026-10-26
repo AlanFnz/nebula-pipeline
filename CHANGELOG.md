@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.39.0 — 2026-10-26
+
+- Revise Tension / elastic signal with distinct pulls, hesitations, quick
+  releases and recoveries, changing filament directions and local flutter.
+  Add a subtle drifting blue/violet tape background to the built-in study.
+- Add Gesture variation and Filament flutter under Signal tension → Motion &
+  timing. New effect presets use them; saved compositions default both to zero
+  and retain their previous rendering. Preserve the original frozen recipe.
+
 ## 0.38.0 — 2026-10-26
 
 - Add Tension / elastic signal, an original 15-second study with luminous
