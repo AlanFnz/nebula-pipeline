@@ -160,4 +160,4 @@ def _contact_film_snapshot(version=2):
 
 @lru_cache(maxsize=1)
 def _tension_snapshot():
-    return json.loads((Path(__file__).parent / 'presets/tension-v2.json').read_text())
+    return json.loads((Path(__file__).parent / 'presets/tension-v3.json').read_text())

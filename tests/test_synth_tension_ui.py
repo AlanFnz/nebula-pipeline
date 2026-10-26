@@ -36,3 +36,19 @@ def test_tension_editor_fits_narrow_inspector_and_keeps_image_effects_separate(m
     assert not panel.parameter_scroll.horizontalScrollBar().isVisible()
     assert window.composer.object_panel.kind=='signal'
     window.grab().save(str(tmp_path/'tension-inspector.png'))
+
+
+def test_registration_controls_are_discoverable_and_undoable(make_window):
+    window=make_window(composition=starter_composition('tension'))
+    panel=window.composer.effects_panel
+    panel.inspect_effect('signal_tension')
+    panel.group.setCurrentIndex(panel.group.findData('Motion & timing'))
+    QApplication.processEvents()
+    for key in ('drift','contour','registration','registration_fps'):
+        assert panel.controls['signal_tension.'+key].isVisible()
+    assert panel.controls['signal_tension.registration_fps'].input.suffix()==' fps'
+    before=copy.deepcopy(window.composition)
+    panel.controls['signal_tension.registration'].input.setValue(.25)
+    assert window.composition['effects']['signal_tension']['params']['signal_tension.registration']==.25
+    window.undo_composition()
+    assert window.composition==before
