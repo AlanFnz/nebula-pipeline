@@ -28,6 +28,7 @@ SECONDS = frozenset({
     'slice_echo.period', 'slice_echo.flash_period', 'slice_echo.flash_seconds',
 })
 DEGREES = frozenset({
+    'dye_transfer.angle',
     'signal_tension.direction',
     'print_collage.bar_angle',
     'image_memory.rotation', 'image_memory.drift_angle',
@@ -46,6 +47,7 @@ DEGREES_PER_SECOND = frozenset({'image_memory.spin', 'particles.rotation_speed',
 PIXELS = frozenset({'low_res.resolution'})
 PERCENTAGES = frozenset({'image_memory.amplitude_x', 'image_memory.amplitude_y'})
 HUES = frozenset({
+    'dye_transfer.paper_hue', 'dye_transfer.ink_hue',
     'film_burn.paper_hue', 'film_burn.ink_hue', 'film_burn.leak_hue',
     'signal_repetition.key_hue', 'signal_repetition.hue', 'signal_repetition.fringe_hue', 'signal_repetition.outside_hue',
     'particles.hue', 'edge_phosphor.hue', 'edge_phosphor.fringe_hue',

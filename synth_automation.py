@@ -14,6 +14,13 @@ from synth_instances import base_path
 from synth_intensity import PATHS
 
 TARGETS = frozenset({
+    'dye_transfer.scale', 'dye_transfer.x', 'dye_transfer.y', 'dye_transfer.angle',
+    'dye_transfer.paper_hue', 'dye_transfer.paper_saturation', 'dye_transfer.paper_light',
+    'dye_transfer.ink_hue', 'dye_transfer.ink_light', 'dye_transfer.wash',
+    'dye_transfer.drag', 'dye_transfer.drag_mix', 'dye_transfer.softness',
+    'dye_transfer.warp', 'dye_transfer.erosion', 'dye_transfer.halo',
+    'dye_transfer.opening', 'dye_transfer.gate_x', 'dye_transfer.level',
+    'dye_transfer.grain',
     'contact_print.exposure', 'contact_print.leak_x', 'contact_print.leak_y',
     'contact_print.leak_width', 'contact_print.leak_height', 'contact_print.positive',
     'contact_print.ink_density', 'contact_print.ink_lift', 'contact_print.density',

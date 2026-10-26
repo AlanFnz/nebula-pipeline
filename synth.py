@@ -40,6 +40,7 @@ from synth_solids import modules as solid_modules, render_color_field, render_so
 from synth_lattice import modules as lattice_modules, render_chromatic_lattice
 from synth_memory import modules as memory_modules, render_image_memory
 from synth_tension import modules as tension_modules, render_signal_tension
+from synth_dye_transfer import modules as dye_transfer_modules, render_dye_transfer
 from synth_canvas import content_size, normalize_canvas, source_framing, object_offset
 from synth_print import render_ink_bloom, render_print_surface
 from synth_profile import render_silhouette, render_edge_phosphor, render_scan_drag
@@ -731,6 +732,7 @@ MODULES += film_print_modules(Module, P)
 MODULES += optical_print_modules(Module, P)
 MODULES += contact_print_modules(Module, P)
 MODULES += tension_modules(Module, P)
+MODULES += dye_transfer_modules(Module, P)
 MODULES = add_parameters(MODULES, P)
 MODULE_BY_ID = InstanceRegistry({module.id: module for module in MODULES})
 
@@ -1428,13 +1430,15 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
                                  content_size(p, (width, height)), reading))
 
     source_effects = {entry['id']: entry['params'] for entry in p['modules']
-                      if entry['enabled'] and entry['id'] in ('chroma_print', 'slice_echo', 'stretch_echo', 'signal_etch', 'scan_modulation', 'signal_repetition', 'contour_melt', 'print_collage', 'contact_print', 'signal_tension')}
+                      if entry['enabled'] and entry['id'] in ('chroma_print', 'slice_echo', 'stretch_echo', 'signal_etch', 'scan_modulation', 'signal_repetition', 'contour_melt', 'print_collage', 'contact_print', 'signal_tension', 'dye_transfer')}
     def treat_source(image, only=None, original_source=None):
         reference = content_size(p, (width, height))
         source_pixels = untreated if untreated is not None else original_source if original_source is not None else image
         # The legacy group retains its exact intermediate samples. Explicit
         # ordering dispatches one independent pass with a stable original input.
         effects = source_effects if only is None else {only: source_effects[only]}
+        if 'dye_transfer' in effects:
+            image = blend_pass(image, effect_amount(effects['dye_transfer']), lambda pixels: render_dye_transfer(pixels, effects['dye_transfer'], continuous_time, p['speed'], _seed(p['seed'], 'dye-transfer'), reference))
         if 'contact_print' in effects:
             image = blend_pass(image, effect_amount(effects['contact_print']), lambda pixels: render_contact_print(pixels, effects['contact_print'], continuous_time, p['speed'], _seed(p['seed'], 'contact-print'), reference))
         if 'print_collage' in effects:

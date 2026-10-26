@@ -28,6 +28,14 @@ work; the current app does not yet synthesize sound from visual effects.
 The [Studio interface plan](docs/studio-design-plan.md) and
 [delivery notes](docs/studio-design-delivery.md) describe the 0.9.0 redesign.
 
+## One more try
+
+**Studies → Text / one more try** reconstructs reference 13 with its original
+wording, saturated dye colors and optical cuts. The long unreadable interlude
+is shortened to three seconds; the complete piece lasts 15.77 seconds.
+**Dye transfer** exposes reusable color, grain, ink, focus and film-gate controls.
+See [the study notes](docs/dye-transfer-study.md) for timing and editing.
+
 ## FAC51 contact film
 
 **Studies → Text / FAC51 contact film** is an eight-second, 12 fps study

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.41.0 — 2026-10-26
+
+- Add Text / one more try, a 15.77-second reconstruction of reference 13
+  with the original wording and a condensed three-second dark interlude.
+- Add reusable Dye transfer: saturated film stock, ink conversion, vertical
+  exposure drag, focus, grain, registration, exposure halo and rough gates.
+  Supports footage, intensity, effect order, automation and scoped editing.
+- Keep all existing studies and their rendered output unchanged.
+
+
 ## 0.40.0 — 2026-10-26
 
 - Revise Tension / elastic signal with a drifting, imperfect figure and
