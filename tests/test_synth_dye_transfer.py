@@ -12,7 +12,7 @@ from synth_dye_recipes import dye_transfer_composition
 from synth_effect_catalog import effect_catalog
 from synth_effect_order import movable, resolved_order
 from synth_effects import effect_preset
-from synth_sequence import render_sequence_frame
+from synth_sequence import render_sequence_frame, resolve_sequence_frame
 from synth_starters import starter_composition
 from synth_video import VIDEO_EFFECTS, VIDEO_MODULES
 from synth_automation import target_parameter
@@ -75,6 +75,66 @@ def test_first_study_revision_keeps_its_saved_appearance():
     expected=[(0.0, '828c6d7baee1b88e6e2133d847928406f951395817e622258a9e3b9bdef4a88c'), (1.3, '71e370fd206c44f78a910c157c3a9f01ccc5ac557136bd3ce143f4108b8ff978'), (11.036666666666667, 'd694791262986153d069571a08febf1b4a28757b925c04346c4b2d1ee5d94882')]
     for t,digest in expected:
         assert hashlib.sha256(render_sequence_frame(seq,t,(160,90)).tobytes()).hexdigest()==digest
+
+
+def test_second_study_revision_keeps_its_saved_appearance():
+    import hashlib
+    root=Path(__file__).resolve().parents[1]
+    seq=compile_composition(load_composition(root/'presets/text-dye-transfer-v2.json'))
+    expected=[
+        (0., '1ade35f1826039c00d4359c6e667faf4f03d58344f7d674c0a934993d70b3c1f'),
+        (8.07, '905bc2190749ac5eb8dfa37da9a84705ab45bfa0fd0db844890869f69cdc787b'),
+        (13.47, 'a1a29ea0924a9b502f6d4d1b538380115093eed944f9397bf869b3ec9b47827d'),
+    ]
+    for t,digest in expected:
+        assert hashlib.sha256(render_sequence_frame(seq,t,(160,90)).tobytes()).hexdigest()==digest
+
+
+def test_study_keeps_complete_glyphs_before_and_after_optical_placement():
+    from synth_text import render_text
+    seq=compile_composition(starter_composition('text-dye-transfer'))
+    w,h,pad=720,406,96
+    for cue in seq['cues']:
+        t=cue['time'];base=resolve_sequence_frame(seq,t)[-1]
+        modules={m['id']:m['params'] for m in base['modules']}
+        if not modules['text']['content'].strip(): continue
+        # Draw on a padded canvas with identical artwork dimensions. Any ink
+        # outside the original canvas would have been lost before Dye transfer,
+        # even if the subsequent transform moves its clipped edges inwards.
+        large=dict(base,width=w+2*pad,height=h+2*pad,framing='preserve',
+                   reference=dict(width=w,height=h,framing='native'))
+        ink=render_text(np.zeros((h+2*pad,w+2*pad,3),np.float32),modules['text'],t,large)
+        outside=ink.copy();outside[pad:pad+h,pad:pad+w]=0
+        assert outside.max()==0, cue
+        # Isolate the letter body from intentional long exposure trails. Keep
+        # actual displacement, weave and local registration at each cut.
+        p=dict(modules['dye_transfer'])
+        p.update(paper_light=0,ink_light=1,ink_saturation=0,wash=0,halo=0,dye=0,
+                 grain=0,dust=0,erosion=0,drag=0,shutter=0,softness=0,
+                 focus_flutter=0,emulsion=0,streaks=0,edge_bloom=0)
+        placed=render_dye_transfer(ink[pad:pad+h,pad:pad+w],p,t,1,base['seed'],(w,h))
+        rows,cols=np.nonzero(placed.max(axis=2)>.1)
+        assert len(rows)>0, cue
+        assert min(rows.min(),cols.min(),h-1-rows.max(),w-1-cols.max())>=8, cue
+
+
+def test_pale_lettering_keeps_subtle_texture_instead_of_dark_pits():
+    from synth_text import render_text
+    from PIL import ImageFilter
+    seq=compile_composition(starter_composition('text-dye-transfer'))
+    t=242/30;base=resolve_sequence_frame(seq,t)[-1]
+    modules={m['id']:m['params'] for m in base['modules']}
+    a=render_text(np.zeros((406,720,3),np.float32),modules['text'],t,base)
+    p=modules['dye_transfer']
+    assert modules['text']['content']=='& YOU KNOW'
+    clean=render_dye_transfer(a,dict(p,erosion=0),t,1,base['seed'],(720,406)).mean(axis=2)
+    result=render_dye_transfer(a,p,t,1,base['seed'],(720,406)).mean(axis=2)
+    core=np.asarray(Image.fromarray(np.uint8(clean>.7)*255).filter(ImageFilter.MinFilter(9)))>0
+    assert core.sum()>1000
+    loss=(clean-result)[core]
+    assert np.quantile(loss,.99)<.04
+    # Some fine texture remains; it has not been replaced by flat white type.
+    assert result[core].std()>.005
 
 
 @pytest.mark.parametrize('size',[(1,1),(31,127),(131,29)])
