@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.45.0 — 2026-10-28
+
+- Reduce coarse ink erosion on the tilted IN over orange in Text / one more
+  try, retaining fine film texture and the established timing.
+- Freeze this revision separately; prior saved studies keep their appearance.
+
 ## 0.44.0 — 2026-10-28
 
 - Add brief wedge, disc, necked silhouette and diffuse-shadow inserts to

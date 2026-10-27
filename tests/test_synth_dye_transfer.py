@@ -254,7 +254,7 @@ def test_new_inserts_leave_readable_sections_unchanged():
     new=compile_composition(starter_composition('text-dye-transfer'))
     for cue in new['cues']:
         t=cue['time']
-        if t<1.5 or t>=4.5:
+        if t<1.5 or 4.5<=t<440/30 or t>=446/30:
             assert render_sequence_frame(old,t,(160,90)).tobytes()==render_sequence_frame(new,t,(160,90)).tobytes()
     masks=[]
     for cue,next_cue in zip(new['cues'],new['cues'][1:]):
@@ -265,3 +265,18 @@ def test_new_inserts_leave_readable_sections_unchanged():
             assert 1.5<=cue['time']<next_cue['time']<=4.5
             assert 1<=round((next_cue['time']-cue['time'])*30)<=3
     assert masks==[2,1,3,1,1]
+
+
+def test_final_orange_ink_is_cleaner_and_other_frames_keep_their_look():
+    root=Path(__file__).resolve().parents[1]
+    previous=compile_composition(load_composition(root/'presets/text-dye-transfer-v4.json'))
+    current=compile_composition(starter_composition('text-dye-transfer'))
+    for frame in (0,68,71,77,98,242,439,446,472):
+        assert render_sequence_frame(previous,frame/30,(160,90)).tobytes()==render_sequence_frame(current,frame/30,(160,90)).tobytes()
+    for frame in range(440,446):
+        old=render_sequence_frame(previous,frame/30,(720,406))
+        new=render_sequence_frame(current,frame/30,(720,406))
+        assert old.tobytes()!=new.tobytes()
+        base=resolve_sequence_frame(current,frame/30)[-1]
+        p=next(m['params'] for m in base['modules'] if m['id']=='dye_transfer')
+        assert p['erosion']==.04
