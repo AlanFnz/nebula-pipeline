@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.43.0 — 2026-10-28
+
+- Reframe Text / one more try so complete lettering remains visible during
+  oversized and rotated cuts. Rotate at the Text source to avoid clipping
+  letters before the optical pass, and leave room for local displacement.
+- Reduce dark pitting in pale lettering, particularly & YOU KNOW, while keeping
+  fine grain, registration, exposure trails, all 69 cuts and the 15.77s duration.
+- Freeze the revised study separately; saved v1/v2 compositions and other
+  studies retain their appearance. All framing and texture values remain editable.
+
 ## 0.42.0 — 2026-10-26
 
 - Refine Text / one more try with uneven film density, vertical exposure bands,
