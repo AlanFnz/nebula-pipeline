@@ -19,6 +19,14 @@ def test_dye_controls_scope_undo_and_separate_wording(make_window,tmp_path):
     assert window.composition['effects']['dye_transfer']['params']['dye_transfer.paper_hue']==.7
     window.undo_composition();assert window.composition==before
     composer.change_scope(1)
+    panel.group.setCurrentIndex(panel.group.findData('Optical silhouette'))
+    QApplication.processEvents()
+    assert panel.controls['dye_transfer.mask_size'].isVisible()
+    panel.controls['dye_transfer.mask_size'].input.setValue(1.4)
+    assert window.composition['sections'][0]['effects']['dye_transfer']['params']['dye_transfer.mask_size']==1.4
+    assert 'dye_transfer' not in window.composition['sections'][1]['effects']
+    window.undo_composition();assert window.composition==before
+    composer.change_scope(1)
     panel.group.setCurrentIndex(panel.group.findData('Optical finish'))
     QApplication.processEvents()
     assert panel.controls['dye_transfer.drag'].isVisible()

@@ -1,7 +1,8 @@
 # Text / one more try
 
 Reference-13 reconstruction added in 0.41.0, optically refined in 0.42.0,
-and reframed for complete lettering in 0.43.0.
+reframed for complete lettering in 0.43.0, and expanded with brief optical
+silhouettes in 0.44.0.
 Load **Studies → Text / one more try**.
 It is an editable 720 × 406 composition at 30 fps, lasting 473 frames / 15.77 s.
 The film texture updates at 15 fps. No source-video frames are required to render it.
@@ -23,8 +24,7 @@ largely unreadable 1.5–16.5 second interval into three seconds of selected opt
 interruptions. Keep the opening and closing timings, shifting the closing
 sequence twelve seconds earlier. The result is a reconstruction with bundled
 Anton and Archivo Black, procedural film texture and selected typographic
-interruption inserts; it is not a pixel-identical copy of physical print defects
-or the reference's brief silhouette inserts.
+interruption inserts; it is not a pixel-identical copy of physical print defects.
 
 The current revision keeps complete words inside the frame, including rotated
 inserts and the final enlarged cuts. It reserves room for weave and local ink
@@ -32,7 +32,12 @@ displacement. Rotation is authored on the Text source before rasterization;
 rotating an already cropped source cannot restore its missing letters. Film
 gates remain open in this recipe, while exposure trails can still reach the
 edges. Pale lettering uses low erosion and fine grain instead of dark pitting.
-Wording, cue times, palettes and the 15.77-second duration stay the same.
+The 0.44.0 revision adds five two- or three-frame optical inserts inside the
+shortened interlude: a wedge and disc over vertical lettering, a necked round
+silhouette, an isolated disc, and a diffuse grey shadow. These recall the
+reference around 6–7s and 12.87s. Opening and closing frames, complete lettering,
+fine pale ink and the 15.77-second duration are unchanged. The silhouettes may
+extend beyond the canvas and deliberately obscure the lettering behind them.
 
 ## Editable controls
 
@@ -60,6 +65,11 @@ replacement text or a different canvas. These controls remain freely editable.
   upward (negative) or downward (positive), leaving a continuous exposure trail.
   These controls can be animated for brief interruptions while readable holds
   keep their own settings.
+- Optical silhouette: Off, Disc, Wedge or Bulb; size, width, X/Y position, angle,
+  softness and opacity. These darken the printed image before grain and the film
+  gate. Size is relative to canvas height (Bulb uses its round base diameter).
+  High softness and reduced opacity produce a diffuse shadow. Continuous
+  controls support automation; shape changes are editable source cues.
 - Film gate: aperture width, horizontal position and edge softness.
 - Intensity: dry/wet mix without changing the underlying settings.
 
@@ -74,12 +84,14 @@ scale, position, drag, exposure and grain are available to automation.
 `synth_dye_transfer.py` has no reference-specific text or montage. Absolute-time,
 seeded sampling makes seeks reproducible, with no history buffer. Transform and
 blur allocations are bounded by output dimensions. `synth_dye_recipes.py` carries
-the 69 authored cuts.
+the 73 authored cuts.
 The module is appended to the catalog and disabled by default. The current
-study is frozen in `presets/text-dye-transfer-v3.json`; the v1 and v2 files
+study is frozen in `presets/text-dye-transfer-v4.json`; the v1, v2 and v3 files
 remain intact. All six optical-refinement controls default to zero, so saved
 compositions retain the original renderer's pixels. The revised study opts in
-explicitly. Other render seeds and recipes are unchanged.
+explicitly. Silhouette defaults to Off and opacity zero also bypasses it
+exactly, without changing random sampling. Other render seeds and recipes are
+unchanged.
 
 Coverage includes every authored cue, extreme settings/aspect ratios, random
 seeks, retained texture cadence, input ownership, footage, 0/50/100% intensity,
@@ -95,6 +107,11 @@ The framing revision additionally checks padded source renders for lost glyphs,
 optical-placement margins at all 69 cuts, low dark-pit contrast inside pale
 lettering, and retained v2 pixels. Existing saved projects retain their authored
 values; load the current built-in study to use the revised framing and texture.
+
+The silhouette revision additionally tests geometry, defocus, opacity, size,
+rotation, placement, deterministic seeks, zero-opacity bypass, scoped editing
+and Undo. A complete 473-frame fingerprint comparison checks saved v3 output,
+with identical opening/closing frames in the revised study.
 
 The built-in study is self-contained and silent. Any reference soundtrack used
 for a local demonstration stays separate from the distributable recipe.

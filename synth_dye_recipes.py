@@ -63,6 +63,10 @@ def dye_transfer_composition():
             'pink':dict(paper_hue=.905,paper_saturation=.77,paper_light=1.08,ink_light=.23,ink_saturation=.95),
             'white':dict(paper_hue=.96,paper_saturation=.025,paper_light=.98,ink_light=.16,ink_saturation=0.,wash=.18,dye=.08,edge_bloom=.72),
             'black':dict(paper_light=.012,ink_light=.9,ink_saturation=.025,grain=.006,wash=.1,dye=0.,emulsion=.28,edge_bloom=.05,erosion=.025),
+            'grey':dict(paper_hue=.94,paper_saturation=.055,paper_light=.61,
+                        ink_light=.018,ink_saturation=0.,wash=.045,dye=0.,
+                        grain=.008,emulsion=.16,streaks=.035,edge_bloom=0.,
+                        registration=.12,focus_flutter=.15,erosion=.015),
         }
         values.update({f'dye_transfer.{k}':v for k,v in colors[palette].items()})
         values.update({f'dye_transfer.{k}':v for k,v in finish.items()})
@@ -86,12 +90,26 @@ def dye_transfer_composition():
     shot(1.83,palette='black')
     shot(2.03,'&',size=1.2,width=.7,palette='white',angle=-29.,warp=9.,softness=3.)
     shot(2.17,palette='black')
-    shot(2.37,palette='white',wash=.5)
+    # The reference's short wedge/disc/neck flashes, condensed within the
+    # existing interruption. Text remains a complete, separately editable source.
+    shot(2.27,'JUST ONE\n\n\n\n\nMORE TRY',size=.25,width=.47,palette='grey',
+         angle=90.,leading=1.2,softness=2.8,mask_shape=2,mask_size=2.6,
+         mask_aspect=.75,mask_y=.15,mask_softness=3.)
+    shot(2.37,'JUST ONE\n\n\n\n\nMORE TRY',size=.25,width=.47,palette='grey',
+         angle=90.,leading=1.2,softness=2.8,mask_shape=1,mask_size=1.16,
+         mask_x=.008,mask_y=.01,mask_softness=3.4)
     shot(2.47,palette='black')
-    shot(2.67,'BELIEVE\n& YOU KNOW',size=.7,width=1.2,palette='white',angle=90.,x=.2,softness=2.7)
+    shot(2.57,palette='grey',mask_shape=3,mask_size=1.18,
+         mask_x=.006,mask_y=.04,mask_softness=3.2)
+    shot(2.63,palette='grey',mask_shape=1,mask_size=1.16,
+         mask_x=.008,mask_y=.01,mask_softness=3.4)
+    shot(2.7,'BELIEVE\n& YOU KNOW',size=.7,width=1.2,palette='white',angle=90.,x=.2,softness=2.7)
     shot(2.83,palette='black')
     shot(3.03,'&',size=.18,width=.09,palette='black',x=.18,y=-.2,softness=3.)
     shot(3.17,palette='white',paper_light=.84)
+    shot(3.27,palette='grey',paper_light=.38,mask_shape=1,mask_size=.68,
+         mask_aspect=1.1,mask_x=.035,mask_y=.03,mask_softness=70.,mask_opacity=.68,
+         emulsion=.06,wash=.06)
     shot(3.37,palette='black')
     shot(3.6,'KNOW',size=.9,width=1.4,palette='white',x=-.5,softness=4.)
     shot(3.73,palette='black')
