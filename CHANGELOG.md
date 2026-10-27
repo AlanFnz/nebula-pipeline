@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.44.0 — 2026-10-28
+
+- Add brief wedge, disc, necked silhouette and diffuse-shadow inserts to
+  Text / one more try, within its existing shortened interlude. Keep the
+  15.77-second duration, complete lettering and refined pale-ink texture.
+- Add optional Optical silhouette controls to Dye transfer: shape, size, width,
+  position, angle, softness and opacity. Continuous controls support animation.
+- Freeze the revised study separately. Saved v1/v2/v3 projects and other
+  studies retain their appearance; the new silhouette defaults to Off.
+
 ## 0.43.0 — 2026-10-28
 
 - Reframe Text / one more try so complete lettering remains visible during
