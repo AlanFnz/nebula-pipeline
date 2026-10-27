@@ -32,7 +32,8 @@ The [Studio interface plan](docs/studio-design-plan.md) and
 
 **Studies → Text / one more try** reconstructs reference 13 with its original
 wording, saturated dye colors and optical cuts. The long unreadable interlude
-is shortened to three seconds; the complete piece lasts 15.77 seconds.
+is shortened to three seconds; the complete piece lasts 15.77 seconds. Complete
+lettering stays in frame through the rotated cuts, with subtle pale-ink texture.
 **Dye transfer** exposes reusable color, grain, ink, focus and film-gate controls.
 See [the study notes](docs/dye-transfer-study.md) for timing and editing.
 

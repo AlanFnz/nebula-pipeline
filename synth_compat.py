@@ -167,4 +167,4 @@ def _tension_snapshot():
 
 @lru_cache(maxsize=1)
 def _dye_transfer_snapshot():
-    return json.loads((Path(__file__).parent / 'presets/text-dye-transfer-v2.json').read_text())
+    return json.loads((Path(__file__).parent / 'presets/text-dye-transfer-v3.json').read_text())

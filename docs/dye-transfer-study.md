@@ -1,6 +1,7 @@
 # Text / one more try
 
-Reference-13 reconstruction added in 0.41.0 and optically refined in 0.42.0.
+Reference-13 reconstruction added in 0.41.0, optically refined in 0.42.0,
+and reframed for complete lettering in 0.43.0.
 Load **Studies → Text / one more try**.
 It is an editable 720 × 406 composition at 30 fps, lasting 473 frames / 15.77 s.
 The film texture updates at 15 fps. No source-video frames are required to render it.
@@ -9,7 +10,7 @@ The film texture updates at 15 fps. No source-video frames are required to rende
 
 Keep the original wording and the sequence of four-line condensed typography,
 pink/monochrome exposures, dark interruptions, red word builds, pale lettering
-on black and enlarged final fragments. The main readable arrangements are:
+on black and large final words. The main readable arrangements are:
 
 - JUST / ONE / MORE / TRY
 - SOMEONE / TO / BELIEVE / IN
@@ -25,6 +26,14 @@ Anton and Archivo Black, procedural film texture and selected typographic
 interruption inserts; it is not a pixel-identical copy of physical print defects
 or the reference's brief silhouette inserts.
 
+The current revision keeps complete words inside the frame, including rotated
+inserts and the final enlarged cuts. It reserves room for weave and local ink
+displacement. Rotation is authored on the Text source before rasterization;
+rotating an already cropped source cannot restore its missing letters. Film
+gates remain open in this recipe, while exposure trails can still reach the
+edges. Pale lettering uses low erosion and fine grain instead of dark pitting.
+Wording, cue times, palettes and the 15.77-second duration stay the same.
+
 ## Editable controls
 
 **Object → Text** owns wording, typeface, line spacing and text layout. The study
@@ -33,6 +42,9 @@ in the inspector replaces the wording throughout the selected scope; it does not
 rewrite this montage into a new arbitrary phrase automatically. Use **Open
 detailed copy…** to edit individual cues and their wording/timing. Keep this
 reference montage first; automatic alternate-phrase adaptation is future work.
+The safe framing is saved as ordinary text size, width, rotation and impression
+position values. It does not constrain subsequent edits or automatically fit
+replacement text or a different canvas. These controls remain freely editable.
 
 **Effects → Dye transfer** provides:
 
@@ -64,8 +76,8 @@ seeded sampling makes seeks reproducible, with no history buffer. Transform and
 blur allocations are bounded by output dimensions. `synth_dye_recipes.py` carries
 the 69 authored cuts.
 The module is appended to the catalog and disabled by default. The current
-study is frozen in `presets/text-dye-transfer-v2.json`; the original v1 file
-remains intact. All six optical-refinement controls default to zero, so saved
+study is frozen in `presets/text-dye-transfer-v3.json`; the v1 and v2 files
+remain intact. All six optical-refinement controls default to zero, so saved
 compositions retain the original renderer's pixels. The revised study opts in
 explicitly. Other render seeds and recipes are unchanged.
 
@@ -79,6 +91,10 @@ The refinement adds signed shutter/no-wrap tests, zero-control compatibility,
 random seeks with the new finish, and original-study pixel fingerprints.
 An additional 111-frame comparison covers all 36 earlier studies plus the
 original dye-transfer study.
+The framing revision additionally checks padded source renders for lost glyphs,
+optical-placement margins at all 69 cuts, low dark-pit contrast inside pale
+lettering, and retained v2 pixels. Existing saved projects retain their authored
+values; load the current built-in study to use the revised framing and texture.
 
 The built-in study is self-contained and silent. Any reference soundtrack used
 for a local demonstration stays separate from the distributable recipe.

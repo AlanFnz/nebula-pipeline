@@ -1,12 +1,37 @@
 """Reference 13: original wording and optical cuts, with a shorter dark interlude.
 
 The renderer contains no montage. These authored, editable source states carry
-all wording, palettes, crops and cuts. Reference 1.5–16.5s becomes 3 seconds;
+all wording, palettes, framing and cuts. Reference 1.5–16.5s becomes 3 seconds;
 the remainder keeps its original cadence (30 fps, 15 fps film texture).
 """
+import math
+
 from synth import MODULE_BY_ID
 from synth_composition import composition_from_sequence, normalize_composition
 from synth_sequence import normalize_sequence
+
+
+def _frame_lettering(content, size, width, angle, x, y):
+    """Author complete lettering with room for this study's optical movement.
+
+    This runs only when building the recipe, not when rendering user edits.
+    Include blank lines so the progressive word builds keep their anchors.
+    Rotate the Text source itself: a later effect cannot recover glyphs that
+    were clipped while drawing the unrotated source into the canvas.
+    """
+    if not content.strip():
+        return size, width, x, y
+    w, h, margin = 720, 406, 24
+    source_w = width * w
+    source_h = size * (content.count('\n') + 1) * h
+    a = math.radians(angle)
+    c, s = abs(math.cos(a)), abs(math.sin(a))
+    rotated_w = source_w * c + source_h * s
+    rotated_h = source_w * s + source_h * c
+    fit = min(1., (w - 2 * margin) / rotated_w, (h - 2 * margin) / rotated_h)
+    limit_x = max(0., (w - 2 * margin - rotated_w * fit) / (2 * w))
+    limit_y = max(0., (h - 2 * margin - rotated_h * fit) / (2 * h))
+    return size * fit, width * fit, max(-limit_x, min(limit_x, x)), max(-limit_y, min(limit_y, y))
 
 
 def dye_transfer_composition():
@@ -27,16 +52,17 @@ def dye_transfer_composition():
 
     def shot(t, content='', *, size=.213, width=.171, palette='red', font=1,
              leading=1.2, tracking=-.012, x=0., y=0., angle=0., **finish):
+        size, width, x, y = _frame_lettering(content, size, width, angle, x, y)
         values=dict(common)
         values.update({'text.content':content,'text.size':min(1.5,size),'text.stretch_y':max(1.,size/1.5),'text.block_width':max(.05,width),
                        'text.font':font,'text.leading':leading,'text.tracking':tracking,
-                       'text.stretch_x':min(1.,width/.05),
-                       'dye_transfer.x':x,'dye_transfer.y':y,'dye_transfer.angle':angle})
+                       'text.stretch_x':min(1.,width/.05),'text.rotation':angle,
+                       'dye_transfer.x':x,'dye_transfer.y':y,'dye_transfer.angle':0.})
         colors={
             'red':dict(paper_hue=.026,paper_saturation=1.,paper_light=1.08,ink_light=.13,ink_saturation=.95),
             'pink':dict(paper_hue=.905,paper_saturation=.77,paper_light=1.08,ink_light=.23,ink_saturation=.95),
             'white':dict(paper_hue=.96,paper_saturation=.025,paper_light=.98,ink_light=.16,ink_saturation=0.,wash=.18,dye=.08,edge_bloom=.72),
-            'black':dict(paper_light=.012,ink_light=.9,ink_saturation=.025,grain=.008,wash=.1,dye=0.,emulsion=.28,edge_bloom=.05),
+            'black':dict(paper_light=.012,ink_light=.9,ink_saturation=.025,grain=.006,wash=.1,dye=0.,emulsion=.28,edge_bloom=.05,erosion=.025),
         }
         values.update({f'dye_transfer.{k}':v for k,v in colors[palette].items()})
         values.update({f'dye_transfer.{k}':v for k,v in finish.items()})
@@ -91,8 +117,8 @@ def dye_transfer_composition():
     original(19.5,'&',size=.55,width=.10,palette='black',x=-.44)
     original(19.67,'& YOU',size=.55,width=.48,palette='black',x=-.25)
     original(19.9,'& YOU KNOW',size=.55,width=.98,palette='black')
-    original(20.07,'& YOU KNOW',size=.55,width=.98,palette='black',warp=12.,erosion=.75,shutter=.22,registration=.8)
-    original(20.3,'& YOU KNOW',size=.38,width=1.5,font=0,x=-.32,opening=.85,gate_x=.75,drag=.3,shutter=-.4,streaks=.7)
+    original(20.07,'& YOU KNOW',size=.55,width=.98,palette='black',warp=12.,erosion=.04,shutter=.22,registration=.8)
+    original(20.3,'& YOU KNOW',size=.38,width=1.5,font=0,x=-.32,drag=.3,shutter=-.4,streaks=.7)
     original(20.5,'I\n\n',size=.27,width=.025,font=0,x=-.21,leading=1.7)
     original(20.6,'I NEED\n\n',size=.25,width=.445,font=0,leading=1.7,tracking=.14,y=-.025,choke=1.5)
     original(20.83,'I NEED\nSOMEONE\n',size=.27,width=.65,font=0,leading=1.7,tracking=.1,x=-.1,softness=1.6)
@@ -117,7 +143,7 @@ def dye_transfer_composition():
     original(25.73,'BELIEVE',size=1.05,width=1.55,x=-.12,paper_light=.04,ink_light=1.,ink_hue=.025,ink_saturation=1.)
     original(25.93,'IN',size=.2,width=.13,font=0)
     original(26.47,'IN',size=.18,width=.12,font=0,warp=12.,erosion=.8,y=.07,x=.15)
-    original(26.67,'IN',size=.2,width=.16,font=0,angle=-22.,warp=10.,erosion=.7,x=.32,y=.35,palette='white',paper_hue=.025,paper_saturation=1.,opening=1.05,gate_x=.56)
+    original(26.67,'IN',size=.2,width=.16,font=0,angle=-22.,warp=10.,erosion=.7,x=.32,y=.35,palette='white',paper_hue=.025,paper_saturation=1.)
     original(26.87,'&\n\n',size=.31,width=.24,leading=1.12,palette='white')
     original(27.07,'&\nYOU\n',size=.31,width=.24,leading=1.12,palette='white')
     original(27.4,'&\nYOU\nKNOW',size=.31,width=.29,leading=1.12,palette='white')
