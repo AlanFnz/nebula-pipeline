@@ -68,6 +68,55 @@ def test_shutter_trails_follow_direction_without_opposite_edge_wrap():
     assert np.all(down[70:].sum(axis=1)>0)
 
 
+def test_silhouette_is_optional_deterministic_and_does_not_change_rng():
+    a=source(); p=defaults(); original=a.copy()
+    legacy={k:v for k,v in p.items() if not k.startswith('mask_')}
+    expected=render_dye_transfer(a,legacy,.2,1,53,(160,90))
+    assert np.array_equal(expected,render_dye_transfer(a,p,.2,1,53,(160,90)))
+    for shape in (1,2,3):
+        settings=dict(p,mask_shape=shape,mask_opacity=0)
+        assert np.array_equal(expected,render_dye_transfer(a,settings,.2,1,53,(160,90)))
+        settings['mask_opacity']=.8
+        result=render_dye_transfer(a,settings,.2,1,53,(160,90))
+        assert not np.array_equal(result,expected)
+        render_dye_transfer(a,settings,50,1,53,(160,90))
+        assert np.array_equal(result,render_dye_transfer(a,settings,.21,1,53,(160,90)))
+    assert np.array_equal(a,original)
+    for key in ('mask_size','mask_aspect','mask_x','mask_y','mask_angle','mask_softness','mask_opacity'):
+        assert target_parameter('dye_transfer.'+key) is not None
+
+
+def test_silhouettes_geometry_opacity_and_defocus():
+    # Black optical obstruction on a neutral white print. All other treatments
+    # are off so silhouette geometry and darkening can be measured directly.
+    p=defaults();p.update(paper_light=1,paper_saturation=0,weave=0,warp=0,
+        erosion=0,grain=0,dust=0,wash=0,dye=0,softness=0,drag=0,
+        mask_size=.7,mask_softness=0)
+    a=np.zeros((120,200,3),np.float32)
+    def draw(**settings):
+        return render_dye_transfer(a,dict(p,**settings),0,1,53,(200,120))[:,:,0]
+    disc=draw(mask_shape=1)
+    assert disc[60,100]<.01 and disc[60,10]>.99
+    assert np.allclose(disc[60,60:141],disc[20:101,100])  # circular, not canvas-stretched
+    half=draw(mask_shape=1,mask_opacity=.5)
+    assert np.allclose(half,(disc+1)/2)
+    wedge=draw(mask_shape=2)
+    assert (wedge[90]<.1).sum()>(wedge[40]<.1).sum()
+    bulb=draw(mask_shape=3)
+    assert bulb[10,100]<.01 and disc[10,100]>.99
+    moved=draw(mask_shape=1,mask_x=.25)
+    assert moved[60,150]<.01 and moved[60,60]>.99
+    rotated=draw(mask_shape=2,mask_angle=180)
+    assert (rotated[40]<.1).sum()>(rotated[90]<.1).sum()
+    ghost=draw(mask_shape=1,mask_softness=100,mask_opacity=.6)
+    assert .4<ghost[60,100]<.8 and ghost[60,10]>ghost[60,100]
+    assert np.abs(np.diff(ghost[60])).max()<.02
+    # Very large obstructions stay solid over the entire canvas. No blur-edge
+    # fade caused by cutting the shape at the image boundary first.
+    large=draw(mask_shape=1,mask_size=4)
+    assert large.max()<.01
+
+
 def test_first_study_revision_keeps_its_saved_appearance():
     import hashlib
     root=Path(__file__).resolve().parents[1]
@@ -111,7 +160,7 @@ def test_study_keeps_complete_glyphs_before_and_after_optical_placement():
         p=dict(modules['dye_transfer'])
         p.update(paper_light=0,ink_light=1,ink_saturation=0,wash=0,halo=0,dye=0,
                  grain=0,dust=0,erosion=0,drag=0,shutter=0,softness=0,
-                 focus_flutter=0,emulsion=0,streaks=0,edge_bloom=0)
+                 focus_flutter=0,emulsion=0,streaks=0,edge_bloom=0,mask_shape=0)
         placed=render_dye_transfer(ink[pad:pad+h,pad:pad+w],p,t,1,base['seed'],(w,h))
         rows,cols=np.nonzero(placed.max(axis=2)>.1)
         assert len(rows)>0, cue
@@ -197,3 +246,22 @@ def test_frozen_study_roundtrip_timing_and_opt_in(tmp_path):
     p['effects']['text']['params']={'text.content':'ANOTHER IMPRESSION'}
     assert render_sequence_frame(compile_composition(p),.2,(160,90)).tobytes()!=render_sequence_frame(seq,.2,(160,90)).tobytes()
     assert not next(m for m in default_synth_preset()['modules'] if m['id']=='dye_transfer')['enabled']
+
+
+def test_new_inserts_leave_readable_sections_unchanged():
+    root=Path(__file__).resolve().parents[1]
+    old=compile_composition(load_composition(root/'presets/text-dye-transfer-v3.json'))
+    new=compile_composition(starter_composition('text-dye-transfer'))
+    for cue in new['cues']:
+        t=cue['time']
+        if t<1.5 or t>=4.5:
+            assert render_sequence_frame(old,t,(160,90)).tobytes()==render_sequence_frame(new,t,(160,90)).tobytes()
+    masks=[]
+    for cue,next_cue in zip(new['cues'],new['cues'][1:]):
+        base=resolve_sequence_frame(new,cue['time'])[-1]
+        p=next(m['params'] for m in base['modules'] if m['id']=='dye_transfer')
+        if p['mask_shape']:
+            masks.append(p['mask_shape'])
+            assert 1.5<=cue['time']<next_cue['time']<=4.5
+            assert 1<=round((next_cue['time']-cue['time'])*30)<=3
+    assert masks==[2,1,3,1,1]

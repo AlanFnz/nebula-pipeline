@@ -47,6 +47,14 @@ def modules(Module, P):
         P('registration', 'Local registration', 0., 0, 1, .01, 'Small uneven bends and offsets within the impression, without moving the entire picture.'),
         P('focus_flutter', 'Focus flutter', 0., 0, 6, .1, 'Irregular changes in optical focus. Pixels at a 720-pixel canvas width.'),
         P('shutter', 'Shutter pull', 0., -1, 1, .01, 'Drag parts of the impression vertically during a cut. Negative pulls upward; positive pulls downward. Zero keeps it still.'),
+        P('mask_shape', 'Silhouette', 0, 0, 3, 1, 'An optical obstruction over the print. Off preserves the original image.', choices=('Off', 'Disc', 'Wedge', 'Bulb')),
+        P('mask_size', 'Silhouette size', 1., .01, 4, .01, 'Height relative to the canvas. For Bulb, sets the round base diameter.'),
+        P('mask_aspect', 'Silhouette width', 1., .1, 4, .01, 'Width relative to its height; one keeps the disc circular.'),
+        P('mask_x', 'Silhouette X', 0., -2, 2, .01),
+        P('mask_y', 'Silhouette Y', 0., -2, 2, .01),
+        P('mask_angle', 'Silhouette angle', 0., -180, 180, 1),
+        P('mask_softness', 'Silhouette softness', 2., 0, 160, .5, 'Pixels at a 720-pixel canvas width. High values leave a diffuse shadow.'),
+        P('mask_opacity', 'Silhouette opacity', 1., 0, 1, .01, 'Darkens the print beneath the silhouette; zero reveals the original print.'),
     )),)
 
 
@@ -71,6 +79,39 @@ def _sample(a, x, y):
     fx = x-x0; fy = y-y0
     return ((a[y0, x0]*(1-fx)+a[y0, x1]*fx)*(1-fy)
             +(a[y1, x0]*(1-fx)+a[y1, x1]*fx)*fy)*valid
+
+
+def _silhouette(xx, yy, p, reference, offset):
+    """Analytic film obstruction; evaluate outside the canvas before defocus.
+
+    Signed edge distances avoid clipping a mask before blurring or allocating
+    huge intermediate images when a large silhouette crosses the film gate.
+    """
+    h, w = xx.shape
+    cw, ch = reference
+    radius = max(.01, p.get('mask_size', 1.)*ch/2)
+    aspect = max(.1, p.get('mask_aspect', 1.))
+    a = math.radians(p.get('mask_angle', 0.)); c, s = math.cos(a), math.sin(a)
+    x = xx-w/2-(p.get('mask_x', 0.)+offset[0])*cw
+    y = yy-h/2-(p.get('mask_y', 0.)+offset[1])*ch
+    u = (c*x+s*y)/(radius*aspect)
+    v = (-s*x+c*y)/radius
+    shape = int(p['mask_shape'])
+    if shape == 2:
+        # Triangle with its apex at -1 and its horizontal base at +1.
+        distance = np.maximum((np.abs(u)-(v+1)*.5)/math.sqrt(1.25), v-1)
+    else:
+        distance = np.hypot(u, v)-1
+        if shape == 3:
+            # Rounded base with a flared neck; union has no internal seam.
+            neck = np.maximum.reduce(((np.abs(u)-(.82+(-v-.57)*.5))/math.sqrt(1.25),
+                                      v+.57, -1.8-v))
+            distance = np.minimum(distance, neck)
+    edge = distance*radius*min(1., aspect)
+    # A logistic optical spread supports both crisp discs and defocused ghosts.
+    softness = max(.35, p.get('mask_softness', 2.)*cw/720)
+    mask = 1/(1+np.exp(np.clip(edge/softness, -60, 60)))
+    return mask.astype(np.float32)*np.clip(p.get('mask_opacity', 1.), 0, 1)
 
 
 def _density(size, reference, seed, clock):
@@ -108,6 +149,7 @@ def render_dye_transfer(arr, p, seconds, speed, seed, reference):
         density, streak, rubbed, speckle = _density((w,h), reference, seed, optical_clock)
     a=math.radians(p['angle']); c,s=math.cos(a),math.sin(a)
     dx,dy=rng.normal(0,p['weave'],2)
+    gate_offset = (dx, dy)
     cx=w/2+(p['x']+dx)*cw; cy=h/2+(p['y']+dy)*ch
     source=Image.fromarray(np.uint8(np.max(np.clip(arr,0,1),axis=2)*255))
     scale=max(.01,p['scale'])
@@ -197,6 +239,9 @@ def render_dye_transfer(arr, p, seconds, speed, seed, reference):
             result += rim_light[...,None]*p['edge_bloom']*1.7
     rim=np.clip(_blur(ink,2.5*unit)-ink,0,1)
     result+=rim[...,None]*p['dye']*np.array([.45,.07,.015],np.float32)
+    if p.get('mask_shape', 0) and p.get('mask_opacity', 1.) > 0:
+        mask = _silhouette(xx, yy, p, reference, gate_offset)
+        result *= 1-mask[...,None]
     if p['dust']:
         dust=np.clip((_field(rng,(w,h),(max(2,round(ch/3)),max(2,round(cw/3))))-.9)*7,0,1)
         result*=1-dust[...,None]*p['dust']*.5
