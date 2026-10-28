@@ -13,8 +13,8 @@ from collections import deque
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
-from PySide6.QtCore import QEvent, QObject, QRunnable, QSettings, QSignalBlocker, Qt, QThreadPool, QTimer, Signal
-from PySide6.QtGui import QAction, QKeySequence
+from PySide6.QtCore import QEvent, QObject, QRunnable, QSettings, QSignalBlocker, QSize, Qt, QThreadPool, QTimer, Signal
+from PySide6.QtGui import QAction, QIcon, QKeySequence
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QFileDialog, QGroupBox,
     QHBoxLayout, QGridLayout, QLabel, QMainWindow, QPushButton, QScrollArea,
@@ -651,9 +651,14 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
         tools_policy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         tools_policy.setHeightForWidth(True); self.section_tools.setSizePolicy(tools_policy)
         section_tools = FlowLayout(self.section_tools, spacing=5)
-        self.section_hint = QPushButton('Timeline help'); self.section_hint.setProperty('compact', True); self.section_hint.setProperty('secondaryAction', True)
+        self.section_hint = QPushButton()
+        self.section_hint.setIcon(QIcon(str(Path(__file__).parent / 'assets' / 'help.svg')))
+        self.section_hint.setIconSize(QSize(18, 18)); self.section_hint.setFixedSize(34, 28)
+        self.section_hint.setProperty('compact', True); self.section_hint.setProperty('secondaryAction', True)
+        self.section_hint.setAccessibleName('Timeline help')
+        self.section_hint.setToolTip('Timeline help — click for shortcuts and gestures.')
         gesture_help = 'Click to select a clip while keeping the editing scope. Double-click to edit that clip. Drag a clip to reorder. Drag its right edge to resize. Shift-click to select several; drag the last selected edge to scale them together. Select clips or an automation curve, then press Command-D to duplicate. Right-click for duplication and loops. Escape cancels a drag.'
-        self.section_hint.setToolTip(gesture_help); self.section_hint.clicked.connect(lambda: QMessageBox.information(self, 'Timeline gestures', gesture_help))
+        self.section_hint.clicked.connect(lambda: QMessageBox.information(self, 'Timeline gestures', gesture_help))
         section_tools.addWidget(self.section_hint)
         self.timeline_view = QComboBox()
         self.timeline_view.addItems(['Timeline', 'Shots'])
