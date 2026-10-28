@@ -1771,7 +1771,7 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
         return self.sequence['fps'] if self.sequence is not None else self.preset['export_fps']
 
     def preview_size(self):
-        return preview_size(self.current_canvas(), 360 if self.discovery_session else (360, 720, None)[self.quality.currentIndex()])
+        return preview_size(self.current_canvas(), (360, 720, None)[self.quality.currentIndex()])
 
     def active_preview_scope(self):
         return resolve_scope(self.composition, self.section_timeline.selected_ids, self.timeline.maximum(), bool(self.preview_scope.currentIndex()))

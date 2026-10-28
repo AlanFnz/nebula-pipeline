@@ -99,7 +99,7 @@ class EffectAuditionDialog(EffectBrowserDialog):
         self.action.setEnabled(False)
         if self.selected_effect_id() in self.applied_ids:
             # Inspecting an existing effect has no temporary candidate. Keep
-            # the picture and request the working piece at audition quality,
+            # the picture and request the working piece at the monitor quality,
             # including when returning from a different preset comparison.
             self.studio.invalidate(force_clear=True)
         else:
@@ -154,6 +154,7 @@ class EffectAuditionDialog(EffectBrowserDialog):
             seconds = self.studio.timeline.value()/self.studio.preview_fps()
             size = self.studio.preview_size()
             note = f'{"Ready" if session.ready else "Loading"} · {seconds:.2f}s · {size[0]}×{size[1]} · sampled up to 12 fps'
+            if session.samples_limited: note += f'\nLoop limited to {len(session.samples)} frames at this resolution.'
             if session.section_id and not session.target_scope.contains(self.studio.timeline.value()): note += '\nCurrent frame is outside the selected clip.'
             if session.section_id and session.target_scope.contains(self.studio.timeline.value()):
                 occurrence = next(i+1 for i, (start,end) in enumerate(session.target_scope.intervals) if start<=self.studio.timeline.value()<end)

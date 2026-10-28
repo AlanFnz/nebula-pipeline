@@ -28,9 +28,12 @@ and Scan drag. Brightness is conditional guidance; no stage-input measurement or
 speculative cause is presented. Identical matching Before/Preview packets can
 report no visible difference without inferring why.
 
-Auditions use a temporary 360 px longest-edge override, retain aspect/framing,
-and sample original absolute frame indices at up to 12 fps over at most two
-seconds of available playback scope. Section positioning is explicit, selects
+Auditions respect the selected monitor quality (360 px, 720 px or Full canvas),
+retain aspect/framing, and sample original absolute frame indices at up to
+12 fps over at most two seconds of available playback scope. At large
+resolutions the loop is shortened to fit each side's half of the shared frame
+cache, with its frame count shown in the dialog; pixels are never downscaled
+implicitly. Section positioning is explicit, selects
 the nearest real occurrence and labels its occurrence and absolute clock.
 Playback waits for its bounded sampled bank; it is not guaranteed real time.
 Closing restores entry position/preferences and a still-valid prior snapshot
@@ -64,6 +67,7 @@ This enables built-app smoke checks without touching user preferences.
 
 ## Local measurements
 
+Historical measurements before 0.48.1, when auditions still forced 360 px.
 Single local runs under concurrent development/test load, with a full-resolution
 monitor preference, followed by a temporary 360 px audition override. The video
 is a generated 720×576, 25 fps portable fixture. These are measurements, not

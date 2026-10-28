@@ -1,5 +1,6 @@
 """Observable audition lifecycle, ownership, transport and navigation contracts."""
 import copy
+import time
 import pytest
 from PySide6.QtCore import QEvent, QThreadPool, Qt
 from PySide6.QtWidgets import QApplication
@@ -34,6 +35,30 @@ def select(dialog,identifier):
     raise AssertionError(identifier)
 
 
+@pytest.mark.parametrize('quality,size', [(0, (202, 360)), (1, (405, 720)), (2, (1080, 1920))])
+def test_audition_respects_monitor_quality_before_after_apply_and_cancel(window, quality, size):
+    from synth_canvas import resize_canvas
+    doc = copy.deepcopy(window.composition)
+    doc['canvas'] = resize_canvas(doc['canvas'], {'width': 1080, 'height': 1920})
+    window.set_composition(doc, clean=True)
+    window.quality.setCurrentIndex(quality)
+    assert window.preview_size() == size
+    for apply in (False, True):
+        window.open_effect_discovery(); d = window.discovery_dialog
+        select(d, 'tape'); d.debounce.stop(); d.render_selection()
+        assert window.preview_size() == size
+        d.session.accept_packet(); d.refresh_preview()
+        assert f'{size[0]}×{size[1]}' in d.preview_note.text()
+        d.switch_side('a'); assert window.preview_size() == size
+        d.switch_side('b'); assert window.preview_size() == size
+        if apply:
+            d.session.accept_packet(); d.apply_candidate()
+            assert 'tape' in window.composition['effects']
+        else:
+            d.reject(); assert window.composition == doc
+        assert window.preview_size() == size and window.quality.currentIndex() == quality
+
+
 def test_cancel_preserves_snapshot_comparison_quality_history_and_keyboard(window):
     doc,sid=capture_snapshot(window.composition,'Before')
     window.composer.commit(doc,'snapshot-capture');window.mark_document_clean()
@@ -53,6 +78,27 @@ def test_cancel_preserves_snapshot_comparison_quality_history_and_keyboard(windo
     assert window.undo_compositions==history and not window.has_unsaved_changes()
 
 
+def test_full_canvas_sampled_loop_fits_both_comparison_banks(window):
+    from synth_canvas import resize_canvas
+    doc = copy.deepcopy(window.composition)
+    doc['canvas'] = resize_canvas(doc['canvas'], {'width': 4096, 'height': 4096})
+    window.set_composition(doc, clean=True)
+    window.quality.setCurrentIndex(2)
+    window.timeline.setValue(window.timeline.maximum() - 1)
+    window.open_effect_discovery(); d = window.discovery_dialog
+    select(d, 'tape'); d.debounce.stop(); d.render_selection()
+    session = d.session
+    assert window.preview_size() == (4096, 4096)
+    assert session.samples and session.samples_limited
+    assert all(session.scope.contains(frame) for frame in session.samples)
+    assert len(session.samples) * 4096 * 4096 * 3 <= window.preparation_budget()
+    # Both banks must coexist, otherwise playback waits forever for evicted
+    # frames. Each packet remains at the requested full-canvas resolution.
+    assert len(session.samples) * 4096 * 4096 * 3 * 2 <= window.preview_frames.budget
+    d.refresh_preview()
+    assert 'Loop limited to' in d.preview_note.text()
+
+
 def test_selection_invalidates_late_packet_and_apply(window):
     window.open_effect_discovery();d=window.discovery_dialog
     select(d,'tape');d.debounce.stop();d.render_selection()
@@ -70,6 +116,8 @@ def test_selection_invalidates_late_packet_and_apply(window):
 
 
 def test_applied_effect_restores_working_preview_after_audition(window, monkeypatch):
+    window.quality.setCurrentIndex(2)
+    size = window.preview_size()
     window.composer.change_effect('bloom', {'mode': 'on', 'params': {}}, 'effect-add')
     before = copy.deepcopy(window.composition)
     history = copy.deepcopy(window.undo_compositions)
@@ -80,6 +128,14 @@ def test_applied_effect_restores_working_preview_after_audition(window, monkeypa
     window.open_effect_discovery(); d = window.discovery_dialog
     select(d, 'tape'); d.debounce.stop(); d.render_selection()
     assert window.comparison is not None
+    for side in ('b', 'a'):
+        d.switch_side(side)
+        for _ in range(200):
+            QApplication.processEvents()
+            if window.viewer.packet is not None: break
+            time.sleep(.025)  # Let the Python render worker run between GUI events.
+        assert window.viewer.packet is not None, (d.preview_note.text(), window.preview_status.text())
+        assert window.viewer.packet[0] == size
     # The old path cleared the viewport and had no comparison/context change
     # left to trigger rendering when browsing another applied effect.
     select(d, 'bloom'); d.debounce.stop(); d.render_selection()
@@ -87,8 +143,9 @@ def test_applied_effect_restores_working_preview_after_audition(window, monkeypa
     for _ in range(200):
         QApplication.processEvents()
         if window.viewer.packet is not None: break
-        QTest.qWait(25)
+        time.sleep(.025)
     assert window.viewer.packet is not None
+    assert window.viewer.packet[0] == size
     assert window.preview_sequence() == window.sequence
     assert d.action.text() == 'Inspect effect' and d.action.isEnabled()
     assert window.composition == before and window.undo_compositions == history
@@ -167,7 +224,8 @@ def test_selected_section_explicit_seek_uses_nearest_actual_occurrence(window):
 
 
 def test_object_preset_workflow_stays_available(window):
-    panel=window.composer.effects_panel
+    window.composer.open_object_details('forms', False)
+    panel=window.composer.object_editor
     panel.inspect_effect('forms');panel.apply_look()
     assert window.discovery_session is None
     assert window.composition['effects']['forms']['mode']=='on'

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.48.1 — 2026-10-28
+
+- Respect the selected monitor resolution when browsing and comparing effect
+  presets, including Full canvas. Adding an effect no longer silently renders
+  a 360 px preview while the monitor still shows the chosen quality.
+- Bound the sampled comparison loop to the available frame cache at larger
+  resolutions and show the shorter loop length. Frame quality stays unchanged.
+
 ## 0.48.0 — 2026-10-28
 
 - Add visual Background color and Ink color controls to Dye transfer, with
