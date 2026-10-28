@@ -202,6 +202,12 @@ class Audit:
     def painted_after(self,start,frame=None):
         d=self.display
         return bool(d and d['receipt']>=start and (frame is None or abs(d['time']-frame/self.window.preview_fps())<1e-6) and self.painted and self.painted[0]==d['packet'] and self.painted[1]>=d['return'])
+    def assert_monitor(self):
+        width,height=(self.case_canvas[k] for k in ('width','height'))
+        scale=1. if self.args.quality=='full' else min(1.,720/max(width,height))
+        expected=tuple(max(1,round(v*scale)) for v in (width,height))
+        assert self.window.quality.currentIndex()==(2 if self.args.quality=='full' else 1)
+        assert tuple(self.window.viewer.packet[0])==expected==self.window.preview_size()
     async def measure(self,scenario,action,frame=None,**extra):
         self.active=scenario; began=time.monotonic()
         prof=cProfile.Profile() if self.args.profile else None
@@ -219,7 +225,7 @@ class Audit:
             return True
         await self.wait(correct)
         end=self.painted[1]; d=self.display
-        assert tuple(self.window.viewer.packet[0])==self.window.preview_size()
+        self.assert_monitor()
         record={'case':self.args.case,'quality':self.args.quality,'scenario':scenario,'n':self.sequence,'start':began,'sync_ms':(sync_end-began)*1000,'receipt_ms':(d['receipt']-began)*1000,'paint_ms':(end-began)*1000,'delivery_to_paint_ms':(end-d['receipt'])*1000,'cached':d['cached'],'frame':round(d['time']*self.window.preview_fps()),'size':self.window.viewer.packet[0],**extra}
         record['rgb_sha256']=hashlib.sha256(self.window.viewer.packet[1]).hexdigest()
         self.sequence+=1; self.records.append(record); self.emit('sample',**record)
@@ -227,6 +233,7 @@ class Audit:
         return record
     def reference(self,name):
         from PIL import Image
+        self.assert_monitor()
         size,raw=self.window.viewer.packet
         path=self.folder/f'{name}.png'; Image.frombytes('RGB',size,raw).save(path)
         self.emit('reference',name=name,frame=self.window.timeline.value(),size=size,rgb_sha256=hashlib.sha256(raw).hexdigest(),png_sha256=digest(path))
@@ -303,6 +310,7 @@ class Audit:
         importing_video=self.args.case=='video' and (self.args.import_video or 'video' not in manifest['cases'])
         project_case='text-dye-transfer' if importing_video else self.args.case
         project=json.loads(Path(manifest['cases'][project_case]['path']).read_text())
+        self.case_canvas=manifest['cases'][project_case]['canvas']
         # Settings supplies Full canvas before the constructor's first request.
         settings=QSettings(str(Path(os.environ['NEBULA_STATE_DIR'])/'settings.ini'),QSettings.Format.IniFormat)
         settings.setValue('preview/quality',2 if self.args.quality=='full' else 1)
@@ -328,6 +336,8 @@ class Audit:
             w.composer.commit(doc,'audit-video-treatments'); await self.settled()
             path=OUT/'fixtures/video.nebula.json';dump(path,w.composition)
             seq=w.sequence;manifest['cases']['video']={'path':str(path),'sha256':digest(path),'canvas':w.composition['canvas'],'fps':seq['fps'],'duration':seq['duration'],'sections':len(w.composition['sections']),'effects':w.composition['effects'],'frames':[0,1,29,30,59,60,89],'prepare_frames':[0,1,29,30]};dump(OUT/'manifest.json',manifest)
+            self.case_canvas=manifest['cases']['video']['canvas']
+            assert (self.case_canvas['width'],self.case_canvas['height'])==(1920,1080)
         assert w.preview_size()==tuple(w.viewer.packet[0])
         self.reference('baseline-frame-0')
         base=copy.deepcopy(w.composition)
@@ -346,17 +356,22 @@ class Audit:
             from PySide6.QtCore import QPoint, Qt
             from PySide6.QtWidgets import QStyle, QStyleOptionSlider
             w.composer.change_scope(0)
-            panel=w.composer.effects_panel;panel.inspect_effect('bloom');panel.reveal_control('bloom.strength')
+            panel=w.composer.effects_panel;w.composer.look_tabs.setCurrentWidget(panel)
+            panel.inspect_effect('bloom');panel.reveal_control('bloom.strength')
             control=panel.controls['bloom.strength'];slider=control.slider
             await self.pause(30)
+            assert slider.isVisible() and not slider.hasTracking()
             for i in range(self.args.samples):
                 option=QStyleOptionSlider();slider.initStyleOption(option)
                 handle=slider.style().subControlRect(QStyle.ComplexControl.CC_Slider,option,QStyle.SubControl.SC_SliderHandle,slider)
-                pos=handle.center();QTest.mousePress(slider,Qt.MouseButton.LeftButton,pos=pos)
+                pos=handle.center();pressed=time.monotonic();generation=w.settings_generation
+                QTest.mousePress(slider,Qt.MouseButton.LeftButton,pos=pos);moves=[]
                 target=round(slider.width()*(.15 if i%2 else .18))
                 for step in range(1,9):
                     QTest.mouseMove(slider,QPoint(round(pos.x()+(target-pos.x())*step/8),pos.y()),15)
-                await self.measure('physical_slider_release',lambda:QTest.mouseRelease(slider,Qt.MouseButton.LeftButton,pos=QPoint(target,pos.y())))
+                    moves.append(time.monotonic())
+                assert w.settings_generation==generation
+                await self.measure('physical_slider_release',lambda:QTest.mouseRelease(slider,Qt.MouseButton.LeftButton,pos=QPoint(target,pos.y())),press_time=pressed,move_times=moves,slider_target_x=target)
             await self.finish(base);return
         if self.args.session_only:
             w.auto_prepare.setChecked(True)

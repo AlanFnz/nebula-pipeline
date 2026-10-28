@@ -37,6 +37,8 @@ are edited. The original project is only read. No installation is performed.
 viewer paint completion, memory, cache accounting and 20 ms event-loop pulse
 samples. `samples.json` contains individual interaction samples, including the
 synchronous action duration, receipt latency and latency through paint completion.
+Samples and references assert both the chosen quality index and dimensions
+derived independently from the frozen case canvas, including effect auditions.
 PNG references have separate SHA-256 values for raw RGB and the encoded PNG.
 The latter is not a substitute for RGB identity.
 
@@ -79,8 +81,8 @@ RGB cache, is not physical footprint, and does not prove a leak. Transients shor
 than the one-second sampling interval may be missed. Cache samples include worker
 reservations and assert the existing 192 MiB bound.
 
-`--profile` uses separate cProfile instances for each worker and the synchronous
-UI action. `--detail` adds nested method spans. Treat cumulative times as overlapping;
+`--profile` uses separate cProfile instances for construction, each worker and the
+synchronous UI action. `--detail` adds nested method spans. Treat cumulative times as overlapping;
 never sum nested calls into a wall-clock total. Profiled runs are diagnostic and
 must be compared with unprofiled trials to assess observer overhead. The standard
 run still has logging, pulse, memory and paint observers; its overhead needs its
@@ -104,7 +106,9 @@ Additional focused runs:
 ```
 
 Physical dragging uses the existing Bloom strength control on Guerrilla Radio,
-with eight mouse moves and the real release event. It preserves tracking=False.
+with eight QTest mouse moves and the release event on a visible control. It
+asserts tracking=False and unchanged generation before release, and retains the
+press/move timestamps as well as release-to-paint latency.
 `--open-only` records one costly construction/open, reference and native viewer
 image without running the interaction matrix. `--frames` selects an explicit
 absolute-frame subset; it does not resample time. Labels must be unique: the
