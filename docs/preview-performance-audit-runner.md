@@ -64,6 +64,24 @@ input scenario queues eight values at nominal 15 ms intervals and records their
 actual dispatch times. These timings must not be described as a physical slider
 drag: the existing slider has tracking disabled and commits on release.
 
+For a complete new source-build cohort, first import video with a separate label
+so fixture bootstrap is not confused with opening the imported video document:
+
+```sh
+.venv/bin/python tools/audit_synth_preview.py --case video --import-video --open-only --label video-import-setup
+for audit_case in guerrilla text-dye-transfer image-memory color-film-die video; do
+  .venv/bin/python tools/audit_synth_preview.py --case "$audit_case" --samples 2 --survey --label "survey-$audit_case"
+done
+```
+
+Review that survey before selecting deep profiles. Then, serially for each case,
+run `--samples 20 --no-prepare`, `--drag-only --samples 20` and the paired
+`--scaling-only --frames 0,1 --samples 2` at `--quality full` and `--quality 720`,
+with a different label for every command. Run the main fixed/public preparation
+and ten-minute session separately. Use the focused examples below for those
+flags, ABBA observer controls and diagnostic profiles. Existing evidence labels
+must be preserved; choose new labels when repeating.
+
 The browser runs Add Project Effect, selects candidates, and alternates
 Before/Preview through the real comparison owner and shared cache. Browser opening
 includes selecting a specified candidate. Fixed-list preparation uses the existing
@@ -112,12 +130,15 @@ Additional focused runs:
 .venv/bin/python tools/summarize_synth_audit.py
 ```
 
-Physical dragging uses the existing Bloom strength control on Guerrilla Radio,
+Synthetic dragging uses the existing Bloom strength control on Guerrilla Radio,
 with eight QTest mouse moves and the release event on a visible control. It
 asserts tracking=False and unchanged generation before release, and retains the
 press/move timestamps as well as release-to-paint latency. On the other four cases,
 `--drag-only` uses the same frozen parameter as the single-edit scenarios. The
 target alternates between 18% and 15% of slider width; committed values are logged.
+This uses synthetic events on the real widget, not a hardware input latency test.
+On the audited Cocoa build, QTest's nominal move delay did not create 15 ms
+pauses: inspect the recorded timestamps instead of assuming its requested cadence.
 `--open-only` records one costly construction/open, reference and native viewer
 image without running the interaction matrix. `--frames` selects an explicit
 absolute-frame subset; it does not resample time. Labels must be unique: the
