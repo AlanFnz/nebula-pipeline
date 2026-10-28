@@ -307,8 +307,12 @@ class Audit:
         settings=QSettings(str(Path(os.environ['NEBULA_STATE_DIR'])/'settings.ini'),QSettings.Format.IniFormat)
         settings.setValue('preview/quality',2 if self.args.quality=='full' else 1)
         settings.setValue('preview/auto_prepare',False)
+        construction_profile=cProfile.Profile() if self.args.profile else None
+        if construction_profile:construction_profile.enable()
         began=time.monotonic(); w=studio.SynthStudio(composition=project,settings=settings); self.window=w
         w.auto_prepare.setChecked(False); w.quality.setCurrentIndex(2 if self.args.quality=='full' else 1); w.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint,True); w.show();w.raise_();w.activateWindow()
+        if construction_profile:
+            construction_profile.disable();construction_profile.dump_stats(str(self.folder/'construction.prof'))
         await self.wait(lambda:self.painted_after(began,0)); record={'case':self.args.case,'quality':self.args.quality,'scenario':'fixture_bootstrap_construct' if importing_video else 'fresh_construct_open','paint_ms':(self.painted[1]-began)*1000,'size':w.viewer.packet[0]}
         self.records.append(record);self.emit('sample',**record)
         if 'NEBULA_AUDIT_LAUNCH_MONOTONIC' in os.environ:
