@@ -55,7 +55,7 @@ def summarize(folder):
     result['workers'] = {name: stats([(e['end']-e['start'])*1000 for e in workers if e['name'] == name])
                          for name in ('RenderJob', 'PreparePreviewJob')}
     result['cancelled_workers'] = [e for e in workers if e['cancelled']]
-    if (folder / 'run.prof').exists():
+    if any(folder.glob('*.prof')):
         result['profile_note'] = 'Nested cumulative costs overlap; do not sum.'
     return result
 
@@ -71,7 +71,11 @@ def main():
         if folder.is_dir() and (folder / 'events.jsonl').exists():
             result[folder.name] = summarize(folder)
             result[folder.name]['excluded_reason']=excluded.get(folder.name)
-            result[folder.name]['valid_baseline']=result[folder.name]['completed'] and folder.name not in excluded
+            config=result[folder.name]['config'] or {}
+            options=config.get('args',{})
+            diagnostic=bool(options.get('profile') or options.get('detail'))
+            result[folder.name]['measurement_kind']='profiler_diagnostic' if diagnostic else 'quiet_observer_control' if options.get('quiet_observers') else 'normal'
+            result[folder.name]['valid_baseline']=result[folder.name]['completed'] and folder.name not in excluded and not diagnostic
             print(folder.name, 'complete' if result[folder.name]['completed'] else 'INCOMPLETE',
                   {k: round(v['paint_ms']['median'], 1) for k, v in result[folder.name]['scenarios'].items()})
     (args.root / 'summary.json').write_text(json.dumps(result, indent=2) + '\n')

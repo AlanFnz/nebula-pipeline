@@ -82,7 +82,9 @@ than the one-second sampling interval may be missed. Cache samples include worke
 reservations and assert the existing 192 MiB bound.
 
 `--profile` uses separate cProfile instances for construction, each worker and the
-synchronous UI action. `--detail` adds nested method spans. Treat cumulative times as overlapping;
+main UI event loop after construction. The latter stays enabled across outer-loop
+turns to include deferred selection/compilation and delivery callbacks, as well as
+the immediate input action. `--detail` adds nested method spans. Treat cumulative times as overlapping;
 never sum nested calls into a wall-clock total. Profiled runs are diagnostic and
 must be compared with unprofiled trials to assess observer overhead. The standard
 run still has logging, pulse, memory and paint observers; its overhead needs its
@@ -114,7 +116,8 @@ image without running the interaction matrix. `--frames` selects an explicit
 absolute-frame subset; it does not resample time. Labels must be unique: the
 runner refuses to append to an existing event log.
 
-The summarizer reports each run independently. Nearest-rank p95 is accompanied
+The summarizer reports each run independently, labels profiler diagnostics
+separately and excludes them from `valid_baseline`. Nearest-rank p95 is accompanied
 by sample count and originals; do not cite it as a robust percentile for small
 counts. `excluded-runs.json` records failed/prototype runs and why their timings
 are invalid; `valid_baseline` excludes these even if a prototype completed.

@@ -83,7 +83,7 @@ class Audit:
         self.args=args; self.folder=OUT/args.label; self.folder.mkdir(parents=True, exist_ok=True)
         self.log=(self.folder/'events.jsonl').open('x',buffering=1)
         self.log_lock=threading.Lock(); self.records=[]; self.jobs=[]; self.painted=None; self.display=None; self.active=None
-        self.observer_error=None;self.saved_frames=set(); self.last_tick=time.monotonic(); self.stop=threading.Event(); self.sequence=0
+        self.observer_error=None;self.saved_frames=set(); self.last_tick=time.monotonic(); self.stop=threading.Event(); self.sequence=0;self.ui_profile=None
     def emit(self, kind, **fields):
         with self.log_lock:
             self.log.write(json.dumps({'t':time.monotonic(), 'kind':kind, **fields})+'\n')
@@ -210,11 +210,7 @@ class Audit:
         assert tuple(self.window.viewer.packet[0])==expected==self.window.preview_size()
     async def measure(self,scenario,action,frame=None,**extra):
         self.active=scenario; began=time.monotonic()
-        prof=cProfile.Profile() if self.args.profile else None
-        if prof:prof.enable()
         action(); sync_end=time.monotonic()
-        if prof:
-            prof.disable(); prof.dump_stats(str(self.folder/f'ui-{self.sequence}-{scenario}.prof'))
         expected_effect=self.window.discovery_dialog.selected_effect_id() if scenario in ('candidate_select','add_project_effect_open') else None
         expected_side='a' if scenario=='before_switch' else 'b' if scenario in ('preview_switch','candidate_select','add_project_effect_open') else None
         def correct():
@@ -321,6 +317,9 @@ class Audit:
         w.auto_prepare.setChecked(False); w.quality.setCurrentIndex(2 if self.args.quality=='full' else 1); w.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint,True); w.show();w.raise_();w.activateWindow()
         if construction_profile:
             construction_profile.disable();construction_profile.dump_stats(str(self.folder/'construction.prof'))
+            # Stay enabled across outer-loop turns so timer/deferred callbacks
+            # (candidate compilation and delivery) are included, not just input.
+            self.ui_profile=cProfile.Profile();self.ui_profile.enable()
         await self.wait(lambda:self.painted_after(began,0)); record={'case':self.args.case,'quality':self.args.quality,'scenario':'fixture_bootstrap_construct' if importing_video else 'fresh_construct_open','paint_ms':(self.painted[1]-began)*1000,'size':w.viewer.packet[0]}
         self.records.append(record);self.emit('sample',**record)
         if 'NEBULA_AUDIT_LAUNCH_MONOTONIC' in os.environ:
@@ -481,6 +480,8 @@ class Audit:
         from PySide6.QtWidgets import QApplication
         await self.settled(); w.viewer.grab().save(str(self.folder/'native-viewer.png'))
         dump(self.folder/'samples.json',self.records)
+        if self.ui_profile:
+            self.ui_profile.disable();self.ui_profile.dump_stats(str(self.folder/'ui-event-loop.prof'))
         self.stop.set();w.mark_document_clean();w.close();w.jobs.waitForDone(30000)
         if self.monitor_thread:self.monitor_thread.join(3)
         self.emit('done',pid=os.getpid(),platform=QApplication.instance().platformName());self.log.close()
