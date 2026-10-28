@@ -4,7 +4,8 @@ Reference-13 reconstruction added in 0.41.0, optically refined in 0.42.0,
 reframed for complete lettering in 0.43.0, and expanded with brief optical
 silhouettes in 0.44.0, and refined final ink in 0.45.0 and 0.46.0.
 Load **Studies → Text / one more try**.
-It is an editable 720 × 406 composition at 30 fps, lasting 473 frames / 15.77 s.
+The current revision (0.47.0) is an editable 720 × 406 composition at 30 fps,
+lasting exactly 450 frames / 15 s. Its 73 authored cuts are independent clips.
 The film texture updates at 15 fps. No source-video frames are required to render it.
 
 ## Visual and editing decisions
@@ -47,11 +48,21 @@ IN at 14.47–14.67s.
 ## Editable controls
 
 **Object → Text** owns wording, typeface, line spacing and text layout. The study
-uses authored source cues for different phrases and cuts. A fixed wording change
-in the inspector replaces the wording throughout the selected scope; it does not
-rewrite this montage into a new arbitrary phrase automatically. Use **Open
-detailed copy…** to edit individual cues and their wording/timing. Keep this
-reference montage first; automatic alternate-phrase adaptation is future work.
+opens in **Shots** view: each card shows a thumbnail, wording and duration.
+Click to select/preview while keeping the editing scope; double-click or choose
+**Edit text** to open Object controls for that clip. Change the wording and press
+**Apply main text**. **Duration** below the cards changes only the selected clip
+and stretches its optical motion; Undo restores the previous text or timing.
+Switch to **Timeline** for proportional durations, drag/reorder, duplication
+and automation. Project-level changes still affect the whole arrangement, with
+explicit clip overrides taking priority.
+
+The 15-second revision compresses all cut boundaries proportionally to 450 whole
+frames, preserving every cut and the closing hold. Each clip references its
+original source interval and retains its continuous optical clock through the
+existing retiming system. Old single-clip documents keep their original timing
+and can still use **Open detailed copy…** for individual internal source cues.
+Automatic alternate-phrase adaptation remains future work.
 The safe framing is saved as ordinary text size, width, rotation and impression
 position values. It does not constrain subsequent edits or automatically fit
 replacement text or a different canvas. These controls remain freely editable.
@@ -91,7 +102,7 @@ seeded sampling makes seeks reproducible, with no history buffer. Transform and
 blur allocations are bounded by output dimensions. `synth_dye_recipes.py` carries
 the 73 authored cuts.
 The module is appended to the catalog and disabled by default. The current
-study is frozen in `presets/text-dye-transfer-v6.json`; the v1 through v5 files
+study is frozen in `presets/text-dye-transfer-v7.json`; the v1 through v6 files
 remain intact. All six optical-refinement controls default to zero, so saved
 compositions retain the original renderer's pixels. The revised study opts in
 explicitly. Silhouette defaults to Off and opacity zero also bypasses it
@@ -120,3 +131,8 @@ with identical opening/closing frames in the revised study.
 
 The built-in study is self-contained and silent. Any reference soundtrack used
 for a local demonstration stays separate from the distributable recipe.
+
+The 0.47.0 revision additionally checks all 73 retimed clip states and optical
+pixels against v6 at corresponding source times, the exact 450-frame duration,
+isolated wording edits, duration undo/redo, save/load, selection scope, and
+bounded thumbnail generation. Historic 473-frame checks above refer to v1–v6.

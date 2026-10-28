@@ -5,6 +5,7 @@ all wording, palettes, framing and cuts. Reference 1.5–16.5s becomes 3 seconds
 the remainder keeps its original cadence (30 fps, 15 fps film texture).
 """
 import math
+import copy
 
 from synth import MODULE_BY_ID
 from synth_composition import composition_from_sequence, normalize_composition
@@ -171,4 +172,21 @@ def dye_transfer_composition():
     project=composition_from_sequence(seq)
     project['phrases']['custom']['name']='One more try / dye-transfer montage'
     project['effect_order']=['dye_transfer']
+    # Each authored cut becomes an ordinary editable clip. Retain the original
+    # source clock while distributing the exact 450 output frames cumulatively;
+    # independently rounding 73 durations would drift or lose the final hold.
+    template = project['sections'][0]
+    project['sections'] = []
+    project['phrases'] = {}
+    for index, cue in enumerate(seq['cues']):
+        first = round(cue['time'] * 30)
+        last = round(seq['cues'][index + 1]['time'] * 30) if index + 1 < len(seq['cues']) else 473
+        frames = round(last * 450 / 473) - round(first * 450 / 473)
+        values = seq['states'][cue['state']]['overrides']
+        label = ' '.join(values['text.content'].split()) or ('Optical silhouette' if values.get('dye_transfer.mask_shape', 0) else 'Exposure')
+        identifier = f'shot-{index + 1:02}'
+        project['phrases'][identifier] = dict(name=label, start=first / 30, end=last / 30)
+        project['sections'].append(dict(copy.deepcopy(template), id=identifier,
+            phrase=identifier, duration=frames / 30, effects_rate=(last - first) / frames))
+    project['timeline_view'] = 'shots'
     return normalize_composition(project)

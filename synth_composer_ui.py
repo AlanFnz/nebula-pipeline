@@ -14,7 +14,7 @@ from studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBo
 
 from synth import SHAPES
 from studio_theme import COLORS, terminal_font
-from synth_composition import MACROS, compile_composition, default_geometry, effective_geometry, neutral_macros, normalize_composition, proportional_section_durations, section_placements, section_ranges, vary_composition
+from synth_composition import MAX_SECTIONS, MACROS, compile_composition, default_geometry, effective_geometry, neutral_macros, normalize_composition, proportional_section_durations, section_placements, section_ranges, vary_composition
 from synth_effects_ui import EffectsPanel
 from synth_shared_timing import edit_shared_timing, restore_shared_timing, without_timing
 from synth_master import normalize_master
@@ -1432,8 +1432,8 @@ class CompositionPanel(QWidget):
         sections = self.document['sections']
         positions = [i for i, section in enumerate(sections) if section['id'] in selected]
         if not positions or len(positions) != len(selected): return
-        if len(sections) + len(positions) > 64:
-            self.failed.emit('Use at most 64 clips. Remove clips before duplicating this selection.'); return
+        if len(sections) + len(positions) > MAX_SECTIONS:
+            self.failed.emit(f'Use at most {MAX_SECTIONS} clips. Remove clips before duplicating this selection.'); return
         document = copy.deepcopy(self.document)
         copies = []; mapping = {}
         insertion = positions[-1] + 1
@@ -1455,7 +1455,7 @@ class CompositionPanel(QWidget):
         return tuple(copies)
 
     def add_section(self):
-        if len(self.document["sections"]) >= 64: return
+        if len(self.document["sections"]) >= MAX_SECTIONS: return
         document = copy.deepcopy(self.document)
         phrase_key = self.phrase.currentData(); phrase = document["phrases"][phrase_key]
         section = {"id": self._new_id(document), "phrase": phrase_key, "duration": phrase["end"] - phrase["start"], "loops": 1, "macros": neutral_macros(), "variation": 0, "locks": []}
@@ -1465,8 +1465,8 @@ class CompositionPanel(QWidget):
     def add_video_section(self, footage, after_id, copy_from_id=None):
         """Insert independent media in one edit; never create a pending empty clip."""
         if self.updating or 'footage' not in self.document: return
-        if len(self.document['sections']) >= 64:
-            self.failed.emit('Use at most 64 clips. Remove a clip before adding footage.'); return
+        if len(self.document['sections']) >= MAX_SECTIONS:
+            self.failed.emit(f'Use at most {MAX_SECTIONS} clips. Remove a clip before adding footage.'); return
         document = copy.deepcopy(self.document)
         positions = {section['id']: index for index, section in enumerate(document['sections'])}
         if after_id not in positions or (copy_from_id is not None and copy_from_id not in positions):

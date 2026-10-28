@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.47.0 — 2026-10-28
+
+- Add a Shots view with equal-sized thumbnails, wording and duration, including
+  very short flashes. Double-click a shot or choose Edit text to edit its own
+  Object controls; a single click keeps the current editing scope.
+- Make all 73 cuts in Text / one more try independent editable clips and retime
+  the complete montage to exactly 450 frames / 15 seconds. Preserve the ending,
+  fitted text, fine ink and original continuous optical motion.
+- Clip duration changes use the existing retiming, undo and save behavior.
+  The proportional Timeline remains available for arranging clips and automation.
+- Raise the composition limit to 256 clips. Freeze the new study separately;
+  prior saved studies and their rendering remain unchanged.
+
 ## 0.46.0 — 2026-10-28
 
 - Reduce coarse ink erosion on the upright IN over orange at 14.47–14.67s

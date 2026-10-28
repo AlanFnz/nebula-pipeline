@@ -8,7 +8,7 @@ from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication, QFileDialog
 
 from synth_add_section_ui import AddVideoSectionDialog
-from synth_composition import load_composition, save_composition
+from synth_composition import MAX_SECTIONS, load_composition, save_composition
 from synth_effects import effect_preset
 from synth_section_sources import video_source_at
 from synth_video import video_composition
@@ -112,10 +112,10 @@ def test_cancel_failure_or_stale_import_never_leaves_a_section(make_window, clip
 def test_section_limit_and_generated_timeline_do_not_offer_footage_add(make_window, clip):
     generated = make_window(); assert not generated.add_footage_section.isVisible()
     p = video_composition(clip)
-    p['sections'] = [dict(copy.deepcopy(p['sections'][0]), id=f'section-{i}') for i in range(64)]
+    p['sections'] = [dict(copy.deepcopy(p['sections'][0]), id=f'section-{i}') for i in range(MAX_SECTIONS)]
     window = make_window(composition=p); before = copy.deepcopy(window.composition)
     window.add_footage_section.click()
-    assert '64 clips' in window.status.text() and window.import_job is None
+    assert f'{MAX_SECTIONS} clips' in window.status.text() and window.import_job is None
     assert window.composition == before
 
 
