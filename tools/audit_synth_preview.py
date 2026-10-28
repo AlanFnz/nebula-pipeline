@@ -106,7 +106,7 @@ class Audit:
         synth_video.VideoFrameProvider.frame=decode
         from synth_viewer import SynthViewer
         original=SynthViewer.paintEvent
-        def paint(view,event):
+        def paint(view,event,original=original):
             began=time.monotonic(); result=original(view,event)
             if view is getattr(getattr(self,'window',None),'viewer',None) and view.packet:
                 self.painted=(id(view.packet),time.monotonic())
