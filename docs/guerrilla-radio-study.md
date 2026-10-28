@@ -64,3 +64,33 @@ Audio and rendered media stay local, outside Git. The built-in 15-second
 One more try study remains untouched. This recipe needs Nebula 0.47.1 and the
 existing Text, Dye transfer, soundtrack, Shots, and automation capabilities;
 no new app release is needed.
+
+## Optical print variation
+
+The second delivery, **Text / Guerrilla Radio — optical print**, responds to
+the user's close-ups of the original print reference: stronger upward and
+downward exposure tails, more pronounced ivory/pink switches, brief loss of
+focus, and two optical obstructions in the pauses between complete phrases.
+It uses 45 independent cuts while retaining all 16 voice-aligned word/group
+onsets, the 281-frame duration, and the soundtrack clock of the first delivery.
+
+The fine grain, mottled stock, dust, and gate weave are stronger throughout.
+Readable ink retains low erosion (at most 0.035); pronounced rubbed texture
+is concentrated in exposure trails. Most focus and shutter bursts follow a
+clear reading hold. A four-frame wedge appears at frame 65, and a two-frame
+diffuse shadow at frame 132. The original 32-shot variation remains available.
+
+Generate this variant with `--optical`, choosing a separate output folder:
+
+```sh
+.venv/bin/python scripts/create_guerrilla_study.py \
+  --audio '/absolute/path/to/the/supplied/bounce.wav' \
+  --output output/guerrilla-radio-v2 --optical --render --save-study
+```
+
+All added texture, shutter pulls, focus, masks, and palette changes use the
+existing Dye transfer controls. No effect implementation or built-in study is
+modified. Omitting `--optical` reproduces the original composition data (apart
+from the newly probed soundtrack identity). Validation checks the preserved
+word onsets, complete duration, composition round trip, and contact sheets;
+both delivery exports are fully decoded and checked for identical video.
