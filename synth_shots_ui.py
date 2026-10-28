@@ -141,7 +141,9 @@ class ClipStoryboard(QWidget):
                 for i, section in enumerate(project['sections']):
                     states = [value for key, value in sequence['states'].items() if key.startswith(section['id'] + ':')]
                     text = next((s.get('overrides', {}).get('text.content') for s in states if s.get('overrides', {}).get('text.content')), '')
-                    label = ' '.join(text.split()) or project['phrases'][section['phrase']]['name']
+                    empty_override = any('text.content' in target.get('effects', {}).get('text', {}).get('params', {})
+                                         for target in (project, section))
+                    label = ' '.join(text.split()) or ('No text' if empty_override else project['phrases'][section['phrase']]['name'])
                     repeats = f" ×{section['loops']}" if section['loops'] > 1 else ''
                     title = f"{i + 1:02}  {label}\n{section['duration']:.3f} s{repeats}"
                     item = QListWidgetItem(QIcon(blank), title)
@@ -166,6 +168,7 @@ class ClipStoryboard(QWidget):
     def _resize(self, value):
         if self.project and self.cards.currentRow() >= 0:
             self.durationRequested.emit(self.project['sections'][self.cards.currentRow()]['id'], value)
+            self._selection_controls(self.cards.currentRow())
 
     def request_visible(self, *_args):
         if not self.sequence or not self.isVisible() or self.work.stopped: return

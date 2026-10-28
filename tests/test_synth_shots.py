@@ -84,3 +84,20 @@ def test_old_project_keeps_compact_timeline_and_thumbnail_refresh_is_bounded(mak
     assert w.shot_strip.generation > before
     w.close()
     assert w.shot_strip.work.stopped
+
+
+def test_undo_removed_selection_and_empty_wording_keep_cards_honest(make_window):
+    w = make_window(composition=starter_composition('text-dye-transfer'))
+    w.edit_shot(72)
+    w.duplicate_timeline_sections([w.composition['sections'][-1]['id']])
+    assert w.shot_strip.cards.currentRow() == 73
+    w.undo_composition()
+    assert w.shot_strip.cards.currentRow() == w.composer.index == 72
+    w.edit_shot(2)
+    control = w.composer.object_panel.controls['text.content'].input
+    control.editor.setPlainText(''); control.apply.click()
+    assert 'No text' in w.shot_strip.cards.item(2).text()
+    duration = w.composition['sections'][2]['duration']
+    w.shot_strip.duration.setValue(duration + .001)
+    assert w.composition['sections'][2]['duration'] == duration
+    assert w.shot_strip.duration.value() == pytest.approx(duration, abs=.0005)

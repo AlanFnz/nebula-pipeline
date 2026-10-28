@@ -1380,6 +1380,7 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
         self.refresh_composition()
 
     def refresh_composition(self):
+        self.composition_index = self.composer.index
         self.refresh_canvas_controls()
         self.reconcile_comparison()
         old_time = self.current_time
