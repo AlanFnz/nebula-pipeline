@@ -41,6 +41,7 @@ Samples and references assert both the chosen quality index and dimensions
 derived independently from the frozen case canvas, including effect auditions.
 PNG references have separate SHA-256 values for raw RGB and the encoded PNG.
 The latter is not a substitute for RGB identity.
+Restoring frame zero asserts equality with that run's initial raw RGB hash.
 
 The default launcher starts a fresh child process and timestamps it before
 spawning. `fresh_process_open` includes Python/Qt imports, fixture loading,

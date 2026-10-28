@@ -83,7 +83,7 @@ class Audit:
         self.args=args; self.folder=OUT/args.label; self.folder.mkdir(parents=True, exist_ok=True)
         self.log=(self.folder/'events.jsonl').open('x',buffering=1)
         self.log_lock=threading.Lock(); self.records=[]; self.jobs=[]; self.painted=None; self.display=None; self.active=None
-        self.observer_error=None;self.saved_frames=set(); self.last_tick=time.monotonic(); self.stop=threading.Event(); self.sequence=0;self.process_profile=None
+        self.observer_error=None;self.saved_frames=set();self.reference_hashes={}; self.last_tick=time.monotonic(); self.stop=threading.Event(); self.sequence=0;self.process_profile=None
     def emit(self, kind, **fields):
         with self.log_lock:
             self.log.write(json.dumps({'t':time.monotonic(), 'kind':kind, **fields})+'\n')
@@ -227,8 +227,11 @@ class Audit:
         from PIL import Image
         self.assert_monitor()
         size,raw=self.window.viewer.packet
+        rgb=hashlib.sha256(raw).hexdigest()
+        if name=='repeat-frame-0':assert rgb==self.reference_hashes['baseline-frame-0']
+        self.reference_hashes[name]=rgb
         path=self.folder/f'{name}.png'; Image.frombytes('RGB',size,raw).save(path)
-        self.emit('reference',name=name,frame=self.window.timeline.value(),size=size,rgb_sha256=hashlib.sha256(raw).hexdigest(),png_sha256=digest(path))
+        self.emit('reference',name=name,frame=self.window.timeline.value(),size=size,rgb_sha256=rgb,png_sha256=digest(path))
     def clear_frames(self):
         self.window.preview_frames.clear()
         self.window.preview_frames.switch(self.window.current_preview_context())
