@@ -17,6 +17,9 @@ automatically; no scheduled work is configured.
 Related work: [effects editor UX](effects-editor-ux-plan.md),
 [reusable effects](reusable-effects-plan.md), and
 [editing and preview](editing-preview-plan.md).
+The [preview performance audit](preview-performance-audit.md), scoped on
+2026-10-28, is the current engineering priority: establish measured bottlenecks
+before selecting optimizations, while retaining full preview quality and behavior.
 
 ## Outcome
 
@@ -499,6 +502,8 @@ control signal. No hardware is required for the imported-file milestone.
 
 ## Delivery order and open decisions
 
+- [ ] Preview performance audit: baseline, ranked diagnosis and separately
+  validated optimization patches; see [audit plan](preview-performance-audit.md).
 - [x] A1: visible starting flow, existing editor integration and save/open.
 - [x] A2: creative-control pilot with reversible, bounded per-state adjustments.
 - [x] A3: named snapshots/A/B and controlled, effect-scoped Keep/Discard auditions.
