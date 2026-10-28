@@ -2,7 +2,10 @@
 
 Prepared: 2026-10-28.
 Baseline: Nebula 0.48.1, commit `0e7c21b7c865da76c578571faa0ece638ba3f75a`.
-Status: scope and implementation inventory complete; measurements are next.
+Status: source-build baseline and ranked diagnosis recorded in
+[`preview-performance-audit-results.md`](preview-performance-audit-results.md).
+Installed-bundle interaction validation remains pending: the macOS UI tool selects
+the user's original instance rather than the isolated second instance.
 
 Reduce the wait between an edit and its visible result, and the time needed to
 prepare playback, while preserving the current images and editing behavior.
@@ -166,8 +169,8 @@ seconds alongside percentages. A final native-app check precedes installation.
 
 - [x] Define scope, representative workloads and correctness conditions.
 - [x] Locate the current render, scheduling, cache and measurement paths.
-- [ ] Freeze fixtures and add a current-app measurement harness.
-- [ ] Capture the baseline and select scenarios for deeper profiling.
-- [ ] Deliver the ranked diagnosis and first patch recommendation.
+- [x] Freeze fixtures and add a current-app measurement harness.
+- [x] Capture the source-build baseline and select scenarios for deeper profiling.
+- [x] Deliver the ranked diagnosis and first patch recommendation, with the installed-app limitation explicit.
 - [ ] Implement and validate individually justified optimization patches.
 - [ ] Record final results and install the verified app update.
