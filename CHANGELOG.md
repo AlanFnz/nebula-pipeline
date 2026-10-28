@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.47.1 — 2026-10-28
+
+- Replace the Timeline help label with a compact question-mark icon so the
+  help action is distinct from a heading. Keep its tooltip, accessible name
+  and click-to-open gesture instructions.
+
 ## 0.47.0 — 2026-10-28
 
 - Add a Shots view with equal-sized thumbnails, wording and duration, including
