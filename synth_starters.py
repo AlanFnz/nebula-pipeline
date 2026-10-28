@@ -17,7 +17,7 @@ from synth_contact_recipes import contact_print_composition
 
 
 STARTERS = (
-    ('text-dye-transfer', 'Text / one more try · 15.77s', dye_transfer_composition),
+    ('text-dye-transfer', 'Text / one more try · 15s', dye_transfer_composition),
     ('tension', 'Tension / elastic signal · 15s', tension_composition),
     ('text-contact-film', 'Text / FAC51 contact film · 8s', contact_print_composition),
     ('text-contact-film-original', 'Text / FAC51 contact film (reference cut) · 3.25s', lambda: contact_print_composition(extended=False)),

@@ -20,6 +20,7 @@ from synth_master import normalize_master
 from synth_compat import render_version
 from synth_automation import normalize_automations, absolute_event, section_event, compiled_id, MAX_SEQUENCE_EVENTS
 
+MAX_SECTIONS = 256
 FORMAT = "nebula-composition"
 MACROS = {
     "rhythm": ("Rhythm", .25, 2., "Slower holds / faster changes within each section."),
@@ -587,8 +588,8 @@ def normalize_composition(raw):
             raise ValueError("A phrase must have a positive duration")
         phrase["name"] = str(phrase.get("name", "Phrase"))
     sections = result.get("sections")
-    if not isinstance(sections, list) or not 1 <= len(sections) <= 64:
-        raise ValueError("Use between 1 and 64 clips")
+    if not isinstance(sections, list) or not 1 <= len(sections) <= MAX_SECTIONS:
+        raise ValueError(f"Use between 1 and {MAX_SECTIONS} clips")
     ids = set()
     authored_event_count = 0
     for section in sections:
@@ -625,7 +626,7 @@ def normalize_composition(raw):
         section["locks"] = [key for key in section.get("locks", []) if key in MACROS]
     if 'timeline_loops' in result:
         groups = result['timeline_loops']
-        if not isinstance(groups, list) or len(groups) > 64:
+        if not isinstance(groups, list) or len(groups) > MAX_SECTIONS:
             raise ValueError('Invalid timeline loop groups')
         positions = {section['id']: index for index, section in enumerate(sections)}
         used = set(); normalized_groups = []

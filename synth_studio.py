@@ -30,8 +30,9 @@ from studio_theme import COLORS, apply_theme, terminal_font, ui_font
 from synth import MODULE_BY_ID, curated_presets, default_synth_preset, load_synth, normalize_synth, render_synth_frame, save_synth
 from synth_media import export_synth_video
 from synth_sequence import load_sequence, normalize_sequence, reference_sequence, render_sequence_frame, save_sequence
-from synth_composition import FORMAT, compile_composition, composition_from_sequence, load_composition, normalize_composition, reference_composition, save_composition, section_ranges
+from synth_composition import MAX_SECTIONS, FORMAT, compile_composition, composition_from_sequence, load_composition, normalize_composition, reference_composition, save_composition, section_ranges
 from synth_composer_ui import CompositionPanel, SectionTimeline, CachedRangeStrip
+from synth_shots_ui import ClipStoryboard
 from synth_canvas import CANVAS_FORMATS, format_canvas, normalize_canvas, preview_size, resize_canvas
 from synth_studies import study_records, study_composition, save_study
 from synth_studies_ui import StudiesDialog
@@ -640,6 +641,11 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
         self.section_scroll.setFixedHeight(78)
         self.section_timeline.automationVisibilityChanged.connect(lambda visible: self.section_scroll.setFixedHeight(108 if visible else 78))
         controls_layout.addWidget(self.section_scroll)
+        self.shot_strip = ClipStoryboard()
+        self.shot_strip.selected.connect(self.section_timeline.select_at)
+        self.shot_strip.editRequested.connect(self.edit_shot)
+        self.shot_strip.durationRequested.connect(lambda identifier, duration: self.composer and self.composer.stretch_section(identifier, duration))
+        controls_layout.addWidget(self.shot_strip)
         self.build_soundtrack_lane(controls_layout)
         self.section_tools = QWidget()
         tools_policy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
@@ -649,6 +655,13 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
         gesture_help = 'Click to select a clip while keeping the editing scope. Double-click to edit that clip. Drag a clip to reorder. Drag its right edge to resize. Shift-click to select several; drag the last selected edge to scale them together. Select clips or an automation curve, then press Command-D to duplicate. Right-click for duplication and loops. Escape cancels a drag.'
         self.section_hint.setToolTip(gesture_help); self.section_hint.clicked.connect(lambda: QMessageBox.information(self, 'Timeline gestures', gesture_help))
         section_tools.addWidget(self.section_hint)
+        self.timeline_view = QComboBox()
+        self.timeline_view.addItems(['Timeline', 'Shots'])
+        self.timeline_view.setAccessibleName('Timeline view')
+        self.timeline_view.setToolTip('Shots shows equal-sized previews with text and duration. Timeline shows proportional clip lengths and automation.')
+        self.timeline_view.setCurrentIndex(1 if self.composition and self.composition.get('timeline_view') == 'shots' else 0)
+        self.timeline_view.currentIndexChanged.connect(self.refresh_timeline_view)
+        section_tools.addWidget(self.timeline_view)
         self.add_footage_section = QPushButton('+ Add clip…')
         self.add_footage_section.setProperty('compact', True)
         self.add_footage_section.setAccessibleName('Add footage clip')
@@ -768,6 +781,25 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
         if panel and panel.scope and not panel.scope_combo.isHidden():
             section = panel.document['sections'][panel.index]['id']
         self.section_timeline.set_editing_section(section)
+
+    def refresh_timeline_view(self, *_args):
+        shots = self.composition is not None and self.timeline_view.currentIndex() == 1
+        entering_shots = shots and not getattr(self, '_showing_shots', False)
+        self._showing_shots = shots
+        self.section_scroll.setVisible(self.composition is not None and not shots)
+        self.shot_strip.setVisible(shots)
+        if shots:
+            self.shot_strip.set_document(self.composition, self.sequence, self.composition_index)
+        if entering_shots:
+            sizes = self.preview_splitter.sizes()
+            if sizes[-1] < 280:
+                self.preview_splitter.setSizes([max(180, sum(sizes) - 280), 280])
+
+    def edit_shot(self, index):
+        if self.composer and 0 <= index < len(self.composition['sections']):
+            self.composer.select_section(index)
+            self.composer.look_tabs.setCurrentWidget(self.composer.object_panel)
+            self.composer.object_panel.reveal_control('text.content')
 
     def refresh_view_zoom(self, percent):
         with QSignalBlocker(self.view_zoom): self.view_zoom.setValue(percent)
@@ -942,6 +974,7 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
             widget.setVisible(self.composition is not None)
         self.section_timeline.setVisible(self.composition is not None)
         self.section_scroll.setVisible(self.composition is not None)
+        self.refresh_timeline_view()
         self.section_tools.setVisible(self.composition is not None)
         self.section_resize_mode.setVisible(self.composition is not None and 'footage' in self.composition)
         self.add_footage_section.setVisible(self.composition is not None and 'footage' in self.composition)
@@ -1244,6 +1277,8 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
         self.document_identity = object()
         self.starter_combo.setCurrentIndex(-1)
         self.composition_index = 0; self.composition_scope = 0
+        with QSignalBlocker(self.timeline_view):
+            self.timeline_view.setCurrentIndex(1 if project.get('timeline_view') == 'shots' else 0)
         self.section_timeline.set_document(project, 0, reset_selection=True)
         if self.composer:
             self.composer.index = 0; self.composer.scope = 0
@@ -1265,8 +1300,8 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
 
     def add_footage_section_dialog(self):
         if not self.composer or not self.composition or 'footage' not in self.composition: return
-        if len(self.composition['sections']) >= 64:
-            self.status.setText('Use at most 64 clips. Remove a clip before adding footage.'); return
+        if len(self.composition['sections']) >= MAX_SECTIONS:
+            self.status.setText(f'Use at most {MAX_SECTIONS} clips. Remove a clip before adding footage.'); return
         index = self.composer.index
         anchor = self.composition['sections'][index]['id']
         dialog = AddVideoSectionDialog(self.composition, index, self)
@@ -1352,6 +1387,7 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
         with QSignalBlocker(self.timeline):
             self.timeline.setValue(round(old_time * self.composition["fps"]))
         self.section_timeline.set_document(self.composition, self.composer.index)
+        self.refresh_timeline_view()
         self.sync_timeline_editing_scope()
         self.status.setText('')
         self.update_composition_history(); self.invalidate()
@@ -1361,6 +1397,7 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
     def composition_section_selected(self, index):
         self.composition_index = index
         self.section_timeline.set_document(self.composition, index)
+        self.refresh_timeline_view()
         self.sync_timeline_editing_scope()
         if not self.preview_scope.currentIndex():
             self.timeline.setValue(round(section_ranges(self.composition)[index][0] * self.composition["fps"]))
@@ -2145,6 +2182,7 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
             return
         self.save_workspace()
         self.closing = True
+        self.shot_strip.close()
         self.cancel_foreground_render()
         self.close_soundtrack()
         self.study_browser_priority_timer.stop()

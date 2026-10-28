@@ -8,7 +8,7 @@ from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 
 from synth_automation import duplicate_automation
-from synth_composition import blank_composition, normalize_composition, compile_composition, save_composition, load_composition
+from synth_composition import MAX_SECTIONS, blank_composition, normalize_composition, compile_composition, save_composition, load_composition
 from synth_effects import effect_preset
 from test_synth_effects_editor_integration import make_window
 
@@ -152,13 +152,13 @@ def test_duplicate_shortcut_stays_local_and_clears_deleted_event_selection(make_
 
 
 def test_duplicate_section_limit_never_partially_copies(make_window):
-    document = project(); prototype = document['sections'][0]
-    document['sections'] = [dict(copy.deepcopy(prototype),id=f'cut-{i}') for i in range(63)]
+    document = project(); prototype = dict(document['sections'][0], duration=1., loops=1)
+    document['sections'] = [dict(copy.deepcopy(prototype),id=f'cut-{i}') for i in range(MAX_SECTIONS - 1)]
     window = make_window(composition=document); original = copy.deepcopy(window.composition)
     window.section_timeline.selected_ids = {'cut-0','cut-1'}
     duplicate_key(window.section_timeline)
     assert window.composition == original and not window.undo_compositions
-    assert '64 clips' in window.status.text()
+    assert f'{MAX_SECTIONS} clips' in window.status.text()
 
 
 def test_right_click_duplicate_actions_follow_the_same_undoable_paths(make_window):

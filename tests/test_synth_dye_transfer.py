@@ -171,7 +171,7 @@ def test_pale_lettering_keeps_subtle_texture_instead_of_dark_pits():
     from synth_text import render_text
     from PIL import ImageFilter
     seq=compile_composition(starter_composition('text-dye-transfer'))
-    t=242/30;base=resolve_sequence_frame(seq,t)[-1]
+    t=next(c['time'] for c in seq['cues'] if c['state'].endswith(':impression-242'));base=resolve_sequence_frame(seq,t)[-1]
     modules={m['id']:m['params'] for m in base['modules']}
     a=render_text(np.zeros((406,720,3),np.float32),modules['text'],t,base)
     p=modules['dye_transfer']
@@ -227,12 +227,12 @@ def test_catalog_footage_intensity_and_order():
 
 def test_frozen_study_roundtrip_timing_and_opt_in(tmp_path):
     p=starter_composition('text-dye-transfer');seq=compile_composition(p)
-    assert seq['duration']==473/30 and seq['fps']==30
+    assert seq['duration']==15. and seq['fps']==30
     assert (seq['canvas']['width'],seq['canvas']['height'])==(720,406)
     save_composition(tmp_path/'study.json',p)
     restored=compile_composition(load_composition(tmp_path/'study.json'))
     authored=compile_composition(dye_transfer_composition())
-    for t in (0.,1.3,1.9,4.4,6.8,10.5,13.8,15.5):
+    for t in (0.,1.3,1.9,4.4,6.8,10.5,13.8,14.8):
         expected=render_sequence_frame(seq,t,(160,90)).tobytes()
         assert render_sequence_frame(restored,t,(160,90)).tobytes()==expected
         assert render_sequence_frame(authored,t,(160,90)).tobytes()==expected
@@ -251,7 +251,7 @@ def test_frozen_study_roundtrip_timing_and_opt_in(tmp_path):
 def test_new_inserts_leave_readable_sections_unchanged():
     root=Path(__file__).resolve().parents[1]
     old=compile_composition(load_composition(root/'presets/text-dye-transfer-v3.json'))
-    new=compile_composition(starter_composition('text-dye-transfer'))
+    new=compile_composition(load_composition(root/'presets/text-dye-transfer-v6.json'))
     for cue in new['cues']:
         t=cue['time']
         if t<1.5 or 4.5<=t<434/30 or t>=446/30:
@@ -270,7 +270,7 @@ def test_new_inserts_leave_readable_sections_unchanged():
 def test_final_orange_ink_is_cleaner_and_other_frames_keep_their_look():
     root=Path(__file__).resolve().parents[1]
     previous=compile_composition(load_composition(root/'presets/text-dye-transfer-v4.json'))
-    current=compile_composition(starter_composition('text-dye-transfer'))
+    current=compile_composition(load_composition(root/'presets/text-dye-transfer-v6.json'))
     for frame in (0,68,71,77,98,242,433,446,472):
         assert render_sequence_frame(previous,frame/30,(160,90)).tobytes()==render_sequence_frame(current,frame/30,(160,90)).tobytes()
     for frame in range(434,446):
