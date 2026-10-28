@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.46.0 — 2026-10-28
+
+- Reduce coarse ink erosion on the upright IN over orange at 14.47–14.67s
+  in Text / one more try, matching the fine texture of the following tilted IN.
+- Freeze this revision separately; previous saved studies retain their appearance.
+
 ## 0.45.0 — 2026-10-28
 
 - Reduce coarse ink erosion on the tilted IN over orange in Text / one more
