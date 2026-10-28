@@ -74,7 +74,8 @@ longer public-window preparations; `--no-prepare` omits both preparation variant
 
 The ten-minute session enables normal automatic preparation and dispatches one
 action every five seconds: seek, edit, undo, seek, open audition, Before, Preview,
-close audition. It records late input dispatch and final settling.
+close audition. It records action completion timestamps, event-loop gaps and final
+settling. Completion timestamps include synchronous work and are not input-dispatch timestamps.
 Audio is not played; existing scrub/audio synchronization callbacks still run.
 Memory snapshots report own RSS and child RSS separately. RSS is not the bounded
 RGB cache, is not physical footprint, and does not prove a leak. Transients shorter
@@ -110,7 +111,9 @@ Additional focused runs:
 Physical dragging uses the existing Bloom strength control on Guerrilla Radio,
 with eight QTest mouse moves and the release event on a visible control. It
 asserts tracking=False and unchanged generation before release, and retains the
-press/move timestamps as well as release-to-paint latency.
+press/move timestamps as well as release-to-paint latency. On the other four cases,
+`--drag-only` uses the same frozen parameter as the single-edit scenarios. The
+target alternates between 18% and 15% of slider width; committed values are logged.
 `--open-only` records one costly construction/open, reference and native viewer
 image without running the interaction matrix. `--frames` selects an explicit
 absolute-frame subset; it does not resample time. Labels must be unique: the

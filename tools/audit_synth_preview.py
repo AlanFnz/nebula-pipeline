@@ -355,9 +355,13 @@ class Audit:
             from PySide6.QtCore import QPoint, Qt
             from PySide6.QtWidgets import QStyle, QStyleOptionSlider
             w.composer.change_scope(0)
-            panel=w.composer.effects_panel;w.composer.look_tabs.setCurrentWidget(panel)
-            panel.inspect_effect('bloom');panel.reveal_control('bloom.strength')
-            control=panel.controls['bloom.strength'];slider=control.slider
+            if self.args.case=='guerrilla':
+                panel=w.composer.effects_panel;w.composer.look_tabs.setCurrentWidget(panel)
+                panel.inspect_effect('bloom');panel.reveal_control('bloom.strength')
+                control=panel.controls['bloom.strength'];parameter_path='bloom.strength'
+            else:
+                self.show_edit_control();control=self.edit_control;parameter_path=EDIT_PATHS[self.args.case][1]
+            slider=control.slider
             await self.pause(30)
             assert slider.isVisible() and not slider.hasTracking()
             for i in range(self.args.samples):
@@ -370,7 +374,8 @@ class Audit:
                     QTest.mouseMove(slider,QPoint(round(pos.x()+(target-pos.x())*step/8),pos.y()),15)
                     moves.append(time.monotonic())
                 assert w.settings_generation==generation
-                await self.measure('physical_slider_release',lambda:QTest.mouseRelease(slider,Qt.MouseButton.LeftButton,pos=QPoint(target,pos.y())),press_time=pressed,move_times=moves,slider_target_x=target)
+                result=await self.measure('physical_slider_release',lambda:QTest.mouseRelease(slider,Qt.MouseButton.LeftButton,pos=QPoint(target,pos.y())),press_time=pressed,move_times=moves,slider_target_x=target,parameter_path=parameter_path)
+                self.emit('drag_commit',sample_n=result['n'],parameter_path=parameter_path,value=control.input.value())
             await self.finish(base);return
         if self.args.session_only:
             w.auto_prepare.setChecked(True)
