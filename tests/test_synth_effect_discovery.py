@@ -59,13 +59,15 @@ def test_preview_session_cancel_and_exact_apply_in_real_studio(monkeypatch):
     monkeypatch.setattr(SynthStudio, 'request_frame', lambda self: None)
     studio = SynthStudio(composition=new_piece('shape'))
     studio.auto_prepare.setChecked(False)
+    studio.quality.setCurrentIndex(2)
+    size = studio.preview_size()
     original = copy.deepcopy(studio.composition)
     clean = studio.clean_document
     try:
         session = EffectPreviewSession(studio)
         session.select('tape', 0)
         assert not studio.audition_pending() and not studio.has_unsaved_changes()
-        assert studio.preview_size()[0] <= 360
+        assert studio.preview_size() == size
         session.close()
         assert studio.composition == original and studio.clean_document == clean
         session = EffectPreviewSession(studio)

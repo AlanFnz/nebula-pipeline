@@ -6,15 +6,15 @@ from synth_effect_discovery import document_fingerprint, effect_candidate
 from synth_preview import PreviewScope, preview_context, resolve_scope
 
 
-def sampled_window(scope, frame, fps):
+def sampled_window(scope, frame, fps, max_frames=24):
     """At most two seconds, using distinct original absolute timeline frames."""
-    if not scope.count or not scope.contains(frame): return ()
+    if not scope.count or not scope.contains(frame) or max_frames <= 0: return ()
     origin = scope.position(frame)
-    count = min(scope.count, max(1, round(fps * 2)))
-    first = min(origin, max(0, scope.count - count))
     step = max(1, fps / 12)
+    count = min(scope.count, max(1, round(fps * 2)), max(1, round(max_frames * step)))
+    first = min(origin, max(0, scope.count - count))
     ranks = sorted(set(min(first + count - 1, round(first + i * step)) for i in range(max(1, round(count / step)))))
-    return tuple(scope.frame_at(rank) for rank in ranks)
+    return tuple(scope.frame_at(rank) for rank in ranks[:max_frames])
 
 
 class EffectPreviewSession:
@@ -39,7 +39,16 @@ class EffectPreviewSession:
         if section_id is not None:
             intervals = tuple((max(a,c), min(b,d)) for a,b in self.scope.intervals for c,d in self.target_scope.intervals if max(a,c)<min(b,d))
             self.scope = PreviewScope(intervals, len(intervals))
-        self.samples = sampled_window(self.scope, self.entry_frame, studio.preview_fps())
+        self.update_samples(self.entry_frame)
+
+    def update_samples(self, frame):
+        studio = self.studio
+        width, height = studio.preview_size()
+        # Reserve half the shared cache for each comparison side. Shorten the
+        # loop at large resolutions instead of lowering the monitor quality.
+        capacity = studio.preview_frames.budget // 2 // (width * height * 3)
+        self.samples = sampled_window(self.scope, frame, studio.preview_fps(), capacity)
+        self.samples_limited = len(self.samples) < len(sampled_window(self.scope, frame, studio.preview_fps()))
 
     def valid(self):
         studio = self.studio
@@ -72,7 +81,7 @@ class EffectPreviewSession:
         chosen = min(max(frame, interval[0]), interval[1]-1)
         self.studio.timeline.setValue(chosen)
         if not self.scope.contains(chosen): self.scope = self.target_scope
-        self.samples = sampled_window(self.scope, chosen, self.studio.preview_fps())
+        self.update_samples(chosen)
 
     def prepare_samples(self):
         studio = self.studio
