@@ -83,7 +83,7 @@ class Audit:
         self.args=args; self.folder=OUT/args.label; self.folder.mkdir(parents=True, exist_ok=True)
         self.log=(self.folder/'events.jsonl').open('x',buffering=1)
         self.log_lock=threading.Lock(); self.records=[]; self.jobs=[]; self.painted=None; self.display=None; self.active=None
-        self.observer_error=None;self.saved_frames=set(); self.last_tick=time.monotonic(); self.stop=threading.Event(); self.sequence=0;self.ui_profile=None
+        self.observer_error=None;self.saved_frames=set(); self.last_tick=time.monotonic(); self.stop=threading.Event(); self.sequence=0;self.process_profile=None
     def emit(self, kind, **fields):
         with self.log_lock:
             self.log.write(json.dumps({'t':time.monotonic(), 'kind':kind, **fields})+'\n')
@@ -126,12 +126,8 @@ class Audit:
             original_run=cls.run
             def run(job, original_run=original_run, name=cls.__name__):
                 start=time.monotonic(); self.emit('worker_start',job=id(job),name=name, generation=getattr(job,'settings_generation',getattr(job,'generation',None)),time_seconds=getattr(job,'time_seconds',None),frames=getattr(job,'frames',None),size=job.size)
-                prof=cProfile.Profile() if self.args.profile else None
-                if prof: prof.enable()
                 try: return original_run(job)
                 finally:
-                    if prof:
-                        prof.disable(); prof.dump_stats(str(self.folder/f'worker-{start:.9f}-{id(job)}.prof'))
                     end=time.monotonic()
                     item={'job':id(job),'name':name,'start':start,'end':end,'cancelled':job.cancel.event.is_set()}
                     self.jobs.append(item); self.emit('worker_end',**item)
@@ -311,15 +307,13 @@ class Audit:
         settings=QSettings(str(Path(os.environ['NEBULA_STATE_DIR'])/'settings.ini'),QSettings.Format.IniFormat)
         settings.setValue('preview/quality',2 if self.args.quality=='full' else 1)
         settings.setValue('preview/auto_prepare',False)
-        construction_profile=cProfile.Profile() if self.args.profile else None
-        if construction_profile:construction_profile.enable()
+        # This Python 3.14 build's cProfile collects all threads and rejects a
+        # second active instance. One collector must span construction + Qt
+        # callbacks + workers; separate focused runs and spans attribute costs.
+        if self.args.profile:
+            self.process_profile=cProfile.Profile();self.process_profile.enable()
         began=time.monotonic(); w=studio.SynthStudio(composition=project,settings=settings); self.window=w
         w.auto_prepare.setChecked(False); w.quality.setCurrentIndex(2 if self.args.quality=='full' else 1); w.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint,True); w.show();w.raise_();w.activateWindow()
-        if construction_profile:
-            construction_profile.disable();construction_profile.dump_stats(str(self.folder/'construction.prof'))
-            # Stay enabled across outer-loop turns so timer/deferred callbacks
-            # (candidate compilation and delivery) are included, not just input.
-            self.ui_profile=cProfile.Profile();self.ui_profile.enable()
         await self.wait(lambda:self.painted_after(began,0)); record={'case':self.args.case,'quality':self.args.quality,'scenario':'fixture_bootstrap_construct' if importing_video else 'fresh_construct_open','paint_ms':(self.painted[1]-began)*1000,'size':w.viewer.packet[0]}
         self.records.append(record);self.emit('sample',**record)
         if 'NEBULA_AUDIT_LAUNCH_MONOTONIC' in os.environ:
@@ -485,8 +479,8 @@ class Audit:
         from PySide6.QtWidgets import QApplication
         await self.settled(); w.viewer.grab().save(str(self.folder/'native-viewer.png'))
         dump(self.folder/'samples.json',self.records)
-        if self.ui_profile:
-            self.ui_profile.disable();self.ui_profile.dump_stats(str(self.folder/'ui-event-loop.prof'))
+        if self.process_profile:
+            self.process_profile.disable();self.process_profile.dump_stats(str(self.folder/'process.prof'))
         self.stop.set();w.mark_document_clean();w.close();w.jobs.waitForDone(30000)
         if self.monitor_thread:self.monitor_thread.join(3)
         self.emit('done',pid=os.getpid(),platform=QApplication.instance().platformName());self.log.close()

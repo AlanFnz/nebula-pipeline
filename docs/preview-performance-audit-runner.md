@@ -82,10 +82,13 @@ RGB cache, is not physical footprint, and does not prove a leak. Transients shor
 than the one-second sampling interval may be missed. Cache samples include worker
 reservations and assert the existing 192 MiB bound.
 
-`--profile` uses separate cProfile instances for construction, each worker and the
-main UI event loop after construction. The latter stays enabled across outer-loop
-turns to include deferred selection/compilation and delivery callbacks, as well as
-the immediate input action. `--detail` adds nested method spans. Treat cumulative times as overlapping;
+`--profile` uses one process collector across construction and outer-loop turns,
+including deferred selection/compilation, delivery and workers. A calibration on
+this Python 3.14.6 build showed that cProfile collects both the main and worker
+threads, and rejects a second active collector. Do not interpret `process.prof`
+as a per-thread profile. Use separate opening, render-only and interaction runs,
+worker boundaries and UI spans for attribution; recheck thread coverage on a
+different Python build. `--detail` adds nested method spans. Treat cumulative times as overlapping;
 never sum nested calls into a wall-clock total. Profiled runs are diagnostic and
 must be compared with unprofiled trials to assess observer overhead. The standard
 run still has logging, pulse, memory and paint observers; its overhead needs its
