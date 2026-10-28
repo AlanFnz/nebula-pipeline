@@ -270,6 +270,8 @@ class EffectsPanel(QWidget):
         body_layout.addWidget(self.creative_panel)
         self.creative_notice = QLabel(); self.creative_notice.setWordWrap(True)
         self.creative_notice.setObjectName('muted'); body_layout.addWidget(self.creative_notice)
+        from synth_color_ui import ColorPanel
+        self.color_panel = ColorPanel(); body_layout.addWidget(self.color_panel); self.color_panel.hide()
         self.parameter_host = QWidget(); self.parameter_layout = QVBoxLayout(self.parameter_host); self.parameter_layout.setContentsMargins(0, 0, 0, 0); body_layout.addWidget(self.parameter_host)
         self.no_matches = QLabel('No matching controls in this tab.'); self.no_matches.setObjectName('muted'); body_layout.addWidget(self.no_matches); self.no_matches.hide()
         self.note = QLabel('Use fixed value to override an animated control. Restore follows the entire project or study again.')
@@ -514,6 +516,7 @@ class EffectsPanel(QWidget):
         info = self.authored_summary[effect.id]
         parent = self.parent_entries.get(effect.id, {})
         available = info["active"] or entry["mode"] in {"on", "off"} or effect.id in self.entries
+        if effect.id == 'dye_transfer': self.color_panel.setEnabled(available)
         self.creative_panel.refresh(effect.id, entry, parent, info, available, self.local)
         for path, control in self.controls.items():
             if path in INK_TIMING:
@@ -535,6 +538,7 @@ class EffectsPanel(QWidget):
         if effect.id == 'ink_bloom' and self.controls['ink_bloom.shape'].input.currentIndex() == 5 and not self.controls['ink_bloom.artwork'].input.value():
             self.status.setText('Import artwork to supply the custom silhouette, or choose a built-in shape.')
         self.show_controls()
+        if effect.id == 'dye_transfer': self.color_panel.refresh()
         self.updating = False
         self.controls_refreshed.emit()
         self.navigation_changed.emit()
@@ -712,6 +716,9 @@ class EffectsPanel(QWidget):
         if selected_group:
             visible_paths = next(paths for title, paths in groups if title == selected_group)
         query = self.filter.text().strip().casefold()
+        self.color_panel.setVisible(effect.id == 'dye_transfer' and
+                                    self.color_panel.context_provider is not None and
+                                    not query and selected_group in (None, 'Color & light', 'Color channels'))
         shown = {p for p in visible_paths if not query or query in parameter(p).label.casefold() or query in p.casefold()}
         # Keep unchanged rows visible during value refreshes. Hiding a focused
         # editor makes Qt transfer focus and scroll to a different control.
@@ -728,7 +735,7 @@ class EffectsPanel(QWidget):
                 self.group_labels[title] = label
             key = (effect.id, self.parameter_tabs.currentIndex(), title)
             expanded = (bool(query) or bool(selected_group) or self.revealed_path in matching or
-                        self.group_expansion.get(key, title == titles[0]))
+                        self.group_expansion.get(key, title == titles[0] and title != 'Color channels'))
             label = self.group_labels[title]
             with QSignalBlocker(label): label.setChecked(expanded)
             label.setText(title.replace('&', '&&') + (' ▾' if expanded else ' ▸'))

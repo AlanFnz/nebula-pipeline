@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.48.0 — 2026-10-28
+
+- Add visual Background color and Ink color controls to Dye transfer, with
+  previews at the displayed frame, RGB/HSV/hex picking and a palette of colors
+  already used in the project. Choose a single shot or the shared project scope.
+- Apply each color as one undoable edit. Cancel and inspection preserve animated
+  colors and saved precision; project swatches retain their original brightness.
+  Numeric color channels remain available in a collapsed group.
+- Label animated parameter ranges explicitly and align inspector label columns.
+  Rendering and existing study data are unchanged.
+
 ## 0.47.1 — 2026-10-28
 
 - Replace the Timeline help label with a compact question-mark icon so the
