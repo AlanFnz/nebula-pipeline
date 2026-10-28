@@ -808,6 +808,9 @@ class CompositionPanel(QWidget):
         shape_layout.addWidget(self.source_scope_label)
         self.look_tabs = InspectorTabs()
         self.effects_panel = EffectsPanel(route_sources=True)
+        self.effects_panel.color_panel.context_provider = self.color_context
+        self.effects_panel.color_panel.changed.connect(self.change_color)
+        self.effects_panel.color_panel.restored.connect(self.restore_color)
         # The composer owns the persistent scope selector for every page.
         self.effects_panel.scope_label.hide()
         self.effects_panel.edited.connect(self.change_effect)
@@ -975,6 +978,7 @@ class CompositionPanel(QWidget):
             compiled = compile_composition(self.document, base_states=base_states,
                                            project_states=project_states, project_base_states=project_base_states)
             self.compiled = compiled
+            self._color_palette_cache = {}
             source_plays = [placement for placement in section_placements(self.document) if placement[0] == self.index]
             self.video_panel.refresh(source_section.get('footage', video) if source_section else video, source_section,
                                      sequence=compiled, start=source_plays[0][1],
@@ -1128,6 +1132,62 @@ class CompositionPanel(QWidget):
             for section in document['sections']:
                 section['effects'].pop(effect_id, None)
         self.commit(document, f"{action}:{self.scope}:{self.index}:{effect_id}")
+
+    def color_context(self, key):
+        """Sample the displayed shot, not a numeric minimum across the study."""
+        from synth_color_ui import COLORS
+        from synth_sequence import resolve_sequence_frame, _state_preset
+        spec = next(spec for spec in COLORS if spec.key == key)
+        section_id = self.automation_section_id()
+        index = next(i for i, section in enumerate(self.document['sections']) if section['id'] == section_id)
+        seconds = self.playhead_seconds()
+        placements = [p for p in section_placements(self.document) if p[0] == index]
+        if self.scope and not any(start <= seconds < end for _, start, end, _ in placements):
+            seconds = placements[0][1]
+        def hsv(preset):
+            params = next(entry['params'] for entry in preset['modules'] if entry['id'] == 'dye_transfer')
+            return tuple(params[channel] for channel in spec.channels)
+        current = hsv(resolve_sequence_frame(self.compiled, seconds, normalized=True)[-1])
+        cache = self._color_palette_cache
+        if key not in cache:
+            palette = []
+            for name in self.compiled['states']:
+                value = hsv(_state_preset(self.compiled, name))
+                if value not in palette: palette.append(value)
+            cache[key] = palette[:48]
+        overridden = any(path in self.target()['effects'].get('dye_transfer', {}).get('params', {}) for path in spec.paths)
+        return dict(hsv=current, palette=cache[key], section_id=section_id,
+                    shot_label=f'Shot {index + 1} only',
+                    preview_label=f'Shot {index + 1} · {seconds:.2f}s', overridden=overridden)
+
+    def change_color(self, key, hsv, section_id):
+        from synth_color_ui import COLORS
+        spec = next(spec for spec in COLORS if spec.key == key)
+        if self.updating: return
+        document = copy.deepcopy(self.document)
+        if section_id is None:
+            target = document
+            self.scope = 0
+        else:
+            index = next((i for i, section in enumerate(document['sections']) if section['id'] == section_id), None)
+            if index is None: return
+            target = document['sections'][index]
+            self.index, self.scope = index, 1
+        entry = target['effects'].setdefault('dye_transfer', {'mode': 'recipe', 'params': {}})
+        entry['params'].update(zip(spec.paths, hsv))
+        self.commit(document, f'effect-color:{section_id}:{key}')
+
+    def restore_color(self, key):
+        from synth_color_ui import COLORS
+        spec = next(spec for spec in COLORS if spec.key == key)
+        if self.updating: return
+        document = copy.deepcopy(self.document)
+        entry = self.target(document)['effects'].get('dye_transfer')
+        if entry is None: return
+        for path in spec.paths: entry['params'].pop(path, None)
+        if entry == {'mode': 'recipe', 'params': {}}:
+            self.target(document)['effects'].pop('dye_transfer')
+        self.commit(document, f'effect-color-restore:{self.scope}:{self.index}:{key}')
 
     def add_effect_instance(self, effect_id):
         from synth_instances import base_id, REPEATABLE, document_instance_ids, MAX_INSTANCES

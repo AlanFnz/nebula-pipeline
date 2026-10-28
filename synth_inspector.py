@@ -6,6 +6,7 @@ def control_group(path):
     path = base_path(path)
     module, key = path.split('.')
     if module == 'dye_transfer':
+        if key in ('paper_hue', 'paper_saturation', 'paper_light', 'ink_hue', 'ink_saturation', 'ink_light'): return 'Color channels'
         if key.startswith('mask_'): return 'Optical silhouette'
         if key in ('scale', 'x', 'y', 'angle'): return 'Shape & layout'
         if key in ('weave', 'cadence', 'registration', 'focus_flutter', 'shutter'): return 'Motion & timing'

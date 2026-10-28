@@ -129,6 +129,7 @@ class EffectParameter(QWidget):
             self.input.ensurePolished()
             self.value_stack.setMinimumHeight(self.input.minimumSizeHint().height())
         self.animated_value = QLabel()
+        self.animated_value.setObjectName('animatedRange')
         self.animated_value.setWordWrap(True); self.animated_value.setMinimumWidth(0)
         self.animated_value.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.animated_value.setAccessibleName(spec.label + ' animated range')
@@ -179,9 +180,9 @@ class EffectParameter(QWidget):
     def _row_metrics(self, width):
         """Read-only measurements shared by layout probes and actual reflow."""
         animated = self.value_stack.currentWidget() is self.animated_value
-        label_width = self.label.fontMetrics().horizontalAdvance(self.label.text())
-        if self.hue_swatch: label_width += self.hue_swatch.width() + 5
-        label_width = max(120, min(160, label_width))
+        # A shared label column keeps adjacent rows aligned, including hue
+        # indicators and labels of different lengths.
+        label_width = 160
         action_width = self.reset_button.width()
         if self.animate_button: action_width += self.animate_button.sizeHint().width() + 6
         if self.spec.choices:
@@ -244,7 +245,7 @@ class EffectParameter(QWidget):
         else:
             self._row.addWidget(self._label_container, 0, 0)
             self._row.setColumnMinimumWidth(0, label_width)
-            self._row.setColumnStretch(0, 1)
+            self._row.setColumnStretch(0, 0)
             if self.slider and not animated:
                 self._row.addWidget(self.slider, 0, 1)
                 self._row.setColumnStretch(1, 2)
@@ -381,7 +382,7 @@ class EffectParameter(QWidget):
         animated = fixed is None and not inherited_fixed and low != high
         self.value_stack.setCurrentIndex(1 if animated and not direct_text else 0)
         range_text = f'{format_value(self.path, low)} … {format_value(self.path, high)}'
-        self.animated_value.setText(range_text)
+        self.animated_value.setText('Animated range · ' + range_text)
         self.animated_value.setToolTip('Read-only animated range. Use fixed value below to replace this animation in the selected scope.')
         self.proposed_value.setText(f'Start: {format_value(self.path, self.fixed_start)}')
         proposal = 'Proposed initial fixed value from the displayed range; this is not a sampled playhead value.'

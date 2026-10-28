@@ -2219,6 +2219,7 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
         seconds = seconds if isinstance(seconds, (int, float)) else self.timeline.value()/self.preview_fps()
         resolved = resolve_sequence_frame(self.sequence, seconds)
         panel.set_explanations(explain_effect(self.composition, self.sequence, panel.effect_id, seconds, sid, resolved))
+        if panel.color_panel.isVisible(): panel.color_panel.refresh()
         if panel.breakdown_host.isVisible():
             panel.update_breakdown_status({key: explain_effect(self.composition, self.sequence, key, seconds, sid, resolved)
                                            for key in panel.breakdown_rows})

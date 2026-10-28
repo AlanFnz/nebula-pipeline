@@ -44,6 +44,8 @@ QWidget:disabled { color: @disabled@; }
 QLabel { background: transparent; }
 QLabel#brand { color: @accent@; font-size: 22px; font-weight: 700; }
 QLabel#muted { color: @muted@; }
+QLabel#animatedRange { background: @panel@; color: @muted@; border: 1px solid @border@; border-radius: 4px; padding: 6px 8px; }
+QFrame#colorCard { background: @panel@; border: 1px solid @border@; border-radius: 6px; }
 QLabel#sectionTitle { color: @text@; font-size: 11px; font-weight: 600; }
 QLabel#effectTitle { color: @text@; font-size: 15px; font-weight: 600; }
 QLabel#controlGroup { color: @text@; font-size: 11px; font-weight: 600; border-top: 1px solid @border@; padding-top: 8px; margin-top: 8px; margin-bottom: 4px; }
