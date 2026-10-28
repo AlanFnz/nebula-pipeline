@@ -160,7 +160,7 @@ def dye_transfer_composition():
     original(25.57,'YOU',size=.85,width=1.5,x=.55,y=.16,font=0,tracking=.2,erosion=.3,warp=7.,drag=.5,drag_mix=.6,wash=.6,shutter=-.8,streaks=.65,registration=1.,softness=2.6,emulsion=.8)
     original(25.73,'BELIEVE',size=1.05,width=1.55,x=-.12,paper_light=.04,ink_light=1.,ink_hue=.025,ink_saturation=1.)
     original(25.93,'IN',size=.2,width=.13,font=0)
-    original(26.47,'IN',size=.18,width=.12,font=0,warp=12.,erosion=.8,y=.07,x=.15)
+    original(26.47,'IN',size=.18,width=.12,font=0,warp=12.,erosion=.04,y=.07,x=.15)
     original(26.67,'IN',size=.2,width=.16,font=0,angle=-22.,warp=10.,erosion=.04,x=.32,y=.35,palette='white',paper_hue=.025,paper_saturation=1.)
     original(26.87,'&\n\n',size=.31,width=.24,leading=1.12,palette='white')
     original(27.07,'&\nYOU\n',size=.31,width=.24,leading=1.12,palette='white')
