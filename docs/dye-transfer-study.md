@@ -2,7 +2,7 @@
 
 Reference-13 reconstruction added in 0.41.0, optically refined in 0.42.0,
 reframed for complete lettering in 0.43.0, and expanded with brief optical
-silhouettes in 0.44.0, and refined final ink in 0.45.0.
+silhouettes in 0.44.0, and refined final ink in 0.45.0 and 0.46.0.
 Load **Studies → Text / one more try**.
 It is an editable 720 × 406 composition at 30 fps, lasting 473 frames / 15.77 s.
 The film texture updates at 15 fps. No source-video frames are required to render it.
@@ -41,6 +41,8 @@ extend beyond the canvas and deliberately obscure the lettering behind them.
 
 The 0.45.0 revision lowers ink erosion on the tilted orange IN at 14.67–14.87s,
 retaining fine texture and the rest of the montage.
+The 0.46.0 revision applies the same fine ink texture to the preceding upright
+IN at 14.47–14.67s.
 
 ## Editable controls
 
@@ -89,7 +91,7 @@ seeded sampling makes seeks reproducible, with no history buffer. Transform and
 blur allocations are bounded by output dimensions. `synth_dye_recipes.py` carries
 the 73 authored cuts.
 The module is appended to the catalog and disabled by default. The current
-study is frozen in `presets/text-dye-transfer-v5.json`; the v1, v2, v3 and v4 files
+study is frozen in `presets/text-dye-transfer-v6.json`; the v1 through v5 files
 remain intact. All six optical-refinement controls default to zero, so saved
 compositions retain the original renderer's pixels. The revised study opts in
 explicitly. Silhouette defaults to Off and opacity zero also bypasses it

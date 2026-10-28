@@ -254,7 +254,7 @@ def test_new_inserts_leave_readable_sections_unchanged():
     new=compile_composition(starter_composition('text-dye-transfer'))
     for cue in new['cues']:
         t=cue['time']
-        if t<1.5 or 4.5<=t<440/30 or t>=446/30:
+        if t<1.5 or 4.5<=t<434/30 or t>=446/30:
             assert render_sequence_frame(old,t,(160,90)).tobytes()==render_sequence_frame(new,t,(160,90)).tobytes()
     masks=[]
     for cue,next_cue in zip(new['cues'],new['cues'][1:]):
@@ -271,9 +271,9 @@ def test_final_orange_ink_is_cleaner_and_other_frames_keep_their_look():
     root=Path(__file__).resolve().parents[1]
     previous=compile_composition(load_composition(root/'presets/text-dye-transfer-v4.json'))
     current=compile_composition(starter_composition('text-dye-transfer'))
-    for frame in (0,68,71,77,98,242,439,446,472):
+    for frame in (0,68,71,77,98,242,433,446,472):
         assert render_sequence_frame(previous,frame/30,(160,90)).tobytes()==render_sequence_frame(current,frame/30,(160,90)).tobytes()
-    for frame in range(440,446):
+    for frame in range(434,446):
         old=render_sequence_frame(previous,frame/30,(720,406))
         new=render_sequence_frame(current,frame/30,(720,406))
         assert old.tobytes()!=new.tobytes()
