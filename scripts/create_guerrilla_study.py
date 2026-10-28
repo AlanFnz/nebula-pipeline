@@ -26,9 +26,106 @@ FPS = 30
 # 9.366667 s: the first frame reserved for the user's separately edited footage.
 HANDOFF_FRAME = 281
 NAME = 'Text / Guerrilla Radio — spoken intro'
+OPTICAL_NAME = 'Text / Guerrilla Radio — optical print'
 
 
-def composition(audio_path):
+def optical_finish(shots, palettes):
+    """Re-expose existing holds without moving any voice-aligned word onset.
+
+    All inserts remain ordinary editable shots, using Dye transfer controls.
+    Keep erosion low; the additional dirt belongs mostly to the film stock
+    and dragged impressions rather than holes in the readable lettering.
+    """
+    for shot in shots:
+        p = shot['values']
+        negative = shot['palette'] == 'negative'
+        p.update({
+            'dye_transfer.grain': .013 if negative else .024,
+            'dye_transfer.emulsion': .46 if negative else .68,
+            'dye_transfer.streaks': .25 if negative else .34,
+            'dye_transfer.dust': .12,
+            'dye_transfer.erosion': .018 if negative else .035,
+            'dye_transfer.wash': .10 if negative else .30,
+            'dye_transfer.weave': .003,
+            'dye_transfer.registration': .38,
+            'dye_transfer.focus_flutter': .65,
+            'dye_transfer.warp': 1.6,
+            'dye_transfer.softness': .85,
+            'dye_transfer.drag': .13,
+            'dye_transfer.drag_mix': .34,
+        })
+    original = {s['frame']: copy.deepcopy(s) for s in shots}
+    revised = {s['frame']: s for s in shots}
+
+    def expose(frame, source_frame, *, palette=None, text=None, layout=None, **finish):
+        s = copy.deepcopy(original[source_frame])
+        s.update(frame=frame, pulse=0.)
+        if text is not None:
+            s['text'] = text
+            s['values']['text.content'] = text
+        if palette:
+            s['palette'] = palette
+            s['values'].update({f'dye_transfer.{k}': v for k, v in palettes[palette].items()})
+            # Palette changes must not reset the new fine grain.
+            s['values']['dye_transfer.grain'] = .013 if palette == 'negative' else .024
+        if layout:
+            s['values'].update(layout)
+        s['values'].update({f'dye_transfer.{k}': v for k, v in finish.items()})
+        revised[frame] = s
+
+    # A brief pull at the end of the lead-in; START still lands on frame 21.
+    expose(18, 0, softness=2.6, shutter=-.42, drag=.24, drag_mix=.50,
+           streaks=.65, registration=.62)
+    # Pink / ivory contact prints lose focus at unequal intervals after reading.
+    expose(46, 40, palette='paper', softness=4.8, drag=.32, drag_mix=.68,
+           shutter=.30, streaks=.76, emulsion=.80)
+    expose(49, 40, softness=1.8, shutter=-.64, drag=.22, drag_mix=.54, streaks=.62)
+    expose(55, 55, softness=6.2, drag=.48, drag_mix=.86, shutter=.45,
+           streaks=.88, emulsion=.82)
+    expose(58, 58, softness=2.8, drag=.20, drag_mix=.58, shutter=-.56, streaks=.62)
+    # One four-frame shutter obstruction in the pause between complete phrases.
+    expose(65, 65, palette='paper', text='IT HAS TO\n\n\n\n\nSTART SOMEWHERE',
+           layout={'text.size': .060, 'text.block_width': .70, 'text.rotation': 90.},
+           y=0., paper_light=.65, wash=.08, softness=2.8, streaks=.08,
+           grain=.018, emulsion=.30, drag=0., drag_mix=0.,
+           mask_shape=2, mask_size=1.45, mask_aspect=.30, mask_y=.05,
+           mask_softness=4., mask_opacity=1.)
+    expose(87, 69, softness=3.2, shutter=-.65, drag=.35, drag_mix=.65, streaks=.74)
+    expose(116, 109, palette='paper', softness=3.8, drag=.45, drag_mix=.80,
+           shutter=.42, streaks=.84)
+    expose(119, 109, softness=1.6, shutter=-.80, streaks=.72, registration=.70)
+    expose(122, 122, softness=5.8, drag=.40, drag_mix=.80, streaks=.85, shutter=.32)
+    expose(125, 125, softness=1.2, drag=.42, drag_mix=.75, streaks=.88, shutter=.28)
+    # A diffuse optical shadow, shorter and less opaque than the first wedge.
+    expose(132, 132, palette='paper', paper_light=.60, softness=4.5,
+           mask_shape=1, mask_size=.44, mask_aspect=1., mask_y=.02,
+           mask_softness=85., mask_opacity=.74, drag=.30, drag_mix=.50,
+           streaks=.18, emulsion=.28)
+    expose(134, 132, softness=2.2, shutter=-.68, streaks=.62)
+    expose(181, 173, palette='paper', shutter=-.85, softness=3.0,
+           drag=.38, drag_mix=.72, streaks=.86, warp=5.2, registration=.70)
+    expose(185, 185, shutter=.68, softness=1.6, drag=.40, drag_mix=.76,
+           streaks=.62, erosion=.018)
+    expose(194, 194, drag=.44, drag_mix=.70, streaks=.90, shutter=.30, softness=1.3)
+    expose(201, 201, shutter=-.75, streaks=.70, softness=2.6, drag=.30, drag_mix=.65)
+    expose(230, 223, palette='paper', shutter=-.90, drag=.36, drag_mix=.72,
+           streaks=.88, softness=2.4, warp=4.5)
+    expose(233, 223, shutter=-.72, drag=.30, drag_mix=.62, streaks=.78,
+           softness=1.7, registration=.70)
+    expose(247, 239, softness=3.8, shutter=.45, drag=.30, drag_mix=.60, streaks=.76)
+    # The last word remains legible; its print leaves rising and falling tails.
+    expose(260, 250, shutter=-.88, drag=.32, drag_mix=.75, streaks=.80,
+           softness=1.8, warp=5.0, registration=.65)
+    expose(264, 264, softness=4.8, drag=.50, drag_mix=.82, shutter=.75, streaks=.88)
+    expose(271, 267, palette='paper', softness=3.4, shutter=-.45,
+           drag=.35, drag_mix=.72, streaks=.78)
+    expose(274, 274, warp=5.5, softness=2.8, drag=.30, drag_mix=.65,
+           shutter=-.75, streaks=.72)
+    expose(279, 279, softness=6.5, drag=.50, drag_mix=.88, shutter=-.85, streaks=.90)
+    return [revised[frame] for frame in sorted(revised)]
+
+
+def composition(audio_path, *, optical=False):
     original = load_composition(ROOT / 'presets/text-dye-transfer-v7.json')
     common = copy.deepcopy(next(iter(original['source']['states'].values()))['overrides'])
     common.update({
@@ -117,10 +214,13 @@ def composition(audio_path):
     shot(9.30, 'NOW', 'paper', size=.32, width=.81, y=-.04,
          softness=1.3, drag=.15, drag_mix=.28, shutter=-.28)
 
+    if optical:
+        shots = optical_finish(shots, palettes)
+    name = OPTICAL_NAME if optical else NAME
     assert len({s['frame'] for s in shots}) == len(shots)
     assert all(a['frame'] < b['frame'] for a, b in zip(shots, shots[1:]))
     source = normalize_sequence(dict(
-        schema_version=1, render_version=2, name=NAME, fps=FPS, seed=281026,
+        schema_version=1, render_version=2, name=name, fps=FPS, seed=281026,
         duration=HANDOFF_FRAME / FPS, canvas=dict(width=1080, height=1920, framing='adaptive'),
         states={f'shot-{i+1:02}': dict(preset='Reference blinds', enabled=['text', 'dye_transfer'],
                                      overrides=s['values']) for i, s in enumerate(shots)},
@@ -152,6 +252,7 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--render', action='store_true')
     parser.add_argument('--save-study', action='store_true')
+    parser.add_argument('--optical', action='store_true', help='Stronger film texture, exposure pulls and optical inserts')
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     # Keep the editable document independent of Ableton's temporary session.
@@ -160,7 +261,7 @@ def main():
     copied_audio = media / ('Guerrilla-Radio-guide' + args.audio.suffix.lower())
     if args.audio.resolve() != copied_audio.resolve():
         shutil.copy2(args.audio, copied_audio)
-    project, shots = composition(copied_audio)
+    project, shots = composition(copied_audio, optical=args.optical)
     path = args.output / 'Guerrilla-Radio-spoken-intro.nebula.json'
     portable = copy.deepcopy(project)
     portable['soundtrack']['path'] = copied_audio.relative_to(args.output).as_posix()
@@ -174,7 +275,7 @@ def main():
             end = shots[i+1]['frame'] if i+1 < len(shots) else HANDOFF_FRAME
             writer.writerow([i+1, s['frame'], f"{s['frame']/FPS:.6f}", end, s['text'].replace('\n',' / '), s['palette']])
     from PIL import Image, ImageDraw, ImageFont
-    sheet = Image.new('RGB', (6*234, 6*440), '#15181b')
+    sheet = Image.new('RGB', (6*234, ((len(shots)+5)//6)*440), '#15181b')
     draw = ImageDraw.Draw(sheet)
     font = ImageFont.truetype(str(ROOT/'assets/fonts/SpaceMono-Bold.ttf'), 13)
     for i, s in enumerate(shots):
@@ -195,7 +296,7 @@ def main():
                         str(args.output/'Guerrilla-Radio-silent.mp4')],check=True)
     if args.save_study:
         from synth_studies import save_study
-        identifier = save_study(project, NAME)
+        identifier = save_study(project, project['name'])
         (args.output/'library-id.txt').write_text(identifier+'\n')
         print('Saved study:',identifier,flush=True)
     print(path, flush=True)
