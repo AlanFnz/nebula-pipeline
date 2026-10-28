@@ -28,6 +28,10 @@ work; the current app does not yet synthesize sound from visual effects.
 The [Studio interface plan](docs/studio-design-plan.md) and
 [delivery notes](docs/studio-design-delivery.md) describe the 0.9.0 redesign.
 
+The [preview performance audit](docs/preview-performance-audit.md) defines the
+measurement work and acceptance conditions for improving editing responsiveness
+and playback preparation while preserving image quality and behavior.
+
 ## One more try
 
 **Studies → Text / one more try** reconstructs reference 13 with its original
