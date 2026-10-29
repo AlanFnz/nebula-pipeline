@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.49.0 — 2026-10-29
+
+- Add opt-in Letterpress controls under Object → Layout: independent letter
+  height, width, angle and baseline variation, with a reproducible seed and
+  optional reprint cadence. Whole phrase, word, type-on and reading modes retain
+  editable text. Zero variation preserves previous glyph rendering exactly.
+- Add adjustable colored edge exposure, fine printed edges and uneven pigment
+  density to Dye transfer, and subtitle width to
+  framed text, for optical printing and unequal two-line word builds. Defaults
+  preserve existing study pixels.
+- Author a separate Earth dreams dye-impression study from the supplied short
+  reference, with independently editable cuts and no reference video dependency.
+
 ## 0.48.1 — 2026-10-28
 
 - Respect the selected monitor resolution when browsing and comparing effect

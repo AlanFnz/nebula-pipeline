@@ -19,9 +19,15 @@ def modules(Module, P):
         P('ink_hue', 'Ink hue', .015, 0, 1, .01),
         P('ink_saturation', 'Ink saturation', .75, 0, 1, .01),
         P('ink_light', 'Ink brightness', .075, 0, 1, .01),
+        P('ink_density', 'Ink density variation', 0., 0, 1, .01, 'Uneven pigment density across the impression, leaving the stock unchanged.'),
+        P('tooth', 'Printed edge texture', 0., 0, 3, .05, 'Fine irregularities along the ink edge. Pixels at a 720-pixel canvas width.'),
         P('wash', 'Uneven exposure', .14, 0, 1, .01),
         P('halo', 'Exposure halo', 0., 0, 2, .05, 'Light spills around the impression, leaving its ink center dark.'),
         P('dye', 'Edge dye', .32, 0, 1, .01),
+        P('edge_leak', 'Edge exposure', 0., 0, 1, .01, 'Colored exposure leaking into the stock. Zero retains the original print.'),
+        P('edge_leak_hue', 'Edge exposure hue', .015, 0, 1, .01),
+        P('edge_leak_width', 'Edge exposure width', .08, .005, .5, .005),
+        P('edge_leak_x', 'Edge exposure position', 0., -1, 2, .01),
         P('scale', 'Impression scale', 1., .1, 8, .01),
         P('x', 'Position X', 0., -2, 2, .01),
         P('y', 'Position Y', 0., -2, 2, .01),
@@ -170,6 +176,9 @@ def render_dye_transfer(arr, p, seconds, speed, seed, reference):
     if p['erosion']:
         chips=_field(rng,(w,h),(max(2,round(ch/2)),max(2,round(cw/2))))
         ink*=1-np.clip((chips-.55)*3,0,1)*p['erosion']
+    if p.get('tooth', 0):
+        amount = p['tooth']*unit
+        ink = _sample(ink, xx+fine*amount, yy+np.roll(fine, 1, axis=1)*amount).astype(np.float32)
     if p.get('registration', 0):
         # Deform the local print, not the background or the overall framing.
         local = p['registration']*unit
@@ -210,8 +219,18 @@ def render_dye_transfer(arr, p, seconds, speed, seed, reference):
         impression = impression*(1-strength)+np.maximum(displaced,rubbed_trail)*strength
     paper=np.array(colorsys.hsv_to_rgb(p['paper_hue'],p['paper_saturation'],p['paper_light']),np.float32)
     pigment=np.array(colorsys.hsv_to_rgb(p['ink_hue'],p['ink_saturation'],p['ink_light']),np.float32)
+    if p.get('ink_density', 0):
+        thinning = np.clip((cloud*.7+columns*.3-.46)*5, 0, 1)*p['ink_density']
+        faded = np.array(colorsys.hsv_to_rgb(p['ink_hue'],p['ink_saturation'],min(1.,p['ink_light']*4)),np.float32)
+        pigment = pigment+(faded-pigment)*thinning[...,None]
     exposure=.8*(cloud-.5)+.2*(columns-.5)
     stock=np.broadcast_to(paper,(h,w,3)).copy()
+    if p.get('edge_leak', 0):
+        width = p.get('edge_leak_width', .08)
+        center = p.get('edge_leak_x', 0.) + (cloud-.5)*width*.22
+        exposure_band = np.exp(-((nx+.5-center)/width)**2)*p['edge_leak']
+        tint = np.array(colorsys.hsv_to_rgb(p.get('edge_leak_hue', .015), .98, p['paper_light']), np.float32)
+        stock = stock*(1-exposure_band[...,None])+tint*exposure_band[...,None]
     stock*=1+p['wash']*exposure[...,None]
     # Unequal film density and a low warm exposure at the gate's lower edge.
     stock+=p['wash']*np.exp(-((ny-.52)/.13)**2)[...,None]*np.array([.12,.065,.008],np.float32)

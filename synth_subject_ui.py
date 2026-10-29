@@ -288,7 +288,9 @@ class SubjectPanel(QWidget):
             if not reading: hidden.update(p for p in self.controls if p.startswith('text.reading_'))
             if morph or reading:
                 hidden.update('text.'+p for p in ('word_seconds','fit','block_width','copies','copy_gap','copy_floor','wrap_columns'))
-            if morph: hidden.update(('text.leading','text.align'))
+            if morph:
+                hidden.update(('text.leading','text.align'))
+                hidden.update(p for p in self.controls if p.startswith('text.press_'))
         if fit[0] == fit[1] and fit[0] != 2: hidden.add('text.block_width')
         if not morph and not reading and fit[0] == fit[1] and fit[0] != 1: hidden.update(('text.fit_width','text.copy_floor'))
         if ranges['text.motion'][0] == ranges['text.motion'][1] and ranges['text.motion'][0] != 1: hidden.add('text.ease')

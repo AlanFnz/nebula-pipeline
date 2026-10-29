@@ -6,7 +6,7 @@ import textwrap
 import unicodedata
 
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageChops
 from synth_fonts import FONTS, FONT_FILES, load_font, resolve_font
 
 from synth_canvas import content_size, object_offset
@@ -39,13 +39,19 @@ def text_pose(p, time, speed):
     return clock, zoom
 
 
-def glyph_mask(text, font_index, tracking, leading, alignment, visible=None, wrapped=False, weight=400):
+def glyph_mask(text, font_index, tracking, leading, alignment, visible=None, wrapped=False, weight=400, press=()):
     if isinstance(font_index, str): resolve_font(font_index)
-    return _glyph_mask(text, font_index, tracking, leading, alignment, visible, wrapped, weight)
+    return _glyph_mask(text, font_index, tracking, leading, alignment, visible, wrapped, weight, press)
+
+
+def letterpress_settings(p, clock):
+    amounts = tuple(p.get('press_' + key, 0.) for key in ('height', 'width', 'angle', 'baseline'))
+    if not any(amounts): return ()
+    return (*amounts, int(p.get('press_seed', 0)), math.floor(max(0., clock) * p.get('press_rate', 0.) + 1e-8))
 
 
 @lru_cache(maxsize=24)
-def _glyph_mask(text, font_index, tracking, leading, alignment, visible=None, wrapped=False, weight=400):
+def _glyph_mask(text, font_index, tracking, leading, alignment, visible=None, wrapped=False, weight=400, press=()):
     """Bounded canonical masks keep preview/export type and spacing identical."""
     # Layout can insert up to seven breaks into a valid 512-character source.
     validate_text(text.replace('\n', '') if wrapped else text)
@@ -68,15 +74,40 @@ def _glyph_mask(text, font_index, tracking, leading, alignment, visible=None, wr
     draw = ImageDraw.Draw(image)
     partial = Image.new('L', image.size) if visible is not None else None
     revealed = ImageDraw.Draw(partial) if partial is not None else None
+    rng = np.random.default_rng((press[4] + press[5] * 104729) % 2**32) if press else None
     index = 0
     for row, (line, length) in enumerate(zip(lines, widths)):
         x = padding + (width - length) * (alignment / 2)
         y = padding + font_size + row * font_size * leading
         # Pair advances preserve the font's kerning while adding tracking.
         for i, character in enumerate(line):
-            draw.text((x, y), character, font=font, fill=255, anchor='ls')
-            if revealed is not None and index < visible:
-                revealed.text((x, y), character, font=font, fill=255, anchor='ls')
+            if press:
+                # Keep combining marks on their base; character visibility and
+                # advances still follow the original source text exactly.
+                if not unicodedata.combining(character):
+                    cluster = character
+                    for mark in line[i+1:]:
+                        if not unicodedata.combining(mark): break
+                        cluster += mark
+                    left, top, right, bottom = font.getbbox(cluster, anchor='ls')
+                    if right > left and bottom > top:
+                        glyph = Image.new('L', (right-left, bottom-top))
+                        ImageDraw.Draw(glyph).text((-left, -top), cluster, font=font, fill=255, anchor='ls')
+                        dh, dw, da, dy = rng.uniform(-1, 1, 4)
+                        glyph = glyph.resize((max(1, round(glyph.width*(1+dw*press[1]))),
+                                              max(1, round(glyph.height*(1+dh*press[0])))), Image.Resampling.BICUBIC)
+                        glyph = glyph.rotate(da*press[2], resample=Image.Resampling.BICUBIC, expand=True)
+                        px = round(x+(left+right)/2-glyph.width/2)
+                        py = round(y+(top+bottom)/2+dy*press[3]*font_size-glyph.height/2)
+                        def stamp(destination):
+                            box = (px, py, px+glyph.width, py+glyph.height)
+                            destination.paste(ImageChops.lighter(destination.crop(box), glyph), (px, py))
+                        stamp(image)
+                        if partial is not None and index < visible: stamp(partial)
+            else:
+                draw.text((x, y), character, font=font, fill=255, anchor='ls')
+                if revealed is not None and index < visible:
+                    revealed.text((x, y), character, font=font, fill=255, anchor='ls')
             index += 1
             advance = font.getlength(character)
             if i + 1 < len(line): advance = font.getlength(character + line[i + 1]) - font.getlength(line[i + 1])
@@ -123,7 +154,7 @@ def text_layout(p, time, speed, size):
     if p['reveal'] == 4:
         from synth_reading_montage import reading_beat
         beat = reading_beat(p, clock)
-        mask = glyph_mask(beat.text, p['font'], p['tracking'], p['leading'], p['align'], weight=p.get('weight', 400))
+        mask = glyph_mask(beat.text, p['font'], p['tracking'], p['leading'], p['align'], weight=p.get('weight', 400), press=letterpress_settings(p, clock))
         sx, sy = p['stretch_x'], p['stretch_y']
         # Fit complete units inside the authored canvas. Explicit line breaks
         # survive in the finale; long phrases are not silently wrapped.
@@ -141,7 +172,7 @@ def text_layout(p, time, speed, size):
         text, indices = wrapped_text(text, p['wrap_columns'])
         if visible is not None:
             visible = max((i+1 for i, source in enumerate(indices) if source is not None and source < visible), default=0)
-    mask = glyph_mask(text, p['font'], p['tracking'], p['leading'], p['align'], visible, bool(p.get('wrap_columns', 0)), p.get('weight', 400))
+    mask = glyph_mask(text, p['font'], p['tracking'], p['leading'], p['align'], visible, bool(p.get('wrap_columns', 0)), p.get('weight', 400), letterpress_settings(p, clock))
     if p.get('badge', 0):
         mask = badge_mask(mask, p.get('badge_subtitle', ''), p['font'],
                           p.get('weight', 400), p.get('badge_border', .022),
@@ -152,7 +183,8 @@ def text_layout(p, time, speed, size):
                           subtitle_scale=p.get('badge_subtitle_scale', .3),
                           gap=p.get('badge_gap', 35.), radius=p.get('badge_radius', .12),
                           main_lines=text.count('\n') + 1, leading=p['leading'],
-                          alignment=p['align'], show_subtitle=bool(p.get('badge_show_subtitle', 1)))
+                          alignment=p['align'], show_subtitle=bool(p.get('badge_show_subtitle', 1)),
+                          subtitle_width=p.get('badge_subtitle_width', .975), press=letterpress_settings(p, clock))
     height = ch * p['size'] * max(1, text.count('\n') + 1)
     copies = p.get('copies', 1)
     if copies > 1:
@@ -178,7 +210,8 @@ def text_layout(p, time, speed, size):
 
 def badge_mask(main, subtitle, font, weight, border, *, shape=0, padding_x=90.,
                padding_y=72.5, keep_proportions=False, subtitle_scale=.3, gap=35.,
-               radius=.12, main_lines=1, leading=1., alignment=1, show_subtitle=True):
+               radius=.12, main_lines=1, leading=1., alignment=1, show_subtitle=True,
+               subtitle_width=.975, press=()):
     """Bounded multiline label; defaults preserve the original FAC51 pixels."""
     def fitted(mask, width, height):
         width, height = max(1, round(width)), max(1, round(height))
@@ -190,8 +223,8 @@ def badge_mask(main, subtitle, font, weight, border, *, shape=0, padding_x=90.,
     main = fitted(main, 800, 200 * main_lines)
     sub = None
     if show_subtitle and subtitle.strip():
-        sub = glyph_mask(subtitle, font, .12, leading, alignment, weight=min(700, weight+150))
-        sub = fitted(sub, 780, 200 * subtitle_scale * (subtitle.count('\n') + 1))
+        sub = glyph_mask(subtitle, font, .12, leading, alignment, weight=min(700, weight+150), press=press)
+        sub = fitted(sub, round(800*subtitle_width), 200 * subtitle_scale * (subtitle.count('\n') + 1))
     # The reference deliberately reserves the lower line even in positive flashes.
     sub_height = sub.height if sub is not None else (0 if keep_proportions or not show_subtitle else round(200 * subtitle_scale))
     gap = gap if sub_height else 0
@@ -199,7 +232,10 @@ def badge_mask(main, subtitle, font, weight, border, *, shape=0, padding_x=90.,
     content = Image.new('L', (800, math.ceil(content_height)))
     content.paste(main, ((800-main.width)//2, 0))
     if sub is not None:
-        content.paste(sub, ((800-sub.width)//2, round(main.height + gap)))
+        # The legacy width retains its exact centered placement. A deliberately
+        # narrower subtitle follows the authored alignment for word builds.
+        sub_x = (800-sub.width)//2 if subtitle_width == .975 else round((800-sub.width)*alignment/2)
+        content.paste(sub, (sub_x, round(main.height + gap)))
 
     # Preserve the reference's small optical baseline correction for rectangles.
     baseline = min(8.5, padding_y) if show_subtitle and not keep_proportions and shape in (0, 5) else 0.

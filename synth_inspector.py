@@ -5,13 +5,14 @@ def control_group(path):
     from synth_instances import base_path
     path = base_path(path)
     module, key = path.split('.')
+    if module == 'text' and key.startswith('press_'): return 'Letterpress'
     if module == 'dye_transfer':
         if key in ('paper_hue', 'paper_saturation', 'paper_light', 'ink_hue', 'ink_saturation', 'ink_light'): return 'Color channels'
         if key.startswith('mask_'): return 'Optical silhouette'
         if key in ('scale', 'x', 'y', 'angle'): return 'Shape & layout'
         if key in ('weave', 'cadence', 'registration', 'focus_flutter', 'shutter'): return 'Motion & timing'
         if key in ('opening', 'gate_x', 'gate_softness'): return 'Film gate'
-        if key in ('warp', 'drag', 'drag_mix', 'softness', 'erosion', 'choke', 'grain', 'dust', 'emulsion', 'streaks', 'edge_bloom'): return 'Optical finish'
+        if key in ('warp', 'drag', 'drag_mix', 'softness', 'erosion', 'choke', 'grain', 'dust', 'emulsion', 'streaks', 'edge_bloom', 'tooth'): return 'Optical finish'
         if key == 'effect_intensity': return 'Output & blending'
         return 'Color & light'
     if module == 'contact_print':
