@@ -65,9 +65,12 @@ def composition(calibration=False):
           'align':0,'press_height':.045,'press_angle':1.25,'press_width':.025,
           'press_baseline':.006,'press_seed':23,'press_rate':2.},**finish)
     irregular={'press_height':.24,'press_angle':6.,'press_width':.08,'press_baseline':.06,'press_seed':71,'press_rate':10.,'tracking':.13}
-    # Brief remnants of the preceding impression and an isolated negative.
-    shot(0,'KNOW' if calibration else 'US','pink',size=.96,width=.98,edge_leak=.2)
-    shot(2,'SOMEONE TO\nBELIEVE' if calibration else 'THE EARTH\nDREAMS THROUGH US','ivory',size=.34,width=1.65,x=-.50,font=0)
+    # Keep the reference's opening flashes, but start the new phrase at THE.
+    shot(0,'KNOW' if calibration else first,'pink',size=.96,width=.98 if calibration else .62,edge_leak=.2)
+    if calibration:
+        shot(2,'SOMEONE TO\nBELIEVE','ivory',size=.34,width=1.65,x=-.50,font=0)
+    else:
+        shot(2,first,'ivory',size=.72,width=.45,x=-.10)
     shot(5,first,'negative',size=.79,width=.085 if calibration else .27,source=irregular,
          softness=.9,shutter=-.28,streaks=.4,drag=.25,drag_mix=.32)
     shot(11,first,'ivory',size=.70,width=.11 if calibration else .30,x=-.27,source=irregular,softness=.6)
@@ -75,10 +78,10 @@ def composition(calibration=False):
     shot(20,earth,'ivory',size=.91,width=.89,source=irregular)
     # Oversized, unstable impressions before the first reading hold.
     for frame,txt,size,width,x,y in [
-      (26,'SOMEONE' if calibration else 'THE EARTH',.47,1.38,.10,.22),
-      (29,'SOMEONE TO' if calibration else 'EARTH DREAMS',.46,1.72,-.29,-.20),
-      (38,'SOMEONE TO' if calibration else 'EARTH DREAMS',.47,1.75,-.25,.51),
-      (47,'SOMEONE\nTO BELIEVE' if calibration else 'THE EARTH\nDREAMS',.50,1.34,.10,-.12)]:
+      (26,'SOMEONE' if calibration else earth,.47,1.38,.10,.22),
+      (29,'SOMEONE TO' if calibration else earth,.46,1.72,-.29,-.20),
+      (38,'SOMEONE TO' if calibration else dreams,.47,1.75,-.25,.51),
+      (47,'SOMEONE\nTO BELIEVE' if calibration else dreams,.50,1.34,.10,-.12)]:
         shot(frame,txt,'pink',size=size,width=width,x=x,y=y,font=0,
           source={'press_angle':2.5,'press_height':.055,'press_rate':15.},
           warp=17. if frame>=38 else 2.,registration=.85 if frame>=38 else .25,
@@ -104,7 +107,8 @@ def composition(calibration=False):
     shot(104,through,'ivory',size=.55,width=.95)
     shot(113,through,'ivory',size=.56,width=.95,warp=22.,registration=1.,erosion=.11,softness=1.1,shutter=.32)
     shot(117,through,'ivory',size=.55,width=1.05,x=.06,y=.42,warp=28.,registration=1.,erosion=.12,softness=1.9,shutter=-.75)
-    shot(119,earth,'red',size=.90,width=.95,source=irregular,softness=.5)
+    # The poster reprise also begins at the beginning of the sentence.
+    shot(119,earth if calibration else first,'red',size=.90,width=.95 if calibration else .52,source=irregular,softness=.5)
     # Progressive two-level poster: keep the finished line positions anchored.
     shot(128,'SOME' if calibration else 'THE','red-negative',size=.50,width=.52 if calibration else .29,x=-.22 if calibration else -.325,y=-.225,
       source={'press_height':.045,'press_angle':1.25,'press_seed':23,'press_rate':2.})

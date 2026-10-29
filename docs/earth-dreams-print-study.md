@@ -4,6 +4,8 @@ New personal study authored from the user's 720 × 406, 30 fps reference.
 It lasts 228 frames (7.60 seconds), with 40 independently editable shots.
 The reference movie is a visual guide only; rendering needs no source footage
 or audio. The phrase is THE EARTH DREAMS THROUGH US.
+The opening introduces the words in reading order, starting with THE; the
+later poster build restarts at THE before assembling the complete phrase.
 
 Run `python scripts/create_earth_dreams_study.py --output <new-file.json>` to
 create the editable composition. Save it in Studies to create a separate
