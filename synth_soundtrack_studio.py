@@ -105,7 +105,8 @@ class SoundtrackStudio:
 
     def set_soundtrack_monitor_muted(self, muted):
         self.soundtrack_monitor_muted = bool(muted)
-        self.soundtrack_playback.set_monitor_muted(self.soundtrack_monitor_muted)
+        config = (self.preview_sequence() or {}).get('generated_sound')
+        self.soundtrack_playback.set_monitor_muted(self.soundtrack_monitor_muted or bool(config and config['output'] != 'existing'))
 
     def import_soundtrack_dialog(self, checked=False, *, relink=False):
         track = self.authored_soundtrack()
@@ -240,6 +241,7 @@ class SoundtrackStudio:
                 self.jobs.start(job, -1)
         self.sync_soundtrack(force=True)
         self.refresh_audio_reactivity()
+        self.refresh_visual_sound()
 
     def soundtrack_wave_ready(self, job, peaks):
         self._release_soundtrack_job(job)
@@ -275,8 +277,10 @@ class SoundtrackStudio:
         playing = self.play.isChecked() and not self.discovery_session
         self.soundtrack_playback.sync(seconds, playing, force=force)
         self.sync_audio_reactivity(seconds)
+        self.sync_visual_sound(seconds, playing, force)
 
     def reset_soundtrack_work(self):
+        self.reset_visual_sound()
         self.reset_audio_reactivity_work()
         self.cancel_soundtrack_import()
         if self.soundtrack_wave_job: self.soundtrack_wave_job.cancel.cancel()
@@ -288,3 +292,4 @@ class SoundtrackStudio:
     def close_soundtrack(self):
         self.reset_soundtrack_work()
         self.soundtrack_playback.close()
+        self.close_visual_sound()

@@ -98,6 +98,29 @@ def pleated_frame(p, size, preset):
     return (w*.5+dx,h*.5+dy),min(cw,ch)*p['size']
 
 
+def pleated_clock(p, seconds, preset):
+    """Shared stepped surface clock for rendering and sound signals."""
+    clock = float(seconds)*preset.get('speed', 1.)
+    return math.floor(clock*p['cadence']+1e-8)/p['cadence']
+
+
+def field_alpha(u, v, z, valid, unit, p):
+    """The optical gate, shared by pixels and the internal visibility signal."""
+    if p['boundary']==1:
+        metric=np.hypot(u,v*max(.05,p['taper']))
+    elif p['boundary']==2:
+        metric=np.maximum(np.abs(u),np.abs(v)*p['taper'])
+    else:
+        metric=np.abs(u)+np.abs(v)*p['taper']
+    if p.get('projection',0) and p['boundary']==0:
+        metric=u+np.abs(v)*p['taper']-p['edge'] if p['symmetry'] in (1,2,3) else metric
+        if p['symmetry'] in (2,3): metric=np.abs(u)+np.abs(v)*p['taper']-p['edge']
+    elif not p.get('projection',0) and p['symmetry']==1:
+        metric=u+np.abs(v)*p['taper']-p['edge']
+    edge=p['aperture']-metric+z*(.45 if p.get('projection',0) else .055)
+    return np.clip(edge*unit+.5,0,1)*valid
+
+
 def _surface(u, v, p):
     """Nearest visible surface, then bisection; disjoint rows bound memory."""
     dx,dy = p['tilt_x'],p['tilt_y']
@@ -175,14 +198,30 @@ def _perspective_surface(x, y, p, t):
     return a,b,z,blend,u,v,valid
 
 
+def pleated_surface(x,y,p,t):
+    """Shared relief intersection and gate coordinates for pixels/signals."""
+    if p.get('projection',0):
+        aa,bb,z,blend,_,_,valid=_perspective_surface(x,y,p,t)
+        return aa,bb,z,blend,x-p['mirror_x'],y-p['mirror_y'],valid
+    theta=math.radians(p['angle']);cs,sn=math.cos(theta),math.sin(theta)
+    u=x*cs-y*sn;v=x*sn+y*cs
+    if p['symmetry'] in (1,2): v=np.abs(v)
+    if p['symmetry'] in (2,3): u=np.abs(u)
+    den=np.clip(1+p['perspective']*u,.18,4.)
+    a=(u+p['shear']*v)*p['density']/den+p['pan_x']+t*p['flow']+p['phase']
+    b=v*p['density']/den+p['pan_y']
+    a+=p['irregularity']*.14*np.sin(b*2.1+t*.7)
+    b+=p['irregularity']*.06*np.sin(a*2.3-t*.9)
+    aa,bb,z,blend=_surface(a,b,p)
+    return aa,bb,z,blend,u,v,1.
+
+
 def render_pleated_field(arr,p,seconds,preset):
     if not p['mix']: return arr
     h,w=arr.shape[:2];(cx,cy),unit=pleated_frame(p,(w,h),preset)
     cw,ch=content_size(preset,(w,h));artunit=min(cw,ch)
-    clock=float(seconds)*preset.get('speed',1.)
-    t=math.floor(clock*p['cadence']+1e-8)/p['cadence']
+    t=pleated_clock(p,seconds,preset)
     colors=_palette(p);dark,light,amber,back,back2=colors
-    theta=math.radians(p['angle']);cs,sn=math.cos(theta),math.sin(theta)
     result=np.empty_like(arr,dtype=np.float32)
     # Per-tile ray arrays keep memory bounded at export resolutions.
     for top in range(0,h,96):
@@ -193,19 +232,7 @@ def render_pleated_field(arr,p,seconds,preset):
         by=(np.arange(top,min(h,top+96),dtype=np.float32)-h*.5)[:,None]/max(1.,artunit)
         wash=.13+.3*np.sin(bx*3.1+by*2.4+t*.47)+.25*np.cos(bx*4.2-by*3.3-t*.31)
         bg=back+(back2-back)*(np.clip(wash,0,1)*p['background_motion'])[...,None]
-        if p.get('projection',0):
-            aa,bb,z,blend,u,v,valid=_perspective_surface(x,y,p,t)
-        else:
-            u=x*cs-y*sn;v=x*sn+y*cs
-            if p['symmetry'] in (1,2): v=np.abs(v)
-            if p['symmetry'] in (2,3): u=np.abs(u)
-            den=np.clip(1+p['perspective']*u,.18,4.)
-            a=(u+p['shear']*v)*p['density']/den+p['pan_x']+t*p['flow']+p['phase']
-            b=v*p['density']/den+p['pan_y']
-            a+=p['irregularity']*.14*np.sin(b*2.1+t*.7)
-            b+=p['irregularity']*.06*np.sin(a*2.3-t*.9)
-            aa,bb,z,blend=_surface(a,b,p)
-            valid=1.
+        aa,bb,z,blend,u,v,valid=pleated_surface(x,y,p,t)
         color=dark+(light-dark)*blend[...,None]
         # Narrow amber valleys give the folds a warm edge, never broad spots.
         valley=np.clip((-z-.15*p['depth'])*8,0,1)*(1-blend)
@@ -215,25 +242,7 @@ def render_pleated_field(arr,p,seconds,preset):
         fold=(aa+p['stagger']*np.sin(math.tau*bb))%1
         seam=np.exp(-((fold-.72)/.042)**2)*np.clip(np.sin(math.tau*bb)*2+.3,0,1)
         color*=1-(p['seams']*seam)[...,None]
-        if p.get('projection',0):
-            u=x-p['mirror_x'];v=y-p['mirror_y']
-        if p['boundary']==1:
-            metric=np.hypot(u,v*max(.05,p['taper']))
-        elif p['boundary']==2:
-            metric=np.maximum(np.abs(u),np.abs(v)*p['taper'])
-        else:
-            metric=np.abs(u)+np.abs(v)*p['taper']
-        if p.get('projection',0) and p['boundary']==0:
-            # A moving optical gate gathers the relief horizontally. Unlike
-            # shrinking the whole canvas, its rows keep moving through the
-            # slit as it closes, leaving intermittent fragments on the axis.
-            metric=u+np.abs(v)*p['taper']-p['edge'] if p['symmetry'] in (1,2,3) else metric
-            if p['symmetry'] in (2,3): metric=np.abs(u)+np.abs(v)*p['taper']-p['edge']
-        elif not p.get('projection',0) and p['symmetry']==1:
-            metric=u+np.abs(v)*p['taper']-p['edge']
-        # A softly corrugated boundary follows the actual height of the pleats.
-        edge=p['aperture']-metric+z*(.45 if p.get('projection',0) else .055)
-        alpha=(np.clip(edge*unit+.5,0,1)*valid)[...,None]
+        alpha=field_alpha(u,v,z,valid,unit,p)[...,None]
         result[top:top+len(y)] = bg*(1-alpha)+color*alpha
     if p['softness']:
         result=np.asarray(Image.fromarray(np.uint8(np.clip(result,0,1)*255)).filter(

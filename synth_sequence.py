@@ -51,7 +51,7 @@ def normalize_sequence(raw=None):
         return reference_sequence()
     if not isinstance(raw, dict):
         raise ValueError("Synth sequence must be a JSON object")
-    if raw.get("schema_version", 0) not in (1, 2, 3, 4, 5):
+    if raw.get("schema_version", 0) not in (1, 2, 3, 4, 5, 6):
         raise ValueError(f"Unsupported sequence schema version: {raw.get('schema_version')}")
     result = copy.deepcopy(reference_sequence())
     if raw.get('schema_version') in (2, 3) or 'footage' in raw:
@@ -142,6 +142,10 @@ def normalize_sequence(raw=None):
         from synth_audio_reactivity import normalize_reactivity
         result['audio_reactivity'] = normalize_reactivity(raw['audio_reactivity'], result.get('soundtrack'))
         result['schema_version'] = 5
+    if raw.get('generated_sound') is not None:
+        from synth_visual_sound import normalize_sound
+        result['generated_sound'] = normalize_sound(raw['generated_sound'])
+        result['schema_version'] = 6
     return result
 
 
@@ -250,9 +254,19 @@ def _interpolate_presets(first, second, amount, *, progress=None):
     return normalize_synth(result)
 
 
-def resolve_sequence_frame(sequence, time_seconds, *, normalized=False):
-    """Exact renderer cue/base resolution, without rendering or decoding media."""
+def resolve_sequence_frame(sequence, time_seconds, *, normalized=False, state_cache=None):
+    """Exact renderer cue/base resolution, without rendering or decoding media.
+
+    An optional state_cache belongs to one immutable sequence. The sound
+    sampler uses it to avoid rebuilding held presets on every control tick.
+    """
     seq = sequence if normalized else normalize_sequence(sequence)
+    def preset(name):
+        if state_cache is None: return _state_preset(seq, name)
+        if name not in state_cache:
+            if len(state_cache)>=64: state_cache.clear()
+            state_cache[name] = _state_preset(seq, name)
+        return state_cache[name]
     t = max(0.0, min(float(seq["duration"]), float(time_seconds)))
     effect_time = mapped_time(seq.get('time_map'), t, 'effects')
     video_time = mapped_time(seq.get('time_map'), t, 'video')
@@ -271,15 +285,15 @@ def resolve_sequence_frame(sequence, time_seconds, *, normalized=False):
             amount = 1.0
     if cue_index > 0 and transition != "cut" and amount < 1:
         previous = seq["cues"][cue_index - 1]
-        first = _state_preset(seq, previous["state"])
-        second = _state_preset(seq, cue["state"])
+        first = preset(previous["state"])
+        second = preset(cue["state"])
         # Sweeps and flashes are authored as event overlays: their target
         # geometry is visible on the first frame of the event. Only morphs
         # spend their onset frame on the previous geometry.
         base = second if transition in {"sweep", "flash"} else _interpolate_presets(
             first, second, amount, progress=(t-cue['time'])/cue['duration'])
     else:
-        base = _state_preset(seq, cue["state"])
+        base = preset(cue["state"])
     base = apply_automations(base, seq.get("automations", ()), t)
     return seq, t, effect_time, video_time, cue, transition, amount, base
 

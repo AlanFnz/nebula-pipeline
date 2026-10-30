@@ -52,6 +52,7 @@ from synth_preview import PreviewScheduler, resolve_scope, RenderValidity, previ
 from synth_comparison_preview import ComparisonFrames
 from synth_exploration_studio import ExplorationStudio
 from synth_soundtrack_studio import SoundtrackStudio
+from synth_visual_sound_studio import VisualSoundStudio
 from synth_audio_reactivity_studio import AudioReactivityStudio
 
 
@@ -228,7 +229,7 @@ class ExportJob(QRunnable):
             self.signals.failed.emit(str(exc))
 
 
-class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QMainWindow):
+class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QMainWindow):
     def __init__(self, preset=None, sequence=None, composition=None, settings=None, *, parent=None, embedded=False):
         super().__init__(parent, Qt.WindowType.Widget if embedded else Qt.WindowType.Window)
         if embedded:
@@ -310,6 +311,7 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
         self.play_timer.timeout.connect(self.advance)
         self.init_soundtrack()
         self.init_audio_reactivity()
+        self.init_visual_sound()
         self.build_ui()
         self.build_actions()
         QApplication.instance().installEventFilter(self)
@@ -695,6 +697,7 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
         self.add_footage_section.clicked.connect(self.add_footage_section_dialog)
         section_tools.addWidget(self.add_footage_section)
         self.build_soundtrack_action(section_tools)
+        self.build_visual_sound_action(section_tools)
         self.section_resize_mode = QComboBox()
         self.section_resize_mode.addItem('Resize: Keep footage speed', 'effects')
         self.section_resize_mode.addItem('Resize: Stretch footage', 'video')

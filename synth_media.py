@@ -29,7 +29,8 @@ def export_synth_video(preset, output, start=0, count=None, cancel=None, progres
     footage = sequence_data.get('footage') if sequence_data else None
     provider = None
     soundtrack = sequence_data.get('soundtrack') if sequence_data else None
-    audio_choice = soundtrack['export_audio'] if soundtrack else 'footage'
+    from synth_visual_sound import audio_output
+    audio_choice = audio_output(sequence_data)
     if sequence_data:
         from synth_section_sources import soundtrack_references
         for source in soundtrack_references(sequence):
@@ -99,7 +100,18 @@ def export_synth_video(preset, output, start=0, count=None, cancel=None, progres
             if code:
                 errors.seek(0)
                 raise ValueError(errors.read().decode(errors="replace")[-2000:] or "FFmpeg could not encode synth")
-        if audio_choice == 'soundtrack':
+        if audio_choice == 'generated':
+            from synth_visual_sound import write_sound
+            from synth_soundtrack import probe_soundtrack, mux_soundtrack_audio
+            with tempfile.TemporaryDirectory(prefix='nebula-generated-') as folder:
+                sound = write_sound(sequence_data, Path(folder)/'sound.wav', cancel)
+                track = probe_soundtrack(sound, cancel)
+                fd, name = tempfile.mkstemp(prefix='.nebula-mux-', suffix='.mp4', dir=output.parent)
+                os.close(fd); muxed = Path(name)
+                mux_soundtrack_audio(temp, muxed, track, start / export_fps, count / export_fps, cancel)
+                cancel.check()
+                os.replace(muxed, output)
+        elif audio_choice == 'soundtrack':
             from synth_soundtrack import mux_soundtrack_audio
             fd, name = tempfile.mkstemp(prefix='.nebula-mux-', suffix='.mp4', dir=output.parent)
             os.close(fd); muxed = Path(name)

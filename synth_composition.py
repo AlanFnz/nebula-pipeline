@@ -100,7 +100,7 @@ def composition_from_sequence(sequence):
     if 'footage' in source:
         result.update(schema_version=2, render_version=2, footage=copy.deepcopy(source['footage']))
     promoted_audio = False
-    for key, schema in (('soundtrack', 4), ('audio_reactivity', 5)):
+    for key, schema in (('soundtrack', 4), ('audio_reactivity', 5), ('generated_sound', 6)):
         if key in source:
             result[key] = copy.deepcopy(source.pop(key))
             result['schema_version'] = schema
@@ -541,14 +541,14 @@ def _geometry(raw, section=False):
 
 
 def normalize_composition(raw):
-    if not isinstance(raw, dict) or raw.get("format") != FORMAT or raw.get("schema_version") not in (1, 2, 3, 4, 5):
+    if not isinstance(raw, dict) or raw.get("format") != FORMAT or raw.get("schema_version") not in (1, 2, 3, 4, 5, 6):
         raise ValueError("Unsupported composition document")
     snapshots = None
     if 'snapshots' in raw:
         from synth_exploration import normalize_snapshots
         snapshots = normalize_snapshots(raw['snapshots'])
     result = copy.deepcopy(raw)
-    if raw.get('schema_version') in (4, 5):
+    if raw.get('schema_version') in (4, 5, 6):
         result['schema_version'] = 1
     if raw.get('soundtrack') is not None:
         from synth_soundtrack import normalize_soundtrack
@@ -671,6 +671,12 @@ def normalize_composition(raw):
         result['schema_version'] = 5
     else:
         result.pop('audio_reactivity', None)
+    if raw.get('generated_sound') is not None:
+        from synth_visual_sound import normalize_sound
+        result['generated_sound'] = normalize_sound(raw['generated_sound'])
+        result['schema_version'] = 6
+    else:
+        result.pop('generated_sound', None)
     return result
 
 
@@ -870,6 +876,9 @@ def compile_composition(raw, *, base_states=None, project_states=None, project_b
     if 'effect_order' in project:
         result['effect_order'] = list(project['effect_order'])
     result.pop("soundtrack", None)
+    result.pop("generated_sound", None)
+    if "generated_sound" in project:
+        result["generated_sound"] = copy.deepcopy(project["generated_sound"])
     result.pop("audio_reactivity", None)
     if "audio_reactivity" in project:
         result["audio_reactivity"] = copy.deepcopy(project["audio_reactivity"])

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.55.0 — 2026-11-05
+
+- Add Generate sound: an optional, editable electric/tape voice driven by
+  Pleated field expansion, actual camera/surface movement and optical reopening.
+  Three independent connections, base pitch, smoothing and sound level are saved
+  with the study and support Undo, snapshots and portable documents.
+- Prepare deterministic 48 kHz audio independently of preview rendering; share
+  the same waveform between timeline monitoring, seeking and native MP4 export.
+  Choose generated sound, existing audio or silence, with separate monitor mute
+  and level. Rapid edits cancel stale preparation.
+- Add the 20-second Pleated signal / electric motion study alongside the silent
+  version. Original visuals and previously authored audio choices are preserved.
+
 ## 0.54.0 — 2026-11-05
 
 - Extend Pleated signal to exactly 20 seconds at 12 fps. Preserve the original

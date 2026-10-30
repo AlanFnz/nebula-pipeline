@@ -386,9 +386,29 @@ the fluctuations of applied visual effects. The artist should hear the tension,
 motion, disruption and settling of the image as one audiovisual gesture.
 Start with internal effect signals; analysis of the rendered image comes later.
 
-### V1. Tension sound prototype
+### V1. First sound prototype — Pleated signal
 
-Use **Tension / elastic signal** for a first audible demonstration, with one
+Implemented 2026-11-05 in 0.55.0. After reviewing the extended 20-second
+Pleated signal study, the user selected it as the first prototype. The original
+Tension proposal below remains the next source to validate reuse.
+
+The first instrument is **Pleated signal / electric motion**: expansion controls
+a tonal body, effective camera/surface speed drives friction, and the optical
+gate reopening triggers a short resonant attack. It has three independently
+adjustable/bypassable connections, base pitch, smoothing, sound level, explicit
+output selection and separate monitor controls. The timeline and MP4 export
+share deterministic 48 kHz synthesis. Settings live in optional schema-6 data;
+the existing silent study and all original pixel rendering remain intact.
+
+See [the implementation and timing contract](visual-sound-prototype.md).
+This establishes the single-voice prototype; a general routing editor, additional
+sources, sample-accurate hardware transport and multitrack mixing remain future
+work. Imported audio can drive the visual source, but generated audio never
+feeds back into the audio-reactivity system.
+
+### Next source: Tension / elastic signal
+
+Use **Tension / elastic signal** for the second source demonstration, with one
 synthesized voice and three editable connections. Start with a tonal body,
 filtered noise and short resonant attacks. Favor hum, friction, tape texture and
 quiet intervals; musical scales and melody are later options.
@@ -469,10 +489,10 @@ represented by an individual effect's internal signals. It is distinct from V1
 and requires its own cost, sampling and caching design. Multiple voices,
 musical scales and broader audiovisual routing follow the first listening tests.
 
-Before implementation, choose the prototype's three signal definitions, audible
-ranges and sound palette, the synthesis/cache backend, and exact seek/loop/tail
-behavior. The first deliverable is an audible Tension demo and reusable signal
-contract, followed by the authoring UI. No implementation date is committed.
+The first Pleated prototype now defines its signal ranges, palette, preparation
+backend and seek/loop/tail behavior in the linked implementation contract.
+The next milestone is an audible Tension demo using the same transport and
+document boundaries. No date is committed for the broader routing editor.
 
 ## Phase C: live input, later
 

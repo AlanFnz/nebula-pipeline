@@ -196,3 +196,12 @@ def pleated_composition(*, extended=True):
     project['phrases']['custom']['name']='Pleats / camera orbit / optical mirrors'
     project['effect_order']=['film_emulsion','screen_mesh']
     return normalize_composition(project)
+
+
+def pleated_sound_composition():
+    """Optional audible study; the existing silent snapshot remains unchanged."""
+    from synth_visual_sound import default_sound
+    project=pleated_composition()
+    project['name']='Pleated signal / electric motion'
+    project['generated_sound']=default_sound()
+    return normalize_composition(project)
