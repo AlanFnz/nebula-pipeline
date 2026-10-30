@@ -17,6 +17,7 @@ TARGETS = frozenset({
     'dye_transfer.scale', 'dye_transfer.x', 'dye_transfer.y', 'dye_transfer.angle',
     'dye_transfer.paper_hue', 'dye_transfer.paper_saturation', 'dye_transfer.paper_light',
     'dye_transfer.ink_hue', 'dye_transfer.ink_light', 'dye_transfer.wash',
+    'dye_transfer.ink_veil', 'dye_transfer.ink_veil_x', 'dye_transfer.ink_veil_width',
     'dye_transfer.drag', 'dye_transfer.drag_mix', 'dye_transfer.softness',
     'dye_transfer.warp', 'dye_transfer.erosion', 'dye_transfer.halo',
     'dye_transfer.opening', 'dye_transfer.gate_x', 'dye_transfer.level',

@@ -27,6 +27,18 @@ def test_dye_controls_scope_undo_and_separate_wording(make_window,tmp_path):
     assert 'dye_transfer' not in window.composition['sections'][1]['effects']
     window.undo_composition();assert window.composition==before
     composer.change_scope(1)
+    panel.group.setCurrentIndex(panel.group.findData('Light through ink'))
+    QApplication.processEvents()
+    assert panel.controls['dye_transfer.ink_veil'].isVisible()
+    assert panel.controls['dye_transfer.ink_veil_x'].isVisible()
+    assert panel.controls['dye_transfer.ink_veil_width'].isVisible()
+    panel.controls['dye_transfer.ink_veil'].input.setValue(.7)
+    assert window.composition['sections'][0]['effects']['dye_transfer']['params']['dye_transfer.ink_veil']==.7
+    assert 'dye_transfer' not in window.composition['sections'][1]['effects']
+    save_composition(tmp_path/'veil.json',window.composition)
+    assert load_composition(tmp_path/'veil.json')==window.composition
+    window.undo_composition();assert window.composition==before
+    composer.change_scope(1)
     panel.group.setCurrentIndex(panel.group.findData('Optical finish'))
     QApplication.processEvents()
     assert panel.controls['dye_transfer.drag'].isVisible()

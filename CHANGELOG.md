@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.50.0 — 2026-10-30
+
+- Add optional Light through ink to Dye transfer: smooth colored exposure
+  inside the impression, with editable and animatable amount, position and
+  width. The tint follows the stock hue; bare stock is unchanged. Zero amount
+  preserves existing rendering exactly.
+- Refine the Earth dreams study with a stronger magenta veil in the opening
+  and subtler exposure through the pink reading shots. Keep the fine pigment
+  texture, phrase order, forty editable shots and 7.60-second duration.
+
 ## 0.49.0 — 2026-10-29
 
 - Add opt-in Letterpress controls under Object → Layout: independent letter

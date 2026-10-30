@@ -20,6 +20,9 @@ def modules(Module, P):
         P('ink_saturation', 'Ink saturation', .75, 0, 1, .01),
         P('ink_light', 'Ink brightness', .075, 0, 1, .01),
         P('ink_density', 'Ink density variation', 0., 0, 1, .01, 'Uneven pigment density across the impression, leaving the stock unchanged.'),
+        P('ink_veil', 'Light through ink', 0., 0, 1, .01, 'A smooth colored exposure through the ink. Uses the stock hue and leaves bare stock unchanged. Zero preserves the original print.'),
+        P('ink_veil_x', 'Light position', .25, -1, 1, .01, 'Horizontal position relative to canvas width; zero is the center.'),
+        P('ink_veil_width', 'Light width', .30, .02, 1, .01, 'Width of the soft exposure relative to canvas width.'),
         P('tooth', 'Printed edge texture', 0., 0, 3, .05, 'Fine irregularities along the ink edge. Pixels at a 720-pixel canvas width.'),
         P('wash', 'Uneven exposure', .14, 0, 1, .01),
         P('halo', 'Exposure halo', 0., 0, 2, .05, 'Light spills around the impression, leaving its ink center dark.'),
@@ -223,6 +226,18 @@ def render_dye_transfer(arr, p, seconds, speed, seed, reference):
         thinning = np.clip((cloud*.7+columns*.3-.46)*5, 0, 1)*p['ink_density']
         faded = np.array(colorsys.hsv_to_rgb(p['ink_hue'],p['ink_saturation'],min(1.,p['ink_light']*4)),np.float32)
         pigment = pigment+(faded-pigment)*thinning[...,None]
+    if p.get('ink_veil', 0):
+        # Continuous optical bands, not thresholded pigment noise. Keep the
+        # color in the ink, so changes never recolor the exposed paper itself.
+        width = max(.02, p.get('ink_veil_width', .30))
+        phase = (seed % 997)*.013
+        center = p.get('ink_veil_x', .25) + width*.06*np.sin(ny*4.1+phase)
+        broad = np.exp(-((nx-center)/width)**2)*(.5+.5*np.exp(-((ny-.07)/.34)**2))
+        narrow = np.exp(-((nx-center+width*1.45)/(width*.20))**2)*.28
+        veil = np.clip(broad+narrow, 0, 1)*p['ink_veil']
+        tint = np.array(colorsys.hsv_to_rgb(p['paper_hue'],
+            min(1.,p['paper_saturation']*1.4), min(1.,p['paper_light']*.9)),np.float32)
+        pigment = pigment+(tint-pigment)*veil[...,None]
     exposure=.8*(cloud-.5)+.2*(columns-.5)
     stock=np.broadcast_to(paper,(h,w,3)).copy()
     if p.get('edge_leak', 0):

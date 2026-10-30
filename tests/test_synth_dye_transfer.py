@@ -68,6 +68,41 @@ def test_shutter_trails_follow_direction_without_opposite_edge_wrap():
     assert np.all(down[70:].sum(axis=1)>0)
 
 
+def test_ink_veil_is_optional_seekable_and_preserves_bare_stock():
+    a=source(); p=defaults(); original=a.copy()
+    legacy={k:v for k,v in p.items() if not k.startswith('ink_veil')}
+    expected=render_dye_transfer(a,legacy,.2,1,53,(160,90))
+    assert np.array_equal(expected,render_dye_transfer(a,p,.2,1,53,(160,90)))
+    blank=np.zeros_like(a)
+    settings=dict(p,ink_veil=.8,ink_veil_x=0,ink_veil_width=.2)
+    saved=copy.deepcopy(settings)
+    assert np.array_equal(render_dye_transfer(blank,p,.2,1,53,(160,90)),
+                          render_dye_transfer(blank,settings,.2,1,53,(160,90)))
+    result=render_dye_transfer(a,settings,.2,1,53,(160,90))
+    assert not np.array_equal(expected,result)
+    render_dye_transfer(a,settings,90,1,53,(160,90))
+    assert np.array_equal(result,render_dye_transfer(a,settings,.21,1,53,(160,90)))
+    assert np.array_equal(a,original) and settings==saved
+    for key in ('ink_veil','ink_veil_x','ink_veil_width'):
+        assert target_parameter('dye_transfer.'+key) is not None
+
+
+def test_ink_veil_has_smooth_bands_and_adjustable_coverage():
+    a=np.ones((120,200,3),np.float32);p=defaults()
+    p.update(paper_hue=.9,paper_saturation=.8,paper_light=1,ink_light=.05,
+        weave=0,warp=0,erosion=0,grain=0,dust=0,wash=0,dye=0,
+        softness=0,drag=0,ink_veil=1,ink_veil_width=.08,ink_veil_x=.2)
+    def draw(**settings):
+        return render_dye_transfer(a,dict(p,**settings),0,1,53,(200,120))
+    right=draw();left=draw(ink_veil_x=-.2);wide=draw(ink_veil_width=.3)
+    assert right[60,140,0]>right[60,60,0]+.5
+    assert left[60,60,0]>left[60,140,0]+.5
+    assert np.abs(np.diff(right[60,:,0])).max()<.1
+    assert (wide[60,:,0]>.3).sum()>(right[60,:,0]>.3).sum()
+    # The stock hue gives a magenta exposure rather than warm pigment patches.
+    assert right[60,140,2]>right[60,140,1]*2
+
+
 def test_silhouette_is_optional_deterministic_and_does_not_change_rng():
     a=source(); p=defaults(); original=a.copy()
     legacy={k:v for k,v in p.items() if not k.startswith('mask_')}

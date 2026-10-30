@@ -7,6 +7,7 @@ def control_group(path):
     module, key = path.split('.')
     if module == 'text' and key.startswith('press_'): return 'Letterpress'
     if module == 'dye_transfer':
+        if key.startswith('ink_veil'): return 'Light through ink'
         if key in ('paper_hue', 'paper_saturation', 'paper_light', 'ink_hue', 'ink_saturation', 'ink_light'): return 'Color channels'
         if key.startswith('mask_'): return 'Optical silhouette'
         if key in ('scale', 'x', 'y', 'angle'): return 'Shape & layout'

@@ -26,6 +26,11 @@ left-anchored progressive word builds. Existing defaults preserve old pixels.
 This study keeps ink density variation at 4% (0% in the pink negative) so the
 letters retain an even ink fill without broad, high-contrast pigment patches.
 Fine grain, emulsion, printed edges and shutter trails remain independent.
+A separate Dye transfer → Light through ink group adds a smooth optical veil
+in the stock hue, with adjustable amount, position and width. It is strongest
+in the opening and subtler in the pink reading shots; it does not bring back
+coarse pigment patches or affect the bare stock. All three controls support
+automation, and the effect defaults to off in other studies.
 
 The 40 cuts track the reference's negative opening, irregular tall lettering,
 oversized pink interruptions, pink/ivory reading flashes, red exposure,

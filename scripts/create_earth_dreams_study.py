@@ -34,7 +34,8 @@ def composition(calibration=False):
       'ivory':dict(paper_hue=.965,paper_saturation=.022,paper_light=.98,
         ink_hue=.96,ink_saturation=.16,ink_light=.09,edge_leak=0.),
       'pink':dict(paper_hue=.886,paper_saturation=.675,paper_light=1.05,
-        ink_hue=.06,ink_saturation=.86,ink_light=.14,edge_leak=.9),
+        ink_hue=.06,ink_saturation=.86,ink_light=.14,edge_leak=.9,
+        ink_veil=.28,ink_veil_x=.26,ink_veil_width=.26),
       'red':dict(paper_hue=.025,paper_saturation=.992,paper_light=1.03,
         ink_hue=.015,ink_saturation=.85,ink_light=.055,edge_leak=0.),
       'red-negative':dict(paper_hue=.994,paper_saturation=.90,paper_light=.12,
@@ -66,7 +67,8 @@ def composition(calibration=False):
           'press_baseline':.006,'press_seed':23,'press_rate':2.},**finish)
     irregular={'press_height':.24,'press_angle':6.,'press_width':.08,'press_baseline':.06,'press_seed':71,'press_rate':10.,'tracking':.13}
     # Keep the reference's opening flashes, but start the new phrase at THE.
-    shot(0,'KNOW' if calibration else first,'pink',size=.96,width=.98 if calibration else .62,edge_leak=.2)
+    shot(0,'KNOW' if calibration else first,'pink',size=.96,width=.98 if calibration else .62,edge_leak=.2,
+         ink_veil=.70,ink_veil_x=.26,ink_veil_width=.28)
     if calibration:
         shot(2,'SOMEONE TO\nBELIEVE','ivory',size=.34,width=1.65,x=-.50,font=0)
     else:
@@ -119,11 +121,11 @@ def composition(calibration=False):
       warp=14.,registration=.8,shutter=-.20,softness=.9)
     title(158,heading,'TO BELIEVE' if calibration else 'DREAMS THROUGH','red-negative',.75 if calibration else .83)
     title(164,heading,sub,'red-negative')
-    title(167,heading,sub,'pink',edge_leak=.25)
+    title(167,heading,sub,'pink',edge_leak=.25,ink_veil=.36,ink_veil_x=.12)
     # A tiny push into the complete phrase, with irregular printed registration.
-    title(178,heading,sub,'pink',scale=1.015,edge_leak=.25)
-    title(190,heading,sub,'pink',scale=1.025,edge_leak=.20)
-    title(198,heading,sub,'pink',scale=1.035,edge_leak=.20)
+    title(178,heading,sub,'pink',scale=1.015,edge_leak=.25,ink_veil=.32,ink_veil_x=.16)
+    title(190,heading,sub,'pink',scale=1.025,edge_leak=.20,ink_veil=.38,ink_veil_x=.20)
+    title(198,heading,sub,'pink',scale=1.035,edge_leak=.20,ink_veil=.34,ink_veil_x=.23)
     # Return to the last words in positive pink before the shutter exits.
     shot(203,'&' if calibration else 'THROUGH','pink-negative',size=.54,width=.09 if calibration else .61,x=-.44 if calibration else -.17)
     if calibration:shot(209,'& YOU','pink-negative',size=.54,width=.46,x=-.26)
