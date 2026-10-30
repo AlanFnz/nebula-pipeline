@@ -26,7 +26,7 @@ def composition(calibration=False):
       'dye_transfer.drag':.015,'dye_transfer.drag_mix':.06,
       'dye_transfer.choke':0.,'dye_transfer.erosion':.025,
       'dye_transfer.softness':.25,'dye_transfer.dust':.08,'dye_transfer.weave':.0012,
-      'dye_transfer.tooth':.65,'dye_transfer.ink_density':.65,
+      'dye_transfer.tooth':.65,'dye_transfer.ink_density':.04,
       'dye_transfer.dye':.14,'dye_transfer.opening':1.2,
       'dye_transfer.edge_leak_hue':.015,'dye_transfer.edge_leak_width':.052,
       'dye_transfer.edge_leak_x':.005})
@@ -38,7 +38,7 @@ def composition(calibration=False):
       'red':dict(paper_hue=.025,paper_saturation=.992,paper_light=1.03,
         ink_hue=.015,ink_saturation=.85,ink_light=.055,edge_leak=0.),
       'red-negative':dict(paper_hue=.994,paper_saturation=.90,paper_light=.12,
-        ink_hue=.022,ink_saturation=.97,ink_light=.93,edge_leak=0.,ink_density=.12),
+        ink_hue=.022,ink_saturation=.97,ink_light=.93,edge_leak=0.,ink_density=.04),
       'pink-negative':dict(paper_hue=.094,paper_saturation=.79,paper_light=.12,
         ink_hue=.94,ink_saturation=.76,ink_light=1.,edge_leak=0.,ink_density=0.),
       'negative':dict(paper_hue=.01,paper_saturation=.10,paper_light=.18,

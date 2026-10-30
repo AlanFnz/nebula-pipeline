@@ -23,6 +23,9 @@ Dye transfer supplies the stock and ink colors, gate, shutter drag, optical
 focus and exposure. New optional controls add colored edge exposure, fine
 printed-edge texture and uneven pigment density. Subtitle width supports
 left-anchored progressive word builds. Existing defaults preserve old pixels.
+This study keeps ink density variation at 4% (0% in the pink negative) so the
+letters retain an even ink fill without broad, high-contrast pigment patches.
+Fine grain, emulsion, printed edges and shutter trails remain independent.
 
 The 40 cuts track the reference's negative opening, irregular tall lettering,
 oversized pink interruptions, pink/ivory reading flashes, red exposure,
