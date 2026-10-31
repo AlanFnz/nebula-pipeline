@@ -13,7 +13,7 @@ from synth_composition import compile_composition
 from synth_exploration import capture_snapshot, restore_snapshot
 from synth_pleated_recipes import pleated_composition
 from synth_preview import _visual_document
-from synth_visual_sound import default_sound, sound_key
+from synth_visual_sound import default_sound, acid_sound, sound_key
 from synth_visual_sound_ui import VisualSoundDialog
 from synth_visual_sound_studio import VisualSoundJob
 from synth_studio import SynthStudio
@@ -54,12 +54,26 @@ def test_dialog_draft_and_monitor_are_separate(app):
     dialog.set_config(None);dialog.pitch.setValue(90);dialog.volume.setValue(40)
     dialog.set_config(None) # Playback refresh must not overwrite a draft.
     assert dialog.pitch.value()==90 and spy.count()==0
-    dialog.connections['friction'][0].setChecked(False);dialog.apply()
+    dialog.connections['filter'][0].setChecked(False);dialog.apply()
     assert spy.count()==1
     config=spy.at(0)[0]
-    assert config['pitch']==90 and not config['connections']['friction']['enabled']
+    assert config['pitch']==90 and not config['connections']['filter']['enabled']
     assert config['gain']==.7
     dialog.set_config(default_sound());assert dialog.pitch.value()==62
+    dialog.close()
+
+
+def test_acid_controls_roundtrip_and_instrument_switch_is_only_a_draft(app):
+    dialog=VisualSoundDialog();spy=QSignalSpy(dialog.configEdited)
+    config=acid_sound();config.update(cutoff=200.,sweep=3000.,resonance=.6,scale='dorian',arp_rate=1.2)
+    config['connections']['arpeggio']['amount']=.5
+    dialog.set_config(config);dialog.apply()
+    assert spy.at(0)[0]==config
+    dialog.voice.setCurrentIndex(dialog.voice.findData(1))
+    assert set(dialog.connections)=={'body','friction','return'} and spy.count()==1
+    dialog.apply();assert spy.at(1)[0]['version']==1
+    dialog.set_config(default_sound());dialog.apply();assert spy.at(2)[0]==default_sound()
+    dialog.set_config(config);dialog.apply();assert spy.at(3)[0]==config
     dialog.close()
 
 

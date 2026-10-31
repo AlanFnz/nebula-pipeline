@@ -1,11 +1,34 @@
-# Visual sound / electric motion
+# Visual sound / Pleated signal
 
 The first visual-to-sound instrument uses the 20-second **Pleated signal**
-study. Open **Pleated signal / electric motion** in Studies, then use
+study. Open **Pleated signal / acid motion** in Studies, then use
 **Generated sound…** beside Soundtrack in the timeline toolbar. Other Pleated
 field projects start with **Generate sound…** and remain silent until Apply.
 
-## Listening and editing
+## Listening and editing: acid triangle
+
+The second instrument replaces the low/noisy electric voice with a stable
+D3 triangle, a resonant low-pass filter and brief pentatonic phrases. There is
+no noise oscillator or movement-to-pitch ramp in this instrument.
+
+- **Expansion → triangle voice** controls the principal triangle's level.
+- **Movement → filter opening** sweeps between Filter closed and Filter open
+  frequencies, responding to camera/surface movement and expansion.
+- **Gestures → short arpeggios** adds 3–4-note phrases on expansion turns,
+  movement surges and optical reopening. Hysteresis and a 1.25-second minimum
+  separation leave gaps; a held/uniformly moving image is not a free sequencer.
+
+Each connection has an enable checkbox and amount. **Base pitch**, **Resonance**,
+both filter frequencies, **Arpeggio pace**, and **Arpeggio scale** are editable.
+Scale choices are minor pentatonic, natural minor and Dorian. Musical pitches
+are intervals above the chosen base pitch. Apply & prepare commits through Undo.
+The arpeggio activity meter follows actual note envelopes.
+
+**Instrument** also selects **Electric / tape (original)**. Changing this selector
+loads the other instrument's starting settings as a draft; Apply commits them.
+The original study and saved version-1 documents still produce their prior sound.
+
+## Original electric / tape instrument
 
 - **Expansion → tonal body** links camera scale to pitch and harmonics.
 - **Movement → friction** responds to camera rotation, orbit, zoom and surface
@@ -24,12 +47,13 @@ Mute monitor and Listen level affect only monitoring. The output selector and
 sound level are saved and also control MP4 export. The imported soundtrack and
 its audio-response mappings remain authored, including when not heard.
 
-## Signal and timing contract, version 1
+## Shared signal and timing contract
 
 `generated_sound` is optional schema-6 composition/sequence data with a versioned
 instrument definition. Its source is the stable `pleated_field` generator ID;
-the three connection IDs are body, friction and return. Replacing or disabling
-that generator yields silence rather than redirecting to another object.
+version 1 connection IDs are body, friction and return; version 2 IDs are body,
+filter and arpeggio. Replacing or disabling that generator yields silence rather
+than redirecting to another object.
 
 The source reads the same resolved presets, section clocks, morphs, automations
 and imported-audio modulation as the renderer. Shared surface-clock, relief
@@ -43,14 +67,25 @@ differences of resolved camera/flow coordinates produce movement speed. A 60 ms
 causal smoothing stage precedes soft compression, avoiding identical impulse
 bursts from stepped 12-fps poses. Expansion uses log camera scale. Reopening arms
 below 2.5% gate coverage, triggers above 12%, and has a 400 ms retrigger minimum.
-The event decays over 240 ms. Continuous response smoothing is 10–500 ms.
+The original instrument's event decays over 240 ms. Continuous response
+smoothing is 10–500 ms.
 
-The voice combines a low oscillator with controlled harmonics, filtered seeded
+The version-1 voice combines a low oscillator with controlled harmonics, filtered seeded
 noise and a short harmonic attack. Oscillator/filter/RNG state carries across
 one-second blocks. PCM is 48 kHz stereo; temporary WAVs are 24-bit. Saturation and
 a conservative output gain bound levels; 45 ms edge fades keep tails inside the
-timeline. Disabling a source releases through the gate envelope. There is no
-automatic loudness normalization or melody/beat generator.
+timeline. Disabling a source releases through the gate envelope. Neither
+instrument automatically normalizes away the authored sound level.
+
+Version 2 uses an additive triangle (odd harmonics weighted by inverse square,
+omitting partials above the Nyquist margin), mild pre-filter saturation and a
+state-variable low-pass filter. The filter uses Andrew Simper's
+[trapezoidal SVF formulation](https://www.cytomic.com/files/dsp/SvfLinearTrapOptimised2.pdf)
+with sample-interpolated cutoff and positive damping (Q 0.7–7.5). The principal
+pitch remains constant; visual expression changes level and spectrum. Arpeggio
+notes have 6 ms attacks, short decays, light stereo placement and stable scale
+intervals. No phrase starts in the final 450 ms. The final timeline fade also
+contains the filter tail. Version-1 oscillator/filter arithmetic is unchanged.
 
 Preparation runs in a cancellable worker with a document identity and settings
 key. An edit immediately disconnects obsolete audio, then prepares the new
@@ -69,7 +104,8 @@ asset-audio mixing are not included in this first instrument.
 ## Preservation and validation
 
 The silent 20-second starter stays unchanged. The audible study is separately
-frozen in `presets/pleated-signal-sound-v1.json`. Existing documents keep their
+frozen in `presets/pleated-signal-sound-v1.json`; the acid variation is frozen in
+`presets/pleated-signal-acid-v1.json`. Existing documents keep their
 original audio choice. Sound-only edits are excluded from visual cache identity.
 
 Checks cover deterministic PCM, FPS independence, silence and bypass, real flow
@@ -78,3 +114,9 @@ round trips, Undo, stale-worker rejection, monitor/export independence, partial
 export alignment, atomic cancellation and unchanged pixels. The shared relief
 refactor was also compared pixel-for-pixel with 0.54.0 over both camera models,
 all four mirror arrangements and three different times.
+
+The acid instrument additionally checks stationary pitch/no noise, no repeated
+notes during held geometry, event-triggered phrases and scale intervals, filter
+response/resonance, extreme settings, version-specific UI round trips, and full
+versus partial native MP4 audio. The original 20-second PCM hash was compared
+before/after the implementation and remained identical.

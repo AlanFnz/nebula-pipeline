@@ -11,13 +11,15 @@ from synth import default_synth_preset
 from synth_composition import compile_composition, composition_from_sequence, load_composition, save_composition
 from synth_pleated_recipes import pleated_composition, pleated_sound_composition
 from synth_sequence import normalize_sequence, render_sequence_frame
-from synth_visual_sound import (RATE, audio_output, default_sound, normalize_sound,
+from synth_visual_sound import (RATE, audio_output, default_sound, acid_sound, normalize_sound,
     pcm_blocks, visual_signals, write_sound, sound_key)
 
 
-@pytest.fixture(scope='module')
-def study():
-    return compile_composition(pleated_sound_composition())
+@pytest.fixture(scope='module',params=[1,2])
+def study(request):
+    seq=compile_composition(pleated_sound_composition())
+    if request.param==2: seq['generated_sound']=acid_sound()
+    return seq
 
 
 def short_study(study, duration=2.):

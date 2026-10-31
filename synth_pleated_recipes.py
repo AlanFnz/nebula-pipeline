@@ -205,3 +205,12 @@ def pleated_sound_composition():
     project['name']='Pleated signal / electric motion'
     project['generated_sound']=default_sound()
     return normalize_composition(project)
+
+
+def pleated_acid_composition():
+    """Same twenty-second visuals, with a resonant triangle and short melodies."""
+    from synth_visual_sound import acid_sound
+    project=pleated_composition()
+    project['name']='Pleated signal / acid motion'
+    project['generated_sound']=acid_sound()
+    return normalize_composition(project)

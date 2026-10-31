@@ -21,12 +21,28 @@ from media import Cancellation
 
 RATE = 48000
 CONTROL_RATE = 120
-VERSION = 1
+VERSION = 1  # The original electric/tape instrument remains reproducible.
 CONNECTIONS = (
     ('body', 'Expansion → tonal body', 1.),
     ('friction', 'Movement → friction', .65),
     ('return', 'Reopening → resonant attack', .75),
 )
+ACID_CONNECTIONS = (
+    ('body', 'Expansion → triangle voice', 1.),
+    ('filter', 'Movement → filter opening', 1.),
+    ('arpeggio', 'Gestures → short arpeggios', .85),
+)
+
+
+def acid_sound():
+    return dict(version=2, enabled=True, output='generated', source='pleated_field',
+                gain=.7, pitch=146.83, smoothing=.10,
+                cutoff=280., sweep=4200., resonance=.74, arp_rate=1., scale='pentatonic',
+                connections={key: dict(enabled=True, amount=value) for key, _, value in ACID_CONNECTIONS})
+
+
+def sound_connections(config):
+    return ACID_CONNECTIONS if config['version'] == 2 else CONNECTIONS
 
 
 def default_sound():
@@ -36,9 +52,9 @@ def default_sound():
 
 
 def normalize_sound(raw):
-    if not isinstance(raw, dict) or type(raw.get('version')) is not int or raw['version'] != VERSION:
+    if not isinstance(raw, dict) or type(raw.get('version')) is not int or raw['version'] not in (1, 2):
         raise ValueError('Unsupported generated sound version')
-    out = default_sound()
+    out = acid_sound() if raw['version'] == 2 else default_sound()
     if raw.get('source', out['source']) != 'pleated_field':
         raise ValueError('Generated sound currently supports Pleated field')
     for key in ('enabled',):
@@ -52,12 +68,19 @@ def normalize_sound(raw):
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not low <= value <= high:
             raise ValueError(f'Generated sound {key} must be between {low} and {high}')
         return float(value)
-    for key, low, high in (('gain',0.,1.), ('pitch',35.,180.), ('smoothing',.01,.5)):
+    for key, low, high in (('gain',0.,1.), ('pitch',65.,440.) if out['version']==2 else ('pitch',35.,180.), ('smoothing',.01,.5)):
         out[key] = number(raw.get(key, out[key]), key, low, high)
+    if out['version'] == 2:
+        for key, low, high in (('cutoff',80.,1800.), ('sweep',200.,12000.), ('resonance',0.,1.), ('arp_rate',.5,2.)):
+            out[key] = number(raw.get(key,out[key]),key,low,high)
+        if out['sweep'] < out['cutoff']: raise ValueError('Filter open frequency must be at least its closed frequency')
+        out['scale'] = raw.get('scale',out['scale'])
+        if out['scale'] not in ('pentatonic','minor','dorian'): raise ValueError('Choose a supported arpeggio scale')
+    definitions = sound_connections(out)
     connections = raw.get('connections', out['connections'])
-    if not isinstance(connections, dict) or set(connections) != {item[0] for item in CONNECTIONS}:
+    if not isinstance(connections, dict) or set(connections) != {item[0] for item in definitions}:
         raise ValueError('Generated sound needs its three named connections')
-    for key, _, _ in CONNECTIONS:
+    for key, _, _ in definitions:
         entry = connections[key]
         if not isinstance(entry, dict) or not isinstance(entry.get('enabled'), bool):
             raise ValueError('Sound connection enabled must be a checkbox')
@@ -154,6 +177,10 @@ def pcm_blocks(sequence, cancel=None, *, signals=None):
     cancel=cancel or Cancellation();cancel.check()
     config=normalize_sound(sequence.get('generated_sound',default_sound()))
     signals=visual_signals(sequence,cancel) if signals is None else signals
+    if config['version'] == 2:
+        from synth_visual_sound_acid import acid_blocks
+        yield from acid_blocks(sequence,config,signals,cancel)
+        return
     total=round(sequence['duration']*RATE)
     gate=_smooth(signals['presence'],.025)
     expansion=_smooth(signals['expansion'],config['smoothing'])

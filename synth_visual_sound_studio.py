@@ -29,6 +29,10 @@ class VisualSoundJob(QRunnable):
         try:
             self.cancel.check();self.folder=tempfile.TemporaryDirectory(prefix='nebula-visual-sound-')
             signals=visual_signals(self.sequence,self.cancel)
+            config=self.sequence['generated_sound']
+            if config['version']==2:
+                from synth_visual_sound_acid import arpeggio_activity
+                signals['arpeggio']=arpeggio_activity(signals,config)
             path=write_sound(self.sequence,Path(self.folder.name)/'Generated sound.wav',self.cancel,signals=signals)
             track=probe_soundtrack(path,self.cancel);track['name']='Pleated field / generated sound'
             self.cancel.check();self.signals.done.emit((track,signals))
@@ -167,9 +171,10 @@ class VisualSoundStudio:
             else:
                 config=(self.preview_sequence() or {}).get('generated_sound',{})
                 values=[]
-                for key,name in (('body','expansion'),('friction','motion'),('return','opening')):
+                filter_key='filter' if config.get('version')==2 else 'friction'
+                for key,name in (('body','expansion'),(filter_key,'motion'),('return','opening'),('arpeggio','arpeggio')):
                     enabled=config.get('connections',{}).get(key,{}).get('enabled',False)
-                    value=np.interp(seconds,signals['time'],signals[name])*np.interp(seconds,signals['time'],signals['presence']) if enabled else 0.
+                    value=np.interp(seconds,signals['time'],signals[name])*np.interp(seconds,signals['time'],signals['presence']) if enabled and name in signals else 0.
                     values.append(value)
                 dialog.set_activity(*values)
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.56.0 — 2026-11-05
+
+- Add a second visual sound instrument: a pitched triangle through a resonant
+  filter, with short arpeggios triggered by camera gestures and optical reopening.
+  Edit filter range, resonance, root pitch, melodic scale, pace and three
+  independent connections. The original electric/tape instrument remains intact.
+- Add Pleated signal / acid motion, with the same 20-second visuals and native
+  preview/export sound. Preserve earlier studies, documents and PCM generation.
+
 ## 0.55.0 — 2026-11-05
 
 - Add Generate sound: an optional, editable electric/tape voice driven by
