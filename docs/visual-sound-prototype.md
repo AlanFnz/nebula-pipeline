@@ -35,8 +35,28 @@ until **Apply & prepare**; the new waveform is prepared in the background.
 authoring controls, not live DSP parameters during playback. Source sounds,
 output choices, monitor controls and Undo retain the existing behavior.
 
-The latest starter is frozen in `presets/pleated-signal-acid-v2.json`. Earlier
+The latest starter is frozen in `presets/pleated-signal-acid-v3.json`. Earlier
 snapshots and version-1/2 instruments remain selectable and load unchanged.
+
+## Current study motion (acid v3)
+
+The 20-second acid study keeps a small elliptical nucleus visible through the
+contraction around 9 seconds. Its width and height breathe independently before
+the sheet opens again. The existing visibility signal therefore keeps the synth
+quietly present; there is no artificial audio floor or change to the instrument.
+
+The final movement follows reference frames 175–239, beginning at the existing
+14.58-second cut so the approach to second 15 stays continuous. A mirrored
+retreat leads into a half-turn that keeps rotating, followed by the unmirrored
+view at 17.67 seconds and diagonal pass at 17.92 seconds. That pass approaches,
+retreats briefly and pushes forward again. It does not return to a previous shot
+or add a terminal hold. Camera curves remain ordinary editable frame samples.
+
+Only frames 106–118 and 175–239 change. The original silent/electric recipes and
+both earlier acid snapshots retain their choreography. The original triangle
+recipe (`layered=False`) also remains unchanged. Sound settings, duration,
+canvas, palettes and effect algorithms are preserved. Surface details remain a
+procedural approximation of the reference.
 
 ## Listening and editing: acid triangle
 

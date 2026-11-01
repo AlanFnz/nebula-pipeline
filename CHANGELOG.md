@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.58.0 — 2026-11-05
+
+- Keep a visible, breathing nucleus during the acid-motion study’s contraction
+  around 9 seconds. The existing visual-to-sound gate now retains a quiet voice
+  through that movement instead of dropping to silence.
+- Rework the final movement from reference frames 175–239: mirrored retreat,
+  continuing half-turn, then a diagonal approach, retreat and final push. Keep
+  exactly 20 seconds, editable camera samples and the existing synth settings.
+- Freeze the revised acid study as v3. Previous studies, snapshots and rendering
+  and audio algorithms remain unchanged.
+
 ## 0.57.0 — 2026-11-05
 
 - Add a layered visual-sound instrument with three independently switchable

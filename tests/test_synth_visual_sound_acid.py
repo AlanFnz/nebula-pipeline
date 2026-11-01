@@ -80,7 +80,7 @@ def test_acid_study_roundtrips_without_changing_visual_document(tmp_path):
     project=pleated_acid_composition();save_composition(tmp_path/'acid.json',project)
     restored=load_composition(tmp_path/'acid.json')
     assert restored==project
-    silent=compile_composition(pleated_composition());audible=compile_composition(restored)
+    silent=compile_composition(pleated_composition(motion_revision=2));audible=compile_composition(restored)
     a=_visual_document(audible);b=_visual_document(silent)
     a['name']=b['name']
     assert a==b

@@ -34,7 +34,7 @@ def _track(keys, frame):
     return (2*t**3-3*t*t+1)*y[i]+(t**3-2*t*t+t)*h[i]*m[i]+(-2*t**3+3*t*t)*y[i+1]+(t**3-t*t)*h[i]*m[i+1]
 
 
-def pleated_composition(*, extended=True):
+def pleated_composition(*, extended=True, motion_revision=1):
     common = {'speed':1., 'depth':0., 'treatment_fps':12, 'object_x':0., 'object_y':0.}
     for module in ('pleated_field','film_emulsion','screen_mesh'):
         common.update({module+'.'+p.key:p.default for p in MODULE_BY_ID[module].params})
@@ -159,11 +159,62 @@ def pleated_composition(*, extended=True):
                 (239,dict(size=2.12,angle=51.5,pan_x=3.05)),
                 (240,dict(size=2.12,angle=51.5,pan_x=3.05))]),
         ])
+    if motion_revision == 2:
+        # Observe the next reference frames, rather than returning the camera
+        # to earlier poses. Begin at the existing cut (175) so the approach to
+        # second 15 remains one continuous shot. The mirror roll keeps turning
+        # through a half-turn; it does not reverse at 90 degrees.
+        segments = [s for s in segments if s[0] < 175] + [
+            (175, 190 if extended else 180,
+             dict(symmetry=2, angle=-37., yaw=-12., pitch=4., size=3.1,
+                  pan_x=2.95, pan_y=.12, light_angle=20.), [
+                (180, dict(size=2.75, angle=-39., pan_x=3.3)),
+                (183, dict(size=2.25, angle=-42., pan_x=3.52)),
+                (186, dict(size=1.72, angle=-43., pan_x=3.75)),
+                (189, dict(size=1.26, angle=-44., pan_x=3.98))]),
+        ]
+        if extended:
+            segments.extend([
+                (190,212,dict(symmetry=2,angle=-3.,yaw=-8.,pitch=10.,size=3.05,
+                             pan_x=1.12,pan_y=.5,light_angle=20.),[
+                    (192,dict(size=2.5,angle=-8.,pan_x=1.28)),
+                    (195,dict(size=2.05,angle=-25.,pan_x=1.5)),
+                    (197,dict(size=1.68,angle=-62.,pan_x=1.67)),
+                    (199,dict(size=1.38,angle=-88.,pan_x=1.83)),
+                    (201,dict(size=1.15,angle=-108.,pan_x=2.,pitch=16.)),
+                    (203,dict(size=1.16,angle=-135.,pan_x=2.16)),
+                    (206,dict(size=1.44,angle=-165.,pan_x=2.4,pitch=8.)),
+                    (209,dict(size=1.9,angle=-177.,pan_x=2.64)),
+                    (211,dict(size=2.12,angle=-181.,pan_x=2.8))]),
+                (212,215,dict(symmetry=0,density=4.7,angle=84.,yaw=4.,pitch=30.,
+                             size=1.9,pan_x=1.65,pan_y=.1),[
+                    (214,dict(size=2.08,yaw=7.,pitch=35.,angle=82.,pan_x=1.82))]),
+                (215,240,dict(symmetry=0,density=5.7,angle=45.,yaw=15.,pitch=-12.,
+                             size=1.2,pan_x=1.9,pan_y=.25),[
+                    (218,dict(size=1.42,yaw=8.,pitch=0.,angle=45.,pan_x=2.08)),
+                    (222,dict(size=2.42,yaw=-3.,pitch=4.,angle=42.,pan_x=2.3)),
+                    (225,dict(size=3.05,yaw=-8.,angle=42.,pan_x=2.49)),
+                    (228,dict(size=2.96,yaw=-10.,pitch=5.,angle=55.,pan_x=2.7)),
+                    (230,dict(size=2.04,yaw=-2.,pitch=10.,angle=60.,pan_x=2.85)),
+                    (232,dict(size=1.2,yaw=5.,pitch=15.,angle=60.,pan_x=3.0)),
+                    (234,dict(size=1.46,angle=57.,pan_x=3.13)),
+                    (237,dict(size=2.8,angle=52.,pan_x=3.34)),
+                    (240,dict(size=3.9,angle=49.,pan_x=3.55))]),
+            ])
     # Observed optical-gate extents, in canvas-height units. These numeric
     # observations are converted to ordinary editable aperture parameters.
     side_extents={49: 0.6639, 50: 0.6639, 51: 0.6472, 52: 0.3083, 53: 0.1583, 54: 0.1306, 55: 0.1139, 56: 0.0028, 57: -0.0028, 58: -0.0083, 59: -0.0083, 60: -0.0028, 61: -0.0028, 62: -0.0083, 63: 0.0472, 64: 0.0972, 65: 0.1917, 66: 0.2583, 67: 0.3083, 68: 0.3972, 69: 0.4583, 70: 0.6639, 71: 0.6639, 88: 0.2028, 89: 0.0917, 90: 0.0417, 91: -0.0139, 92: -0.0083, 93: -0.025, 94: -0.0194, 95: -0.0139}
     center_extents={104: 0.6556, 105: 0.3111, 106: 0.1611, 107: 0.1333, 108: 0.1167, 109: 0.0056, 110: 0, 111: 0, 112: 0, 113: 0, 114: 0, 115: 0, 116: 0.05, 117: 0.1, 118: 0.2, 119: 0.2611, 120: 0.3111, 121: 0.3972, 122: 0.4583, 123: 0.6667}
     collapse_heights={104: 0.3417, 105: 0.2764, 106: 0.25, 107: 0.2153, 108: 0.2681, 109: 0.4236, 110: 0.0583}
+    if motion_revision == 2:
+        # A breathing central nucleus replaces the fully closed gate. Both
+        # dimensions stay visible, including to the shared sound probes.
+        # Values are artwork-height units, independent of camera scale.
+        for frame in range(106,119):
+            center_extents[frame] = _track([
+                (106,.1611),(109,.135),(112,.12),(115,.135),(118,.2)],frame)
+            collapse_heights[frame] = _track([
+                (106,.25),(109,.22),(112,.2),(115,.22),(118,.5)],frame)
     states={};cues=[]
     for start,end,initial,observations in segments:
         pose=dict(initial);keys={k:[(start,v)] for k,v in initial.items()}
@@ -208,9 +259,9 @@ def pleated_sound_composition():
 
 
 def pleated_acid_composition(*,layered=True):
-    """Same twenty-second visuals, with a resonant triangle and short melodies."""
+    """Twenty-second visual instrument; original triangle study stays frozen."""
     from synth_visual_sound import acid_sound,instrument_sound
-    project=pleated_composition()
+    project=pleated_composition(motion_revision=2 if layered else 1)
     project['name']='Pleated signal / acid motion'
     project['generated_sound']=instrument_sound() if layered else acid_sound()
     return normalize_composition(project)
