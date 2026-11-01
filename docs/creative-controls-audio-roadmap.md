@@ -494,6 +494,9 @@ backend and seek/loop/tail behavior in the linked implementation contract.
 Version 0.56 adds the listening-feedback iteration: a resonant triangle with
 gesture-triggered arpeggios, editable scale and filter range. The electric/tape
 voice stays versioned for existing documents; general routing is still deferred.
+Version 0.57 adds the layered oscillator bank, detune/unison and rotary instrument
+controls, plus softened note/filter transients. These controls author prepared
+audio; a real-time synth engine remains separate future work.
 The next milestone is an audible Tension demo using the same transport and
 document boundaries. No date is committed for the broader routing editor.
 

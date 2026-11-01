@@ -207,10 +207,10 @@ def pleated_sound_composition():
     return normalize_composition(project)
 
 
-def pleated_acid_composition():
+def pleated_acid_composition(*,layered=True):
     """Same twenty-second visuals, with a resonant triangle and short melodies."""
-    from synth_visual_sound import acid_sound
+    from synth_visual_sound import acid_sound,instrument_sound
     project=pleated_composition()
     project['name']='Pleated signal / acid motion'
-    project['generated_sound']=acid_sound()
+    project['generated_sound']=instrument_sound() if layered else acid_sound()
     return normalize_composition(project)

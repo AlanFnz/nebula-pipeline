@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.57.0 — 2026-11-05
+
+- Add a layered visual-sound instrument with three independently switchable
+  oscillators, selectable waveforms, tuning, levels, unison, detune and stereo
+  width. Density and drive shape the harmonic content; manual filter opening
+  works alongside the existing motion response.
+- Add rotary controls with vertical/fine dragging, keyboard adjustment and
+  numeric entry, organized into Sound, Oscillators and Motion & melody tabs.
+  Listen/Pause shares the main transport. Knob edits remain drafts until Apply.
+- Soften note attacks/releases and smooth resonant filter accents in the new
+  voice to reduce the clicking transients. Preserve original instrument versions
+  and update the acid-motion study with unchanged 20-second visuals.
+
 ## 0.56.0 — 2026-11-05
 
 - Add a second visual sound instrument: a pitched triangle through a resonant

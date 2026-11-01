@@ -1,0 +1,99 @@
+"""Layered band-limited oscillators with click-softened notes and filter control."""
+import math
+
+import numpy as np
+
+from synth_visual_sound import RATE, _smooth
+from synth_visual_sound_acid import gesture_notes, resonant_lowpass
+
+
+def note_envelope(age,duration,attack,release):
+    """Zero value and zero slope at both ends; a pluck without a hard edge."""
+    u=np.maximum(age,0.)
+    rise=np.sin(np.clip(u/attack,0.,1.)*np.pi/2)**2
+    end=np.clip((duration-u)/min(release,duration*.6),0.,1.)
+    fall=end*end*(3-2*end)
+    return rise*np.exp(-u/release)*fall*(age>=0)
+
+
+def waveform(phase,hz,shape,density):
+    fundamental=np.sin(phase)
+    if shape=='sine': return fundamental
+    out=fundamental.copy()
+    limit=min(32,math.ceil(RATE*.42/hz))
+    for n in range(2,limit):
+        if shape=='triangle': weight=0. if n%2==0 else (-1 if (n-1)//2%2 else 1)/(n*n)
+        elif shape=='square': weight=0. if n%2==0 else 1/n
+        else: weight=(-1 if n%2==0 else 1)/n
+        out+=density*weight*np.sin(n*phase)
+    # Keep comparable fundamental level between shapes and density positions.
+    return out*.8
+
+
+def oscillator_bank(t,root,config,seed):
+    """Absolute phase preserves continuity across blocks and deterministic seeks."""
+    bank=np.zeros((len(t),2));weight=0.
+    offsets=np.linspace(-1,1,config['unison']) if config['unison']>1 else np.array([0.])
+    for index,osc in enumerate(config['oscillators']):
+        if not osc['enabled'] or osc['level']==0: continue
+        for voice,offset in enumerate(offsets):
+            hz=root*2**((osc['transpose']+(osc['detune']+offset*config['detune'])/100)/12)
+            # Fixed small phase offsets avoid identical oscillator restarts.
+            phase=math.tau*(hz*t+((index*.173+voice*.137+(seed%997)*.00013)%1))
+            signal=waveform(phase,hz,osc['wave'],config['density'])
+            pan=config['width']*(offset*.7+(index-1)*.22)
+            bank[:,0]+=signal*math.sqrt(1-pan)*osc['level']/len(offsets)
+            bank[:,1]+=signal*math.sqrt(1+pan)*osc['level']/len(offsets)
+        weight+=osc['level']
+    return bank/max(1.,weight)
+
+
+def instrument_controls(signals,config):
+    notes=gesture_notes(signals,config)
+    pluck=np.zeros_like(signals['time'])
+    link=config['connections']['arpeggio']
+    if config['enabled'] and link['enabled'] and link['amount']>0:
+        for note in notes:
+            duration=max(note['duration'],config['attack']+config['release'])
+            pluck=np.maximum(pluck,note_envelope(signals['time']-note['time'],duration,config['attack'],config['release']))
+    # The note's filter accent has its own de-click smoothing; resonance cannot
+    # amplify a sudden attack into a sharp transient. Evaluated before blocking.
+    return notes,_smooth(pluck,.035)
+
+
+def instrument_blocks(sequence,config,signals,cancel,*,block_size=RATE):
+    total=round(sequence['duration']*RATE)
+    amount={key:c['amount'] if config['enabled'] and c['enabled'] else 0.
+            for key,c in config['connections'].items()}
+    gate=_smooth(signals['presence'],.035)
+    expansion=_smooth(signals['expansion'],config['smoothing'])
+    motion=_smooth(signals['motion'],config['smoothing'])
+    notes,accent=instrument_controls(signals,config)
+    if not amount['arpeggio']: notes=[]
+    states=[(0.,0.),(0.,0.)]
+    seed=int(sequence.get('seed',0))
+    for start in range(0,total,block_size):
+        cancel.check();length=min(block_size,total-start);t=(start+np.arange(length))/RATE
+        g,e,m,a=[np.interp(t,signals['time'],v) for v in (gate,expansion,motion,accent)]
+        body=oscillator_bank(t,config['pitch'],config,seed)*((.18+.08*e)*amount['body'])[:,None]
+        melody=np.zeros((length,2))
+        for n,note in enumerate(notes):
+            duration=max(note['duration'],config['attack']+config['release'])
+            if note['time']>=t[-1]+1/RATE or note['time']+duration<=t[0]: continue
+            age=t-note['time'];u=np.maximum(age,0.)
+            env=note_envelope(age,duration,config['attack'],config['release'])
+            hz=config['pitch']*2**(note['semitones']/12)
+            tone=oscillator_bank(u,hz,config,seed+n+1)*((env*note['velocity']*.40*amount['arpeggio'])[:,None])
+            tone[:,0]*=1-note['pan']*.5;tone[:,1]*=1+note['pan']*.5
+            melody+=tone
+        # Opening is the manual bias; the motion link adds the live visual sweep.
+        opening=np.clip(config['opening']+(.36*e+.42*m+.16*a)*amount['filter'],0,1)
+        cutoff=config['cutoff']*(config['sweep']/config['cutoff'])**opening
+        fade=np.minimum(np.clip(t/.06,0,1),np.clip((total/RATE-t)/.08,0,1))
+        fade=fade*fade*(3-2*fade)
+        channels=[]
+        for channel in range(2):
+            source=np.tanh((body[:,channel]+melody[:,channel])*(1.5+config['drive']*3))
+            filtered,states[channel]=resonant_lowpass(source,cutoff,config['resonance'],states[channel])
+            channels.append(np.tanh(filtered*.9)*.72*config['gain']*g*fade)
+        yield np.stack(channels,axis=1).astype(np.float32)

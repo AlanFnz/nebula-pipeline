@@ -25,7 +25,7 @@ def frozen_data(key):
 
 def starter_snapshot(identifier):
     if identifier == 'pleated-signal-acid':
-        return json.loads((Path(__file__).parent / 'presets/pleated-signal-acid-v1.json').read_text())
+        return json.loads((Path(__file__).parent / 'presets/pleated-signal-acid-v2.json').read_text())
     if identifier == 'pleated-signal-sound':
         return json.loads((Path(__file__).parent / 'presets/pleated-signal-sound-v1.json').read_text())
     if identifier == 'pleated-signal':

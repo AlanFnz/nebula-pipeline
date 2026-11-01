@@ -5,15 +5,15 @@ import tempfile
 
 os.environ.setdefault('QT_QPA_PLATFORM','offscreen')
 import pytest
-from PySide6.QtCore import QObject, Signal, QThreadPool
-from PySide6.QtTest import QSignalSpy
+from PySide6.QtCore import QObject, Signal, QThreadPool, Qt, QPoint
+from PySide6.QtTest import QSignalSpy,QTest
 from PySide6.QtWidgets import QApplication
 
 from synth_composition import compile_composition
 from synth_exploration import capture_snapshot, restore_snapshot
 from synth_pleated_recipes import pleated_composition
 from synth_preview import _visual_document
-from synth_visual_sound import default_sound, acid_sound, sound_key
+from synth_visual_sound import default_sound, acid_sound, instrument_sound, sound_key
 from synth_visual_sound_ui import VisualSoundDialog
 from synth_visual_sound_studio import VisualSoundJob
 from synth_studio import SynthStudio
@@ -75,6 +75,34 @@ def test_acid_controls_roundtrip_and_instrument_switch_is_only_a_draft(app):
     dialog.set_config(default_sound());dialog.apply();assert spy.at(2)[0]==default_sound()
     dialog.set_config(config);dialog.apply();assert spy.at(3)[0]==config
     dialog.close()
+
+
+def test_knobs_drag_keyboard_and_numeric_entry_preserve_a_draft(app):
+    dialog=VisualSoundDialog();spy=QSignalSpy(dialog.configEdited);dialog.set_config(instrument_sound());dialog.show();app.processEvents()
+    knob=dialog.opening;knob.setValue(40)
+    QTest.mousePress(knob.dial,Qt.MouseButton.LeftButton,pos=QPoint(39,55))
+    QTest.mouseMove(knob.dial,QPoint(39,25));QTest.mouseRelease(knob.dial,Qt.MouseButton.LeftButton,pos=QPoint(39,25))
+    assert knob.value()>40 and spy.count()==0
+    knob.number.setValue(52.25);assert knob.value()==52.25
+    before=knob.value();QTest.keyClick(knob.dial,Qt.Key.Key_Right)
+    assert knob.value()==before+1
+    QTest.keyClick(knob.dial,Qt.Key.Key_Left,Qt.KeyboardModifier.ShiftModifier)
+    assert knob.value()==pytest.approx(before+.9)
+    dialog.unison.setValue(2);QTest.keyClick(dialog.unison.dial,Qt.Key.Key_Right);assert dialog.unison.value()==3
+    dialog.oscillators[1][0].setChecked(False);dialog.detune.setValue(12.5);dialog.apply()
+    config=spy.at(0)[0];assert config['version']==3 and config['detune']==12.5
+    assert not config['oscillators'][1]['enabled'] and config['opening']==pytest.approx(knob.value()/100)
+    dialog.set_config(config);dialog.apply();assert spy.at(1)[0]==config
+    dialog.close()
+
+
+def test_layered_instrument_undo_preserves_visual_cache_and_all_controls(studio):
+    original=copy.deepcopy(studio.composition);visual=_visual_document(studio.sequence)
+    config=instrument_sound();config['oscillators'][2]['wave']='sine';config['unison']=5;config['detune']=15
+    studio.apply_visual_sound(config);assert studio.sequence['generated_sound']==config
+    assert _visual_document(studio.sequence)==visual
+    studio.undo_composition();assert studio.composition==original
+    studio.redo_composition();assert studio.sequence['generated_sound']==config
 
 
 def test_apply_undo_snapshot_and_monitor_never_change_image(studio):

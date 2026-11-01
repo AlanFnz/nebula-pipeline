@@ -5,6 +5,39 @@ study. Open **Pleated signal / acid motion** in Studies, then use
 **Generated sound…** beside Soundtrack in the timeline toolbar. Other Pleated
 field projects start with **Generate sound…** and remain silent until Apply.
 
+## Current instrument: layered resonant synth
+
+Version 0.57 uses a new version-3 instrument contract. The Sound tab exposes
+rotary controls for root pitch, density, drive, stereo width and level, plus
+manual filter opening, resonance, closed/open frequencies and response smoothing.
+Opening is a manual bias in the filter's logarithmic frequency range; visual
+movement adds to it. Disable Movement → filter opening for a fixed setting.
+
+Oscillators contains three stable slots, each with on/off, sine/triangle/saw/square,
+level, semitone tuning and fine tuning in cents. Unison chooses 1–5 voices per
+enabled oscillator; Detune spreads those voices, and Stereo controls their pan.
+Density blends additional waveform harmonics into each fundamental. It does not
+add noise. The demo layers triangle, quiet saw and an upper triangle with three
+unison voices and modest detuning. Level normalization bounds the oscillator sum.
+
+Motion & melody keeps the three visual connections and adds Attack/Release
+controls alongside pace and scale. Notes now begin and end with zero value and
+zero slope; their filter accent is smoothed separately over 35 ms. This addresses
+the sharp note/filter attacks heard as clicks in the original acid experiment.
+Timeline ends use smooth 60/80 ms fades; synthesis carries filter state between
+blocks. A test compares different block sizes sample-for-sample while a note
+crosses a boundary.
+
+Drag knobs vertically, hold Shift for finer changes, use arrow keys, or type the
+number beneath them. Scrolling over a knob does not edit it. Changes are drafts
+until **Apply & prepare**; the new waveform is prepared in the background.
+**Listen/Pause** shares the main timeline transport. These are instrument-style
+authoring controls, not live DSP parameters during playback. Source sounds,
+output choices, monitor controls and Undo retain the existing behavior.
+
+The latest starter is frozen in `presets/pleated-signal-acid-v2.json`. Earlier
+snapshots and version-1/2 instruments remain selectable and load unchanged.
+
 ## Listening and editing: acid triangle
 
 The second instrument replaces the low/noisy electric voice with a stable
@@ -51,7 +84,7 @@ its audio-response mappings remain authored, including when not heard.
 
 `generated_sound` is optional schema-6 composition/sequence data with a versioned
 instrument definition. Its source is the stable `pleated_field` generator ID;
-version 1 connection IDs are body, friction and return; version 2 IDs are body,
+version 1 connection IDs are body, friction and return; version 2/3 IDs are body,
 filter and arpeggio. Replacing or disabling that generator yields silence rather
 than redirecting to another object.
 

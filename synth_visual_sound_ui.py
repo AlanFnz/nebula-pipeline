@@ -1,139 +1,149 @@
-"""Compact authoring for the first visual-to-sound instrument."""
+"""Rotary instrument controls and separate monitor/output settings."""
 import copy
-
 from PySide6.QtCore import Qt, Signal, QSignalBlocker
-from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
-    QLabel, QCheckBox, QComboBox, QDoubleSpinBox, QPushButton, QSlider, QProgressBar, QMessageBox)
+from PySide6.QtWidgets import (QDialog,QWidget,QVBoxLayout,QHBoxLayout,QLabel,QCheckBox,
+    QComboBox,QPushButton,QSlider,QProgressBar,QMessageBox,QTabWidget,QGroupBox,QScrollArea,QDoubleSpinBox)
+from synth_visual_sound import acid_sound,instrument_sound,default_sound,normalize_sound,sound_connections
+from synth_sound_knob import SoundKnob
 
-from synth_visual_sound import acid_sound, default_sound, normalize_sound, sound_connections
+FACTORIES={1:default_sound,2:acid_sound,3:instrument_sound}
 
 
 class VisualSoundDialog(QDialog):
-    configEdited = Signal(object)
-    monitorVolumeChanged = Signal(float)
-    monitorMutedChanged = Signal(bool)
-    retryRequested = Signal()
+    configEdited=Signal(object)
+    monitorVolumeChanged=Signal(float)
+    monitorMutedChanged=Signal(bool)
+    retryRequested=Signal()
+    playRequested=Signal(bool)
 
     def __init__(self,parent=None):
-        super().__init__(parent)
-        self.setWindowTitle('Generate sound');self.resize(540,670)
-        self.current=None;self.loaded=False
-        layout=QVBoxLayout(self)
-        label=QLabel('Pleated field · sound from motion')
-        label.setProperty('sectionTitle',True);layout.addWidget(label)
-        hint=QLabel('Sound follows the folds’ expansion, movement and reopening. Change the image to change the sound.')
-        hint.setWordWrap(True);layout.addWidget(hint)
-        self.enabled=QCheckBox('Enable generated sound');layout.addWidget(self.enabled)
-        form=QFormLayout();form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
-        self.output=QComboBox();self.output.setAccessibleName('Audio output')
-        for name,key in (('Generated sound','generated'),('Existing soundtrack / footage','existing'),('Silent','silent')):
-            self.output.addItem(name,key)
-        form.addRow('Audio output',self.output)
+        super().__init__(parent);self.setWindowTitle('Generate sound');self.resize(960,740)
+        self.current=None;self.loaded=False;layout=QVBoxLayout(self)
+        label=QLabel('PLEATED / SYNTH');label.setProperty('sectionTitle',True);layout.addWidget(label)
+        hint=QLabel('Shape the sound with the knobs. Apply & prepare, then listen with the image.')
+        hint.setWordWrap(True);layout.addWidget(hint);row=QHBoxLayout()
+        self.enabled=QCheckBox('Enable sound');row.addWidget(self.enabled)
         self.voice=QComboBox();self.voice.setAccessibleName('Instrument')
-        self.voice.addItem('Acid triangle + arpeggios',2);self.voice.addItem('Electric / tape (original)',1)
-        form.addRow('Instrument',self.voice)
-        self.gain=self.spin('Sound level',0,100,1,' %')
-        self.pitch=self.spin('Base pitch',35,180,1,' Hz')
-        self.smoothing=self.spin('Response smoothing',10,500,10,' ms')
-        form.addRow('Sound level',self.gain);form.addRow('Base pitch',self.pitch)
-        form.addRow('Response smoothing',self.smoothing)
-        self.cutoff=self.spin('Filter closed',80,1800,20,' Hz')
-        self.sweep=self.spin('Filter open',200,12000,100,' Hz')
-        self.resonance=self.spin('Resonance',0,100,1,' %')
-        self.arp_rate=self.spin('Arpeggio pace',50,200,5,' %')
-        self.scale=QComboBox();self.scale.setAccessibleName('Arpeggio scale')
+        for title,key in (('Layered resonant synth',3),('Acid triangle (original)',2),('Electric / tape (original)',1)): self.voice.addItem(title,key)
+        row.addWidget(self.voice,1);self.output=QComboBox();self.output.setAccessibleName('Audio output')
+        for title,key in (('Generated sound','generated'),('Existing soundtrack / footage','existing'),('Silent','silent')): self.output.addItem(title,key)
+        row.addWidget(self.output);layout.addLayout(row);self.tabs=QTabWidget();layout.addWidget(self.tabs,1)
+        sound=self.page('Sound');oscillators=self.page('Oscillators');motion=self.page('Motion && melody')
+        self.gain=SoundKnob('Level',0,100,1,' %');self.pitch=SoundKnob('Root',35,440,1,' Hz',log=True)
+        self.density=SoundKnob('Density',0,100,1,' %');self.drive=SoundKnob('Drive',0,100,1,' %');self.width=SoundKnob('Stereo',0,100,1,' %')
+        self.density.setToolTip('Blend additional waveform harmonics into each oscillator. Zero keeps its fundamental.')
+        self.knob_row(sound,'Tone',(self.pitch,self.density,self.drive,self.width,self.gain))
+        self.opening=SoundKnob('Opening',0,100,1,' %');self.resonance=SoundKnob('Resonance',0,100,1,' %')
+        self.cutoff=SoundKnob('Closed',80,1800,20,' Hz',log=True);self.sweep=SoundKnob('Open',200,12000,100,' Hz',log=True)
+        self.smoothing=SoundKnob('Smoothing',10,500,10,' ms',log=True)
+        self.knob_row(sound,'Filter',(self.opening,self.resonance,self.cutoff,self.sweep,self.smoothing));sound.addStretch()
+        self.opening.setToolTip('Manual filter opening. Movement adds to this setting; disable its connection for a fixed opening.')
+        self.unison=SoundKnob('Unison',1,5,1,' voices',integer=True);self.detune=SoundKnob('Detune',0,35,.5,' cents')
+        self.detune.setToolTip('Pitch spread in cents between unison voices. Use two or more voices to hear it.')
+        self.knob_row(oscillators,'Voice bank',(self.unison,self.detune));self.oscillators=[];osc_row=QHBoxLayout()
+        for i in range(3):
+            box=QGroupBox(f'OSC {i+1}');column=QVBoxLayout(box);top=QHBoxLayout()
+            check=QCheckBox('On');check.setAccessibleName(f'Oscillator {i+1} enabled');top.addWidget(check)
+            wave=QComboBox();wave.setAccessibleName(f'Oscillator {i+1} waveform')
+            for key in ('triangle','sine','saw','square'): wave.addItem(key.capitalize(),key)
+            top.addWidget(wave,1);column.addLayout(top)
+            level=SoundKnob('Level',0,100,1,' %');tune=SoundKnob('Tune',-24,24,1,' st',integer=True);fine=SoundKnob('Fine (cents)',-50,50,.5)
+            knobs=QHBoxLayout();knobs.setSpacing(0)
+            for title,knob in (('Level',level),('Tune',tune),('Fine',fine)):
+                knob.setMinimumWidth(80);knob.number.setFixedWidth(82)
+                knob.number.setAccessibleName(f'Oscillator {i+1} {title}');knob.dial.setAccessibleName(f'Oscillator {i+1} {title} knob');knobs.addWidget(knob)
+            column.addLayout(knobs);osc_row.addWidget(box);self.oscillators.append((check,wave,level,tune,fine))
+        oscillators.addLayout(osc_row);oscillators.addStretch()
+        self.attack=SoundKnob('Attack',12,150,1,' ms',log=True);self.release=SoundKnob('Release',60,600,10,' ms',log=True)
+        self.arp_rate=SoundKnob('Pace',50,200,5,' %');self.knob_row(motion,'Short phrases',(self.attack,self.release,self.arp_rate))
+        row=QHBoxLayout();row.addWidget(QLabel('Scale'));self.scale=QComboBox();self.scale.setAccessibleName('Arpeggio scale')
         for title,key in (('Minor pentatonic','pentatonic'),('Natural minor','minor'),('Dorian','dorian')): self.scale.addItem(title,key)
-        self.acid_rows=[]
-        for title,widget in (('Filter closed',self.cutoff),('Filter open',self.sweep),('Resonance',self.resonance),('Arpeggio pace',self.arp_rate),('Arpeggio scale',self.scale)):
-            form.addRow(title,widget);self.acid_rows.append((form.labelForField(widget),widget))
-        layout.addLayout(form)
-        self.connection_layout=QVBoxLayout();layout.addLayout(self.connection_layout)
-        self.connections={};self.meters={}
-        self.voice.currentIndexChanged.connect(self.change_voice)
-        self.note=QLabel('Generated sound replaces other audio while selected. Monitor controls below do not change the export.')
-        self.note.setWordWrap(True);layout.addWidget(self.note)
-        row=QHBoxLayout();self.mute=QCheckBox('Mute monitor');row.addWidget(self.mute)
-        row.addWidget(QLabel('Listen level'))
+        row.addWidget(self.scale,1);motion.addLayout(row);self.connection_layout=QVBoxLayout();motion.addLayout(self.connection_layout)
+        motion.addStretch();self.connections={};self.meters={};self.voice.currentIndexChanged.connect(self.change_voice)
+        self.note=QLabel('Generated sound replaces other audio. Listen level and Mute affect monitoring only.');self.note.setWordWrap(True);layout.addWidget(self.note)
+        row=QHBoxLayout();self.listen=QPushButton('Listen');self.listen.setCheckable(True);self.listen.toggled.connect(self.playRequested);row.addWidget(self.listen)
+        self.mute=QCheckBox('Mute');row.addWidget(self.mute);row.addWidget(QLabel('Listen level'))
         self.volume=QSlider(Qt.Orientation.Horizontal);self.volume.setRange(0,100);self.volume.setValue(70)
         self.volume.setAccessibleName('Generated sound monitor level');row.addWidget(self.volume);layout.addLayout(row)
-        self.volume.valueChanged.connect(lambda n:self.monitorVolumeChanged.emit(n/100))
-        self.mute.toggled.connect(self.monitorMutedChanged)
+        self.volume.valueChanged.connect(lambda n:self.monitorVolumeChanged.emit(n/100));self.mute.toggled.connect(self.monitorMutedChanged)
         self.status=QLabel();self.status.setWordWrap(True);self.status.setTextFormat(Qt.TextFormat.PlainText);layout.addWidget(self.status)
-        row=QHBoxLayout();self.retry=QPushButton('Prepare again');self.retry.clicked.connect(self.retryRequested)
-        row.addWidget(self.retry);row.addStretch()
-        self.apply_button=QPushButton('Apply && prepare');self.apply_button.setProperty('primary',True)
-        self.apply_button.clicked.connect(self.apply);row.addWidget(self.apply_button)
+        row=QHBoxLayout();self.retry=QPushButton('Prepare again');self.retry.clicked.connect(self.retryRequested);row.addWidget(self.retry);row.addStretch()
+        self.apply_button=QPushButton('Apply && prepare');self.apply_button.setProperty('primary',True);self.apply_button.clicked.connect(self.apply);row.addWidget(self.apply_button)
         close=QPushButton('Close');close.clicked.connect(self.close);row.addWidget(close);layout.addLayout(row)
 
+    def page(self,title):
+        scroll=QScrollArea();scroll.setWidgetResizable(True);page=QWidget();layout=QVBoxLayout(page)
+        scroll.setWidget(page);self.tabs.addTab(scroll,title);return layout
+
     @staticmethod
-    def spin(name,low,high,step,suffix):
-        control=QDoubleSpinBox();control.setRange(low,high);control.setDecimals(2)
-        control.setSingleStep(step);control.setSuffix(suffix);control.setAccessibleName(name)
-        control.setMinimumWidth(100)
-        return control
+    def knob_row(layout,title,knobs):
+        box=QGroupBox(title);row=QHBoxLayout(box)
+        for knob in knobs: row.addWidget(knob)
+        layout.addWidget(box)
 
     def set_config(self,config):
         if self.loaded and self.current==config: return
-        self.loaded=True;self.current=copy.deepcopy(config)
-        self.load_values(config or acid_sound())
+        self.loaded=True;self.current=copy.deepcopy(config);self.load_values(config or instrument_sound())
 
     def change_voice(self):
-        value=acid_sound() if self.voice.currentData()==2 else default_sound()
-        value.update(enabled=self.enabled.isChecked(),output=self.output.currentData(),gain=self.gain.value()/100)
-        self.load_values(value)
+        value=FACTORIES[self.voice.currentData()]()
+        value.update(enabled=self.enabled.isChecked(),output=self.output.currentData(),gain=self.gain.value()/100);self.load_values(value)
 
     def load_values(self,value):
         with QSignalBlocker(self.voice): self.voice.setCurrentIndex(self.voice.findData(value['version']))
-        acid=value['version']==2
-        self.pitch.setRange(65 if acid else 35,440 if acid else 180)
-        for label,widget in self.acid_rows: label.setVisible(acid);widget.setVisible(acid)
-        self.enabled.setChecked(value['enabled'])
-        self.output.setCurrentIndex(self.output.findData(value['output']))
-        self.gain.setValue(value['gain']*100);self.pitch.setValue(value['pitch'])
-        self.smoothing.setValue(value['smoothing']*1000)
+        acid=value['version']>=2;layered=value['version']==3;self.pitch.setRange(65 if acid else 35,440 if acid else 180)
+        self.tabs.setTabEnabled(1,layered)
+        if not layered and self.tabs.currentIndex()==1: self.tabs.setCurrentIndex(0)
+        for control in (self.density,self.drive,self.width,self.opening,self.attack,self.release): control.setVisible(layered)
+        for control in (self.resonance,self.cutoff,self.sweep,self.arp_rate,self.scale): control.setVisible(acid)
+        self.enabled.setChecked(value['enabled']);self.output.setCurrentIndex(self.output.findData(value['output']))
+        self.gain.setValue(value['gain']*100);self.pitch.setValue(value['pitch']);self.smoothing.setValue(value['smoothing']*1000)
         if acid:
-            self.cutoff.setValue(value['cutoff']);self.sweep.setValue(value['sweep'])
-            self.resonance.setValue(value['resonance']*100);self.arp_rate.setValue(value['arp_rate']*100)
-            self.scale.setCurrentIndex(self.scale.findData(value['scale']))
+            self.cutoff.setValue(value['cutoff']);self.sweep.setValue(value['sweep']);self.resonance.setValue(value['resonance']*100)
+            self.arp_rate.setValue(value['arp_rate']*100);self.scale.setCurrentIndex(self.scale.findData(value['scale']))
+        if layered:
+            for key in ('opening','density','drive','width'): getattr(self,key).setValue(value[key]*100)
+            for key in ('unison','detune'): getattr(self,key).setValue(value[key])
+            self.attack.setValue(value['attack']*1000);self.release.setValue(value['release']*1000)
+            for osc,(check,wave,level,tune,fine) in zip(value['oscillators'],self.oscillators):
+                check.setChecked(osc['enabled']);wave.setCurrentIndex(wave.findData(osc['wave']));level.setValue(osc['level']*100)
+                tune.setValue(osc['transpose']);fine.setValue(osc['detune'])
         if set(self.connections)!=set(value['connections']):
-            while self.connection_layout.count():
-                item=self.connection_layout.takeAt(0)
-                if item.widget(): item.widget().deleteLater()
-                if item.layout():
-                    row=item.layout()
-                    while row.count(): row.takeAt(0).widget().deleteLater()
-                    row.deleteLater()
+            while self.connection_layout.count(): self.connection_layout.takeAt(0).widget().deleteLater()
             self.connections={};self.meters={}
             for key,title,_ in sound_connections(value):
-                row=QHBoxLayout();check=QCheckBox(title);row.addWidget(check,1)
-                control=self.spin(title+' amount',0,200,5,' %');row.addWidget(control)
-                self.connection_layout.addLayout(row);self.connections[key]=(check,control)
-                meter=QProgressBar();meter.setRange(0,100);meter.setTextVisible(False)
-                meter.setValue(0);meter.setMaximumHeight(5);meter.setAccessibleName(title+' activity')
-                self.connection_layout.addWidget(meter);self.meters[key]=meter
+                box=QWidget();row=QHBoxLayout(box);row.setContentsMargins(0,0,0,0)
+                check=QCheckBox(title);row.addWidget(check,1);meter=QProgressBar();meter.setRange(0,100)
+                meter.setTextVisible(False);meter.setValue(0);meter.setMaximumHeight(5);meter.setAccessibleName(title+' activity');row.addWidget(meter,1)
+                control=QDoubleSpinBox();control.setRange(0,200);control.setDecimals(2);control.setSingleStep(5)
+                control.setSuffix(' %');control.setAccessibleName(title+' amount');control.setFixedWidth(115);row.addWidget(control)
+                self.connection_layout.addWidget(box);self.connections[key]=(check,control);self.meters[key]=meter
+        titles={key:title for key,title,_ in sound_connections(value)}
         for key,(check,control) in self.connections.items():
-            check.setChecked(value['connections'][key]['enabled'])
-            control.setValue(value['connections'][key]['amount']*100)
+            check.setText(titles[key]);check.setChecked(value['connections'][key]['enabled']);control.setValue(value['connections'][key]['amount']*100)
 
     def apply(self):
-        config=acid_sound() if self.voice.currentData()==2 else default_sound()
-        config.update(enabled=self.enabled.isChecked(),output=self.output.currentData(),gain=self.gain.value()/100,
-                      pitch=self.pitch.value(),smoothing=self.smoothing.value()/1000)
-        config['connections']={key:dict(enabled=check.isChecked(),amount=control.value()/100)
-                               for key,(check,control) in self.connections.items()}
-        if config['version']==2:
-            config.update(cutoff=self.cutoff.value(),sweep=self.sweep.value(),resonance=self.resonance.value()/100,
-                          arp_rate=self.arp_rate.value()/100,scale=self.scale.currentData())
+        config=FACTORIES[self.voice.currentData()]()
+        config.update(enabled=self.enabled.isChecked(),output=self.output.currentData(),gain=self.gain.value()/100,pitch=self.pitch.value(),smoothing=self.smoothing.value()/1000)
+        config['connections']={key:dict(enabled=check.isChecked(),amount=control.value()/100) for key,(check,control) in self.connections.items()}
+        if config['version']>=2:
+            config.update(cutoff=self.cutoff.value(),sweep=self.sweep.value(),resonance=self.resonance.value()/100,arp_rate=self.arp_rate.value()/100,scale=self.scale.currentData())
+        if config['version']==3:
+            for key in ('opening','density','drive','width'): config[key]=getattr(self,key).value()/100
+            config.update(unison=int(self.unison.value()),detune=self.detune.value(),attack=self.attack.value()/1000,release=self.release.value()/1000)
+            config['oscillators']=[dict(id=f'osc{i+1}',enabled=check.isChecked(),wave=wave.currentData(),level=level.value()/100,transpose=int(tune.value()),detune=fine.value()) for i,(check,wave,level,tune,fine) in enumerate(self.oscillators)]
         try: config=normalize_sound(config)
-        except ValueError as exc:
-            QMessageBox.warning(self,'Sound settings',str(exc));return
+        except ValueError as exc: QMessageBox.warning(self,'Sound settings',str(exc));return
         self.configEdited.emit(config)
 
     def set_monitor(self,level,muted):
         with QSignalBlocker(self.volume): self.volume.setValue(round(level*100))
         with QSignalBlocker(self.mute): self.mute.setChecked(muted)
 
+    def set_playing(self,playing):
+        with QSignalBlocker(self.listen): self.listen.setChecked(playing)
+        self.listen.setText('Pause' if playing else 'Listen')
+
     def set_activity(self,expansion=0.,motion=0.,opening=0.,arpeggio=0.):
-        for key,meter in self.meters.items():
-            value=dict(body=expansion,friction=motion,filter=motion,return_=opening,arpeggio=arpeggio).get('return_' if key=='return' else key,0.)
-            meter.setValue(round(max(0,min(1,value))*100))
+        values={'body':expansion,'friction':motion,'filter':motion,'return':opening,'arpeggio':arpeggio}
+        for key,meter in self.meters.items(): meter.setValue(round(max(0,min(1,values[key]))*100))

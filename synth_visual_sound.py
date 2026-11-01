@@ -42,7 +42,22 @@ def acid_sound():
 
 
 def sound_connections(config):
-    return ACID_CONNECTIONS if config['version'] == 2 else CONNECTIONS
+    if config['version']==3:
+        return (('body','Expansion → oscillator body',1.),*ACID_CONNECTIONS[1:])
+    return ACID_CONNECTIONS if config['version'] >= 2 else CONNECTIONS
+
+
+def instrument_sound():
+    """A layered instrument; earlier sound contracts remain selectable."""
+    out=acid_sound()
+    out.update(version=3,opening=.35,density=.65,drive=.32,unison=3,detune=8.,width=.6,
+               resonance=.62,smoothing=.14,attack=.022,release=.20)
+    out['oscillators']=[
+        dict(id='osc1',enabled=True,wave='triangle',level=1.,transpose=0,detune=0.),
+        dict(id='osc2',enabled=True,wave='saw',level=.32,transpose=0,detune=5.),
+        dict(id='osc3',enabled=True,wave='triangle',level=.22,transpose=12,detune=-4.),
+    ]
+    return out
 
 
 def default_sound():
@@ -52,9 +67,9 @@ def default_sound():
 
 
 def normalize_sound(raw):
-    if not isinstance(raw, dict) or type(raw.get('version')) is not int or raw['version'] not in (1, 2):
+    if not isinstance(raw, dict) or type(raw.get('version')) is not int or raw['version'] not in (1, 2, 3):
         raise ValueError('Unsupported generated sound version')
-    out = acid_sound() if raw['version'] == 2 else default_sound()
+    out = {1:default_sound,2:acid_sound,3:instrument_sound}[raw['version']]()
     if raw.get('source', out['source']) != 'pleated_field':
         raise ValueError('Generated sound currently supports Pleated field')
     for key in ('enabled',):
@@ -68,14 +83,30 @@ def normalize_sound(raw):
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not low <= value <= high:
             raise ValueError(f'Generated sound {key} must be between {low} and {high}')
         return float(value)
-    for key, low, high in (('gain',0.,1.), ('pitch',65.,440.) if out['version']==2 else ('pitch',35.,180.), ('smoothing',.01,.5)):
+    for key, low, high in (('gain',0.,1.), ('pitch',65.,440.) if out['version']>=2 else ('pitch',35.,180.), ('smoothing',.01,.5)):
         out[key] = number(raw.get(key, out[key]), key, low, high)
-    if out['version'] == 2:
+    if out['version'] >= 2:
         for key, low, high in (('cutoff',80.,1800.), ('sweep',200.,12000.), ('resonance',0.,1.), ('arp_rate',.5,2.)):
             out[key] = number(raw.get(key,out[key]),key,low,high)
         if out['sweep'] < out['cutoff']: raise ValueError('Filter open frequency must be at least its closed frequency')
         out['scale'] = raw.get('scale',out['scale'])
         if out['scale'] not in ('pentatonic','minor','dorian'): raise ValueError('Choose a supported arpeggio scale')
+    if out['version']==3:
+        for key,low,high in (('opening',0.,1.),('density',0.,1.),('drive',0.,1.),('detune',0.,35.),('width',0.,1.),('attack',.012,.15),('release',.06,.6)):
+            out[key]=number(raw.get(key,out[key]),key,low,high)
+        out['unison']=raw.get('unison',out['unison'])
+        if type(out['unison']) is not int or not 1<=out['unison']<=5: raise ValueError('Unison must use 1–5 voices')
+        oscillators=raw.get('oscillators',out['oscillators'])
+        if not isinstance(oscillators,list) or len(oscillators)!=3: raise ValueError('The instrument needs three oscillator slots')
+        validated=[]
+        for index,osc in enumerate(oscillators):
+            if not isinstance(osc,dict) or osc.get('id')!=f'osc{index+1}': raise ValueError('Invalid oscillator identity')
+            if type(osc.get('enabled')) is not bool: raise ValueError('Oscillator enabled must be a checkbox')
+            if osc.get('wave') not in ('sine','triangle','saw','square'): raise ValueError('Choose a supported oscillator waveform')
+            if type(osc.get('transpose')) is not int or not -24<=osc['transpose']<=24: raise ValueError('Oscillator tuning must be -24 to +24 semitones')
+            validated.append(dict(id=osc['id'],enabled=osc['enabled'],wave=osc['wave'],transpose=osc['transpose'],
+                                  level=number(osc.get('level'),'oscillator level',0.,1.),detune=number(osc.get('detune'),'oscillator detune',-50.,50.)))
+        out['oscillators']=validated
     definitions = sound_connections(out)
     connections = raw.get('connections', out['connections'])
     if not isinstance(connections, dict) or set(connections) != {item[0] for item in definitions}:
@@ -177,6 +208,10 @@ def pcm_blocks(sequence, cancel=None, *, signals=None):
     cancel=cancel or Cancellation();cancel.check()
     config=normalize_sound(sequence.get('generated_sound',default_sound()))
     signals=visual_signals(sequence,cancel) if signals is None else signals
+    if config['version'] == 3:
+        from synth_visual_sound_instrument import instrument_blocks
+        yield from instrument_blocks(sequence,config,signals,cancel)
+        return
     if config['version'] == 2:
         from synth_visual_sound_acid import acid_blocks
         yield from acid_blocks(sequence,config,signals,cancel)

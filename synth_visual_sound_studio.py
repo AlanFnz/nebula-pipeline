@@ -30,7 +30,10 @@ class VisualSoundJob(QRunnable):
             self.cancel.check();self.folder=tempfile.TemporaryDirectory(prefix='nebula-visual-sound-')
             signals=visual_signals(self.sequence,self.cancel)
             config=self.sequence['generated_sound']
-            if config['version']==2:
+            if config['version']==3:
+                from synth_visual_sound_instrument import instrument_controls
+                _,signals['arpeggio']=instrument_controls(signals,config)
+            elif config['version']==2:
                 from synth_visual_sound_acid import arpeggio_activity
                 signals['arpeggio']=arpeggio_activity(signals,config)
             path=write_sound(self.sequence,Path(self.folder.name)/'Generated sound.wav',self.cancel,signals=signals)
@@ -66,8 +69,11 @@ class VisualSoundStudio:
             dialog.monitorVolumeChanged.connect(self.set_visual_sound_volume)
             dialog.monitorMutedChanged.connect(self.set_visual_sound_muted)
             dialog.retryRequested.connect(self.prepare_visual_sound)
+            dialog.playRequested.connect(self.play.setChecked)
+            self.play.toggled.connect(dialog.set_playing)
         self.visual_sound_dialog.set_config(self.composition.get('generated_sound'))
         self.visual_sound_dialog.set_monitor(self.visual_sound_volume,self.visual_sound_muted)
+        self.visual_sound_dialog.set_playing(self.play.isChecked())
         self.visual_sound_dialog.status.setText(self.visual_sound_status or 'Choose Apply & prepare to hear this instrument.')
         self.visual_sound_dialog.show();self.visual_sound_dialog.raise_();self.visual_sound_dialog.activateWindow()
 
@@ -171,7 +177,7 @@ class VisualSoundStudio:
             else:
                 config=(self.preview_sequence() or {}).get('generated_sound',{})
                 values=[]
-                filter_key='filter' if config.get('version')==2 else 'friction'
+                filter_key='filter' if config.get('version',1)>=2 else 'friction'
                 for key,name in (('body','expansion'),(filter_key,'motion'),('return','opening'),('arpeggio','arpeggio')):
                     enabled=config.get('connections',{}).get(key,{}).get('enabled',False)
                     value=np.interp(seconds,signals['time'],signals[name])*np.interp(seconds,signals['time'],signals['presence']) if enabled and name in signals else 0.
