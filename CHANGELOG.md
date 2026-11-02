@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.51.0 — 2026-11-02
+
+- Add Montage, an opt-in native workspace for arranging footage and embedded,
+  editable studies. Existing composition documents and rendering stay unchanged.
+- Add a media library, source preview with frame-accurate In/Out, drag insertion
+  and reordering, splitting, duplicate/remove, source slip, speed and duration.
+- Add music markers, edge snapping and an absolute soundtrack with waveform.
+  Replacement retains the cut duration; treatment copy/paste supports selection.
+- Open a study or clip in the existing inspector and apply edits back to its
+  montage. Snapshots preserve source-local animation clocks when clips move.
+- Use the same nested renderer for montage monitor and atomic MP4 export, with
+  a full-resolution pass and soundtrack mux. Save/reopen and undo preserve edits.
+
 ## 0.50.0 — 2026-10-30
 
 - Add optional Light through ink to Dye transfer: smooth colored exposure

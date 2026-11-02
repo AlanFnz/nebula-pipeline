@@ -326,6 +326,7 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
             item.setToolTip(f'{label} ({item.shortcut().toString(QKeySequence.SequenceFormat.NativeText)})')
             return item
         self.new_piece_action = action(file_menu, 'New piece…', QKeySequence.StandardKey.New, self.new_piece_dialog)
+        action(file_menu, 'Open in Montage…', QKeySequence(), self.open_montage)
         self.save_action = action(file_menu, 'Save', QKeySequence.StandardKey.Save, self.save_sequence_dialog)
         self.save_as_action = action(file_menu, 'Save As…', QKeySequence.StandardKey.SaveAs, self.save_as_dialog)
         self.open_action = action(file_menu, 'Open…', QKeySequence.StandardKey.Open, self.load_sequence_dialog)
@@ -502,6 +503,8 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
         self.new_piece_button = QPushButton('New piece…'); self.new_piece_button.clicked.connect(self.new_piece_dialog)
         self.new_piece_button.setToolTip('Start with Text, Shape, Model, Video, or remix an existing study.')
         self.import_video_button = QPushButton('Import video…'); self.import_video_button.clicked.connect(self.import_video_dialog)
+        montage_button = QPushButton('Montage…'); montage_button.clicked.connect(self.open_montage)
+        montage_button.setToolTip('Arrange this study with footage, source ranges and a soundtrack. Keeps the study editable.')
         self.cancel_import = QPushButton('Cancel import'); self.cancel_import.clicked.connect(self.cancel_video_import); self.cancel_import.hide()
         open_button = QPushButton('Open…'); open_button.clicked.connect(self.load_sequence_dialog)
         for button in (self.new_piece_button, self.import_video_button, open_button):
@@ -515,7 +518,7 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
         self.save_study_button = save_menu.addAction('Save as study…', self.save_study_dialog)
         self.save_study_button.setToolTip('Keep an independent copy in Studies, including a local copy of imported video.')
         self.save_button.setMenu(save_menu)
-        header.addWidget(inline(self.new_piece_button, self.import_video_button, self.cancel_import, open_button, self.save_button))
+        header.addWidget(inline(self.new_piece_button, self.import_video_button, self.cancel_import, montage_button, open_button, self.save_button))
         commands = QWidget(); command_row = QHBoxLayout(commands); command_row.setContentsMargins(0, 0, 0, 0); command_row.setSpacing(5)
         for text, callback in (("New variation", self.generate_variation), ("Undo", self.undo_composition), ("Redo", self.redo_composition)):
             button = QPushButton(text); button.clicked.connect(callback)
@@ -1695,6 +1698,10 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
         if not path: return False
         try:
             with open(path) as document: raw = json.load(document)
+            if raw.get('format') == 'nebula-montage':
+                from synth_montage import load_montage
+                self.open_montage(document=load_montage(path), path=path)
+                return True
             if raw.get('format') == FORMAT:
                 return self.set_composition(load_composition(path), path=path)
             if 'states' in raw:
@@ -1708,6 +1715,25 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
             return True
         except Exception as exc:
             QMessageBox.critical(self, "Document error", str(exc)); return False
+
+    def open_montage(self, checked=False, *, document=None, path=None):
+        from synth_montage import new_montage, add_asset, insert_clip
+        from synth_montage_ui import MontageWindow
+        self.finish_focused_edit(); self.play.setChecked(False)
+        if document is None:
+            document = new_montage(self.current_canvas(), self.composition['fps'] if self.composition else 30)
+            if self.composition:
+                document, key = add_asset(document, self.composition['name'], study=self.composition)
+                document, _ = insert_clip(document, key)
+                if self.composition.get('soundtrack'):
+                    document['soundtrack'] = copy.deepcopy(self.composition['soundtrack'])
+                    if document['soundtrack']['export_audio'] == 'footage': document['soundtrack']['export_audio'] = 'silent'
+        window = MontageWindow(document, path=path)
+        if not hasattr(self, 'montage_windows'): self.montage_windows = []
+        self.montage_windows.append(window)
+        window.destroyed.connect(lambda: self.montage_windows.remove(window) if window in self.montage_windows else None)
+        window.show(); window.raise_()
+        return window
 
     def control_changed(self):
         for (index, key), control in self.controls.items():
