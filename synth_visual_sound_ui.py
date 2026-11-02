@@ -1,8 +1,8 @@
 """Rotary instrument controls and separate monitor/output settings."""
 import copy
-from PySide6.QtCore import Qt, Signal, QSignalBlocker
+from PySide6.QtCore import Qt, Signal, QSignalBlocker, QTimer
 from PySide6.QtWidgets import (QDialog,QWidget,QVBoxLayout,QHBoxLayout,QLabel,QCheckBox,
-    QComboBox,QPushButton,QSlider,QProgressBar,QMessageBox,QTabWidget,QGroupBox,QScrollArea,QDoubleSpinBox)
+    QComboBox,QPushButton,QSlider,QProgressBar,QMessageBox,QTabWidget,QGroupBox,QScrollArea,QDoubleSpinBox,QSplitter)
 from synth_visual_sound import acid_sound,instrument_sound,default_sound,normalize_sound,sound_connections
 from synth_sound_knob import SoundKnob
 
@@ -15,19 +15,27 @@ class VisualSoundDialog(QDialog):
     monitorMutedChanged=Signal(bool)
     retryRequested=Signal()
     playRequested=Signal(bool)
+    draftChanged=Signal(object)
+    liveChanged=Signal(bool)
+    previewRequested=Signal()
 
     def __init__(self,parent=None):
-        super().__init__(parent);self.setWindowTitle('Generate sound');self.resize(960,740)
-        self.current=None;self.loaded=False;layout=QVBoxLayout(self)
+        super().__init__(parent);self.setWindowTitle('Generate sound');self.resize(1280,780)
+        self.current=None;self.loaded=False;self.loading=False;layout=QVBoxLayout(self)
         label=QLabel('PLEATED / SYNTH');label.setProperty('sectionTitle',True);layout.addWidget(label)
-        hint=QLabel('Shape the sound with the knobs. Apply & prepare, then listen with the image.')
+        hint=QLabel('Live audition: play the video and turn the knobs to hear changes immediately. Apply saves your sound; closing without Apply restores the saved settings.')
         hint.setWordWrap(True);layout.addWidget(hint);row=QHBoxLayout()
         self.enabled=QCheckBox('Enable sound');row.addWidget(self.enabled)
         self.voice=QComboBox();self.voice.setAccessibleName('Instrument')
         for title,key in (('Layered resonant synth',3),('Acid triangle (original)',2),('Electric / tape (original)',1)): self.voice.addItem(title,key)
         row.addWidget(self.voice,1);self.output=QComboBox();self.output.setAccessibleName('Audio output')
         for title,key in (('Generated sound','generated'),('Existing soundtrack / footage','existing'),('Silent','silent')): self.output.addItem(title,key)
-        row.addWidget(self.output);layout.addLayout(row);self.tabs=QTabWidget();layout.addWidget(self.tabs,1)
+        row.addWidget(self.output);layout.addLayout(row)
+        from synth_viewer import SynthViewer
+        split=QSplitter(Qt.Orientation.Horizontal);left=QWidget();column=QVBoxLayout(left);column.setContentsMargins(0,0,8,0)
+        self.video_preview=SynthViewer();self.video_preview.setAccessibleName('Live sound video preview');column.addWidget(self.video_preview,1)
+        self.video_time=QLabel('00:00.00');column.addWidget(self.video_time)
+        split.addWidget(left);self.tabs=QTabWidget();split.addWidget(self.tabs);split.setSizes([400,850]);layout.addWidget(split,1)
         sound=self.page('Sound');oscillators=self.page('Oscillators');motion=self.page('Motion && melody')
         self.gain=SoundKnob('Level',0,100,1,' %');self.pitch=SoundKnob('Root',35,440,1,' Hz',log=True)
         self.density=SoundKnob('Density',0,100,1,' %');self.drive=SoundKnob('Drive',0,100,1,' %');self.width=SoundKnob('Stereo',0,100,1,' %')
@@ -63,6 +71,10 @@ class VisualSoundDialog(QDialog):
         for title,key in (('Minor pentatonic','pentatonic'),('Natural minor','minor'),('Dorian','dorian')): self.scale.addItem(title,key)
         row.addWidget(self.scale,1);motion.addLayout(row);self.connection_layout=QVBoxLayout();motion.addLayout(self.connection_layout)
         motion.addStretch();self.connections={};self.meters={};self.voice.currentIndexChanged.connect(self.change_voice)
+        self.live=QCheckBox('Live audition');self.live.setChecked(True);self.live.setToolTip('Real-time listening for the layered resonant synth. Original instruments use Apply & prepare.')
+        self.live.toggled.connect(self.liveChanged);layout.addWidget(self.live)
+        video=QHBoxLayout();self.preview_button=QPushButton('Prepare all video frames');self.preview_button.clicked.connect(self.previewRequested)
+        video.addWidget(self.preview_button);self.preview_status=QLabel();video.addWidget(self.preview_status,1);layout.addLayout(video)
         self.note=QLabel('Generated sound replaces other audio. Listen level and Mute affect monitoring only.');self.note.setWordWrap(True);layout.addWidget(self.note)
         row=QHBoxLayout();self.listen=QPushButton('Listen');self.listen.setCheckable(True);self.listen.toggled.connect(self.playRequested);row.addWidget(self.listen)
         self.mute=QCheckBox('Mute');row.addWidget(self.mute);row.addWidget(QLabel('Listen level'))
@@ -73,6 +85,32 @@ class VisualSoundDialog(QDialog):
         row=QHBoxLayout();self.retry=QPushButton('Prepare again');self.retry.clicked.connect(self.retryRequested);row.addWidget(self.retry);row.addStretch()
         self.apply_button=QPushButton('Apply && prepare');self.apply_button.setProperty('primary',True);self.apply_button.clicked.connect(self.apply);row.addWidget(self.apply_button)
         close=QPushButton('Close');close.clicked.connect(self.close);row.addWidget(close);layout.addLayout(row)
+        self.draft_timer=QTimer(self);self.draft_timer.setSingleShot(True);self.draft_timer.setInterval(24)
+        self.draft_timer.timeout.connect(self.emit_draft)
+        for knob in self.findChildren(SoundKnob): knob.valueChanged.connect(self.queue_draft)
+        for widget in (self.enabled,self.output,self.scale):
+            (widget.toggled if isinstance(widget,QCheckBox) else widget.currentIndexChanged).connect(self.queue_draft)
+        for check,wave,_,_,_ in self.oscillators:
+            check.toggled.connect(self.queue_draft);wave.currentIndexChanged.connect(self.queue_draft)
+
+    def queue_draft(self,*_):
+        if not self.loading and self.loaded and not self.draft_timer.isActive(): self.draft_timer.start()
+
+    def emit_draft(self):
+        if not self.loaded or self.loading: return
+        try: config=self.read_config()
+        except ValueError as exc:
+            self.status.setText(str(exc));return
+        self.draftChanged.emit(config)
+
+    def set_video_frame(self,packet,seconds):
+        if packet is None: return
+        self.video_preview.set_canvas_size(packet[0]);self.video_preview.set_packet(packet)
+        self.video_time.setText(f'{int(seconds)//60:02d}:{seconds%60:05.2f}')
+
+    def set_preview_status(self,message,preparing=False):
+        self.preview_status.setText(message)
+        self.preview_button.setText('Cancel full preview' if preparing else 'Prepare all video frames')
 
     def page(self,title):
         scroll=QScrollArea();scroll.setWidgetResizable(True);page=QWidget();layout=QVBoxLayout(page)
@@ -91,13 +129,16 @@ class VisualSoundDialog(QDialog):
 
     def change_voice(self):
         value=FACTORIES[self.voice.currentData()]()
-        value.update(enabled=self.enabled.isChecked(),output=self.output.currentData(),gain=self.gain.value()/100);self.load_values(value)
+        value.update(enabled=self.enabled.isChecked(),output=self.output.currentData(),gain=self.gain.value()/100);self.load_values(value);self.queue_draft()
 
     def load_values(self,value):
+        self.loading=True
         with QSignalBlocker(self.voice): self.voice.setCurrentIndex(self.voice.findData(value['version']))
         acid=value['version']>=2;layered=value['version']==3;self.pitch.setRange(65 if acid else 35,440 if acid else 180)
         self.visual_dynamics.setVisible(layered)
         self.tabs.setTabEnabled(1,layered)
+        self.live.setEnabled(layered)
+        self.apply_button.setText('Apply' if layered and self.live.isChecked() else 'Apply && prepare')
         if not layered and self.tabs.currentIndex()==1: self.tabs.setCurrentIndex(0)
         for control in (self.density,self.drive,self.width,self.opening,self.attack,self.release,self.continuity): control.setVisible(layered)
         for control in (self.resonance,self.cutoff,self.sweep,self.arp_rate,self.scale): control.setVisible(acid)
@@ -124,11 +165,13 @@ class VisualSoundDialog(QDialog):
                 control=QDoubleSpinBox();control.setRange(0,200);control.setDecimals(2);control.setSingleStep(5)
                 control.setSuffix(' %');control.setAccessibleName(title+' amount');control.setFixedWidth(115);row.addWidget(control)
                 self.connection_layout.addWidget(box);self.connections[key]=(check,control);self.meters[key]=meter
+                check.toggled.connect(self.queue_draft);control.valueChanged.connect(self.queue_draft)
         titles={key:title for key,title,_ in sound_connections(value)}
         for key,(check,control) in self.connections.items():
             check.setText(titles[key]);check.setChecked(value['connections'][key]['enabled']);control.setValue(value['connections'][key]['amount']*100)
+        self.loading=False
 
-    def apply(self):
+    def read_config(self):
         config=FACTORIES[self.voice.currentData()]()
         config.update(enabled=self.enabled.isChecked(),output=self.output.currentData(),gain=self.gain.value()/100,pitch=self.pitch.value(),smoothing=self.smoothing.value()/1000)
         config['connections']={key:dict(enabled=check.isChecked(),amount=control.value()/100) for key,(check,control) in self.connections.items()}
@@ -138,8 +181,12 @@ class VisualSoundDialog(QDialog):
             for key in ('opening','density','drive','width'): config[key]=getattr(self,key).value()/100
             config.update(continuity=self.continuity.value()/100,unison=int(self.unison.value()),detune=self.detune.value(),attack=self.attack.value()/1000,release=self.release.value()/1000)
             config['oscillators']=[dict(id=f'osc{i+1}',enabled=check.isChecked(),wave=wave.currentData(),level=level.value()/100,transpose=int(tune.value()),detune=fine.value()) for i,(check,wave,level,tune,fine) in enumerate(self.oscillators)]
-        try: config=normalize_sound(config)
+        return normalize_sound(config)
+
+    def apply(self):
+        try: config=self.read_config()
         except ValueError as exc: QMessageBox.warning(self,'Sound settings',str(exc));return
+        self.draft_timer.stop()
         self.configEdited.emit(config)
 
     def set_monitor(self,level,muted):

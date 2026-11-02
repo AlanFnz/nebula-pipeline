@@ -20,7 +20,7 @@ class PreviewFrames:
         return packet
 
     def _trim(self, protected=()):
-        protected = set(protected)
+        protected = protected if isinstance(protected, range) else set(protected)
         while self.items and self.bytes + self.reserved > self.budget:
             frame = next((i for i in self.items if i not in protected), next(iter(self.items)))
             self.bytes -= len(self.items.pop(frame)[1])
@@ -43,12 +43,18 @@ class PreviewFrames:
         for frame in list(self.items):
             if not predicate(frame): self.bytes -= len(self.items.pop(frame)[1])
 
+    def available(self):
+        return self.items.keys()
+
+    def contains(self, frame):
+        return frame in self.items
+
     def complete(self, count):
-        return len(self.items) == count and all(i in self.items for i in range(count))
+        return all(self.contains(i) for i in range(count))
 
     def ranges(self):
         ranges = []
-        for frame in sorted(self.items):
+        for frame in sorted(self.available()):
             if ranges and frame == ranges[-1][1]: ranges[-1] = (ranges[-1][0], frame + 1)
             else: ranges.append((frame, frame + 1))
         return ranges
@@ -117,7 +123,8 @@ class PreviewScheduler:
         return tuple(scope.frame_at(rank) for rank in ranks), limited
 
     def batch(self, target, cache):
-        return tuple(frame for frame in target if frame not in cache.items)[:self.batch_size]
+        from itertools import islice
+        return tuple(islice((frame for frame in target if not cache.contains(frame)), self.batch_size))
 
 
 # Cache validity is independent of the generation used to reject worker results.

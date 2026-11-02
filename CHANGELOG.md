@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.60.0 — 2026-11-05
+
+- Add Prepare all frames for the complete timeline at the selected preview
+  resolution. Lossless temporary RGB storage survives RAM eviction; cancel and
+  resume keep completed frames, and resolution/document changes discard them.
+- Add live audition to the layered resonant synth. Listen plays the video while
+  knobs change the audio through a bounded streaming monitor, without regenerating
+  a whole track. Forty-millisecond voice transitions soften parameter changes.
+  Apply saves drafts through Undo; closing restores unapplied settings. Original
+  instruments retain their prepared-waveform workflow.
+- Keep the video clock, prepared frames and ongoing full preparation intact for
+  sound-only edits. Expose complete-video preparation inside the sound panel.
+- Share the layered DSP between live monitoring and export. Fixed-setting export
+  samples remain identical; live gestures are auditioned, not recorded as automation.
+
 ## 0.59.0 — 2026-11-05
 
 - Add an optional Continuity control to the layered visual-sound instrument. It

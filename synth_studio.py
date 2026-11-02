@@ -289,6 +289,7 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
         self.preparation_target = ()
         self.preparation_explicit = False
         self.preparation_limited = False
+        self.preparation_full = False
         self.warm_debounce = QTimer(self); self.warm_debounce.setSingleShot(True)
         self.warm_debounce.timeout.connect(self._automatic_preparation)
         self.preview_debounce = QTimer(self); self.preview_debounce.setSingleShot(True)
@@ -751,7 +752,11 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
         self.auto_prepare.toggled.connect(self.auto_prepare_changed)
         self.prepare_preview = QPushButton('Prepare'); self.prepare_preview.setAccessibleName('Prepare preview'); self.prepare_preview.setToolTip('Prepare playback of the active scope. Long clips prepare a bounded window. Does not start playback.')
         self.prepare_preview.clicked.connect(self.prepare_playback)
-        preparation_row.addWidget(inline(self.auto_prepare, self.prepare_preview))
+        self.prepare_full_preview = QPushButton('Prepare all frames')
+        self.prepare_full_preview.setAccessibleName('Prepare all preview frames')
+        self.prepare_full_preview.setToolTip('Prepare the entire timeline at the selected resolution. Uses temporary lossless disk storage, keeping memory bounded. Does not start playback.')
+        self.prepare_full_preview.clicked.connect(self.prepare_full_playback)
+        preparation_row.addWidget(inline(self.auto_prepare, self.prepare_preview, self.prepare_full_preview))
         if self.workspace_settings:
             self.auto_prepare.setChecked(self.workspace_settings.value('preview/auto_prepare', True, type=bool))
             self.preview_scope.setCurrentIndex(int(self.workspace_settings.value('preview/scope', 0)))
@@ -1804,9 +1809,16 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
         return True
 
     def invalidate(self, *, force_clear=False, comparison_switch=False):
-        self.cancel_foreground_render()
         self.update_document_title()
         current = self.capture_preview_validity()
+        sound_config = copy.deepcopy((self.preview_sequence() or {}).get('generated_sound'))
+        sound_changed = sound_config != getattr(self, 'preview_sound_config', None)
+        self.preview_sound_config = sound_config
+        if sound_changed and not force_clear and not comparison_switch and current == self.preview_validity:
+            # Sound-only edits do not interrupt a playing or preparing video.
+            self.refresh_soundtrack()
+            return
+        self.cancel_foreground_render()
         retain = None if force_clear else retained_frame_predicate(self.preview_validity, current)
         self.settings_generation += 1  # Worker rejection changes even when pixels can be retained.
         if not comparison_switch:
@@ -1845,8 +1857,14 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
     def refresh_cache_status(self):
         if not hasattr(self, 'cache_status') or not hasattr(self, 'preview_scope'): return
         scope = self.active_preview_scope()
-        count = sum(scope.contains(frame) for frame in self.preview_frames.items)
+        count = sum(scope.contains(frame) for frame in self.preview_frames.available())
         self.cache_status.setText(f'Preview ready: {count}/{scope.count}')
+        dialog = getattr(self, 'visual_sound_dialog', None)
+        if dialog:
+            total = self.timeline.maximum() + 1
+            ready = sum(0 <= frame < total for frame in self.preview_frames.available())
+            w, h = self.preview_size()
+            dialog.set_preview_status(f'Video: {ready}/{total} frames · {w}×{h}', self.preparation_full and self.preparation_explicit)
         self.cache_status.setToolTip(f'{count} of {scope.count} frames in the playback scope are prepared at this preview quality. The thin green line below the scrubber shows their positions. Gaps may skip during playback; export renders every frame.')
 
     def preview_scope_changed(self, *_args):
@@ -1873,6 +1891,8 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
         if self.preparation_explicit:
             self._start_warm_batch(); return
         if not self.auto_prepare.isChecked(): return
+        if self.preview_frames.complete(self.timeline.maximum() + 1): return
+        self.preparation_full = False
         self.preparation_target, self.preparation_limited = self.preview_scheduler.plan(
             self.active_preview_scope(), self.timeline.value(), self.preview_fps(), self.preview_size(), self.preparation_budget())
         self._start_warm_batch()
@@ -1884,8 +1904,38 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
     def cancel_preparation(self):
         self._obsolete_preparation()
         self.warm_debounce.stop()
-        self.preparation_target = (); self.preparation_explicit = False
+        self.preparation_target = (); self.preparation_explicit = False; self.preparation_full = False
         self.prepare_preview.setText('Prepare')
+        self.prepare_full_preview.setText('Prepare all frames')
+        self.refresh_cache_status()
+
+    def prepare_full_playback(self, checked=False):
+        if self.closing or self.export_job or self.audition_pending(): return
+        if self.preparation_full and self.preparation_explicit:
+            self.cancel_preparation()
+            self.preview_status.setText('Full preparation cancelled · prepared frames kept. Click Prepare all frames to resume.')
+            return
+        self.cancel_preparation()
+        if not self.ensure_preview_context(): return
+        try:
+            self.preview_frames.enable_full(self.preview_size(), self.timeline.maximum() + 1)
+        except OSError as exc:
+            self.preview_status.setText(str(exc)); self.status.setText(str(exc)); return
+        self.preparation_explicit = self.preparation_full = True
+        self.preparation_limited = False
+        self.preparation_target = range(self.timeline.maximum() + 1)
+        self.prepare_full_preview.setText('Cancel full preview')
+        self.refresh_cache_status()
+        self._start_warm_batch()
+
+    def cache_preview_packet(self, frame, packet):
+        try: self.preview_frames.put(frame, packet)
+        except OSError as exc:
+            self.cancel_preparation()
+            self.preview_frames.disable_full()
+            self.preview_frames.put(frame, packet)
+            message = f'Full preview storage stopped: {exc}'
+            self.status.setText(message); self.preview_status.setText(message)
 
     def prepare_playback(self, checked=False):
         if self.preparation_explicit:
@@ -1899,13 +1949,16 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
     def _preparation_ready(self):
         self.prepare_preview.setText('Prepare')
         self.preparation_explicit = False
+        self.prepare_full_preview.setText('Prepare all frames')
+        self.refresh_cache_status()
         scope = self.active_preview_scope()
         if self.preparation_limited:
             megabytes = self.preparation_budget() / 1024**2
             self.preview_status.setText('Preview partially prepared · lower quality caches more frames')
             self.preview_status.setToolTip(f'Limited by rendering · {len(self.preparation_target)} / {scope.count} frames in the bounded {megabytes:g} MB window. Choose 360 px for more cached frames; export is unaffected.')
         else:
-            self.preview_status.setText('Preview prepared · press Play')
+            self.preview_status.setToolTip('')
+            self.preview_status.setText('Full preview prepared · press Play' if self.preparation_full else 'Preview prepared · press Play')
 
     def _start_warm_batch(self):
         if self.closing or self.export_job: return
@@ -1926,7 +1979,7 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
         self.cached_ranges.set_ranges(self.preview_frames.ranges())
         self.prepare_job = self.warming_job = job; self.pending_jobs.append(job)
         self.prepare_preview.setText('Cancel preparation' if self.preparation_explicit else 'Prepare')
-        self.preview_status.setText(f'Preparing · {sum(i in self.preview_frames.items for i in self.preparation_target)} / {len(self.preparation_target)} frames')
+        self.preview_status.setText(f'Preparing · {sum(self.preview_frames.contains(i) for i in self.preparation_target)} / {len(self.preparation_target)} frames')
         job.signals.done.connect(lambda result, j=job: self.preparation_finished(j, result=result))
         job.signals.failed.connect(lambda error, j=job: self.preparation_finished(j, error))
         self.jobs.start(job)
@@ -1935,7 +1988,7 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
         generation, frame, packet = result
         if self.closing or job is not self.prepare_job or generation != self.settings_generation: return
         if not self.ensure_preview_context(): return
-        self.preview_frames.put(frame, packet)
+        self.cache_preview_packet(frame, packet)
         self.cached_ranges.set_ranges(self.preview_frames.ranges())
         if frame == self.timeline.value(): self.display_frame(frame/self.preview_fps(), packet, cached=True)
 
@@ -1955,7 +2008,7 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
         if self.closing: return
         if valid and error:
             if self.discovery_session: self.discovery_session.fail(error)
-            self.preparation_explicit = False; self.preparation_target = ()
+            self.cancel_preparation()
             self.prepare_preview.setText('Prepare'); self.preview_status.setText(f'Limited by rendering · {error}'); return
         if self.render_queued and not self.render_running and not self.preview_debounce.isActive(): QTimer.singleShot(0, self.request_frame)
         if self.preparation_target: QTimer.singleShot(0, self._start_warm_batch)
@@ -2048,7 +2101,7 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
         if self.closing: return
         self.last_displayed_request = request_serial
         self.last_render_seconds = elapsed
-        self.preview_frames.put(round(time_seconds*self.preview_fps()), (size, raw))
+        self.cache_preview_packet(round(time_seconds*self.preview_fps()), (size, raw))
         self.cached_ranges.set_ranges(self.preview_frames.ranges())
         # A prepared/cached newer frame must not jump backwards to an older job.
         if not self.play.isChecked() and abs(time_seconds-self.current_time) > .5/self.preview_fps(): return
@@ -2061,6 +2114,8 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
             self.comparison['pending'] = False; self.refresh_comparison_controls()
         if cached: self.last_displayed_request = max(self.last_displayed_request, self.request_serial)
         size, raw = packet
+        if self.visual_sound_dialog and self.visual_sound_dialog.isVisible():
+            self.visual_sound_dialog.set_video_frame(packet,time_seconds)
         self.viewer.set_packet((size, raw)); self.time_label.setText(f"{int(time_seconds) // 60:02d}:{time_seconds % 60:05.2f}")
         self.monitor_meta.setText(f"{size[0]}×{size[1]} / RGB")
         fps = self.preview_fps()
@@ -2271,6 +2326,7 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
         if self.export_job:
             self.export_job.cancel.cancel()
         self.jobs.waitForDone(1500)
+        self.preview_frames.clear()
         super().closeEvent(event)
 
 

@@ -5,6 +5,8 @@ from synth_preview import PreviewFrames
 
 class ComparisonFrames(PreviewFrames):
     def clear(self):
+        for store in getattr(self, 'disk_banks', {}).values(): store.close()
+        self.disk_banks = {}
         super().clear()
         self.banks = {}; self.namespace = None; self.anchors = {}
 
@@ -20,7 +22,7 @@ class ComparisonFrames(PreviewFrames):
     def _trim(self, protected=()):
         # Evict an inactive branch first, keeping its last viewed frame when
         # possible. Reservations from cancelled workers share this same budget.
-        protected = set(protected)
+        protected = protected if isinstance(protected, range) else set(protected)
         while self.bytes + self.reserved > self.budget:
             candidates = [(key, bank) for key, bank in self.banks.items() if key != self.namespace and bank]
             candidates.append((self.namespace, self.items))
@@ -33,3 +35,44 @@ class ComparisonFrames(PreviewFrames):
                 victim = next(((bank, next(iter(bank))) for _, bank in candidates if bank), None)
             if victim is None: break
             bank, frame = victim; self.bytes -= len(bank.pop(frame)[1])
+
+    def enable_full(self, size, count):
+        from synth_preview_disk import DiskFrames
+        if self.namespace in self.disk_banks: return
+        store = DiskFrames(size, count)
+        try:
+            for frame, packet in self.items.items(): store.put(frame, packet)
+        except Exception:
+            store.close()
+            raise
+        self.disk_banks[self.namespace] = store
+
+    def disable_full(self):
+        store = self.disk_banks.pop(self.namespace, None)
+        if store: store.close()
+
+    def available(self):
+        store = self.disk_banks.get(self.namespace)
+        return set(self.items) | store.frames if store else super().available()
+
+    def contains(self, frame):
+        store = self.disk_banks.get(self.namespace)
+        return frame in self.items or bool(store and frame in store.frames)
+
+    def get(self, frame):
+        packet = super().get(frame)
+        store = self.disk_banks.get(self.namespace)
+        if packet is None and store:
+            packet = store.get(frame)
+            if packet is not None: super().put(frame, packet)
+        return packet
+
+    def put(self, frame, packet):
+        store = self.disk_banks.get(self.namespace)
+        if store: store.put(frame, packet)
+        super().put(frame, packet)
+
+    def retain(self, predicate):
+        super().retain(predicate)
+        store = self.disk_banks.get(self.namespace)
+        if store: store.retain(predicate)

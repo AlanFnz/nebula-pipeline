@@ -3,7 +3,8 @@
 The first visual-to-sound instrument uses the 20-second **Pleated signal**
 study. Open **Pleated signal / acid motion** in Studies, then use
 **Generated sound…** beside Soundtrack in the timeline toolbar. Other Pleated
-field projects start with **Generate sound…** and remain silent until Apply.
+field projects start with **Generate sound…**. Live audition can be heard before
+Apply; Apply saves it into the project.
 
 ## Current instrument: layered resonant synth
 
@@ -30,10 +31,31 @@ crosses a boundary.
 
 Drag knobs vertically, hold Shift for finer changes, use arrow keys, or type the
 number beneath them. Scrolling over a knob does not edit it. Changes are drafts
-until **Apply & prepare**; the new waveform is prepared in the background.
-**Listen/Pause** shares the main timeline transport. These are instrument-style
-authoring controls, not live DSP parameters during playback. Source sounds,
-output choices, monitor controls and Undo retain the existing behavior.
+until **Apply**. With **Live audition** enabled, **Listen/Pause** plays the main
+video transport and knob changes are heard immediately, without preparing a new
+track or stopping the video. Closing without Apply restores the saved sound.
+Disabling Live audition, or choosing an original instrument, uses **Apply &
+prepare** and the prepared waveform instead. Live gestures are not recorded as
+automation: Apply saves the current settings, which are used for export.
+
+Use **Prepare all video frames** before listening to cache the complete timeline
+at the selected preview resolution. The same action is below the main timeline.
+A resizable video monitor beside the knobs shows the same cached frames; there
+is no second render or separate playback clock.
+The frame counter shows readiness and dimensions; preparation does not start
+playback or change quality. Lossless temporary disk storage extends the bounded
+RAM cache. Cancel/resume keeps completed frames. Audio edits, including Apply and
+Undo, preserve prepared visuals; visual or resolution changes invalidate them.
+
+Live monitoring uses the same stateful oscillator/filter implementation as
+export, in 10 ms blocks on a dedicated worker. At most four packets plus the
+40 ms device buffer are queued. Parameter changes use 40 ms smooth crossfades,
+retaining filter state and the video clock. Seeks reconstruct a short filter
+history and fade in. Actual latency depends on the output device and machine;
+fixed-settings export still renders the complete deterministic history from zero.
+The original 20-second v4 PCM is sample-identical after the shared-DSP refactor.
+Monitor volume/mute are independent of saved instrument level. Unsupported audio
+outputs report an error and can use the prepared-waveform fallback.
 
 The latest starter is frozen in `presets/pleated-signal-acid-v4.json`. Earlier
 snapshots and version-1/2 instruments remain selectable and load unchanged.
@@ -47,7 +69,7 @@ it follows `presence ** 0.1`, before the existing 35 ms smoothing envelope.
 Intermediate settings interpolate the exponent from 1 to 0.1. Full presence
 still has unity gain; zero presence is still zero. Disabled oscillators, sources
 and sound connections remain silent. The control is saved, undoable and shared
-by preview and export; it stays a draft until Apply & prepare.
+by preview and export; it stays a draft until Apply.
 
 The acid v4 study uses 100% Continuity. V3's small central nucleus previously
 reached roughly -57 dBFS RMS around 9 seconds: nonzero, but perceived as silence.

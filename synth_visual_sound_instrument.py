@@ -61,26 +61,50 @@ def instrument_controls(signals,config):
     return notes,_smooth(pluck,.035)
 
 
-def instrument_blocks(sequence,config,signals,cancel,*,block_size=RATE):
-    total=round(sequence['duration']*RATE)
-    amount={key:c['amount'] if config['enabled'] and c['enabled'] else 0.
-            for key,c in config['connections'].items()}
-    presence=signals['presence']
-    continuity=config.get('continuity',0.)
-    if continuity:
-        # Visible area is not perceived loudness. Compress its dynamic range
-        # before the existing de-click envelope, retaining exact zero for an
-        # absent object. The default zero keeps earlier PCM sample-identical.
-        presence=np.clip(presence,0.,1.)**(1-.9*continuity)
-    gate=_smooth(presence,.035)
-    expansion=_smooth(signals['expansion'],config['smoothing'])
-    motion=_smooth(signals['motion'],config['smoothing'])
-    notes,accent=instrument_controls(signals,config)
-    if not amount['arpeggio']: notes=[]
-    states=[(0.,0.),(0.,0.)]
-    seed=int(sequence.get('seed',0))
-    for start in range(0,total,block_size):
-        cancel.check();length=min(block_size,total-start);t=(start+np.arange(length))/RATE
+class InstrumentVoice:
+    """One stateful voice shared by offline export and the live monitor."""
+    def __init__(self, sequence, config, signals):
+        self.config=config;self.signals=signals
+        total=round(sequence['duration']*RATE)
+        amount={key:c['amount'] if config['enabled'] and c['enabled'] else 0.
+                for key,c in config['connections'].items()}
+        presence=signals['presence']
+        continuity=config.get('continuity',0.)
+        if continuity:
+            # Visible area is not perceived loudness. Compress its dynamic range
+            # before the existing de-click envelope, retaining exact zero for an
+            # absent object. The default zero keeps earlier PCM sample-identical.
+            presence=np.clip(presence,0.,1.)**(1-.9*continuity)
+        gate=_smooth(presence,.035)
+        expansion=_smooth(signals['expansion'],config['smoothing'])
+        motion=_smooth(signals['motion'],config['smoothing'])
+        notes,accent=instrument_controls(signals,config)
+        if not amount['arpeggio']: notes=[]
+        states=[(0.,0.),(0.,0.)]
+        seed=int(sequence.get('seed',0))
+        self.total=total
+        self.amount=amount
+        self.gate=gate
+        self.expansion=expansion
+        self.motion=motion
+        self.notes=notes
+        self.accent=accent
+        self.states=states
+        self.seed=seed
+
+    def render(self, start, length):
+        config=self.config
+        signals=self.signals
+        total=self.total
+        amount=self.amount
+        gate=self.gate
+        expansion=self.expansion
+        motion=self.motion
+        notes=self.notes
+        accent=self.accent
+        states=self.states
+        seed=self.seed
+        t=(start+np.arange(length))/RATE
         g,e,m,a=[np.interp(t,signals['time'],v) for v in (gate,expansion,motion,accent)]
         body=oscillator_bank(t,config['pitch'],config,seed)*((.18+.08*e)*amount['body'])[:,None]
         melody=np.zeros((length,2))
@@ -103,4 +127,11 @@ def instrument_blocks(sequence,config,signals,cancel,*,block_size=RATE):
             source=np.tanh((body[:,channel]+melody[:,channel])*(1.5+config['drive']*3))
             filtered,states[channel]=resonant_lowpass(source,cutoff,config['resonance'],states[channel])
             channels.append(np.tanh(filtered*.9)*.72*config['gain']*g*fade)
-        yield np.stack(channels,axis=1).astype(np.float32)
+        return np.stack(channels,axis=1).astype(np.float32)
+
+
+def instrument_blocks(sequence,config,signals,cancel,*,block_size=RATE):
+    voice=InstrumentVoice(sequence,config,signals)
+    for start in range(0,voice.total,block_size):
+        cancel.check()
+        yield voice.render(start,min(block_size,voice.total-start))

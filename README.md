@@ -1618,9 +1618,16 @@ Original absolute source/effect clocks are retained; this does not change the
 composition, its authored loops, or export. Scope changes pause playback, keeping
 the current frame when it belongs to the new selection.
 
-The preview cache and pending frame deliveries share a 192 MiB budget. Long
-scopes prepare a bounded window and report the limit instead of requiring the
-entire clip to fit. Foreground seeks take priority, and export suspends warming.
+**Prepare all frames** prepares the entire timeline at the selected resolution,
+including **Full canvas**. It keeps exact RGB frames in temporary disk storage
+when they exceed the 192 MiB memory budget. Cancel keeps completed frames; click
+again to resume. This is also available in **Generated sound…**. Choose **Entire
+timeline** to play the whole video. Sound-only edits keep prepared frames and the
+video clock; changing resolution or global visuals requires preparing again.
+Temporary files are removed when the cache is invalidated or the window closes.
+
+The regular preview cache and pending frame deliveries share a 192 MiB budget.
+For **Prepare**, long scopes still use a bounded window and report the limit. Foreground seeks take priority, and export suspends warming.
 Local visual edits retain unaffected frames when compiled cue dependencies prove
 it safe, including transitions and repeated clips. Global, timing, canvas,
 quality, source and bypass changes rebuild the preview; stale workers cannot
