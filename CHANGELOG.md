@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.59.0 — 2026-11-05
+
+- Add an optional Continuity control to the layered visual-sound instrument. It
+  softens the level reduction for small visible forms while an absent object
+  still fades to silence. Earlier documents default to the original response.
+- Enable it in the acid-motion study to eliminate the perceived silence around
+  9 seconds. Freeze v4 with identical visuals, timing and all other sound settings.
+- Verify audible levels through the contraction in PCM and native AAC export,
+  deterministic block boundaries, draft/apply/undo behavior and unchanged legacy
+  audio output.
+
 ## 0.58.0 — 2026-11-05
 
 - Keep a visible, breathing nucleus during the acid-motion study’s contraction

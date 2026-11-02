@@ -35,8 +35,25 @@ until **Apply & prepare**; the new waveform is prepared in the background.
 authoring controls, not live DSP parameters during playback. Source sounds,
 output choices, monitor controls and Undo retain the existing behavior.
 
-The latest starter is frozen in `presets/pleated-signal-acid-v3.json`. Earlier
+The latest starter is frozen in `presets/pleated-signal-acid-v4.json`. Earlier
 snapshots and version-1/2 instruments remain selectable and load unchanged.
+
+## Audible contraction (acid v4)
+
+**Motion & melody → Visual dynamics → Continuity** softens the volume drop when
+only a small portion of the object remains visible. At 0%, gain follows visible
+area directly, preserving all prior version-3 audio sample-for-sample. At 100%,
+it follows `presence ** 0.1`, before the existing 35 ms smoothing envelope.
+Intermediate settings interpolate the exponent from 1 to 0.1. Full presence
+still has unity gain; zero presence is still zero. Disabled oscillators, sources
+and sound connections remain silent. The control is saved, undoable and shared
+by preview and export; it stays a draft until Apply & prepare.
+
+The acid v4 study uses 100% Continuity. V3's small central nucleus previously
+reached roughly -57 dBFS RMS around 9 seconds: nonzero, but perceived as silence.
+V4 keeps every 100 ms window in that contraction above -38 dBFS in both the
+prepared waveform and AAC export. The visible contraction and all 240 frames
+are unchanged from v3. Existing snapshots retain their original sound settings.
 
 ## Current study motion (acid v3)
 

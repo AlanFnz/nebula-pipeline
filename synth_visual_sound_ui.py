@@ -54,6 +54,9 @@ class VisualSoundDialog(QDialog):
                 knob.number.setAccessibleName(f'Oscillator {i+1} {title}');knob.dial.setAccessibleName(f'Oscillator {i+1} {title} knob');knobs.addWidget(knob)
             column.addLayout(knobs);osc_row.addWidget(box);self.oscillators.append((check,wave,level,tune,fine))
         oscillators.addLayout(osc_row);oscillators.addStretch()
+        self.continuity=SoundKnob('Continuity',0,100,1,' %')
+        self.continuity.setToolTip('Keep small visible forms audible. At 0%, level follows their visible area directly. Higher values soften the drop during contraction. An absent object still fades to silence.')
+        self.visual_dynamics=self.knob_row(motion,'Visual dynamics',(self.continuity,))
         self.attack=SoundKnob('Attack',12,150,1,' ms',log=True);self.release=SoundKnob('Release',60,600,10,' ms',log=True)
         self.arp_rate=SoundKnob('Pace',50,200,5,' %');self.knob_row(motion,'Short phrases',(self.attack,self.release,self.arp_rate))
         row=QHBoxLayout();row.addWidget(QLabel('Scale'));self.scale=QComboBox();self.scale.setAccessibleName('Arpeggio scale')
@@ -80,6 +83,7 @@ class VisualSoundDialog(QDialog):
         box=QGroupBox(title);row=QHBoxLayout(box)
         for knob in knobs: row.addWidget(knob)
         layout.addWidget(box)
+        return box
 
     def set_config(self,config):
         if self.loaded and self.current==config: return
@@ -92,9 +96,10 @@ class VisualSoundDialog(QDialog):
     def load_values(self,value):
         with QSignalBlocker(self.voice): self.voice.setCurrentIndex(self.voice.findData(value['version']))
         acid=value['version']>=2;layered=value['version']==3;self.pitch.setRange(65 if acid else 35,440 if acid else 180)
+        self.visual_dynamics.setVisible(layered)
         self.tabs.setTabEnabled(1,layered)
         if not layered and self.tabs.currentIndex()==1: self.tabs.setCurrentIndex(0)
-        for control in (self.density,self.drive,self.width,self.opening,self.attack,self.release): control.setVisible(layered)
+        for control in (self.density,self.drive,self.width,self.opening,self.attack,self.release,self.continuity): control.setVisible(layered)
         for control in (self.resonance,self.cutoff,self.sweep,self.arp_rate,self.scale): control.setVisible(acid)
         self.enabled.setChecked(value['enabled']);self.output.setCurrentIndex(self.output.findData(value['output']))
         self.gain.setValue(value['gain']*100);self.pitch.setValue(value['pitch']);self.smoothing.setValue(value['smoothing']*1000)
@@ -102,6 +107,7 @@ class VisualSoundDialog(QDialog):
             self.cutoff.setValue(value['cutoff']);self.sweep.setValue(value['sweep']);self.resonance.setValue(value['resonance']*100)
             self.arp_rate.setValue(value['arp_rate']*100);self.scale.setCurrentIndex(self.scale.findData(value['scale']))
         if layered:
+            self.continuity.setValue(value.get('continuity',0.)*100)
             for key in ('opening','density','drive','width'): getattr(self,key).setValue(value[key]*100)
             for key in ('unison','detune'): getattr(self,key).setValue(value[key])
             self.attack.setValue(value['attack']*1000);self.release.setValue(value['release']*1000)
@@ -130,7 +136,7 @@ class VisualSoundDialog(QDialog):
             config.update(cutoff=self.cutoff.value(),sweep=self.sweep.value(),resonance=self.resonance.value()/100,arp_rate=self.arp_rate.value()/100,scale=self.scale.currentData())
         if config['version']==3:
             for key in ('opening','density','drive','width'): config[key]=getattr(self,key).value()/100
-            config.update(unison=int(self.unison.value()),detune=self.detune.value(),attack=self.attack.value()/1000,release=self.release.value()/1000)
+            config.update(continuity=self.continuity.value()/100,unison=int(self.unison.value()),detune=self.detune.value(),attack=self.attack.value()/1000,release=self.release.value()/1000)
             config['oscillators']=[dict(id=f'osc{i+1}',enabled=check.isChecked(),wave=wave.currentData(),level=level.value()/100,transpose=int(tune.value()),detune=fine.value()) for i,(check,wave,level,tune,fine) in enumerate(self.oscillators)]
         try: config=normalize_sound(config)
         except ValueError as exc: QMessageBox.warning(self,'Sound settings',str(exc));return

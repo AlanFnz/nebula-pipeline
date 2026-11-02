@@ -25,10 +25,11 @@ def test_note_edges_and_filter_accents_are_soft():
     assert np.max(np.abs(np.diff(accent)))<np.max(np.abs(np.diff(raw)))*.6
 
 
-def test_pcm_has_no_block_seams_even_when_a_note_crosses_a_boundary(monkeypatch):
+@pytest.mark.parametrize('continuity', [0., 1.])
+def test_pcm_has_no_block_seams_even_when_a_note_crosses_a_boundary(monkeypatch, continuity):
     import synth_visual_sound_instrument as instrument
     monkeypatch.setattr(instrument,'gesture_notes',lambda *_:[dict(time=.97,semitones=19,duration=.32,velocity=.8,pan=.2)])
-    c=instrument_sound();s=signals();seq=dict(duration=2.,seed=56)
+    c=instrument_sound();c['continuity']=continuity;s=signals();s['presence']=np.linspace(.02, 1., len(s['time']));seq=dict(duration=2.,seed=56)
     regular=np.concatenate(list(instrument_blocks(seq,c,s,Cancellation())))
     irregular=np.concatenate(list(instrument_blocks(seq,c,s,Cancellation(),block_size=3571)))
     assert np.array_equal(regular,irregular)
@@ -59,7 +60,7 @@ def test_manual_opening_works_with_motion_disabled():
     assert not np.array_equal(first,render())
 
 
-@pytest.mark.parametrize('key,value',[('unison',True),('unison',6),('opening',-1),('detune',36),('density',float('nan')),('attack',0),('release',.001)])
+@pytest.mark.parametrize('key,value',[('unison',True),('unison',6),('opening',-1),('detune',36),('density',float('nan')),('attack',0),('release',.001),('continuity',True),('continuity',1.01),('continuity',float('nan'))])
 def test_invalid_instrument_values_fail(key,value):
     c=instrument_sound();c[key]=value
     with pytest.raises(ValueError): normalize_sound(c)
@@ -74,3 +75,21 @@ def test_oscillator_data_is_validated_and_extreme_sound_is_bounded():
     s=signals(.7);s['opening'][10]=1
     audio=np.concatenate(list(pcm_blocks(dict(duration=.7,generated_sound=c),signals=s)))
     assert np.isfinite(audio).all() and abs(audio).max()<.721
+
+
+def test_continuity_compresses_small_forms_but_preserves_silence_and_legacy_pcm():
+    c=instrument_sound();s=signals(1.)
+    c['connections']['filter']['enabled']=False;c['connections']['arpeggio']['enabled']=False
+    def render(config):
+        return np.concatenate(list(pcm_blocks(dict(duration=1.,generated_sound=config),signals=s)))
+    full=render(c);s['presence'][:]=1/16
+    linear=render(c)
+    legacy=copy.deepcopy(c);legacy.pop('continuity')
+    assert normalize_sound(legacy)['continuity']==0
+    assert np.array_equal(render(legacy),linear)
+    c['continuity']=1.;sustained=render(c)
+    level=lambda a: np.sqrt(np.mean(a[RATE//4:3*RATE//4]**2))
+    assert level(sustained)>level(linear)*10
+    assert .7<level(sustained)/level(full)<.85
+    s['presence'][:]=0
+    assert not render(c).any()  # No unrelated audio floor when nothing is visible.

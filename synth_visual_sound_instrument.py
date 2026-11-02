@@ -65,7 +65,14 @@ def instrument_blocks(sequence,config,signals,cancel,*,block_size=RATE):
     total=round(sequence['duration']*RATE)
     amount={key:c['amount'] if config['enabled'] and c['enabled'] else 0.
             for key,c in config['connections'].items()}
-    gate=_smooth(signals['presence'],.035)
+    presence=signals['presence']
+    continuity=config.get('continuity',0.)
+    if continuity:
+        # Visible area is not perceived loudness. Compress its dynamic range
+        # before the existing de-click envelope, retaining exact zero for an
+        # absent object. The default zero keeps earlier PCM sample-identical.
+        presence=np.clip(presence,0.,1.)**(1-.9*continuity)
+    gate=_smooth(presence,.035)
     expansion=_smooth(signals['expansion'],config['smoothing'])
     motion=_smooth(signals['motion'],config['smoothing'])
     notes,accent=instrument_controls(signals,config)

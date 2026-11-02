@@ -89,16 +89,17 @@ def test_knobs_drag_keyboard_and_numeric_entry_preserve_a_draft(app):
     QTest.keyClick(knob.dial,Qt.Key.Key_Left,Qt.KeyboardModifier.ShiftModifier)
     assert knob.value()==pytest.approx(before+.9)
     dialog.unison.setValue(2);QTest.keyClick(dialog.unison.dial,Qt.Key.Key_Right);assert dialog.unison.value()==3
-    dialog.oscillators[1][0].setChecked(False);dialog.detune.setValue(12.5);dialog.apply()
+    dialog.oscillators[1][0].setChecked(False);dialog.detune.setValue(12.5);dialog.continuity.setValue(86);dialog.apply()
     config=spy.at(0)[0];assert config['version']==3 and config['detune']==12.5
     assert not config['oscillators'][1]['enabled'] and config['opening']==pytest.approx(knob.value()/100)
+    assert config['continuity']==.86
     dialog.set_config(config);dialog.apply();assert spy.at(1)[0]==config
     dialog.close()
 
 
 def test_layered_instrument_undo_preserves_visual_cache_and_all_controls(studio):
     original=copy.deepcopy(studio.composition);visual=_visual_document(studio.sequence)
-    config=instrument_sound();config['oscillators'][2]['wave']='sine';config['unison']=5;config['detune']=15
+    config=instrument_sound();config['oscillators'][2]['wave']='sine';config['unison']=5;config['detune']=15;config['continuity']=.86
     studio.apply_visual_sound(config);assert studio.sequence['generated_sound']==config
     assert _visual_document(studio.sequence)==visual
     studio.undo_composition();assert studio.composition==original

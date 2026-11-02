@@ -264,4 +264,5 @@ def pleated_acid_composition(*,layered=True):
     project=pleated_composition(motion_revision=2 if layered else 1)
     project['name']='Pleated signal / acid motion'
     project['generated_sound']=instrument_sound() if layered else acid_sound()
+    if layered: project['generated_sound']['continuity']=1.
     return normalize_composition(project)

@@ -1,5 +1,6 @@
 """Regression coverage for the audible study's continuous visual ending."""
 from pathlib import Path
+import subprocess
 
 import numpy as np
 
@@ -7,6 +8,7 @@ from synth_composition import compile_composition, load_composition
 from synth_pleated_recipes import pleated_acid_composition, pleated_composition
 from synth_sequence import render_sequence_frame, resolve_sequence_frame
 from synth_starters import starter_composition
+from synth_preview import _visual_document
 from synth_visual_sound import pcm_blocks, visual_signals, RATE
 
 
@@ -17,7 +19,10 @@ def test_latest_starter_retains_earlier_studies_and_unedited_frames():
     previous = compile_composition(load_composition(
         Path(__file__).parents[1] / 'presets/pleated-signal-acid-v2.json'))
     assert seq['duration'] == 20 and seq['fps'] == 12 and len(seq['cues']) == 240
-    assert project['generated_sound'] == previous['generated_sound']
+    assert project['generated_sound'] == dict(previous['generated_sound'], continuity=1.)
+    v3 = compile_composition(load_composition(
+        Path(__file__).parents[1] / 'presets/pleated-signal-acid-v3.json'))
+    assert _visual_document(seq) == _visual_document(v3)
     changed = set(range(106, 119)) | set(range(175, 240))
     for frame in set(range(240)) - changed:
         assert resolve_sequence_frame(seq, frame / 12)[-1] == resolve_sequence_frame(previous, frame / 12)[-1]
@@ -28,7 +33,7 @@ def test_latest_starter_retains_earlier_studies_and_unedited_frames():
         assert resolve_sequence_frame(original, frame / 12)[-1] == resolve_sequence_frame(silent, frame / 12)[-1]
 
 
-def test_contraction_stays_visible_and_audible_without_an_audio_floor():
+def test_contraction_stays_visible_and_audible_in_pcm_and_export(tmp_path):
     seq = compile_composition(pleated_acid_composition())
     for frame in range(106, 119):
         rgb = np.asarray(render_sequence_frame(seq, frame / 12, (160, 120))).astype(float)
@@ -38,11 +43,22 @@ def test_contraction_stays_visible_and_audible_without_an_audio_floor():
     center = (signals['time'] >= 9) & (signals['time'] < 9.75)
     assert signals['presence'][center].min() >= .04
     audio = np.concatenate(list(pcm_blocks(seq, signals=signals)))
-    # Check each 100 ms window through the previous silent stretch.
-    for start in np.arange(9.1, 9.6, .1):
+    # Merely nonzero PCM is insufficient: the previous -57 dB dip sounded
+    # silent. Keep every 100 ms window above -38 dBFS, including export.
+    for start in np.arange(9., 9.8, .1):
         chunk = audio[round(start * RATE):round((start + .1) * RATE)]
-        assert np.sqrt(np.mean(chunk ** 2)) > .001
+        assert 20 * np.log10(np.sqrt(np.mean(chunk ** 2))) > -38
     assert np.isfinite(audio).all()
+    from synth_media import export_synth_video
+    output = tmp_path / 'contraction.mp4'
+    export_synth_video(resolve_sequence_frame(seq, 0)[-1], output,
+                       start=108, count=12, size=(96, 72), sequence=seq)
+    decoded = np.frombuffer(subprocess.check_output([
+        'ffmpeg', '-v', 'error', '-i', str(output), '-vn', '-f', 'f32le',
+        '-acodec', 'pcm_f32le', '-']), dtype=np.float32).reshape(-1, 2)[:RATE]
+    assert np.corrcoef(decoded.ravel(), audio[9*RATE:10*RATE].ravel())[0, 1] > .99
+    for chunk in np.array_split(decoded[:int(.8*RATE)], 8):
+        assert 20 * np.log10(np.sqrt(np.mean(chunk ** 2))) > -38
 
 
 def test_tail_rotates_onward_then_leaves_mirrors_for_the_reference_pass():

@@ -51,7 +51,7 @@ def instrument_sound():
     """A layered instrument; earlier sound contracts remain selectable."""
     out=acid_sound()
     out.update(version=3,opening=.35,density=.65,drive=.32,unison=3,detune=8.,width=.6,
-               resonance=.62,smoothing=.14,attack=.022,release=.20)
+               resonance=.62,smoothing=.14,attack=.022,release=.20,continuity=0.)
     out['oscillators']=[
         dict(id='osc1',enabled=True,wave='triangle',level=1.,transpose=0,detune=0.),
         dict(id='osc2',enabled=True,wave='saw',level=.32,transpose=0,detune=5.),
@@ -92,7 +92,7 @@ def normalize_sound(raw):
         out['scale'] = raw.get('scale',out['scale'])
         if out['scale'] not in ('pentatonic','minor','dorian'): raise ValueError('Choose a supported arpeggio scale')
     if out['version']==3:
-        for key,low,high in (('opening',0.,1.),('density',0.,1.),('drive',0.,1.),('detune',0.,35.),('width',0.,1.),('attack',.012,.15),('release',.06,.6)):
+        for key,low,high in (('opening',0.,1.),('continuity',0.,1.),('density',0.,1.),('drive',0.,1.),('detune',0.,35.),('width',0.,1.),('attack',.012,.15),('release',.06,.6)):
             out[key]=number(raw.get(key,out[key]),key,low,high)
         out['unison']=raw.get('unison',out['unison'])
         if type(out['unison']) is not int or not 1<=out['unison']<=5: raise ValueError('Unison must use 1–5 voices')
