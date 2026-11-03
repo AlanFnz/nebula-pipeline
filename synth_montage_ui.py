@@ -248,8 +248,13 @@ class SourceRangeDialog(QDialog):
 
 
 class MontageWindow(QMainWindow):
-    def __init__(self,document=None,path=None,parent=None):
-        super().__init__(parent); self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+    def __init__(self,document=None,path=None,parent=None,*,embedded=False):
+        super().__init__(parent,Qt.WindowType.Widget if embedded else Qt.WindowType.Window)
+        if embedded:
+            self.setWindowFlags(Qt.WindowType.Widget)
+            self.menuBar().setNativeMenuBar(False)
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        self.workspace_navigation=None; self.preview_suspended=False
         self.document=normalize_montage(document or new_montage()); self.path=Path(path) if path else None
         self.clean=copy.deepcopy(self.document); self.undo_stack=[]; self.redo_stack=[]; self.selected=set(); self.frame=0
         self.revision=0; self.identity=object(); self.closed=False; self.pending=[]; self.preview_task=None; self.prepare_task=None; self.export_task=None; self.editors=[]
@@ -327,11 +332,11 @@ class MontageWindow(QMainWindow):
         file_menu=self.menuBar().addMenu('File'); edit_menu=self.menuBar().addMenu('Edit')
         self.history_actions=[]
         for menu,label,key,callback in [
-            (file_menu,'Open montage…','Ctrl+O',self.open_dialog),
+            (file_menu,'Open…','Ctrl+O',self.open_dialog),
             (file_menu,'Save','Ctrl+S',self.save),
             (file_menu,'Save as…','Ctrl+Shift+S',lambda:self.save(True)),
             (file_menu,'Export MP4…','',self.export_dialog),
-            (file_menu,'Close montage','Ctrl+W',self.close),
+            (file_menu,'Close window','Ctrl+W',lambda:self.window().close()),
             (edit_menu,'Undo','Ctrl+Z',self.undo),(edit_menu,'Redo','Ctrl+Shift+Z',self.redo),
             (edit_menu,'Select all clips','Ctrl+A',self.select_all),
             (edit_menu,'Duplicate selection','Ctrl+D',self.duplicate),
@@ -436,6 +441,7 @@ class MontageWindow(QMainWindow):
             _,p=self.cache.popitem(last=False); self.cache_bytes-=len(p[1])
 
     def request_frame(self,*_):
+        if self.preview_suspended: return
         if not self.document['clips'] or self.closed: return
         size=self.preview_size(); key=(self.revision,size,self.frame)
         if key in self.cache: self.monitor.show_packet(self.cache[key]); return
@@ -569,25 +575,13 @@ class MontageWindow(QMainWindow):
         clip=self.active_clip()
         if clip: self.edit_clip(clip['id'])
     def edit_clip(self,key):
-        from synth_studio import SynthStudio
-        from synth_composition import section_placements
-        clip=next(c for c in self.document['clips'] if c['id']==key); project=clip_project(self.document,clip)
-        self.stop(); editor=SynthStudio(composition=project); editor.setWindowTitle('Nebula · Edit montage clip')
-        bar=QWidget(); row=QHBoxLayout(bar); row.addWidget(QLabel('Editing a copy. Apply to update the montage.'))
-        apply=self.button('Apply to montage',lambda:self.apply_editor(key,editor),row); apply.setObjectName('primary')
-        editor.header_host.layout().insertWidget(0,bar); self.editors.append(editor)
-        index=next((i for i,a,b,_ in section_placements(project) if a<=clip['in_frame']/self.document['fps']<b),0)
-        editor.composer.select_section(index); editor.timeline.setValue(round(clip['in_frame']/self.document['fps']*project['fps']))
-        editor.show(); editor.raise_()
+        from synth_navigation import WorkspaceNavigation
+        navigation=self.workspace_navigation or WorkspaceNavigation(self)
+        return navigation.edit_clip(self,key)
     def apply_editor(self,key,editor):
-        editor.finish_focused_edit()
-        if not editor.composition: self.status.setText('Keep this edit as a composition.'); return
-        doc=copy.deepcopy(self.document); clip=next((c for c in doc['clips'] if c['id']==key),None)
-        if clip is None: self.status.setText('This montage clip was removed.'); return
-        clip['document']=copy.deepcopy(editor.composition)
-        def apply():
-            self.commit(doc); editor.mark_document_clean(); editor.close(); self.show(); self.raise_(); self.status.setText('Study and effects updated. Montage timing is unchanged.')
-        self.guarded(apply)
+        navigation=self.workspace_navigation
+        if navigation and navigation.editor is editor and navigation.clip_id==key:
+            return navigation.return_to_montage()
 
     def add_marker(self):
         name,ok=QInputDialog.getText(self,'Music marker','Name:',text=f'Cut {len(self.document["markers"])+1}')
@@ -631,6 +625,8 @@ class MontageWindow(QMainWindow):
         answer=QMessageBox.question(self,'Save montage?','Save your changes before closing?',QMessageBox.StandardButton.Save|QMessageBox.StandardButton.Discard|QMessageBox.StandardButton.Cancel)
         return self.save() if answer==QMessageBox.StandardButton.Save else answer==QMessageBox.StandardButton.Discard
     def open_dialog(self):
+        if self.workspace_navigation and self.workspace_navigation.host is not self:
+            return self.workspace_navigation.host.load_sequence_dialog()
         if any(editor.isVisible() for editor in self.editors):
             self.status.setText('Apply or close the open clip editor before opening another montage.'); return
         path,_=QFileDialog.getOpenFileName(self,'Open montage','','Nebula montage (*.json)')
@@ -654,6 +650,16 @@ class MontageWindow(QMainWindow):
     def cancel_export(self):
         if self.export_task: self.export_task.cancel.cancel()
     def closeEvent(self,event):
+        navigation=self.workspace_navigation
+        if navigation:
+            if not navigation.disposing:
+                if navigation.host is not self:
+                    self.window().close(); event.ignore(); return
+                if not navigation.can_leave(): event.ignore(); return
+                navigation.shutdown()
+            self.closed=True; self.timer.stop(); self.audio.close()
+            for task in self.pending: task.cancel.cancel()
+            event.accept(); return
         if any(editor.isVisible() for editor in self.editors):
             self.status.setText('Apply or close the open clip editor before closing this montage.'); event.ignore(); return
         if self.export_task:

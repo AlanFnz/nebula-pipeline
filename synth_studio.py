@@ -229,8 +229,13 @@ class ExportJob(QRunnable):
 
 
 class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QMainWindow):
-    def __init__(self, preset=None, sequence=None, composition=None, settings=None):
-        super().__init__()
+    def __init__(self, preset=None, sequence=None, composition=None, settings=None, *, parent=None, embedded=False):
+        super().__init__(parent, Qt.WindowType.Widget if embedded else Qt.WindowType.Window)
+        if embedded:
+            self.setWindowFlags(Qt.WindowType.Widget)
+            self.menuBar().setNativeMenuBar(False)
+        self.workspace_navigation = None
+        self.preview_suspended = False
         self.workspace_settings = settings
         self.export_settings = settings
         self.last_export_directory = ''
@@ -326,10 +331,11 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
             item.setToolTip(f'{label} ({item.shortcut().toString(QKeySequence.SequenceFormat.NativeText)})')
             return item
         self.new_piece_action = action(file_menu, 'New piece…', QKeySequence.StandardKey.New, self.new_piece_dialog)
-        action(file_menu, 'Open in Montage…', QKeySequence(), self.open_montage)
+        self.montage_action = action(file_menu, 'Open in Montage…', QKeySequence(), self.open_montage)
         self.save_action = action(file_menu, 'Save', QKeySequence.StandardKey.Save, self.save_sequence_dialog)
         self.save_as_action = action(file_menu, 'Save As…', QKeySequence.StandardKey.SaveAs, self.save_as_dialog)
         self.open_action = action(file_menu, 'Open…', QKeySequence.StandardKey.Open, self.load_sequence_dialog)
+        action(file_menu, 'Close window', QKeySequence.StandardKey.Close, lambda: self.window().close())
         self.soundtrack_action = action(file_menu, 'Soundtrack…', QKeySequence(), self.open_soundtrack)
         self.undo_action = action(edit_menu, 'Undo composition', QKeySequence.StandardKey.Undo, self.undo_composition)
         self.redo_action = action(edit_menu, 'Redo composition', QKeySequence.StandardKey.Redo, self.redo_composition)
@@ -343,7 +349,8 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
         self.timeline.setToolTip('Scrub preview. Space: play/pause. Arrows: one frame; Shift + arrows: ten frames.')
 
     def eventFilter(self, watched, event):
-        if event.type() == QEvent.Type.ShortcutOverride and isinstance(watched, QWidget) and watched.window() is self:
+        if (event.type() == QEvent.Type.ShortcutOverride and isinstance(watched, QWidget)
+                and watched.window() is self.window() and not self.preview_suspended):
             focus = self.focusWidget()
             transport = event.key() in (Qt.Key.Key_Space, Qt.Key.Key_Left, Qt.Key.Key_Right)
             undo = event.matches(QKeySequence.StandardKey.Undo) or event.matches(QKeySequence.StandardKey.Redo)
@@ -388,7 +395,11 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
         name = self.document_state()[1].get("name", "Untitled")
         title = f"{name}{' *' if self.has_unsaved_changes() else ''}"
         if self.detailed_copy: title += " · detailed copy"
-        self.setWindowTitle(f"Nebula · {title}")
+        navigation = self.workspace_navigation
+        if navigation and navigation.montage:
+            if navigation.editor is self: self.setWindowTitle(f"Nebula · {title}")
+            navigation.update_title()
+        else: self.setWindowTitle(f"Nebula · {title}")
         self.document_title.setText(('* ' if self.has_unsaved_changes() else '') + self.document_title.fontMetrics().elidedText(name + (' · detailed copy' if self.detailed_copy else ''), Qt.TextElideMode.ElideRight, 200))
         self.document_title.setToolTip(title)
         self.document_title.setAccessibleDescription(title)
@@ -425,6 +436,11 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
         return True
 
     def confirm_replacement(self, purpose="replacing this document"):
+        navigation = self.workspace_navigation
+        if navigation and navigation.host is self and navigation.montage:
+            if not navigation.can_leave(): return False
+            navigation.leave_montage()
+            return True
         return self.confirm_close(purpose)
 
     def confirm_close(self, purpose="closing"):
@@ -479,7 +495,8 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
         settings.sync()
 
     def toggle_fullscreen(self):
-        self.showNormal() if self.isFullScreen() else self.showFullScreen()
+        window = self.window()
+        window.showNormal() if window.isFullScreen() else window.showFullScreen()
 
     def changeEvent(self, event):
         if event.type() == QEvent.Type.WindowStateChange and hasattr(self, 'fullscreen_button'):
@@ -503,10 +520,10 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
         self.new_piece_button = QPushButton('New piece…'); self.new_piece_button.clicked.connect(self.new_piece_dialog)
         self.new_piece_button.setToolTip('Start with Text, Shape, Model, Video, or remix an existing study.')
         self.import_video_button = QPushButton('Import video…'); self.import_video_button.clicked.connect(self.import_video_dialog)
-        montage_button = QPushButton('Montage…'); montage_button.clicked.connect(self.open_montage)
+        self.montage_button = montage_button = QPushButton('Montage…'); montage_button.clicked.connect(self.open_montage)
         montage_button.setToolTip('Arrange this study with footage, source ranges and a soundtrack. Keeps the study editable.')
         self.cancel_import = QPushButton('Cancel import'); self.cancel_import.clicked.connect(self.cancel_video_import); self.cancel_import.hide()
-        open_button = QPushButton('Open…'); open_button.clicked.connect(self.load_sequence_dialog)
+        self.open_button = open_button = QPushButton('Open…'); open_button.clicked.connect(self.load_sequence_dialog)
         for button in (self.new_piece_button, self.import_video_button, open_button):
             button.setProperty('secondaryAction', True)
         self.save_button = QToolButton(); self.save_button.setText('Save'); self.save_button.setAccessibleName('Save composition')
@@ -547,7 +564,8 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
         self.manage_studies_button = QPushButton('Browse…'); self.manage_studies_button.setAccessibleName('Browse studies')
         self.manage_studies_button.setToolTip('Browse previews, search, favorite, remove or restore Studies.')
         self.manage_studies_button.clicked.connect(self.manage_studies)
-        settings_row.addWidget(inline(QLabel('Studies'), self.starter_combo, self.load_starter_button, self.manage_studies_button))
+        self.study_controls = inline(QLabel('Studies'), self.starter_combo, self.load_starter_button, self.manage_studies_button)
+        settings_row.addWidget(self.study_controls)
         self.refresh_studies()
         self.canvas_combo = QComboBox(); self.canvas_combo.setAccessibleName('Canvas aspect ratio')
         for identifier, label, _width, _height in CANVAS_FORMATS: self.canvas_combo.addItem(label, identifier)
@@ -1645,6 +1663,9 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
         return Path(path) if path and not self.protected_document_destination(path) else None
 
     def save_sequence_dialog(self, checked=False, *, save_as=False):
+        navigation = self.workspace_navigation
+        if navigation and navigation.montage:
+            return navigation.save(save_as)
         if self.discovery_session: self.dismiss_effect_discovery()
         if self.audition_pending():
             self.status.setText('Keep or discard the temporary variation before saving.'); return False
@@ -1694,14 +1715,16 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
         self.rebuild_modules(); self.update_timeline_max(); self.invalidate(); self.mark_document_clean()
 
     def load_sequence_dialog(self, checked=False):
+        navigation = self.workspace_navigation
+        if navigation and navigation.editor is self and hasattr(navigation.host, 'load_sequence_dialog'):
+            return navigation.host.load_sequence_dialog()
         path, _ = QFileDialog.getOpenFileName(self, "Open composition, sequence or preset", "", "Nebula document (*.json)")
         if not path: return False
         try:
             with open(path) as document: raw = json.load(document)
             if raw.get('format') == 'nebula-montage':
                 from synth_montage import load_montage
-                self.open_montage(document=load_montage(path), path=path)
-                return True
+                return self.open_montage(document=load_montage(path), path=path) is not None
             if raw.get('format') == FORMAT:
                 return self.set_composition(load_composition(path), path=path)
             if 'states' in raw:
@@ -1718,8 +1741,12 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
 
     def open_montage(self, checked=False, *, document=None, path=None):
         from synth_montage import new_montage, add_asset, insert_clip
-        from synth_montage_ui import MontageWindow
+        from synth_navigation import WorkspaceNavigation
+        if self.export_job:
+            self.status.setText('Finish or cancel the export before opening a montage.'); return None
         self.finish_focused_edit(); self.play.setChecked(False)
+        if not self.prepare_document_save(): return None
+        creating = document is None
         if document is None:
             document = new_montage(self.current_canvas(), self.composition['fps'] if self.composition else 30)
             if self.composition:
@@ -1728,11 +1755,14 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
                 if self.composition.get('soundtrack'):
                     document['soundtrack'] = copy.deepcopy(self.composition['soundtrack'])
                     if document['soundtrack']['export_audio'] == 'footage': document['soundtrack']['export_audio'] = 'silent'
-        window = MontageWindow(document, path=path)
-        if not hasattr(self, 'montage_windows'): self.montage_windows = []
-        self.montage_windows.append(window)
-        window.destroyed.connect(lambda: self.montage_windows.remove(window) if window in self.montage_windows else None)
-        window.show(); window.raise_()
+        if not self.confirm_replacement('opening this montage'): return None
+        # The previous document has been saved/discarded by the replacement guard.
+        self.mark_document_clean()
+        navigation = self.workspace_navigation or WorkspaceNavigation(self)
+        window = navigation.show_montage(document, path=path)
+        if creating:
+            window.clean = None
+            window.refresh()
         return window
 
     def control_changed(self):
@@ -1832,11 +1862,11 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
         else: self.schedule_auto_preparation()
 
     def schedule_auto_preparation(self):
-        if self.discovery_session or self.closing or not hasattr(self, 'auto_prepare') or not self.auto_prepare.isChecked() or self.export_job: return
+        if self.preview_suspended or self.discovery_session or self.closing or not hasattr(self, 'auto_prepare') or not self.auto_prepare.isChecked() or self.export_job: return
         self.warm_debounce.start(400)
 
     def _automatic_preparation(self):
-        if self.closing or self.export_job: return
+        if self.preview_suspended or self.closing or self.export_job: return
         if self.preparation_explicit:
             self._start_warm_batch(); return
         if not self.auto_prepare.isChecked(): return
@@ -1939,7 +1969,7 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
             self.refresh_preview_scope()
             self.refresh_soundtrack()
     def request_frame(self):
-        if self.closing: return
+        if self.preview_suspended or self.closing: return
         if not self.ensure_preview_context(): return
         sequence = self.preview_sequence()
         if sequence and 'footage' in sequence:
@@ -2139,6 +2169,9 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
         return self.load_sequence_dialog()
 
     def export_dialog(self):
+        navigation = self.workspace_navigation
+        if navigation and navigation.montage:
+            return navigation.export()
         if self.discovery_session: self.dismiss_effect_discovery()
         if self.audition_pending():
             self.status.setText('Keep or discard the temporary variation before exporting.'); return
@@ -2209,7 +2242,13 @@ class SynthStudio(AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QM
             self.status.setText("Cancelling export…")
 
     def closeEvent(self, event):
-        if not self.closing and not self.confirm_close():
+        navigation = self.workspace_navigation
+        if navigation and not navigation.disposing and navigation.montage:
+            if navigation.host is not self:
+                navigation.return_to_montage(); event.ignore(); return
+            if not navigation.can_leave(): event.ignore(); return
+            navigation.shutdown()
+        elif not self.closing and not (navigation and navigation.disposing) and not self.confirm_close():
             event.ignore()
             return
         self.save_workspace()

@@ -137,7 +137,9 @@ def test_original_studio_opens_native_montage(project,monkeypatch):
     monkeypatch.setattr(SynthStudio,'request_frame',lambda *args:None)
     w=SynthStudio(composition=project); native=w.open_montage()
     assert native.document['assets'][native.document['clips'][0]['asset']]['document']==w.composition
-    native.close(); w.close(); app.processEvents()
+    assert not native.isWindow()
+    native.clean=copy.deepcopy(native.document)
+    w.close(); app.processEvents()
 
 
 def test_apply_native_clip_edit_is_isolated_and_undoable(montage,monkeypatch):

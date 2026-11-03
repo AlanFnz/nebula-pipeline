@@ -2,6 +2,7 @@
 
 Open **Montage…** in the header (or File → Open in Montage) to arrange the
 current study alongside footage. The study becomes an embedded, editable copy.
+Montage replaces the workspace in the same Nebula window.
 Existing composition files still use their original renderer. Montage documents
 use `format: nebula-montage`, version 1; Open recognizes both formats.
 
@@ -24,11 +25,18 @@ kept. Copy treatment / Apply treatment to selection transfers the current look
 without copying wording or source objects. A copied animated recipe is sampled
 at the chosen clip's starting frame; explicit overrides remain overrides.
 
-Double-click a timeline block or use Edit study / effects to open an independent
-copy in the established Nebula inspector. Apply to montage commits the result
-back to that block; closing without Apply leaves the assembly intact. A study's
-own duration must still cover its selected montage range. Library snapshots are
-not changed by editing one clip.
+Double-click a timeline block or use Edit study / effects to enter that block in
+the same window. The breadcrumb identifies the project and block. **Back to
+montage** (Cmd+[ on macOS) validates and keeps the edits, returning to the same
+selection, playhead and timeline zoom. Montage Undo reverses the block edit.
+An unedited visit leaves the document unchanged. A study's own duration must
+still cover its selected montage range; invalid changes stay open for correction.
+Library snapshots and other clips are not changed by editing one block.
+
+**Save** and **Export montage** in the block editor include the complete project,
+including pending text edits. Closing the window or opening another document
+offers Save / Discard / Cancel for the complete montage. Export returns to the
+montage so its progress and Cancel button remain visible.
 
 Soundtrack is a single absolute project track. Add named markers at the playhead
 to identify musical cuts. Markers stay on the music when clips move. Double-click
@@ -41,6 +49,8 @@ bounded region at that selected detail. Playback drops late video frames rather
 than slowing the soundtrack. Export always uses the full montage canvas, with
 each study fitted proportionally. Choose a portrait study/canvas before opening
 Montage to start a portrait assembly.
+The selected monitor detail follows navigation into and out of block editing;
+hidden contexts pause playback and background preview preparation.
 
 ## Reproducibility
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.51.1 — 2026-11-03
+
+- Keep Montage and its block editor in the main Nebula window. Double-click a
+  block to edit it, then use Back to montage to keep the changes and return to
+  the same selection and playhead. No separate copy/apply windows are opened.
+- Save and Export from a block target the complete montage. Validate pending
+  text and source bounds before committing; montage Undo reverses block edits.
+  Closing or replacing the project protects unsaved nested changes.
+- Route menus and keyboard shortcuts to the visible context, suspend hidden
+  previews, and carry the chosen preview quality into and out of block editing.
+  Saved document formats, source clocks and rendered pixels are unchanged.
+
 ## 0.51.0 — 2026-11-02
 
 - Add Montage, an opt-in native workspace for arranging footage and embedded,
