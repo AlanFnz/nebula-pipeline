@@ -25,6 +25,7 @@ def waveform(phase,hz,shape,density):
         if shape=='triangle': weight=0. if n%2==0 else (-1 if (n-1)//2%2 else 1)/(n*n)
         elif shape=='square': weight=0. if n%2==0 else 1/n
         else: weight=(-1 if n%2==0 else 1)/n
+        if not weight or not density: continue
         out+=density*weight*np.sin(n*phase)
     # Keep comparable fundamental level between shapes and density positions.
     return out*.8
@@ -113,7 +114,7 @@ class InstrumentVoice:
             if note['time']>=t[-1]+1/RATE or note['time']+duration<=t[0]: continue
             age=t-note['time'];u=np.maximum(age,0.)
             env=note_envelope(age,duration,config['attack'],config['release'])
-            hz=config['pitch']*2**(note['semitones']/12)
+            hz=config.get('arp_pitch',config['pitch'])*2**(note['semitones']/12)
             tone=oscillator_bank(u,hz,config,seed+n+1)*((env*note['velocity']*.40*amount['arpeggio'])[:,None])
             tone[:,0]*=1-note['pan']*.5;tone[:,1]*=1+note['pan']*.5
             melody+=tone

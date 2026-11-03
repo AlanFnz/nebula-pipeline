@@ -13,28 +13,45 @@ SCALES = {'pentatonic': (0,3,5,7,10), 'minor': (0,2,3,5,7,8,10),
           'dorian': (0,2,3,5,7,9,10)}
 
 
+def phrase_pattern(config, phrase):
+    """Scale-degree palette and step count, independent of the visual onset."""
+    original=(0,2,1,3) if phrase%2==0 else (2,0,1)
+    if config['version']!=3: return original
+    count=config.get('arp_notes',4)
+    steps=config.get('arp_steps',0) or len(original)
+    direction=config.get('arp_pattern','visual')
+    if direction=='visual':
+        return tuple((original[j%len(original)]+(j//len(original))*len(original))%count for j in range(steps))
+    if direction=='down': cycle=tuple(range(count-1,-1,-1))
+    elif direction=='up_down': cycle=tuple(range(count))+tuple(range(count-2,0,-1))
+    else: cycle=tuple(range(count))
+    return tuple(cycle[j%len(cycle)] for j in range(steps))
+
+
 def gesture_notes(signals, config):
     """Causal hysteresis: motion surges/expansion turns, with space to breathe.
 
     No timeline-specific cue table or random clock. A held or uniformly moving
-    image does not produce a repeated arpeggiator. Each burst has 3–4 notes.
+    image does not produce a repeated arpeggiator. Automatic length keeps the
+    original 3–4 notes. Fixed lengths finish before another phrase starts.
     """
     times=signals['time'];initial=signals['expansion'][0]
     e=_smooth(signals['expansion']-initial,.10)+initial
     m=_smooth(signals['motion'],.10)
     slope=_smooth(np.diff(e,prepend=e[0])*CONTROL_RATE,.10)
-    notes=[];last=-10.;armed=True;previous_slope=0.;previous_motion=0.;phrase=0
+    notes=[];last=-10.;phrase_end=-10.;armed=True;previous_slope=0.;previous_motion=0.;phrase=0
     scale=SCALES[config['scale']]
     for i,t in enumerate(times):
         if slope[i]<-.08 or m[i]<.4: armed=True
         onset=armed and ((slope[i]>.16 and previous_slope<=.16) or (m[i]>.72 and previous_motion<=.72))
         reopening=signals['opening'][i]>.5
-        if signals['presence'][i]>.12 and (onset or reopening) and t-last>1.25 and t<times[-1]-.45:
+        if signals['presence'][i]>.12 and (onset or reopening) and t-last>1.25 and t>=phrase_end and t<times[-1]-.45:
             last=float(t);armed=False
             # A coherent motif, varied by the current geometry, not random notes.
             degree=min(len(scale)-1,int(e[i]*len(scale)))
-            pattern=(0,2,1,3) if phrase%2==0 else (2,0,1)
+            pattern=phrase_pattern(config,phrase)
             step=(.19-.055*min(1.,m[i]))/config['arp_rate']
+            if config['version']==3 and config.get('arp_steps',0): phrase_end=float(t+len(pattern)*step)
             for j,offset in enumerate(pattern):
                 index=degree+offset
                 semitones=12+scale[index%len(scale)]+12*(index//len(scale))

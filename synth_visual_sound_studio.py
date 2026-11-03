@@ -148,6 +148,7 @@ class VisualSoundStudio:
 
     def update_live_activity(self,config):
         key=(config['enabled'],config['arp_rate'],config['scale'],config['attack'],config['release'],
+             config.get('arp_notes',4),config.get('arp_steps',0),config.get('arp_pattern','visual'),
              config['connections']['arpeggio']['enabled'],config['connections']['arpeggio']['amount'])
         if self.live_signals is not None and key!=self.live_meter_key:
             from synth_visual_sound_instrument import instrument_controls

@@ -9,7 +9,7 @@ Apply; Apply saves it into the project.
 ## Current instrument: layered resonant synth
 
 Version 0.57 uses a new version-3 instrument contract. The Sound tab exposes
-rotary controls for root pitch, density, drive, stereo width and level, plus
+rotary controls for base pitch, density, drive, stereo width and level, plus
 manual filter opening, resonance, closed/open frequencies and response smoothing.
 Opening is a manual bias in the filter's logarithmic frequency range; visual
 movement adds to it. Disable Movement → filter opening for a fixed setting.
@@ -21,8 +21,18 @@ Density blends additional waveform harmonics into each fundamental. It does not
 add noise. The demo layers triangle, quiet saw and an upper triangle with three
 unison voices and modest detuning. Level normalization bounds the oscillator sum.
 
-Motion & melody keeps the three visual connections and adds Attack/Release
-controls alongside pace and scale. Notes now begin and end with zero value and
+**Arpeggio** contains an independent **Arpeggio root** (65–440 Hz), **Notes**
+(1–8 distinct scale degrees per phrase), **Steps** (1–16, or **Auto (3–4)**),
+and a pattern selector: Visual motif, Up, Down, or Up & down. Notes controls the
+pitch palette; Steps controls how many notes are played, cycling through that
+palette. Short phrases may use only part of the palette. The visual gesture still
+selects the starting degree and onset. Fixed-length phrases finish before another
+gesture starts one; they do not become a free-running timeline sequencer. Original
+documents initialize the melody root from their saved shared pitch. Defaults keep
+the original alternating 3–4-note motifs and sample-identical output.
+
+The Arpeggio tab also contains Attack/Release, pace and scale. **Motion** keeps
+the three visual connections and Continuity. Notes begin and end with zero value and
 zero slope; their filter accent is smoothed separately over 35 ms. This addresses
 the sharp note/filter attacks heard as clicks in the original acid experiment.
 Timeline ends use smooth 60/80 ms fades; synthesis carries filter state between
@@ -62,7 +72,7 @@ snapshots and version-1/2 instruments remain selectable and load unchanged.
 
 ## Audible contraction (acid v4)
 
-**Motion & melody → Visual dynamics → Continuity** softens the volume drop when
+**Motion → Visual dynamics → Continuity** softens the volume drop when
 only a small portion of the object remains visible. At 0%, gain follows visible
 area directly, preserving all prior version-3 audio sample-for-sample. At 100%,
 it follows `presence ** 0.1`, before the existing 35 ms smoothing envelope.

@@ -51,7 +51,8 @@ def instrument_sound():
     """A layered instrument; earlier sound contracts remain selectable."""
     out=acid_sound()
     out.update(version=3,opening=.35,density=.65,drive=.32,unison=3,detune=8.,width=.6,
-               resonance=.62,smoothing=.14,attack=.022,release=.20,continuity=0.)
+               resonance=.62,smoothing=.14,attack=.022,release=.20,continuity=0.,
+               arp_pitch=out['pitch'],arp_notes=4,arp_steps=0,arp_pattern='visual')
     out['oscillators']=[
         dict(id='osc1',enabled=True,wave='triangle',level=1.,transpose=0,detune=0.),
         dict(id='osc2',enabled=True,wave='saw',level=.32,transpose=0,detune=5.),
@@ -92,6 +93,17 @@ def normalize_sound(raw):
         out['scale'] = raw.get('scale',out['scale'])
         if out['scale'] not in ('pentatonic','minor','dorian'): raise ValueError('Choose a supported arpeggio scale')
     if out['version']==3:
+        # Old documents shared a root. Capture it as the independent melody root
+        # on load; changing the body pitch afterwards must not retune the melody.
+        out['arp_pitch']=number(raw.get('arp_pitch',out['pitch']),'arpeggio pitch',65.,440.)
+        for key,low,high in (('arp_notes',1,8),('arp_steps',0,16)):
+            value=raw.get(key,out[key])
+            if type(value) is not int or not low<=value<=high:
+                raise ValueError(f'Generated sound {key} must be an integer between {low} and {high}')
+            out[key]=value
+        out['arp_pattern']=raw.get('arp_pattern',out['arp_pattern'])
+        if out['arp_pattern'] not in ('visual','up','down','up_down'):
+            raise ValueError('Choose a supported arpeggio pattern')
         for key,low,high in (('opening',0.,1.),('continuity',0.,1.),('density',0.,1.),('drive',0.,1.),('detune',0.,35.),('width',0.,1.),('attack',.012,.15),('release',.06,.6)):
             out[key]=number(raw.get(key,out[key]),key,low,high)
         out['unison']=raw.get('unison',out['unison'])

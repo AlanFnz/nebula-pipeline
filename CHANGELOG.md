@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.61.0 — 2026-11-05
+
+- Give the layered synth separate Base pitch and Arpeggio root controls. Existing
+  documents initialize both from their saved root and retain sample-identical
+  default audio; original electric/acid instruments remain unchanged.
+- Add an Arpeggio tab with 1–8 scale notes, 1–16 steps or the original automatic
+  3–4-step phrases, and Visual motif, Up, Down and Up & down patterns. Fixed-length
+  phrases finish before another visual gesture triggers one. Pace, scale and
+  articulation sit beside the new controls; visual connections remain in Motion.
+- Share the new settings across live audition, activity meters, saved projects,
+  Undo/Redo and export, without invalidating prepared video frames.
+- Skip zero-weight oscillator harmonics so longer phrases with dense unison
+  banks remain responsive in live audition, without changing waveform samples.
+
 ## 0.60.1 — 2026-11-05
 
 - Fix cached video stalls and live synth audio interruptions caused by inspector

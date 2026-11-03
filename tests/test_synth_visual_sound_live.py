@@ -86,11 +86,20 @@ def test_studio_live_knobs_keep_transport_and_pixels_and_apply_is_undoable(studi
     studio.play.setChecked(True);studio.play_timer.stop()
     monitor=studio.live_sound;clock=studio.play_started;worker=monitor.producer.thread
     studio.visual_sound_dialog.opening.setValue(95);QTest.qWait(70)
+    studio.visual_sound_dialog.arp_pitch.setValue(220)
+    studio.visual_sound_dialog.arp_notes.setValue(5)
+    studio.visual_sound_dialog.arp_steps.setValue(8)
+    studio.visual_sound_dialog.arp_pattern.setCurrentIndex(studio.visual_sound_dialog.arp_pattern.findData('down'))
+    wait_until(lambda: monitor.config['arp_steps']==8)
     assert studio.play.isChecked() and studio.play_started==clock
     assert studio.composition==original and studio.settings_generation==generation
     assert monitor.config['opening']==.95 and monitor.producer.thread is worker
+    assert monitor.config['arp_pitch']==220 and monitor.config['arp_notes']==5 and monitor.config['arp_pattern']=='down'
+    from synth_visual_sound_instrument import instrument_controls
+    assert np.array_equal(studio.visual_sound_signals['arpeggio'],instrument_controls(studio.live_signals,monitor.config)[1])
     studio.visual_sound_dialog.apply()
     assert studio.composition['generated_sound']['opening']==.95
+    assert studio.composition['generated_sound']['arp_steps']==8
     assert studio.play_started==clock and studio.settings_generation==generation
     studio.play.setChecked(False);studio.undo_composition()
     assert studio.composition==original
