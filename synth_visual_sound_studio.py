@@ -1,5 +1,6 @@
 """Cancellable sound preparation, project undo and independent audio transport."""
 import copy
+import json
 import tempfile
 from collections import OrderedDict
 from pathlib import Path
@@ -77,6 +78,8 @@ class VisualSoundStudio:
         if self.visual_sound_dialog is None:
             dialog=VisualSoundDialog(self);self.visual_sound_dialog=dialog
             dialog.configEdited.connect(self.apply_visual_sound)
+            dialog.historyChanged.connect(self.update_composition_history)
+            dialog.finished.connect(self.update_composition_history)
             dialog.monitorVolumeChanged.connect(self.set_visual_sound_volume)
             dialog.monitorMutedChanged.connect(self.set_visual_sound_muted)
             dialog.retryRequested.connect(self.prepare_visual_sound)
@@ -91,6 +94,7 @@ class VisualSoundStudio:
         self.visual_sound_dialog.set_playing(self.play.isChecked())
         self.visual_sound_dialog.status.setText(self.visual_sound_status or 'Choose Apply & prepare to hear this instrument.')
         self.visual_sound_dialog.show();self.visual_sound_dialog.raise_();self.visual_sound_dialog.activateWindow()
+        self.update_composition_history()
         self.refresh_cache_status()
         self.visual_sound_dialog.set_video_frame(self.viewer.packet,self.current_time)
         self.audition_visual_sound(self.visual_sound_dialog.read_config())
@@ -148,6 +152,7 @@ class VisualSoundStudio:
 
     def update_live_activity(self,config):
         key=(config['enabled'],config['arp_rate'],config['scale'],config['attack'],config['release'],
+             json.dumps({k:config.get(k) for k in ('arp_mode','bpm','subdivision','sequence_length','sequence_trigger','sequence')},sort_keys=True),
              config.get('arp_notes',4),config.get('arp_steps',0),config.get('arp_pattern','visual'),
              config['connections']['arpeggio']['enabled'],config['connections']['arpeggio']['amount'])
         if self.live_signals is not None and key!=self.live_meter_key:
@@ -155,6 +160,10 @@ class VisualSoundStudio:
             _,activity=instrument_controls(self.live_signals,config)
             self.visual_sound_signals=dict(self.live_signals,arpeggio=activity)
             self.live_meter_key=key
+            if self.visual_sound_dialog:
+                from synth_visual_sound_acid import gesture_notes
+                notes=gesture_notes(self.live_signals,config,include_rests=True) if config.get('arp_mode')=='sequence' else []
+                self.visual_sound_dialog.sequencer.set_schedule(notes,config)
 
     def live_signals_failed(self,job,error):
         if job in self.pending_jobs: self.pending_jobs.remove(job)
@@ -286,6 +295,7 @@ class VisualSoundStudio:
             if self.live_signals is not None: self.live_sound.sync(seconds,playing,force=force)
         else: self.visual_sound_player.sync(seconds,playing,force=force)
         dialog=self.visual_sound_dialog;signals=self.visual_sound_signals
+        if dialog and dialog.isVisible():dialog.sequencer.set_time(seconds)
         if dialog and dialog.isVisible():
             if signals is None: dialog.set_activity()
             else:

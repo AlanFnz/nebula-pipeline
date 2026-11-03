@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.62.0 — 2026-11-05
+
+- Add sound-draft Undo/Redo through Cmd-Z, the Edit menu and instrument buttons.
+  Each knob or step-slider drag is one edit; Apply remains a project undo step.
+- Give both roots independent free-frequency and chromatic-note tuning, with
+  sharp notes, octave and solfège labels. Existing frequencies remain unchanged.
+- Add an optional 1–16-step sequencer with editable pitches, rests, velocity and
+  gate; 30–240 BPM and straight/triplet divisions. Patterns can start on visual
+  gestures or loop with the timeline while the image still shapes the sound.
+- Batch compatible unison waveforms to reduce live synthesis cost without
+  changing samples, keeping dense sequences responsive during knob edits.
+- Share sequencer timing and envelopes between live audition, step indicators
+  and export. Preserve the original arpeggio and all previous default PCM;
+  sound edits and their undo keep the prepared video and playback clock.
+
 ## 0.61.0 — 2026-11-05
 
 - Give the layered synth separate Base pitch and Arpeggio root controls. Existing

@@ -1453,9 +1453,14 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
             lane.selected = (section_id, duplicate); lane.update()
 
     def update_composition_history(self):
+        dialog=getattr(self,'visual_sound_dialog',None)
+        sound_edit=dialog is not None and dialog.isVisible()
         if hasattr(self, "undo_action"):
-            self.undo_action.setEnabled(self.composition is not None and bool(self.undo_compositions))
-            self.redo_action.setEnabled(self.composition is not None and bool(self.redo_compositions))
+            self.undo_action.setText('Undo sound edit' if sound_edit else 'Undo composition')
+            self.redo_action.setText('Redo sound edit' if sound_edit else 'Redo composition')
+            self.undo_action.setEnabled(self.composition is not None and bool(self.undo_compositions or (sound_edit and dialog.sound_undo)))
+            self.redo_action.setEnabled(self.composition is not None and bool(self.redo_compositions or (sound_edit and dialog.sound_redo)))
+        if dialog is not None:dialog.refresh_history_actions()
         if self.composer:
             self.composition_undo_button.setEnabled(bool(self.undo_compositions))
             self.composition_redo_button.setEnabled(bool(self.redo_compositions))
@@ -1471,9 +1476,13 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
         self.composer.refresh(); self.edit_key = None; self.refresh_composition()
 
     def undo_composition(self):
+        dialog=getattr(self,'visual_sound_dialog',None)
+        if dialog and dialog.isVisible() and dialog.undo_draft():return
         self._restore_composition_history(self.undo_compositions, self.redo_compositions)
 
     def redo_composition(self):
+        dialog=getattr(self,'visual_sound_dialog',None)
+        if dialog and dialog.isVisible() and dialog.redo_draft():return
         self._restore_composition_history(self.redo_compositions, self.undo_compositions)
 
     def open_detailed_copy(self):

@@ -21,7 +21,13 @@ Density blends additional waveform harmonics into each fundamental. It does not
 add noise. The demo layers triangle, quiet saw and an upper triangle with three
 unison voices and modest detuning. Level normalization bounds the oscillator sum.
 
-**Arpeggio** contains an independent **Arpeggio root** (65–440 Hz), **Notes**
+**Base pitch** and **Arpeggio root** each offer **Free · Hz** or **Notes**.
+Free mode retains fractional frequencies; Notes locks to equal-tempered pitches
+(A4 = 440 Hz) and offers C/Do through B/Si, sharps and octave labels. Both roots
+remain independent. Oscillator Tune adds semitones; Fine adds fractional cents.
+Changing the tuning mode is an audible edit, so it is also undoable.
+
+**Arpeggio → Visual arpeggio · original** contains an independent **Arpeggio root** (65–440 Hz), **Notes**
 (1–8 distinct scale degrees per phrase), **Steps** (1–16, or **Auto (3–4)**),
 and a pattern selector: Visual motif, Up, Down, or Up & down. Notes controls the
 pitch palette; Steps controls how many notes are played, cycling through that
@@ -31,7 +37,24 @@ gesture starts one; they do not become a free-running timeline sequencer. Origin
 documents initialize the melody root from their saved shared pitch. Defaults keep
 the original alternating 3–4-note motifs and sample-identical output.
 
-The Arpeggio tab also contains Attack/Release, pace and scale. **Motion** keeps
+Switch **Arpeggio mode** to **Step sequencer** for 1–16 editable steps.
+Each column has an on/rest switch, pitch (-12 to +24 semitones from the melody
+root), velocity (0–100%) and gate (10–100% of its time slot, plus the release
+tail). The note label shows the nearest chromatic pitch; its tooltip also shows
+the actual frequency for a freely tuned root. Shortening the pattern retains
+hidden steps so lengthening it restores their settings.
+
+Tempo is 30–240 BPM, with quarter, eighth, sixteenth and triplet divisions.
+**Visual gestures** starts one pattern on the next timeline grid boundary when
+the image makes a gesture, and lets it finish before retriggering. **Loop with
+timeline** repeats it from time zero. In either mode the image still gates the
+sound and modulates its intensity/filter through the existing connections.
+BPM changes the sound rhythm, never the video speed. The active-step indicator
+follows the same scheduled events, including rests. Pitch, velocity, gate and
+rhythm use the same implementation for live audition and export. Original
+studies default to Visual arpeggio and retain their previous PCM exactly.
+
+The Arpeggio tab also contains Attack/Release, plus pace and scale for the original arpeggio. **Motion** keeps
 the three visual connections and Continuity. Notes begin and end with zero value and
 zero slope; their filter accent is smoothed separately over 35 ms. This addresses
 the sharp note/filter attacks heard as clicks in the original acid experiment.
@@ -44,6 +67,12 @@ number beneath them. Scrolling over a knob does not edit it. Changes are drafts
 until **Apply**. With **Live audition** enabled, **Listen/Pause** plays the main
 video transport and knob changes are heard immediately, without preparing a new
 track or stopping the video. Closing without Apply restores the saved sound.
+**Cmd-Z / Shift-Cmd-Z**, the **Edit → Undo/Redo** menu and the dialog's Undo/Redo
+buttons restore instrument drafts, including note modes, sequencer steps,
+connections and instrument changes. A complete rotary/slider drag is one edit.
+Apply commits the draft as one project edit; Undo can then restore the previously
+applied sound. A new edit after Undo clears the redo branch. Monitor volume/mute
+remain listening preferences, separate from the authored instrument history.
 Disabling Live audition, or choosing an original instrument, uses **Apply &
 prepare** and the prepared waveform instead. Live gestures are not recorded as
 automation: Apply saves the current settings, which are used for export.

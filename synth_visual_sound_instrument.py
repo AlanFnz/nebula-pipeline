@@ -16,6 +16,11 @@ def note_envelope(age,duration,attack,release):
     return rise*np.exp(-u/release)*fall*(age>=0)
 
 
+def instrument_note_duration(note,config):
+    if config.get('arp_mode')=='sequence': return note['duration']+config['release']
+    return max(note['duration'],config['attack']+config['release'])
+
+
 def waveform(phase,hz,shape,density):
     fundamental=np.sin(phase)
     if shape=='sine': return fundamental
@@ -37,11 +42,19 @@ def oscillator_bank(t,root,config,seed):
     offsets=np.linspace(-1,1,config['unison']) if config['unison']>1 else np.array([0.])
     for index,osc in enumerate(config['oscillators']):
         if not osc['enabled'] or osc['level']==0: continue
+        frequencies=[];phases=[]
         for voice,offset in enumerate(offsets):
             hz=root*2**((osc['transpose']+(osc['detune']+offset*config['detune'])/100)/12)
-            # Fixed small phase offsets avoid identical oscillator restarts.
-            phase=math.tau*(hz*t+((index*.173+voice*.137+(seed%997)*.00013)%1))
-            signal=waveform(phase,hz,osc['wave'],config['density'])
+            # Keep the original phase arithmetic and accumulation order. Batch
+            # unison waves with the same harmonic limit to reduce live DSP cost.
+            phases.append(math.tau*(hz*t+((index*.173+voice*.137+(seed%997)*.00013)%1)))
+            frequencies.append(hz)
+        limits=[min(32,math.ceil(RATE*.42/hz)) for hz in frequencies]
+        if len(set(limits))==1:
+            signals=waveform(np.stack(phases),frequencies[0],osc['wave'],config['density'])
+        else:
+            signals=[waveform(p,hz,osc['wave'],config['density']) for p,hz in zip(phases,frequencies)]
+        for signal,offset in zip(signals,offsets):
             pan=config['width']*(offset*.7+(index-1)*.22)
             bank[:,0]+=signal*math.sqrt(1-pan)*osc['level']/len(offsets)
             bank[:,1]+=signal*math.sqrt(1+pan)*osc['level']/len(offsets)
@@ -55,7 +68,7 @@ def instrument_controls(signals,config):
     link=config['connections']['arpeggio']
     if config['enabled'] and link['enabled'] and link['amount']>0:
         for note in notes:
-            duration=max(note['duration'],config['attack']+config['release'])
+            duration=instrument_note_duration(note,config)
             pluck=np.maximum(pluck,note_envelope(signals['time']-note['time'],duration,config['attack'],config['release']))
     # The note's filter accent has its own de-click smoothing; resonance cannot
     # amplify a sudden attack into a sharp transient. Evaluated before blocking.
@@ -110,7 +123,7 @@ class InstrumentVoice:
         body=oscillator_bank(t,config['pitch'],config,seed)*((.18+.08*e)*amount['body'])[:,None]
         melody=np.zeros((length,2))
         for n,note in enumerate(notes):
-            duration=max(note['duration'],config['attack']+config['release'])
+            duration=instrument_note_duration(note,config)
             if note['time']>=t[-1]+1/RATE or note['time']+duration<=t[0]: continue
             age=t-note['time'];u=np.maximum(age,0.)
             env=note_envelope(age,duration,config['attack'],config['release'])

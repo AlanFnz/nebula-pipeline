@@ -28,13 +28,20 @@ def phrase_pattern(config, phrase):
     return tuple(cycle[j%len(cycle)] for j in range(steps))
 
 
-def gesture_notes(signals, config):
+def gesture_notes(signals, config, *, include_rests=False):
     """Causal hysteresis: motion surges/expansion turns, with space to breathe.
 
     No timeline-specific cue table or random clock. A held or uniformly moving
     image does not produce a repeated arpeggiator. Automatic length keeps the
     original 3–4 notes. Fixed lengths finish before another phrase starts.
     """
+    from synth_sound_sequence import step_seconds, sequence_phrase
+    custom = config.get('arp_mode') == 'sequence' and config['version'] == 3
+    if custom and config['sequence_trigger'] == 'loop':
+        length = step_seconds(config) * config['sequence_length']
+        return [note for phrase, start in enumerate(np.arange(0., signals['time'][-1], length))
+                for note in sequence_phrase(config, start, float(np.interp(start, signals['time'], signals['motion'])), phrase, signals['time'][-1], include_rests)
+                if np.interp(note['time'], signals['time'], signals['presence']) > .12]
     times=signals['time'];initial=signals['expansion'][0]
     e=_smooth(signals['expansion']-initial,.10)+initial
     m=_smooth(signals['motion'],.10)
@@ -47,6 +54,14 @@ def gesture_notes(signals, config):
         reopening=signals['opening'][i]>.5
         if signals['presence'][i]>.12 and (onset or reopening) and t-last>1.25 and t>=phrase_end and t<times[-1]-.45:
             last=float(t);armed=False
+            if custom:
+                step = step_seconds(config)
+                start = math.ceil((float(t) - 1e-9) / step) * step
+                notes.extend(sequence_phrase(config, start, m[i], phrase, times[-1], include_rests))
+                phrase_end = start + config['sequence_length'] * step
+                phrase += 1
+                previous_slope=slope[i];previous_motion=m[i]
+                continue
             # A coherent motif, varied by the current geometry, not random notes.
             degree=min(len(scale)-1,int(e[i]*len(scale)))
             pattern=phrase_pattern(config,phrase)

@@ -5,11 +5,16 @@ from PySide6.QtWidgets import (QDialog,QWidget,QVBoxLayout,QHBoxLayout,QLabel,QC
     QComboBox,QPushButton,QSlider,QProgressBar,QMessageBox,QTabWidget,QGroupBox,QScrollArea,QDoubleSpinBox,QSplitter)
 from synth_visual_sound import acid_sound,instrument_sound,default_sound,normalize_sound,sound_connections
 from synth_sound_knob import SoundKnob
+from synth_sound_pitch import PitchControl
+from synth_sound_sequencer_ui import StepSequencer
+from synth_sound_history import SoundHistory
+from synth_sound_sequence import sequence_defaults
 
 FACTORIES={1:default_sound,2:acid_sound,3:instrument_sound}
 
 
-class VisualSoundDialog(QDialog):
+class VisualSoundDialog(SoundHistory,QDialog):
+    historyChanged=Signal()
     configEdited=Signal(object)
     monitorVolumeChanged=Signal(float)
     monitorMutedChanged=Signal(bool)
@@ -37,7 +42,7 @@ class VisualSoundDialog(QDialog):
         self.video_time=QLabel('00:00.00');column.addWidget(self.video_time)
         split.addWidget(left);self.tabs=QTabWidget();split.addWidget(self.tabs);split.setSizes([400,850]);layout.addWidget(split,1)
         sound=self.page('Sound');oscillators=self.page('Oscillators');arpeggio=self.page('Arpeggio');motion=self.page('Motion')
-        self.gain=SoundKnob('Level',0,100,1,' %');self.pitch=SoundKnob('Base pitch',35,440,1,' Hz',log=True)
+        self.gain=SoundKnob('Level',0,100,1,' %');self.pitch=PitchControl('Base pitch',35,440)
         self.pitch.setToolTip('Pitch of the sustained body. The layered synth has a separate arpeggio root in Arpeggio. Original instruments share this root.')
         self.density=SoundKnob('Density',0,100,1,' %');self.drive=SoundKnob('Drive',0,100,1,' %');self.width=SoundKnob('Stereo',0,100,1,' %')
         self.density.setToolTip('Blend additional waveform harmonics into each oscillator. Zero keeps its fundamental.')
@@ -66,21 +71,27 @@ class VisualSoundDialog(QDialog):
         self.continuity=SoundKnob('Continuity',0,100,1,' %')
         self.continuity.setToolTip('Keep small visible forms audible. At 0%, level follows their visible area directly. Higher values soften the drop during contraction. An absent object still fades to silence.')
         self.visual_dynamics=self.knob_row(motion,'Visual dynamics',(self.continuity,))
-        self.arp_pitch=SoundKnob('Arpeggio root',65,440,1,' Hz',log=True)
+        self.arp_pitch=PitchControl('Arpeggio root',65,440)
         self.arp_notes=SoundKnob('Notes',1,8,1,integer=True)
         self.arp_steps=SoundKnob('Steps',0,16,1,integer=True)
         self.arp_steps.number.setSpecialValueText('Auto (3–4)')
         self.arp_pitch.setToolTip('Tune the melody independently of the sustained body. Phrases play in the register above this root.')
         self.arp_notes.setToolTip('Number of distinct scale notes available in each phrase. Longer patterns reuse this palette; the visual gesture selects its starting degree.')
         self.arp_steps.setToolTip('Notes played per visual gesture, from 1 to 16. Auto keeps the original alternating 3–4-step phrases.')
-        self.arp_sequence=self.knob_row(arpeggio,'Pitch & sequence',(self.arp_pitch,self.arp_notes,self.arp_steps))
+        self.arp_sequence=self.knob_row(arpeggio,'Pitch and phrase',(self.arp_pitch,self.arp_notes,self.arp_steps))
+        self.arp_mode=QComboBox();self.arp_mode.setAccessibleName('Arpeggio mode')
+        self.arp_mode.addItem('Visual arpeggio · original','visual');self.arp_mode.addItem('Step sequencer','sequence');arpeggio.addWidget(self.arp_mode)
+        self.sequencer=StepSequencer();arpeggio.addWidget(self.sequencer)
+        self.arp_mode.currentIndexChanged.connect(self.update_sequence_mode)
+        self.sequencer.changed.connect(self.queue_draft)
+        self.arp_pitch.valueChanged.connect(self.sequencer.set_root)
         self.arp_pattern=QComboBox();self.arp_pattern.setAccessibleName('Arpeggio pattern')
         for title,key in (('Visual motif','visual'),('Up','up'),('Down','down'),('Up & down','up_down')): self.arp_pattern.addItem(title,key)
         self.arp_pattern_box=QGroupBox('Pattern');row=QHBoxLayout(self.arp_pattern_box);row.addWidget(self.arp_pattern);arpeggio.addWidget(self.arp_pattern_box)
         self.arp_hint=QLabel('Visual gestures start each phrase. Notes sets the pitch palette; Steps sets the phrase length. Auto preserves the original 3–4 steps. Longer phrases finish before the next one starts.')
         self.arp_hint.setWordWrap(True);arpeggio.addWidget(self.arp_hint)
         self.attack=SoundKnob('Attack',12,150,1,' ms',log=True);self.release=SoundKnob('Release',60,600,10,' ms',log=True)
-        self.arp_rate=SoundKnob('Pace',50,200,5,' %');self.knob_row(arpeggio,'Articulation & pace',(self.attack,self.release,self.arp_rate))
+        self.arp_rate=SoundKnob('Pace',50,200,5,' %');self.knob_row(arpeggio,'Articulation and pace',(self.attack,self.release,self.arp_rate))
         row=QHBoxLayout();row.addWidget(QLabel('Scale'));self.scale=QComboBox();self.scale.setAccessibleName('Arpeggio scale')
         for title,key in (('Minor pentatonic','pentatonic'),('Natural minor','minor'),('Dorian','dorian')): self.scale.addItem(title,key)
         row.addWidget(self.scale,1);arpeggio.addLayout(row);arpeggio.addStretch();self.connection_layout=QVBoxLayout();motion.addLayout(self.connection_layout)
@@ -96,19 +107,35 @@ class VisualSoundDialog(QDialog):
         self.volume.setAccessibleName('Generated sound monitor level');row.addWidget(self.volume);layout.addLayout(row)
         self.volume.valueChanged.connect(lambda n:self.monitorVolumeChanged.emit(n/100));self.mute.toggled.connect(self.monitorMutedChanged)
         self.status=QLabel();self.status.setWordWrap(True);self.status.setTextFormat(Qt.TextFormat.PlainText);layout.addWidget(self.status)
-        row=QHBoxLayout();self.retry=QPushButton('Prepare again');self.retry.clicked.connect(self.retryRequested);row.addWidget(self.retry);row.addStretch()
+        row=QHBoxLayout();self.retry=QPushButton('Prepare again');self.retry.clicked.connect(self.retryRequested);row.addWidget(self.retry);self.undo_button=QPushButton('Undo');self.redo_button=QPushButton('Redo')
+        self.undo_button.clicked.connect(self.request_undo);self.redo_button.clicked.connect(self.request_redo)
+        row.addWidget(self.undo_button);row.addWidget(self.redo_button);row.addStretch()
         self.apply_button=QPushButton('Apply && prepare');self.apply_button.setProperty('primary',True);self.apply_button.clicked.connect(self.apply);row.addWidget(self.apply_button)
         close=QPushButton('Close');close.clicked.connect(self.close);row.addWidget(close);layout.addLayout(row)
         self.draft_timer=QTimer(self);self.draft_timer.setSingleShot(True);self.draft_timer.setInterval(24)
         self.draft_timer.timeout.connect(self.emit_draft)
-        for knob in self.findChildren(SoundKnob): knob.valueChanged.connect(self.queue_draft)
-        for widget in (self.enabled,self.output,self.scale,self.arp_pattern):
+        self.init_history()
+        for knob in self.findChildren(SoundKnob):
+            if knob not in (self.pitch.knob,self.arp_pitch.knob):knob.valueChanged.connect(self.queue_draft)
+            knob.dial.sliderPressed.connect(self.begin_sound_gesture);knob.dial.sliderReleased.connect(self.end_sound_gesture)
+        for pitch in (self.pitch,self.arp_pitch):pitch.valueChanged.connect(self.queue_draft)
+        self.sequencer.gestureStarted.connect(self.begin_sound_gesture);self.sequencer.gestureFinished.connect(self.end_sound_gesture)
+        for widget in (self.enabled,self.output,self.scale,self.arp_pattern,self.arp_mode):
             (widget.toggled if isinstance(widget,QCheckBox) else widget.currentIndexChanged).connect(self.queue_draft)
         for check,wave,_,_,_ in self.oscillators:
             check.toggled.connect(self.queue_draft);wave.currentIndexChanged.connect(self.queue_draft)
 
     def queue_draft(self,*_):
-        if not self.loading and self.loaded and not self.draft_timer.isActive(): self.draft_timer.start()
+        if self.loading or not self.loaded:return
+        self.record_sound_edit()
+        if not self.draft_timer.isActive(): self.draft_timer.start()
+
+    def update_sequence_mode(self):
+        layered=self.voice.currentData()==3
+        custom=layered and self.arp_mode.currentData()=='sequence'
+        self.sequencer.setVisible(custom);self.arp_mode.setVisible(layered);self.arp_pitch.set_compact(custom)
+        for widget in (self.arp_notes,self.arp_steps,self.arp_pattern_box,self.arp_hint):widget.setVisible(layered and not custom)
+        self.arp_rate.setVisible(self.voice.currentData()>=2 and not custom);self.scale.setEnabled(not custom)
 
     def emit_draft(self):
         if not self.loaded or self.loading: return
@@ -139,7 +166,7 @@ class VisualSoundDialog(QDialog):
 
     def set_config(self,config):
         if self.loaded and self.current==config: return
-        self.loaded=True;self.current=copy.deepcopy(config);self.load_values(config or instrument_sound())
+        self.loaded=True;self.current=copy.deepcopy(config);self.load_values(config or instrument_sound());self.reset_history()
 
     def change_voice(self):
         value=FACTORIES[self.voice.currentData()]()
@@ -159,12 +186,15 @@ class VisualSoundDialog(QDialog):
         for control in (self.density,self.drive,self.width,self.opening,self.attack,self.release,self.continuity): control.setVisible(layered)
         for control in (self.resonance,self.cutoff,self.sweep,self.arp_rate,self.scale): control.setVisible(acid)
         self.enabled.setChecked(value['enabled']);self.output.setCurrentIndex(self.output.findData(value['output']))
-        self.gain.setValue(value['gain']*100);self.pitch.setValue(value['pitch']);self.smoothing.setValue(value['smoothing']*1000)
+        self.gain.setValue(value['gain']*100);self.pitch.load(value['pitch'],value.get('pitch_mode','hz'));self.smoothing.setValue(value['smoothing']*1000)
         if acid:
             self.cutoff.setValue(value['cutoff']);self.sweep.setValue(value['sweep']);self.resonance.setValue(value['resonance']*100)
             self.arp_rate.setValue(value['arp_rate']*100);self.scale.setCurrentIndex(self.scale.findData(value['scale']))
         if layered:
-            self.arp_pitch.setValue(value.get('arp_pitch',value['pitch']))
+            self.arp_pitch.load(value.get('arp_pitch',value['pitch']),value.get('arp_pitch_mode','hz'))
+            self.arp_mode.setCurrentIndex(self.arp_mode.findData(value.get('arp_mode','visual')))
+            self.sequencer.load(dict(sequence_defaults(),**{k:v for k,v in value.items() if k in sequence_defaults()}))
+            self.sequencer.set_root(self.arp_pitch.value())
             self.arp_notes.setValue(value.get('arp_notes',4));self.arp_steps.setValue(value.get('arp_steps',0))
             self.arp_pattern.setCurrentIndex(self.arp_pattern.findData(value.get('arp_pattern','visual')))
             self.continuity.setValue(value.get('continuity',0.)*100)
@@ -188,15 +218,16 @@ class VisualSoundDialog(QDialog):
         titles={key:title for key,title,_ in sound_connections(value)}
         for key,(check,control) in self.connections.items():
             check.setText(titles[key]);check.setChecked(value['connections'][key]['enabled']);control.setValue(value['connections'][key]['amount']*100)
-        self.loading=False
+        self.update_sequence_mode();self.loading=False
 
     def read_config(self):
         config=FACTORIES[self.voice.currentData()]()
-        config.update(enabled=self.enabled.isChecked(),output=self.output.currentData(),gain=self.gain.value()/100,pitch=self.pitch.value(),smoothing=self.smoothing.value()/1000)
+        config.update(enabled=self.enabled.isChecked(),output=self.output.currentData(),gain=self.gain.value()/100,pitch=self.pitch.value(),pitch_mode=self.pitch.tuning(),smoothing=self.smoothing.value()/1000)
         config['connections']={key:dict(enabled=check.isChecked(),amount=control.value()/100) for key,(check,control) in self.connections.items()}
         if config['version']>=2:
             config.update(cutoff=self.cutoff.value(),sweep=self.sweep.value(),resonance=self.resonance.value()/100,arp_rate=self.arp_rate.value()/100,scale=self.scale.currentData())
         if config['version']==3:
+            config.update(arp_mode=self.arp_mode.currentData(),arp_pitch_mode=self.arp_pitch.tuning(),**self.sequencer.config())
             config.update(arp_pitch=self.arp_pitch.value(),arp_notes=int(self.arp_notes.value()),
                           arp_steps=int(self.arp_steps.value()),arp_pattern=self.arp_pattern.currentData())
             for key in ('opening','density','drive','width'): config[key]=getattr(self,key).value()/100
@@ -209,6 +240,7 @@ class VisualSoundDialog(QDialog):
         except ValueError as exc: QMessageBox.warning(self,'Sound settings',str(exc));return
         self.draft_timer.stop()
         self.configEdited.emit(config)
+        self.reset_history()
 
     def set_monitor(self,level,muted):
         with QSignalBlocker(self.volume): self.volume.setValue(round(level*100))

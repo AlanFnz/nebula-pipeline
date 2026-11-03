@@ -97,6 +97,16 @@ def test_studio_live_knobs_keep_transport_and_pixels_and_apply_is_undoable(studi
     assert monitor.config['arp_pitch']==220 and monitor.config['arp_notes']==5 and monitor.config['arp_pattern']=='down'
     from synth_visual_sound_instrument import instrument_controls
     assert np.array_equal(studio.visual_sound_signals['arpeggio'],instrument_controls(studio.live_signals,monitor.config)[1])
+    d=studio.visual_sound_dialog
+    d.arp_mode.setCurrentIndex(1);d.sequencer.bpm.setValue(147)
+    wait_until(lambda:monitor.config.get('bpm')==147)
+    d.sequencer.entries[3][5].setValue(27)
+    wait_until(lambda:monitor.config['sequence'][3]['velocity']==.27)
+    studio.undo_action.trigger()
+    wait_until(lambda:monitor.config['sequence'][3]['velocity']==.65)
+    assert studio.play.isChecked() and studio.play_started==clock and studio.settings_generation==generation
+    assert np.array_equal(studio.visual_sound_signals['arpeggio'],instrument_controls(studio.live_signals,monitor.config)[1])
+
     studio.visual_sound_dialog.apply()
     assert studio.composition['generated_sound']['opening']==.95
     assert studio.composition['generated_sound']['arp_steps']==8

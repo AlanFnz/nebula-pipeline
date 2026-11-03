@@ -36,7 +36,7 @@ ACID_CONNECTIONS = (
 
 def acid_sound():
     return dict(version=2, enabled=True, output='generated', source='pleated_field',
-                gain=.7, pitch=146.83, smoothing=.10,
+                gain=.7, pitch=146.83, pitch_mode='hz', smoothing=.10,
                 cutoff=280., sweep=4200., resonance=.74, arp_rate=1., scale='pentatonic',
                 connections={key: dict(enabled=True, amount=value) for key, _, value in ACID_CONNECTIONS})
 
@@ -58,12 +58,14 @@ def instrument_sound():
         dict(id='osc2',enabled=True,wave='saw',level=.32,transpose=0,detune=5.),
         dict(id='osc3',enabled=True,wave='triangle',level=.22,transpose=12,detune=-4.),
     ]
+    from synth_sound_sequence import sequence_defaults
+    out.update(sequence_defaults(), pitch_mode='hz', arp_pitch_mode='hz')
     return out
 
 
 def default_sound():
     return dict(version=VERSION, enabled=True, output='generated', source='pleated_field',
-                gain=.7, pitch=62., smoothing=.07,
+                gain=.7, pitch=62., pitch_mode='hz', smoothing=.07,
                 connections={key: dict(enabled=True, amount=value) for key, _, value in CONNECTIONS})
 
 
@@ -86,6 +88,12 @@ def normalize_sound(raw):
         return float(value)
     for key, low, high in (('gain',0.,1.), ('pitch',65.,440.) if out['version']>=2 else ('pitch',35.,180.), ('smoothing',.01,.5)):
         out[key] = number(raw.get(key, out[key]), key, low, high)
+    from synth_sound_sequence import snapped_frequency, normalize_sequence_controls
+    out['pitch_mode'] = raw.get('pitch_mode', 'hz')
+    if out['pitch_mode'] not in ('hz', 'note'): raise ValueError('Choose frequency or note tuning')
+    if out['pitch_mode'] == 'note':
+        low, high = (65., 440.) if out['version'] >= 2 else (35., 180.)
+        out['pitch'] = snapped_frequency(out['pitch'], low, high)
     if out['version'] >= 2:
         for key, low, high in (('cutoff',80.,1800.), ('sweep',200.,12000.), ('resonance',0.,1.), ('arp_rate',.5,2.)):
             out[key] = number(raw.get(key,out[key]),key,low,high)
@@ -96,6 +104,10 @@ def normalize_sound(raw):
         # Old documents shared a root. Capture it as the independent melody root
         # on load; changing the body pitch afterwards must not retune the melody.
         out['arp_pitch']=number(raw.get('arp_pitch',out['pitch']),'arpeggio pitch',65.,440.)
+        out['arp_pitch_mode'] = raw.get('arp_pitch_mode', 'hz')
+        if out['arp_pitch_mode'] not in ('hz', 'note'): raise ValueError('Choose frequency or note tuning')
+        if out['arp_pitch_mode'] == 'note': out['arp_pitch'] = snapped_frequency(out['arp_pitch'], 65., 440.)
+        out.update(normalize_sequence_controls(raw, number))
         for key,low,high in (('arp_notes',1,8),('arp_steps',0,16)):
             value=raw.get(key,out[key])
             if type(value) is not int or not low<=value<=high:
