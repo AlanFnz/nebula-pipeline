@@ -65,7 +65,8 @@ def test_live_monitor_updates_without_restarting_seeks_pauses_and_closes(app):
 
 def test_live_dialog_emits_drafts_without_applying_or_changing_monitor(app):
     d=VisualSoundDialog();d.set_config(instrument_sound());drafts=QSignalSpy(d.draftChanged);applied=QSignalSpy(d.configEdited)
-    d.opening.setValue(80);d.resonance.setValue(90);QTest.qWait(50)
+    d.opening.setValue(80);d.resonance.setValue(90)
+    wait_until(lambda: drafts.count() > 0)
     assert drafts.count()==1 and applied.count()==0
     assert drafts.at(0)[0]['opening']==.8 and drafts.at(0)[0]['resonance']==.9
     d.volume.setValue(20);QTest.qWait(40);assert drafts.count()==1

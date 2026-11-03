@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.60.1 — 2026-11-05
+
+- Fix cached video stalls and live synth audio interruptions caused by inspector
+  diagnostics revalidating the entire compiled sequence during playback. Reuse
+  the validated sequence while preserving the same frame-specific explanations.
+- Schedule preview ticks against the transport clock so fractional frame periods
+  (including 12 fps) do not produce duplicate visits and visibly long holds.
+- Verify native audio output with the sound panel open and live knob edits, plus
+  cached playback with the panel closed. Prepared pixels, audio DSP and exported
+  output remain unchanged.
+
 ## 0.60.0 — 2026-11-05
 
 - Add Prepare all frames for the complete timeline at the selected preview

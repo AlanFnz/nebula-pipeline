@@ -9,6 +9,7 @@ import os
 import tempfile
 import sys
 import time
+import math
 from collections import deque
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
@@ -1090,7 +1091,7 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
 
     def global_changed(self, key, value=None):
         self.preset = self.collect(); self.mark_custom(); self.update_timeline_max(); self.invalidate()
-        if self.play.isChecked(): self.play_timer.start(max(15, round(1000 / self.preset["export_fps"])))
+        if self.play.isChecked(): self.schedule_play_tick()
     def modulation_changed(self):
         self.preset = self.collect(); self.mark_custom(); self.invalidate()
 
@@ -1426,8 +1427,7 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
         self.sync_timeline_editing_scope()
         self.status.setText('')
         self.update_composition_history(); self.invalidate()
-        if self.play.isChecked():
-            self.play_timer.start(max(15, round(1000 / self.composition["fps"])))
+        if self.play.isChecked(): self.schedule_play_tick()
 
     def composition_section_selected(self, index):
         self.composition_index = index
@@ -2157,6 +2157,18 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
         self._soundtrack_mapping = mapping
         self.sync_soundtrack(force=discontinuity,
             seconds=(self.timeline.value() + elapsed_frames - frame) / self.preview_fps())
+        self.schedule_play_tick()
+
+    def schedule_play_tick(self):
+        if not self.play.isChecked(): return
+        # Schedule against the transport clock, not a rounded repeating period.
+        # At 12 fps a repeating 83-ms timer sometimes visits the same frame twice,
+        # then leaves a visible 166-ms hold even with every frame cached.
+        fps = self.preview_fps()
+        elapsed = self.play_origin + (time.monotonic()-self.play_started)*fps
+        remaining = (math.floor(elapsed+1e-8)+1-elapsed)/fps
+        self.play_timer.start(max(1, math.ceil(remaining*1000)))
+
     def toggle_play(self, checked):
         self.monitor_state.setText("[ PLAY ]" if checked else "[ HOLD ]")
         fps = self.sequence["fps"] if self.sequence is not None else self.preset["export_fps"]
@@ -2167,10 +2179,10 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
             self.play_origin = scope.position(self.timeline.value()); self.play_started = time.monotonic(); self.display_times.clear()
             self._soundtrack_mapping = None
             self.preview_status.setText(f'Preview: measuring / {fps} fps')
-            self.play_timer.start(max(5, round(1000 / fps)))
         else:
             self.play_timer.stop(); self.preview_status.setText('Preview paused')
         self.sync_soundtrack(force=True)
+        if checked: self.schedule_play_tick()
     def install_preset(self, preset, *, path=None):
         self.end_comparison()
         self.reset_soundtrack_work()
@@ -2341,7 +2353,9 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
         sid = self.composer.target()['id'] if self.composer.scope else None
         from synth_sequence import resolve_sequence_frame
         seconds = seconds if isinstance(seconds, (int, float)) else self.timeline.value()/self.preview_fps()
-        resolved = resolve_sequence_frame(self.sequence, seconds)
+        # The editor owns an already compiled/normalized sequence. Revalidating
+        # every state here stalls cached video and starves live audio output.
+        resolved = resolve_sequence_frame(self.sequence, seconds, normalized=True)
         panel.set_explanations(explain_effect(self.composition, self.sequence, panel.effect_id, seconds, sid, resolved))
         if panel.color_panel.isVisible(): panel.color_panel.refresh()
         if panel.breakdown_host.isVisible():
