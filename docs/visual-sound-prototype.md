@@ -69,8 +69,12 @@ hidden steps so lengthening it restores their settings.
 Tempo is 30–240 BPM, with quarter, eighth, sixteenth and triplet divisions.
 **Visual gestures** starts one pattern on the next timeline grid boundary when
 the image makes a gesture, and lets it finish before retriggering. **Loop with
-timeline** repeats it from time zero. In either mode the image still gates the
-sound and modulates its intensity/filter through the existing connections.
+timeline** repeats it from time zero, scheduling every enabled step regardless
+of object size. Shrinking below the visual-gesture threshold never removes
+notes from this clock. In either mode the image still gates audible output
+through its smoothed presence envelope and modulates intensity/filter through
+the existing connections. An entirely absent image remains silent; the loop
+keeps its phase while silent, ready for the image to return.
 BPM changes the sound rhythm, never the video speed. The active-step indicator
 follows the same scheduled events, including rests. Pitch, velocity, gate and
 rhythm use the same implementation for live audition and export. Original

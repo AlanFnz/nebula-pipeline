@@ -39,9 +39,12 @@ def gesture_notes(signals, config, *, include_rests=False):
     custom = config.get('arp_mode') == 'sequence' and config['version'] == 3
     if custom and config['sequence_trigger'] == 'loop':
         length = step_seconds(config) * config['sequence_length']
+        # A timeline loop is a musical clock, independent of occupied area.
+        # The shared smoothed presence envelope still controls audible output.
+        # Applying the visual-onset threshold here silently deleted steps when
+        # an object shrank, even with Continuity at 100%.
         return [note for phrase, start in enumerate(np.arange(0., signals['time'][-1], length))
-                for note in sequence_phrase(config, start, float(np.interp(start, signals['time'], signals['motion'])), phrase, signals['time'][-1], include_rests)
-                if np.interp(note['time'], signals['time'], signals['presence']) > .12]
+                for note in sequence_phrase(config, start, float(np.interp(start, signals['time'], signals['motion'])), phrase, signals['time'][-1], include_rests)]
     times=signals['time'];initial=signals['expansion'][0]
     e=_smooth(signals['expansion']-initial,.10)+initial
     m=_smooth(signals['motion'],.10)

@@ -55,8 +55,40 @@ def test_timeline_loop_is_anchored_and_does_not_sound_when_image_is_absent():
     notes=gesture_notes(s,c);assert [n['time'] for n in notes]==list(np.arange(0,2.,.25))
     assert [n['step'] for n in notes]==[0,1,2,3]*2
     assert all(n['time']<s['time'][-1] for n in notes)
-    s['presence'][:]=0;assert not gesture_notes(s,c)
+    # The clock continues when nothing is visible; the audio envelope, not the
+    # scheduler, mutes the output. Returning geometry stays on the same grid.
+    s['presence'][:]=0
+    assert [n['time'] for n in gesture_notes(s,c)]==list(np.arange(0,2.,.25))
+    assert not render(c,s).any()
     c['subdivision']='1/8T';assert step_seconds(c)==pytest.approx(1/6)
+
+
+def test_loop_keeps_all_steps_when_visible_shape_shrinks_below_gesture_threshold():
+    c=custom();c.update(sequence_trigger='loop',subdivision='1/16',sequence_length=16,continuity=1.)
+    s=signals(3.);s['presence'][(s['time']>=1)&(s['time']<1.75)]=.0625
+    notes=gesture_notes(s,c)
+    assert [n['time'] for n in notes]==list(np.arange(0,3.,.125))
+    assert [n['step'] for n in notes]==list(range(16))+list(range(8))
+    c['mixer']['body']['mute']=True
+    c['mixer']['arpeggio'].update(low_db=-8.46,mid_db=-1.29,high_db=5.98)
+    audio=render(c,s)
+    # Every formerly dropped step contains an audible arpeggio, including late
+    # in the contraction when previous notes have finished releasing.
+    for t in np.arange(1,1.75,.125):
+        chunk=audio[round((t+.035)*48000):round((t+.10)*48000)]
+        assert np.sqrt(np.mean(chunk**2))>.001
+    live=LiveInstrument(dict(duration=3.,seed=31),s,c)
+    assert np.array_equal(audio,np.concatenate([live.render() for _ in range(300)]))
+    c['sequence'][3]['enabled']=False
+    assert [n['step'] for n in gesture_notes(s,c)].count(3)==0
+    assert [n['step'] for n in gesture_notes(s,c,include_rests=True)].count(3)==2
+
+
+def test_visual_gesture_mode_still_waits_for_a_visible_gesture():
+    c=custom();s=signals(2.);s['presence'][:]=.0625;s['opening'][12]=1
+    assert not gesture_notes(s,c)
+    s['presence'][:]=1
+    assert gesture_notes(s,c)[0]['time']==.25
 
 
 def test_custom_sequence_pcm_live_export_changes_and_gate():

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.63.1 — 2026-11-06
+
+- Fix missing arpeggio steps in Loop with timeline when the visible object
+  occupies less than 12% of the canvas. The rhythm now runs continuously;
+  the existing smoothed visual envelope still shapes loudness and silence.
+- Keep authored rests, gesture-triggered phrases, mixer settings and visual
+  motion unchanged. Loop-mode audio intentionally gains the missing notes in
+  both live audition and export. Clarify the two Start modes in the sequencer.
+
 ## 0.63.0 — 2026-11-06
 
 - Add a Mixer tab to the layered synth with independent Drone and Arpeggio

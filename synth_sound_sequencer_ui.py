@@ -21,6 +21,7 @@ class StepSequencer(QWidget):
         self.length=QSpinBox(); self.length.setRange(1,16); self.length.setSuffix(' steps'); self.length.setAccessibleName('Sequence length'); self.length.setKeyboardTracking(False)
         self.trigger=QComboBox(); self.trigger.setAccessibleName('Sequencer trigger')
         self.trigger.addItem('Visual gestures','gesture'); self.trigger.addItem('Loop with timeline','loop')
+        self.trigger.setToolTip('Visual gestures: play one pattern per gesture, then wait. Loop with timeline: repeat every enabled step continuously; object size affects loudness, not the rhythm.')
         for label,widget in (('Tempo',self.bpm),('Division',self.division),('Length',self.length)):
             row.addWidget(QLabel(label)); row.addWidget(widget)
         layout.addLayout(row); row=QHBoxLayout(); row.addWidget(QLabel('Start'));row.addWidget(self.trigger,1); layout.addLayout(row)

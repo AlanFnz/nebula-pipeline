@@ -1,3 +1,3 @@
 """Canonical project version; see VERSIONING.md for the release convention."""
 
-__version__ = "0.63.0"
+__version__ = "0.63.1"
