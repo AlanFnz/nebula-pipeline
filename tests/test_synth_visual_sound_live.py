@@ -2,6 +2,7 @@
 import copy
 import time
 import numpy as np
+import pytest
 from PySide6.QtTest import QSignalSpy,QTest
 from synth_visual_sound import RATE,instrument_sound
 from synth_visual_sound_instrument import InstrumentVoice
@@ -48,18 +49,28 @@ class Output:
     def close(self): self.stop()
 
 
-def test_live_monitor_updates_without_restarting_seeks_pauses_and_closes(app):
-    clock=[10.];monitor=LiveSoundMonitor(backend_factory=Output,clock=lambda:clock[0])
+@pytest.fixture
+def monitors(app):
+    created=[]
+    def make(**kwargs):
+        monitor=LiveSoundMonitor(**kwargs);created.append(monitor);return monitor
+    yield make
+    for monitor in created: monitor.close()
+
+
+def test_live_monitor_updates_without_restarting_seeks_pauses_and_closes(monitors):
+    clock=[10.];monitor=monitors(backend_factory=Output,clock=lambda:clock[0])
     c=instrument_sound();monitor.set_source(dict(duration=3.,seed=1),signals(3.),c)
-    monitor.sync(.4,True);wait_until(lambda:len(monitor.backend.audio)>BLOCK*8)
+    monitor.sync(.4,True);wait_until(lambda:monitor.backend is not None and len(monitor.backend.audio)>BLOCK*8)
     output=monitor.backend;assert output.starts==1
     c['opening']=.9;monitor.set_config(c)
     clock[0]+=.08;monitor.sync(.48,True,force=True)
     assert output.starts==1 # GUI refreshes cannot reset the running stream.
-    monitor.set_monitor(.3,True);assert output.level==0
-    monitor.set_monitor(.3,False);assert output.level==.3
-    monitor.sync(2.,True,force=True);assert output.starts==2
-    monitor.sync(2.,False);assert not monitor.playing and not monitor.pending
+    monitor.set_monitor(.3,True);wait_until(lambda:output.level==0)
+    monitor.set_monitor(.3,False);wait_until(lambda:output.level==.3)
+    monitor.sync(2.,True,force=True);wait_until(lambda:output.starts==2)
+    monitor.sync(2.,False);assert not monitor.playing
+    wait_until(lambda:not monitor.output.playing and not monitor.output.pending)
     monitor.close();assert not monitor.producer.thread.is_alive()
 
 
@@ -141,14 +152,15 @@ def test_qt_audio_error_aliases_are_compared_by_value(app):
     assert output.write(b'a'*32)==16
 
 
-def test_slow_device_initialization_catches_up_to_video_clock(app):
+def test_slow_device_initialization_catches_up_to_video_clock(monitors):
     clock=[10.]
     class SlowOutput(Output):
         def start(self): super().start();clock[0]+=.25
-    monitor=LiveSoundMonitor(backend_factory=SlowOutput,clock=lambda:clock[0])
+    monitor=monitors(backend_factory=SlowOutput,clock=lambda:clock[0])
     monitor.set_source(dict(duration=3.,seed=1),signals(3.),instrument_sound())
     monitor.sync(1.,True)
-    assert monitor.seconds==1.25 and monitor.anchor==10.25
+    wait_until(lambda:monitor.seconds==1.25)
+    assert monitor.anchor==10.25
     clock[0]+=.1;monitor.sync(1.35,True)
     assert monitor.backend.starts==1
     monitor.close()

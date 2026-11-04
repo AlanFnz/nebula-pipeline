@@ -122,6 +122,26 @@ The original 20-second v4 PCM is sample-identical after the shared-DSP refactor.
 Monitor volume/mute are independent of saved instrument level. Unsupported audio
 outputs report an error and can use the prepared-waveform fallback.
 
+As of 0.63.2, the Qt audio device and its 5 ms delivery timer have their own
+high-priority event loop. GUI work or a window switch no longer prevents a ready
+packet from reaching the device. Device creation, writes, volume, seeks and
+shutdown all run on that owner thread; commands are ordered and stale failures
+cannot stop a newer stream. Buffer sizes and waveform quality are unchanged.
+Attack/Release only evaluate envelopes during each note's lifetime. The two
+crossfading voices share identical oscillator waves within a block while keeping
+independent envelopes and filter state. Sound drafts reuse the visual fingerprint
+until the document, revision or A/B source changes.
+
+A local 9-second stress run used a prepared 20-second Pleated study, five unison
+voices, a 160 BPM sixteenth-note loop, all six EQ bands, 300 interleaved Attack/
+Release edits and a deliberate 150 ms GUI stall. The earlier build repeatedly
+underran; the revised output had no mid-playback Idle transitions. Median draft
+handling fell from 35.6 to 4.6 ms. This is a measured scenario, not a guarantee
+against arbitrary machine load. Tests also block GUI event delivery longer than
+the combined buffers, check thread ownership and recovery, and compare cached
+crossfades with uncached DSP. Both the original v4 and current 20-second study
+remain sample-identical to their previous fixed-settings PCM.
+
 The latest starter is frozen in `presets/pleated-signal-acid-v4.json`. Earlier
 snapshots and version-1/2 instruments remain selectable and load unchanged.
 

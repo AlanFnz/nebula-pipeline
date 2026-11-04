@@ -59,6 +59,7 @@ class VisualSoundStudio:
     def init_visual_sound(self):
         self.visual_sound_dialog=None;self.visual_sound_job=None;self.visual_sound_key=None
         self.live_sound=None;self.live_signals_job=None;self.live_signals_key=None;self.live_signals=None;self.live_draft=None;self.live_meter_key=None
+        self.live_document_cache=None
         self.visual_sound_cache=OrderedDict();self.visual_sound_signals=None
         self.visual_sound_status='';self.visual_sound_volume=.7;self.visual_sound_muted=False
         self.visual_sound_player=SoundtrackPreview(self)
@@ -120,7 +121,14 @@ class VisualSoundStudio:
         import hashlib,json
         from synth_preview import _visual_document
         from synth_visual_sound_live import LiveSoundMonitor
-        key=(id(self.document_identity),hashlib.sha256(json.dumps(_visual_document(seq),sort_keys=True).encode()).hexdigest())
+        # Knobs only change the sound draft. Hash the visual document once per
+        # revision, rather than deep-copying/serializing it on every drag event.
+        revision=(self.document_identity,self.settings_generation,self.comparison_context())
+        cached=self.live_document_cache
+        if cached is None or cached[0]!=revision or cached[1] is not seq:
+            key=(id(self.document_identity),hashlib.sha256(json.dumps(_visual_document(seq),sort_keys=True).encode()).hexdigest())
+            self.live_document_cache=(revision,seq,key)
+        else: key=cached[2]
         self.cancel_visual_sound();self.visual_sound_player.set_track(None)
         self.soundtrack_playback.set_monitor_muted(True)
         if self.live_sound is None:

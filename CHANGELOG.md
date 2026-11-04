@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.63.2 — 2026-11-06
+
+- Give live audio output its own Qt event loop, independent of the editor and
+  native window events. Keep the existing 10 ms synthesis blocks, bounded queues
+  and device buffer; pause, seek, monitoring and device failures stay coordinated.
+- Reduce work during continuous Attack/Release edits by evaluating envelopes
+  only over each note's lifetime and reusing identical oscillator waves during
+  voice crossfades. Cache the visual document fingerprint across sound drafts.
+- Preserve the full oscillator quality, shared filters/EQ, 40 ms crossfades,
+  Undo/Redo, prepared video and sample-identical fixed-settings export.
+
 ## 0.63.1 — 2026-11-06
 
 - Fix missing arpeggio steps in Loop with timeline when the visible object

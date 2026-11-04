@@ -70,7 +70,14 @@ def instrument_controls(signals,config):
     if config['enabled'] and link['enabled'] and link['amount']>0:
         for note in notes:
             duration=instrument_note_duration(note,config)
-            pluck=np.maximum(pluck,note_envelope(signals['time']-note['time'],duration,config['attack'],config['release']))
+            # Only this note's lifetime can contribute. Evaluating every note
+            # over the whole movie made Attack/Release edits quadratic in time.
+            # Onset is exactly zero; include the rounded end sample so tiny
+            # positive tails from floating-point subtraction stay identical.
+            first,last=np.searchsorted(signals['time'],(note['time'],note['time']+duration),side='right')
+            if first<last:
+                env=note_envelope(signals['time'][first:last]-note['time'],duration,config['attack'],config['release'])
+                pluck[first:last]=np.maximum(pluck[first:last],env)
     # The note's filter accent has its own de-click smoothing; resonance cannot
     # amplify a sudden attack into a sharp transient. Evaluated before blocking.
     return notes,_smooth(pluck,.035)
@@ -107,8 +114,10 @@ class InstrumentVoice:
         self.states=states
         self.seed=seed
         self.mixer=make_mixer(config)
+        self.tone_key=(config['density'],config['unison'],config['detune'],config['width'],
+                       tuple(tuple(sorted(osc.items())) for osc in config['oscillators']))
 
-    def render(self, start, length):
+    def render(self, start, length, *, tone_cache=None):
         config=self.config
         signals=self.signals
         total=self.total
@@ -120,9 +129,17 @@ class InstrumentVoice:
         accent=self.accent
         states=self.states
         seed=self.seed
+        def tones(times,root,tone_seed,origin):
+            # A live crossfade often changes only articulation, filter or EQ.
+            # Reuse the identical, unprocessed waves for its two voices. The
+            # cache lives for this one block; envelopes/filters remain separate.
+            key=(self.tone_key,start,length,root,tone_seed,origin)
+            if tone_cache is None: return oscillator_bank(times,root,config,tone_seed)
+            if key not in tone_cache: tone_cache[key]=oscillator_bank(times,root,config,tone_seed)
+            return tone_cache[key]
         t=(start+np.arange(length))/RATE
         g,e,m,a=[np.interp(t,signals['time'],v) for v in (gate,expansion,motion,accent)]
-        body=oscillator_bank(t,config['pitch'],config,seed)*((.18+.08*e)*amount['body'])[:,None]
+        body=tones(t,config['pitch'],seed,None)*((.18+.08*e)*amount['body'])[:,None]
         melody=np.zeros((length,2))
         for n,note in enumerate(notes):
             duration=instrument_note_duration(note,config)
@@ -130,7 +147,7 @@ class InstrumentVoice:
             age=t-note['time'];u=np.maximum(age,0.)
             env=note_envelope(age,duration,config['attack'],config['release'])
             hz=config.get('arp_pitch',config['pitch'])*2**(note['semitones']/12)
-            tone=oscillator_bank(u,hz,config,seed+n+1)*((env*note['velocity']*.40*amount['arpeggio'])[:,None])
+            tone=tones(u,hz,seed+n+1,note['time'])*((env*note['velocity']*.40*amount['arpeggio'])[:,None])
             tone[:,0]*=1-note['pan']*.5;tone[:,1]*=1+note['pan']*.5
             melody+=tone
         body=self.mixer['body'].process(body)
