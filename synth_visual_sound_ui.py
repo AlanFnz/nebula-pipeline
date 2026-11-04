@@ -32,6 +32,7 @@ class VisualSoundDialog(SoundHistory,QDialog):
         label=QLabel('PLEATED / SYNTH');label.setProperty('sectionTitle',True);layout.addWidget(label)
         hint=QLabel('Live audition: play the video and turn the knobs to hear changes immediately. Apply saves your sound; closing without Apply restores the saved settings.')
         hint.setWordWrap(True);layout.addWidget(hint);row=QHBoxLayout()
+        self.workspace_hint = hint; self.sound_hint = hint.text()
         self.enabled=QCheckBox('Enable sound');row.addWidget(self.enabled)
         self.voice=QComboBox();self.voice.setAccessibleName('Instrument')
         for title,key in (('Layered resonant synth',3),('Acid triangle (original)',2),('Electric / tape (original)',1)): self.voice.addItem(title,key)

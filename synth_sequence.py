@@ -51,7 +51,7 @@ def normalize_sequence(raw=None):
         return reference_sequence()
     if not isinstance(raw, dict):
         raise ValueError("Synth sequence must be a JSON object")
-    if raw.get("schema_version", 0) not in (1, 2, 3, 4, 5, 6):
+    if raw.get("schema_version", 0) not in (1, 2, 3, 4, 5, 6, 7):
         raise ValueError(f"Unsupported sequence schema version: {raw.get('schema_version')}")
     result = copy.deepcopy(reference_sequence())
     if raw.get('schema_version') in (2, 3) or 'footage' in raw:
@@ -146,6 +146,10 @@ def normalize_sequence(raw=None):
         from synth_visual_sound import normalize_sound
         result['generated_sound'] = normalize_sound(raw['generated_sound'])
         result['schema_version'] = 6
+    if raw.get('visual_performance') is not None:
+        from synth_performance import normalize_performance
+        result['visual_performance'] = normalize_performance(raw['visual_performance'])
+        result['schema_version'] = 7
     return result
 
 
@@ -295,15 +299,29 @@ def resolve_sequence_frame(sequence, time_seconds, *, normalized=False, state_ca
     else:
         base = preset(cue["state"])
     base = apply_automations(base, seq.get("automations", ()), t)
+    if seq.get('visual_performance'):
+        from synth_performance import apply_surface
+        base = apply_surface(base, seq['visual_performance'], t, seq['duration'])
     return seq, t, effect_time, video_time, cue, transition, amount, base
 
 
 def render_sequence_frame(sequence, time_seconds, size=None, frame_provider=None, bypass=False, *, cancel=None):
     seq = normalize_sequence(sequence)
+    config = seq.get('visual_performance') if not bypass else None
+    if config:
+        from synth_performance import base_document, source_time, apply_frame
+        base = base_document(seq)
+        # Surface controls belong in the base renderer; fast controls follow it.
+        image = _render_sequence_frame_base(base, source_time(config, time_seconds, seq['duration'], seq['fps']), size, frame_provider, bypass, cancel=cancel)
+        return apply_frame(image, config, time_seconds, seq['duration'], seq.get('seed', 0))
+    return _render_sequence_frame_base(seq, time_seconds, size, frame_provider, bypass, cancel=cancel)
+
+
+def _render_sequence_frame_base(seq, time_seconds, size=None, frame_provider=None, bypass=False, *, cancel=None):
     if 'footage' in seq and frame_provider is None:
         from synth_video import VideoFrameProvider
         with VideoFrameProvider(cancel=cancel) as provider:
-            return render_sequence_frame(seq, time_seconds, size, provider, bypass, cancel=cancel)
+            return _render_sequence_frame_base(seq, time_seconds, size, provider, bypass, cancel=cancel)
     seq, t, effect_time, video_time, cue, transition, amount, base = resolve_sequence_frame(seq, time_seconds, normalized=True)
     if not bypass and 'audio_reactivity' in seq:
         from synth_audio_reactivity import apply_reactivity

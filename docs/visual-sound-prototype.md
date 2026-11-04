@@ -110,10 +110,11 @@ is no second render or separate playback clock.
 The frame counter shows readiness and dimensions; preparation does not start
 playback or change quality. Lossless temporary disk storage extends the bounded
 RAM cache. Cancel/resume keeps completed frames. Audio edits, including Apply and
-Undo, preserve prepared visuals; visual or resolution changes invalidate them.
+Undo, preserve prepared visuals. Perform’s Frame/Motion/Finish controls reuse
+those frames; Surface and other source/effect or resolution changes invalidate them.
 
 Live monitoring uses the same stateful oscillator/filter implementation as
-export, in 10 ms blocks on a dedicated worker. At most four packets plus the
+export, in 10 ms blocks on a dedicated worker. At most six packets plus the
 40 ms device buffer are queued. Parameter changes use 40 ms smooth crossfades,
 retaining filter state and the video clock. Seeks reconstruct a short filter
 history and fade in. Actual latency depends on the output device and machine;

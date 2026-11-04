@@ -386,6 +386,15 @@ the fluctuations of applied visual effects. The artist should hear the tension,
 motion, disruption and settling of the image as one audiovisual gesture.
 Start with internal effect signals; analysis of the rendered image comes later.
 
+### Visual performance — shipped 0.64.0
+
+Implemented 2026-11-06: project-wide Perform knobs and the shared Visuals panel
+in the sound workspace. Common image controls work across source types;
+module-based surface adapters start with Pleated field. Movements can be
+recorded, undone, saved and exported. Prepared source frames are reused by the
+fast stage, and the layered synth accepts updated visual signals without
+resetting its device. See [Visual performance](visual-performance.md).
+
 ### V1. First sound prototype — Pleated signal
 
 Implemented 2026-11-05 in 0.55.0. After reviewing the extended 20-second

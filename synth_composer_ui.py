@@ -1267,11 +1267,12 @@ class CompositionPanel(QWidget):
                   and self.object_panel.pages.currentWidget() is self.object_editor
                   and self.object_editor.effect_id == 'ink_bloom' and self.object_editor.parameter_tabs.currentIndex() == 1)
         master = self.look_tabs.currentWidget() is self.master_panel
-        self.scope_combo.setVisible(not (timing or master))
+        performing = bool(self.look_tabs.currentWidget().property('visualPerformance'))
+        self.scope_combo.setVisible(not (timing or master or performing))
         self.timing_scope_label.setVisible(timing)
         self.master_scope_label.setVisible(master)
         self.source_scope_label.setVisible(False)
-        self.take_label.setVisible(not master)
+        self.take_label.setVisible(not (master or performing))
 
     def change_video(self, key, value):
         if self.updating: return
@@ -1658,6 +1659,7 @@ class CompositionPanel(QWidget):
     def reset_label(self):
         if self.arrangement_button.isChecked(): return ''
         page = self.look_tabs.currentWidget()
+        if page.property('visualPerformance'): return ''
         if page is self.master_panel: return 'Reset master'
         if page is self.object_panel:
             if self.object_panel.pages.currentWidget() is self.object_editor and self.object_editor.effect_id == 'ink_bloom' and self.object_editor.parameter_tabs.currentIndex() == 1:
@@ -1677,6 +1679,7 @@ class CompositionPanel(QWidget):
     def reset_controls(self):
         if self.arrangement_button.isChecked(): return
         page = self.look_tabs.currentWidget()
+        if page.property('visualPerformance'): return ''
         if page is self.master_panel:
             self.reset_master(); return
         if page is self.effects_panel and self.effects_panel.focused:

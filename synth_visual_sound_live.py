@@ -16,6 +16,7 @@ from synth_visual_sound import RATE
 from synth_visual_sound_instrument import InstrumentVoice
 
 BLOCK = 480
+QUEUED_BLOCKS = 6  # 60 ms of synthesis ahead of the device absorbs visual/UI peaks.
 FADE = round(.040 * RATE)
 
 
@@ -32,13 +33,16 @@ class LiveInstrument:
         if history: voice.render(self.position-history,history)
         return voice
 
-    def update(self, config):
+    def update(self, config, signals=None, sequence=None):
+        if signals is not None:
+            self.signals=signals
+            self.sequence=sequence or self.sequence
         self.pending=copy.deepcopy(config)
 
     def render(self, length=BLOCK):
         if self.old is None and self.pending is not None:
             config,self.pending=self.pending,None
-            if config != self.voice.config:
+            if config != self.voice.config or self.signals is not self.voice.signals:
                 self.old=self.voice;self.voice=self.make_voice(config,warm=False)
                 self.voice.states=list(self.old.states);self.fade=0
                 for key, channel in self.voice.mixer.items():
@@ -61,7 +65,7 @@ class LiveInstrument:
 
 
 class AudioProducer:
-    """One worker, four 10-ms packets, one latest configuration; never Qt work."""
+    """One worker, six 10-ms packets, one latest configuration; never Qt work."""
     def __init__(self, error):
         self.condition=threading.Condition();self.queue=deque();self.command=None
         self.epoch=0;self.closed=False;self.error=error
@@ -81,6 +85,12 @@ class AudioProducer:
                 self.command=(seq,signals,copy.deepcopy(config),start)
             self.condition.notify_all()
 
+    def update_source(self, sequence, signals, config):
+        with self.condition:
+            if self.command:
+                self.command=(sequence,signals,copy.deepcopy(config),self.command[3])
+            self.condition.notify_all()
+
     def stop(self):
         with self.condition:
             self.epoch+=1;self.command=None;self.queue.clear();self.condition.notify_all()
@@ -92,18 +102,18 @@ class AudioProducer:
             return value
 
     def run(self):
-        epoch=-1;engine=None;previous=None
+        epoch=-1;engine=None;previous=None;previous_signals=None
         while True:
             with self.condition:
-                self.condition.wait_for(lambda:self.closed or (self.command is not None and len(self.queue)<4))
+                self.condition.wait_for(lambda:self.closed or (self.command is not None and len(self.queue)<QUEUED_BLOCKS))
                 if self.closed: return
                 command=self.command;current_epoch=self.epoch
             seq,signals,config,start=command
             try:
                 if current_epoch!=epoch:
-                    engine=LiveInstrument(seq,signals,config,start);epoch=current_epoch;previous=config
-                elif config!=previous:
-                    engine.update(config);previous=config
+                    engine=LiveInstrument(seq,signals,config,start);epoch=current_epoch;previous=config;previous_signals=signals
+                elif config!=previous or signals is not previous_signals:
+                    engine.update(config, signals, seq);previous=config;previous_signals=signals
                 packet=engine.render().tobytes()
             except Exception as exc:
                 with self.condition:
@@ -246,6 +256,11 @@ class LiveSoundMonitor(QObject):
 
     def set_source(self,sequence,signals,config):
         self.stop();self.unavailable=False;self.sequence=sequence;self.signals=signals;self.config=copy.deepcopy(config)
+
+    def update_source(self,sequence,signals,config):
+        # Producer uses immutable snapshots; updating does not reset sink or clock.
+        self.sequence=sequence;self.signals=signals;self.config=copy.deepcopy(config)
+        if not self.closed: self.producer.update_source(sequence,signals,config)
 
     def set_config(self,config):
         self.config=copy.deepcopy(config)

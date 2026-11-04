@@ -100,7 +100,7 @@ def composition_from_sequence(sequence):
     if 'footage' in source:
         result.update(schema_version=2, render_version=2, footage=copy.deepcopy(source['footage']))
     promoted_audio = False
-    for key, schema in (('soundtrack', 4), ('audio_reactivity', 5), ('generated_sound', 6)):
+    for key, schema in (('soundtrack', 4), ('audio_reactivity', 5), ('generated_sound', 6), ('visual_performance', 7)):
         if key in source:
             result[key] = copy.deepcopy(source.pop(key))
             result['schema_version'] = schema
@@ -541,14 +541,14 @@ def _geometry(raw, section=False):
 
 
 def normalize_composition(raw):
-    if not isinstance(raw, dict) or raw.get("format") != FORMAT or raw.get("schema_version") not in (1, 2, 3, 4, 5, 6):
+    if not isinstance(raw, dict) or raw.get("format") != FORMAT or raw.get("schema_version") not in (1, 2, 3, 4, 5, 6, 7):
         raise ValueError("Unsupported composition document")
     snapshots = None
     if 'snapshots' in raw:
         from synth_exploration import normalize_snapshots
         snapshots = normalize_snapshots(raw['snapshots'])
     result = copy.deepcopy(raw)
-    if raw.get('schema_version') in (4, 5, 6):
+    if raw.get('schema_version') in (4, 5, 6, 7):
         result['schema_version'] = 1
     if raw.get('soundtrack') is not None:
         from synth_soundtrack import normalize_soundtrack
@@ -677,6 +677,12 @@ def normalize_composition(raw):
         result['schema_version'] = 6
     else:
         result.pop('generated_sound', None)
+    if raw.get('visual_performance') is not None:
+        from synth_performance import normalize_performance
+        result['visual_performance'] = normalize_performance(raw['visual_performance'])
+        result['schema_version'] = 7
+    else:
+        result.pop('visual_performance', None)
     return result
 
 
@@ -876,6 +882,9 @@ def compile_composition(raw, *, base_states=None, project_states=None, project_b
     if 'effect_order' in project:
         result['effect_order'] = list(project['effect_order'])
     result.pop("soundtrack", None)
+    result.pop('visual_performance', None)
+    if 'visual_performance' in project:
+        result['visual_performance'] = copy.deepcopy(project['visual_performance'])
     result.pop("generated_sound", None)
     if "generated_sound" in project:
         result["generated_sound"] = copy.deepcopy(project["generated_sound"])

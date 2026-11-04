@@ -53,14 +53,17 @@ class SoundHistory:
     def redo_draft(self):return self.restore_sound_history(self.sound_redo,self.sound_undo)
 
     def request_undo(self):
-        if not self.undo_draft() and hasattr(self.parent(),'undo_composition'):self.parent().undo_composition()
+        visual = getattr(self, 'visuals_active', lambda: False)()
+        if (visual or not self.undo_draft()) and hasattr(self.parent(),'undo_composition'):self.parent().undo_composition()
 
     def request_redo(self):
-        if not self.redo_draft() and hasattr(self.parent(),'redo_composition'):self.parent().redo_composition()
+        visual = getattr(self, 'visuals_active', lambda: False)()
+        if (visual or not self.redo_draft()) and hasattr(self.parent(),'redo_composition'):self.parent().redo_composition()
 
     def refresh_history_actions(self):
-        undo=bool(self.sound_undo or getattr(self.parent(),'undo_compositions',[]))
-        redo=bool(self.sound_redo or getattr(self.parent(),'redo_compositions',[]))
+        visual = getattr(self, 'visuals_active', lambda: False)()
+        undo=bool((self.sound_undo and not visual) or getattr(self.parent(),'undo_compositions',[]))
+        redo=bool((self.sound_redo and not visual) or getattr(self.parent(),'redo_compositions',[]))
         self.sound_undo_action.setEnabled(undo);self.sound_redo_action.setEnabled(redo)
         self.undo_button.setEnabled(undo);self.redo_button.setEnabled(redo)
 

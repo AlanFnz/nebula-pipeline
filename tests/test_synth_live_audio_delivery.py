@@ -139,5 +139,9 @@ def test_sound_edits_reuse_visual_hash_but_document_revisions_invalidate_it(stud
     studio.settings_generation+=1;studio.audition_visual_sound(c)
     assert len(calls)==1 and studio.live_signals is job_signals # unchanged pixels, no analysis restart
     studio.sequence['seed']+=1;studio.settings_generation+=1;studio.audition_visual_sound(c)
-    assert len(calls)==2 and studio.live_signals is None
+    assert len(calls)==2 and studio.live_signals is job_signals
+    assert studio.live_signals_job is not None  # old analysis plays until replacement is ready
+    epoch=studio.live_sound.epoch
+    wait_until(lambda:studio.live_signals_job is None,seconds=15)
+    assert studio.live_signals is not job_signals and studio.live_sound.epoch==epoch
     studio.visual_sound_dialog.close()

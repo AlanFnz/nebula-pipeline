@@ -60,6 +60,7 @@ class VisualSoundStudio:
         self.visual_sound_dialog=None;self.visual_sound_job=None;self.visual_sound_key=None
         self.live_sound=None;self.live_signals_job=None;self.live_signals_key=None;self.live_signals=None;self.live_draft=None;self.live_meter_key=None
         self.live_document_cache=None
+        self.live_base_signals=None;self.live_performance_config=None
         self.visual_sound_cache=OrderedDict();self.visual_sound_signals=None
         self.visual_sound_status='';self.visual_sound_volume=.7;self.visual_sound_muted=False
         self.visual_sound_player=SoundtrackPreview(self)
@@ -90,6 +91,7 @@ class VisualSoundStudio:
             dialog.liveChanged.connect(self.live_sound_changed)
             dialog.finished.connect(self.finish_live_sound)
             self.play.toggled.connect(dialog.set_playing)
+        self.attach_sound_performance(self.visual_sound_dialog)
         self.visual_sound_dialog.set_config(self.composition.get('generated_sound'))
         self.visual_sound_dialog.set_monitor(self.visual_sound_volume,self.visual_sound_muted)
         self.visual_sound_dialog.set_playing(self.play.isChecked())
@@ -103,8 +105,8 @@ class VisualSoundStudio:
     def wants_live_sound(self,config=None):
         dialog=self.visual_sound_dialog
         config=config or self.live_draft or (self.composition or {}).get('generated_sound') or {}
-        return bool(dialog and dialog.isVisible() and dialog.live.isChecked() and
-                    config.get('version')==3 and config.get('output')=='generated')
+        listening = dialog.live.isChecked() if dialog and dialog.isVisible() else self.performing_visuals()
+        return bool(listening and config.get('version')==3 and config.get('output')=='generated')
 
     def live_sound_changed(self,*_):
         dialog=self.visual_sound_dialog
@@ -113,10 +115,11 @@ class VisualSoundStudio:
             self.audition_visual_sound(dialog.read_config())
 
     def audition_visual_sound(self,config):
+        config = config or (self.composition or {}).get('generated_sound') or {}
         self.live_draft=copy.deepcopy(config)
         if not self.wants_live_sound(config):
             self.finish_live_sound(refresh=True,keep_draft=True);return
-        seq=self.preview_sequence()
+        seq=self.performance_base_sequence()
         if not seq: return
         import hashlib,json
         from synth_preview import _visual_document
@@ -136,14 +139,14 @@ class VisualSoundStudio:
             self.live_sound.statusChanged.connect(self.set_visual_sound_status)
         self.live_sound.set_monitor(self.visual_sound_volume,self.visual_sound_muted)
         if key!=self.live_signals_key:
-            self.live_sound.stop()
             if self.live_signals_job: self.live_signals_job.cancel.cancel()
-            self.live_signals_key=key;self.live_signals=None
+            self.live_signals_key=key
             job=LiveSignalsJob(seq,key,self.document_identity);self.live_signals_job=job;self.pending_jobs.append(job)
             job.signals.done.connect(lambda result,j=job:self.live_signals_ready(j,result))
             job.signals.failed.connect(lambda error,j=job:self.live_signals_failed(j,error))
             self.set_visual_sound_status('Preparing visual motion for live sound…');self.jobs.start(job,-1)
-        elif self.live_signals is not None:
+        elif self.live_base_signals is not None and self.live_signals_job is None:
+            self.refresh_performed_signals(config)
             self.live_sound.set_config(config)
             self.update_live_activity(config)
             self.set_visual_sound_status('Live audition ready · Listen plays the video. Apply saves the sound.')
@@ -152,11 +155,25 @@ class VisualSoundStudio:
     def live_signals_ready(self,job,signals):
         if job in self.pending_jobs: self.pending_jobs.remove(job)
         if self.closing or job is not self.live_signals_job or job.identity is not self.document_identity or not self.wants_live_sound(): return
-        self.live_signals_job=None;self.live_signals=signals;self.visual_sound_signals=signals
-        self.live_sound.set_source(job.sequence,signals,self.live_draft)
+        self.live_signals_job=None;self.live_base_signals=signals
+        self.live_performance_config=None
+        self.refresh_performed_signals(self.live_draft, force=True)
         self.live_meter_key=None;self.update_live_activity(self.live_draft)
         self.set_visual_sound_status('Live audition ready · Listen plays the video. Apply saves the sound.')
         self.sync_soundtrack()
+
+    def refresh_performed_signals(self, config, force=False):
+        sequence = self.preview_sequence()
+        performance = sequence.get('visual_performance')
+        if not force and performance == self.live_performance_config: return
+        from synth_performance import apply_signals
+        signals = apply_signals(self.live_base_signals, performance, sequence['duration'], sequence['fps'])
+        self.live_performance_config = copy.deepcopy(performance)
+        self.live_signals = signals; self.visual_sound_signals = signals; self.live_meter_key = None
+        if self.live_sound.sequence is None:
+            self.live_sound.set_source(sequence, signals, config)
+        else:
+            self.live_sound.update_source(sequence, signals, config)
 
     def update_live_activity(self,config):
         key=(config['enabled'],config['arp_rate'],config['scale'],config['attack'],config['release'],
@@ -181,7 +198,7 @@ class VisualSoundStudio:
 
     def finish_live_sound(self,*_,refresh=True,keep_draft=False):
         if self.live_signals_job: self.live_signals_job.cancel.cancel();self.live_signals_job=None
-        self.live_signals_key=None;self.live_signals=None
+        self.live_signals_key=None;self.live_signals=None;self.live_base_signals=None;self.live_performance_config=None
         if self.live_sound: self.live_sound.stop()
         if not keep_draft:
             self.live_draft=None

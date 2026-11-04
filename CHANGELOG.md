@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.64.0 — 2026-11-06
+
+- Add project-wide Perform controls and a shared Visuals tab in the sound
+  workspace: framing, pace, fluidity, torsion, irregularity, grain and color.
+- Reuse prepared source frames at the selected resolution for fast controls;
+  use the identical clock and final image stage for preview and export.
+- Add relative, module-based surface adapters, starting with Pleated field
+  opening, fold relief/shadows and density. Surface changes render new frames.
+- Record knob gestures, replay/export them, and undo a drag or take as one edit.
+  Save/Open and snapshots retain controls in optional document schema 7.
+- Retain the running audio device and crossfade changed visual control signals
+  into the layered synth, with a bounded 60 ms producer queue for visual edit
+  peaks. Neutral settings preserve previous pixels and PCM.
+
 ## 0.63.2 — 2026-11-06
 
 - Give live audio output its own Qt event loop, independent of the editor and

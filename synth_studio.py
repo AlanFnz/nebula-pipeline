@@ -54,6 +54,8 @@ from synth_comparison_preview import ComparisonFrames
 from synth_exploration_studio import ExplorationStudio
 from synth_soundtrack_studio import SoundtrackStudio
 from synth_visual_sound_studio import VisualSoundStudio
+from synth_performance_studio import PerformanceStudio
+from synth_performance import base_document
 from synth_audio_reactivity_studio import AudioReactivityStudio
 
 
@@ -230,7 +232,7 @@ class ExportJob(QRunnable):
             self.signals.failed.emit(str(exc))
 
 
-class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QMainWindow):
+class SynthStudio(PerformanceStudio, VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QMainWindow):
     def __init__(self, preset=None, sequence=None, composition=None, settings=None, *, parent=None, embedded=False):
         super().__init__(parent, Qt.WindowType.Widget if embedded else Qt.WindowType.Window)
         if embedded:
@@ -314,6 +316,7 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
         self.init_soundtrack()
         self.init_audio_reactivity()
         self.init_visual_sound()
+        self.init_performance()
         self.build_ui()
         self.build_actions()
         QApplication.instance().installEventFilter(self)
@@ -358,6 +361,14 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
             focus = self.focusWidget()
             transport = event.key() in (Qt.Key.Key_Space, Qt.Key.Key_Left, Qt.Key.Key_Right)
             undo = event.matches(QKeySequence.StandardKey.Undo) or event.matches(QKeySequence.StandardKey.Redo)
+            panel = getattr(self, 'performance_panel', None)
+            if undo and panel and focus and (focus is panel or panel.isAncestorOf(focus)):
+                widget = focus
+                while widget and widget is not panel:
+                    if isinstance(widget, QAbstractSpinBox):
+                        widget.interpretText(); break
+                    widget = widget.parentWidget()
+                event.ignore(); return True
             local_editor = False
             widget = focus
             while widget and widget is not self:
@@ -1016,6 +1027,7 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
         self.section_tools.layout().right_last = self.composition is not None and 'footage' in self.composition
         if self.composition is not None:
             self.composer = CompositionPanel(self.composition, self.composition_index, self.composition_scope)
+            self.attach_performance_panel()
             self.composer.resize_mode = self.section_resize_mode.currentData()
             self.composer.changed.connect(self.composition_changed)
             self.composer.changed.connect(self.bind_pending_text_titles)
@@ -1302,6 +1314,8 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
         project = normalize_composition(project)
         sequence = compile_composition(project)
         if guard and not self.confirm_replacement(): return False
+        self.stop_performance_recording()
+        self.performance_timer.stop(); self.performance_needs_render = False
         self.end_comparison()
         self.cancel_video_import()
         self.reset_soundtrack_work()
@@ -1454,7 +1468,7 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
 
     def update_composition_history(self):
         dialog=getattr(self,'visual_sound_dialog',None)
-        sound_edit=dialog is not None and dialog.isVisible()
+        sound_edit=dialog is not None and dialog.isVisible() and not getattr(dialog, 'visuals_active', lambda: False)()
         if hasattr(self, "undo_action"):
             self.undo_action.setText('Undo sound edit' if sound_edit else 'Undo composition')
             self.redo_action.setText('Redo sound edit' if sound_edit else 'Redo composition')
@@ -1467,6 +1481,8 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
 
     def _restore_composition_history(self, source, destination):
         if not source: return
+        self.performance_timer.stop()
+        self.stop_performance_recording()
         selected_id = self.composer.document['sections'][self.composer.index]['id']
         destination.append(copy.deepcopy(self.composition))
         self.composition = source.pop(); self.sequence = compile_composition(self.composition)
@@ -1474,15 +1490,16 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
         self.composer.index = next((i for i, section in enumerate(self.composition['sections']) if section['id'] == selected_id),
                                    min(self.composer.index, len(self.composition['sections']) - 1))
         self.composer.refresh(); self.edit_key = None; self.refresh_composition()
+        self.refresh_performance_panels(force=True)
 
     def undo_composition(self):
         dialog=getattr(self,'visual_sound_dialog',None)
-        if dialog and dialog.isVisible() and dialog.undo_draft():return
+        if dialog and dialog.isVisible() and not getattr(dialog, 'visuals_active', lambda: False)() and dialog.undo_draft():return
         self._restore_composition_history(self.undo_compositions, self.redo_compositions)
 
     def redo_composition(self):
         dialog=getattr(self,'visual_sound_dialog',None)
-        if dialog and dialog.isVisible() and dialog.redo_draft():return
+        if dialog and dialog.isVisible() and not getattr(dialog, 'visuals_active', lambda: False)() and dialog.redo_draft():return
         self._restore_composition_history(self.redo_compositions, self.undo_compositions)
 
     def open_detailed_copy(self):
@@ -1799,12 +1816,12 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
             self.preset = self.collect(); self.preset["modules"][index], self.preset["modules"][new] = self.preset["modules"][new], self.preset["modules"][index]; self.mark_custom(); self.rebuild_modules(); self.invalidate()
 
     def current_preview_context(self):
-        return (*preview_context(self.preview_sequence(), self.preview_size(), self.preview_bypass(), self.video_frames.directory), self.comparison_context())
+        return (*preview_context(self.performance_base_sequence(), self.preview_size(), self.preview_bypass(), self.video_frames.directory), self.comparison_context())
 
     def capture_preview_validity(self):
         from synth_exploration import content
-        document = self.preview_document()
-        return RenderValidity.capture(self.document_identity, content(document) if document else None, self.preview_sequence(),
+        document = base_document(self.preview_document())
+        return RenderValidity.capture(self.document_identity, content(document) if document else None, self.performance_base_sequence(),
                                       self.collect() if self.sequence is None else self.preset, self.current_preview_context())
 
     def ensure_preview_context(self):
@@ -1817,15 +1834,20 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
             return False
         return True
 
-    def invalidate(self, *, force_clear=False, comparison_switch=False):
+    def invalidate(self, *, force_clear=False, comparison_switch=False, preserve_transport=False):
+        self.performance_base_cache = None
         self.update_document_title()
         current = self.capture_preview_validity()
         sound_config = copy.deepcopy((self.preview_sequence() or {}).get('generated_sound'))
-        sound_changed = sound_config != getattr(self, 'preview_sound_config', None)
         self.preview_sound_config = sound_config
-        if sound_changed and not force_clear and not comparison_switch and current == self.preview_validity:
-            # Sound-only edits do not interrupt a playing or preparing video.
+        performance = copy.deepcopy((self.preview_sequence() or {}).get('visual_performance'))
+        performance_changed = performance != getattr(self, 'preview_performance_config', None)
+        self.preview_performance_config = performance
+        self.refresh_performance_panels()
+        if not force_clear and not comparison_switch and current == self.preview_validity:
+            # Fast visual/sound edits keep prepared pixels and the transport.
             self.refresh_soundtrack()
+            if performance_changed: self.request_frame()
             return
         self.cancel_foreground_render()
         retain = None if force_clear else retained_frame_predicate(self.preview_validity, current)
@@ -1836,7 +1858,7 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
         self.preview_frames.switch(current.context)
         self.preview_validity = current
         self.display_times.clear()
-        if self.play.isChecked():
+        if self.play.isChecked() and not preserve_transport:
             self.play_origin = self.active_preview_scope().position(self.timeline.value()); self.play_started = time.monotonic()
         self.refresh_soundtrack()
         self.cancel_preparation()
@@ -1982,7 +2004,7 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
         if not frames:
             self._preparation_ready(); return
         size = self.preview_size()
-        job = PreparePreviewJob(self.preset, self.preview_sequence(), size, frames, self.preview_fps(), self.settings_generation, self.preview_bypass())
+        job = PreparePreviewJob(self.preset, self.performance_base_sequence(), size, frames, self.preview_fps(), self.settings_generation, self.preview_bypass())
         job.reserved_bytes = len(frames)*size[0]*size[1]*3
         self.preview_frames.reserve(job.reserved_bytes, self.preparation_target)
         self.cached_ranges.set_ranges(self.preview_frames.ranges())
@@ -2036,10 +2058,11 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
     def request_frame(self):
         if self.preview_suspended or self.closing: return
         if not self.ensure_preview_context(): return
-        sequence = self.preview_sequence()
+        sequence = self.performance_base_sequence()
+        sample_time = self.performance_source_time(self.timeline.value() / self.preview_fps())
         if sequence and 'footage' in sequence:
             from synth_section_sources import video_source_at
-            source, _time = video_source_at(sequence, self.timeline.value()/self.preview_fps())
+            source, _time = video_source_at(sequence, sample_time)
             try: check_source(source)
             except (ValueError, OSError) as exc:
                 self.settings_generation += 1
@@ -2054,8 +2077,9 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
             self.section_timeline.set_time(self.current_time)
         if self.preview_debounce.isActive():
             self.render_queued = True; return
-        self.preview_frames.anchor(self.timeline.value())
-        packet = self.preview_frames.get(self.timeline.value())
+        source_frame = round(sample_time * fps)
+        self.preview_frames.anchor(source_frame)
+        packet = self.preview_frames.get(source_frame)
         if packet is not None:
             self.render_queued = False
             self.display_frame(self.current_time, packet, cached=True)
@@ -2069,10 +2093,11 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
         if self.warming_job and self.preview_frames.reserved + size[0]*size[1]*3 > self.preview_frames.budget:
             self.render_queued = True; return
         self.render_running = True
-        job = RenderJob(self.preset, self.current_time, size, self.settings_generation, self.request_serial, sequence, self.video_frames, self.preview_bypass())
+        job = RenderJob(self.preset, sample_time, size, self.settings_generation, self.request_serial, sequence, self.video_frames, self.preview_bypass())
+        job.output_time = self.current_time
         self.render_job = job
         job.reserved_bytes = size[0]*size[1]*3 if size[0]*size[1]*3 <= self.preview_frames.budget else 0
-        self.preview_frames.reserve(job.reserved_bytes, (self.timeline.value(),))
+        self.preview_frames.reserve(job.reserved_bytes, (source_frame,))
         self.cached_ranges.set_ranges(self.preview_frames.ranges())
         self.pending_jobs.append(job)
         job.signals.done.connect(lambda result, j=job: self._receive_foreground_frame(j, result))
@@ -2084,7 +2109,7 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
     def _receive_foreground_frame(self, job, result):
         self.preview_frames.release(getattr(job, 'reserved_bytes', 0)); job.reserved_bytes = 0
         if job.cancel.event.is_set(): return
-        self.frame_ready(result)
+        self.frame_ready(result, output_time=getattr(job, 'output_time', None))
 
     def cancel_foreground_render(self):
         if self.render_job is not None:
@@ -2103,7 +2128,7 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
         if self.preparation_target: QTimer.singleShot(0, self._start_warm_batch)
         elif not self.warm_debounce.isActive(): self.schedule_auto_preparation()
 
-    def frame_ready(self, result):
+    def frame_ready(self, result, output_time=None):
         if self.closing or not self.ensure_preview_context(): return
         settings_generation, request_serial, time_seconds, size, raw, elapsed = result
         if settings_generation != self.settings_generation or request_serial < self.last_displayed_request: return
@@ -2112,9 +2137,11 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
         self.last_render_seconds = elapsed
         self.cache_preview_packet(round(time_seconds*self.preview_fps()), (size, raw))
         self.cached_ranges.set_ranges(self.preview_frames.ranges())
-        # A prepared/cached newer frame must not jump backwards to an older job.
-        if not self.play.isChecked() and abs(time_seconds-self.current_time) > .5/self.preview_fps(): return
-        self.display_frame(time_seconds, (size, raw))
+        # A job from an earlier source mapping must never replace a newer view.
+        output_time = time_seconds if output_time is None else output_time
+        if not self.play.isChecked() and abs(output_time-self.current_time) > .5/self.preview_fps(): return
+        if abs(time_seconds - self.performance_source_time(output_time)) > .5/self.preview_fps(): return
+        self.display_frame(output_time, (size, raw))
 
     def display_frame(self, time_seconds, packet, cached=False):
         self.refresh_effect_explanations(time_seconds)
@@ -2122,6 +2149,8 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
         if self.comparison:
             self.comparison['pending'] = False; self.refresh_comparison_controls()
         if cached: self.last_displayed_request = max(self.last_displayed_request, self.request_serial)
+        packet = self.perform_packet(packet, time_seconds)
+        self.update_performance_playhead(time_seconds)
         size, raw = packet
         if self.visual_sound_dialog and self.visual_sound_dialog.isVisible():
             self.visual_sound_dialog.set_video_frame(packet,time_seconds)
@@ -2179,6 +2208,7 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
         self.play_timer.start(max(1, math.ceil(remaining*1000)))
 
     def toggle_play(self, checked):
+        if not checked: self.stop_performance_recording()
         self.monitor_state.setText("[ PLAY ]" if checked else "[ HOLD ]")
         fps = self.sequence["fps"] if self.sequence is not None else self.preset["export_fps"]
         if checked:
@@ -2330,6 +2360,7 @@ class SynthStudio(VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, Ex
         elif not self.closing and not (navigation and navigation.disposing) and not self.confirm_close():
             event.ignore()
             return
+        self.performance_timer.stop()
         self.save_workspace()
         self.closing = True
         self.shot_strip.close()

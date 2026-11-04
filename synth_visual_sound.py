@@ -215,7 +215,9 @@ def visual_signals(sequence, cancel=None):
         if presence[i]<.025: armed=True
         if armed and presence[i]>.12 and enabled[i] and seconds-last>.4:
             events[i]=1.;armed=False;last=seconds
-    return dict(time=times,presence=presence,expansion=expansion,motion=speed,opening=events)
+    signals = dict(time=times,presence=presence,expansion=expansion,motion=speed,opening=events)
+    from synth_performance import apply_signals
+    return apply_signals(signals, seq.get('visual_performance'), seq['duration'], seq['fps'])
 
 
 def _smooth(values, seconds):
@@ -303,7 +305,9 @@ def write_sound(sequence, destination, cancel=None, *, signals=None):
 def sound_key(sequence):
     payload=copy.deepcopy(sequence)
     # Name/monitor FPS cannot affect sound. Authored cues retain their timing.
-    payload.pop('name',None);payload.pop('fps',None)
+    payload.pop('name',None)
+    # Performed timing samples authored frames, so FPS is now a dependency.
+    if not payload.get('visual_performance'): payload.pop('fps',None)
     if payload.get('audio_reactivity') and payload.get('soundtrack'):
         path=Path(payload['soundtrack']['path'])
         try:

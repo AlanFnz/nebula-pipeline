@@ -1626,6 +1626,13 @@ timeline** to play the whole video. Sound-only edits keep prepared frames and th
 video clock; changing resolution or global visuals requires preparing again.
 Temporary files are removed when the cache is invalidated or the window closes.
 
+**Perform** adds project-wide visual knobs, with the same panel in the sound
+workspace under **Visuals**. Frame/Motion/Finish reuse prepared pixels; Surface
+controls reshape supported objects and need new frames. Record movements for
+repeatable playback/export, and undo a drag or a recording as one edit. See
+[Visual performance](docs/visual-performance.md) for controls, recording, sound
+connections and performance limits.
+
 The regular preview cache and pending frame deliveries share a 192 MiB budget.
 For **Prepare**, long scopes still use a bounded window and report the limit. Foreground seeks take priority, and export suspends warming.
 Local visual edits retain unaffected frames when compiled cue dependencies prove
