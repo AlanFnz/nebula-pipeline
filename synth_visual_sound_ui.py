@@ -9,6 +9,8 @@ from synth_sound_pitch import PitchControl
 from synth_sound_sequencer_ui import StepSequencer
 from synth_sound_history import SoundHistory
 from synth_sound_sequence import sequence_defaults
+from synth_sound_mixer import mixer_defaults
+from synth_sound_mixer_ui import SoundMixer
 
 FACTORIES={1:default_sound,2:acid_sound,3:instrument_sound}
 
@@ -42,6 +44,8 @@ class VisualSoundDialog(SoundHistory,QDialog):
         self.video_time=QLabel('00:00.00');column.addWidget(self.video_time)
         split.addWidget(left);self.tabs=QTabWidget();split.addWidget(self.tabs);split.setSizes([400,850]);layout.addWidget(split,1)
         sound=self.page('Sound');oscillators=self.page('Oscillators');arpeggio=self.page('Arpeggio');motion=self.page('Motion')
+        mixer=self.page('Mixer');self.mixer=SoundMixer();mixer.addWidget(self.mixer)
+        self.mixer.toggled.connect(self.queue_draft)
         self.gain=SoundKnob('Level',0,100,1,' %');self.pitch=PitchControl('Base pitch',35,440)
         self.pitch.setToolTip('Pitch of the sustained body. The layered synth has a separate arpeggio root in Arpeggio. Original instruments share this root.')
         self.density=SoundKnob('Density',0,100,1,' %');self.drive=SoundKnob('Drive',0,100,1,' %');self.width=SoundKnob('Stereo',0,100,1,' %')
@@ -100,9 +104,9 @@ class VisualSoundDialog(SoundHistory,QDialog):
         self.live.toggled.connect(self.liveChanged);layout.addWidget(self.live)
         video=QHBoxLayout();self.preview_button=QPushButton('Prepare all video frames');self.preview_button.clicked.connect(self.previewRequested)
         video.addWidget(self.preview_button);self.preview_status=QLabel();video.addWidget(self.preview_status,1);layout.addLayout(video)
-        self.note=QLabel('Generated sound replaces other audio. Listen level and Mute affect monitoring only.');self.note.setWordWrap(True);layout.addWidget(self.note)
+        self.note=QLabel('Generated sound replaces other audio. Listen level and Mute monitor affect monitoring only.');self.note.setWordWrap(True);layout.addWidget(self.note)
         row=QHBoxLayout();self.listen=QPushButton('Listen');self.listen.setCheckable(True);self.listen.toggled.connect(self.playRequested);row.addWidget(self.listen)
-        self.mute=QCheckBox('Mute');row.addWidget(self.mute);row.addWidget(QLabel('Listen level'))
+        self.mute=QCheckBox('Mute monitor');row.addWidget(self.mute);row.addWidget(QLabel('Listen level'))
         self.volume=QSlider(Qt.Orientation.Horizontal);self.volume.setRange(0,100);self.volume.setValue(70)
         self.volume.setAccessibleName('Generated sound monitor level');row.addWidget(self.volume);layout.addLayout(row)
         self.volume.valueChanged.connect(lambda n:self.monitorVolumeChanged.emit(n/100));self.mute.toggled.connect(self.monitorMutedChanged)
@@ -177,12 +181,13 @@ class VisualSoundDialog(SoundHistory,QDialog):
         with QSignalBlocker(self.voice): self.voice.setCurrentIndex(self.voice.findData(value['version']))
         acid=value['version']>=2;layered=value['version']==3;self.pitch.setRange(65 if acid else 35,440 if acid else 180)
         self.visual_dynamics.setVisible(layered)
+        if (not layered and self.tabs.currentIndex() in (1,4)) or (not acid and self.tabs.currentIndex()==2): self.tabs.setCurrentIndex(0)
         self.tabs.setTabEnabled(1,layered)
+        self.tabs.setTabEnabled(4,layered)
         self.tabs.setTabEnabled(2,acid)
         for widget in (self.arp_sequence,self.arp_pattern_box,self.arp_hint): widget.setVisible(layered)
         self.live.setEnabled(layered)
         self.apply_button.setText('Apply' if layered and self.live.isChecked() else 'Apply && prepare')
-        if (not layered and self.tabs.currentIndex()==1) or (not acid and self.tabs.currentIndex()==2): self.tabs.setCurrentIndex(0)
         for control in (self.density,self.drive,self.width,self.opening,self.attack,self.release,self.continuity): control.setVisible(layered)
         for control in (self.resonance,self.cutoff,self.sweep,self.arp_rate,self.scale): control.setVisible(acid)
         self.enabled.setChecked(value['enabled']);self.output.setCurrentIndex(self.output.findData(value['output']))
@@ -191,6 +196,7 @@ class VisualSoundDialog(SoundHistory,QDialog):
             self.cutoff.setValue(value['cutoff']);self.sweep.setValue(value['sweep']);self.resonance.setValue(value['resonance']*100)
             self.arp_rate.setValue(value['arp_rate']*100);self.scale.setCurrentIndex(self.scale.findData(value['scale']))
         if layered:
+            self.mixer.load(value.get('mixer', mixer_defaults()))
             self.arp_pitch.load(value.get('arp_pitch',value['pitch']),value.get('arp_pitch_mode','hz'))
             self.arp_mode.setCurrentIndex(self.arp_mode.findData(value.get('arp_mode','visual')))
             self.sequencer.load(dict(sequence_defaults(),**{k:v for k,v in value.items() if k in sequence_defaults()}))
@@ -227,6 +233,7 @@ class VisualSoundDialog(SoundHistory,QDialog):
         if config['version']>=2:
             config.update(cutoff=self.cutoff.value(),sweep=self.sweep.value(),resonance=self.resonance.value()/100,arp_rate=self.arp_rate.value()/100,scale=self.scale.currentData())
         if config['version']==3:
+            config['mixer']=self.mixer.config()
             config.update(arp_mode=self.arp_mode.currentData(),arp_pitch_mode=self.arp_pitch.tuning(),**self.sequencer.config())
             config.update(arp_pitch=self.arp_pitch.value(),arp_notes=int(self.arp_notes.value()),
                           arp_steps=int(self.arp_steps.value()),arp_pattern=self.arp_pattern.currentData())

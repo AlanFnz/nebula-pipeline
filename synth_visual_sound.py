@@ -59,7 +59,9 @@ def instrument_sound():
         dict(id='osc3',enabled=True,wave='triangle',level=.22,transpose=12,detune=-4.),
     ]
     from synth_sound_sequence import sequence_defaults
+    from synth_sound_mixer import mixer_defaults
     out.update(sequence_defaults(), pitch_mode='hz', arp_pitch_mode='hz')
+    out['mixer'] = mixer_defaults()
     return out
 
 
@@ -101,6 +103,8 @@ def normalize_sound(raw):
         out['scale'] = raw.get('scale',out['scale'])
         if out['scale'] not in ('pentatonic','minor','dorian'): raise ValueError('Choose a supported arpeggio scale')
     if out['version']==3:
+        from synth_sound_mixer import normalize_mixer
+        out['mixer'] = normalize_mixer(raw.get('mixer', out['mixer']), number)
         # Old documents shared a root. Capture it as the independent melody root
         # on load; changing the body pitch afterwards must not retune the melody.
         out['arp_pitch']=number(raw.get('arp_pitch',out['pitch']),'arpeggio pitch',65.,440.)

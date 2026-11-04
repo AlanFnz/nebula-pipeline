@@ -41,6 +41,8 @@ class LiveInstrument:
             if config != self.voice.config:
                 self.old=self.voice;self.voice=self.make_voice(config,warm=False)
                 self.voice.states=list(self.old.states);self.fade=0
+                for key, channel in self.voice.mixer.items():
+                    channel.inherit(self.old.mixer[key])
         output=self.voice.render(self.position,length)
         if self.old is not None:
             old=self.old.render(self.position,length)

@@ -14,6 +14,28 @@ manual filter opening, resonance, closed/open frequencies and response smoothing
 Opening is a manual bias in the filter's logarithmic frequency range; visual
 movement adds to it. Disable Movement → filter opening for a fixed setting.
 
+**Mixer** balances **Drone** and **Arpeggio** independently. Each channel has a
+-60 to +6 dB level, Mute, Solo and an EQ on/off switch. Muting a channel takes
+priority over Solo; soloing both plays both. These are authored controls and
+affect export. **Mute monitor** and **Listen level** only affect listening.
+
+Each EQ offers Low, Mid and High gain (-18 to +18 dB), with frequency entry
+below each knob. Low is a shelf (40–600 Hz, initially 120 Hz), Mid a broad bell
+(200–6000 Hz, initially 1 kHz, Q 0.8), and High a shelf (1–16 kHz, initially
+4 kHz). EQ off retains the band's settings. Channel EQ precedes channel level;
+both channels then feed the existing shared Drive and visual Filter. A closed
+shared filter can therefore remove highs even when a channel's High EQ is raised.
+Mute/Solo do not change the visual modulation or note schedule.
+
+The filters use the [W3C/RBJ Audio EQ Cookbook](https://www.w3.org/TR/audio-eq-cookbook/)
+biquad equations, with shelf slope 1 and persistent stereo state between blocks.
+Unchanged upstream EQ stages retain state during live edits; changed stages
+settle under the existing 40 ms voice crossfade. Zero-gain bands bypass all
+filter arithmetic, retaining exact original PCM with neutral mixer defaults.
+Old version-3 documents acquire those defaults; versions 1 and 2 keep their
+original sound and do not expose Mixer. Mixer edits use the existing draft,
+Apply, Undo/Redo and save/load workflows, without invalidating prepared video.
+
 Oscillators contains three stable slots, each with on/off, sine/triangle/saw/square,
 level, semitone tuning and fine tuning in cents. Unison chooses 1–5 voices per
 enabled oscillator; Detune spreads those voices, and Stereo controls their pan.

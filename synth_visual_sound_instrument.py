@@ -5,6 +5,7 @@ import numpy as np
 
 from synth_visual_sound import RATE, _smooth
 from synth_visual_sound_acid import gesture_notes, resonant_lowpass
+from synth_sound_mixer import make_mixer
 
 
 def note_envelope(age,duration,attack,release):
@@ -105,6 +106,7 @@ class InstrumentVoice:
         self.accent=accent
         self.states=states
         self.seed=seed
+        self.mixer=make_mixer(config)
 
     def render(self, start, length):
         config=self.config
@@ -131,6 +133,8 @@ class InstrumentVoice:
             tone=oscillator_bank(u,hz,config,seed+n+1)*((env*note['velocity']*.40*amount['arpeggio'])[:,None])
             tone[:,0]*=1-note['pan']*.5;tone[:,1]*=1+note['pan']*.5
             melody+=tone
+        body=self.mixer['body'].process(body)
+        melody=self.mixer['arpeggio'].process(melody)
         # Opening is the manual bias; the motion link adds the live visual sweep.
         opening=np.clip(config['opening']+(.36*e+.42*m+.16*a)*amount['filter'],0,1)
         cutoff=config['cutoff']*(config['sweep']/config['cutoff'])**opening

@@ -107,9 +107,19 @@ def test_studio_live_knobs_keep_transport_and_pixels_and_apply_is_undoable(studi
     assert studio.play.isChecked() and studio.play_started==clock and studio.settings_generation==generation
     assert np.array_equal(studio.visual_sound_signals['arpeggio'],instrument_controls(studio.live_signals,monitor.config)[1])
 
+    d.mixer.channels['body']['level_db'].setValue(-12)
+    d.mixer.channels['arpeggio']['low_db'].setValue(-9)
+    wait_until(lambda:monitor.config['mixer']['arpeggio']['low_db']==-9)
+    studio.undo_action.trigger()
+    wait_until(lambda:monitor.config['mixer']['arpeggio']['low_db']==0)
+    assert monitor.config['mixer']['body']['level_db']==-12
+    assert studio.play.isChecked() and studio.play_started==clock and studio.settings_generation==generation
+    assert studio.composition==original and monitor.producer.thread is worker
+
     studio.visual_sound_dialog.apply()
     assert studio.composition['generated_sound']['opening']==.95
     assert studio.composition['generated_sound']['arp_steps']==8
+    assert studio.composition['generated_sound']['mixer']['body']['level_db']==-12
     assert studio.play_started==clock and studio.settings_generation==generation
     studio.play.setChecked(False);studio.undo_composition()
     assert studio.composition==original

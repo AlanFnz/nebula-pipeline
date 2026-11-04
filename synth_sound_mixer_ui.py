@@ -1,0 +1,53 @@
+"""Independent drone/arpeggio channel strips for the layered instrument."""
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox, QCheckBox, QLabel
+from PySide6.QtCore import Signal
+from synth_sound_knob import SoundKnob
+from synth_sound_mixer import CHANNELS, BANDS
+
+
+class SoundMixer(QWidget):
+    toggled = Signal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        layout = QVBoxLayout(self); layout.setContentsMargins(0, 0, 0, 0)
+        hint = QLabel('Balance the Drone and Arpeggio. Each has its own EQ. Both then pass through the shared Drive and visual Filter in Sound.')
+        hint.setWordWrap(True); layout.addWidget(hint)
+        strips = QHBoxLayout(); layout.addLayout(strips); self.channels = {}
+        for key, title in CHANNELS:
+            box = QGroupBox(title); column = QVBoxLayout(box); strips.addWidget(box, 1)
+            controls = {}; top = QHBoxLayout(); column.addLayout(top)
+            level = SoundKnob('Level', -60, 6, .5, ' dB'); controls['level_db'] = level
+            level.number.setAccessibleName(title+' level'); level.dial.setAccessibleName(title+' level knob')
+            level.setToolTip('Channel level before the shared Drive and Filter. 0 dB preserves the original balance. Use Mute for silence.')
+            top.addWidget(level); switches = QVBoxLayout(); top.addLayout(switches)
+            for field, label in (('mute', 'Mute'), ('solo', 'Solo'), ('eq_enabled', 'EQ on')):
+                control = QCheckBox(label); control.setAccessibleName(title+' '+label)
+                controls[field] = control; switches.addWidget(control); control.toggled.connect(self.toggled)
+            controls['solo'].setToolTip('Hear this channel on its own. Both Solo buttons together play both channels. Mute takes priority.')
+            eq = QWidget(); grid = QGridLayout(eq); grid.setContentsMargins(0, 0, 0, 0); grid.setSpacing(2); column.addWidget(eq)
+            for index, (band, name, _, low, high) in enumerate(BANDS):
+                gain = SoundKnob(name, -18, 18, .5, ' dB')
+                frequency = SoundKnob('Frequency', low, high, 10, ' Hz', log=True)
+                frequency.dial.hide()
+                frequency.setToolTip('Type the frequency below the gain knob. The EQ setting is retained while EQ is off.')
+                for field, knob, row in ((band+'_db', gain, 0), (band+'_hz', frequency, 1)):
+                    knob.setMinimumWidth(90); knob.number.setFixedWidth(100)
+                    knob.number.setAccessibleName(f'{title} {name} '+('gain' if row==0 else 'frequency'))
+                    knob.dial.setAccessibleName(knob.number.accessibleName()+' knob')
+                    controls[field] = knob; grid.addWidget(knob, row, index)
+                gain.setToolTip('Broad bell EQ, Q 0.8.' if band=='mid' else 'Low shelf EQ.' if band=='low' else 'High shelf EQ.')
+            controls['eq_enabled'].toggled.connect(eq.setEnabled)
+            column.addStretch(); self.channels[key] = controls
+        foot = QLabel('0 dB = unchanged · Solo isolates a channel · EQ off keeps your settings. Channel controls are saved and exported; Listen level below only changes monitoring.')
+        foot.setWordWrap(True); layout.addWidget(foot); layout.addStretch()
+
+    def load(self, config):
+        for key, controls in self.channels.items():
+            for field, control in controls.items():
+                if isinstance(control, QCheckBox): control.setChecked(config[key][field])
+                else: control.setValue(config[key][field])
+
+    def config(self):
+        return {key: {field: control.isChecked() if isinstance(control, QCheckBox) else control.value()
+                      for field, control in controls.items()} for key, controls in self.channels.items()}

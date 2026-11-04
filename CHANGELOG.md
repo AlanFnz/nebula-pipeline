@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.63.0 — 2026-11-06
+
+- Add a Mixer tab to the layered synth with independent Drone and Arpeggio
+  levels, mute/solo and three-band EQ. Low/high shelves and a broad mid bell
+  each have adjustable gain and frequency, plus an EQ bypass per channel.
+- Mix channels before the existing shared drive and visually controlled filter.
+  Neutral defaults preserve previous PCM exactly; original instruments are unchanged.
+- Share the mixer between live audition and export, carrying EQ state across
+  blocks and compatible live edits. Controls support draft/project Undo/Redo,
+  save/load and the existing click-softened live crossfade without rebuilding video.
+
 ## 0.62.0 — 2026-11-05
 
 - Add sound-draft Undo/Redo through Cmd-Z, the Edit menu and instrument buttons.
