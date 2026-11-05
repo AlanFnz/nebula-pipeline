@@ -24,6 +24,8 @@ def frozen_data(key):
 
 
 def starter_snapshot(identifier):
+    if identifier == 'pleated-signal':
+        return json.loads((Path(__file__).parent / 'presets/pleated-signal-v1.json').read_text())
     if identifier == 'text-dye-transfer':
         return copy.deepcopy(_dye_transfer_snapshot())
     if identifier == 'tension':

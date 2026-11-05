@@ -14,9 +14,11 @@ from synth_dye_recipes import dye_transfer_composition
 from synth_film_recipes import film_print_composition, reading_print_composition
 from synth_optical_recipes import dark_print_composition
 from synth_contact_recipes import contact_print_composition
+from synth_pleated_recipes import pleated_composition
 
 
 STARTERS = (
+    ('pleated-signal', 'Pleated signal / violet transmission · 15s', pleated_composition),
     ('text-dye-transfer', 'Text / one more try · 15s', dye_transfer_composition),
     ('tension', 'Tension / elastic signal · 15s', tension_composition),
     ('text-contact-film', 'Text / FAC51 contact film · 8s', contact_print_composition),
@@ -59,6 +61,7 @@ STARTERS = (
 
 # First appearance in the repository, retained independently of app builds.
 STARTER_DATES = {
+    'pleated-signal': '2026-11-05',
     'text-dye-transfer': '2026-10-26',
     'tension': '2026-10-26',
     'text-contact-film': '2026-10-25',

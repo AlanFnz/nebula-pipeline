@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.52.0 — 2026-11-05
+
+- Add Pleated field, a procedural source with raised folds, perspective, mirrored
+  views, adjustable field boundaries, surface flow and four color palettes.
+  Camera and geometry controls remain editable and animatable in Object.
+- Add Pleated signal / violet transmission: a 15-second, 960 × 720 study at
+  12 fps, condensing reference 14 into close-ups, chevrons, four-way folds and
+  a contraction against an orange field. Color emulsion and Screen mesh remain
+  separate reusable effects. No reference media is required for rendering.
+- Append the source without changing historical module positions, defaults or
+  study recipes. Preview, random seeking and MP4 export share the same renderer.
+
 ## 0.51.1 — 2026-11-03
 
 - Keep Montage and its block editor in the main Nebula window. Double-click a

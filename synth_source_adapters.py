@@ -15,11 +15,15 @@ ANCHORS = ('auto', 'silhouette', 'slab', 'ink_bloom', 'particles', 'blinds', 'te
 def source_frame(preset, size, time, anchor='auto', continuous_time=None):
     sources = {m['id']: m['params'] for m in preset.get('modules', ()) if m.get('enabled', True)}
     if anchor == 'auto':
-        anchor = next((key for key in ('text', 'image_memory', 'chromatic_lattice', 'solid', 'prismatic_field', 'radial_bloom', 'silhouette', 'ink_bloom', 'particles', 'slab', 'blinds') if key in sources), None)
+        anchor = next((key for key in ('pleated_field', 'text', 'image_memory', 'chromatic_lattice', 'solid', 'prismatic_field', 'radial_bloom', 'silhouette', 'ink_bloom', 'particles', 'slab', 'blinds') if key in sources), None)
     if anchor not in sources:
         return None
     p = sources[anchor]
     w, h = size; cw, ch = content_size(preset, size); dx, dy = object_offset(preset, size)
+    if anchor == 'pleated_field':
+        from synth_pleated import pleated_frame
+        center, unit = pleated_frame(p, size, preset)
+        return LocalFrame(center, max(1., unit*.5), -p['angle'])
     if anchor == 'image_memory':
         from synth_memory import memory_frame
         seconds = time if continuous_time is None else continuous_time
