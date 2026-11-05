@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.54.0 — 2026-11-05
+
+- Extend Pleated signal to exactly 20 seconds at 12 fps. Preserve the original
+  180 frames and add 60 frames of mirrored retreat, rolling relief and an
+  oblique camera pass, with a brief settling at the end.
+- Freeze the 20-second starter as v3 and retain the earlier 15-second snapshots.
+  This is the visual foundation for the planned sound-synthesis experiment;
+  the study remains silent and fully editable.
+
 ## 0.53.0 — 2026-11-05
 
 - Rework Pleated signal around frame-level observations of the first 15 seconds

@@ -18,7 +18,7 @@ from synth_pleated_recipes import pleated_composition
 
 
 STARTERS = (
-    ('pleated-signal', 'Pleated signal / violet transmission · 15s', pleated_composition),
+    ('pleated-signal', 'Pleated signal / violet transmission · 20s', pleated_composition),
     ('text-dye-transfer', 'Text / one more try · 15s', dye_transfer_composition),
     ('tension', 'Tension / elastic signal · 15s', tension_composition),
     ('text-contact-film', 'Text / FAC51 contact film · 8s', contact_print_composition),

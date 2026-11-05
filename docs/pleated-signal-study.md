@@ -1,8 +1,18 @@
 # Pleated signal / violet transmission
 
-An editable 15-second reconstruction of the opening movement of `ref-14.mp4`.
+An editable 20-second reconstruction of the opening movement of `ref-14.mp4`.
 The canvas is 960 × 720 (4:3), with the reference's 12 fps visual cadence.
 The project needs neither the reference movie nor a soundtrack to render.
+
+## Twenty-second extension (v3)
+
+V3 adds five seconds after the existing 15-second sequence, retaining every
+original frame and its timing. The extension continues the mirrored retreat,
+rolls through ribbed views, then leaves the mirrors for an oblique camera pass.
+A brief settling at the end gives the upcoming sound experiment a release point.
+There are 240 frames at 12 fps, with no repeated clip or global slowdown.
+
+The study is still silent. Sound synthesis is the next separate milestone.
 
 ## Motion revision (v2)
 
@@ -51,14 +61,15 @@ scale as the camera zooms.
 
 ## Compatibility and verification
 
-The revised starter is frozen in `presets/pleated-signal-v2.json`. V1 remains
-available in its original snapshot; saved v1 projects retain the original
+The current starter is frozen in `presets/pleated-signal-v3.json`. The earlier
+15-second v1 and v2 snapshots remain available; saved v1 projects retain the original
 renderer because the new camera is opt-in. No historical palette or profile
 was changed. Other study sources and effect algorithms are unchanged.
 
 Tests cover deterministic seeking and save/reload, original camera compatibility,
 source replacement and opacity, extreme camera views, field outlines, reframing,
-frame cadence, motion beats, curve continuity and exact 15-second export length.
+frame cadence, motion beats, curve continuity, preservation of the first 180
+frames and exact 20-second export length.
 The v1 source was additionally compared pixel-for-pixel against the preceding
 release across its three profiles and four mirror arrangements.
 

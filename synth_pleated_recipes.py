@@ -34,7 +34,7 @@ def _track(keys, frame):
     return (2*t**3-3*t*t+1)*y[i]+(t**3-2*t*t+t)*h[i]*m[i]+(-2*t**3+3*t*t)*y[i+1]+(t**3-t*t)*h[i]*m[i+1]
 
 
-def pleated_composition():
+def pleated_composition(*, extended=True):
     common = {'speed':1., 'depth':0., 'treatment_fps':12, 'object_x':0., 'object_y':0.}
     for module in ('pleated_field','film_emulsion','screen_mesh'):
         common.update({module+'.'+p.key:p.default for p in MODULE_BY_ID[module].params})
@@ -127,6 +127,38 @@ def pleated_composition():
                      pan_x=2.95,pan_y=.12,light_angle=20.),[
             (180,dict(size=1.65,angle=-39.,pan_x=3.3))]),
     ]
+    if extended:
+        # Continue from the previous endpoint without retiming the first 180
+        # frames. The added five seconds follow the next reference gestures:
+        # mirrored retreat, rolling ribs, then an oblique unmirrored wall.
+        segments.extend([
+            (180,190,dict(symmetry=2,angle=-39.,yaw=-12.,pitch=4.,size=1.65,
+                         pan_x=3.3,pan_y=.12,light_angle=20.),[
+                (184,dict(size=1.43,angle=-41.,pan_x=3.56)),
+                (189,dict(size=.96,angle=-44.,pan_x=3.9))]),
+            (190,212,dict(symmetry=2,angle=-8.,yaw=-8.,pitch=10.,size=1.6,
+                         pan_x=1.12,pan_y=.5,light_angle=20.),[
+                (193,dict(size=1.8,angle=-16.,pan_x=1.31)),
+                (196,dict(size=1.5,angle=-55.,pan_x=1.53)),
+                (199,dict(size=1.05,angle=-78.,pan_x=1.74)),
+                (202,dict(size=.9,angle=-90.,pan_x=1.9,pitch=18.)),
+                (205,dict(size=1.4,angle=-48.,pan_x=2.1)),
+                (208,dict(size=2.1,angle=-20.,pan_x=2.28,pitch=8.)),
+                (211,dict(size=2.3,angle=-5.,pan_x=2.44))]),
+            (212,215,dict(symmetry=0,density=4.7,angle=84.,yaw=4.,pitch=30.,
+                         size=1.2,pan_x=1.65,pan_y=.1),[
+                (214,dict(size=1.5,yaw=7.,pitch=35.,angle=82.,pan_x=1.82))]),
+            (215,240,dict(symmetry=0,density=5.7,angle=45.,yaw=15.,pitch=-12.,
+                         size=.98,pan_x=1.9,pan_y=.25),[
+                (218,dict(size=1.07,yaw=8.,pitch=10.,pan_x=2.08)),
+                (224,dict(size=1.9,yaw=-5.,angle=42.,pan_x=2.36)),
+                (228,dict(size=2.15,yaw=-10.,pitch=5.,angle=55.,pan_x=2.55)),
+                (232,dict(size=1.18,yaw=5.,pitch=15.,angle=60.,pan_x=2.75)),
+                (235,dict(size=1.32,angle=57.,pan_x=2.9)),
+                (238,dict(size=2.05,angle=52.,pan_x=3.03)),
+                (239,dict(size=2.12,angle=51.5,pan_x=3.05)),
+                (240,dict(size=2.12,angle=51.5,pan_x=3.05))]),
+        ])
     # Observed optical-gate extents, in canvas-height units. These numeric
     # observations are converted to ordinary editable aperture parameters.
     side_extents={49: 0.6639, 50: 0.6639, 51: 0.6472, 52: 0.3083, 53: 0.1583, 54: 0.1306, 55: 0.1139, 56: 0.0028, 57: -0.0028, 58: -0.0083, 59: -0.0083, 60: -0.0028, 61: -0.0028, 62: -0.0083, 63: 0.0472, 64: 0.0972, 65: 0.1917, 66: 0.2583, 67: 0.3083, 68: 0.3972, 69: 0.4583, 70: 0.6639, 71: 0.6639, 88: 0.2028, 89: 0.0917, 90: 0.0417, 91: -0.0139, 92: -0.0083, 93: -0.025, 94: -0.0194, 95: -0.0139}
@@ -142,7 +174,7 @@ def pleated_composition():
             values={}
             for k,track in keys.items():
                 values[k]=math.exp(_track([(f,math.log(v)) for f,v in track],frame)) if k=='size' else _track(track,frame)
-            if start >= 42: values['angle'] = -values['angle']
+            if values.get('symmetry',0): values['angle'] = -values['angle']
             if frame in side_extents:
                 values['aperture']=0.
                 values['edge']=side_extents[frame]/values['size']-values.get('mirror_x',0.)-.035
@@ -158,7 +190,7 @@ def pleated_composition():
             states[name]=dict(preset='Reference blinds',enabled=['pleated_field','film_emulsion','screen_mesh'],overrides=overrides)
             cues.append(dict(time=frame/12,state=name,transition='cut'))
     sequence=normalize_sequence(dict(schema_version=1,render_version=2,
-        name='Pleated signal / violet transmission',fps=12,duration=15.,seed=51126,
+        name='Pleated signal / violet transmission',fps=12,duration=20. if extended else 15.,seed=51126,
         canvas=dict(width=960,height=720,framing='native'),states=states,cues=cues))
     project=composition_from_sequence(sequence)
     project['phrases']['custom']['name']='Pleats / camera orbit / optical mirrors'
