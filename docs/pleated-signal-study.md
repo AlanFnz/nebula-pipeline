@@ -1,55 +1,68 @@
 # Pleated signal / violet transmission
 
-A standalone, editable 15-second study of the motifs in `ref-14.mp4`:
-oblique repeating folds, rapid changes of distance, mirrored chevrons, four-way
-diamonds, a contraction into an orange field, and a return to the relief.
+An editable 15-second reconstruction of the opening movement of `ref-14.mp4`.
 The canvas is 960 × 720 (4:3), with the reference's 12 fps visual cadence.
-Only the visual is reconstructed; there is no soundtrack or reference-video
-dependency in the study.
+The project needs neither the reference movie nor a soundtrack to render.
 
-## Structure
+## Motion revision (v2)
 
-**Object → Pleated field** creates the entire scene procedurally. Rays intersect
-a repeating height field; the nearest surface controls occlusion and shading.
-Camera coordinates introduce perspective, slant and optional mirroring.
-An independently adjustable field outline exposes the drifting background.
-The source is deterministic at any playhead position and does not accumulate
-feedback from previously rendered frames. Intermediate arrays use bounded rows.
+The first version condensed motifs from sparse stills and interpolated between
+poses. It consequently missed the reference's temporal structure. V2 follows
+frame observations of its opening 15 seconds: the rapid push at 0.3–0.8 s, pull
+back, camera turn, mirrored traveling sheet at 3.5 s, short return/hold at 7.33 s,
+four-way view at 8 s, contraction around 8.7–9.5 s and expanding mirrored relief.
+Later changes of view occur at 13.75 and 14.58 s.
 
-The recipe contains authored camera poses and ordinary sequence morphs, with
-short cuts at changes of mirror arrangement. Scale, camera angle, surface
-travel, perspective and aperture remain normal animatable parameters. Editing
-one parameter overrides that channel while the other authored channels continue.
-Reset restores the recipe for that control.
+Camera channels use monotone cubic curves, sampled once per reference frame.
+Interior keys preserve velocity instead of repeatedly easing to a stop. Scale
+interpolates logarithmically. Optical gate positions during the lateral retreat
+and contraction are numeric observations of the reference's visible extents.
+All samples are ordinary editable parameter values in a single composition
+clip, not video frames or a hidden external animation. Changing a control can
+replace that channel while the remaining authored channels keep moving.
 
-## Controls
+## Source and controls
 
-- **Fold geometry:** soft pleats, scallops or cushions; density, depth, curl,
-  stagger and irregularity.
-- **Camera & mirrors:** scale, angle, perspective, relief view, surface travel,
-  and none / top-bottom / left-right / four-quadrant mirrors.
-- **Field outline:** visible extent, taper, side placement, and a diamond,
-  ellipse or rectangular envelope.
-- **Motion & timing:** phase, surface flow and motion cadence. The shared
-  speed changes the source clock; camera timing is authored in the sequence.
-- **Color & light:** four palettes, palette hue rotation, saturation, exposure,
-  highlights and moving background color.
-- **Optical finish:** softness, fold shadows and source opacity.
+**Object → Pleated field** creates the scene procedurally. Rays intersect a
+repeating height field, with the nearest surface supplying occlusion and
+shading. The source is deterministic at any playhead position; it does not
+accumulate feedback. Intermediate arrays use bounded rows.
 
-**Effects → Color emulsion** adds local color bleed, registration and fine grain.
-**Effects → Screen mesh** supplies the tilted phosphor columns and scan rows.
-Both remain independent, reorderable effects with their usual intensity sliders.
-The screen mesh stays at canvas scale while the object zooms.
+The optional **Perspective relief** camera orbits the surface using yaw, pitch
+and distance. Mirroring happens before camera projection, so a turn changes
+visible faces and depth inside the reflection. Mirror center X/Y reposition
+the optical axes. The original optical camera remains available and is still
+the default for older projects; its Perspective and Relief view X/Y controls
+apply to that original camera model.
+
+- Geometry: four profiles, density, depth, curl, stagger and irregularity.
+- Camera: model, scale, angle, orbit, distance, mirror axes and surface travel.
+- Field: extent, taper, side placement and diamond/ellipse/rectangle outline.
+  The gate can gather the sheet horizontally while its relief keeps moving.
+- Timing: source phase, flow and cadence. Camera timing lives in the sequence.
+- Color: five palettes, hue rotation, saturation, exposure, highlights,
+  perspective-light direction and background drift.
+- Finish: optical softness, fold shadows and source opacity.
+
+**Effects → Color emulsion** adds bleed, registration and fine grain.
+**Effects → Screen mesh** supplies the phosphor columns and scan rows. Both
+remain independent, reorderable effects. The screen texture stays at canvas
+scale as the camera zooms.
 
 ## Compatibility and verification
 
-The new source module is appended to the registry and disabled in existing
-presets. Historical recipes and their effect algorithms are unchanged.
-The built-in study is frozen in `presets/pleated-signal-v1.json`.
-Tests cover deterministic seeking and save/reload, source replacement, source
-opacity, bounds across geometries and mirrors, reframing, frame cadence, palette
-and geometry changes, and the exact 15-second export length.
+The revised starter is frozen in `presets/pleated-signal-v2.json`. V1 remains
+available in its original snapshot; saved v1 projects retain the original
+renderer because the new camera is opt-in. No historical palette or profile
+was changed. Other study sources and effect algorithms are unchanged.
 
-This is a procedural visual reconstruction, not a pixel-identical copy of the
-49-second recording. Its shorter choreography retains the principal motifs;
-fine fold shapes and individual camera moves are authored approximations.
+Tests cover deterministic seeking and save/reload, original camera compatibility,
+source replacement and opacity, extreme camera views, field outlines, reframing,
+frame cadence, motion beats, curve continuity and exact 15-second export length.
+The v1 source was additionally compared pixel-for-pixel against the preceding
+release across its three profiles and four mirror arrangements.
+
+The movement is now based on the reference's actual timing, rather than an
+invented montage of motifs. Surface topology, lighting and individual optical
+distortions remain procedural approximations; this is not a pixel-identical
+reproduction of the recording.

@@ -7,10 +7,11 @@ def control_group(path):
     module, key = path.split('.')
     if module == 'pleated_field':
         if key in ('profile','density','depth','curl','stagger','irregularity'): return 'Fold geometry'
-        if key in ('size','angle','perspective','shear','tilt_x','tilt_y','symmetry','pan_x','pan_y'): return 'Camera & mirrors'
+        if key in ('size','angle','perspective','shear','tilt_x','tilt_y','symmetry','pan_x','pan_y',
+                   'projection','yaw','pitch','distance','mirror_x','mirror_y'): return 'Camera & mirrors'
         if key in ('aperture','taper','boundary','edge'): return 'Field outline'
         if key in ('phase','flow','cadence'): return 'Motion & timing'
-        if key in ('palette','hue_shift','saturation','light','highlight','background_motion'): return 'Color & light'
+        if key in ('palette','hue_shift','saturation','light','highlight','light_angle','background_motion'): return 'Color & light'
         return 'Optical finish'
     if module == 'text' and key.startswith('press_'): return 'Letterpress'
     if module == 'dye_transfer':

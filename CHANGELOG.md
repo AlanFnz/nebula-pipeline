@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.53.0 — 2026-11-05
+
+- Rework Pleated signal around frame-level observations of the first 15 seconds
+  of reference 14: fast opening push, receding camera orbit, traveling mirrored
+  field, brief hold, narrow collapse and return. Sample continuous camera curves
+  at 12 fps without restarting an ease at every pose.
+- Add an optional perspective relief camera with editable orbit, distance,
+  mirror pivot and lighting, plus a folded-tile profile and filmed violet
+  palette. The moving optical gate retains the relief during contraction.
+- Freeze the revised study as v2. Existing v1 projects keep their original
+  camera and render path; other studies and effect algorithms are unchanged.
+
 ## 0.52.0 — 2026-11-05
 
 - Add Pleated field, a procedural source with raised folds, perspective, mirrored
