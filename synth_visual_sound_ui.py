@@ -55,7 +55,9 @@ class VisualSoundDialog(SoundHistory,QDialog):
         self.opening=SoundKnob('Opening',0,100,1,' %');self.resonance=SoundKnob('Resonance',0,100,1,' %')
         self.cutoff=SoundKnob('Closed',80,1800,20,' Hz',log=True);self.sweep=SoundKnob('Open',200,12000,100,' Hz',log=True)
         self.smoothing=SoundKnob('Smoothing',10,500,10,' ms',log=True)
-        self.knob_row(sound,'Filter',(self.opening,self.resonance,self.cutoff,self.sweep,self.smoothing));sound.addStretch()
+        self.knob_row(sound,'Filter',(self.opening,self.resonance,self.cutoff,self.sweep,self.smoothing))
+        self.seamless_loop=QCheckBox('Seamless audio loop');sound.addWidget(self.seamless_loop);sound.addStretch()
+        self.seamless_loop.setToolTip('Carry note releases and filter motion across the timeline boundary, with no fade to silence. Sustained oscillators use whole cycles (a tiny tuning adjustment). Use a whole number of sequencer patterns for an even rhythm. This does not close the visual animation.')
         self.opening.setToolTip('Manual filter opening. Movement adds to this setting; disable its connection for a fixed opening.')
         self.unison=SoundKnob('Unison',1,5,1,' voices',integer=True);self.detune=SoundKnob('Detune',0,35,.5,' cents')
         self.detune.setToolTip('Pitch spread in cents between unison voices. Use two or more voices to hear it.')
@@ -125,7 +127,7 @@ class VisualSoundDialog(SoundHistory,QDialog):
             knob.dial.sliderPressed.connect(self.begin_sound_gesture);knob.dial.sliderReleased.connect(self.end_sound_gesture)
         for pitch in (self.pitch,self.arp_pitch):pitch.valueChanged.connect(self.queue_draft)
         self.sequencer.gestureStarted.connect(self.begin_sound_gesture);self.sequencer.gestureFinished.connect(self.end_sound_gesture)
-        for widget in (self.enabled,self.output,self.scale,self.arp_pattern,self.arp_mode):
+        for widget in (self.enabled,self.output,self.scale,self.arp_pattern,self.arp_mode,self.seamless_loop):
             (widget.toggled if isinstance(widget,QCheckBox) else widget.currentIndexChanged).connect(self.queue_draft)
         for check,wave,_,_,_ in self.oscillators:
             check.toggled.connect(self.queue_draft);wave.currentIndexChanged.connect(self.queue_draft)
@@ -182,6 +184,8 @@ class VisualSoundDialog(SoundHistory,QDialog):
         with QSignalBlocker(self.voice): self.voice.setCurrentIndex(self.voice.findData(value['version']))
         acid=value['version']>=2;layered=value['version']==3;self.pitch.setRange(65 if acid else 35,440 if acid else 180)
         self.visual_dynamics.setVisible(layered)
+        self.seamless_loop.setVisible(layered)
+        self.seamless_loop.setChecked(value.get('seamless_loop',False))
         if (not layered and self.tabs.currentIndex() in (1,4)) or (not acid and self.tabs.currentIndex()==2): self.tabs.setCurrentIndex(0)
         self.tabs.setTabEnabled(1,layered)
         self.tabs.setTabEnabled(4,layered)
@@ -234,6 +238,7 @@ class VisualSoundDialog(SoundHistory,QDialog):
         if config['version']>=2:
             config.update(cutoff=self.cutoff.value(),sweep=self.sweep.value(),resonance=self.resonance.value()/100,arp_rate=self.arp_rate.value()/100,scale=self.scale.currentData())
         if config['version']==3:
+            config['seamless_loop']=self.seamless_loop.isChecked()
             config['mixer']=self.mixer.config()
             config.update(arp_mode=self.arp_mode.currentData(),arp_pitch_mode=self.arp_pitch.tuning(),**self.sequencer.config())
             config.update(arp_pitch=self.arp_pitch.value(),arp_notes=int(self.arp_notes.value()),

@@ -27,7 +27,7 @@ class LiveInstrument:
         self.start_fade=0 if start else FADE
 
     def make_voice(self, config, warm=True):
-        voice=InstrumentVoice(self.sequence,copy.deepcopy(config),self.signals)
+        voice=InstrumentVoice(self.sequence,copy.deepcopy(config),self.signals,warm_loop=warm)
         # Reconstruct a short filter history after a seek or a parameter change.
         history=min(self.position,round(RATE*.08)) if warm else 0
         if history: voice.render(self.position-history,history)
@@ -277,8 +277,12 @@ class LiveSoundMonitor(QObject):
             return
         now=self.clock()
         expected=self.seconds+(now-self.anchor if self.playing else 0.)
+        error=seconds-expected
+        if self.playing and self.config.get('seamless_loop'):
+            duration=self.sequence['duration']
+            error=(error+duration*.5)%duration-duration*.5
         # Repeated UI refreshes with force=True must not restart the audio stream.
-        if not self.playing or abs(seconds-expected)>.12:
+        if not self.playing or abs(error)>.12:
             self.epoch+=1;self.seconds=max(0.,seconds);self.anchor=now;self.playing=True
             self.startRequested.emit((self.epoch,self.sequence,self.signals,self.config,self.seconds,now))
 

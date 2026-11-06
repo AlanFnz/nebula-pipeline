@@ -52,7 +52,7 @@ def instrument_sound():
     out=acid_sound()
     out.update(version=3,opening=.35,density=.65,drive=.32,unison=3,detune=8.,width=.6,
                resonance=.62,smoothing=.14,attack=.022,release=.20,continuity=0.,
-               arp_pitch=out['pitch'],arp_notes=4,arp_steps=0,arp_pattern='visual')
+               arp_pitch=out['pitch'],arp_notes=4,arp_steps=0,arp_pattern='visual',seamless_loop=False)
     out['oscillators']=[
         dict(id='osc1',enabled=True,wave='triangle',level=1.,transpose=0,detune=0.),
         dict(id='osc2',enabled=True,wave='saw',level=.32,transpose=0,detune=5.),
@@ -103,6 +103,9 @@ def normalize_sound(raw):
         out['scale'] = raw.get('scale',out['scale'])
         if out['scale'] not in ('pentatonic','minor','dorian'): raise ValueError('Choose a supported arpeggio scale')
     if out['version']==3:
+        out['seamless_loop'] = raw.get('seamless_loop', False)
+        if type(out['seamless_loop']) is not bool:
+            raise ValueError('Seamless audio loop must be a checkbox')
         from synth_sound_mixer import normalize_mixer
         out['mixer'] = normalize_mixer(raw.get('mixer', out['mixer']), number)
         # Old documents shared a root. Capture it as the independent melody root
@@ -172,8 +175,9 @@ def _pleated_sample(params, seconds, preset):
     _,_,z,_,u,v,valid=pleated_surface(x,y,p,t)
     presence=float(np.mean(field_alpha(u,v,z,valid,unit,p)))*p['mix']
     # Coordinates are the resolved camera/flow state, not UI slider deltas.
+    from synth_pleated import _travel
     pose=[math.log2(p['size']), *[math.radians(p[k]) for k in ('angle','yaw','pitch')],
-          (p['pan_x']+t*p['flow']+p['phase'])*.35,p['pan_y']*.35]
+          (p['pan_x']+_travel(p,t)+p['phase'])*.35,p['pan_y']*.35]
     return presence, pose
 
 

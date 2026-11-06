@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.65.0 — 2026-11-06
+
+- Add opt-in Seamless audio loop for the layered synth. Carry note releases,
+  oscillator phases, control envelopes and warmed filter/EQ state across the
+  timeline boundary, without end fades. Live playback retains its audio device
+  when the timeline wraps; preview and exported PCM share the loop synthesis.
+- Add a periodic Pleated surface/background clock and a camera-closing recipe.
+  The current acid loop keeps 20 seconds and the user's paced camera movement,
+  with an eased final two-second return to its opening pose. Its camera remains
+  editable; the original study and sound keep their previous behavior.
+
 ## 0.64.0 — 2026-11-06
 
 - Add project-wide Perform controls and a shared Visuals tab in the sound

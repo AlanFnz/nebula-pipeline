@@ -44,6 +44,7 @@ def modules(Module, P):
         P('phase', 'Fold phase', 0., -30, 30, .01),
         P('flow', 'Surface flow', .16, -2, 2, .01, 'Cycles per second, independent of the camera choreography.'),
         P('cadence', 'Motion FPS', 12., 1, 60, 1),
+        P('loop_seconds', 'Surface loop duration', 0., 0, 3600, .1, 'Zero keeps the original drift. A duration makes the surface and background oscillations periodic; camera keyframes must also return to their starting pose.'),
         P('palette', 'Palette', 0, 0, 4, 1, choices=('Violet / tangerine', 'Teal / coral', 'Ink / parchment', 'Rose / midnight', 'Filmed violet / orange')),
         P('hue_shift', 'Palette rotation', 0., -1, 1, .01),
         P('saturation', 'Saturation', 1., 0, 1.5, .01),
@@ -102,6 +103,19 @@ def pleated_clock(p, seconds, preset):
     """Shared stepped surface clock for rendering and sound signals."""
     clock = float(seconds)*preset.get('speed', 1.)
     return math.floor(clock*p['cadence']+1e-8)/p['cadence']
+
+
+def _phase(p, t, rate):
+    period=p.get('loop_seconds',0.)
+    if period:
+        rate=round(rate*period/math.tau)*math.tau/period
+        t=t%period
+    return t*rate
+
+
+def _travel(p,t):
+    period=p.get('loop_seconds',0.)
+    return p['flow']*period/math.tau*math.sin(math.tau*(t%period)/period) if period else t*p['flow']
 
 
 def field_alpha(u, v, z, valid, unit, p):
@@ -171,13 +185,13 @@ def _perspective_surface(x, y, p, t):
     valid=rz < -.015
     rz=np.minimum(rz,-.015)
     density=p['density'];bound=max(.001,max(.35,.34+p['curl'])*p['depth']+.04)
-    shift_x=p['pan_x']+t*p['flow']+p['phase'];shift_y=p['pan_y']
+    shift_x=p['pan_x']+_travel(p,t)+p['phase'];shift_y=p['pan_y']
     def coords(z):
         along=(z/density-normal[2]*distance)/rz
         a=(normal[0]*distance+along*rx)*density+shift_x
         b=(normal[1]*distance+along*ry)*density+shift_y
-        a+=p['irregularity']*.06*np.sin(b*2.1+t*.7)
-        b+=p['irregularity']*.035*np.sin(a*2.3-t*.9)
+        a+=p['irregularity']*.06*np.sin(b*2.1+_phase(p,t,.7))
+        b+=p['irregularity']*.035*np.sin(a*2.3-_phase(p,t,.9))
         return a,b
     lo=np.full_like(x,-bound);hi=np.full_like(x,bound);found=np.zeros(x.shape,bool)
     step=2*bound/39
@@ -208,10 +222,10 @@ def pleated_surface(x,y,p,t):
     if p['symmetry'] in (1,2): v=np.abs(v)
     if p['symmetry'] in (2,3): u=np.abs(u)
     den=np.clip(1+p['perspective']*u,.18,4.)
-    a=(u+p['shear']*v)*p['density']/den+p['pan_x']+t*p['flow']+p['phase']
+    a=(u+p['shear']*v)*p['density']/den+p['pan_x']+_travel(p,t)+p['phase']
     b=v*p['density']/den+p['pan_y']
-    a+=p['irregularity']*.14*np.sin(b*2.1+t*.7)
-    b+=p['irregularity']*.06*np.sin(a*2.3-t*.9)
+    a+=p['irregularity']*.14*np.sin(b*2.1+_phase(p,t,.7))
+    b+=p['irregularity']*.06*np.sin(a*2.3-_phase(p,t,.9))
     aa,bb,z,blend=_surface(a,b,p)
     return aa,bb,z,blend,u,v,1.
 
@@ -230,14 +244,14 @@ def render_pleated_field(arr,p,seconds,preset):
         # Film color remains fixed to the canvas, independent of camera zoom.
         bx=(np.arange(w,dtype=np.float32)-w*.5)/max(1.,artunit)
         by=(np.arange(top,min(h,top+96),dtype=np.float32)-h*.5)[:,None]/max(1.,artunit)
-        wash=.13+.3*np.sin(bx*3.1+by*2.4+t*.47)+.25*np.cos(bx*4.2-by*3.3-t*.31)
+        wash=.13+.3*np.sin(bx*3.1+by*2.4+_phase(p,t,.47))+.25*np.cos(bx*4.2-by*3.3-_phase(p,t,.31))
         bg=back+(back2-back)*(np.clip(wash,0,1)*p['background_motion'])[...,None]
         aa,bb,z,blend,u,v,valid=pleated_surface(x,y,p,t)
         color=dark+(light-dark)*blend[...,None]
         # Narrow amber valleys give the folds a warm edge, never broad spots.
         valley=np.clip((-z-.15*p['depth'])*8,0,1)*(1-blend)
         color=color*(1-valley[...,None])+amber*valley[...,None]
-        sheen=.035*np.sin(aa*1.2+bb*.7+t*.4)+.035*np.sin(bb*7.1-aa*.6)
+        sheen=.035*np.sin(aa*1.2+bb*.7+_phase(p,t,.4))+.035*np.sin(bb*7.1-aa*.6)
         color+=sheen[...,None]*np.array((1.,.55,.65),np.float32)
         fold=(aa+p['stagger']*np.sin(math.tau*bb))%1
         seam=np.exp(-((fold-.72)/.042)**2)*np.clip(np.sin(math.tau*bb)*2+.3,0,1)

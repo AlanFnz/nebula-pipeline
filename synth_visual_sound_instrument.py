@@ -37,7 +37,7 @@ def waveform(phase,hz,shape,density):
     return out*.8
 
 
-def oscillator_bank(t,root,config,seed):
+def oscillator_bank(t,root,config,seed,*,period=None):
     """Absolute phase preserves continuity across blocks and deterministic seeks."""
     bank=np.zeros((len(t),2));weight=0.
     offsets=np.linspace(-1,1,config['unison']) if config['unison']>1 else np.array([0.])
@@ -46,6 +46,8 @@ def oscillator_bank(t,root,config,seed):
         frequencies=[];phases=[]
         for voice,offset in enumerate(offsets):
             hz=root*2**((osc['transpose']+(osc['detune']+offset*config['detune'])/100)/12)
+            if period:
+                hz=max(1,round(hz*period))/period
             # Keep the original phase arithmetic and accumulation order. Batch
             # unison waves with the same harmonic limit to reduce live DSP cost.
             phases.append(math.tau*(hz*t+((index*.173+voice*.137+(seed%997)*.00013)%1)))
@@ -63,8 +65,12 @@ def oscillator_bank(t,root,config,seed):
     return bank/max(1.,weight)
 
 
-def instrument_controls(signals,config):
+def instrument_controls(signals,config,*,loop_period=None):
     notes=gesture_notes(signals,config)
+    loop=config.get('seamless_loop',False)
+    if loop:
+        from synth_sound_loop import cyclic_notes
+        notes=cyclic_notes(notes,loop_period or float(signals['time'][-1]),lambda note:instrument_note_duration(note,config))
     pluck=np.zeros_like(signals['time'])
     link=config['connections']['arpeggio']
     if config['enabled'] and link['enabled'] and link['amount']>0:
@@ -80,14 +86,22 @@ def instrument_controls(signals,config):
                 pluck[first:last]=np.maximum(pluck[first:last],env)
     # The note's filter accent has its own de-click smoothing; resonance cannot
     # amplify a sudden attack into a sharp transient. Evaluated before blocking.
+    if loop:
+        from synth_sound_loop import smooth_cycle
+        return notes,smooth_cycle(pluck,.035)
     return notes,_smooth(pluck,.035)
 
 
 class InstrumentVoice:
     """One stateful voice shared by offline export and the live monitor."""
-    def __init__(self, sequence, config, signals):
+    def __init__(self, sequence, config, signals, *, warm_loop=True):
         self.config=config;self.signals=signals
         total=round(sequence['duration']*RATE)
+        self.looping=config.get('seamless_loop',False)
+        smooth=_smooth
+        if self.looping:
+            from synth_sound_loop import smooth_cycle
+            smooth=smooth_cycle
         amount={key:c['amount'] if config['enabled'] and c['enabled'] else 0.
                 for key,c in config['connections'].items()}
         presence=signals['presence']
@@ -97,10 +111,10 @@ class InstrumentVoice:
             # before the existing de-click envelope, retaining exact zero for an
             # absent object. The default zero keeps earlier PCM sample-identical.
             presence=np.clip(presence,0.,1.)**(1-.9*continuity)
-        gate=_smooth(presence,.035)
-        expansion=_smooth(signals['expansion'],config['smoothing'])
-        motion=_smooth(signals['motion'],config['smoothing'])
-        notes,accent=instrument_controls(signals,config)
+        gate=smooth(presence,.035)
+        expansion=smooth(signals['expansion'],config['smoothing'])
+        motion=smooth(signals['motion'],config['smoothing'])
+        notes,accent=instrument_controls(signals,config,loop_period=total/RATE)
         if not amount['arpeggio']: notes=[]
         states=[(0.,0.),(0.,0.)]
         seed=int(sequence.get('seed',0))
@@ -111,13 +125,36 @@ class InstrumentVoice:
         self.motion=motion
         self.notes=notes
         self.accent=accent
+        self.control_times=signals['time']
+        self.control_values=(gate,expansion,motion,accent)
+        if self.looping:
+            inside=signals['time']<total/RATE
+            self.control_times=np.r_[signals['time'][inside],total/RATE]
+            self.control_values=tuple(np.r_[v[inside],v[0]] for v in self.control_values)
         self.states=states
         self.seed=seed
         self.mixer=make_mixer(config)
         self.tone_key=(config['density'],config['unison'],config['detune'],config['width'],
-                       tuple(tuple(sorted(osc.items())) for osc in config['oscillators']))
+                       tuple(tuple(sorted(osc.items())) for osc in config['oscillators']),
+                       total if self.looping else None)
+        if self.looping and warm_loop:
+            # Warm the filter and EQ with the preceding tail, never a fade from
+            # silence. Live knob updates inherit state instead of doing this work.
+            history=round(.75*RATE)
+            self.render(-history,history)
 
     def render(self, start, length, *, tone_cache=None):
+        if not self.looping:
+            return self._render(start,length,tone_cache=tone_cache)
+        pieces=[]
+        while length:
+            local=start%self.total
+            count=min(length,self.total-local)
+            pieces.append(self._render(local,count,tone_cache=tone_cache))
+            start+=count;length-=count
+        return np.concatenate(pieces) if pieces else np.empty((0,2),np.float32)
+
+    def _render(self, start, length, *, tone_cache=None):
         config=self.config
         signals=self.signals
         total=self.total
@@ -134,11 +171,12 @@ class InstrumentVoice:
             # Reuse the identical, unprocessed waves for its two voices. The
             # cache lives for this one block; envelopes/filters remain separate.
             key=(self.tone_key,start,length,root,tone_seed,origin)
-            if tone_cache is None: return oscillator_bank(times,root,config,tone_seed)
-            if key not in tone_cache: tone_cache[key]=oscillator_bank(times,root,config,tone_seed)
+            period=total/RATE if self.looping and origin is None else None
+            if tone_cache is None: return oscillator_bank(times,root,config,tone_seed,period=period)
+            if key not in tone_cache: tone_cache[key]=oscillator_bank(times,root,config,tone_seed,period=period)
             return tone_cache[key]
         t=(start+np.arange(length))/RATE
-        g,e,m,a=[np.interp(t,signals['time'],v) for v in (gate,expansion,motion,accent)]
+        g,e,m,a=[np.interp(t,self.control_times,v) for v in self.control_values]
         body=tones(t,config['pitch'],seed,None)*((.18+.08*e)*amount['body'])[:,None]
         melody=np.zeros((length,2))
         for n,note in enumerate(notes):
@@ -147,7 +185,7 @@ class InstrumentVoice:
             age=t-note['time'];u=np.maximum(age,0.)
             env=note_envelope(age,duration,config['attack'],config['release'])
             hz=config.get('arp_pitch',config['pitch'])*2**(note['semitones']/12)
-            tone=tones(u,hz,seed+n+1,note['time'])*((env*note['velocity']*.40*amount['arpeggio'])[:,None])
+            tone=tones(u,hz,seed+note.get('loop_index',n)+1,note['time'])*((env*note['velocity']*.40*amount['arpeggio'])[:,None])
             tone[:,0]*=1-note['pan']*.5;tone[:,1]*=1+note['pan']*.5
             melody+=tone
         body=self.mixer['body'].process(body)
@@ -157,6 +195,7 @@ class InstrumentVoice:
         cutoff=config['cutoff']*(config['sweep']/config['cutoff'])**opening
         fade=np.minimum(np.clip(t/.06,0,1),np.clip((total/RATE-t)/.08,0,1))
         fade=fade*fade*(3-2*fade)
+        if self.looping: fade=1.
         channels=[]
         for channel in range(2):
             source=np.tanh((body[:,channel]+melody[:,channel])*(1.5+config['drive']*3))

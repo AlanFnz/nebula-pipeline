@@ -37,7 +37,7 @@ def _track(keys, frame):
 def pleated_composition(*, extended=True, motion_revision=1):
     common = {'speed':1., 'depth':0., 'treatment_fps':12, 'object_x':0., 'object_y':0.}
     for module in ('pleated_field','film_emulsion','screen_mesh'):
-        common.update({module+'.'+p.key:p.default for p in MODULE_BY_ID[module].params})
+        common.update({module+'.'+p.key:p.default for p in MODULE_BY_ID[module].params if p.key!='loop_seconds'})
     common.update({
         'film_emulsion.softness':.6, 'film_emulsion.bleed':1.4,
         'film_emulsion.registration':1.7, 'film_emulsion.edge_ink':.17,

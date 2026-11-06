@@ -105,7 +105,7 @@ class VisualSoundStudio:
     def wants_live_sound(self,config=None):
         dialog=self.visual_sound_dialog
         config=config or self.live_draft or (self.composition or {}).get('generated_sound') or {}
-        listening = dialog.live.isChecked() if dialog and dialog.isVisible() else self.performing_visuals()
+        listening = dialog.live.isChecked() if dialog and dialog.isVisible() else self.performing_visuals() or config.get('seamless_loop',False)
         return bool(listening and config.get('version')==3 and config.get('output')=='generated')
 
     def live_sound_changed(self,*_):
@@ -177,6 +177,7 @@ class VisualSoundStudio:
 
     def update_live_activity(self,config):
         key=(config['enabled'],config['arp_rate'],config['scale'],config['attack'],config['release'],
+             config.get('seamless_loop',False),
              json.dumps({k:config.get(k) for k in ('arp_mode','bpm','subdivision','sequence_length','sequence_trigger','sequence')},sort_keys=True),
              config.get('arp_notes',4),config.get('arp_steps',0),config.get('arp_pattern','visual'),
              config['connections']['arpeggio']['enabled'],config['connections']['arpeggio']['amount'])

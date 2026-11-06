@@ -88,6 +88,34 @@ Timeline ends use smooth 60/80 ms fades; synthesis carries filter state between
 blocks. A test compares different block sizes sample-for-sample while a note
 crosses a boundary.
 
+### Seamless loops (0.65.0)
+
+**Sound → Seamless audio loop** is optional and off for existing projects. It
+removes the timeline fades, wraps note releases into the start, and closes the
+smoothed visual envelopes. The sustained oscillators use an integer number of
+cycles in the timeline (at most 0.5 / duration Hz tuning adjustment per voice).
+Note pitches are unchanged. Filter/EQ history is warmed with the preceding
+750 ms; subsequent turns continue through the same audio device and state.
+Knob edits still use the existing short crossfade. Export uses the same DSP.
+
+Use a whole number of sequencer patterns for a regular rhythm. For 120 BPM,
+sixteenth notes and 16 steps, one pattern is two seconds, so this study's
+20 seconds already fits ten patterns. Changing BPM or length can make the final
+rhythmic group incomplete even though the waveform boundary remains smooth.
+External players may add their own playback gap; Nebula's live loop does not
+restart the audio output when the full timeline wraps.
+
+The sound checkbox does not automatically close arbitrary visuals.
+`synth_pleated_loop.close_pleated_study` builds an editable copy of the single
+Pleated study: preserve the user's paced poses through second 18, then ease the
+last unmirrored camera shot back to the opening pose. The slower pace is baked
+into those camera samples, so Perform Pace returns to 100% without speeding the
+movie up. Existing surface/finish values and instrument settings are retained.
+Pleated field's **Surface loop duration** makes its internal drift periodic on
+its animation clock; the loop recipe uses 20 seconds at 1× procedural speed.
+Camera edits, time remapping, or additional nonperiodic effects can change the
+visual seam. Earlier recipes keep a zero loop duration and their original pixels.
+
 Drag knobs vertically, hold Shift for finer changes, use arrow keys, or type the
 number beneath them. Scrolling over a knob does not edit it. Changes are drafts
 until **Apply**. With **Live audition** enabled, **Listen/Pause** plays the main
