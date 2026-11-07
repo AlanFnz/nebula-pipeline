@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.69.0 — 2026-11-07
+
+- Add open fifth, minor ninth, major ninth and suspended-second harmonies to the
+  color-wave pad. Chord notes span multiple octaves, with lighter upper voices
+  and compensated level. The original root/octave remains the legacy default.
+- Expose Harmony in Pad & space with live audition, undo/redo and project export.
+  Reuse an unchanged pad during live voice crossfades to bound synthesis cost.
+- Save the celestial Chromatic Pulse variant as a separate user document with
+  an open E minor ninth pad; its visual pattern and note timing stay unchanged.
+
 ## 0.68.0 — 2026-11-07
 
 - Add an optional Analog ensemble engine to each color-wave voice: band-limited

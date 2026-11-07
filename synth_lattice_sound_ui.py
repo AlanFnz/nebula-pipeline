@@ -3,6 +3,7 @@ from PySide6.QtWidgets import QWidget,QVBoxLayout,QHBoxLayout,QGroupBox,QLabel,Q
 from synth_sound_knob import SoundKnob
 from synth_sound_pitch import PitchControl
 from synth_lattice_sound import color_wave_sound
+from synth_sound_analog import PAD_HARMONIES
 
 
 class ColorWaveControls(QWidget):
@@ -94,12 +95,16 @@ def analog_factor(field):
 class PadSpaceControls(QWidget):
     def __init__(self,parent=None):
         super().__init__(parent);layout=QVBoxLayout(self);layout.setContentsMargins(0,0,0,0)
-        hint=QLabel('A soft sustained root under the color notes. Follow opening root keeps it in tune when you change the melody. Balance or solo it in Mixer.')
+        hint=QLabel('A soft sustained harmony under the color notes. Follow opening root tracks the melody root; choose a chord quality that fits its scale. Balance or solo the pad in Mixer.')
         hint.setWordWrap(True);layout.addWidget(hint)
         self.enabled=QCheckBox('Enable root pad');self.follow=QCheckBox('Follow opening root')
         row=QHBoxLayout();row.addWidget(self.enabled);row.addWidget(self.follow);layout.addLayout(row)
         self.pitch=PitchControl('Pad root',40,880);self.pitch.set_compact(True);layout.addWidget(self.pitch)
         self.follow.toggled.connect(lambda on:self.pitch.setEnabled(not on))
+        row=QHBoxLayout();row.addWidget(QLabel('Harmony'));self.harmony=QComboBox();self.harmony.setAccessibleName('Pad harmony')
+        for key,title,_ in PAD_HARMONIES:self.harmony.addItem(title,key)
+        self.harmony.setToolTip('Open chords spread their notes across octaves. Minor 9 adds a minor third, fifth, seventh and ninth around the root. Root / octave preserves the original pad.')
+        row.addWidget(self.harmony,1);layout.addLayout(row)
         self.pad={};self.space={}
         for title,entries,controls in (
                 ('Root pad',(('octave','Octave',-1,2,1,''),('cutoff','Softness / cutoff',120,4000,20,' Hz'),('detune','Detune',0,20,.5,' cents'),
@@ -117,11 +122,12 @@ class PadSpaceControls(QWidget):
     def load(self,value):
         p=value['pad'];self.enabled.setChecked(p['enabled']);self.follow.setChecked(p['follow_root'])
         self.pitch.load(p['pitch'],p['pitch_mode']);self.pitch.setEnabled(not p['follow_root'])
+        self.harmony.setCurrentIndex(self.harmony.findData(p['harmony']))
         for key,knob in self.pad.items():knob.setValue(p[key]*(100 if key in ('motion','reverb') else 1))
         for key,knob in self.space.items():knob.setValue(value['space'][key]*(1 if key=='decay' else 100))
 
     def config(self):
-        pad=dict(enabled=self.enabled.isChecked(),follow_root=self.follow.isChecked(),pitch=self.pitch.value(),pitch_mode=self.pitch.tuning())
+        pad=dict(enabled=self.enabled.isChecked(),follow_root=self.follow.isChecked(),pitch=self.pitch.value(),pitch_mode=self.pitch.tuning(),harmony=self.harmony.currentData())
         pad.update({key:knob.value()/(100 if key in ('motion','reverb') else 1) for key,knob in self.pad.items()})
         space={key:knob.value()/(1 if key=='decay' else 100) for key,knob in self.space.items()}
         return dict(pad=pad,space=space)

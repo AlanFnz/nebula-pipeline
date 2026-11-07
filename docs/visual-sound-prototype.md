@@ -1,5 +1,19 @@
 # Visual sound / Pleated signal and Chromatic lattice
 
+## Pad harmonies (0.69.0)
+
+Generate sound → **Pad & space → Harmony** offers Root / octave (original),
+Open fifth, Minor 9, Major 9 and Suspended 2. The chord follows the configured
+pad root and octave; quality is explicit rather than inferred from the melody.
+Minor 9 uses intervals 0, 7, 15, 22 and 26 semitones: in the celestial user
+variant, E3–B3–G4–D5–F♯5. Upper notes have reduced weight, two detuned oscillators
+and no sub oscillator. Overall level compensation keeps the pad in the background.
+
+Chords use the same loop-aware oscillator bank, chorus, reverb, mixer and live
+history as the original pad. Old documents without Harmony retain their exact
+root/octave sound. The live crossfade shares unchanged pad samples between old
+and new voices; choosing a new harmony still crossfades both complete chords.
+
 ## Analog ensemble and root pad (0.68.0)
 
 Each color-wave voice has an **Engine** selector in Generate sound → Sound.

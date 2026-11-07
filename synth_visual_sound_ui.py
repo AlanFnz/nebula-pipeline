@@ -63,7 +63,7 @@ class VisualSoundDialog(SoundHistory,QDialog):
         self.seamless_loop.setToolTip('Carry note releases and filter motion across the timeline boundary, with no fade to silence. Sustained oscillators use whole cycles (a tiny tuning adjustment). Use a whole number of sequencer patterns for an even rhythm. This does not close the visual animation.')
         self.legacy_sound_widgets=[sound.itemAt(i).widget() for i in range(sound.count()) if sound.itemAt(i).widget()]
         self.color_wave=ColorWaveControls();sound.insertWidget(0,self.color_wave)
-        pad=self.page('Pad & space');self.pad_space=PadSpaceControls();pad.addWidget(self.pad_space)
+        pad=self.page('Pad && space');self.pad_space=PadSpaceControls();pad.addWidget(self.pad_space)
         self.opening.setToolTip('Manual filter opening. Movement adds to this setting; disable its connection for a fixed opening.')
         self.unison=SoundKnob('Unison',1,5,1,' voices',integer=True);self.detune=SoundKnob('Detune',0,35,.5,' cents')
         self.detune.setToolTip('Pitch spread in cents between unison voices. Use two or more voices to hear it.')
@@ -136,6 +136,7 @@ class VisualSoundDialog(SoundHistory,QDialog):
         for combo in self.color_wave.combos:combo.currentIndexChanged.connect(self.queue_draft)
         self.color_wave.loop.toggled.connect(self.queue_draft)
         self.pad_space.enabled.toggled.connect(self.queue_draft);self.pad_space.follow.toggled.connect(self.queue_draft)
+        self.pad_space.harmony.currentIndexChanged.connect(self.queue_draft)
         self.sequencer.gestureStarted.connect(self.begin_sound_gesture);self.sequencer.gestureFinished.connect(self.end_sound_gesture)
         for widget in (self.enabled,self.output,self.scale,self.arp_pattern,self.arp_mode,self.seamless_loop):
             (widget.toggled if isinstance(widget,QCheckBox) else widget.currentIndexChanged).connect(self.queue_draft)

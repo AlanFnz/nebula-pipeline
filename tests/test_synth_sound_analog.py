@@ -6,7 +6,7 @@ from media import Cancellation
 from synth_composition import compile_composition
 from synth_lattice_recipes import lattice_composition
 from synth_lattice_sound import color_wave_sound,ColorWaveVoice,color_notes,color_blocks
-from synth_sound_analog import StereoSpace,space_defaults,analog_note,root_pad
+from synth_sound_analog import StereoSpace,space_defaults,analog_note,root_pad,PAD_HARMONIES
 from synth_visual_sound import normalize_sound,visual_signals,RATE
 from synth_visual_sound_live import LiveInstrument
 from test_synth_visual_sound_ui import app
@@ -36,7 +36,7 @@ def test_pre_analog_documents_keep_their_original_audio():
 
 
 @pytest.mark.parametrize('path,value',[(('pad','enabled'),1),(('pad','octave'),.5),
-    (('pad','pitch'),float('nan')),(('space','decay'),0),(('space','damping'),1.1),
+    (('pad','pitch'),float('nan')),(('pad','harmony'),'invalid'),(('space','decay'),0),(('space','damping'),1.1),
     (('voices','strum','engine'),'unknown'),(('voices','steps','analog','unison'),2.5),
     (('voices','steps','analog','detune'),-1),(('voices','steps','analog','cutoff'),True)])
 def test_invalid_controls_are_rejected(path,value):
@@ -78,6 +78,25 @@ def test_pad_is_tuned_to_root_octaves_and_closes_the_loop():
     assert np.argmax(spec) in (110,220)
     a=root_pad(t,110.,p,5.);b=root_pad(t+5,110.,p,5.)
     assert np.max(abs(a-b))<1e-8
+
+
+def test_old_pad_loads_as_root_and_open_chord_contains_its_notes():
+    c=patch();c['pad'].pop('harmony')
+    assert normalize_sound(c)['pad']['harmony']=='root'
+    p=dict(c['pad'],harmony='minor9',octave=0,detune=0.,motion=0.,cutoff=2000.)
+    t=np.arange(2*RATE)/RATE;y=root_pad(t,110.,p,20.).mean(axis=1)
+    spectrum=np.abs(np.fft.rfft(y*np.hanning(len(y))))
+    for semitones in (0,7,15,22,26):
+        hz=round(110*2**(semitones/12)*20)/20;index=round(hz*2)
+        assert np.max(spectrum[index-2:index+3])>.025*np.max(spectrum)
+    assert np.isfinite(y).all() and np.max(abs(y))<1.5
+
+
+@pytest.mark.parametrize('harmony',[key for key,_,_ in PAD_HARMONIES if key!='root'])
+def test_open_chords_close_the_loop(harmony):
+    p=dict(patch()['pad'],harmony=harmony)
+    t=np.arange(480)/RATE
+    assert np.max(abs(root_pad(t,82.4069,p,20.)-root_pad(t+20,82.4069,p,20.)))<1e-8
 
 
 def test_new_timbre_keeps_visual_notes_and_matches_live_export():
@@ -126,6 +145,9 @@ def test_pad_analog_and_space_controls_round_trip_and_undo(app):
     d.undo_draft();assert d.read_config()==c
     d.pad_space.enabled.setChecked(False);assert not d.read_config()['pad']['enabled']
     d.undo_draft();assert d.read_config()==c
+    d.pad_space.harmony.setCurrentIndex(d.pad_space.harmony.findData('minor9'))
+    assert d.read_config()['pad']['harmony']=='minor9'
+    d.undo_draft();assert d.read_config()==c
     d.mixer.channels['pad']['level_db'].setValue(-26.)
     assert d.read_config()['mixer']['pad']['level_db']==-26.
     d.close()
@@ -138,3 +160,16 @@ def test_live_start_does_not_run_a_long_room_preroll(monkeypatch):
     monkeypatch.setattr(ColorWaveVoice,'render',unexpected)
     live=LiveInstrument(s,sig,s['generated_sound'])
     assert live.voice.space is not None
+
+
+def test_chord_pad_cache_preserves_audio_during_live_parameter_edits():
+    s=sequence();c=s['generated_sound'];c['pad']['harmony']='minor9';sig=visual_signals(s)
+    a=ColorWaveVoice(s,c,sig,warm_loop=False);b=ColorWaveVoice(s,c,sig,warm_loop=False)
+    cache={};plain=a.render(RATE,480);shared=b.render(RATE,480,tone_cache=cache)
+    assert np.array_equal(plain,shared)
+    assert any(k[0]=='pad' for k in cache)
+    live=LiveInstrument(s,sig,c);live.render(4800)
+    change=copy.deepcopy(c);change['pad']['harmony']='sus2';live.update(change)
+    audio=np.concatenate([live.render(480) for _ in range(10)])
+    assert live.voice.config['pad']['harmony']=='sus2' and np.isfinite(audio).all()
+    assert np.max(abs(np.diff(audio,axis=0)))<.1

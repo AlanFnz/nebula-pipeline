@@ -10,6 +10,13 @@ import numpy as np
 RATE = 48000
 TABLE_SIZE=2048
 FILTER_STEPS=64
+PAD_HARMONIES=(
+    ('root','Root / octave · original',(0,12)),
+    ('fifth','Open fifth',(0,7,12)),
+    ('minor9','Minor 9 · open',(0,7,15,22,26)),
+    ('major9','Major 9 · open',(0,7,16,23,26)),
+    ('sus2','Suspended 2 · open',(0,7,14,24)),
+)
 
 
 @lru_cache(maxsize=64)
@@ -41,7 +48,7 @@ def analog_defaults():
 
 def pad_defaults():
     return dict(enabled=False, follow_root=True, pitch=82.4069, pitch_mode='note',
-                octave=1,cutoff=780., detune=7., motion=.35, reverb=.7)
+                octave=1,harmony='root',cutoff=780., detune=7., motion=.35, reverb=.7)
 
 
 def space_defaults():
@@ -98,10 +105,23 @@ def root_pad(t,hz,settings,period=None):
     cutoff=settings['cutoff']*2**(movement*.45*np.sin(math.tau*t/cycle))
     p=dict(analog_defaults(),wave=.58,unison=3,detune=settings['detune'],
            sub=.08,cutoff=cutoff,resonance=.12,drive=.12)
-    # Root and octave only; no chord tones that could change the chosen scale.
     hz*=2**settings['octave']
-    tone=ensemble(t,hz,p,period=period)
-    tone+=.22*ensemble(t,hz*2,p,period=period)
+    harmony=settings.get('harmony','root')
+    if harmony=='root':
+        # Preserve the original root/octave patch sample for sample.
+        tone=ensemble(t,hz,p,period=period)
+        tone+=.22*ensemble(t,hz*2,p,period=period)
+    else:
+        intervals=next(notes for key,_,notes in PAD_HARMONIES if key==harmony)
+        weights=(1.,.66,.58,.5,.44)[:len(intervals)]
+        tone=np.zeros((len(t),2))
+        for i,(semitones,weight) in enumerate(zip(intervals,weights)):
+            # Keep weight in the root; upper voices have no sub oscillator.
+            voice=p if i==0 else dict(p,unison=2,sub=0.,detune=p['detune']*.8)
+            layer=ensemble(t,hz*2**(semitones/12),voice,period=period)
+            pan=0. if i==0 else (-1 if i%2 else 1)*.28
+            tone+=weight*layer*np.sqrt([1-pan,1+pan])
+        tone/=math.sqrt(sum(weight*weight for weight in weights))
     return tone*(.88+.12*np.cos(math.tau*t/cycle))[:,None]
 
 

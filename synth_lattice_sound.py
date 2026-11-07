@@ -11,7 +11,7 @@ from collections import OrderedDict
 import numpy as np
 
 from synth_visual_sound import CONTROL_RATE, RATE
-from synth_sound_analog import analog_defaults,pad_defaults,space_defaults
+from synth_sound_analog import analog_defaults,pad_defaults,space_defaults,PAD_HARMONIES
 
 COLOR_CHANNELS=(('body','Opening'),('arpeggio','Color steps'),('pad','Root pad'))
 _ROOM_CACHE=OrderedDict()
@@ -97,6 +97,9 @@ def normalize_color_wave(raw):
     octave=number(pad.get('octave',1),'Pad octave',-1,2)
     if octave!=int(octave):raise ValueError('Pad octave must be a whole number')
     out['pad']['octave']=int(octave)
+    harmony=pad.get('harmony','root')
+    if harmony not in tuple(key for key,_,_ in PAD_HARMONIES):raise ValueError('Choose a supported pad harmony')
+    out['pad']['harmony']=harmony
     out['pad']['pitch_mode']=pad.get('pitch_mode','note')
     if out['pad']['pitch_mode'] not in ('hz','note'):raise ValueError('Choose pad tuning')
     if out['pad']['pitch_mode']=='note':out['pad']['pitch']=snapped_frequency(out['pad']['pitch'],40,880)
@@ -325,7 +328,13 @@ class ColorWaveVoice:
         result=opening+steps;send=opening*c['voices']['strum']['reverb']+steps*c['voices']['steps']['reverb']
         if c['pad']['enabled'] and self.mixer['pad'].audible:
             hz=c['voices']['strum']['pitch'] if c['pad']['follow_root'] else c['pad']['pitch']
-            pad=root_pad(t,hz,c['pad'],self.total/RATE if self.looping else None)*.34
+            period=self.total/RATE if self.looping else None
+            cache_key=('pad',start,length,hz,period,tuple(sorted(c['pad'].items())))
+            pad=tone_cache.get(cache_key) if tone_cache is not None else None
+            if pad is None:
+                pad=root_pad(t,hz,c['pad'],period)*.34
+                if tone_cache is not None:tone_cache[cache_key]=pad
+            if tone_cache is not None:pad=pad.copy()
             if not self.looping:pad*=np.minimum(np.clip(t/.8,0,1),np.clip((self.total/RATE-t)/.8,0,1))[:,None]
             pad=self.mixer['pad'].process(pad);result+=pad;send+=pad*c['pad']['reverb']
         if self.space is not None:result=self.space.process(result,send,start)
