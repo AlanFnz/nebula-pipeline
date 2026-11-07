@@ -296,7 +296,7 @@ class LiveSoundMonitor(QObject):
     def output_ready(self,epoch,seconds,anchor):
         if epoch!=self.epoch or not self.playing or self.closed: return
         self.seconds=seconds;self.anchor=anchor
-        self.statusChanged.emit('Live · turn the knobs while the video plays. Apply saves the sound.')
+        self.statusChanged.emit('Live · sound controls respond during playback.')
 
     @Slot(int,str)
     def output_failed(self,epoch,message):

@@ -418,6 +418,7 @@ class SynthStudio(PerformanceStudio, VisualSoundStudio, AudioReactivityStudio, S
         self.document_title.setText(('* ' if self.has_unsaved_changes() else '') + self.document_title.fontMetrics().elidedText(name + (' · detailed copy' if self.detailed_copy else ''), Qt.TextElideMode.ElideRight, 200))
         self.document_title.setToolTip(title)
         self.document_title.setAccessibleDescription(title)
+        self.refresh_sound_context()
 
     def pending_text_edits(self):
         if self.composer is not None:
@@ -459,6 +460,7 @@ class SynthStudio(PerformanceStudio, VisualSoundStudio, AudioReactivityStudio, S
         return self.confirm_close(purpose)
 
     def confirm_close(self, purpose="closing"):
+        if not self.resolve_sound_draft(purpose, leaving=True): return False
         if self.discovery_session: self.dismiss_effect_discovery()
         if self.audition_pending():
             choice = QMessageBox.question(self, 'Temporary variation', f'Keep this audition before {purpose}?',
@@ -1712,6 +1714,7 @@ class SynthStudio(PerformanceStudio, VisualSoundStudio, AudioReactivityStudio, S
         if self.protected_document_destination(path):
             QMessageBox.critical(self, 'Save error', 'Choose a document file outside bundled resources, the Study library and source/proxy media.')
             return False
+        if not self.resolve_sound_draft('saving'): return False
         if not self.prepare_document_save(): return False
         temporary = None
         try:
@@ -2291,6 +2294,7 @@ class SynthStudio(PerformanceStudio, VisualSoundStudio, AudioReactivityStudio, S
         if self.protected_document_destination(path) or (self.document_path and Path(path).resolve() == self.document_path.resolve()):
             self.status.setText('Choose an export destination different from your project and source media.')
             return
+        if not self.resolve_sound_draft('exporting'): return
         self.cancel_preparation()
         self.export_button.setEnabled(False)
         self.export_progress.setValue(0)

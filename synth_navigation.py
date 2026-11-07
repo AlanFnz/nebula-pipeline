@@ -96,6 +96,7 @@ class WorkspaceNavigation(QObject):
             name += ' › ' + clip['name']
         title = f"Nebula · {name}{' *' if dirty else ''}"
         if self.host.windowTitle() != title: self.host.setWindowTitle(title)
+        if self.editor: self.editor.refresh_sound_context()
 
     def show_montage(self, document, path=None):
         from synth_montage_ui import MontageWindow
@@ -152,9 +153,10 @@ class WorkspaceNavigation(QObject):
         self.activate(editor)
         return editor
 
-    def commit_editor(self):
+    def commit_editor(self, purpose='leaving this block', *, leaving=True):
         editor = self.editor
         if editor is None: return True
+        if not editor.resolve_sound_draft(purpose, leaving=leaving): return False
         if editor.audition_pending():
             editor.status.setText('Keep or discard the temporary variation before returning or saving.')
             return False
@@ -189,7 +191,7 @@ class WorkspaceNavigation(QObject):
         return True
 
     def save(self, save_as=False):
-        if not self.commit_editor(): return False
+        if not self.commit_editor('saving', leaving=False): return False
         saved = self.montage.save(save_as)
         self.update_title()
         if saved and self.editor: self.editor.status.setText('Montage saved, including this block.')

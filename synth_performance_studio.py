@@ -54,7 +54,7 @@ class PerformanceStudio:
         dialog.performance_tab = dialog.tabs.count() - 1
         dialog.visuals_active = lambda: dialog.tabs.currentIndex() == dialog.performance_tab
         def tab_changed(_):
-            dialog.workspace_hint.setText('Visual controls edit the project immediately. Save the project to keep them; Undo reverses edits. Apply below saves only the sound.' if dialog.visuals_active() else dialog.sound_hint)
+            dialog.refresh_session()
             self.update_composition_history()
         dialog.tabs.currentChanged.connect(tab_changed)
         self.refresh_performance_panels()

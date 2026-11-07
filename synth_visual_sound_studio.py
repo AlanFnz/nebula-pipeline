@@ -104,9 +104,10 @@ class VisualSoundStudio:
             self.play.toggled.connect(dialog.set_playing)
         self.attach_sound_performance(self.visual_sound_dialog)
         self.visual_sound_dialog.set_config(self.sound_dialog_config())
+        self.refresh_sound_context()
         self.visual_sound_dialog.set_monitor(self.visual_sound_volume,self.visual_sound_muted)
         self.visual_sound_dialog.set_playing(self.play.isChecked())
-        self.visual_sound_dialog.status.setText(self.visual_sound_status or 'Choose Apply & prepare to hear this instrument.')
+        self.visual_sound_dialog.status.setText(self.visual_sound_status or 'Apply sound to prepare this instrument.')
         self.visual_sound_dialog.show();self.visual_sound_dialog.raise_();self.visual_sound_dialog.activateWindow()
         self.update_composition_history()
         self.refresh_cache_status()
@@ -122,10 +123,48 @@ class VisualSoundStudio:
     def sound_dialog_config(self):
         return (self.composition or {}).get('generated_sound') or sound_for_sequence(self.preview_sequence())
 
+    def refresh_sound_context(self):
+        """Refresh on document edits/saves, never on the frame or audio clock."""
+        dialog = self.visual_sound_dialog
+        if dialog is None or not hasattr(self, 'clean_document'): return
+        name = self.document_state()[1].get('name', 'Untitled')
+        path = self.document_path
+        dirty = self.has_unsaved_changes()
+        navigation = self.workspace_navigation
+        if navigation and navigation.montage and navigation.editor is self:
+            montage = navigation.montage
+            clip = next(c for c in montage.document['clips'] if c['id'] == navigation.clip_id)
+            name = f"{montage.document['name']} › {clip['name']}"
+            path = montage.path
+            dirty = dirty or montage.document != montage.clean
+        dialog.context_title.setText(name)
+        dialog.context_title.setToolTip(name)
+        dialog.file_state.setText('File: Not saved' if path is None else 'File: Unsaved changes' if dirty else 'File: Saved')
+        dialog.file_state.setToolTip(str(path) if path else 'Save project to create a file.')
+        dialog.applied_available = bool((self.composition or {}).get('generated_sound'))
+        dialog.refresh_session()
+
+    def resolve_sound_draft(self, purpose, *, leaving=False):
+        dialog = self.visual_sound_dialog
+        if dialog is None or not dialog.isVisible(): return True
+        dialog.commit_pending_number()
+        if not dialog.has_sound_draft(): return True
+        choice = dialog.choose_pending_sound(purpose, leaving)
+        if choice == 'cancel': return False
+        if choice == 'apply':
+            dialog.apply()
+            return not dialog.has_sound_draft()
+        if leaving:
+            # Only sound is discarded. Visual edits remain in the document.
+            dialog.draft_timer.stop();dialog.loaded=False
+            dialog.set_config(self.sound_dialog_config())
+            self.refresh_sound_context()
+            self.audition_visual_sound(dialog.read_config())
+        return True
+
     def live_sound_changed(self,*_):
         dialog=self.visual_sound_dialog
         if dialog:
-            dialog.apply_button.setText('Apply' if dialog.live.isChecked() and dialog.voice.currentData() in (3,4) else 'Apply && prepare')
             self.audition_visual_sound(dialog.read_config())
 
     def audition_visual_sound(self,config):
@@ -163,7 +202,7 @@ class VisualSoundStudio:
             self.refresh_performed_signals(config)
             self.live_sound.set_config(config)
             self.update_live_activity(config)
-            self.set_visual_sound_status('Live audition ready · Listen plays the video. Apply saves the sound.')
+            self.set_visual_sound_status('Live audition ready.')
             self.sync_soundtrack()
 
     def live_signals_ready(self,job,signals):
@@ -173,7 +212,7 @@ class VisualSoundStudio:
         self.live_performance_config=None
         self.refresh_performed_signals(self.live_draft, force=True)
         self.live_meter_key=None;self.update_live_activity(self.live_draft)
-        self.set_visual_sound_status('Live audition ready · Listen plays the video. Apply saves the sound.')
+        self.set_visual_sound_status('Live audition ready.')
         self.sync_soundtrack()
 
     def refresh_performed_signals(self, config, force=False):
@@ -241,6 +280,7 @@ class VisualSoundStudio:
             self.composer.commit(project,'generated-sound')
         elif self.wants_live_sound(config): self.audition_visual_sound(config)
         elif not self.visual_sound_job: self.prepare_visual_sound()
+        self.refresh_sound_context()
 
     def set_visual_sound_volume(self,value):
         self.visual_sound_volume=value;self.visual_sound_player.set_monitor_volume(value)
@@ -267,6 +307,7 @@ class VisualSoundStudio:
         if self.visual_sound_dialog:
             self.visual_sound_dialog.set_config(self.sound_dialog_config())
             if self.visual_sound_dialog.isVisible(): self.live_draft=self.visual_sound_dialog.read_config()
+            self.refresh_sound_context()
         if self.wants_live_sound():
             self.visual_sound_button.setText('Generated sound…' if config else 'Generate sound…')
             self.audition_visual_sound(self.live_draft);return

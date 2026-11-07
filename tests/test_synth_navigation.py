@@ -152,3 +152,43 @@ def test_export_from_block_commits_and_exports_whole_project(workspace, monkeypa
     assert exports[0]['clips'][0]['document']['name'] == 'Export this'
     assert len(exports[0]['clips']) == 2
     assert root.workspace_navigation.active is montage
+
+
+def test_sound_file_state_tracks_outer_montage_and_save_failure(workspace, monkeypatch):
+    from synth_visual_sound import instrument_sound
+    root, montage, app = workspace
+    editor = montage.edit_clip(montage.document['clips'][0]['id'])
+    monkeypatch.setattr(editor, 'audition_visual_sound', lambda *_: None)
+    monkeypatch.setattr(editor, 'prepare_visual_sound', lambda *_: None)
+    editor.apply_visual_sound(instrument_sound());editor.visual_sound_debounce.stop()
+    editor.open_visual_sound();dialog = editor.visual_sound_dialog
+    assert ' › ' in dialog.context_title.text()
+    assert dialog.file_state.text() == 'File: Unsaved changes'
+    assert root.workspace_navigation.save()
+    assert dialog.file_state.text() == 'File: Saved'
+    dialog.opening.setValue(86)
+    monkeypatch.setattr(dialog, 'choose_pending_sound', lambda *args: 'apply')
+    def fail(*_): raise OSError('Disk full')
+    monkeypatch.setattr('synth_montage_ui.save_montage', fail)
+    assert not root.workspace_navigation.save()
+    assert dialog.sound_state.text() == 'Sound: Applied'
+    assert dialog.file_state.text() == 'File: Unsaved changes'
+    assert montage.document['clips'][0]['document']['generated_sound']['opening'] == .86
+    assert load_montage(montage.path)['clips'][0]['document']['generated_sound']['opening'] != .86
+
+
+def test_return_from_block_can_cancel_pending_sound(workspace, monkeypatch):
+    from synth_visual_sound import instrument_sound
+    root, montage, app = workspace
+    editor = montage.edit_clip(montage.document['clips'][0]['id'])
+    monkeypatch.setattr(editor, 'audition_visual_sound', lambda *_: None)
+    monkeypatch.setattr(editor, 'prepare_visual_sound', lambda *_: None)
+    editor.apply_visual_sound(instrument_sound());editor.visual_sound_debounce.stop()
+    editor.open_visual_sound();dialog = editor.visual_sound_dialog
+    dialog.opening.setValue(90)
+    monkeypatch.setattr(dialog, 'choose_pending_sound', lambda *args: 'cancel')
+    assert not root.workspace_navigation.return_to_montage()
+    assert root.workspace_navigation.active is editor and dialog.has_sound_draft()
+    monkeypatch.setattr(dialog, 'choose_pending_sound', lambda *args: 'apply')
+    assert root.workspace_navigation.return_to_montage()
+    assert montage.document['clips'][0]['document']['generated_sound']['opening'] == .9

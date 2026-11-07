@@ -8,6 +8,7 @@ from synth_sound_knob import SoundKnob
 from synth_sound_pitch import PitchControl
 from synth_sound_sequencer_ui import StepSequencer
 from synth_sound_history import SoundHistory
+from synth_sound_session_ui import SoundSession
 from synth_sound_sequence import sequence_defaults
 from synth_sound_mixer import mixer_defaults
 from synth_sound_mixer_ui import SoundMixer
@@ -17,7 +18,7 @@ from synth_lattice_sound_ui import ColorWaveControls,PadSpaceControls,WaveSineCo
 FACTORIES={1:default_sound,2:acid_sound,3:instrument_sound,4:color_wave_sound}
 
 
-class VisualSoundDialog(SoundHistory,QDialog):
+class VisualSoundDialog(SoundSession,SoundHistory,QDialog):
     historyChanged=Signal()
     configEdited=Signal(object)
     monitorVolumeChanged=Signal(float)
@@ -31,10 +32,7 @@ class VisualSoundDialog(SoundHistory,QDialog):
     def __init__(self,parent=None):
         super().__init__(parent);self.setWindowTitle('Generate sound');self.resize(1280,780)
         self.current=None;self.loaded=False;self.loading=False;layout=QVBoxLayout(self)
-        label=QLabel('PLEATED / SYNTH');label.setProperty('sectionTitle',True);layout.addWidget(label);self.instrument_title=label
-        hint=QLabel('Live audition: play the video and turn the knobs to hear changes immediately. Apply saves your sound; closing without Apply restores the saved settings.')
-        hint.setWordWrap(True);layout.addWidget(hint);row=QHBoxLayout()
-        self.workspace_hint = hint; self.sound_hint = hint.text()
+        self.init_session_header(layout);row=QHBoxLayout()
         self.enabled=QCheckBox('Enable sound');row.addWidget(self.enabled)
         self.voice=QComboBox();self.voice.setAccessibleName('Instrument')
         for title,key in (('Layered resonant synth',3),('Acid triangle (original)',2),('Electric / tape (original)',1)): self.voice.addItem(title,key)
@@ -110,25 +108,30 @@ class VisualSoundDialog(SoundHistory,QDialog):
         for title,key in (('Minor pentatonic','pentatonic'),('Natural minor','minor'),('Dorian','dorian')): self.scale.addItem(title,key)
         row.addWidget(self.scale,1);arpeggio.addLayout(row);arpeggio.addStretch();self.connection_layout=QVBoxLayout();motion.addLayout(self.connection_layout)
         motion.addStretch();self.connections={};self.meters={};self.voice.currentIndexChanged.connect(self.change_voice)
-        self.live=QCheckBox('Live audition');self.live.setChecked(True);self.live.setToolTip('Real-time listening for the layered synth and color-wave instrument. Original instruments use Apply & prepare.')
+        self.live=QCheckBox('Live audition');self.live.setChecked(True);self.live.setToolTip('Hear synth changes during playback. Turn off to hear applied sound. Original instruments prepare audio after Apply sound.')
         self.live.toggled.connect(self.liveChanged);layout.addWidget(self.live)
         video=QHBoxLayout();self.preview_button=QPushButton('Prepare all video frames');self.preview_button.clicked.connect(self.previewRequested)
         video.addWidget(self.preview_button);self.preview_status=QLabel();video.addWidget(self.preview_status,1);layout.addLayout(video)
-        self.note=QLabel('Generated sound replaces other audio. Listen level and Mute monitor affect monitoring only.');self.note.setWordWrap(True);layout.addWidget(self.note)
+        self.preview_source=QLabel();self.preview_source.setWordWrap(True);layout.addWidget(self.preview_source)
         row=QHBoxLayout();self.listen=QPushButton('Listen');self.listen.setCheckable(True);self.listen.toggled.connect(self.playRequested);row.addWidget(self.listen)
         self.mute=QCheckBox('Mute monitor');row.addWidget(self.mute);row.addWidget(QLabel('Listen level'))
         self.volume=QSlider(Qt.Orientation.Horizontal);self.volume.setRange(0,100);self.volume.setValue(70)
         self.volume.setAccessibleName('Generated sound monitor level');row.addWidget(self.volume);layout.addLayout(row)
+        self.volume.setToolTip('Listening level only. Does not affect the saved sound or export. Use the mixer to change output levels.')
+        self.mute.setToolTip('Mute listening only. Mixer Mute and Solo also affect exports.')
         self.volume.valueChanged.connect(lambda n:self.monitorVolumeChanged.emit(n/100));self.mute.toggled.connect(self.monitorMutedChanged)
         self.status=QLabel();self.status.setWordWrap(True);self.status.setTextFormat(Qt.TextFormat.PlainText);layout.addWidget(self.status)
         row=QHBoxLayout();self.retry=QPushButton('Prepare again');self.retry.clicked.connect(self.retryRequested);row.addWidget(self.retry);self.undo_button=QPushButton('Undo');self.redo_button=QPushButton('Redo')
         self.undo_button.clicked.connect(self.request_undo);self.redo_button.clicked.connect(self.request_redo)
         row.addWidget(self.undo_button);row.addWidget(self.redo_button);row.addStretch()
         self.apply_button=QPushButton('Apply && prepare');self.apply_button.setProperty('primary',True);self.apply_button.clicked.connect(self.apply);row.addWidget(self.apply_button)
+        self.init_session_actions(row)
         close=QPushButton('Close');close.clicked.connect(self.close);row.addWidget(close);layout.addLayout(row)
         self.draft_timer=QTimer(self);self.draft_timer.setSingleShot(True);self.draft_timer.setInterval(24)
         self.draft_timer.timeout.connect(self.emit_draft)
         self.init_history()
+        self.historyChanged.connect(self.refresh_session)
+        self.live.toggled.connect(self.refresh_session);self.mute.toggled.connect(self.refresh_session)
         pitches=self.findChildren(PitchControl)
         for knob in self.findChildren(SoundKnob):
             if knob not in [p.knob for p in pitches]:knob.valueChanged.connect(self.queue_draft)
@@ -186,7 +189,8 @@ class VisualSoundDialog(SoundHistory,QDialog):
 
     def set_config(self,config):
         if self.loaded and self.current==config: return
-        self.loaded=True;self.current=copy.deepcopy(config);self.load_values(config or instrument_sound());self.reset_history()
+        self.loaded=True;self.current=copy.deepcopy(config);self.load_values(config or instrument_sound())
+        self.applied_values=copy.deepcopy(self.read_config());self.reset_history()
 
     def change_voice(self):
         value=FACTORIES[self.voice.currentData()]()
@@ -196,7 +200,6 @@ class VisualSoundDialog(SoundHistory,QDialog):
         self.loading=True
         with QSignalBlocker(self.voice): self.voice.setCurrentIndex(self.voice.findData(value['version']))
         color=value['version']==4
-        self.instrument_title.setText('COLOR WAVES / DUAL SYNTH' if color else 'PLEATED / SYNTH')
         self.color_wave.setVisible(color);self.wave_sine.setVisible(color)
         self.tabs.setTabVisible(5,color)
         for widget in self.legacy_sound_widgets:widget.setVisible(not color)
@@ -206,7 +209,7 @@ class VisualSoundDialog(SoundHistory,QDialog):
             self.color_wave.load(value);self.pad_space.load(value);self.wave_sine.load(value);self.mixer.load(value['mixer'])
             self.visual_dynamics.hide()
             for i in (1,2):self.tabs.setTabVisible(i,False)
-            self.live.setEnabled(True);self.apply_button.setText('Apply' if self.live.isChecked() else 'Apply && prepare')
+            self.live.setEnabled(True)
             self.enabled.setChecked(value['enabled']);self.output.setCurrentIndex(self.output.findData(value['output']))
             self.load_connections(value);self.loading=False;return
         for i in (1,2):self.tabs.setTabVisible(i,True)
@@ -220,7 +223,6 @@ class VisualSoundDialog(SoundHistory,QDialog):
         self.tabs.setTabEnabled(2,acid)
         for widget in (self.arp_sequence,self.arp_pattern_box,self.arp_hint): widget.setVisible(layered)
         self.live.setEnabled(layered)
-        self.apply_button.setText('Apply' if layered and self.live.isChecked() else 'Apply && prepare')
         for control in (self.density,self.drive,self.width,self.opening,self.attack,self.release,self.continuity): control.setVisible(layered)
         for control in (self.resonance,self.cutoff,self.sweep,self.arp_rate,self.scale): control.setVisible(acid)
         self.enabled.setChecked(value['enabled']);self.output.setCurrentIndex(self.output.findData(value['output']))
@@ -286,6 +288,7 @@ class VisualSoundDialog(SoundHistory,QDialog):
         return normalize_sound(config)
 
     def apply(self):
+        self.commit_pending_number()
         try: config=self.read_config()
         except ValueError as exc: QMessageBox.warning(self,'Sound settings',str(exc));return
         self.draft_timer.stop()
@@ -295,10 +298,12 @@ class VisualSoundDialog(SoundHistory,QDialog):
     def set_monitor(self,level,muted):
         with QSignalBlocker(self.volume): self.volume.setValue(round(level*100))
         with QSignalBlocker(self.mute): self.mute.setChecked(muted)
+        self.refresh_session()
 
     def set_playing(self,playing):
         with QSignalBlocker(self.listen): self.listen.setChecked(playing)
         self.listen.setText('Pause' if playing else 'Listen')
+        self.refresh_session()
 
     def set_activity(self,expansion=0.,motion=0.,opening=0.,arpeggio=0.):
         values={'body':expansion,'friction':motion,'filter':motion,'return':opening,'arpeggio':arpeggio,'strum':expansion,'steps':arpeggio}

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.72.0 — 2026-11-08
+
+- Clarify sound editing with separate audition source, applied sound and file
+  save states. A compact context header names the document or montage block
+  and distinguishes sound drafts from immediate visual edits.
+- Name Apply sound explicitly, disable it when settings are unchanged, and
+  add Save project and Cmd-S inside the sound editor. Monitor controls stay
+  separate from rendered mixer settings and are disabled for other audio routes.
+- Resolve pending sound changes on close, save, export and montage navigation.
+  Closing can apply, discard only sound, or keep editing; save/export can use
+  the applied sound without overwriting a draft. File status follows successful
+  disk writes, including montage saves, and stays unsaved after write failures.
+- Preserve existing study recipes, file formats, synthesis and rendered output.
+  Opening an existing sound does not turn display rounding into an authored edit.
+
 ## 0.71.0 — 2026-11-07
 
 - Add an optional Wave sine voice to the color-wave instrument. Its continuous

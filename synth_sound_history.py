@@ -66,6 +66,8 @@ class SoundHistory:
         redo=bool((self.sound_redo and not visual) or getattr(self.parent(),'redo_compositions',[]))
         self.sound_undo_action.setEnabled(undo);self.sound_redo_action.setEnabled(redo)
         self.undo_button.setEnabled(undo);self.redo_button.setEnabled(redo)
+        self.undo_button.setText('Undo sound edit' if self.sound_undo and not visual else 'Undo project edit')
+        self.redo_button.setText('Redo sound edit' if self.sound_redo and not visual else 'Redo project edit')
 
     def eventFilter(self,watched,event):
         if (event.type()==QEvent.Type.ShortcutOverride and isinstance(watched,QWidget)
