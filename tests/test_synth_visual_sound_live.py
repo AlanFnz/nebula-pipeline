@@ -111,7 +111,7 @@ def test_studio_live_knobs_keep_transport_and_pixels_and_apply_is_undoable(studi
     d=studio.visual_sound_dialog
     d.arp_mode.setCurrentIndex(1);d.sequencer.bpm.setValue(147)
     wait_until(lambda:monitor.config.get('bpm')==147)
-    d.sequencer.entries[3][5].setValue(27)
+    d.sequencer.select_step(3);d.sequencer.step_velocity.setValue(27)
     wait_until(lambda:monitor.config['sequence'][3]['velocity']==.27)
     studio.undo_action.trigger()
     wait_until(lambda:monitor.config['sequence'][3]['velocity']==.65)

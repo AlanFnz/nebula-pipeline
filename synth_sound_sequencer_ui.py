@@ -1,88 +1,145 @@
-"""An editable 16-step pitch, rest, velocity and gate lane."""
+"""Complete pattern overview and one precise editor; selection is UI state only."""
 import bisect
-from PySide6.QtCore import Qt, Signal, QSignalBlocker
-from PySide6.QtWidgets import (QWidget,QVBoxLayout,QHBoxLayout,QLabel,QComboBox,
-    QSpinBox,QDoubleSpinBox,QSlider,QCheckBox,QScrollArea,QFrame)
-from synth_sound_sequence import (sequence_defaults, DIVISIONS, note_name, frequency_note, step_seconds)
+import copy
+from PySide6.QtCore import Qt, Signal, QSignalBlocker, QEvent
+from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox,
+    QSpinBox, QDoubleSpinBox, QCheckBox, QPushButton)
+from synth_sound_sequence import sequence_defaults, DIVISIONS, note_name, frequency_note, step_seconds, note_frequency
+from synth_sound_step_cell import StepCell
 
 
 class StepSequencer(QWidget):
-    changed=Signal()
-    gestureStarted=Signal()
-    gestureFinished=Signal()
+    changed = Signal()
+    gestureStarted = Signal()
+    gestureFinished = Signal()
+    focusRequested = Signal(bool)
 
     def __init__(self):
-        super().__init__(); self.loading=False; self.root=146.83; self.entries=[]; self.active=-1; self.schedule=[]; self.times=[]; self.period=.125
-        layout=QVBoxLayout(self); layout.setContentsMargins(0,0,0,0)
-        row=QHBoxLayout()
-        self.bpm=QDoubleSpinBox(); self.bpm.setRange(30,240); self.bpm.setDecimals(1); self.bpm.setSuffix(' BPM'); self.bpm.setKeyboardTracking(False); self.bpm.setAccessibleName('Sequencer tempo');self.bpm.setToolTip('Tempo of the sound only. Does not change video speed.')
-        self.division=QComboBox(); self.division.setAccessibleName('Step division')
-        for key in DIVISIONS: self.division.addItem(key,key)
-        self.length=QSpinBox(); self.length.setRange(1,16); self.length.setSuffix(' steps'); self.length.setAccessibleName('Sequence length'); self.length.setKeyboardTracking(False)
-        self.trigger=QComboBox(); self.trigger.setAccessibleName('Sequencer trigger')
-        self.trigger.addItem('Visual gestures','gesture'); self.trigger.addItem('Loop with timeline','loop')
-        self.trigger.setToolTip('Visual gestures: play one pattern per gesture, then wait. Loop with timeline: repeat every enabled step continuously; object size affects loudness, not the rhythm.')
-        for label,widget in (('Tempo',self.bpm),('Division',self.division),('Length',self.length)):
+        super().__init__()
+        self.loading = False; self.root = 146.83; self.selected = 0; self.active = -1
+        self.schedule = []; self.times = []; self.period = .125; self.pattern = sequence_defaults()
+        layout = QVBoxLayout(self); layout.setContentsMargins(0, 0, 0, 0); layout.setSpacing(6)
+        row = QHBoxLayout()
+        self.bpm = QDoubleSpinBox(); self.bpm.setRange(30, 240); self.bpm.setDecimals(3)
+        self.bpm.setSuffix(' BPM'); self.bpm.setKeyboardTracking(False); self.bpm.setAccessibleName('Sequencer tempo')
+        self.bpm.setToolTip('Tempo of the sound only. Does not change video speed.')
+        self.division = QComboBox(); self.division.setAccessibleName('Step division')
+        for key in DIVISIONS: self.division.addItem(key, key)
+        self.length = QSpinBox(); self.length.setRange(1, 16); self.length.setSuffix(' steps')
+        self.length.setAccessibleName('Sequence length'); self.length.setKeyboardTracking(False)
+        self.length.setToolTip('Steps outside this length are retained. Extend the pattern to hear them again.')
+        for label, widget in (('Tempo', self.bpm), ('Division', self.division), ('Length', self.length)):
             row.addWidget(QLabel(label)); row.addWidget(widget)
-        layout.addLayout(row); row=QHBoxLayout(); row.addWidget(QLabel('Start'));row.addWidget(self.trigger,1); layout.addLayout(row)
-        hint=QLabel('Turn a step off for a rest. Vel = strength · Gate = length. The image still shapes loudness and the filter.')
-        hint.setWordWrap(True);layout.addWidget(hint)
-        scroll=QScrollArea();scroll.setWidgetResizable(True);scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff);scroll.setFixedHeight(280)
-        lane=QWidget();columns=QHBoxLayout(lane);columns.setContentsMargins(0,0,0,0);columns.setSpacing(4)
+        row.addStretch(); layout.addLayout(row)
+        row = QHBoxLayout(); row.addWidget(QLabel('Start'))
+        self.trigger = QComboBox(); self.trigger.setAccessibleName('Sequencer trigger')
+        self.trigger.addItem('Visual gestures', 'gesture'); self.trigger.addItem('Loop with timeline', 'loop')
+        self.trigger.setToolTip('Visual gestures: one pattern per gesture, then wait. Loop with timeline: repeat continuously. The image still shapes loudness and filter.')
+        row.addWidget(self.trigger, 1)
+        self.focus_button = QPushButton('Focus pattern'); self.focus_button.setCheckable(True)
+        self.focus_button.setToolTip('Hide the video panel to give the pattern more room. Playback and sound are unchanged.')
+        self.focus_button.toggled.connect(self.focusRequested); row.addWidget(self.focus_button); layout.addLayout(row)
+        self.grid = QWidget(); grid = QHBoxLayout(self.grid); grid.setContentsMargins(0, 0, 0, 0); grid.setSpacing(2)
+        labels = QWidget(); labels.setFixedSize(54, 196)
+        for text, y, height in (('Step', 2, 20), ('On / rest', 24, 20), ('Note', 78, 20), ('Velocity', 136, 20), ('Gate', 166, 20)):
+            label = QLabel(text, labels); label.setGeometry(0, y, 54, height)
+        labels.setToolTip('Note = pitch. Velocity = strength. Gate = note duration within its step; release continues afterward.')
+        grid.addWidget(labels); self.cells = []
         for i in range(16):
-            box=QFrame();box.setObjectName('sequenceStep');box.setMinimumWidth(68);col=QVBoxLayout(box);col.setContentsMargins(3,5,3,5);col.setSpacing(3)
-            on=QCheckBox(str(i+1));on.setAccessibleName(f'Step {i+1} enabled');col.addWidget(on,0,Qt.AlignmentFlag.AlignHCenter)
-            pitch=QSlider(Qt.Orientation.Vertical);pitch.setRange(-12,24);pitch.setAccessibleName(f'Step {i+1} pitch');pitch.setFixedHeight(84)
-            pitch.sliderPressed.connect(self.gestureStarted);pitch.sliderReleased.connect(self.gestureFinished);col.addWidget(pitch,0,Qt.AlignmentFlag.AlignHCenter)
-            name=QLabel();name.setAlignment(Qt.AlignmentFlag.AlignCenter);col.addWidget(name)
-            offset=QSpinBox();offset.setRange(-12,24);offset.setSuffix(' st');offset.setAccessibleName(f'Step {i+1} semitones');offset.setKeyboardTracking(False);col.addWidget(offset)
-            vel=QSpinBox();vel.setRange(0,100);vel.setPrefix('Vel ');vel.setAccessibleName(f'Step {i+1} velocity');vel.setKeyboardTracking(False);col.addWidget(vel)
-            gate=QSpinBox();gate.setRange(10,100);gate.setPrefix('Gate ');gate.setAccessibleName(f'Step {i+1} gate');gate.setKeyboardTracking(False);col.addWidget(gate)
-            for widget in (offset,vel,gate):
-                widget.setButtonSymbols(QSpinBox.ButtonSymbols.NoButtons);widget.setAlignment(Qt.AlignmentFlag.AlignCenter);widget.setFixedWidth(64)
-            pitch.valueChanged.connect(lambda value,n=i:self.pitch_changed(n,value,False))
-            offset.valueChanged.connect(lambda value,n=i:self.pitch_changed(n,value,True))
-            on.toggled.connect(self.emit_changed);vel.valueChanged.connect(self.emit_changed);gate.valueChanged.connect(self.emit_changed)
-            self.entries.append((box,on,pitch,name,offset,vel,gate));columns.addWidget(box)
-        columns.addStretch();scroll.setWidget(lane);layout.addWidget(scroll)
-        for widget in (self.bpm,self.length):widget.valueChanged.connect(self.emit_changed)
-        for widget in (self.division,self.trigger):widget.currentIndexChanged.connect(self.emit_changed)
+            if i and i % 4 == 0: grid.addSpacing(5)
+            cell = StepCell(i); self.cells.append(cell); grid.addWidget(cell, 1)
+            cell.selected.connect(self.select_step); cell.navigate.connect(self.focus_step)
+            cell.edited.connect(self.edit_step); cell.editRequested.connect(self.edit_selected_note)
+            cell.gestureStarted.connect(self.gestureStarted); cell.gestureFinished.connect(self.gestureFinished)
+        layout.addWidget(self.grid)
+        self.selection_label = QLabel(); self.selection_label.setTextFormat(Qt.TextFormat.PlainText)
+        self.selection_label.setWordWrap(True); layout.addWidget(self.selection_label)
+        self.editor = QWidget(); row = QHBoxLayout(self.editor); row.setContentsMargins(0, 0, 0, 0); row.setSpacing(6)
+        self.step_on = QCheckBox('On'); self.step_on.setAccessibleName('Selected step enabled')
+        self.step_note = QSpinBox(); self.step_note.setRange(-12, 24); self.step_note.setSuffix(' st')
+        self.step_note.setAccessibleName('Selected step semitones'); self.step_note.setKeyboardTracking(False)
+        self.step_velocity = QDoubleSpinBox(); self.step_velocity.setRange(0, 100)
+        self.step_gate = QDoubleSpinBox(); self.step_gate.setRange(10, 100)
+        for widget, name in ((self.step_velocity, 'velocity'), (self.step_gate, 'gate')):
+            widget.setDecimals(2); widget.setSuffix(' %'); widget.setSingleStep(1); widget.setKeyboardTracking(False)
+            widget.setAccessibleName('Selected step ' + name)
+        row.addWidget(self.step_on)
+        for title, widget in (('Note', self.step_note), ('Velocity', self.step_velocity), ('Gate', self.step_gate)):
+            row.addWidget(QLabel(title)); widget.setFixedWidth(104); row.addWidget(widget)
+            widget.installEventFilter(self)
+        row.addStretch(); layout.addWidget(self.editor)
+        self.step_gate.setToolTip('Duration within this step. Attack and release are separate envelope controls.')
+        self.step_on.toggled.connect(lambda value: self.edit_step(self.selected, 'enabled', value))
+        self.step_note.valueChanged.connect(lambda value: self.edit_step(self.selected, 'semitones', value))
+        self.step_velocity.valueChanged.connect(lambda value: self.edit_step(self.selected, 'velocity', value/100))
+        self.step_gate.valueChanged.connect(lambda value: self.edit_step(self.selected, 'gate', value/100))
+        self.bpm.valueChanged.connect(lambda value: self.edit_pattern('bpm', value))
+        self.length.valueChanged.connect(lambda value: self.edit_pattern('sequence_length', value))
+        self.division.currentIndexChanged.connect(lambda: self.edit_pattern('subdivision', self.division.currentData()))
+        self.trigger.currentIndexChanged.connect(lambda: self.edit_pattern('sequence_trigger', self.trigger.currentData()))
         self.load(sequence_defaults())
 
-    def pitch_changed(self,index,value,from_number):
-        _,_,slider,_,number,_,_=self.entries[index]
-        target=slider if from_number else number
-        with QSignalBlocker(target):target.setValue(value)
-        self.update_labels();self.emit_changed()
+    def select_step(self, index):
+        if self.selected == index: return
+        self.selected = index; self.refresh()
 
-    def update_labels(self):
-        for i,(box,on,pitch,name,offset,vel,gate) in enumerate(self.entries):
-            box.setVisible(i<self.length.value());name.setText(note_name(frequency_note(self.root)+pitch.value()))
-            name.setToolTip(f'{self.root*2**(pitch.value()/12):.2f} Hz · {pitch.value():+d} semitones from arpeggio root')
+    def focus_step(self, index):
+        self.select_step(index); self.cells[index].setFocus(Qt.FocusReason.OtherFocusReason)
 
-    def set_root(self,hz):self.root=hz;self.update_labels()
-    def emit_changed(self,*_):
-        if not self.loading:self.update_labels();self.changed.emit()
+    def edit_selected_note(self):
+        self.step_note.setFocus(); self.step_note.selectAll()
 
-    def load(self,config):
-        self.loading=True;self.bpm.setValue(config['bpm']);self.length.setValue(config['sequence_length'])
-        self.division.setCurrentIndex(self.division.findData(config['subdivision']));self.trigger.setCurrentIndex(self.trigger.findData(config['sequence_trigger']))
-        for entry,(_,on,pitch,_,offset,vel,gate) in zip(config['sequence'],self.entries):
-            on.setChecked(entry['enabled']);pitch.setValue(entry['semitones']);offset.setValue(entry['semitones']);vel.setValue(round(entry['velocity']*100));gate.setValue(round(entry['gate']*100))
-        self.loading=False;self.update_labels()
+    def edit_step(self, index, key, value):
+        if self.loading or self.pattern['sequence'][index][key] == value: return
+        self.pattern['sequence'][index][key] = value; self.refresh(); self.changed.emit()
 
-    def config(self):
-        return dict(bpm=self.bpm.value(),subdivision=self.division.currentData(),sequence_length=self.length.value(),sequence_trigger=self.trigger.currentData(),
-                    sequence=[dict(enabled=on.isChecked(),semitones=pitch.value(),velocity=vel.value()/100,gate=gate.value()/100)
-                              for _,on,pitch,_,_,vel,gate in self.entries])
+    def edit_pattern(self, key, value):
+        if self.loading or self.pattern[key] == value: return
+        self.pattern[key] = value; self.refresh(); self.changed.emit()
 
-    def set_schedule(self,notes,config):
-        self.schedule=notes;self.times=[n['time'] for n in notes];self.period=step_seconds(config)
+    def set_root(self, hz): self.root = hz; self.refresh()
 
-    def set_time(self,seconds):
-        index=bisect.bisect_right(self.times,seconds)-1
-        step=self.schedule[index]['step'] if index>=0 and seconds<self.times[index]+self.period else -1
-        if step==self.active:return
-        for i in (self.active,step):
-            if i>=0:self.entries[i][0].setStyleSheet('QFrame#sequenceStep {background:#354b3c;border:1px solid #acd88f;border-radius:4px;}' if i==step else '')
-        self.active=step
+    def refresh(self):
+        nearest = frequency_note(self.root)
+        approximate = abs(self.root - note_frequency(nearest)) / self.root > .0001
+        for i, cell in enumerate(self.cells):
+            entry = self.pattern['sequence'][i]
+            cell.show_step(entry, note_name(nearest + entry['semitones']), i < self.pattern['sequence_length'], i == self.selected, i == self.active)
+        entry = self.pattern['sequence'][self.selected]
+        for widget, value in ((self.step_on, entry['enabled']), (self.step_note, entry['semitones']),
+                              (self.step_velocity, entry['velocity']*100), (self.step_gate, entry['gate']*100)):
+            with QSignalBlocker(widget):
+                if isinstance(widget, QCheckBox): widget.setChecked(value)
+                else: widget.setValue(value)
+        state = 'Outside pattern · retained' if self.selected >= self.pattern['sequence_length'] else 'On' if entry['enabled'] else 'Rest'
+        hz = self.root * 2 ** (entry['semitones']/12)
+        self.selection_label.setText(f"Step {self.selected+1} · {state} · {'≈ ' if approximate else ''}{note_name(nearest+entry['semitones'])} · {hz:.2f} Hz")
+
+    def load(self, config):
+        self.loading = True
+        # Keep exact stored values. Display precision must never rewrite a pattern.
+        self.pattern = copy.deepcopy({key: config[key] for key in ('bpm', 'subdivision', 'sequence_length', 'sequence_trigger', 'sequence')})
+        self.bpm.setValue(config['bpm']); self.length.setValue(config['sequence_length'])
+        self.division.setCurrentIndex(self.division.findData(config['subdivision']))
+        self.trigger.setCurrentIndex(self.trigger.findData(config['sequence_trigger']))
+        self.loading = False; self.refresh()
+
+    def config(self): return copy.deepcopy(self.pattern)
+
+    def set_schedule(self, notes, config):
+        self.schedule = notes; self.times = [n['time'] for n in notes]; self.period = step_seconds(config)
+
+    def set_time(self, seconds):
+        index = bisect.bisect_right(self.times, seconds)-1
+        step = self.schedule[index]['step'] if index >= 0 and seconds < self.times[index]+self.period else -1
+        if step == self.active: return
+        # Playback updates two indicators only, never selection or editor text.
+        for i in (self.active, step):
+            if i >= 0: self.cells[i].playing = i == step; self.cells[i].update()
+        self.active = step
+
+    def eventFilter(self, watched, event):
+        if event.type() == QEvent.Type.KeyPress and event.key() == Qt.Key.Key_Escape:
+            watched.lineEdit().setText(watched.textFromValue(watched.value()) + watched.suffix())
+            self.focus_step(self.selected); return True
+        return super().eventFilter(watched, event)

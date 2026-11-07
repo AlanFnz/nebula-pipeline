@@ -16,6 +16,12 @@ from test_synth_arpeggio import render
 from test_synth_composer_ui import wait_until
 
 
+def edit_step(sequencer, index, field, value):
+    sequencer.select_step(index)
+    control = getattr(sequencer, 'step_' + field)
+    (control.setChecked if field == 'on' else control.setValue)(value)
+
+
 def custom():
     c=instrument_sound();c.update(arp_mode='sequence',bpm=120.,subdivision='1/8',sequence_length=4)
     return c
@@ -124,9 +130,9 @@ def test_every_sound_control_and_entire_voice_switch_can_undo_and_redo(app):
     edits=[lambda:d.opening.setValue(73),lambda:d.pitch.mode.setCurrentIndex(1),
            lambda:d.arp_pitch.mode.setCurrentIndex(1),lambda:d.arp_pitch.note.setCurrentIndex(12),
            lambda:d.arp_mode.setCurrentIndex(1),lambda:d.sequencer.bpm.setValue(97),
-           lambda:d.sequencer.length.setValue(12),lambda:d.sequencer.entries[1][1].setChecked(False),
-           lambda:d.sequencer.entries[3][4].setValue(-5),lambda:d.sequencer.entries[5][5].setValue(22),
-           lambda:d.sequencer.entries[2][6].setValue(31),lambda:d.oscillators[2][1].setCurrentIndex(3),
+           lambda:d.sequencer.length.setValue(12),lambda:edit_step(d.sequencer,1,'on',False),
+           lambda:edit_step(d.sequencer,3,'note',-5),lambda:edit_step(d.sequencer,5,'velocity',22),
+           lambda:edit_step(d.sequencer,2,'gate',31),lambda:d.oscillators[2][1].setCurrentIndex(3),
            lambda:d.connections['filter'][0].setChecked(False),lambda:d.connections['body'][1].setValue(34),
            lambda:d.enabled.setChecked(False),lambda:d.output.setCurrentIndex(2),lambda:d.voice.setCurrentIndex(2)]
     for edit in edits:edit();states.append(d.read_config())
@@ -159,8 +165,8 @@ def test_note_mode_keyboard_and_save_round_trip(app,studio,tmp_path):
     before=frequency_note(d.pitch.value());QTest.keyClick(d.pitch.dial,Qt.Key.Key_Right)
     assert frequency_note(d.pitch.value())==before+1
     d.arp_mode.setCurrentIndex(1);d.sequencer.length.setValue(12)
-    d.sequencer.entries[9][4].setValue(-9);d.sequencer.entries[10][1].setChecked(False)
-    d.sequencer.entries[11][5].setValue(24);d.sequencer.entries[11][6].setValue(53)
+    edit_step(d.sequencer,9,'note',-9);edit_step(d.sequencer,10,'on',False)
+    edit_step(d.sequencer,11,'velocity',24);edit_step(d.sequencer,11,'gate',53)
     c=d.read_config();studio.apply_visual_sound(c);save_composition(tmp_path/'seq.json',studio.composition)
     loaded=load_composition(tmp_path/'seq.json')['generated_sound'];assert loaded==c
     d.set_config(loaded);assert d.read_config()==c;d.close()

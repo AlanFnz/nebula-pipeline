@@ -42,6 +42,7 @@ class VisualSoundDialog(SoundSession,SoundHistory,QDialog):
         row.addWidget(self.output);layout.addLayout(row)
         from synth_viewer import SynthViewer
         split=QSplitter(Qt.Orientation.Horizontal);left=QWidget();column=QVBoxLayout(left);column.setContentsMargins(0,0,8,0)
+        self.sound_splitter=split;self.preview_pane=left;self.pattern_split_sizes=None
         self.video_preview=SynthViewer();self.video_preview.setAccessibleName('Live sound video preview');column.addWidget(self.video_preview,1)
         self.video_time=QLabel('00:00.00');column.addWidget(self.video_time)
         split.addWidget(left);self.tabs=QTabWidget();split.addWidget(self.tabs);split.setSizes([400,850]);layout.addWidget(split,1)
@@ -94,6 +95,7 @@ class VisualSoundDialog(SoundSession,SoundHistory,QDialog):
         self.arp_mode=QComboBox();self.arp_mode.setAccessibleName('Arpeggio mode')
         self.arp_mode.addItem('Visual arpeggio · original','visual');self.arp_mode.addItem('Step sequencer','sequence');arpeggio.addWidget(self.arp_mode)
         self.sequencer=StepSequencer();arpeggio.addWidget(self.sequencer)
+        self.sequencer.focusRequested.connect(self.refresh_pattern_focus)
         self.arp_mode.currentIndexChanged.connect(self.update_sequence_mode)
         self.sequencer.changed.connect(self.queue_draft)
         self.arp_pitch.valueChanged.connect(self.sequencer.set_root)
@@ -103,10 +105,15 @@ class VisualSoundDialog(SoundSession,SoundHistory,QDialog):
         self.arp_hint=QLabel('Visual gestures start each phrase. Notes sets the pitch palette; Steps sets the phrase length. Auto preserves the original 3–4 steps. Longer phrases finish before the next one starts.')
         self.arp_hint.setWordWrap(True);arpeggio.addWidget(self.arp_hint)
         self.attack=SoundKnob('Attack',12,150,1,' ms',log=True);self.release=SoundKnob('Release',60,600,10,' ms',log=True)
-        self.arp_rate=SoundKnob('Pace',50,200,5,' %');self.knob_row(arpeggio,'Articulation and pace',(self.attack,self.release,self.arp_rate))
-        row=QHBoxLayout();row.addWidget(QLabel('Scale'));self.scale=QComboBox();self.scale.setAccessibleName('Arpeggio scale')
+        self.articulation_toggle=QPushButton('Articulation ▸');self.articulation_toggle.setCheckable(True)
+        self.articulation_toggle.setToolTip('Show attack and release. These shape each note independently of step Gate.')
+        self.articulation_toggle.toggled.connect(self.update_sequence_mode);arpeggio.addWidget(self.articulation_toggle)
+        self.arp_rate=SoundKnob('Pace',50,200,5,' %');self.articulation_box=self.knob_row(arpeggio,'Articulation and pace',(self.attack,self.release,self.arp_rate))
+        self.arp_scale_row=QWidget();row=QHBoxLayout(self.arp_scale_row);row.setContentsMargins(0,0,0,0)
+        row.addWidget(QLabel('Scale'));self.scale=QComboBox();self.scale.setAccessibleName('Arpeggio scale')
         for title,key in (('Minor pentatonic','pentatonic'),('Natural minor','minor'),('Dorian','dorian')): self.scale.addItem(title,key)
-        row.addWidget(self.scale,1);arpeggio.addLayout(row);arpeggio.addStretch();self.connection_layout=QVBoxLayout();motion.addLayout(self.connection_layout)
+        row.addWidget(self.scale,1);arpeggio.addWidget(self.arp_scale_row);arpeggio.addStretch();self.connection_layout=QVBoxLayout();motion.addLayout(self.connection_layout)
+        self.tabs.currentChanged.connect(self.refresh_pattern_focus)
         motion.addStretch();self.connections={};self.meters={};self.voice.currentIndexChanged.connect(self.change_voice)
         self.live=QCheckBox('Live audition');self.live.setChecked(True);self.live.setToolTip('Hear synth changes during playback. Turn off to hear applied sound. Original instruments prepare audio after Apply sound.')
         self.live.toggled.connect(self.liveChanged);layout.addWidget(self.live)
@@ -159,6 +166,19 @@ class VisualSoundDialog(SoundSession,SoundHistory,QDialog):
         self.sequencer.setVisible(custom);self.arp_mode.setVisible(layered);self.arp_pitch.set_compact(custom)
         for widget in (self.arp_notes,self.arp_steps,self.arp_pattern_box,self.arp_hint):widget.setVisible(layered and not custom)
         self.arp_rate.setVisible(self.voice.currentData()>=2 and not custom);self.scale.setEnabled(not custom)
+        self.arp_scale_row.setVisible(not custom)
+        self.articulation_toggle.setVisible(custom)
+        self.articulation_toggle.setText('Articulation ▾' if self.articulation_toggle.isChecked() else 'Articulation ▸')
+        self.articulation_box.setVisible(not custom or self.articulation_toggle.isChecked())
+        self.refresh_pattern_focus()
+
+    def refresh_pattern_focus(self,*_):
+        focus=(self.tabs.currentIndex()==2 and self.voice.currentData()==3
+               and self.arp_mode.currentData()=='sequence' and self.sequencer.focus_button.isChecked())
+        if focus and self.pattern_split_sizes is None:
+            self.pattern_split_sizes=self.sound_splitter.sizes();self.preview_pane.hide()
+        elif not focus and self.pattern_split_sizes is not None:
+            self.preview_pane.show();self.sound_splitter.setSizes(self.pattern_split_sizes);self.pattern_split_sizes=None
 
     def emit_draft(self):
         if not self.loaded or self.loading: return

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.73.0 — 2026-11-08
+
+- Show all 16 sequencer steps together, grouped in fours, with pitch contours,
+  rests, velocity and Gate lanes. A shared numeric editor gives precise control
+  of the selected step without horizontal scrolling at 1280×800 and 1440×900.
+- Keep playback indication separate from editing selection. Support keyboard
+  navigation, Enter to edit, Escape to cancel numeric input, Space for rests,
+  and undoable pitch/level drags. Steps outside Length remain visible and retain
+  their values when the pattern is shortened and extended.
+- Add Focus pattern to temporarily hide the video panel, and fold articulation
+  controls in sequence mode so the complete pattern and step editor fit together.
+- Preserve exact stored pattern values independently of numeric display precision.
+  No recipe, file format, timing or synthesis changes; existing study patterns
+  and their audio output are unchanged.
+
 ## 0.72.0 — 2026-11-08
 
 - Clarify sound editing with separate audition source, applied sound and file
