@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.71.0 — 2026-11-07
+
+- Add an optional Wave sine voice to the color-wave instrument. Its continuous
+  pitch follows the radial position of enlarged lattice cells: outward motion
+  raises pitch and inward motion lowers it, using the renderer's pulse geometry.
+- Expose low/high tuning, glide and reverb in Motion, plus independent level,
+  mute, solo and EQ in Mixer. Live audition, undo/redo and native export share
+  the same phase-continuous oscillator, including seamless loop boundaries.
+- Keep this voice disabled in existing documents. Save a separate Velvet Wave
+  variation from the user's manual settings with a quiet E2–E3 sine; preserve
+  the approved pad, opening, color-step notes and visual timeline.
+
 ## 0.70.0 — 2026-11-07
 
 - Add a soft stereo note delay to the color-wave instrument, with independent

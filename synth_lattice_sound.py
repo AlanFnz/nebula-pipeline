@@ -13,7 +13,9 @@ import numpy as np
 from synth_visual_sound import CONTROL_RATE, RATE
 from synth_sound_analog import analog_defaults,pad_defaults,space_defaults,echo_defaults,PAD_HARMONIES
 
-COLOR_CHANNELS=(('body','Opening'),('arpeggio','Color steps'),('pad','Root pad'))
+from synth_lattice_wave_sound import wave_defaults,normalize_wave,wave_position,WaveSine
+
+COLOR_CHANNELS=(('body','Opening'),('arpeggio','Color steps'),('pad','Root pad'),('wave','Wave sine'))
 _ROOM_CACHE=OrderedDict()
 _ROOM_LOCK=threading.Lock()
 
@@ -33,8 +35,9 @@ def color_wave_sound():
                                  decay=.22,brightness=.65,character=.86,trigger=.5,clarity=1.,polyphony=1),
                     'steps':dict(pitch=164.8138,pitch_mode='note',scale='minor',span=24,
                                  decay=.32,brightness=.55,character=.78,trigger=.5,clarity=1.,polyphony=1)},
-                mixer=mixer_defaults(COLOR_CHANNELS),pad=pad_defaults(),space=space_defaults(),delay=echo_defaults())
+                mixer=mixer_defaults(COLOR_CHANNELS),pad=pad_defaults(),space=space_defaults(),delay=echo_defaults(),wave=wave_defaults())
     out['mixer']['pad']['level_db']=-22.
+    out['mixer']['wave']['level_db']=-30.
     for v in out['voices'].values():v.update(engine='partials',analog=analog_defaults(),reverb=0.,delay=0.)
     return out
 
@@ -110,8 +113,11 @@ def normalize_color_wave(raw):
     if not isinstance(delay,dict):raise ValueError('Invalid delay settings')
     for key,lo,hi in (('time',.04,1.2),('feedback',0,.65),('tone',400,8000)):
         out['delay'][key]=number(delay.get(key,out['delay'][key]),'Delay '+key,lo,hi)
+    out['wave']=normalize_wave(raw.get('wave',wave_defaults()),number)
     raw_mixer=raw.get('mixer',out['mixer'])
-    if isinstance(raw_mixer,dict) and 'pad' not in raw_mixer:raw_mixer=dict(raw_mixer,pad=out['mixer']['pad'])
+    if isinstance(raw_mixer,dict):
+        raw_mixer=dict(raw_mixer)
+        for key in ('pad','wave'):raw_mixer.setdefault(key,out['mixer'][key])
     out['mixer']=normalize_mixer(raw_mixer,number,COLOR_CHANNELS)
     return out
 
@@ -145,26 +151,27 @@ def lattice_signals(sequence,cancel):
     from synth_audio_reactivity import apply_reactivity
     from synth_performance import apply_signals
     seq=normalize_sequence(sequence);times=np.arange(math.ceil(seq['duration']*CONTROL_RATE)+1)/CONTROL_RATE
-    records=[];levels=set();states={};cache={}
+    records=[];radii=[];levels=set();states={};cache={}
     for i,seconds in enumerate(times):
         if i%24==0:cancel.check()
         _,t,clock,_,_,_,_,base=resolve_sequence_frame(seq,min(seconds,seq['duration']-1e-9),normalized=True,state_cache=states)
         if 'audio_reactivity' in seq:base=apply_reactivity(base,seq,t,cancel=cancel)
         entry=next((m for m in base['modules'] if m['id']=='chromatic_lattice' and m['enabled']),None)
-        record={}
+        record={};radius=.5
         if entry and entry['params']['mix']>0:
             p=entry['params'];key=(tuple(sorted(p.items())),clock,base['width'],base['height'],base.get('speed'),repr(base.get('reference')),base.get('framing'),base.get('object_x'),base.get('object_y'))
             if key not in cache:
                 if len(cache)>512:cache.clear()
-                cache[key]=lattice_sample(p,clock,base)
-            record=cache[key]
-        records.append(record);levels.update(record)
+                cache[key]=(lattice_sample(p,clock,base),wave_position(p,clock,base))
+            record,radius=cache[key]
+        records.append(record);radii.append(radius);levels.update(record)
     zeros=np.zeros(len(times));signals=dict(time=times,presence=zeros.copy(),expansion=zeros.copy(),motion=zeros.copy(),opening=zeros.copy())
     for level in sorted(levels):
         phases=np.array([r.get(level,(0.,0.))[0] for r in records])
         areas=np.array([r.get(level,(0.,0.))[1] for r in records])
         signals[f'lattice_phase_{level}']=phases;signals[f'lattice_area_{level}']=areas
         signals['presence']=np.maximum(signals['presence'],areas)
+    signals['lattice_radius']=np.asarray(radii)
     signals['expansion']=signals['presence'].copy()
     return apply_signals(signals,seq.get('visual_performance'),seq['duration'],seq['fps'])
 
@@ -263,10 +270,12 @@ class ColorWaveVoice:
         from synth_sound_loop import cyclic_notes
         self.config=config;self.signals=signals;self.total=round(sequence['duration']*RATE)
         self.looping=config['seamless_loop'];self.states=[];self.mixer=make_mixer(config)
+        self.wave=WaveSine(signals,config['wave'],self.total/RATE,self.looping) if config['wave']['enabled'] else None
         self.analog=any(v['engine']=='analog' for v in config['voices'].values()) or config['pad']['enabled']
         from synth_sound_analog import StereoSpace,StereoEcho
         self.ambience=bool(config['space']['chorus'] or config['pad']['enabled'] and config['pad']['reverb']
-                           or any(v['reverb'] for v in config['voices'].values()))
+                           or any(v['reverb'] for v in config['voices'].values())
+                           or self.wave is not None and config['wave']['reverb'])
         self.space=StereoSpace(config['space'],self.total/RATE if self.looping else None) if self.ambience else None
         self.echo=StereoEcho(config['delay']) if any(v['delay'] for v in config['voices'].values()) else None
         self.notes=articulate_notes(color_notes(signals,config),config,self.total/RATE,self.looping)
@@ -275,7 +284,7 @@ class ColorWaveVoice:
         has_eq=any(any(c is not None for c in channel.coefficients) for channel in self.mixer.values())
         effects=self.ambience or self.echo is not None
         if warm_loop and self.looping and (has_eq or effects):
-            cache_key=json.dumps((self.total,config,self.notes),sort_keys=True) if effects else None
+            cache_key=json.dumps((self.total,config,self.notes,self.wave.cache_key if self.wave else None),sort_keys=True) if effects else None
             if cache_key:
                 with _ROOM_LOCK:
                     cached=_ROOM_CACHE.get(cache_key)
@@ -351,6 +360,9 @@ class ColorWaveVoice:
             if tone_cache is not None:pad=pad.copy()
             if not self.looping:pad*=np.minimum(np.clip(t/.8,0,1),np.clip((self.total/RATE-t)/.8,0,1))[:,None]
             pad=self.mixer['pad'].process(pad);result+=pad;send+=pad*c['pad']['reverb']
+        if self.wave is not None and self.mixer['wave'].audible:
+            wave=self.mixer['wave'].process(self.wave.render(t))
+            result+=wave;send+=wave*c['wave']['reverb']
         if self.space is not None:result=self.space.process(result,send,start)
         result=np.tanh(result)*c['gain']
         if not self.looping:

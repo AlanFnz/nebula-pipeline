@@ -143,3 +143,34 @@ class PadSpaceControls(QWidget):
 
 def delay_factor(key):
     return 1000 if key=='time' else 100 if key=='feedback' else 1
+
+
+class WaveSineControls(QGroupBox):
+    def __init__(self,parent=None):
+        super().__init__('Wave sine',parent);layout=QVBoxLayout(self)
+        hint=QLabel('A quiet continuous tone follows the size wave: higher toward the edges, lower toward the center. Set its level, mute or solo in Mixer.')
+        hint.setWordWrap(True);layout.addWidget(hint)
+        self.enabled=QCheckBox('Enable wave sine');layout.addWidget(self.enabled)
+        self.low=PitchControl('Inner / low pitch',40,1760)
+        self.high=PitchControl('Outer / high pitch',40,1760)
+        for title,pitch in (('Wave sine low',self.low),('Wave sine high',self.high)):
+            pitch.set_compact(True);layout.addWidget(pitch)
+            for widget,label in ((pitch.number,'frequency'),(pitch.mode,'tuning'),(pitch.note,'note')):
+                widget.setAccessibleName(title+' '+label)
+        row=QHBoxLayout();layout.addLayout(row)
+        self.glide=SoundKnob('Glide',10,500,5,' ms')
+        self.reverb=SoundKnob('Reverb send',0,100,1,' %')
+        for title,knob in (('Glide',self.glide),('Reverb send',self.reverb)):
+            row.addWidget(knob);knob.number.setAccessibleName('Wave sine '+title)
+            knob.dial.setAccessibleName('Wave sine '+title+' knob')
+        self.glide.setToolTip('Smooth the pitch motion. The tone slides continuously between the two endpoints, even when their tuning is set to notes.')
+
+    def load(self,value):
+        v=value['wave'];self.enabled.setChecked(v['enabled'])
+        self.low.load(v['low_pitch'],v['low_pitch_mode']);self.high.load(v['high_pitch'],v['high_pitch_mode'])
+        self.glide.setValue(v['glide']*1000);self.reverb.setValue(v['reverb']*100)
+
+    def config(self):
+        return dict(enabled=self.enabled.isChecked(),low_pitch=self.low.value(),low_pitch_mode=self.low.tuning(),
+                    high_pitch=self.high.value(),high_pitch_mode=self.high.tuning(),
+                    glide=self.glide.value()/1000,reverb=self.reverb.value()/100)

@@ -25,6 +25,10 @@ field motion and Chromatic lattice color waves. Generate sound offers live
 instrument controls, independent channel EQ, undoable editing and native export.
 The lattice instrument translates its color waves into two independent
 ascending sequences, with electronic timbres and editable visual trigger points.
+For a continuous background tone, enable **Generate sound → Motion → Wave sine**.
+It rises as the size wave travels outward and falls as it returns inward. Set
+low/high pitch and glide there; adjust its level, mute, solo or EQ in **Mixer**.
+Existing documents keep this optional voice off.
 
 The [Studio interface plan](docs/studio-design-plan.md) and
 [delivery notes](docs/studio-design-delivery.md) describe the 0.9.0 redesign.
