@@ -42,6 +42,9 @@ def acid_sound():
 
 
 def sound_connections(config):
+    if config['version']==4:
+        from synth_lattice_sound import CONNECTIONS as COLOR_CONNECTIONS
+        return COLOR_CONNECTIONS
     if config['version']==3:
         return (('body','Expansion → oscillator body',1.),*ACID_CONNECTIONS[1:])
     return ACID_CONNECTIONS if config['version'] >= 2 else CONNECTIONS
@@ -72,8 +75,11 @@ def default_sound():
 
 
 def normalize_sound(raw):
-    if not isinstance(raw, dict) or type(raw.get('version')) is not int or raw['version'] not in (1, 2, 3):
+    if not isinstance(raw, dict) or type(raw.get('version')) is not int or raw['version'] not in (1, 2, 3, 4):
         raise ValueError('Unsupported generated sound version')
+    if raw['version']==4:
+        from synth_lattice_sound import normalize_color_wave
+        return normalize_color_wave(raw)
     out = {1:default_sound,2:acid_sound,3:instrument_sound}[raw['version']]()
     if raw.get('source', out['source']) != 'pleated_field':
         raise ValueError('Generated sound currently supports Pleated field')
@@ -181,7 +187,24 @@ def _pleated_sample(params, seconds, preset):
     return presence, pose
 
 
+def sound_source(sequence):
+    config=(sequence or {}).get('generated_sound')
+    if config:return config['source']
+    active={key for state in (sequence or {}).get('states',{}).values() for key in state.get('enabled',())}
+    return 'chromatic_lattice' if 'chromatic_lattice' in active and 'pleated_field' not in active else 'pleated_field'
+
+
+def sound_for_sequence(sequence):
+    if sound_source(sequence)=='chromatic_lattice':
+        from synth_lattice_sound import color_wave_sound
+        return normalize_sound(color_wave_sound())
+    return instrument_sound()
+
+
 def visual_signals(sequence, cancel=None):
+    if sound_source(sequence)=='chromatic_lattice':
+        from synth_lattice_sound import lattice_signals
+        return lattice_signals(sequence,cancel or Cancellation())
     from synth_sequence import normalize_sequence, resolve_sequence_frame
     from synth_audio_reactivity import apply_reactivity
     seq = normalize_sequence(sequence)
@@ -242,6 +265,10 @@ def pcm_blocks(sequence, cancel=None, *, signals=None):
     cancel=cancel or Cancellation();cancel.check()
     config=normalize_sound(sequence.get('generated_sound',default_sound()))
     signals=visual_signals(sequence,cancel) if signals is None else signals
+    if config['version']==4:
+        from synth_lattice_sound import color_blocks
+        yield from color_blocks(sequence,config,signals,cancel)
+        return
     if config['version'] == 3:
         from synth_visual_sound_instrument import instrument_blocks
         yield from instrument_blocks(sequence,config,signals,cancel)

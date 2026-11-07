@@ -12,10 +12,11 @@ class SoundMixer(QWidget):
         super().__init__(parent)
         layout = QVBoxLayout(self); layout.setContentsMargins(0, 0, 0, 0)
         hint = QLabel('Balance the Drone and Arpeggio. Each has its own EQ. Both then pass through the shared Drive and visual Filter in Sound.')
-        hint.setWordWrap(True); layout.addWidget(hint)
-        strips = QHBoxLayout(); layout.addLayout(strips); self.channels = {}
+        hint.setWordWrap(True); layout.addWidget(hint);self.hint=hint;self.default_hint=hint.text()
+        strips = QHBoxLayout(); layout.addLayout(strips); self.channels = {};self.boxes={}
         for key, title in CHANNELS:
             box = QGroupBox(title); column = QVBoxLayout(box); strips.addWidget(box, 1)
+            self.boxes[key]=box
             controls = {}; top = QHBoxLayout(); column.addLayout(top)
             level = SoundKnob('Level', -60, 6, .5, ' dB'); controls['level_db'] = level
             level.number.setAccessibleName(title+' level'); level.dial.setAccessibleName(title+' level knob')
@@ -41,6 +42,16 @@ class SoundMixer(QWidget):
             column.addStretch(); self.channels[key] = controls
         foot = QLabel('0 dB = unchanged · Solo isolates a channel · EQ off keeps your settings. Channel controls are saved and exported; Listen level below only changes monitoring.')
         foot.setWordWrap(True); layout.addWidget(foot); layout.addStretch()
+
+    def set_color_wave(self,active):
+        self.hint.setText('Balance Opening and Color steps. Each has independent level, Mute, Solo and EQ.' if active else self.default_hint)
+        for key,title in (('body','Opening' if active else 'Drone'),('arpeggio','Color steps' if active else 'Arpeggio')):
+            self.boxes[key].setTitle(title)
+            self.channels[key]['level_db'].setToolTip('Independent channel level after EQ.' if active else 'Channel level before the shared Drive and Filter. 0 dB preserves the original balance. Use Mute for silence.')
+            for field,control in self.channels[key].items():
+                name=title+' '+field.replace('_',' ')
+                if isinstance(control,QCheckBox):control.setAccessibleName(name)
+                else:control.number.setAccessibleName(name);control.dial.setAccessibleName(name+' knob')
 
     def load(self, config):
         for key, controls in self.channels.items():

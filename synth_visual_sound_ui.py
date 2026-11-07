@@ -11,8 +11,10 @@ from synth_sound_history import SoundHistory
 from synth_sound_sequence import sequence_defaults
 from synth_sound_mixer import mixer_defaults
 from synth_sound_mixer_ui import SoundMixer
+from synth_lattice_sound import color_wave_sound
+from synth_lattice_sound_ui import ColorWaveControls
 
-FACTORIES={1:default_sound,2:acid_sound,3:instrument_sound}
+FACTORIES={1:default_sound,2:acid_sound,3:instrument_sound,4:color_wave_sound}
 
 
 class VisualSoundDialog(SoundHistory,QDialog):
@@ -29,13 +31,14 @@ class VisualSoundDialog(SoundHistory,QDialog):
     def __init__(self,parent=None):
         super().__init__(parent);self.setWindowTitle('Generate sound');self.resize(1280,780)
         self.current=None;self.loaded=False;self.loading=False;layout=QVBoxLayout(self)
-        label=QLabel('PLEATED / SYNTH');label.setProperty('sectionTitle',True);layout.addWidget(label)
+        label=QLabel('PLEATED / SYNTH');label.setProperty('sectionTitle',True);layout.addWidget(label);self.instrument_title=label
         hint=QLabel('Live audition: play the video and turn the knobs to hear changes immediately. Apply saves your sound; closing without Apply restores the saved settings.')
         hint.setWordWrap(True);layout.addWidget(hint);row=QHBoxLayout()
         self.workspace_hint = hint; self.sound_hint = hint.text()
         self.enabled=QCheckBox('Enable sound');row.addWidget(self.enabled)
         self.voice=QComboBox();self.voice.setAccessibleName('Instrument')
         for title,key in (('Layered resonant synth',3),('Acid triangle (original)',2),('Electric / tape (original)',1)): self.voice.addItem(title,key)
+        self.voice.addItem('Color waves / dual synth',4)
         row.addWidget(self.voice,1);self.output=QComboBox();self.output.setAccessibleName('Audio output')
         for title,key in (('Generated sound','generated'),('Existing soundtrack / footage','existing'),('Silent','silent')): self.output.addItem(title,key)
         row.addWidget(self.output);layout.addLayout(row)
@@ -58,6 +61,8 @@ class VisualSoundDialog(SoundHistory,QDialog):
         self.knob_row(sound,'Filter',(self.opening,self.resonance,self.cutoff,self.sweep,self.smoothing))
         self.seamless_loop=QCheckBox('Seamless audio loop');sound.addWidget(self.seamless_loop);sound.addStretch()
         self.seamless_loop.setToolTip('Carry note releases and filter motion across the timeline boundary, with no fade to silence. Sustained oscillators use whole cycles (a tiny tuning adjustment). Use a whole number of sequencer patterns for an even rhythm. This does not close the visual animation.')
+        self.legacy_sound_widgets=[sound.itemAt(i).widget() for i in range(sound.count()) if sound.itemAt(i).widget()]
+        self.color_wave=ColorWaveControls();sound.insertWidget(0,self.color_wave)
         self.opening.setToolTip('Manual filter opening. Movement adds to this setting; disable its connection for a fixed opening.')
         self.unison=SoundKnob('Unison',1,5,1,' voices',integer=True);self.detune=SoundKnob('Detune',0,35,.5,' cents')
         self.detune.setToolTip('Pitch spread in cents between unison voices. Use two or more voices to hear it.')
@@ -103,7 +108,7 @@ class VisualSoundDialog(SoundHistory,QDialog):
         for title,key in (('Minor pentatonic','pentatonic'),('Natural minor','minor'),('Dorian','dorian')): self.scale.addItem(title,key)
         row.addWidget(self.scale,1);arpeggio.addLayout(row);arpeggio.addStretch();self.connection_layout=QVBoxLayout();motion.addLayout(self.connection_layout)
         motion.addStretch();self.connections={};self.meters={};self.voice.currentIndexChanged.connect(self.change_voice)
-        self.live=QCheckBox('Live audition');self.live.setChecked(True);self.live.setToolTip('Real-time listening for the layered resonant synth. Original instruments use Apply & prepare.')
+        self.live=QCheckBox('Live audition');self.live.setChecked(True);self.live.setToolTip('Real-time listening for the layered synth and color-wave instrument. Original instruments use Apply & prepare.')
         self.live.toggled.connect(self.liveChanged);layout.addWidget(self.live)
         video=QHBoxLayout();self.preview_button=QPushButton('Prepare all video frames');self.preview_button.clicked.connect(self.previewRequested)
         video.addWidget(self.preview_button);self.preview_status=QLabel();video.addWidget(self.preview_status,1);layout.addLayout(video)
@@ -122,10 +127,13 @@ class VisualSoundDialog(SoundHistory,QDialog):
         self.draft_timer=QTimer(self);self.draft_timer.setSingleShot(True);self.draft_timer.setInterval(24)
         self.draft_timer.timeout.connect(self.emit_draft)
         self.init_history()
+        pitches=self.findChildren(PitchControl)
         for knob in self.findChildren(SoundKnob):
-            if knob not in (self.pitch.knob,self.arp_pitch.knob):knob.valueChanged.connect(self.queue_draft)
+            if knob not in [p.knob for p in pitches]:knob.valueChanged.connect(self.queue_draft)
             knob.dial.sliderPressed.connect(self.begin_sound_gesture);knob.dial.sliderReleased.connect(self.end_sound_gesture)
-        for pitch in (self.pitch,self.arp_pitch):pitch.valueChanged.connect(self.queue_draft)
+        for pitch in pitches:pitch.valueChanged.connect(self.queue_draft)
+        for combo in self.color_wave.combos:combo.currentIndexChanged.connect(self.queue_draft)
+        self.color_wave.loop.toggled.connect(self.queue_draft)
         self.sequencer.gestureStarted.connect(self.begin_sound_gesture);self.sequencer.gestureFinished.connect(self.end_sound_gesture)
         for widget in (self.enabled,self.output,self.scale,self.arp_pattern,self.arp_mode,self.seamless_loop):
             (widget.toggled if isinstance(widget,QCheckBox) else widget.currentIndexChanged).connect(self.queue_draft)
@@ -182,6 +190,20 @@ class VisualSoundDialog(SoundHistory,QDialog):
     def load_values(self,value):
         self.loading=True
         with QSignalBlocker(self.voice): self.voice.setCurrentIndex(self.voice.findData(value['version']))
+        color=value['version']==4
+        self.instrument_title.setText('COLOR WAVES / DUAL SYNTH' if color else 'PLEATED / SYNTH')
+        self.color_wave.setVisible(color)
+        for widget in self.legacy_sound_widgets:widget.setVisible(not color)
+        self.mixer.set_color_wave(color)
+        for i in range(self.voice.count()):self.voice.model().item(i).setEnabled((self.voice.itemData(i)==4)==color)
+        if color:
+            self.color_wave.load(value);self.mixer.load(value['mixer'])
+            self.visual_dynamics.hide()
+            for i in (1,2):self.tabs.setTabVisible(i,False)
+            self.live.setEnabled(True);self.apply_button.setText('Apply' if self.live.isChecked() else 'Apply && prepare')
+            self.enabled.setChecked(value['enabled']);self.output.setCurrentIndex(self.output.findData(value['output']))
+            self.load_connections(value);self.loading=False;return
+        for i in (1,2):self.tabs.setTabVisible(i,True)
         acid=value['version']>=2;layered=value['version']==3;self.pitch.setRange(65 if acid else 35,440 if acid else 180)
         self.visual_dynamics.setVisible(layered)
         self.seamless_loop.setVisible(layered)
@@ -215,6 +237,10 @@ class VisualSoundDialog(SoundHistory,QDialog):
             for osc,(check,wave,level,tune,fine) in zip(value['oscillators'],self.oscillators):
                 check.setChecked(osc['enabled']);wave.setCurrentIndex(wave.findData(osc['wave']));level.setValue(osc['level']*100)
                 tune.setValue(osc['transpose']);fine.setValue(osc['detune'])
+        self.load_connections(value)
+        self.update_sequence_mode();self.loading=False
+
+    def load_connections(self,value):
         if set(self.connections)!=set(value['connections']):
             while self.connection_layout.count(): self.connection_layout.takeAt(0).widget().deleteLater()
             self.connections={};self.meters={}
@@ -229,9 +255,13 @@ class VisualSoundDialog(SoundHistory,QDialog):
         titles={key:title for key,title,_ in sound_connections(value)}
         for key,(check,control) in self.connections.items():
             check.setText(titles[key]);check.setChecked(value['connections'][key]['enabled']);control.setValue(value['connections'][key]['amount']*100)
-        self.update_sequence_mode();self.loading=False
 
     def read_config(self):
+        if self.voice.currentData()==4:
+            config=self.color_wave.config()
+            config.update(enabled=self.enabled.isChecked(),output=self.output.currentData(),mixer=self.mixer.config())
+            config['connections']={key:dict(enabled=check.isChecked(),amount=control.value()/100) for key,(check,control) in self.connections.items()}
+            return normalize_sound(config)
         config=FACTORIES[self.voice.currentData()]()
         config.update(enabled=self.enabled.isChecked(),output=self.output.currentData(),gain=self.gain.value()/100,pitch=self.pitch.value(),pitch_mode=self.pitch.tuning(),smoothing=self.smoothing.value()/1000)
         config['connections']={key:dict(enabled=check.isChecked(),amount=control.value()/100) for key,(check,control) in self.connections.items()}
@@ -264,5 +294,5 @@ class VisualSoundDialog(SoundHistory,QDialog):
         self.listen.setText('Pause' if playing else 'Listen')
 
     def set_activity(self,expansion=0.,motion=0.,opening=0.,arpeggio=0.):
-        values={'body':expansion,'friction':motion,'filter':motion,'return':opening,'arpeggio':arpeggio}
+        values={'body':expansion,'friction':motion,'filter':motion,'return':opening,'arpeggio':arpeggio,'strum':expansion,'steps':arpeggio}
         for key,meter in self.meters.items(): meter.setValue(round(max(0,min(1,values[key]))*100))

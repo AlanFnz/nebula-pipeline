@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.66.0 — 2026-11-07
+
+- Extend Generate sound to Chromatic lattice with a separate version-4 color-wave
+  instrument. Visible levels trigger an ascending opening during the first color
+  transition and separate pitched steps during the second. The timing comes
+  from the same optical phase as the image renderer, including speed, phase,
+  color spread and authored source clocks; no study-specific timestamps.
+- Add independent roots, scales, pitch ranges, decay, brightness, electronic
+  timbre morph and transition trigger points. Opening and Color steps have their own mixer
+  channels, mute/solo and EQ. Live edits crossfade without rebuilding video;
+  Apply, Undo/Redo, save/load, seamless tails and native export are supported.
+- Existing Pleated instruments and visual studies retain their previous output.
+  Color-wave voices morph damped partials into evolving electronic FM tones,
+  with no external samples; the default sound favors the electronic character.
+
 ## 0.65.0 — 2026-11-06
 
 - Add opt-in Seamless audio loop for the layered synth. Carry note releases,

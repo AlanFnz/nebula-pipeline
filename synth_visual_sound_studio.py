@@ -12,7 +12,7 @@ from PySide6.QtWidgets import QPushButton
 from media import Cancellation
 from synth_soundtrack import probe_soundtrack
 from synth_soundtrack_preview import SoundtrackPreview
-from synth_visual_sound import normalize_sound, audio_output, sound_key, write_sound, visual_signals
+from synth_visual_sound import normalize_sound, audio_output, sound_key, write_sound, visual_signals, sound_for_sequence
 from synth_visual_sound_ui import VisualSoundDialog
 
 
@@ -34,11 +34,15 @@ class VisualSoundJob(QRunnable):
             if config['version']==3:
                 from synth_visual_sound_instrument import instrument_controls
                 _,signals['arpeggio']=instrument_controls(signals,config)
+            elif config['version']==4:
+                from synth_lattice_sound import color_activity
+                activity=color_activity(signals,config)
+                signals.update(strum_activity=activity['strum'],step_activity=activity['steps'])
             elif config['version']==2:
                 from synth_visual_sound_acid import arpeggio_activity
                 signals['arpeggio']=arpeggio_activity(signals,config)
             path=write_sound(self.sequence,Path(self.folder.name)/'Generated sound.wav',self.cancel,signals=signals)
-            track=probe_soundtrack(path,self.cancel);track['name']='Pleated field / generated sound'
+            track=probe_soundtrack(path,self.cancel);track['name']='Color waves / generated sound' if config['version']==4 else 'Pleated field / generated sound'
             self.cancel.check();self.signals.done.emit((track,signals))
         except Exception as exc:
             if self.folder: self.folder.cleanup()
@@ -72,7 +76,7 @@ class VisualSoundStudio:
     def build_visual_sound_action(self,layout):
         self.visual_sound_button=QPushButton('Generate sound…')
         self.visual_sound_button.setProperty('compact',True);self.visual_sound_button.setProperty('secondaryAction',True)
-        self.visual_sound_button.setToolTip('Synthesize sound from the motion of a Pleated field object.')
+        self.visual_sound_button.setToolTip('Generate sound from Pleated field motion or Chromatic lattice color waves.')
         self.visual_sound_button.clicked.connect(self.open_visual_sound);layout.addWidget(self.visual_sound_button)
 
     def open_visual_sound(self,checked=False):
@@ -92,7 +96,7 @@ class VisualSoundStudio:
             dialog.finished.connect(self.finish_live_sound)
             self.play.toggled.connect(dialog.set_playing)
         self.attach_sound_performance(self.visual_sound_dialog)
-        self.visual_sound_dialog.set_config(self.composition.get('generated_sound'))
+        self.visual_sound_dialog.set_config(self.sound_dialog_config())
         self.visual_sound_dialog.set_monitor(self.visual_sound_volume,self.visual_sound_muted)
         self.visual_sound_dialog.set_playing(self.play.isChecked())
         self.visual_sound_dialog.status.setText(self.visual_sound_status or 'Choose Apply & prepare to hear this instrument.')
@@ -106,12 +110,15 @@ class VisualSoundStudio:
         dialog=self.visual_sound_dialog
         config=config or self.live_draft or (self.composition or {}).get('generated_sound') or {}
         listening = dialog.live.isChecked() if dialog and dialog.isVisible() else self.performing_visuals() or config.get('seamless_loop',False)
-        return bool(listening and config.get('version')==3 and config.get('output')=='generated')
+        return bool(listening and config.get('version') in (3,4) and config.get('output')=='generated')
+
+    def sound_dialog_config(self):
+        return (self.composition or {}).get('generated_sound') or sound_for_sequence(self.preview_sequence())
 
     def live_sound_changed(self,*_):
         dialog=self.visual_sound_dialog
         if dialog:
-            dialog.apply_button.setText('Apply' if dialog.live.isChecked() and dialog.voice.currentData()==3 else 'Apply && prepare')
+            dialog.apply_button.setText('Apply' if dialog.live.isChecked() and dialog.voice.currentData() in (3,4) else 'Apply && prepare')
             self.audition_visual_sound(dialog.read_config())
 
     def audition_visual_sound(self,config):
@@ -176,6 +183,14 @@ class VisualSoundStudio:
             self.live_sound.update_source(sequence, signals, config)
 
     def update_live_activity(self,config):
+        if config['version']==4:
+            key=json.dumps(config,sort_keys=True)
+            if self.live_signals is not None and key!=self.live_meter_key:
+                from synth_lattice_sound import color_activity
+                activity=color_activity(self.live_signals,config)
+                self.visual_sound_signals=dict(self.live_signals,strum_activity=activity['strum'],step_activity=activity['steps'])
+                self.live_meter_key=key
+            return
         key=(config['enabled'],config['arp_rate'],config['scale'],config['attack'],config['release'],
              config.get('seamless_loop',False),
              json.dumps({k:config.get(k) for k in ('arp_mode','bpm','subdivision','sequence_length','sequence_trigger','sequence')},sort_keys=True),
@@ -206,7 +221,7 @@ class VisualSoundStudio:
             if self.visual_sound_dialog:
                 self.visual_sound_dialog.draft_timer.stop()
                 self.visual_sound_dialog.loaded=False
-                self.visual_sound_dialog.set_config((self.composition or {}).get('generated_sound'))
+                self.visual_sound_dialog.set_config(self.sound_dialog_config())
         self.visual_sound_key=None
         if refresh and not self.closing: self.refresh_visual_sound()
 
@@ -240,10 +255,10 @@ class VisualSoundStudio:
     def refresh_visual_sound(self):
         if not hasattr(self,'visual_sound_button'): return
         seq=self.preview_sequence();config=(seq or {}).get('generated_sound')
-        supported=any('pleated_field' in state.get('enabled',()) for state in (seq or {}).get('states',{}).values())
+        supported=any(set(state.get('enabled',())) & {'pleated_field','chromatic_lattice'} for state in (seq or {}).get('states',{}).values())
         self.visual_sound_button.setEnabled(self.composition is not None and (supported or config is not None))
         if self.visual_sound_dialog:
-            self.visual_sound_dialog.set_config((self.composition or {}).get('generated_sound'))
+            self.visual_sound_dialog.set_config(self.sound_dialog_config())
             if self.visual_sound_dialog.isVisible(): self.live_draft=self.visual_sound_dialog.read_config()
         if self.wants_live_sound():
             self.visual_sound_button.setText('Generated sound…' if config else 'Generate sound…')
@@ -265,7 +280,7 @@ class VisualSoundStudio:
                     self.visual_sound_debounce.start()
             else: self.set_visual_sound_status('Generated sound is off.' if config else '')
         if self.visual_sound_dialog:
-            self.visual_sound_dialog.set_config((self.composition or {}).get('generated_sound'))
+            self.visual_sound_dialog.set_config(self.sound_dialog_config())
         self.visual_sound_button.setText('Generated sound…' if config else 'Generate sound…')
 
     def cancel_visual_sound(self):
@@ -326,6 +341,10 @@ class VisualSoundStudio:
             if signals is None: dialog.set_activity()
             else:
                 config=self.live_draft if live else (self.preview_sequence() or {}).get('generated_sound',{})
+                if config.get('version')==4:
+                    dialog.set_activity(expansion=float(np.interp(seconds,signals['time'],signals.get('strum_activity',np.zeros_like(signals['time'])))),
+                                        arpeggio=float(np.interp(seconds,signals['time'],signals.get('step_activity',np.zeros_like(signals['time'])))))
+                    return
                 values=[]
                 filter_key='filter' if config.get('version',1)>=2 else 'friction'
                 for key,name in (('body','expansion'),(filter_key,'motion'),('return','opening'),('arpeggio','arpeggio')):

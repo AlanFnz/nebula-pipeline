@@ -1,4 +1,53 @@
-# Visual sound / Pleated signal
+# Visual sound / Pleated signal and Chromatic lattice
+
+## Color-wave instrument (0.66.0)
+
+Chromatic lattice projects now enable **Generate sound…**. The version-4
+instrument opens **Sound**, **Motion**, and **Mixer**, with Opening and Color steps
+controls instead of the Pleated oscillator/arpeggio pages. It is available on
+any project with an active lattice source, without changing the image.
+
+**Sound** has independent roots (free Hz or chromatic notes), scale, pitch range,
+decay, brightness, timbre morph and trigger point for each voice. Defaults
+use E2/E3 in natural minor. The first optical transition (pink to cyan in Neon
+spectrum) plays a rapid ascending sequence; the second (cyan to orange) plays
+the slower ascending Color steps. The default trigger is the transition midpoint. Other palettes keep the
+same optical phase mapping. Resetting orange to pink is intentionally unvoiced.
+Additional crossings caused by the source's color interference are sounded when
+they occur; this is not a fixed BPM sequencer.
+
+One visible, one-cell-wide wave-distance level triggers one ascending note.
+Diamond rings give exact grid levels. Circular rings and parallel bands group
+cells by distance interval, with a representative mean optical phase. Levels
+with negligible area or outside the canvas are omitted. Pitch range and scale
+can assign the same pitch to adjacent levels when there are more levels than
+available scale notes. Analysis uses canonical artwork dimensions and a 120 Hz
+control clock, independent of monitor detail. It shares `color_wave_phase`,
+`lattice_frame`, `wave_distance` and `pulse_size` with the renderer, resolves
+automation and source clocks, and follows Perform retiming. Finishing effects
+are not analyzed as RGB pixels.
+
+The timbres use procedural synthesis, not recordings of physical instruments.
+Timbre morph at 0% uses plucked/struck damped partials; at 100% it uses an evolving
+FM spectrum that closes as the note decays. Opening has a metallic, elastic
+character; Color steps has a hollow, glassy character. Defaults favor FM at
+86%/78%. The modulation depth reduces at high pitches to limit upper sidebands.
+Decay and brightness are independent for each voice. There is no continuous
+drone or noise layer in this instrument.
+
+**Motion** enables or scales either visual connection. **Mixer** provides
+Opening/Color steps level, mute, solo and the existing three-band EQ. Internal mixer
+keys remain `body`/`arpeggio` for the shared channel implementation; those are
+displayed as Opening/Color steps here. These voices do not pass through the Pleated
+drive/filter. Master level and stereo spread are in Sound.
+
+Live audition and export share `ColorWaveVoice`. A 40 ms crossfade handles
+parameter edits while the transport continues; unchanged partials are reused
+during that crossfade. Audio edits do not invalidate prepared video. Seamless
+audio loop carries prior-cycle tails and warms non-neutral EQ; it does not
+automatically close the picture. Apply saves the draft; closing without Apply
+restores saved sound. All controls participate in sound Undo/Redo and project
+save/load. Existing version 1–3 contracts keep their original DSP.
 
 The first visual-to-sound instrument uses the 20-second **Pleated signal**
 study. Open **Pleated signal / acid motion** in Studies, then use

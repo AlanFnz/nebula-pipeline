@@ -1,6 +1,6 @@
 """Bounded, interactive audio monitoring; no full-track regeneration on knob edits.
 
-Only the layered instrument opts into this monitor. Its fixed settings share the
+The layered and color-wave instruments use this monitor. Fixed settings share the
 export DSP. Live changes crossfade voices over 40 ms; saved exports still render
 one deterministic configuration from the start of the timeline.
 """
@@ -27,7 +27,11 @@ class LiveInstrument:
         self.start_fade=0 if start else FADE
 
     def make_voice(self, config, warm=True):
-        voice=InstrumentVoice(self.sequence,copy.deepcopy(config),self.signals,warm_loop=warm)
+        factory=InstrumentVoice
+        if config['version']==4:
+            from synth_lattice_sound import ColorWaveVoice
+            factory=ColorWaveVoice
+        voice=factory(self.sequence,copy.deepcopy(config),self.signals,warm_loop=warm)
         # Reconstruct a short filter history after a seek or a parameter change.
         history=min(self.position,round(RATE*.08)) if warm else 0
         if history: voice.render(self.position-history,history)

@@ -86,8 +86,13 @@ def pulse_size(distance, seconds, p):
     return 1-p['pulse']+p['pulse']*(p['minimum']+(1-p['minimum'])*wave)
 
 
+def color_wave_phase(distance, clock, p):
+    """Unwrapped optical phase shared with the color-wave instrument."""
+    return clock+p['color_spread']*.7*np.sin(2*np.pi*clock)*np.exp(-np.abs(distance)*.55)
+
+
 def cell_colors(distance, clock, p):
-    cycle=np.mod(clock+p['color_spread']*.7*np.sin(2*np.pi*clock)*np.exp(-np.abs(distance)*.55),1)
+    cycle=np.mod(color_wave_phase(distance,clock,p),1)
     stops=np.array((0.,.12,.32,.38,.54,.62,1.))
     moods=np.array((0,1,1,2,2,0,0))
     index=np.clip(np.searchsorted(stops,cycle,side='right')-1,0,len(stops)-2)
