@@ -11,7 +11,7 @@ from collections import OrderedDict
 import numpy as np
 
 from synth_visual_sound import CONTROL_RATE, RATE
-from synth_sound_analog import analog_defaults,pad_defaults,space_defaults,PAD_HARMONIES
+from synth_sound_analog import analog_defaults,pad_defaults,space_defaults,echo_defaults,PAD_HARMONIES
 
 COLOR_CHANNELS=(('body','Opening'),('arpeggio','Color steps'),('pad','Root pad'))
 _ROOM_CACHE=OrderedDict()
@@ -33,9 +33,9 @@ def color_wave_sound():
                                  decay=.22,brightness=.65,character=.86,trigger=.5,clarity=1.,polyphony=1),
                     'steps':dict(pitch=164.8138,pitch_mode='note',scale='minor',span=24,
                                  decay=.32,brightness=.55,character=.78,trigger=.5,clarity=1.,polyphony=1)},
-                mixer=mixer_defaults(COLOR_CHANNELS),pad=pad_defaults(),space=space_defaults())
+                mixer=mixer_defaults(COLOR_CHANNELS),pad=pad_defaults(),space=space_defaults(),delay=echo_defaults())
     out['mixer']['pad']['level_db']=-22.
-    for v in out['voices'].values():v.update(engine='partials',analog=analog_defaults(),reverb=0.)
+    for v in out['voices'].values():v.update(engine='partials',analog=analog_defaults(),reverb=0.,delay=0.)
     return out
 
 
@@ -73,6 +73,7 @@ def normalize_color_wave(raw):
         v['engine']=r.get('engine','partials')
         if v['engine'] not in ('partials','analog'):raise ValueError('Choose a supported voice engine')
         v['reverb']=number(r.get('reverb',0.),'Reverb send',0,1)
+        v['delay']=number(r.get('delay',0.),'Delay send',0,1)
         analog=r.get('analog',analog_defaults())
         if not isinstance(analog,dict):raise ValueError('Invalid analog voice')
         for field,lo,hi in (('wave',0,1),('unison',1,5),('detune',0,20),('sub',0,1),('cutoff',120,10000),
@@ -105,6 +106,10 @@ def normalize_color_wave(raw):
     if out['pad']['pitch_mode']=='note':out['pad']['pitch']=snapped_frequency(out['pad']['pitch'],40,880)
     for key,lo,hi in (('chorus',0,1),('decay',.4,6),('damping',0,1)):
         out['space'][key]=number(space.get(key,out['space'][key]),'Space '+key,lo,hi)
+    delay=raw.get('delay',echo_defaults())
+    if not isinstance(delay,dict):raise ValueError('Invalid delay settings')
+    for key,lo,hi in (('time',.04,1.2),('feedback',0,.65),('tone',400,8000)):
+        out['delay'][key]=number(delay.get(key,out['delay'][key]),'Delay '+key,lo,hi)
     raw_mixer=raw.get('mixer',out['mixer'])
     if isinstance(raw_mixer,dict) and 'pad' not in raw_mixer:raw_mixer=dict(raw_mixer,pad=out['mixer']['pad'])
     out['mixer']=normalize_mixer(raw_mixer,number,COLOR_CHANNELS)
@@ -259,45 +264,51 @@ class ColorWaveVoice:
         self.config=config;self.signals=signals;self.total=round(sequence['duration']*RATE)
         self.looping=config['seamless_loop'];self.states=[];self.mixer=make_mixer(config)
         self.analog=any(v['engine']=='analog' for v in config['voices'].values()) or config['pad']['enabled']
-        from synth_sound_analog import StereoSpace
+        from synth_sound_analog import StereoSpace,StereoEcho
         self.ambience=bool(config['space']['chorus'] or config['pad']['enabled'] and config['pad']['reverb']
                            or any(v['reverb'] for v in config['voices'].values()))
         self.space=StereoSpace(config['space'],self.total/RATE if self.looping else None) if self.ambience else None
+        self.echo=StereoEcho(config['delay']) if any(v['delay'] for v in config['voices'].values()) else None
         self.notes=articulate_notes(color_notes(signals,config),config,self.total/RATE,self.looping)
         if self.looping:self.notes=cyclic_notes(self.notes,self.total/RATE,lambda n:n['duration'])
         self.starts=np.array([n['time'] for n in self.notes]);self.max_tail=max((n['duration'] for n in self.notes),default=0.)
         has_eq=any(any(c is not None for c in channel.coefficients) for channel in self.mixer.values())
-        if warm_loop and self.looping and (has_eq or self.ambience):
-            cache_key=json.dumps((self.total,config,self.notes),sort_keys=True) if self.ambience else None
+        effects=self.ambience or self.echo is not None
+        if warm_loop and self.looping and (has_eq or effects):
+            cache_key=json.dumps((self.total,config,self.notes),sort_keys=True) if effects else None
             if cache_key:
                 with _ROOM_LOCK:
                     cached=_ROOM_CACHE.get(cache_key)
                     if cached is not None:
-                        self.space,self.mixer=copy.deepcopy(cached);_ROOM_CACHE.move_to_end(cache_key);return
+                        self.space,self.echo,self.mixer=copy.deepcopy(cached);_ROOM_CACHE.move_to_end(cache_key);return
                 # A new draft may have no prepared room yet. Bloom naturally
                 # rather than blocking the live producer behind a long preroll.
                 if warm_cache_only:return
             # Prime the room from preceding turns, including wrapped note tails.
             # Live edits transfer this state instead of recomputing it.
             history=max(.75,config['space']['decay']*3) if self.ambience else .75
+            if self.echo is not None:
+                repeats=1+math.ceil(math.log(1e-5)/math.log(max(.001,config['delay']['feedback'])))
+                history=max(history,config['delay']['time']*repeats)
             samples=round(history*RATE)
             for start in range(-samples,0,2048):
                 if cancel:cancel.check()
                 self.render(start,min(2048,-start))
             if cache_key:
                 with _ROOM_LOCK:
-                    _ROOM_CACHE[cache_key]=copy.deepcopy((self.space,self.mixer))
+                    _ROOM_CACHE[cache_key]=copy.deepcopy((self.space,self.echo,self.mixer))
                     while len(_ROOM_CACHE)>4:_ROOM_CACHE.popitem(last=False)
 
     def inherit(self,old):
         if self.space is not None and getattr(old,'space',None) is not None:self.space.inherit(old.space)
+        if self.echo is not None and getattr(old,'echo',None) is not None:self.echo.inherit(old.echo)
 
     def render(self,start,length,*,tone_cache=None):
         pieces=[]
         while length:
             local=start%self.total if self.looping else start
             count=min(length,self.total-local) if self.looping else length
-            if self.analog or self.ambience:count=min(count,1024)
+            if self.analog or self.ambience or self.echo is not None:count=min(count,1024)
             pieces.append(self._render(local,count,tone_cache));start+=count;length-=count
         return np.concatenate(pieces) if pieces else np.empty((0,2),np.float32)
 
@@ -326,6 +337,9 @@ class ColorWaveVoice:
                 channels[key][:,0]+=tone*math.sqrt((1-pan)*.5);channels[key][:,1]+=tone*math.sqrt((1+pan)*.5)
         opening=self.mixer['body'].process(channels['strum']);steps=self.mixer['arpeggio'].process(channels['steps'])
         result=opening+steps;send=opening*c['voices']['strum']['reverb']+steps*c['voices']['steps']['reverb']
+        if self.echo is not None:
+            wet=self.echo.process(opening*c['voices']['strum']['delay']+steps*c['voices']['steps']['delay'])
+            result+=wet;send+=wet*.25
         if c['pad']['enabled'] and self.mixer['pad'].audible:
             hz=c['voices']['strum']['pitch'] if c['pad']['follow_root'] else c['pad']['pitch']
             period=self.total/RATE if self.looping else None

@@ -6,7 +6,7 @@ from media import Cancellation
 from synth_composition import compile_composition
 from synth_lattice_recipes import lattice_composition
 from synth_lattice_sound import color_wave_sound,ColorWaveVoice,color_notes,color_blocks
-from synth_sound_analog import StereoSpace,space_defaults,analog_note,root_pad,PAD_HARMONIES
+from synth_sound_analog import StereoSpace,StereoEcho,space_defaults,echo_defaults,analog_note,root_pad,PAD_HARMONIES
 from synth_visual_sound import normalize_sound,visual_signals,RATE
 from synth_visual_sound_live import LiveInstrument
 from test_synth_visual_sound_ui import app
@@ -27,9 +27,9 @@ def sequence(duration=5):
 
 
 def test_pre_analog_documents_keep_their_original_audio():
-    old=color_wave_sound();old.pop('pad');old.pop('space');old['mixer'].pop('pad')
+    old=color_wave_sound();old.pop('pad');old.pop('space');old.pop('delay');old['mixer'].pop('pad')
     for v in old['voices'].values():
-        for key in ('engine','analog','reverb'):v.pop(key)
+        for key in ('engine','analog','reverb','delay'):v.pop(key)
     loaded=normalize_sound(old)
     assert loaded==normalize_sound(color_wave_sound())
     assert not loaded['pad']['enabled'] and loaded['space']['chorus']==0
@@ -38,7 +38,8 @@ def test_pre_analog_documents_keep_their_original_audio():
 @pytest.mark.parametrize('path,value',[(('pad','enabled'),1),(('pad','octave'),.5),
     (('pad','pitch'),float('nan')),(('pad','harmony'),'invalid'),(('space','decay'),0),(('space','damping'),1.1),
     (('voices','strum','engine'),'unknown'),(('voices','steps','analog','unison'),2.5),
-    (('voices','steps','analog','detune'),-1),(('voices','steps','analog','cutoff'),True)])
+    (('voices','steps','analog','detune'),-1),(('voices','steps','analog','cutoff'),True),
+    (('voices','steps','delay'),1.1),(('delay','time'),0),(('delay','feedback'),.9),(('delay','tone'),float('nan'))])
 def test_invalid_controls_are_rejected(path,value):
     c=patch();target=c
     for key in path[:-1]:target=target[key]
@@ -99,8 +100,11 @@ def test_open_chords_close_the_loop(harmony):
     assert np.max(abs(root_pad(t,82.4069,p,20.)-root_pad(t+20,82.4069,p,20.)))<1e-8
 
 
-def test_new_timbre_keeps_visual_notes_and_matches_live_export():
+@pytest.mark.parametrize('echo',[False,True])
+def test_new_timbre_keeps_visual_notes_and_matches_live_export(echo):
     s=sequence();signals=visual_signals(s);c=s['generated_sound']
+    if echo:
+        c['voices']['strum']['delay']=.12;c['voices']['steps']['delay']=.16
     assert color_notes(signals,c)==color_notes(signals,color_wave_sound())
     voice=ColorWaveVoice(s,c,signals)
     offline=np.concatenate([voice.render(i,480) for i in range(0,5*RATE,480)])
@@ -148,6 +152,12 @@ def test_pad_analog_and_space_controls_round_trip_and_undo(app):
     d.pad_space.harmony.setCurrentIndex(d.pad_space.harmony.findData('minor9'))
     assert d.read_config()['pad']['harmony']=='minor9'
     d.undo_draft();assert d.read_config()==c
+    d.color_wave.voices['steps']['delay'].setValue(15)
+    assert d.read_config()['voices']['steps']['delay']==.15
+    d.undo_draft();assert d.read_config()==c
+    d.pad_space.delay['time'].setValue(250)
+    assert d.read_config()['delay']['time']==.25
+    d.undo_draft();assert d.read_config()==c
     d.mixer.channels['pad']['level_db'].setValue(-26.)
     assert d.read_config()['mixer']['pad']['level_db']==-26.
     d.close()
@@ -173,3 +183,35 @@ def test_chord_pad_cache_preserves_audio_during_live_parameter_edits():
     audio=np.concatenate([live.render(480) for _ in range(10)])
     assert live.voice.config['pad']['harmony']=='sus2' and np.isfinite(audio).all()
     assert np.max(abs(np.diff(audio,axis=0)))<.1
+
+
+def test_note_echo_timing_damping_blocks_and_state_transfer():
+    settings=dict(echo_defaults(),time=.1,feedback=.3)
+    x=np.zeros((RATE,2));x[0,0]=.5
+    expected=StereoEcho(settings).process(x)
+    fx=StereoEcho(settings)
+    blocks=np.concatenate([fx.process(x[i:i+477]) for i in range(0,len(x),477)])
+    assert np.array_equal(expected,blocks)
+    assert not expected[:4800].any() and expected[4800,0]>0
+    assert not expected[:9600,1].any() and expected[9600,1]>0
+    assert np.max(abs(expected[9600:]))<np.max(abs(expected[4800:9600]))*.3
+    clone=StereoEcho(dict(settings,time=.17));clone.inherit(fx)
+    assert np.array_equal(clone.line.buffer,fx.line.buffer)
+    assert clone.line.buffer is not fx.line.buffer
+    assert np.array_equal(clone.filter_state,fx.filter_state)
+
+
+def test_delay_keeps_pad_out_of_the_bus_and_live_edits_preserve_tails():
+    s=sequence();c=s['generated_sound'];sig=visual_signals(s)
+    c['mixer']['pad']['solo']=True
+    dry=ColorWaveVoice(s,c,sig,warm_loop=False).render(0,4800)
+    c['voices']['steps']['delay']=.16
+    wet=ColorWaveVoice(s,c,sig,warm_loop=False).render(0,4800)
+    assert np.array_equal(dry,wet)
+    c['mixer']['pad']['solo']=False
+    live=LiveInstrument(s,sig,c);live.render(RATE)
+    before=live.voice.echo.line.buffer.copy();assert before.any()
+    change=copy.deepcopy(c);change['delay']['time']=.25;live.update(change)
+    audio=np.concatenate([live.render(480) for _ in range(10)])
+    assert live.old is None and live.voice.echo.line.buffer.any()
+    assert np.isfinite(audio).all() and np.max(abs(np.diff(audio,axis=0)))<.1

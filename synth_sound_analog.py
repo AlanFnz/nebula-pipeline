@@ -55,6 +55,10 @@ def space_defaults():
     return dict(chorus=0., decay=3.2, damping=.65)
 
 
+def echo_defaults():
+    return dict(time=.3125,feedback=.22,tone=2200.)
+
+
 def ensemble(t, hz, settings, *, period=None):
     """Saw/pulse bank with a moving four-pole spectral lowpass and sub.
 
@@ -188,4 +192,36 @@ class StereoSpace:
                 delayed=line.read(n);value=wet+delayed*.55
                 line.write(value);wet=delayed-value*.55
             out[offset:offset+n]=mixed+wet
+        return out
+
+
+class StereoEcho:
+    """A dark, cross-fed note delay; wet only, with bounded streaming state.
+
+    A fixed-size history also preserves tails when live edits change delay time.
+    The instrument crossfades the old and new taps, avoiding a hard time jump.
+    """
+    def __init__(self,settings):
+        self.settings=settings
+        self.line=Delay(round(1.2*RATE)+2)
+        self.filter_state=np.zeros(2)
+
+    def inherit(self,old):
+        self.line.inherit(old.line);self.filter_state=old.filter_state.copy()
+
+    def process(self,send):
+        out=np.empty_like(send);s=self.settings
+        lag=round(s['time']*RATE);pole=math.exp(-math.tau*s['tone']/RATE)
+        for offset in range(0,len(send),128):
+            x=send[offset:offset+128];n=len(x)
+            at=(self.line.position+np.arange(n)-lag)%len(self.line.buffer)
+            tail=self.line.buffer[at]
+            wet=np.empty_like(tail)
+            for channel in range(2):
+                value=float(self.filter_state[channel]);values=[]
+                for sample in tail[:,channel].tolist():
+                    value=(1-pole)*sample+pole*value;values.append(value)
+                wet[:,channel]=values;self.filter_state[channel]=value
+            self.line.write(x+wet[:,::-1]*s['feedback'])
+            out[offset:offset+n]=wet
         return out

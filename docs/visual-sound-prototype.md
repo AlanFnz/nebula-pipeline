@@ -1,5 +1,26 @@
 # Visual sound / Pleated signal and Chromatic lattice
 
+## Soft note delay (0.70.0)
+
+Opening and Color steps each have **Delay send** in Sound. **Pad & space →
+Note delay** controls time (40–1200 ms), feedback (0–65%) and low-pass tone.
+The pad never enters this delay. Mixer levels/EQ precede sends; echoes also
+feed a small amount into the existing room. The shared chorus and room settings
+remain independent. Older documents default to zero sends and exact bypass.
+
+The reusable `StereoEcho` holds bounded stereo history, filters successive
+repeats and cross-feeds them. Delay time edits reuse history while the existing
+40 ms live crossfade transitions between taps. Loop preparation warms both echo
+and room tails; offline output and live playback use the same processing.
+All delay controls participate in sound history, project save and native export.
+
+The Velvet Sky user variation lowers both note roots an octave, with softer
+attacks, less filter resonance, fuller overlapping tails and increased reverb.
+Its delay is 312.5 ms (an eighth note at the study's 96 BPM), with low sends and
+dark repeats. The pad uses its independent E root to retain the approved E3
+minor-ninth voicing while the opening root moves from E2 to E1. Visuals and note
+trigger timing stay unchanged.
+
 ## Pad harmonies (0.69.0)
 
 Generate sound → **Pad & space → Harmony** offers Root / octave (original),

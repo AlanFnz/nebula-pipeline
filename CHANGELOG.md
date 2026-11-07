@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.70.0 — 2026-11-07
+
+- Add a soft stereo note delay to the color-wave instrument, with independent
+  Opening and Color steps sends plus shared time, feedback and tone controls.
+  The pad stays outside this bus. Saved sounds without delay retain their output.
+- Preserve delay tails through live edits and loop boundaries. Live monitoring
+  and export share the same bounded processing, with undo/redo and saved controls.
+- Author a separate Velvet Sky variation with both note voices one octave lower,
+  gentler attacks, warmer filters, fuller sustain, more reverb and subtle echoes.
+  Keep the approved celestial chord at its original pitch and settings.
+
 ## 0.69.0 — 2026-11-07
 
 - Add open fifth, minor ninth, major ninth and suspended-second harmonies to the
