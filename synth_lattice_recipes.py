@@ -6,7 +6,9 @@ from synth_sequence import normalize_sequence
 
 def lattice_composition():
     overrides={'speed':1.,'depth':0.,'treatment_fps':30,'object_x':0.,'object_y':0.}
-    overrides.update({'chromatic_lattice.'+p.key:p.default for p in MODULE_BY_ID['chromatic_lattice'].params})
+    # Keep the original study snapshot unchanged; musical phrasing is opt-in.
+    overrides.update({'chromatic_lattice.'+p.key:p.default for p in MODULE_BY_ID['chromatic_lattice'].params
+                      if p.key not in ('color_rhythm','bpm','phrase_bars')})
     source=normalize_sequence(dict(schema_version=1,render_version=2,
         name='Lattice / chromatic pulse',duration=20.,fps=30,seed=171026,
         canvas={'width':720,'height':1280,'framing':'native'},

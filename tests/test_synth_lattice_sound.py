@@ -136,3 +136,76 @@ def test_color_panel_controls_undo_and_mixer_roundtrip(app):
     d.mixer.channels['body']['mute'].setChecked(True)
     assert d.read_config()['mixer']['body']['mute']
     d.close()
+
+
+def rhythmic_study():
+    seq=study(20.)
+    for state in seq['states'].values():
+        state['overrides'].update({'chromatic_lattice.color_rhythm':1,'chromatic_lattice.bpm':96.,
+                                  'chromatic_lattice.phrase_bars':2,'chromatic_lattice.minimum':.22})
+    return seq
+
+
+def test_musical_phrase_repeats_on_a_grid_and_follows_tempo():
+    from synth_lattice import color_wave_phase,phrase_levels
+    from synth_sequence import resolve_sequence_frame
+    seq=rhythmic_study();config=seq['generated_sound']
+    notes=color_notes(visual_signals(seq),config)
+    base=resolve_sequence_frame(seq,0)[-1]
+    p=next(m['params'] for m in base['modules'] if m['id']=='chromatic_lattice')
+    levels=phrase_levels(p,base)
+    for voice,threshold in (('strum',.06),('steps',.35)):
+        first=[n for n in notes if n['voice']==voice and n['time']<5]
+        assert len(first)>=12
+        for cycle in range(1,4):
+            repeat=[n for n in notes if n['voice']==voice and 5*cycle<=n['time']<5*(cycle+1)]
+            assert [(n['level'],n['semitones']) for n in repeat]==[(n['level'],n['semitones']) for n in first]
+            assert np.allclose([n['time']-5*cycle for n in repeat],[n['time'] for n in first],atol=1e-10)
+        for n in first:
+            phase=color_wave_phase(n['level']+.5,n['time']/5,p,levels)
+            assert phase==pytest.approx(threshold,abs=1e-10)
+            grid=n['time']/(60/96/16)
+            assert grid==pytest.approx(round(grid),abs=1e-8)
+    fast=copy.deepcopy(seq)
+    for state in fast['states'].values():state['overrides']['chromatic_lattice.bpm']=192.
+    accelerated=color_notes(visual_signals(fast),config)
+    a=[n for n in notes if n['time']<5];b=[n for n in accelerated if n['time']<2.5]
+    assert [n['level'] for n in a]==[n['level'] for n in b]
+    assert np.allclose([n['time']/2 for n in a],[n['time'] for n in b],atol=.001)
+
+
+def test_old_v4_settings_retain_unlimited_original_timbre():
+    c=color_wave_sound()
+    for v in c['voices'].values():v.pop('clarity');v.pop('polyphony')
+    loaded=normalize_sound(c)
+    assert all(v['clarity']==0 and v['polyphony']==0 for v in loaded['voices'].values())
+
+
+def test_note_clarity_keeps_an_audible_fundamental():
+    from synth_lattice_sound import struck_tone
+    age=np.arange(RATE)/RATE
+    for voice in ('strum','steps'):
+        settings=dict(color_wave_sound()['voices'][voice],decay=.5,clarity=1.)
+        tone=struck_tone(age,220.,voice,settings)
+        spectrum=np.abs(np.fft.rfft(tone*np.hanning(len(tone))))
+        assert np.argmax(spectrum)==220
+        assert np.isfinite(tone).all()
+        electronic=struck_tone(age,220.,voice,dict(settings,character=0.))
+        assert np.sqrt(np.mean((tone-electronic)**2))>.01
+
+
+def test_sustain_limit_releases_old_notes_without_moving_attacks():
+    from synth_lattice_sound import articulate_notes
+    seq=rhythmic_study();config=seq['generated_sound'];notes=color_notes(visual_signals(seq),config)
+    limited=articulate_notes(notes,config,20.,True)
+    assert [n['time'] for n in notes]==[n['time'] for n in limited]
+    for voice in ('strum','steps'):
+        group=[n for n in limited if n['voice']==voice]
+        for current,nxt in zip(group,group[1:]):
+            assert current['gate']==pytest.approx(nxt['time']-current['time'])
+            assert current['duration']<=current['gate']+.02+1e-10
+    # Repeated-cycle boundary includes the same smooth release policy.
+    short=articulate_notes([n for n in notes if n['time']<5],config,5.,True)
+    last=next(n for n in reversed(short) if n['voice']=='strum')
+    first=next(n for n in short if n['voice']=='strum')
+    assert last['gate']==pytest.approx(first['time']+5-last['time'])

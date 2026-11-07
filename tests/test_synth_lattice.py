@@ -98,3 +98,17 @@ def test_reframing_preserves_cell_proportions_and_anchor():
 def test_new_source_is_disabled_in_all_existing_curated_presets():
     for preset in curated_presets().values():
         assert not next(m for m in preset['modules'] if m['id']=='chromatic_lattice')['enabled']
+
+
+@pytest.mark.parametrize('wave',[0,1,2])
+def test_musical_color_and_size_phrase_close_together(wave):
+    from synth_lattice import phrase_period
+    arr=np.zeros((128,72,3),np.float32)
+    preset=dict(default_synth_preset(),width=72,height=128,speed=1.)
+    p=dict(defaults(),color_rhythm=1,bpm=96.,phrase_bars=2,wave_shape=wave,grain=0)
+    assert phrase_period(p)==5.
+    for t in (0.,.4,1.8,3.4,4.9):
+        a=render_chromatic_lattice(arr,p,t,preset)
+        assert np.max(np.abs(a-render_chromatic_lattice(arr,p,t+5,preset)))<1e-4
+        fast=render_chromatic_lattice(arr,dict(p,bpm=192.),t/2,preset)
+        assert np.max(np.abs(a-fast))<1e-4

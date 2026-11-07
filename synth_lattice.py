@@ -28,6 +28,9 @@ def modules(Module, P):
         P('angle', 'Band angle', 45., -180, 180, 1, 'Direction used by Parallel bands.'),
         P('pulse', 'Pulse depth', 1., 0, 1, .01, 'Zero holds every cell at Maximum size; color can keep moving.'),
         P('palette', 'Palette', 0, 0, 3, 1, choices=('Neon spectrum', 'Ember / rose', 'Lagoon / violet', 'Pearl / silver')),
+        P('color_rhythm', 'Color timing', 0, 0, 1, 1, 'Musical phrase locks color changes and size pulses to one repeating beat cycle.', choices=('Free optical', 'Musical phrase')),
+        P('bpm', 'Tempo (BPM)', 96., 30, 240, 1, 'Tempo at global speed 1. Applies in Musical phrase mode; generated notes follow the same clock.'),
+        P('phrase_bars', 'Phrase length (4/4 bars)', 2, 1, 4, 1, 'At 96 BPM, two bars take five seconds. Opening, color steps and return repeat together.'),
         P('color_period', 'Color cycle', 10., 1, 60, .1),
         P('color_phase', 'Color phase', 0., 0, 1, .01),
         P('color_spread', 'Color wave depth', .8, 0, 2, .01, 'Spread color changes from the center through neighboring cells.'),
@@ -82,17 +85,49 @@ def wave_distance(x,y,p):
 
 def pulse_size(distance, seconds, p):
     direction=1. if p['direction']==0 else -1.
-    wave=np.abs(np.sin(np.pi*(distance/p['wavelength']+direction*seconds/p['period']+p['phase'])))
+    if p.get('color_rhythm',0):seconds=np.round(np.mod(seconds,phrase_period(p)),12)
+    period=phrase_period(p)/2 if p.get('color_rhythm',0) else p['period']
+    phase=p['phase']+(2*p['color_phase'] if p.get('color_rhythm',0) else 0.)
+    wave=np.abs(np.sin(np.pi*(distance/p['wavelength']+direction*seconds/period+phase)))
     return 1-p['pulse']+p['pulse']*(p['minimum']+(1-p['minimum'])*wave)
 
 
-def color_wave_phase(distance, clock, p):
+def phrase_period(p):
+    return 240*p.get('phrase_bars',2)/p.get('bpm',96.) if p.get('color_rhythm',0) else p['color_period']
+
+
+def phrase_levels(p,preset):
+    """Fixed visible distance span, at artwork size, independent of pulse phase."""
+    w,h=preset['width'],preset['height'];(cx,cy),spacing,_=lattice_frame(p,(w,h),preset)
+    radius=.5*p['size']
+    x=np.arange(np.ceil(-cx/spacing-radius),np.floor((w-cx)/spacing+radius)+1)
+    y=np.arange(np.ceil(-cy/spacing-radius-.5),np.floor((h-cy)/spacing+radius-.5)+1)+.5
+    if not len(x) or not len(y):return 1
+    return int(np.floor(np.max(np.abs(wave_distance(*np.meshgrid(x,y),p)))+1e-8))+1
+
+
+def color_wave_phase(distance, clock, p, levels=16):
     """Unwrapped optical phase shared with the color-wave instrument."""
+    if p.get('color_rhythm',0):
+        # A fixed score: rapid opening, slower cascade, then a smooth reset.
+        # Power-of-two slots put every ring on subdivisions of the same beat.
+        slots=2**int(np.ceil(np.log2(max(1,levels))))
+        rank=np.floor(np.abs(distance)+1e-8)
+        opening=(.125+rank/slots)/8
+        steps=(2+rank*4/slots)/8
+        opening_width=.1/8;step_width=.16/8
+        a=opening-opening_width/2;b=opening+opening_width/2
+        c=steps-step_width/2;d=steps+step_width/2
+        local=np.round(np.mod(clock,1),12)
+        ramp=lambda lo,hi:np.clip((local-lo)/(hi-lo),0,1)
+        phase=(.12*ramp(a,b)+.20*ramp(b,c)+.06*ramp(c,d)
+               +.16*ramp(d,.75)+.08*ramp(.75,.875)+.38*ramp(.875,1.))
+        return np.floor(clock)+phase
     return clock+p['color_spread']*.7*np.sin(2*np.pi*clock)*np.exp(-np.abs(distance)*.55)
 
 
-def cell_colors(distance, clock, p):
-    cycle=np.mod(color_wave_phase(distance,clock,p),1)
+def cell_colors(distance, clock, p, levels=16):
+    cycle=np.mod(color_wave_phase(distance,clock,p,levels),1)
     stops=np.array((0.,.12,.32,.38,.54,.62,1.))
     moods=np.array((0,1,1,2,2,0,0))
     index=np.clip(np.searchsorted(stops,cycle,side='right')-1,0,len(stops)-2)
@@ -115,7 +150,7 @@ def _blur(arr, radius):
     return np.asarray(Image.fromarray(np.uint8(np.clip(arr,0,1)*255)).filter(ImageFilter.GaussianBlur(radius)),dtype=np.float32)/255
 
 
-def _cell_surface(p, t, center, spacing, w, top, bottom):
+def _cell_surface(p, t, center, spacing, w, top, bottom, levels=16):
     y,x=np.mgrid[top:bottom,:w].astype(np.float32)
     # Odd columns and half-cell rows match the reference composition. This
     # origin stays fixed when extending the canvas around the artwork.
@@ -141,8 +176,8 @@ def _cell_surface(p, t, center, spacing, w, top, bottom):
     mask*=radius>.01
     # Slow color interference moves through the fixed grid. Each cell carries
     # a bent spectral band with a consistent cool-to-warm light direction.
-    clock=t/p['color_period']+p['color_phase']
-    colors=cell_colors(distance,clock,p)
+    clock=t/phrase_period(p)+p['color_phase']
+    colors=cell_colors(distance,clock,p,levels)
     curved=np.clip(.43+p['gradient']*((v-u)*.45-.22*(u*u+v*v)),0,1)
     curved=np.clip((curved-.20)/.62,0,1)
     segment=curved>=.5
@@ -165,10 +200,11 @@ def render_chromatic_lattice(arr,p,seconds,preset):
     h,w=arr.shape[:2]
     center,spacing,unit=lattice_frame(p,(w,h),preset)
     t=float(seconds)*preset.get('speed',1.)
+    levels=phrase_levels(p,preset) if p.get('color_rhythm',0) else 16
     # Bound intermediate color/shading arrays even on a 4K canvas.
     surface=np.empty_like(arr,dtype=np.float32)
     for top in range(0,h,128):
-        surface[top:top+128]=_cell_surface(p,t,center,spacing,w,top,min(h,top+128))
+        surface[top:top+128]=_cell_surface(p,t,center,spacing,w,top,min(h,top+128),levels)
     if p['softness']: surface=_blur(surface,p['softness']*unit)
     if p['glow']: surface+=_blur(surface,p['glow_radius']*unit)*p['glow']
     result=np.full_like(arr,p['background'])+surface*p['light']

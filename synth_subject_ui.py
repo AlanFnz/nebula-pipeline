@@ -14,7 +14,7 @@ from synth_fonts import variable_weight
 OBJECT_PATHS = {
     'pleated': EFFECT_BY_ID['pleated_field'].paths,
     'memory': tuple('image_memory.'+key for key in ('persistence','drift','dissolve','trail_opacity','shape','size','sides','path','travel','amplitude_x','amplitude_y','period','variation','palette')),
-    'lattice': tuple('chromatic_lattice.'+key for key in ('shape','sides','spacing','size','minimum','rotation','wave_shape','wavelength','period','phase','direction','angle','pulse','palette','color_period','color_phase','color_spread','gradient','saturation','light','rim','softness','glow','glow_radius','grain','background')),
+    'lattice': tuple('chromatic_lattice.'+key for key in ('shape','sides','spacing','size','minimum','rotation','wave_shape','wavelength','color_rhythm','bpm','phrase_bars','period','phase','direction','angle','pulse','palette','color_period','color_phase','color_spread','gradient','saturation','light','rim','softness','glow','glow_radius','grain','background')),
     'solid': tuple('solid.'+key for key in ('shape','model_data','height_stretch','scale','yaw','pitch','roll','turn_speed','tumble_speed','roll_speed','variation','perspective','corner_radius','material','roughness','specular','glass_transmission','glass_refraction','pip_size','pip_light','pip_depth','palette','shading','light')),
     'prismatic': tuple('prismatic_field.'+key for key in ('shape','sides','center_shape','size','gather','opening','fold_depth','rotation','transition_ease','turn_settle','palette','wash','saturation','light')),
     'radial': tuple('radial_bloom.'+key for key in ('expansion','petals','detail','branching','flow','variation','center_drift','palette','light')),
@@ -180,7 +180,7 @@ class SubjectPanel(QWidget):
                  'signal': 'The luminous form and ray aperture share this geometry.',
                  'none': 'Choose an object to introduce a source into the scene.'}
         notes['memory'] = 'Persistence holds past positions; Drift carries the traces away; Dissolution erodes old silhouettes. This object generates its own history. Source controls opens trace direction, expansion, color aging and optical finish.'
-        notes['lattice'] = 'A fixed grid with traveling waves of size and color. Choose the cell shape, wave geometry and palette. Pulse period controls size movement; Color cycle controls color movement. Glow and softness shape the optical finish.'
+        notes['lattice'] = 'A fixed grid with traveling waves of size and color. Color timing can follow the free optical cycle or a Musical phrase with one tempo for size, color and generated notes. Glow and softness shape the optical finish.'
         notes['pleated'] = 'Raised folds with an animated camera and mirrored views. Change the profile, relief, palette or field outline here. Color emulsion and Screen mesh add the filmed texture separately.'
         notes['solid'] = 'A die, cube or imported GLB/glTF model rotating around its center. Adjust rounded corners, material, reflections, pose, rotation speeds and dots here. Imported models use static geometry and the studio material. Color field controls the background; Color emulsion textures both together.'
         note = f'{notes[self.kind]} Changes apply to {scope}.'
@@ -255,6 +255,11 @@ class SubjectPanel(QWidget):
             self.controls['chromatic_lattice.sides'].setVisible(shape[0]!=shape[1] or shape[0]==3)
             wave=ranges['chromatic_lattice.wave_shape']
             self.controls['chromatic_lattice.angle'].setVisible(wave[0]!=wave[1] or wave[0]==2)
+            rhythm=ranges['chromatic_lattice.color_rhythm']
+            for key in ('bpm','phrase_bars'):
+                self.controls['chromatic_lattice.'+key].setVisible(rhythm[0]!=rhythm[1] or rhythm[0]==1)
+            for key in ('period','color_period','color_spread'):
+                self.controls['chromatic_lattice.'+key].setVisible(rhythm[0]!=rhythm[1] or rhythm[0]==0)
         if self.kind == 'solid':
             hidden = hidden_solid_controls(summary['solid']['ranges'])
             for path, control in self.controls.items():

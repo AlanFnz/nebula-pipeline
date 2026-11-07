@@ -22,14 +22,18 @@ class ColorWaveControls(QWidget):
             controls={'pitch':pitch,'scale':scale}
             for fields in ((('span','Range',12,48,1,' st'),('decay','Decay',150,3000,10,' ms')),
                            (('brightness','Brightness',0,100,1,' %'),('character','Timbre morph',0,100,1,' %')),
+                           (('clarity','Note clarity',0,100,1,' %'),('polyphony','Sustain voices',0,8,1,'')),
                            (('trigger','Color transition point',5,95,1,' %'),)):
                 row=QHBoxLayout();column.addLayout(row)
                 for field,label,lo,hi,step,suffix in fields:
-                    knob=SoundKnob(label,lo,hi,step,suffix);row.addWidget(knob);controls[field]=knob
+                    knob=SoundKnob(label,lo,hi,step,suffix,integer=field=='polyphony');row.addWidget(knob);controls[field]=knob
                     knob.number.setAccessibleName(title+' '+label);knob.dial.setAccessibleName(title+' '+label+' knob')
             controls['span'].setToolTip('Spread the visible levels across this pitch range, snapped to the chosen scale.')
             controls['trigger'].setToolTip('Where in each color transition its note starts. 50% follows the midpoint. This changes sound timing, not the picture.')
             controls['character'].setToolTip('Morph from plucked or struck partials at 0% to an evolving electronic FM tone at 100%. Opening is metallic and elastic; Color steps is hollow and glassy.')
+            controls['clarity'].setToolTip('Bring the fundamental forward and tune the electronic partials to harmonic ratios. Keeps the synthetic timbre while making the scale easier to hear.')
+            controls['polyphony'].number.setSpecialValueText('Unlimited')
+            controls['polyphony'].setToolTip('Number of notes that can sustain in this voice. Older notes release smoothly as new ones arrive; attack timing stays connected to the image. Zero preserves unlimited overlap.')
             self.voices[key]=controls;column.addStretch()
         row=QHBoxLayout();layout.addLayout(row)
         self.level=SoundKnob('Master level',0,100,1,' %');self.width=SoundKnob('Stereo spread',0,100,1,' %')
@@ -41,15 +45,15 @@ class ColorWaveControls(QWidget):
         for key,controls in self.voices.items():
             v=value['voices'][key];controls['pitch'].load(v['pitch'],v['pitch_mode'])
             controls['scale'].setCurrentIndex(controls['scale'].findData(v['scale']))
-            for field in ('span','decay','brightness','character','trigger'):
-                factor=1000 if field=='decay' else 1 if field=='span' else 100
+            for field in ('span','decay','brightness','character','trigger','clarity','polyphony'):
+                factor=1000 if field=='decay' else 1 if field in ('span','polyphony') else 100
                 controls[field].setValue(v[field]*factor)
 
     def config(self):
         value=color_wave_sound();value.update(gain=self.level.value()/100,width=self.width.value()/100,seamless_loop=self.loop.isChecked())
         for key,controls in self.voices.items():
             v=value['voices'][key];v.update(pitch=controls['pitch'].value(),pitch_mode=controls['pitch'].tuning(),scale=controls['scale'].currentData())
-            for field in ('span','decay','brightness','character','trigger'):
-                factor=1000 if field=='decay' else 1 if field=='span' else 100
+            for field in ('span','decay','brightness','character','trigger','clarity','polyphony'):
+                factor=1000 if field=='decay' else 1 if field in ('span','polyphony') else 100
                 v[field]=controls[field].value()/factor
         return value

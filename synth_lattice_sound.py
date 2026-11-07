@@ -21,9 +21,9 @@ def color_wave_sound():
                 connections={key:dict(enabled=True,amount=amount) for key,_,amount in CONNECTIONS},
                 voices={
                     'strum':dict(pitch=82.4069,pitch_mode='note',scale='minor',span=24,
-                                 decay=1.15,brightness=.65,character=.86,trigger=.5),
+                                 decay=.22,brightness=.65,character=.86,trigger=.5,clarity=1.,polyphony=1),
                     'steps':dict(pitch=164.8138,pitch_mode='note',scale='minor',span=24,
-                                 decay=1.45,brightness=.55,character=.78,trigger=.5)},
+                                 decay=.32,brightness=.55,character=.78,trigger=.5,clarity=1.,polyphony=1)},
                 mixer=mixer_defaults())
 
 
@@ -52,6 +52,12 @@ def normalize_color_wave(raw):
         if not isinstance(r,dict) or not isinstance(link,dict):raise ValueError('Invalid color-wave voice')
         for field,lo,hi in (('pitch',40,880),('span',12,48),('decay',.15,3.),('brightness',0,1),('character',0,1),('trigger',.05,.95)):
             v[field]=number(r.get(field,v[field]),field,lo,hi)
+        # Existing v4 documents retain their original spectral/overlap behavior.
+        v['clarity']=number(r.get('clarity',0.),'Note clarity',0,1)
+        count=r.get('polyphony',0)
+        if isinstance(count,bool) or not isinstance(count,(int,float)) or not math.isfinite(count) or count!=int(count) or not 0<=count<=8:
+            raise ValueError('Sustain voices must be an integer between 0 and 8')
+        v['polyphony']=int(count)
         for field,choices in (('pitch_mode',('hz','note')),('scale',SCALES)):
             v[field]=r.get(field,v[field])
             if v[field] not in choices:raise ValueError(f'Choose a supported {field}')
@@ -63,7 +69,7 @@ def normalize_color_wave(raw):
 
 
 def lattice_sample(p,seconds,preset):
-    from synth_lattice import lattice_frame,wave_distance,pulse_size,color_wave_phase
+    from synth_lattice import lattice_frame,wave_distance,pulse_size,color_wave_phase,phrase_period,phrase_levels
     w,h=preset['width'],preset['height']
     (cx,cy),spacing,_=lattice_frame(p,(w,h),preset)
     ix=np.arange(math.ceil(-cx/spacing-.5),math.floor((w-cx)/spacing+.5)+1)
@@ -75,12 +81,13 @@ def lattice_sample(p,seconds,preset):
     visible=((cx+x*spacing+radii*spacing)>0)&((cx+x*spacing-radii*spacing)<w)
     visible&=((cy+y*spacing+radii*spacing)>0)&((cy+y*spacing-radii*spacing)<h)
     result={}
+    level_count=phrase_levels(p,preset) if p.get('color_rhythm',0) else 16
     for level in np.unique(levels):
         members=(levels==level)&visible
         if not members.any():continue
         # Curved/band waves group cells into one-cell-wide distance intervals.
         d=float(np.mean(distance[members]));area=float(np.mean(radii[members]**2))*4
-        phase=float(color_wave_phase(d,t/p['color_period']+p['color_phase'],p))
+        phase=float(color_wave_phase(d,t/phrase_period(p)+p['color_phase'],p,level_count))
         result[int(level)]=(phase,area*p['mix']*min(1.,p['light']))
     return result
 
@@ -149,9 +156,9 @@ def color_activity(signals,config):
 
 def struck_tone(age,hz,voice,settings,partial_cache=None):
     """Morph damped partials into evolving FM tones, with smooth attacks/tails."""
-    t=np.maximum(age,0);brightness=settings['brightness'];decay=settings['decay'];character=settings['character']
+    t=np.maximum(age,0);brightness=settings['brightness'];decay=settings['decay'];character=settings['character'];clarity=settings.get('clarity',0.)
     harmonic=np.arange(1,19)
-    stretch=(.000035 if voice=='steps' else .000003)*(1+2*character)
+    stretch=(.000035 if voice=='steps' else .000003)*(1+2*character)*(1-clarity)
     frequency=hz*harmonic*np.sqrt(1+stretch*harmonic*harmonic)
     keep=frequency<RATE*.45;harmonic=harmonic[keep];frequency=frequency[keep]
     if voice=='strum':
@@ -160,28 +167,46 @@ def struck_tone(age,hz,voice,settings,partial_cache=None):
     else:
         amplitude=np.where(harmonic==1,1.,.8)/(harmonic**(1.15+.8*(1-brightness)))
         damping=(.55+harmonic*(.10+.22*(1-brightness)))/decay
-    key=(hz,voice,character,float(age[0]),len(age))
+    key=(hz,voice,character,clarity,float(age[0]),len(age))
     wave=partial_cache.get(key) if partial_cache is not None else None
     if wave is None:
         phase=np.outer(math.tau*frequency,t)
-        beat=1+np.where(harmonic%2,1,-1)*.0007
+        beat=1+np.where(harmonic%2,1,-1)*.0007*(1-clarity)
         wave=.78*np.sin(phase)+.22*np.sin(phase*beat[:,None])
         if partial_cache is not None:partial_cache[key]=wave
     result=np.sum(amplitude[:,None]*np.exp(-np.outer(damping,t))*wave,axis=0)
     # The visual gesture defines the note order, not an acoustic instrument.
     # Higher morph settings use a closing FM spectrum: an elastic, metallic
     # opening and a hollow/glassy second voice, both retaining a pitched core.
-    carrier=math.tau*hz*t;ratio=2.005 if voice=='strum' else 3.005
+    carrier=math.tau*hz*t;ratio=(2. if voice=='strum' else 3.)+.005*(1-clarity)
     depth=(1.2+4.5*brightness)*np.exp(-t/(decay*(.16+.22*brightness)))
     depth=np.minimum(depth,max(0.,(RATE*.42/hz-1)/ratio-1))
     modulation=depth*np.sin(carrier*ratio)
-    synth=(.82*np.sin(carrier+modulation)+.18*np.sin(carrier*1.0015+modulation*.7))
+    synth=(.82*np.sin(carrier+modulation)+.18*np.sin(carrier*(1+.0015*(1-clarity))+modulation*.7))
     synth*=1.12*np.exp(-t*.55/decay)
     result=result*(1-character)+synth*character
+    fundamental=1.12*np.sin(carrier)*np.exp(-t*.55/decay)
+    result=result*(1-.55*clarity)+fundamental*(.55*clarity)
     attack=.003 if voice=='strum' else .007
     a=np.clip(t/attack,0,1);a=a*a*(3-2*a)
     tail=np.clip((6*decay-t)/.04,0,1);tail=tail*tail*(3-2*tail)
     return result*a*tail*(age>=0)
+
+
+def articulate_notes(notes,config,period,looping):
+    """Limit overlapping tails without changing any visual attack time."""
+    result=[]
+    for key,settings in config['voices'].items():
+        voice=[n for n in notes if n['voice']==key and n['time']<period]
+        count=settings.get('polyphony',0)
+        for i,note in enumerate(voice):
+            n=dict(note,duration=6*settings['decay'])
+            if count and (looping or i+count<len(voice)):
+                at=i+count
+                end=voice[at%len(voice)]['time']+(at//len(voice))*period
+                n['gate']=end-note['time'];n['duration']=min(n['duration'],n['gate']+.02)
+            result.append(n)
+    return sorted(result,key=lambda n:(n['time'],n['level']))
 
 
 class ColorWaveVoice:
@@ -190,9 +215,9 @@ class ColorWaveVoice:
         from synth_sound_loop import cyclic_notes
         self.config=config;self.signals=signals;self.total=round(sequence['duration']*RATE)
         self.looping=config['seamless_loop'];self.states=[];self.mixer=make_mixer(config)
-        self.notes=color_notes(signals,config)
-        if self.looping:self.notes=cyclic_notes(self.notes,self.total/RATE,lambda n:6*config['voices'][n['voice']]['decay'])
-        self.starts=np.array([n['time'] for n in self.notes]);self.max_tail=6*max(v['decay'] for v in config['voices'].values())
+        self.notes=articulate_notes(color_notes(signals,config),config,self.total/RATE,self.looping)
+        if self.looping:self.notes=cyclic_notes(self.notes,self.total/RATE,lambda n:n['duration'])
+        self.starts=np.array([n['time'] for n in self.notes]);self.max_tail=max((n['duration'] for n in self.notes),default=0.)
         has_eq=any(any(c is not None for c in channel.coefficients) for channel in self.mixer.values())
         if warm_loop and self.looping and has_eq:self.render(-round(.75*RATE),round(.75*RATE))
 
@@ -210,8 +235,11 @@ class ColorWaveVoice:
         lo=np.searchsorted(self.starts,t[0]-self.max_tail);hi=np.searchsorted(self.starts,t[-1],side='right')
         for note in self.notes[lo:hi]:
             key=note['voice'];v=c['voices'][key];age=t-note['time']
-            if age[0]>6*v['decay']:continue
+            if age[0]>note['duration']:continue
             tone=struck_tone(age,v['pitch']*2**(note['semitones']/12),key,v,tone_cache)
+            if 'gate' in note:
+                release=np.clip((note['gate']+.02-age)/.02,0,1)
+                tone*=release*release*(3-2*release)
             tone*=.14*note['velocity']*c['connections'][key]['amount']
             pan=note['pan']*c['width']
             channels[key][:,0]+=tone*math.sqrt((1-pan)*.5);channels[key][:,1]+=tone*math.sqrt((1+pan)*.5)

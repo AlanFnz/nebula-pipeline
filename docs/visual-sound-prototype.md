@@ -1,5 +1,35 @@
 # Visual sound / Pleated signal and Chromatic lattice
 
+## Musical phrasing and note clarity (0.67.0)
+
+In **Object → Motion & timing**, Chromatic lattice has **Color timing**:
+Free optical preserves the existing interference motion; Musical phrase uses
+**Tempo (BPM)** and **Phrase length (4/4 bars)**. The free pulse/color periods and
+color-wave depth are hidden in the object overview when musical timing is active.
+At global speed 1, 96 BPM and two bars produce a five-second visual/audio cycle.
+Source speed or authored time remapping scales both together.
+
+The musical phrase has a quick opening near the first beat, a slower outward
+color cascade starting on beat 3, then an orange-to-pink return across beats 7–8.
+Two size pulses fit each phrase. Color phases advance monotonically, so optical
+interference cannot retrigger notes. The canonical canvas determines the number
+of wave levels; power-of-two subdivisions keep their attacks on the same grid
+at any preview resolution. The return is unvoiced. Grain and finishing effects
+keep their own texture cadence; this repeats the gesture, not a frozen noise map.
+
+**Generate sound → Sound** adds **Note clarity** and **Sustain voices** for each
+voice. Clarity 100% reinforces the fundamental, removes partial stretch/detuning
+and uses integer FM ratios while retaining the evolving electronic spectrum.
+Sustain voices limits how many notes keep ringing; older notes receive a smooth
+20 ms release. Attack times are never quantized separately from the image.
+Unlimited restores the original overlap. New instrument defaults use 220/320 ms
+decays and one sustained note per voice. Old v4 documents that omit these fields
+load with clarity 0% and unlimited sustain, preserving their original sound.
+
+The separate Chromatic Pulse rhythmic user variant retains its polygon cells,
+CRT and emulsion treatments. Minimum cell size is 22% to keep the color gesture
+visible through contraction. Four complete phrases fill its existing 20 seconds.
+
 ## Color-wave instrument (0.66.0)
 
 Chromatic lattice projects now enable **Generate sound…**. The version-4

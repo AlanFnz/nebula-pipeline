@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.67.0 — 2026-11-07
+
+- Add opt-in Musical phrase timing to Chromatic lattice. Tempo and 4/4 phrase
+  length drive both color transitions and size pulses. Each cycle has an evenly
+  spaced opening, slower ascending color steps and a smooth return; generated
+  sound follows those same visual crossings. Free optical timing is unchanged.
+- Add Note clarity and Sustain voices to the color-wave synthesizer. Clarity
+  reinforces the fundamental and brings FM/partials into harmonic relationships;
+  sustain limits release older notes smoothly without moving their attacks.
+  New sounds use shorter decays and a single sustained voice per sequence.
+  Saved v4 sounds without these controls retain their original tone and overlap.
+- Keep the original Chromatic Pulse study intact; the authored rhythmic variant
+  is a separate user document, with four five-second phrases at 96 BPM.
+
 ## 0.66.0 — 2026-11-07
 
 - Extend Generate sound to Chromatic lattice with a separate version-4 color-wave
