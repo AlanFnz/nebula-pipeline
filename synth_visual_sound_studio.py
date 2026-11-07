@@ -55,7 +55,14 @@ class LiveSignalsJob(QRunnable):
         self.cancel=Cancellation();self.signals=SoundSignals()
 
     def run(self):
-        try: self.signals.done.emit(visual_signals(self.sequence,self.cancel))
+        try:
+            signals=visual_signals(self.sequence,self.cancel)
+            config=self.sequence.get('generated_sound',{})
+            if config.get('version')==4:
+                from synth_lattice_sound import ColorWaveVoice
+                # Prime the room on the preparation worker, before Listen.
+                ColorWaveVoice(self.sequence,config,signals,cancel=self.cancel)
+            self.cancel.check();self.signals.done.emit(signals)
         except Exception as exc: self.signals.failed.emit(str(exc))
 
 

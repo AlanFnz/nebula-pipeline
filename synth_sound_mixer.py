@@ -10,17 +10,17 @@ BANDS = (('low', 'Low', 120., 40., 600.),
          ('high', 'High', 4000., 1000., 16000.))
 
 
-def mixer_defaults():
+def mixer_defaults(channels=CHANNELS):
     return {key: dict(level_db=0., mute=False, solo=False, eq_enabled=True,
                      **{field: value for band, _, hz, _, _ in BANDS
                         for field, value in ((band+'_db', 0.), (band+'_hz', hz))})
-            for key, _ in CHANNELS}
+            for key, _ in channels}
 
 
-def normalize_mixer(raw, number):
-    defaults = mixer_defaults()
+def normalize_mixer(raw, number, channels=CHANNELS):
+    defaults = mixer_defaults(channels)
     if not isinstance(raw, dict) or set(raw) != set(defaults):
-        raise ValueError('Mixer needs Drone and Arpeggio channels')
+        raise ValueError('Mixer needs '+', '.join(title for _,title in channels)+' channels')
     for key, channel in defaults.items():
         entry = raw[key]
         if not isinstance(entry, dict): raise ValueError('Invalid mixer channel')

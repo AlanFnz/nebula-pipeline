@@ -13,9 +13,10 @@ class SoundMixer(QWidget):
         layout = QVBoxLayout(self); layout.setContentsMargins(0, 0, 0, 0)
         hint = QLabel('Balance the Drone and Arpeggio. Each has its own EQ. Both then pass through the shared Drive and visual Filter in Sound.')
         hint.setWordWrap(True); layout.addWidget(hint);self.hint=hint;self.default_hint=hint.text()
-        strips = QHBoxLayout(); layout.addLayout(strips); self.channels = {};self.boxes={}
-        for key, title in CHANNELS:
-            box = QGroupBox(title); column = QVBoxLayout(box); strips.addWidget(box, 1)
+        strips = QGridLayout(); layout.addLayout(strips); self.channels = {};self.boxes={};self.color_wave=False
+        for index,(key, title) in enumerate((*CHANNELS,('pad','Root pad'))):
+            box = QGroupBox(title); column = QVBoxLayout(box)
+            strips.addWidget(box,index//2,index%2,1,2 if key=='pad' else 1)
             self.boxes[key]=box
             controls = {}; top = QHBoxLayout(); column.addLayout(top)
             level = SoundKnob('Level', -60, 6, .5, ' dB'); controls['level_db'] = level
@@ -42,9 +43,11 @@ class SoundMixer(QWidget):
             column.addStretch(); self.channels[key] = controls
         foot = QLabel('0 dB = unchanged · Solo isolates a channel · EQ off keeps your settings. Channel controls are saved and exported; Listen level below only changes monitoring.')
         foot.setWordWrap(True); layout.addWidget(foot); layout.addStretch()
+        self.boxes['pad'].hide()
 
     def set_color_wave(self,active):
-        self.hint.setText('Balance Opening and Color steps. Each has independent level, Mute, Solo and EQ.' if active else self.default_hint)
+        self.color_wave=active;self.boxes['pad'].setVisible(active)
+        self.hint.setText('Balance Opening, Color steps and Root pad. Each has independent level, Mute, Solo and EQ. Reverb sends follow these channel levels.' if active else self.default_hint)
         for key,title in (('body','Opening' if active else 'Drone'),('arpeggio','Color steps' if active else 'Arpeggio')):
             self.boxes[key].setTitle(title)
             self.channels[key]['level_db'].setToolTip('Independent channel level after EQ.' if active else 'Channel level before the shared Drive and Filter. 0 dB preserves the original balance. Use Mute for silence.')
@@ -55,10 +58,11 @@ class SoundMixer(QWidget):
 
     def load(self, config):
         for key, controls in self.channels.items():
+            if key not in config:continue
             for field, control in controls.items():
                 if isinstance(control, QCheckBox): control.setChecked(config[key][field])
                 else: control.setValue(config[key][field])
 
     def config(self):
         return {key: {field: control.isChecked() if isinstance(control, QCheckBox) else control.value()
-                      for field, control in controls.items()} for key, controls in self.channels.items()}
+                      for field, control in controls.items()} for key, controls in self.channels.items() if key!='pad' or self.color_wave}

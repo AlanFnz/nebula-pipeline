@@ -31,7 +31,8 @@ class LiveInstrument:
         if config['version']==4:
             from synth_lattice_sound import ColorWaveVoice
             factory=ColorWaveVoice
-        voice=factory(self.sequence,copy.deepcopy(config),self.signals,warm_loop=warm)
+        options={'warm_cache_only':True} if config['version']==4 else {}
+        voice=factory(self.sequence,copy.deepcopy(config),self.signals,warm_loop=warm,**options)
         # Reconstruct a short filter history after a seek or a parameter change.
         history=min(self.position,round(RATE*.08)) if warm else 0
         if history: voice.render(self.position-history,history)
@@ -51,6 +52,7 @@ class LiveInstrument:
                 self.voice.states=list(self.old.states);self.fade=0
                 for key, channel in self.voice.mixer.items():
                     channel.inherit(self.old.mixer[key])
+                if hasattr(self.voice,'inherit'):self.voice.inherit(self.old)
         tones={} if self.old is not None else None
         output=self.voice.render(self.position,length,tone_cache=tones)
         if self.old is not None:

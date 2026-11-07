@@ -1,5 +1,40 @@
 # Visual sound / Pleated signal and Chromatic lattice
 
+## Analog ensemble and root pad (0.68.0)
+
+Each color-wave voice has an **Engine** selector in Generate sound → Sound.
+**Analog ensemble** replaces the struck-partial/FM oscillator with a band-limited
+saw/pulse bank. Controls cover waveform blend, 1–5 unison oscillators, detune,
+sub oscillator, cutoff, resonance, filter-envelope depth, attack and saturation.
+The existing scale, pitch, decay, sustain limit and visual triggers still apply.
+Original partials/FM remains available and is the fallback for older documents.
+
+**Pad & space** contains a quiet sustained root layer. Follow opening root tracks
+the opening voice's tuning; disabling it exposes an independent Hz/note root.
+Octave changes its register without introducing a chord. The pad combines root
+and octave layers with slow filter/oscillator motion. Its channel in **Mixer**
+has level, mute, solo and the same independent EQ as the two note voices.
+
+Shared stereo chorus uses modulated delays. Reverb uses eight damped feedback
+combs and four allpass diffusers; each note voice and the pad has its own send.
+Mixer gain/EQ precede sends. Reverb decay and damping live in Pad & space.
+The sound is inspired by analog ensembles, not a circuit model of Juno or Moog.
+
+DSP lives in the reusable `synth_sound_analog.py`, separate from visual analysis.
+Cached band-limited spectral tables interpolate oscillator phase and filter
+cutoff. Delay processing uses bounded packets; live and offline paths share it.
+Looped pad frequencies and LFOs use whole timeline cycles (a tiny tuning change).
+Export prerolls the room; live preparation caches its state before Listen, and
+knob edits transfer delay history during the existing 40 ms crossfade. A fresh
+unprepared draft blooms into its room rather than blocking the audio producer.
+All controls are serialized and included in sound history. Legacy v4 documents
+default to partials, no pad and zero chorus/reverb; earlier instruments retain
+their two-channel mixer and their existing synthesis.
+
+The separate **Chromatic Pulse — analog sky** user document keeps the exact
+visuals and 96 BPM phrasing from rhythmic sound v02. Its two analog voices use
+moderate detuning and filter envelopes, with a quiet octave-root pad behind them.
+
 ## Musical phrasing and note clarity (0.67.0)
 
 In **Object → Motion & timing**, Chromatic lattice has **Color timing**:

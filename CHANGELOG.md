@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.68.0 — 2026-11-07
+
+- Add an optional Analog ensemble engine to each color-wave voice: band-limited
+  saw/pulse oscillators, unison, detune, sub oscillator, a moving resonant spectral
+  lowpass, soft saturation and adjustable attack. Visual note timing is unchanged.
+- Add a sustained Root pad with root-following or independent tuning, octave,
+  brightness, motion and its own level, mute, solo and three-band EQ.
+- Add stereo chorus and a damped, diffused reverb bus, with independent sends from
+  Opening, Color steps and the pad. All new controls support live audition,
+  undo/redo, project save and native export.
+- Prepare looped room tails before playback, transfer ambience state across live
+  edits and use cached spectral tables to keep the richer instrument responsive.
+- Original partials/FM sounds remain available; saved studies without the new
+  fields load with pad, chorus and reverb off, preserving their previous output.
+
 ## 0.67.0 — 2026-11-07
 
 - Add opt-in Musical phrase timing to Chromatic lattice. Tempo and 4/4 phrase
