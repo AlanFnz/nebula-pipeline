@@ -14,7 +14,7 @@ class SoundMixer(QWidget):
         hint = QLabel('Balance the Drone and Arpeggio. Each has its own EQ. Both then pass through the shared Drive and visual Filter in Sound.')
         hint.setWordWrap(True); layout.addWidget(hint);self.hint=hint;self.default_hint=hint.text()
         strips = QGridLayout(); layout.addLayout(strips);self.strips=strips;self.channels = {};self.boxes={};self.color_wave=False
-        for index,(key, title) in enumerate((*CHANNELS,('pad','Root pad'),('wave','Wave sine'),('chimes','Chimes'))):
+        for index,(key, title) in enumerate((*CHANNELS,('pad','Root pad'),('wave','Wave sine'),('chimes','Chimes'),('choir','Choir'))):
             box = QGroupBox(title); column = QVBoxLayout(box)
             strips.addWidget(box,index//2,index%2)
             self.boxes[key]=box
@@ -51,15 +51,15 @@ class SoundMixer(QWidget):
             column.addStretch(); self.channels[key] = controls
         foot = QLabel('0 dB = unchanged · Solo isolates a channel · EQ off keeps your settings. Channel controls are saved and exported; Listen level below only changes monitoring.')
         foot.setWordWrap(True); layout.addWidget(foot); layout.addStretch()
-        self.boxes['pad'].hide();self.boxes['wave'].hide();self.boxes['chimes'].hide()
+        for key in ('pad','wave','chimes','choir'):self.boxes[key].hide()
 
     def set_color_wave(self,active):
         self.color_wave=active
-        for key in ('pad','wave','chimes'):self.boxes[key].setVisible(active)
-        order=('body','chimes','arpeggio','pad','wave') if active else tuple(self.boxes)
+        for key in ('pad','wave','chimes','choir'):self.boxes[key].setVisible(active)
+        order=('body','chimes','arpeggio','wave','pad','choir') if active else tuple(self.boxes)
         for box in self.boxes.values():self.strips.removeWidget(box)
         for index,key in enumerate(order):self.strips.addWidget(self.boxes[key],index//2,index%2)
-        self.hint.setText('Balance Opening, Color steps, Root pad, Wave sine and Chimes. Each has independent level, Mute, Solo and EQ. Chimes also has a high-pass filter; its sound controls are in the Chimes tab. Reverb sends follow channel levels.' if active else self.default_hint)
+        self.hint.setText('Balance Opening, Color steps, Root pad, Choir, Wave sine and Chimes. Each has independent level, Mute, Solo and EQ. Shape the voices in their tabs; reverb sends follow channel levels.' if active else self.default_hint)
         for key,title in (('body','Opening' if active else 'Drone'),('arpeggio','Color steps' if active else 'Arpeggio')):
             self.boxes[key].setTitle(title)
             self.channels[key]['level_db'].setToolTip('Independent channel level after EQ.' if active else 'Channel level before the shared Drive and Filter. 0 dB preserves the original balance. Use Mute for silence.')
@@ -78,4 +78,4 @@ class SoundMixer(QWidget):
 
     def config(self):
         return {key: {field: control.isChecked() if isinstance(control, QCheckBox) else control.value()
-                      for field, control in controls.items()} for key, controls in self.channels.items() if key not in ('pad','wave','chimes') or self.color_wave}
+                      for field, control in controls.items()} for key, controls in self.channels.items() if key not in ('pad','wave','chimes','choir') or self.color_wave}

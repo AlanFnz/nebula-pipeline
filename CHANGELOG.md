@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.81.0 — 2026-11-08
+
+- Add an optional Choir layer to the color-wave instrument, with three gently
+  detuned singers per pad chord tone, harmonic OO/AH vowels, soft breath, stereo
+  spread and a shared reverb send. Follow the existing pad root and harmony with
+  an independent octave offset; keep the original pad and note engines intact.
+- Add Choir sound controls and a mixer strip with level, Mute, Solo and EQ.
+  Support live edits, undo/redo and save/reload. Use cached band-limited tables
+  and share sustained voices during live mixer crossfades.
+- Wrap voices, breath and slow movement with the seamless loop. Leave Choir off
+  for existing documents, preserving their original audio and visual output.
+
 ## 0.80.0 — 2026-11-08
 
 - Add a Harmonic resonance mode to Chimes, both as a separate layer and as a
