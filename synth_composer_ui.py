@@ -1009,7 +1009,7 @@ class CompositionPanel(QWidget):
             total_events = sum(len(owner.get("automations", ())) for owner in self.document["sections"])
             self.automations_button.setText(f"Automations ({total_events})…" if total_events else "Automations…")
             self.object_panel.refresh(self.effects_panel.summary, target['effects'], self.document['effects'] if self.scope else {}, bool(self.scope), context_key=(self.scope, context_key), scope_label=label.removeprefix('Editing: '))
-            for path, control in self.object_panel.controls.items(): control.set_automation_count(counts.get(path, 0))
+            self.object_panel.set_automation_counts(counts)
             for key, control in self.macro_controls.items():
                 control.set_value(target["macros"][key], key in target["locks"])
             geometry = target["geometry"]

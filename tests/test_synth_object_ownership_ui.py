@@ -23,6 +23,8 @@ def test_text_and_subtitle_share_object_and_navigation_does_not_author_changes(m
     assert obj.controls['text.badge_subtitle'].input.value()
     subtitle = obj.controls['text.badge_subtitle'].input
     obj.text_tabs.setCurrentIndex(1)
+    assert not obj.controls['text.badge_shape'].isVisible()
+    obj.reveal_object_group('Frame & subtitle layout')
     assert obj.controls['text.badge_shape'].isVisible()
     assert obj.controls['text.badge_padding_x'].isVisible()
     assert obj.position_host.isVisible()
@@ -113,6 +115,7 @@ def test_layout_parameter_keeps_scroll_on_edit(make_window):
     window=make_window(composition=starter_composition('text-contact-film'))
     c=window.composer; obj=c.object_panel
     c.look_tabs.setCurrentWidget(obj); obj.text_tabs.setCurrentIndex(1)
+    obj.reveal_object_group('Frame & subtitle layout')
     row=obj.controls['text.badge_padding_x']
     QApplication.processEvents(); obj.overview_scroll.ensureWidgetVisible(row)
     QApplication.processEvents()

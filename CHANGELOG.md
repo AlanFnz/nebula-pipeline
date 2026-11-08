@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.76.0 — 2026-11-08
+
+- Reorganize Text and Pleated Object inspectors around common editing tasks.
+  Keep typography and main wording together, size/spacing and reading controls
+  first in their pages, and fold advanced layout, letterpress and motion groups.
+  Pleated exposes profile/density/scale plus named camera, relief, palette,
+  outline/mirror, timing and optical groups in the same Object inspector.
+- Keep scope, source state, group navigation and search above the scrolling
+  controls. Search across object pages; Enter focuses the first result, and
+  clearing search restores the previous page, folds and scroll. Show all expands
+  applicable groups reversibly. Group summaries distinguish local values from
+  inherited values and include study animation and automation events.
+- Explain unavailable subtitle/frame controls and link to the reading mode.
+  Preserve cached text drafts, parameter restore, undo/redo and per-mode controls.
+  Navigation does not modify documents. No changes to studies, source ranges,
+  rendered images, sound generation, parameter IDs, defaults or file formats.
+
 ## 0.75.0 — 2026-11-08
 
 - Identify short Montage cuts with timeline-order numbers, a full selected-block

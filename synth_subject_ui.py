@@ -1,6 +1,6 @@
 """One object inspector with controls for the actual source family."""
 from PySide6.QtCore import Qt, QSignalBlocker, Signal
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QStackedWidget, QScrollArea, QFrame, QTabBar
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QStackedWidget, QScrollArea, QFrame, QTabBar, QLineEdit, QCheckBox
 
 from studio_widgets import ComboBox, DoubleSpinBox, Slider
 from synth_effects_ui import EffectParameter, EffectsPanel, TEXT_TIMING
@@ -9,6 +9,7 @@ from synth_subject import SUBJECTS, SOURCE_EFFECTS, active_subjects
 from synth_inspector import grouped_paths
 from synth_solids import hidden_controls as hidden_solid_controls
 from synth_fonts import variable_weight
+from synth_object_groups import ObjectGroupsMixin
 
 
 OBJECT_PATHS = {
@@ -31,7 +32,7 @@ TEXT_PAGE_PATHS = ('text.font', 'text.weight', 'text.content', 'text.badge',
                    'text.badge_show_subtitle', 'text.badge_subtitle')
 
 
-class SubjectPanel(QWidget):
+class SubjectPanel(ObjectGroupsMixin, QWidget):
     selected = Signal(str)
     restored = Signal()
     parameter_changed = Signal(str, str, object)
@@ -46,6 +47,7 @@ class SubjectPanel(QWidget):
     def __init__(self):
         super().__init__()
         self.kind = 'none'; self.updating = False; self.controls = {}; self.control_cache = {}; self.group_labels = {}
+        self.setup_object_groups()
         root = QVBoxLayout(self); root.setContentsMargins(0, 0, 0, 0)
         self.header = QWidget(); header = QVBoxLayout(self.header)
         header.setContentsMargins(8, 4, 8, 0); header.setSpacing(5); root.addWidget(self.header)
@@ -75,8 +77,25 @@ class SubjectPanel(QWidget):
         self.text_tabs = QTabBar()
         for label in ('Text', 'Layout', 'Motion'): self.text_tabs.addTab(label)
         self.text_tabs.currentChanged.connect(self.change_text_tab); header.addWidget(self.text_tabs)
+        self.object_navigation = QWidget(); navigation = QVBoxLayout(self.object_navigation)
+        navigation.setContentsMargins(0, 0, 0, 0); navigation.setSpacing(4)
+        row = QHBoxLayout()
+        self.object_filter = QLineEdit(); self.object_filter.setPlaceholderText('Find an object control…')
+        self.object_filter.setAccessibleName('Find object control'); self.object_filter.setClearButtonEnabled(True)
+        self.object_filter.textChanged.connect(self.filter_object_controls)
+        self.object_filter.returnPressed.connect(self.focus_object_result); row.addWidget(self.object_filter, 1)
+        self.show_all_controls = QCheckBox('Show all'); self.show_all_controls.setAccessibleName('Show all object controls')
+        self.show_all_controls.setToolTip('Expand every applicable group in this page. Turn off to restore your folded groups.')
+        self.show_all_controls.toggled.connect(self.show_object_groups); row.addWidget(self.show_all_controls)
+        navigation.addLayout(row)
+        self.object_jump = ComboBox(); self.object_jump.setAccessibleName('Jump to object control group')
+        self.object_jump.activated.connect(self.jump_to_object_group); navigation.addWidget(self.object_jump)
+        header.addWidget(self.object_navigation)
         self.text_layout_note = QLabel(); self.text_layout_note.setWordWrap(True)
         self.text_layout_note.setObjectName('muted'); layout.addWidget(self.text_layout_note)
+        self.text_motion_link = QPushButton('Reading mode in Motion…'); self.text_motion_link.setProperty('compact', True)
+        self.text_motion_link.clicked.connect(lambda: self.reveal_control('text.reveal'))
+        layout.addWidget(self.text_motion_link); self.text_motion_link.hide()
         self.wording_host = QWidget(); self.wording_layout = QVBoxLayout(self.wording_host)
         self.wording_layout.setContentsMargins(0, 0, 0, 0); layout.addWidget(self.wording_host)
         self.position_host = QWidget(); position_layout = QVBoxLayout(self.position_host)
@@ -102,6 +121,8 @@ class SubjectPanel(QWidget):
         self.signal_layout.setContentsMargins(0, 0, 0, 0); layout.addWidget(self.signal_host)
         self.control_host = QWidget(); self.control_layout = QVBoxLayout(self.control_host)
         self.control_layout.setContentsMargins(0, 0, 0, 0); layout.addWidget(self.control_host)
+        self.no_object_matches = QLabel('No matching object controls.'); self.no_object_matches.setObjectName('muted')
+        self.no_object_matches.setWordWrap(True); layout.addWidget(self.no_object_matches); self.no_object_matches.hide()
         self.motion_frame = QWidget(); motion_layout = QVBoxLayout(self.motion_frame)
         motion_layout.setContentsMargins(0,0,0,6); motion_layout.setSpacing(4)
         self.center_path = QPushButton('Center path'); self.center_path.setProperty('compact',True)
@@ -115,27 +136,46 @@ class SubjectPanel(QWidget):
 
     def show_overview(self):
         self.pages.setCurrentWidget(self.overview_scroll)
+        self.object_navigation.setVisible(self.kind in ('text', 'pleated'))
         self.navigation_changed.emit()
 
     def change_text_tab(self, index):
+        if self.object_filter.text():
+            self.object_filter.clear()
+            with QSignalBlocker(self.text_tabs): self.text_tabs.setCurrentIndex(index)
+            self.search_generation += 1
         self.show_text_controls(index)
         self.overview_scroll.verticalScrollBar().setValue(0)
 
+    def jump_to_object_group(self, index):
+        title = self.object_jump.itemData(index)
+        if title: self.reveal_object_group(title)
+        with QSignalBlocker(self.object_jump): self.object_jump.setCurrentIndex(0)
+
     def show_details(self, effect, timing=False):
-        if effect == 'text':
+        if effect == 'pleated_field' and timing:
+            self.show_overview(); self.reveal_object_group('Motion & timing' if timing else 'Camera')
+        elif effect == 'text':
             self.show_overview(); self.text_tabs.setCurrentIndex(2 if timing else 1)
         else:
             from synth_creative import CREATIVE_CONTROLS
             self.details_editor.inspect_effect(effect)
             self.details_editor.parameter_tabs.setCurrentIndex((0 if timing else 1) if effect in CREATIVE_CONTROLS else (1 if timing else 0))
             self.pages.setCurrentWidget(self.details_editor)
+            self.object_navigation.hide()
+            if effect == 'pleated_field': self.details_editor.activation_button.setChecked(True)
         self.navigation_changed.emit()
 
     def reveal_control(self, path):
-        if path not in self.controls or self.kind != 'text': return False
+        if path not in self.controls or self.kind not in ('text', 'pleated'): return False
         self.show_overview()
-        self.text_tabs.setCurrentIndex(0 if path in TEXT_PAGE_PATHS else 2 if path in TEXT_TIMING else 1)
-        self.overview_scroll.ensureWidgetVisible(self.controls[path])
+        self.object_filter.clear()
+        if self.kind == 'text':
+            self.text_tabs.setCurrentIndex(0 if path in TEXT_PAGE_PATHS else 2 if path in TEXT_TIMING else 1)
+        for page, title, opened, members in self.object_definitions:
+            if path in members: self.object_expansion[(self.kind, title)] = True
+        self.show_object_groups()
+        self.focus_object_control(path)
         return True
 
     def change_position(self, axis, value):
@@ -168,7 +208,12 @@ class SubjectPanel(QWidget):
         active = active_subjects(summary)
         previous_kind = self.kind
         self.kind = active[0] if active else 'none'
-        if self.kind != previous_kind: self.show_overview()
+        if self.kind != previous_kind:
+            self.show_overview()
+            with QSignalBlocker(self.object_filter): self.object_filter.clear()
+            self.search_snapshot = None; self.search_generation += 1
+            self.no_object_matches.hide()
+        self.object_entries = entries; self.object_parents = parent_entries; self.object_ranges = summary
         self.signal_effect = 'forms' if summary['forms']['active'] else 'rays'
         with QSignalBlocker(self.selector): self.selector.setCurrentIndex(self.selector.findData(self.kind))
         self.restore.setEnabled(any(entries.get(key, {}).get('mode', 'recipe') != 'recipe' for key in SOURCE_EFFECTS))
@@ -187,22 +232,31 @@ class SubjectPanel(QWidget):
         if len(active) > 1:
             note += ' Also present: ' + ', '.join(SUBJECTS[key][0] for key in active[1:]) + '. Choosing a type replaces the source families in this scope.'
         self.note.setText(note)
+        self.note.setToolTip(note)
+        organized = self.kind in ('text', 'pleated')
+        self.object_navigation.setVisible(organized and self.pages.currentWidget() is self.overview_scroll)
+        self.text_motion_link.hide()
+        if organized:
+            info = summary['text' if self.kind == 'text' else 'pleated_field']
+            self.note.setText((scope_label or ('This clip' if local else 'Entire project')) +
+                              (' · Intermittent' if info['intermittent'] else ' · On' if info['active'] else ' · Off'))
         self.position_host.setVisible(bool(active))
         self.signal_host.setVisible(self.kind == 'signal')
         self.control_host.setVisible(self.kind in OBJECT_PATHS)
         self.wording_host.setVisible(self.kind == 'text')
         self.text_tabs.setVisible(self.kind == 'text')
         self.text_layout_note.hide()
-        self.details.setText('Text appearance…' if self.kind == 'text' else 'Source controls…')
+        self.details.setText('Text appearance…' if self.kind == 'text' else 'Activation & preset…' if self.kind == 'pleated' else 'Source controls…')
         self.timing.setText('Creative motion…' if self.kind == 'particles' else 'Motion & timing…')
         paths = OBJECT_PATHS.get(self.kind, ())
         reading = self.kind == 'text' and summary['text']['ranges']['text.reveal'] == (4, 4)
         if reading:
-            self.note.setText(f'Edit Wording and apply it: the montage adapts to complete words and letters. '
+            self.note.setToolTip(f'Edit Wording and apply it: the montage adapts to complete words and letters. '
                              f'Montage duration includes the final phrase; match the clip duration for one full pass. '
                              f'Print collage and Film burn follow these reading beats. Changes apply to {scope}.')
             self.timing.setText('Reading & interruptions…')
         if set(self.controls) != set(paths):
+            self.clear_object_groups()
             # Memory's exploration controls precede placement. Only move the
             # host when the source family changes, keeping edits scroll-stable.
             host_layout = self.overview.layout()
@@ -218,7 +272,8 @@ class SubjectPanel(QWidget):
                 if title not in self.group_labels:
                     label = QLabel(title.upper()); label.setObjectName('controlGroup')
                     self.group_labels[title] = label
-                label = self.group_labels[title]; self.control_layout.addWidget(label); label.show()
+                label = self.group_labels[title]
+                if not organized: self.control_layout.addWidget(label); label.show()
                 for path in members:
                     if path not in self.control_cache:
                         control = EffectParameter(path, editable_text=True); effect = path.split('.')[0]
@@ -227,19 +282,28 @@ class SubjectPanel(QWidget):
                         control.animate.connect(self.automation_requested.emit)
                         self.control_cache[path] = control
                     control = self.control_cache[path]
-                    if path not in TEXT_PAGE_PATHS: self.control_layout.addWidget(control)
+                    if not organized and path not in TEXT_PAGE_PATHS: self.control_layout.addWidget(control)
                     if path in ('text.content', 'text.badge_subtitle'):
                         name = 'Main text' if path == 'text.content' else 'Subtitle'
                         control.label.setText(name)
                         control.input.editor.setAccessibleName(name)
                         control.input.apply.setText('Apply main text' if path == 'text.content' else 'Apply subtitle')
-                    control.show(); self.controls[path] = control
+                    # Organized controls get their group parent before showing;
+                    # briefly showing an unparented editor creates a window and
+                    # steals focus from the workspace.
+                    if not organized: control.show()
+                    self.controls[path] = control
                     if path == 'image_memory.amplitude_y':
                         self.control_layout.addWidget(self.motion_frame); self.motion_frame.show()
             # Keep shared typography above the text editors, independent of the
             # parameter registry's grouping and the length of either text block.
-            for path in TEXT_PAGE_PATHS:
-                if path in self.controls: self.wording_layout.addWidget(self.controls[path])
+            if organized:
+                self.build_object_groups()
+                with QSignalBlocker(self.object_jump):
+                    self.object_jump.clear(); self.object_jump.addItem('Jump to a group…', None)
+                    for page, title, _, _paths in self.object_definitions:
+                        label = (('Text', 'Layout', 'Motion')[page] + ' / ' if self.kind == 'text' else '') + title
+                        self.object_jump.addItem(label, title)
         for path, control in self.controls.items():
             effect = path.split('.')[0]; entry = entries.get(effect, {'params': {}})
             parent_params = parent_entries.get(effect, {}).get('params', {})
@@ -277,6 +341,7 @@ class SubjectPanel(QWidget):
         if self.kind == 'text':
             self.text_ranges = summary['text']['ranges']
             self.show_text_controls()
+        elif self.kind == 'pleated': self.show_object_groups()
         self.details.setVisible(bool(active) and self.kind != 'text'); self.timing.setVisible(self.kind == 'ink')
         self.updating = False
 
@@ -286,8 +351,6 @@ class SubjectPanel(QWidget):
         tab = self.text_tabs.currentIndex()
         reveal, fit = ranges['text.reveal'], ranges['text.fit']
         morph, reading = reveal == (3, 3), reveal == (4, 4)
-        visible = set(TEXT_PAGE_PATHS if tab == 0 else TEXT_TIMING if tab == 2 else
-                      (p for p in self.controls if p not in TEXT_PAGE_PATHS and p not in TEXT_TIMING))
         hidden = set()
         if ranges['text.font'][0] == ranges['text.font'][1] and not variable_weight(ranges['text.font'][0]): hidden.add('text.weight')
         if reveal[0] == reveal[1]:
@@ -301,19 +364,16 @@ class SubjectPanel(QWidget):
         if fit[0] == fit[1] and fit[0] != 2: hidden.add('text.block_width')
         if not morph and not reading and fit[0] == fit[1] and fit[0] != 1: hidden.update(('text.fit_width','text.copy_floor'))
         if ranges['text.motion'][0] == ranges['text.motion'][1] and ranges['text.motion'][0] != 1: hidden.add('text.ease')
-        visible -= hidden
+        self.text_eligible = set(self.controls) - hidden
         label_active = ranges['text.badge'] != (0, 0) and not (morph or reading)
         for path, control in self.controls.items():
-            control.setVisible(path in visible)
             if path.startswith('text.badge_'): control.setEnabled(label_active)
-        for title, paths in grouped_paths(self.controls):
-            self.group_labels[title].setVisible(bool(visible.intersection(p for p in paths if p not in TEXT_PAGE_PATHS)))
-        self.wording_host.setVisible(tab == 0)
-        self.position_host.setVisible(tab == 1)
-        self.control_host.setVisible(tab != 0)
+            elif path == 'text.badge': control.setEnabled(not (morph or reading))
         self.text_layout_note.setText('This word animation uses the main text only. Choose Whole phrase, One word or Type on in Motion to use a subtitle and frame.' if morph or reading else
                                      'Turn on Framed label to use a subtitle and frame. Choose Frame shape → None in Layout for text without an outline.')
-        self.text_layout_note.setVisible(tab == 0 and not label_active)
+        self.text_layout_note.setVisible(tab in (0, 1) and not label_active and not self.object_filter.text())
+        self.text_motion_link.setVisible(tab in (0, 1) and (morph or reading) and not self.object_filter.text())
+        self.show_object_groups()
         self.navigation_changed.emit()
 
     def set_motion_bounds(self, bounds, local):
