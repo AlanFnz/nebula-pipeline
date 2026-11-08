@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.84.0 — 2026-11-08
+
+- Extend live MIDI to the Layered resonant synth: sustained Drone on channel 1
+  and authored Arpeggio/Sequencer notes on channel 2, with independent free
+  tuning, step gates, rests, mute/solo, seek and seamless looping.
+- Send Pleated expansion (CC 1), smoothed filter opening (CC 74) and visual
+  presence (CC 11) to both voices. DAW instruments and effects own the timbre.
+- Keep the route session-only. Existing studies, internal audio, render output
+  and the Color waves MIDI mapping are unchanged.
+
 ## 0.83.1 — 2026-11-08
 
 - Cap live MIDI pluck gates at the authored voice decay so the last Color

@@ -126,7 +126,7 @@ class VisualSoundStudio:
 
     def uses_midi(self,config=None):
         config=config or self.live_draft or (self.composition or {}).get('generated_sound') or {}
-        return self.midi_monitor_enabled and config.get('version')==4 and config.get('output')=='generated'
+        return self.midi_monitor_enabled and config.get('version') in (3,4) and config.get('output')=='generated'
 
     def change_midi_monitor(self,enabled):
         self.midi_monitor_enabled=enabled
@@ -229,7 +229,7 @@ class VisualSoundStudio:
             self.refresh_performed_signals(config)
             self.live_sound.set_config(config)
             self.update_live_activity(config)
-            self.set_visual_sound_status('MIDI → Nebula Visuals · channels 1–7. Audio and mix in your DAW.' if midi else 'Live audition ready.')
+            self.set_visual_sound_status('MIDI → Nebula Visuals · Audio and mix in your DAW.' if midi else 'Live audition ready.')
             self.sync_soundtrack()
 
     def live_signals_ready(self,job,signals):
@@ -239,7 +239,7 @@ class VisualSoundStudio:
         self.live_performance_config=None
         self.refresh_performed_signals(self.live_draft, force=True)
         self.live_meter_key=None;self.update_live_activity(self.live_draft)
-        self.set_visual_sound_status('MIDI → Nebula Visuals · channels 1–7. Audio and mix in your DAW.' if self.uses_midi() else 'Live audition ready.')
+        self.set_visual_sound_status('MIDI → Nebula Visuals · Audio and mix in your DAW.' if self.uses_midi() else 'Live audition ready.')
         self.sync_soundtrack()
 
     def refresh_performed_signals(self, config, force=False):

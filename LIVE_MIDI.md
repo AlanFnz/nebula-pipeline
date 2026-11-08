@@ -1,10 +1,12 @@
 # Live MIDI pilot
 
-Color waves can drive a DAW while Nebula plays its video. In Generate sound,
+Color waves and the Layered resonant synth can drive a DAW while Nebula plays its video. In Generate sound,
 turn on **Send live MIDI to Ableton / DAW (experimental)** and press Listen or
 Play. The virtual source is **Nebula Visuals**; no IAC setup is required on macOS.
 Use MIDI input Track on, monitoring In, and one receiving instrument per channel.
 The receiver can be opened before or after the port appears.
+
+### Color waves
 
 | Channel | Layer |
 | --- | --- |
@@ -22,6 +24,21 @@ receiving pitch-bend ranges to ±2 semitones, except channel 7 (±24). RPN pitch
 range is sent too, but instruments may require manual range configuration.
 CC 1 carries expansion and CC 74 motion, scaled to 0–127 at up to 50 Hz. These
 are optional modulation sources; map them explicitly in the receiving DAW.
+
+### Layered resonant synth / Pleated
+
+Channel 1 carries the sustained **Drone**; channel 2 carries the **Arpeggio**.
+Both use ±2 semitone pitch bend, including independent free-frequency roots.
+The same gesture/sequence note generator supplies step times, rests, pitches and
+velocities. Sequencer Gate determines MIDI note length; Release belongs to the
+receiving instrument. Enabled connections and layer mute/solo determine notes.
+
+CC 1 is smoothed expansion; CC 74 is the actual normalized opening curve used
+by the internal filter (including manual Opening and note accents); CC 11 is
+smoothed visual presence with Continuity. These controls go only to channels
+1–2. For a matched filter sweep, map CC 74 logarithmically between the saved
+Cutoff and Sweep frequencies in the DAW. Raw CCs do not automatically control
+every plug-in: timbre, modulation mappings and mix are in the receiving Set.
 
 Nebula is the timing source: the DAW receives already-timed notes and does not
 need its transport running to produce audio. This pilot does **not** transmit
@@ -100,3 +117,11 @@ Nebula sound; record/export the DAW separately for this experiment.
   no Pad note on/off events, and no additional Choir releases through the
   following loop. Live’s Choir meter remained active. Final Color Steps gate
   was approximately 0.68 seconds, matching the authored decay.
+
+- 0.84.0 installed-app QA with Pleated: full 240/240 frames at 960×720;
+  82.8 seconds of CoreMIDI capture across four loop boundaries. All 663 arp
+  attacks followed the saved 16-step order; median interval 125.04 ms. Drone
+  attacked once and released on pause; no held notes remained. Both Analog
+  filters responded to CC 74 through saved Live MIDI mappings. A resampled
+  Ableton capture peaked at −17.1 dBFS, without clipping. Original JSON
+  remained byte-identical; the MIDI route was not saved into it.

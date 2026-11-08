@@ -51,8 +51,8 @@ class MidiPlan:
         from synth_sound_analog import PAD_HARMONIES
         from synth_sound_sub import sub_frequency
         from synth_lattice_wave_sound import WaveSine
-        if config.get('version') != 4:
-            raise ValueError('Live MIDI currently supports Color waves studies.')
+        if config.get('version') not in (3, 4):
+            raise ValueError('Live MIDI supports Layered resonant synth and Color waves.')
         self.duration = float(sequence['duration'])
         self.looping = bool(config['seamless_loop'])
         self.notes = []
@@ -61,6 +61,10 @@ class MidiPlan:
         self.wave = None
         self.signals = signals
         self.config = config
+        self.pleated_controls = None
+        if config['version'] == 3:
+            self._pleated()
+            return
         solo = any(c['solo'] for c in config['mixer'].values())
 
         def audible(key):
@@ -103,6 +107,48 @@ class MidiPlan:
                 self.sustained.append((channel, pitch, 80))
         self.notes.sort(key=lambda n: (n.start, n.channel, n.pitch))
 
+    def _pleated(self):
+        """Use the instrument's authored musical clock, never infer beats from frames."""
+        from synth_visual_sound import _smooth
+        from synth_visual_sound_acid import gesture_notes
+        from synth_visual_sound_instrument import instrument_controls
+        from synth_sound_loop import smooth_cycle
+        c, s = self.config, self.signals
+        solo = any(v['solo'] for v in c['mixer'].values())
+
+        def audible(key):
+            mix, link = c['mixer'][key], c['connections'][key]
+            return c['enabled'] and link['enabled'] and link['amount'] > 0 and not mix['mute'] and (not solo or mix['solo'])
+
+        if audible('body'):
+            pitch, fine = midi_pitch(c['pitch'])
+            self.bends[0] = fine
+            self.sustained.append((0, pitch, 80))
+        if audible('arpeggio'):
+            for n in gesture_notes(s, c):
+                if n['time'] >= self.duration: continue
+                pitch, fine = midi_pitch(c['arp_pitch'] * 2 ** (n['semitones'] / 12))
+                self.bends[1] = fine
+                # Release is an envelope in the receiving synth, not a MIDI gate.
+                self.notes.append(MidiNote(n['time'], n['time'] + n['duration'], 1,
+                                           pitch, max(1, min(127, round(n['velocity'] * 110)))))
+        smooth = smooth_cycle if self.looping else _smooth
+        expansion = smooth(s['expansion'], c['smoothing'])
+        motion = smooth(s['motion'], c['smoothing'])
+        _, accent = instrument_controls(s, c, loop_period=self.duration)
+        link = c['connections']['filter']
+        amount = link['amount'] if c['enabled'] and link['enabled'] else 0.
+        opening = np.clip(c['opening'] + (.36 * expansion + .42 * motion + .16 * accent) * amount, 0, 1)
+        presence = np.clip(s['presence'], 0, 1) ** (1 - .9 * c['continuity'])
+        values = (expansion, opening, smooth(presence, .035))
+        times = s['time']
+        if self.looping:
+            inside = times < self.duration
+            times = np.r_[times[inside], self.duration]
+            values = tuple(np.r_[v[inside], v[0]] for v in values)
+        self.pleated_controls = times, values
+        self.notes.sort(key=lambda n: (n.start, n.channel, n.pitch))
+
     def active(self, seconds):
         """Unique sounding keys; overlapping equal pitches never end early."""
         if not self.looping and seconds >= self.duration: return {}
@@ -130,6 +176,12 @@ class MidiPlan:
     def controls(self, seconds):
         position = seconds % self.duration if self.looping else min(seconds, self.duration)
         result = []
+        if self.pleated_controls is not None:
+            times, values = self.pleated_controls
+            for cc, curve in zip((1, 74, 11), values):
+                value = max(0, min(127, round(float(np.interp(position, times, curve)) * 127)))
+                for channel in (0, 1): result.append((0xB0 | channel, cc, value))
+            return result
         if self.wave is not None:
             hz = float(np.interp(position, self.wave.times, self.wave.frequency))
             base = next(p for c, p, _ in self.sustained if c == CHANNELS['wave'])

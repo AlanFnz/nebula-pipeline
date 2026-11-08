@@ -130,7 +130,7 @@ class VisualSoundDialog(SoundSession,SoundHistory,QDialog):
         self.live=QCheckBox('Live audition');self.live.setChecked(True);self.live.setToolTip('Hear synth changes during playback. Turn off to hear applied sound. Original instruments prepare audio after Apply sound.')
         self.live.toggled.connect(self.liveChanged);layout.addWidget(self.live)
         row=QHBoxLayout();self.midi=QCheckBox('Send live MIDI to Ableton / DAW (experimental)')
-        self.midi.setToolTip('Color waves only. Creates the Nebula Visuals MIDI port. Channels: 1 Opening, 2 Color steps, 3 Pad, 4 Choir, 5 Chimes, 6 Sub, 7 Wave. Notes, velocity, pitch bend and visual CC 1/74 are sent. Choose instruments, effects and levels in the DAW. This monitoring route does not change project exports.')
+        self.midi.setToolTip('Creates the Nebula Visuals MIDI port. Layered synth: 1 Drone, 2 Arpeggio. Color waves: 1 Opening, 2 Color steps, 3 Pad, 4 Choir, 5 Chimes, 6 Sub, 7 Wave. Notes, velocity, pitch bend and visual CC 1/74 are sent. Choose instruments, effects and levels in the DAW. This monitoring route does not change project exports.')
         self.midi.toggled.connect(self.midiChanged);row.addWidget(self.midi)
         self.midi_refresh=QPushButton('Refresh MIDI notes');self.midi_refresh.clicked.connect(self.midiRefreshRequested);row.addWidget(self.midi_refresh)
         self.midi_refresh.setToolTip('Resend the currently held notes without pausing or moving the video. The optional Nebula Visuals Ableton control surface does this automatically for a replaced instrument.')
@@ -249,7 +249,8 @@ class VisualSoundDialog(SoundSession,SoundHistory,QDialog):
         self.loading=True
         with QSignalBlocker(self.voice): self.voice.setCurrentIndex(self.voice.findData(value['version']))
         color=value['version']==4
-        self.midi.setEnabled(color);self.midi_panic.setEnabled(color)
+        self.midi_hint.setText(('MIDI channels: 1 Opening · 2 Color steps · 3 Pad · 4 Choir · 5 Chimes · 6 Sub · 7 Wave.' if color else 'MIDI channels: 1 Drone · 2 Arpeggio.') + ' Instruments, effects and levels in your DAW. MP4 export keeps the saved Nebula audio.')
+        self.midi.setEnabled(value['version'] in (3,4));self.midi_panic.setEnabled(value['version'] in (3,4))
         self.color_wave.setVisible(color);self.wave_sine.setVisible(color)
         self.tabs.setTabVisible(5,color)
         self.tabs.setTabVisible(self.chimes_tab,color)

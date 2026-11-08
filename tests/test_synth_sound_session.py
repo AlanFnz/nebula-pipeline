@@ -71,10 +71,12 @@ def test_output_label_matches_actual_applied_route_when_not_live(editor):
     assert dialog.preview_source.text() == 'Preview: Silent'
 
 
-def test_midi_is_a_session_route_without_changing_saved_study(editor):
+@pytest.mark.parametrize("version", [3, 4])
+def test_midi_is_a_session_route_without_changing_saved_study(editor, version):
     from synth_lattice_sound import color_wave_sound
     window, dialog, _ = editor
-    config = color_wave_sound(); config['enabled'] = True
+    from synth_visual_sound import instrument_sound
+    config = color_wave_sound() if version == 4 else instrument_sound(); config['enabled'] = True
     window.composition['generated_sound'] = config
     dialog.set_config(config)
     window.save_sequence_dialog()

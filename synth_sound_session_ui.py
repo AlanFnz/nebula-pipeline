@@ -67,7 +67,7 @@ class SoundSession:
             if output == 'generated' and not applied.get('enabled', True): source = 'Silent · Sound disabled'
         generated = live or (self.applied_available and (self.current or {}).get('output') == 'generated')
         self.volume.setEnabled(generated); self.mute.setEnabled(generated)
-        midi = getattr(owner, 'midi_monitor_enabled', False) and config.get('version') == 4 and config.get('output') == 'generated'
+        midi = getattr(owner, 'midi_monitor_enabled', False) and config.get('version') in (3, 4) and config.get('output') == 'generated'
         self.midi_hint.setVisible(midi)
         self.live.setEnabled(not midi)
         self.midi_panic.setEnabled(midi)
