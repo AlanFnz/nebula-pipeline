@@ -5,7 +5,17 @@ import numpy as np
 
 
 def chime_defaults():
-    return dict(shimmer=.35, strike=.006)
+    return dict(shimmer=.35, strike=.006, tuning='metallic')
+
+
+def normalize_chime_resonance(raw,number):
+    out=chime_defaults()
+    if not isinstance(raw,dict):raise ValueError('Invalid chime resonance')
+    for field,lo,hi in (('shimmer',0,1),('strike',.002,.04)):
+        out[field]=number(raw.get(field,out[field]),'Chimes '+field,lo,hi)
+    out['tuning']=raw.get('tuning','metallic')
+    if out['tuning'] not in ('metallic','harmonic'):raise ValueError('Choose a supported chime resonance tuning')
+    return out
 
 
 def chime_layer_defaults():
@@ -32,10 +42,7 @@ def normalize_chime_layer(raw, number):
         out[field]=raw.get(field,out[field])
         if out[field] not in choices:raise ValueError('Choose a supported chimes '+field)
     if out['pitch_mode']=='note':out['pitch']=snapped_frequency(out['pitch'],40,1760)
-    resonance=raw.get('chimes',out['chimes'])
-    if not isinstance(resonance,dict):raise ValueError('Invalid chime resonance')
-    for field,lo,hi in (('shimmer',0,1),('strike',.002,.04)):
-        out['chimes'][field]=number(resonance.get(field,out['chimes'][field]),'Chimes '+field,lo,hi)
+    out['chimes']=normalize_chime_resonance(raw.get('chimes',out['chimes']),number)
     return out
 
 
@@ -49,8 +56,12 @@ def chime_note(age, hz, settings, rate=48000):
     t=np.maximum(age,0.);decay=settings['decay'];brightness=settings['brightness']
     chime=settings['chimes']
     ratios=np.array([1.,2.76,5.40,8.93,13.35,18.65])
+    tuned=chime.get('tuning','metallic')=='harmonic'
+    if tuned:ratios=np.array([1.,3.,5.,9.,13.,19.])
     frequencies=hz*ratios
     offsets=2**(chime['shimmer']*np.array([1.2,2.8,3.6,4.8,5.5,6.3])/1200.)
+    # Keep the tuned fundamental exact; shimmer lives only in upper modes.
+    if tuned:offsets[0]=1.
     keep=frequencies*offsets<rate*.44
     frequencies=frequencies[keep];ratios=ratios[keep];offsets=offsets[keep]
     amplitudes=np.array([1.,.42,.25,.14,.08,.045])[keep]

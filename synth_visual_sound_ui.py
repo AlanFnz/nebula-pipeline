@@ -153,6 +153,7 @@ class VisualSoundDialog(SoundSession,SoundHistory,QDialog):
         self.pad_space.harmony.currentIndexChanged.connect(self.queue_draft)
         self.wave_sine.enabled.toggled.connect(self.queue_draft)
         self.chime_layer.enabled.toggled.connect(self.queue_draft);self.chime_layer.scale.currentIndexChanged.connect(self.queue_draft)
+        self.chime_layer.tuning.currentIndexChanged.connect(self.queue_draft)
         self.sequencer.gestureStarted.connect(self.begin_sound_gesture);self.sequencer.gestureFinished.connect(self.end_sound_gesture)
         for widget in (self.enabled,self.output,self.scale,self.arp_pattern,self.arp_mode,self.seamless_loop):
             (widget.toggled if isinstance(widget,QCheckBox) else widget.currentIndexChanged).connect(self.queue_draft)

@@ -17,6 +17,7 @@ class ChimeLayerControls(QWidget):
         row=QHBoxLayout();row.addWidget(QLabel('Scale'));self.scale=QComboBox();row.addWidget(self.scale,1);layout.addLayout(row)
         self.scale.setAccessibleName('Chimes scale')
         for title,key in (('Natural minor','minor'),('Minor pentatonic','pentatonic'),('Dorian','dorian'),('Major','major')):self.scale.addItem(title,key)
+        row.addWidget(QLabel('Resonance'));self.tuning=chime_tuning_combo('Chimes');row.addWidget(self.tuning,1)
         grid=QGridLayout();layout.addLayout(grid);self.knobs={}
         entries=(('span','Range',12,48,1,' st',1),('decay','Decay',150,3000,10,' ms',1000),
                  ('brightness','Brightness',0,100,1,' %',100),('shimmer','Shimmer',0,100,1,' %',100),
@@ -39,11 +40,20 @@ class ChimeLayerControls(QWidget):
     def load(self,config):
         v=config.get('chime_layer',chime_layer_defaults());self.enabled.setChecked(v['enabled'])
         self.pitch.load(v['pitch'],v['pitch_mode']);self.scale.setCurrentIndex(self.scale.findData(v['scale']))
+        self.tuning.setCurrentIndex(self.tuning.findData(v['chimes'].get('tuning','metallic')))
         for key,knob in self.knobs.items():knob.setValue((v['chimes'][key] if key in ('shimmer','strike') else v[key])*self.factors[key])
 
     def config(self):
         v=chime_layer_defaults();v.update(enabled=self.enabled.isChecked(),pitch=self.pitch.value(),pitch_mode=self.pitch.tuning(),scale=self.scale.currentData())
+        v['chimes']['tuning']=self.tuning.currentData()
         for key,knob in self.knobs.items():
             target=v['chimes'] if key in ('shimmer','strike') else v
             target[key]=knob.value()/self.factors[key]
         return v
+
+
+def chime_tuning_combo(title):
+    combo=QComboBox();combo.setAccessibleName(title+' resonance tuning')
+    combo.addItem('Metallic · original','metallic');combo.addItem('Harmonic · tuned','harmonic')
+    combo.setToolTip('Harmonic tunes the metal resonances to multiples of each note and keeps its fundamental exact. Metallic retains the original inharmonic tubes. Shimmer adds gentle beating to upper resonances.')
+    return combo

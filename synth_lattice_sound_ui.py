@@ -4,6 +4,7 @@ from synth_sound_knob import SoundKnob
 from synth_sound_pitch import PitchControl
 from synth_lattice_sound import color_wave_sound
 from synth_sound_analog import PAD_HARMONIES
+from synth_sound_chimes_ui import chime_tuning_combo
 
 
 class ColorWaveControls(QWidget):
@@ -56,7 +57,9 @@ class ColorWaveControls(QWidget):
             analog['sweep'].setToolTip('How far the filter opens at each note attack, then settles toward Filter cutoff.')
             analog['detune'].setToolTip('Small pitch differences between oscillators add body without changing the scale.')
             controls['analog']=analog;controls['analog_box']=analog_box
-            chime_box=QGroupBox('Chime resonance');chime_row=QHBoxLayout(chime_box);column.addWidget(chime_box)
+            chime_box=QGroupBox('Chime resonance');chime_column=QVBoxLayout(chime_box);column.addWidget(chime_box)
+            tuning=chime_tuning_combo(title);chime_column.addWidget(tuning);controls['chime_tuning']=tuning;self.combos.append(tuning)
+            chime_row=QHBoxLayout();chime_column.addLayout(chime_row)
             chimes={}
             for field,label,lo,hi,step,suffix in (('shimmer','Shimmer',0,100,1,' %'),('strike','Soft strike',2,40,1,' ms')):
                 knob=SoundKnob(label,lo,hi,step,suffix);chime_row.addWidget(knob);chimes[field]=knob
@@ -82,6 +85,7 @@ class ColorWaveControls(QWidget):
                 controls[field].setValue(v[field]*factor)
             for field,knob in controls['analog'].items():knob.setValue(v['analog'][field]*analog_factor(field))
             for field,knob in controls['chimes'].items():knob.setValue(v['chimes'][field]*(1000 if field=='strike' else 100))
+            controls['chime_tuning'].setCurrentIndex(controls['chime_tuning'].findData(v['chimes'].get('tuning','metallic')))
         self.update_engines()
 
     def update_engines(self):
@@ -100,6 +104,7 @@ class ColorWaveControls(QWidget):
                 v[field]=controls[field].value()/factor
             v['analog']={field:knob.value()/analog_factor(field) for field,knob in controls['analog'].items()}
             v['chimes']={field:knob.value()/(1000 if field=='strike' else 100) for field,knob in controls['chimes'].items()}
+            v['chimes']['tuning']=controls['chime_tuning'].currentData()
         return value
 
 

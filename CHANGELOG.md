@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.80.0 — 2026-11-08
+
+- Add a Harmonic resonance mode to Chimes, both as a separate layer and as a
+  voice engine. Tune upper modes to integer harmonics and keep the fundamental
+  exact while retaining adjustable upper-mode shimmer and metallic decay.
+- Expose Resonance tuning in the sound editor with live audition, undo/redo and
+  save/reload. Existing documents default to Metallic and retain identical PCM;
+  changing resonance never changes note attacks, pitch roots, scales or visuals.
+
 ## 0.79.0 — 2026-11-08
 
 - Add an optional Chimes layer alongside the original Opening and Color steps.

@@ -12,7 +12,7 @@ import numpy as np
 
 from synth_visual_sound import CONTROL_RATE, RATE
 from synth_sound_analog import analog_defaults,pad_defaults,space_defaults,echo_defaults,PAD_HARMONIES
-from synth_sound_chimes import chime_defaults,chime_note,chime_layer_defaults,normalize_chime_layer
+from synth_sound_chimes import chime_defaults,chime_note,chime_layer_defaults,normalize_chime_layer,normalize_chime_resonance
 
 from synth_lattice_wave_sound import wave_defaults,normalize_wave,wave_position,WaveSine
 
@@ -78,10 +78,7 @@ def normalize_color_wave(raw):
         v['polyphony']=int(count)
         v['engine']=r.get('engine','partials')
         if v['engine'] not in ('partials','analog','chimes'):raise ValueError('Choose a supported voice engine')
-        chimes=r.get('chimes',chime_defaults())
-        if not isinstance(chimes,dict):raise ValueError('Invalid chime voice')
-        for field,lo,hi in (('shimmer',0,1),('strike',.002,.04)):
-            v['chimes'][field]=number(chimes.get(field,v['chimes'][field]),'Chimes '+field,lo,hi)
+        v['chimes']=normalize_chime_resonance(r.get('chimes',chime_defaults()),number)
         v['reverb']=number(r.get('reverb',0.),'Reverb send',0,1)
         v['delay']=number(r.get('delay',0.),'Delay send',0,1)
         analog=r.get('analog',analog_defaults())
