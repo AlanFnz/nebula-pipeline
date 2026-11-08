@@ -14,17 +14,17 @@ scripts were read as evidence. Dependencies, generated files, third-party licens
 texts, personal projects and external UX reports were not rewritten. No installed
 Nebula/Ableton session was opened, stopped, rebuilt or updated.
 
-## Editorial result
+## First editorial pass
 
 The original README had 2,115 lines and 21,000 words. Its opening served newcomers,
 but the rest mixed a user manual, detailed parameters, recipe revisions, test
 reports and local installation history. That length was inappropriate for an
 entry point; the parameter detail remains useful as reference.
 
-The README is now 78 lines / 569 words. It introduces representative work, the available local launch path,
+The first pass reduced the README to 78 lines / 569 words. It introduced representative work, the available local launch path,
 limitations and navigation. The first-piece guide leads through visible material,
 effects, save and export. Detailed controls moved to editing, video, sources/studies
-and effects references. Sound now has a current guide independent of its versioned
+and effects references. Sound received a current guide independent of its versioned
 DSP narrative. Montage, inspector and monitor pages lead with tasks rather than
 release identifiers. The history index classifies retained records; the old
 creative/audio roadmap is archived with a current status map in its place.
@@ -52,7 +52,7 @@ Historical changelog entries are preserved verbatim; only the introduction and
 Unreleased documentation notes were added. Past screenshots remain within their
 historical delivery record. No new screenshot is presented as current UI evidence.
 
-## Evidence and checks
+## First-pass evidence and checks
 
 Source inspection included desktop entry points/packaging, study registrations,
 source and effect metadata, text/reading layout, model import bounds, sound-session
@@ -69,7 +69,7 @@ validate their instructions. Existing dependencies were reused without installin
 anything: Python 3.14.6, PySide6 6.11.2, NumPy 2.5.3, Pillow 12.3.0, pytest 9.1.1.
 Tests imported code from this checkout.
 
-The completed focused tests comprise **98 passes and one failure**, with Qt set
+The first pass's completed focused tests comprise **98 passes and one failure**, with Qt set
 to `offscreen`. No real MIDI port or DAW was used.
 
 | Coverage | Result |
@@ -88,6 +88,35 @@ These are bounded behavior checks, not a fresh full rendering baseline or a
 complete application/platform certification. `git diff --check` passed; changes
 are confined to Markdown, with source, tests, presets, metadata and licenses
 unchanged.
+
+## Follow-up after integrating Live/MIDI
+
+On 2026-11-08, local `main` was fast-forwarded from `5620dab` to `979d940`,
+integrating the nine existing functional commits through Pleated live MIDI.
+This step included no documentation-audit commits and no push. The documentation
+branch was then reviewed against that integrated source, which matches its
+original application baseline.
+
+The user requested minimal documentation for everyday use. A second pass used
+Humanizer to shorten the entry point, remove repeated instructions and replace
+long control inventories with task-oriented references. The README is 228 words;
+the first-piece guide is 249. The 12 revised guides total about 5,350 words,
+73% less than the first pass. Historical
+records and asset provenance remain available through the documentation index.
+The optional Ableton companion's installation instructions now live with the
+integration. The MIDI guide retains connection steps, channels, pitch-bend ranges,
+refresh/stop controls and the separate DAW audio/export boundary.
+
+Before integration, **97 tests passed** in one offscreen run: live MIDI,
+Pleated MIDI, Ableton recovery, chime voices/layer, choir, sub bass, output UI and
+sound-session behavior. These exercised the same application source now on local
+`main`. Version metadata and `studio.py --version` both reported 0.84.0. MIDI ports
+and Ableton devices were simulated; no installed application was opened or changed.
+This run did not include the separate sequencer layout discrepancy below.
+
+After editing, all 272 relative links/anchors across 53 maintained Markdown
+documents passed. Every document remains reachable from the README, and the four
+linked PNGs decode successfully. The edits remain confined to documentation.
 
 ## Separate possible UI issue and verification limits
 

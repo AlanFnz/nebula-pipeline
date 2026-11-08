@@ -1,56 +1,35 @@
 # Monitor and export
 
-[Documentation](README.md) · [Editing](editing.md) · [Sound routes](sound.md)
-
-Use Output canvas for the finished frame, Preview resolution for the image
-Nebula prepares on screen, and View zoom for its displayed size.
+[Documentation](README.md) · [Sound routes](sound.md)
 
 ## View, preview and output
 
-- Output canvas and Fit content control the authored frame and content framing.
-- View zoom and Fit view only change display magnification. Numeric zoom remains
-  persistent; opening a document does not force Fit view or alter its framing.
-- Preview resolution limits the longest edge to 360 or 720 pixels without
-  enlarging small canvases. Full canvas uses the authored dimensions. The monitor
-  shows the resulting pixel dimensions beside this selector.
-- Export renders the complete document at the output canvas and FPS regardless
-  of preview resolution, preparation, zoom or selected playback clips. Authored
-  Low-res finish and other treatments retain their existing behavior.
+| Control | What changes |
+| --- | --- |
+| Output canvas / Fit content | Finished frame and artwork framing. |
+| View zoom / Fit view | Display magnification only. |
+| Preview resolution | Monitor detail: 360 px, 720 px or Full canvas. |
+| Timeline FPS | Frame cadence in preview and export. |
+
+Export uses the whole document at its output canvas and FPS, regardless of
+preview quality, zoom or selected playback clips. **Low-res finish** is an
+authored effect, so it does affect export.
 
 ## Preparation
 
-Prepared-frame counters name their scope: Timeline, Selected clips, Block
-composition or Montage. Counts use only valid cached frames at the current
-resolution/revision. A ready bounded range does not claim that the entire scope
-is prepared, even when the scheduler could fit more frames in memory. A zero-frame
-range caused by the memory budget is explicitly unprepared, with guidance in its
-help. Preparation and Play remain separate actions.
-
-Prepare range retains the existing bounded preparation. Prepare all frames in
-composition and sound editors still uses temporary lossless disk storage for the
-whole composition, independently of selected playback clips. Montage retains its
-bounded preparation and reports the prepared time range and montage-wide count.
-Changing Montage preview resolution cancels preparation for the old resolution;
-late callbacks cannot announce readiness for the new one. Cached pixels remain
-partitioned by resolution and revision.
+If playback skips, lower Preview resolution and prepare frames. **Prepare range**
+caches a bounded region; **Prepare all frames** prepares the complete composition
+using temporary storage. Preparing does not start playback. The counter names
+the scope and reports partial or complete coverage. Montage uses bounded ranges.
+Visual edits can invalidate prepared frames; sound-only changes keep them.
 
 ## Export details
 
-Details beside Export MP4 opens an optional, read-only summary. Direct Export MP4
-and existing shortcuts still work without visiting it. The summary names the
-complete document, canvas, FPS, duration derived from encoded frames, frame count,
-MP4/H.264 format and applied audio route. Odd canvas dimensions disclose the
-encoder's existing even-pixel padding.
+**Details** beside Export MP4 shows the full document, dimensions, FPS, duration
+and audio route. Inside a Montage block, it describes the parent Montage, whose
+export uses its soundtrack or silence. Resolve pending sound or timing drafts
+before proceeding.
 
-Inside a Montage block, the summary describes the parent montage, as Export does.
-It explicitly names the montage soundtrack route; generated/block source audio
-is not mixed by the current montage exporter. Unapplied timing or sound drafts
-are identified without changing them. Export retains its existing apply/revert
-or applied-sound choice. Monitor mute and audition level do not change this route.
-
-
-Export does not save the editable project. Save first if you want to retain the
-current composition as a file. H.264 is lossy; a finished MP4 is not a replacement
-for project JSON and its source media. Playback can drop preview frames under
-load while export renders every frame. Imported soundtrack and generated-sound
-monitoring are audible; a video's original audio is currently export-only.
+Export MP4 does not save the editable project or capture DAW audio. Monitor mute
+and listening level do not change the export. Playback may skip late preview
+frames; export renders every frame. H.264 is lossy, so keep the project and media.

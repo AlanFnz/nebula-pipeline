@@ -6,8 +6,8 @@ Untagged work can be ahead of the most recent version.
 
 ## Unreleased
 
-- Reorganize documentation around a first-piece guide, editing, source/effect
-  references, video, sound, Montage and local development.
+- Shorten the README and everyday guides; keep setup, references and historical
+  records separately accessible.
 - Clarify sound drafts versus applied/saved/exported audio, experimental MIDI
   monitoring and Montage audio limits.
 - Review plan status against 0.84.0 and label historical evidence separately.
