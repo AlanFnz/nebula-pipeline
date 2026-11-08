@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.78.0 — 2026-11-08
+
+- Add a Chimes engine to the Opening and Color steps voices: pitched metallic
+  resonators with adjustable brightness, decay, shimmer and strike softness.
+  Existing scale, visual trigger timing, overlap, mixer, reverb and delay apply.
+- Keep the same deterministic note phases in live playback and export, including
+  prior-cycle tails, smooth parameter edits and bounded synthesis packets.
+- Expose chime controls in the sound editor with existing draft, Apply sound,
+  Undo/Redo and save behavior. Preserve the original partial/FM and analog audio;
+  existing studies keep their engines and settings.
+
 ## 0.77.0 — 2026-11-08
 
 - Distinguish Output canvas / Fit content from View zoom / Fit view. Keep preview

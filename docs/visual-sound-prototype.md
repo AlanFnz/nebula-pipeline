@@ -1,5 +1,31 @@
 # Visual sound / Pleated signal and Chromatic lattice
 
+## Metallic chime cascade (0.78.0)
+
+In the color-wave instrument, **Sound → Opening / Color steps → Engine** now
+offers **Chimes · metallic cascade**. Each visible color-wave level strikes a
+pitched resonator. Its inharmonic upper modes give a metallic ring; the main
+mode follows the selected root, scale and range. This is procedural synthesis,
+not a sampled instrument or a detailed physical model of a particular chime.
+
+**Chime resonance** exposes Shimmer (paired-mode beating) and Soft strike
+(2–40 ms attack). Brightness, Decay and Sustain voices remain available; choose
+Unlimited sustain for overlapping tubes. Reverb/delay sends and Mixer are shared
+with the existing engines. Engine changes preserve the hidden settings of the
+other timbres. The sound dialog keeps its normal draft, undo, apply and save flow.
+
+Note ages determine oscillator phases, so packet boundaries and seeking do not
+restart a tube. Smooth attacks, terminal fades and the existing live crossfade
+avoid discontinuities. Loops carry preceding tails; synthesis packets remain
+bounded. Old engines do not use the new resonator settings and retain their PCM.
+
+The separate **Chromatic Pulse — chimes** variation starts from the user's
+Velvet Wave manual v07: only the Opening voice and its mixer level change.
+Its 14 notes rise through E natural minor from E4 to E6 over the existing visual
+opening, with unlimited overlapping resonance, a soft strike and room send.
+Color steps, pad, wave sine, shared space, visual parameters and timing remain
+unchanged. The original JSON stays intact.
+
 ## Soft note delay (0.70.0)
 
 Opening and Color steps each have **Delay send** in Sound. **Pad & space →

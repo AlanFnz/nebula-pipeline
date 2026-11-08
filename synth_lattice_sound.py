@@ -12,6 +12,7 @@ import numpy as np
 
 from synth_visual_sound import CONTROL_RATE, RATE
 from synth_sound_analog import analog_defaults,pad_defaults,space_defaults,echo_defaults,PAD_HARMONIES
+from synth_sound_chimes import chime_defaults,chime_note
 
 from synth_lattice_wave_sound import wave_defaults,normalize_wave,wave_position,WaveSine
 
@@ -38,7 +39,7 @@ def color_wave_sound():
                 mixer=mixer_defaults(COLOR_CHANNELS),pad=pad_defaults(),space=space_defaults(),delay=echo_defaults(),wave=wave_defaults())
     out['mixer']['pad']['level_db']=-22.
     out['mixer']['wave']['level_db']=-30.
-    for v in out['voices'].values():v.update(engine='partials',analog=analog_defaults(),reverb=0.,delay=0.)
+    for v in out['voices'].values():v.update(engine='partials',analog=analog_defaults(),chimes=chime_defaults(),reverb=0.,delay=0.)
     return out
 
 
@@ -74,7 +75,11 @@ def normalize_color_wave(raw):
             raise ValueError('Sustain voices must be an integer between 0 and 8')
         v['polyphony']=int(count)
         v['engine']=r.get('engine','partials')
-        if v['engine'] not in ('partials','analog'):raise ValueError('Choose a supported voice engine')
+        if v['engine'] not in ('partials','analog','chimes'):raise ValueError('Choose a supported voice engine')
+        chimes=r.get('chimes',chime_defaults())
+        if not isinstance(chimes,dict):raise ValueError('Invalid chime voice')
+        for field,lo,hi in (('shimmer',0,1),('strike',.002,.04)):
+            v['chimes'][field]=number(chimes.get(field,v['chimes'][field]),'Chimes '+field,lo,hi)
         v['reverb']=number(r.get('reverb',0.),'Reverb send',0,1)
         v['delay']=number(r.get('delay',0.),'Delay send',0,1)
         analog=r.get('analog',analog_defaults())
@@ -272,6 +277,7 @@ class ColorWaveVoice:
         self.looping=config['seamless_loop'];self.states=[];self.mixer=make_mixer(config)
         self.wave=WaveSine(signals,config['wave'],self.total/RATE,self.looping) if config['wave']['enabled'] else None
         self.analog=any(v['engine']=='analog' for v in config['voices'].values()) or config['pad']['enabled']
+        self.chimes=any(v['engine']=='chimes' for v in config['voices'].values())
         from synth_sound_analog import StereoSpace,StereoEcho
         self.ambience=bool(config['space']['chorus'] or config['pad']['enabled'] and config['pad']['reverb']
                            or any(v['reverb'] for v in config['voices'].values())
@@ -317,7 +323,7 @@ class ColorWaveVoice:
         while length:
             local=start%self.total if self.looping else start
             count=min(length,self.total-local) if self.looping else length
-            if self.analog or self.ambience or self.echo is not None:count=min(count,1024)
+            if self.analog or self.chimes or self.ambience or self.echo is not None:count=min(count,1024)
             pieces.append(self._render(local,count,tone_cache));start+=count;length-=count
         return np.concatenate(pieces) if pieces else np.empty((0,2),np.float32)
 
@@ -332,6 +338,7 @@ class ColorWaveVoice:
             if age[0]>note['duration']:continue
             hz=v['pitch']*2**(note['semitones']/12)
             if v['engine']=='analog':tone=analog_note(age,hz,v)
+            elif v['engine']=='chimes':tone=chime_note(age,hz,v,RATE)
             else:tone=struck_tone(age,hz,key,v,tone_cache)
             if 'gate' in note:
                 release=np.clip((note['gate']+.02-age)/.02,0,1)

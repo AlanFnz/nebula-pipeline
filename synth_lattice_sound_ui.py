@@ -16,6 +16,7 @@ class ColorWaveControls(QWidget):
             box=QGroupBox(title);column=QVBoxLayout(box);pair.addWidget(box)
             engine=QComboBox();engine.setAccessibleName(title+' engine')
             engine.addItem('Original partials / FM','partials');engine.addItem('Analog ensemble','analog')
+            engine.addItem('Chimes · metallic cascade','chimes')
             column.addWidget(engine);self.combos.append(engine)
             pitch=PitchControl('Root',40,880);pitch.set_compact(True);column.addWidget(pitch)
             for widget,label in ((pitch.number,'frequency'),(pitch.mode,'tuning'),(pitch.note,'note')):
@@ -55,6 +56,14 @@ class ColorWaveControls(QWidget):
             analog['sweep'].setToolTip('How far the filter opens at each note attack, then settles toward Filter cutoff.')
             analog['detune'].setToolTip('Small pitch differences between oscillators add body without changing the scale.')
             controls['analog']=analog;controls['analog_box']=analog_box
+            chime_box=QGroupBox('Chime resonance');chime_row=QHBoxLayout(chime_box);column.addWidget(chime_box)
+            chimes={}
+            for field,label,lo,hi,step,suffix in (('shimmer','Shimmer',0,100,1,' %'),('strike','Soft strike',2,40,1,' ms')):
+                knob=SoundKnob(label,lo,hi,step,suffix);chime_row.addWidget(knob);chimes[field]=knob
+                knob.number.setAccessibleName(title+' chimes '+label);knob.dial.setAccessibleName(title+' chimes '+label+' knob')
+            chimes['shimmer'].setToolTip('Small differences between paired metallic resonances create a gentle beating. The scale root and visual attack times stay fixed.')
+            chimes['strike'].setToolTip('Soften the start of each struck tube. Decay and Sustain voices control how long the tubes ring together.')
+            controls['chimes']=chimes;controls['chimes_box']=chime_box
             engine.currentIndexChanged.connect(self.update_engines)
             self.voices[key]=controls;column.addStretch()
         row=QHBoxLayout();layout.addLayout(row)
@@ -72,12 +81,15 @@ class ColorWaveControls(QWidget):
                 factor=1000 if field=='decay' else 1 if field in ('span','polyphony') else 100
                 controls[field].setValue(v[field]*factor)
             for field,knob in controls['analog'].items():knob.setValue(v['analog'][field]*analog_factor(field))
+            for field,knob in controls['chimes'].items():knob.setValue(v['chimes'][field]*(1000 if field=='strike' else 100))
         self.update_engines()
 
     def update_engines(self):
         for controls in self.voices.values():
             analog=controls['engine'].currentData()=='analog';controls['analog_box'].setVisible(analog)
-            for field in ('brightness','character','clarity'):controls[field].setVisible(not analog)
+            chimes=controls['engine'].currentData()=='chimes';controls['chimes_box'].setVisible(chimes)
+            controls['brightness'].setVisible(not analog)
+            for field in ('character','clarity'):controls[field].setVisible(not analog and not chimes)
 
     def config(self):
         value=color_wave_sound();value.update(gain=self.level.value()/100,width=self.width.value()/100,seamless_loop=self.loop.isChecked())
@@ -87,6 +99,7 @@ class ColorWaveControls(QWidget):
                 factor=1000 if field=='decay' else 1 if field in ('span','polyphony') else 100
                 v[field]=controls[field].value()/factor
             v['analog']={field:knob.value()/analog_factor(field) for field,knob in controls['analog'].items()}
+            v['chimes']={field:knob.value()/(1000 if field=='strike' else 100) for field,knob in controls['chimes'].items()}
         return value
 
 
