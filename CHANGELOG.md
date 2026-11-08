@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.77.0 — 2026-11-08
+
+- Distinguish Output canvas / Fit content from View zoom / Fit view. Keep preview
+  resolution beside its actual pixel dimensions, with the longest-edge limit
+  explained. Changing monitor controls never changes document output settings.
+- Scope prepared-frame counts to the timeline, selected clips, block composition
+  or Montage at the current revision and resolution. Report a bounded ready range
+  as partial until the declared scope is complete, including automatic preparation
+  that fits in memory but covers only a short window. Name Prepare range explicitly.
+- Add optional Details beside Export MP4, showing the complete destination
+  document, canvas, FPS, frame-rounded duration, frame count and applied audio.
+  Explain pending sound/timing drafts and Montage's soundtrack-only audio route.
+  Retain direct export and existing draft-resolution flows; inspecting the summary
+  never applies or saves anything. Report even-pixel MP4 padding when applicable.
+- Preserve studies, recipes, timeline timing, audio synthesis, file formats and
+  rendering. Verify identical decoded export frames at different preview settings.
+
 ## 0.76.0 — 2026-11-08
 
 - Reorganize Text and Pleated Object inspectors around common editing tasks.

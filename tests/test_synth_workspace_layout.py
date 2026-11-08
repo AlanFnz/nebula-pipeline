@@ -90,6 +90,10 @@ def test_small_window_keeps_timeline_and_scrolled_controls_reachable(app):
         scroll = window.preview_controls_scroll
         assert scroll.height() >= 112
         assert window.section_scroll.height() == 78
+        # At minimum column width the existing toolbar wraps above the timeline.
+        # The scrollable pane must still reveal it without changing the document.
+        scroll.ensureWidgetVisible(window.section_timeline)
+        app.processEvents()
         assert visible_in(window.section_timeline, scroll.viewport())
         assert scroll.verticalScrollBar().maximum() > 0
         for control in (window.preview_scope, window.prepare_preview):
@@ -99,7 +103,7 @@ def test_small_window_keeps_timeline_and_scrolled_controls_reachable(app):
             left = control.mapTo(scroll.viewport(), QPoint(0, 0)).x()
             assert left >= 0 and left + control.width() <= scroll.viewport().width()
         assert visible_in(window.export_button, window.header_host)
-        assert visible_in(window.quality, window.transport)
+        assert visible_in(window.quality, window.preview_splitter.widget(0))
         assert visible_in(window.play, window.preview_splitter.widget(0))
         assert visible_in(window.preview_status, window.preview_splitter.widget(0))
     finally:

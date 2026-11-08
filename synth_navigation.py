@@ -82,6 +82,7 @@ class WorkspaceNavigation(QObject):
         self.stack.setCurrentWidget(self.home if view is self.host else view)
         view.preview_suspended = False
         self.update_title()
+        if hasattr(view, 'refresh_cache_status'): view.refresh_cache_status()
         view.request_frame()
         if hasattr(view, 'schedule_auto_preparation'): view.schedule_auto_preparation()
 

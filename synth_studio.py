@@ -57,6 +57,7 @@ from synth_visual_sound_studio import VisualSoundStudio
 from synth_performance_studio import PerformanceStudio
 from synth_performance import base_document
 from synth_audio_reactivity_studio import AudioReactivityStudio
+from synth_output_ui import ExportSummaryButton, export_rows, PREVIEW_HINT, cache_caption, preparation_caption
 
 
 class SynthControl(QWidget):
@@ -563,6 +564,8 @@ class SynthStudio(PerformanceStudio, VisualSoundStudio, AudioReactivityStudio, S
             command_row.addWidget(button); self.composition_widgets.append(button)
         self.export_button = QPushButton('Export MP4'); self.export_button.setObjectName('primary')
         self.export_button.clicked.connect(self.export_dialog); command_row.addWidget(self.export_button)
+        self.export_summary = ExportSummaryButton(self, self.export_summary_rows, self.export_button)
+        command_row.addWidget(self.export_summary)
         header.addWidget(commands)
         # This action is attached to the current inspector when it is built.
         self.reset_controls_button = QPushButton('Restore effect', root)
@@ -590,11 +593,11 @@ class SynthStudio(PerformanceStudio, VisualSoundStudio, AudioReactivityStudio, S
         self.canvas_combo.setToolTip('Canvas dimensions. Reframe without stretching the subject or rewriting its effects.')
         self.canvas_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.canvas_combo.setMinimumContentsLength(18); self.canvas_combo.setFixedWidth(238)
-        self.fit_subject = QCheckBox('Fit subject'); self.fit_subject.setAccessibleName('Fit subject')
+        self.fit_subject = QCheckBox('Fit content'); self.fit_subject.setAccessibleName('Fit content to canvas')
         self.fit_subject.setToolTip('Uniformly fit the artwork reference. Off keeps its pixel size and centers/crops it. Never stretches proportions.')
         self.fit_subject.toggled.connect(self.framing_changed)
         self.canvas_label = QLabel(); self.canvas_label.setObjectName('monitorMeta')
-        settings_row.addWidget(inline(QLabel('Canvas'), self.canvas_combo, self.fit_subject, self.canvas_label))
+        settings_row.addWidget(inline(QLabel('Output canvas'), self.canvas_combo, self.fit_subject, self.canvas_label))
         self.workspace_fps_host = QWidget(); self.workspace_fps_host.setProperty('chrome', True)
         self.workspace_fps_layout = QHBoxLayout(self.workspace_fps_host); self.workspace_fps_layout.setContentsMargins(0, 0, 0, 0); self.workspace_fps_layout.setSpacing(5)
         settings_row.addWidget(self.workspace_fps_host)
@@ -644,10 +647,10 @@ class SynthStudio(PerformanceStudio, VisualSoundStudio, AudioReactivityStudio, S
         self.view_zoom.setAccessibleName('Viewer zoom'); self.view_zoom.setToolTip('Viewer zoom only. Fit follows the available monitor size; numeric zoom stays fixed.')
         self.view_zoom.valueChanged.connect(lambda value: self.viewer.set_zoom(value / 100))
         plus = QPushButton('+'); plus.setAccessibleName('Zoom in'); plus.setFixedWidth(24); plus.clicked.connect(lambda: self.viewer.zoom_by(1.25))
-        self.fit_view_button = fit = QPushButton('Fit'); fit.setCheckable(True); fit.setAccessibleName('Fit canvas in viewer'); fit.clicked.connect(lambda: self.viewer.set_zoom(0))
+        self.fit_view_button = fit = QPushButton('Fit view'); fit.setCheckable(True); fit.setAccessibleName('Fit canvas in viewer'); fit.setToolTip('Fit the canvas in the monitor. Does not change content framing or export.'); fit.clicked.connect(lambda: self.viewer.set_zoom(0))
         actual = QPushButton('100%'); actual.setAccessibleName('View at 100 percent'); actual.clicked.connect(lambda: self.viewer.set_zoom(1))
         for button in (minus, plus, fit, actual): button.setProperty('secondaryAction', True)
-        monitor_flow.addWidget(inline(minus, self.view_zoom, plus, fit, actual, spacing=2))
+        monitor_flow.addWidget(inline(QLabel('View zoom'), minus, self.view_zoom, plus, fit, actual, spacing=2))
         self.source_preview = QCheckBox('Before / source'); self.source_preview.setAccessibleName('Before / source')
         self.source_preview.setToolTip('Compare this footage frame before treatments. Export includes treatments.')
         self.source_preview.toggled.connect(lambda _checked: self.invalidate()); monitor_flow.addWidget(self.source_preview)
@@ -756,15 +759,21 @@ class SynthStudio(PerformanceStudio, VisualSoundStudio, AudioReactivityStudio, S
         self.preview_scope.currentIndexChanged.connect(self.preview_scope_changed)
         preparation_row.addWidget(inline(QLabel('Playback'), self.preview_scope))
         self.scope_summary = QLabel(); self.scope_summary.setObjectName('monitorMeta'); preparation_row.addWidget(self.scope_summary)
-        self.quality = QComboBox(); self.quality.setAccessibleName('Preview quality'); self.quality.addItems(['360 px', '720 px', 'Full canvas'])
-        self.quality.setToolTip('Monitor detail only. Export uses full canvas dimensions. Low-res finish can apply the preview texture to exported artwork.')
+        self.quality = QComboBox(); self.quality.setAccessibleName('Preview resolution'); self.quality.addItems(['360 px', '720 px', 'Full canvas'])
+        self.quality.setToolTip(PREVIEW_HINT + ' Authored Low-res finish remains part of the artwork.')
         self.quality.setMaximumWidth(112)
         self.quality.currentIndexChanged.connect(lambda _index: self.invalidate())
-        timeline.addWidget(self.quality)
+        self.preview_dimensions = QLabel(); self.preview_dimensions.setObjectName('monitorMeta')
+        self.preview_dimensions.setAccessibleName('Preview pixel dimensions')
+        detail_host = QWidget(); detail_flow = FlowLayout(detail_host, spacing=6)
+        detail_flow.addWidget(inline(QLabel('Preview resolution'), self.quality, self.preview_dimensions))
+        # Keep resolution and scoped preparation together, allowing narrow windows to wrap.
+        preview_line.removeWidget(self.cache_status); detail_flow.addWidget(self.cache_status)
+        left_layout.insertWidget(left_layout.count()-1, detail_host)
         self.auto_prepare = QCheckBox('Auto prepare'); self.auto_prepare.setChecked(True)
         self.auto_prepare.setToolTip('Prepare frames near the playhead after editing or scrubbing settles.')
         self.auto_prepare.toggled.connect(self.auto_prepare_changed)
-        self.prepare_preview = QPushButton('Prepare'); self.prepare_preview.setAccessibleName('Prepare preview'); self.prepare_preview.setToolTip('Prepare playback of the active scope. Long clips prepare a bounded window. Does not start playback.')
+        self.prepare_preview = QPushButton('Prepare range'); self.prepare_preview.setAccessibleName('Prepare preview range'); self.prepare_preview.setToolTip('Prepare playback of the active scope. Long clips prepare a bounded window. Does not start playback.')
         self.prepare_preview.clicked.connect(self.prepare_playback)
         self.prepare_full_preview = QPushButton('Prepare all frames')
         self.prepare_full_preview.setAccessibleName('Prepare all preview frames')
@@ -1283,7 +1292,7 @@ class SynthStudio(PerformanceStudio, VisualSoundStudio, AudioReactivityStudio, S
                 if index < 0: index = self.canvas_combo.count() - 1
             self.canvas_combo.setCurrentIndex(index)
             self.fit_subject.setChecked(canvas["framing"] in ('adaptive', 'fit'))
-        self.canvas_label.setText(f"Export / {canvas['width']} × {canvas['height']}")
+        self.canvas_label.setText(f"{canvas['width']} × {canvas['height']} px")
         self.viewer.set_canvas_size((canvas['width'], canvas['height']))
         with QSignalBlocker(self.quality):
             self.quality.setItemText(2, 'Full canvas')
@@ -1866,9 +1875,9 @@ class SynthStudio(PerformanceStudio, VisualSoundStudio, AudioReactivityStudio, S
         self.refresh_soundtrack()
         self.cancel_preparation()
         self.cached_ranges.set_ranges(self.preview_frames.ranges())
-        self.prepare_preview.setText('Prepare')
+        self.prepare_preview.setText('Prepare range')
         self.schedule_auto_preparation()
-        self.preview_status.setText('Updating preview…')
+        self.preview_status.setText('Preview outdated · updating…')
         self.render_queued = True
         self.preview_debounce.start(100)
 
@@ -1888,18 +1897,37 @@ class SynthStudio(PerformanceStudio, VisualSoundStudio, AudioReactivityStudio, S
         self.scope_summary.setText(f'{scope.occurrences} occurrences · {scope.count/self.preview_fps():.2f}s' if self.preview_scope.currentIndex() and self.composition else '')
         self.refresh_cache_status()
 
+    def preview_scope_label(self):
+        navigation = self.workspace_navigation
+        block = bool(navigation and navigation.editor is self)
+        if self.preview_scope.currentIndex() and self.composition:
+            return 'Selected clips in block' if block else 'Selected clips'
+        return 'Block composition' if block else 'Timeline'
+
     def refresh_cache_status(self):
         if not hasattr(self, 'cache_status') or not hasattr(self, 'preview_scope'): return
         scope = self.active_preview_scope()
-        count = sum(scope.contains(frame) for frame in self.preview_frames.available())
-        self.cache_status.setText(f'Preview ready: {count}/{scope.count}')
+        available = self.preview_frames.available()
+        count = sum(scope.contains(frame) for frame in available)
+        label = self.preview_scope_label()
+        self.cache_status.setText(cache_caption(label, count, scope.count))
+        if hasattr(self, 'preview_dimensions'):
+            w, h = self.preview_size()
+            self.preview_dimensions.setText(f'{w} × {h} px')
+            self.preview_dimensions.setToolTip(PREVIEW_HINT)
         dialog = getattr(self, 'visual_sound_dialog', None)
         if dialog:
             total = self.timeline.maximum() + 1
-            ready = sum(0 <= frame < total for frame in self.preview_frames.available())
+            ready = sum(0 <= frame < total for frame in available)
             w, h = self.preview_size()
-            dialog.set_preview_status(f'Video: {ready}/{total} frames · {w}×{h}', self.preparation_full and self.preparation_explicit)
-        self.cache_status.setToolTip(f'{count} of {scope.count} frames in the playback scope are prepared at this preview quality. The thin green line below the scrubber shows their positions. Gaps may skip during playback; export renders every frame.')
+            whole = 'Block composition' if self.workspace_navigation and self.workspace_navigation.editor is self else 'Timeline'
+            dialog.set_preview_status(f'{cache_caption(whole, ready, total)} · {w}×{h} px', self.preparation_full and self.preparation_explicit)
+        self.cache_status.setToolTip(f'{label}: {count} of {scope.count} frames prepared at this resolution for the current edits. Green ranges mark prepared positions. Gaps may skip during playback; export renders every frame.')
+
+    def preparation_feedback(self):
+        done = sum(self.preview_frames.contains(i) for i in self.preparation_target)
+        scope = ('block composition' if self.workspace_navigation and self.workspace_navigation.editor is self else 'entire timeline') if self.preparation_full else 'playback range'
+        return f'Preparing {scope} · {done}/{len(self.preparation_target)} frames'
 
     def preview_scope_changed(self, *_args):
         if not hasattr(self, 'preview_scope') or not hasattr(self, 'quality'): return
@@ -1939,7 +1967,7 @@ class SynthStudio(PerformanceStudio, VisualSoundStudio, AudioReactivityStudio, S
         self._obsolete_preparation()
         self.warm_debounce.stop()
         self.preparation_target = (); self.preparation_explicit = False; self.preparation_full = False
-        self.prepare_preview.setText('Prepare')
+        self.prepare_preview.setText('Prepare range')
         self.prepare_full_preview.setText('Prepare all frames')
         self.refresh_cache_status()
 
@@ -1981,18 +2009,23 @@ class SynthStudio(PerformanceStudio, VisualSoundStudio, AudioReactivityStudio, S
         self._start_warm_batch()
 
     def _preparation_ready(self):
-        self.prepare_preview.setText('Prepare')
+        self.prepare_preview.setText('Prepare range')
         self.preparation_explicit = False
         self.prepare_full_preview.setText('Prepare all frames')
         self.refresh_cache_status()
         scope = self.active_preview_scope()
-        if self.preparation_limited:
-            megabytes = self.preparation_budget() / 1024**2
-            self.preview_status.setText('Preview partially prepared · lower quality caches more frames')
-            self.preview_status.setToolTip(f'Limited by rendering · {len(self.preparation_target)} / {scope.count} frames in the bounded {megabytes:g} MB window. Choose 360 px for more cached frames; export is unaffected.')
-        else:
-            self.preview_status.setToolTip('')
-            self.preview_status.setText('Full preview prepared · press Play' if self.preparation_full else 'Preview prepared · press Play')
+        if self.preparation_full:
+            from synth_preview import PreviewScope
+            scope = PreviewScope(((0, self.timeline.maximum()+1),))
+        count = sum(scope.contains(frame) for frame in self.preview_frames.available())
+        label = self.preview_scope_label()
+        if self.preparation_full:
+            label = 'Block composition' if self.workspace_navigation and self.workspace_navigation.editor is self else 'Timeline'
+        range_ready = bool(self.preparation_target) and all(self.preview_frames.contains(i) for i in self.preparation_target)
+        self.preview_status.setText(preparation_caption(label, count, scope.count, range_ready))
+        if self.preparation_limited and not self.preparation_target:
+            self.preview_status.setText('Preview not prepared · range exceeds memory budget')
+        self.preview_status.setToolTip('Prepared ranges are shown in green below the playhead. Prepare range uses a bounded memory window; choosing 360 px fits more frames. Prepare all frames uses temporary disk storage for the whole composition at the selected resolution. Neither changes the export.')
 
     def _start_warm_batch(self):
         if self.closing or self.export_job: return
@@ -2012,8 +2045,8 @@ class SynthStudio(PerformanceStudio, VisualSoundStudio, AudioReactivityStudio, S
         self.preview_frames.reserve(job.reserved_bytes, self.preparation_target)
         self.cached_ranges.set_ranges(self.preview_frames.ranges())
         self.prepare_job = self.warming_job = job; self.pending_jobs.append(job)
-        self.prepare_preview.setText('Cancel preparation' if self.preparation_explicit else 'Prepare')
-        self.preview_status.setText(f'Preparing · {sum(self.preview_frames.contains(i) for i in self.preparation_target)} / {len(self.preparation_target)} frames')
+        self.prepare_preview.setText('Cancel preparation' if self.preparation_explicit else 'Prepare range')
+        self.preview_status.setText(self.preparation_feedback())
         job.signals.done.connect(lambda result, j=job: self.preparation_finished(j, result=result))
         job.signals.failed.connect(lambda error, j=job: self.preparation_finished(j, error))
         self.jobs.start(job)
@@ -2028,7 +2061,7 @@ class SynthStudio(PerformanceStudio, VisualSoundStudio, AudioReactivityStudio, S
 
     def preparation_progress(self, job, done, total):
         if job is self.prepare_job and not self.closing:
-            self.preview_status.setText(f'Preparing · {done} / {total} frames')
+            self.preview_status.setText(self.preparation_feedback())
 
     def preparation_finished(self, job, error=None, *, result=None):
         if job in self.pending_jobs: self.pending_jobs.remove(job)
@@ -2043,7 +2076,7 @@ class SynthStudio(PerformanceStudio, VisualSoundStudio, AudioReactivityStudio, S
         if valid and error:
             if self.discovery_session: self.discovery_session.fail(error)
             self.cancel_preparation()
-            self.prepare_preview.setText('Prepare'); self.preview_status.setText(f'Limited by rendering · {error}'); return
+            self.prepare_preview.setText('Prepare range'); self.preview_status.setText(f'Limited by rendering · {error}'); return
         if self.render_queued and not self.render_running and not self.preview_debounce.isActive(): QTimer.singleShot(0, self.request_frame)
         if self.preparation_target: QTimer.singleShot(0, self._start_warm_batch)
         else: self.schedule_auto_preparation()
@@ -2279,6 +2312,18 @@ class SynthStudio(PerformanceStudio, VisualSoundStudio, AudioReactivityStudio, S
 
     def load_preset_dialog(self, checked=False):
         return self.load_sequence_dialog()
+
+    def export_summary_rows(self):
+        navigation = self.workspace_navigation
+        if navigation and navigation.montage:
+            rows = navigation.montage.export_summary_rows()
+            rows.insert(1, ('Editing', 'A block is open. Export returns to the complete montage and includes its applied edits.'))
+            return rows
+        rows = export_rows(self.sequence, preset=self.preset)
+        dialog = self.visual_sound_dialog
+        if dialog and dialog.has_sound_draft():
+            rows.insert(-1, ('Sound draft', 'Unapplied sound changes. Export will ask whether to apply them or use the applied sound shown above.'))
+        return rows
 
     def export_dialog(self):
         navigation = self.workspace_navigation

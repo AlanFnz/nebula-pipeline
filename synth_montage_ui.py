@@ -21,6 +21,8 @@ from synth_montage import (FORMAT, identifier, new_montage, normalize_montage, l
     treatment, apply_treatment, MontageRenderer, export_montage)
 from synth_soundtrack_ui import SoundtrackLane, SoundtrackDialog
 from synth_soundtrack_preview import SoundtrackPreview
+from synth_output_ui import ExportSummaryButton, export_rows, PREVIEW_HINT, cache_caption
+from synth_workspace_widgets import FlowLayout, inline
 from synth_montage_selection import MontageSelection
 from synth_montage_blocks import BlockBrowser, MontageBlockNavigation, block_details, clip_label, time_label
 
@@ -347,7 +349,8 @@ class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
         top=QHBoxLayout(); brand=QLabel('nebula_  /  Montage'); brand.setObjectName('brand'); top.addWidget(brand)
         for label,method in [('Open…',self.open_dialog),('Save',self.save),('Save as…',lambda:self.save(True))]: self.button(label,method,top)
         self.undo_button=self.button('Undo',self.undo,top); self.redo_button=self.button('Redo',self.redo,top)
-        top.addStretch(); self.export_button=self.button('Export MP4',self.export_dialog,top); self.export_button.setObjectName('primary'); layout.addLayout(top)
+        top.addStretch(); self.export_button=self.button('Export MP4',self.export_dialog,top); self.export_button.setObjectName('primary')
+        self.export_summary=ExportSummaryButton(self,self.export_summary_rows,self.export_button); top.addWidget(self.export_summary); layout.addLayout(top)
         split=QSplitter(); layout.addWidget(split,1)
         library=QWidget(); left=QVBoxLayout(library)
         self.material_tabs=QTabWidget(); self.material_tabs.setAccessibleName('Montage navigation'); left.addWidget(self.material_tabs,1)
@@ -367,9 +370,15 @@ class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
         split.addWidget(library)
         center=QWidget(); middle=QVBoxLayout(center); self.monitor=ImageMonitor('Import videos or a study to begin'); middle.addWidget(self.monitor,1)
         transport=QHBoxLayout(); self.play=self.button('Play',self.toggle_play,transport); self.scrub=Slider(Qt.Orientation.Horizontal); self.scrub.setAccessibleName('Montage playhead'); transport.addWidget(self.scrub,1)
-        self.timecode=QLabel(); transport.addWidget(self.timecode); self.detail=ComboBox(); self.detail.addItems(['360 px','720 px','Full canvas']); self.detail.currentIndexChanged.connect(self.request_frame); transport.addWidget(self.detail)
+        self.timecode=QLabel(); transport.addWidget(self.timecode); self.detail=ComboBox(); self.detail.addItems(['360 px','720 px','Full canvas']); self.detail.setAccessibleName('Preview resolution'); self.detail.setToolTip(PREVIEW_HINT); self.detail.currentIndexChanged.connect(self.preview_detail_changed)
         middle.addLayout(transport); self.scrub.valueChanged.connect(self.seek)
-        self.button('Prepare preview',self.prepare,middle); split.addWidget(center)
+        detail_host=QWidget(); detail_flow=FlowLayout(detail_host,spacing=6)
+        self.preview_dimensions=QLabel(); self.preview_dimensions.setObjectName('monitorMeta')
+        detail_flow.addWidget(inline(QLabel('Preview resolution'),self.detail,self.preview_dimensions)); middle.addWidget(detail_host)
+        self.cache_status=QLabel(); self.cache_status.setWordWrap(True); self.cache_status.setObjectName('monitorMeta'); self.cache_status.setAccessibleName('Montage prepared frames'); middle.addWidget(self.cache_status)
+        self.prepare_button=self.button('Prepare range',self.prepare,middle)
+        self.prepare_button.setToolTip('Prepare a bounded playback range near the playhead at the selected resolution. Export renders every frame of the montage.')
+        split.addWidget(center)
         inspector=QWidget(); right=QVBoxLayout(inspector); right.addWidget(QLabel('TARGET BLOCK'))
         self.clip_name=QLabel('Target: None'); self.clip_name.setWordWrap(True); self.clip_name.setTextFormat(Qt.TextFormat.PlainText); right.addWidget(self.clip_name)
         self.timing_empty=QLabel(); self.timing_empty.setWordWrap(True); right.addWidget(self.timing_empty)
@@ -459,6 +468,7 @@ class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
 
     def invalidate(self):
         self.revision+=1; self.cache.clear(); self.cache_bytes=0
+        self.refresh_preview_details()
         if self.preview_task: self.preview_task.cancel.cancel(); self.preview_task=None
         if self.prepare_task: self.prepare_task.cancel.cancel(); self.prepare_task=None
 
@@ -522,11 +532,28 @@ class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
         ratio=min(1.,edge/max(canvas['width'],canvas['height']))
         return max(1,round(canvas['width']*ratio)),max(1,round(canvas['height']*ratio))
 
-    def cache_packet(self,key,packet):
+    def refresh_preview_details(self):
+        if not hasattr(self,'cache_status'): return
+        size=self.preview_size(); total=sum(c['frames'] for c in self.document['clips'])
+        ready=sum(revision==self.revision and dimensions==size and 0<=frame<total for revision,dimensions,frame in self.cache)
+        self.preview_dimensions.setText(f'{size[0]} × {size[1]} px')
+        self.preview_dimensions.setToolTip(PREVIEW_HINT)
+        self.cache_status.setText(cache_caption('Montage',ready,total))
+        self.cache_status.setToolTip('Prepared frames at this resolution for the current montage edits. Preparation can cover a bounded range; export always renders the entire montage.')
+
+    def preview_detail_changed(self,*_):
+        if self.prepare_task:
+            self.prepare_task.cancel.cancel(); self.prepare_task=None
+        self.refresh_preview_details()
+        self.status.setText('Preview resolution changed · updating the monitor')
+        self.request_frame()
+
+    def cache_packet(self,key,packet,*,refresh=True):
         if key in self.cache: return
         self.cache[key]=packet; self.cache_bytes+=len(packet[1])
         while self.cache_bytes>256*1024**2 and len(self.cache)>1:
             _,p=self.cache.popitem(last=False); self.cache_bytes-=len(p[1])
+        if refresh: self.refresh_preview_details()
 
     def request_frame(self,*_):
         if self.preview_suspended: return
@@ -554,7 +581,7 @@ class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
         doc=copy.deepcopy(self.document); revision=self.revision; size=self.preview_size()
         total=sum(c['frames'] for c in doc['clips']); capacity=max(1,(220*1024**2)//(size[0]*size[1]*3))
         first=0 if total<=capacity else self.frame; last=min(total,first+capacity)
-        self.status.setText(f'Preparing {last-first} frames at the selected detail…')
+        self.status.setText(f'Preparing montage range · 0/{last-first} frames · {first/doc["fps"]:.2f}–{last/doc["fps"]:.2f}s')
         def render(cancel,progress):
             packets=[]
             with MontageRenderer(doc,cancel,preview=True) as renderer:
@@ -562,11 +589,19 @@ class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
                     cancel.check(); packets.append((frame,image_packet(renderer.frame(frame,size)))); progress(frame-first+1,last-first)
             return packets
         def done(packets):
-            if self.prepare_task is task: self.prepare_task=None
-            if revision!=self.revision: return
-            for frame,packet in packets: self.cache_packet((revision,size,frame),packet)
-            self.status.setText(f'Preview ready · {first/doc["fps"]:.2f}–{last/doc["fps"]:.2f}s'); self.request_frame()
-        task=self.task(render,done); self.prepare_task=task
+            if self.prepare_task is not task or revision!=self.revision or size!=self.preview_size(): return
+            self.prepare_task=None
+            for frame,packet in packets: self.cache_packet((revision,size,frame),packet,refresh=False)
+            self.refresh_preview_details()
+            self.status.setText(f'Prepared range · {first/doc["fps"]:.2f}–{last/doc["fps"]:.2f}s · see montage frame count'); self.request_frame()
+        def failed(error):
+            if self.prepare_task is task:
+                self.prepare_task=None; self.status.setText(f'Preview preparation stopped: {error}')
+        task=self.task(render,done,failed); self.prepare_task=task
+        def progress(done,total):
+            if self.prepare_task is task:
+                self.status.setText(f'Preparing montage range · {done}/{total} frames')
+        task.signals.progress.connect(progress)
 
     def toggle_play(self):
         if self.timer.isActive(): self.stop(); return
@@ -733,6 +768,12 @@ class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
         def load():
             doc=load_montage(path); self.stop(); self.identity=object(); self.document=doc; self.clean=copy.deepcopy(doc); self.path=Path(path); self.undo_stack=[]; self.redo_stack=[]; self.invalidate(); self.refresh(); self.initialize_media()
         self.guarded(load)
+    def export_summary_rows(self):
+        rows=export_rows(self.document,montage=True)
+        if self.has_timing_draft():
+            rows.insert(-1,('Timing draft','Unapplied timing changes. Export will ask you to apply or revert them. Timing above describes the applied montage.'))
+        return rows
+
     def export_dialog(self):
         if self.export_task or not self.document['clips']: return
         if not self.resolve_timing('exporting the montage'): return

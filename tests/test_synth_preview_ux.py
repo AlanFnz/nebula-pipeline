@@ -114,7 +114,7 @@ def test_stale_preparation_and_render_cannot_replace_newer_settings(window):
     old=window.settings_generation
     job=object();window.prepare_job=job
     # Simulate an old packet arriving after cancellation and an edit.
-    window.prepare_job=None;window.invalidate()
+    window.prepare_job=None;window.invalidate(force_clear=True)
     old_packet=window.viewer.packet
     retained = dict(window.preview_frames.items)
     window.prepared_frame(job,(old,0,((1,1),b'old')))
@@ -135,7 +135,8 @@ def test_playback_clock_skips_to_wall_time_instead_of_slowing_clip(window,monkey
 def test_memory_limit_and_cancellation_are_visible(window):
     window.preview_frames.budget=1
     window.prepare_playback()
-    assert window.prepare_job is None and 'partially prepared' in window.preview_status.text()
+    assert window.prepare_job is None and 'not prepared' in window.preview_status.text()
+    assert 'memory budget' in window.preview_status.text()
     assert '360 px' in window.preview_status.toolTip()
 
 
