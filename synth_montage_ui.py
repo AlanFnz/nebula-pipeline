@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 import time
 from collections import OrderedDict
 from pathlib import Path
@@ -20,6 +21,7 @@ from synth_montage import (FORMAT, identifier, new_montage, normalize_montage, l
     treatment, apply_treatment, MontageRenderer, export_montage)
 from synth_soundtrack_ui import SoundtrackLane, SoundtrackDialog
 from synth_soundtrack_preview import SoundtrackPreview
+from synth_montage_selection import MontageSelection
 
 
 def image_packet(image): return image.size, image.convert('RGB').tobytes()
@@ -134,7 +136,9 @@ class MontageTimeline(QWidget):
         for clip,a,b,rect in self.rectangles():
             if rect.contains(event.position()):
                 additive=bool(event.modifiers() & (Qt.KeyboardModifier.ShiftModifier | Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.MetaModifier))
+                expected=self.selected ^ {clip['id']} if additive else {clip['id']}
                 self.selectRequested.emit(clip['id'],additive)
+                if self.selected != expected: return  # A pending timing edit can keep the current target.
                 self.gesture=(clip['id'],x,a,b,abs(x-rect.right())<7)
                 self.seekRequested.emit(a); return
         self.seekRequested.emit(self.frame_at(x))
@@ -165,6 +169,7 @@ class MontageTimeline(QWidget):
             elif event.key()==Qt.Key.Key_End: index=len(clips)-1
             else: index=max(0,min(len(clips)-1,index+(-1 if event.key()==Qt.Key.Key_Left else 1)))
             self.selectRequested.emit(clips[index]['id'],False)
+            if self.selected != {clips[index]['id']}: event.accept(); return
             self.seekRequested.emit(sum(c['frames'] for c in clips[:index])); event.accept()
         elif event.key() in (Qt.Key.Key_Return,Qt.Key.Key_Enter):
             self.editRequested.emit(clips[index]['id']); event.accept()
@@ -183,37 +188,69 @@ class MontageTimeline(QWidget):
 
 class SourceRangeDialog(QDialog):
     """Preview an original or a study, then choose a frame-accurate range."""
-    def __init__(self, document, asset_id, parent=None, replace_frames=None):
-        super().__init__(parent); self.setWindowTitle('Choose source range'); self.resize(800,650)
+    def __init__(self, document, asset_id, parent=None, *, target=None, destination='End of timeline'):
+        super().__init__(parent); self.setWindowTitle('Replace target block' if target else 'Insert range'); self.resize(800,690)
         self.document = copy.deepcopy(document); self.asset_id=asset_id; self.closed=False; self.pending=None; self.generation=0
         self.pool=QThreadPool.globalInstance()
-        temp, self.clip_id=insert_clip(new_montage(document['canvas'],document['fps']) | {'assets':{asset_id:document['assets'][asset_id]}},asset_id)
-        self.source=temp; self.total=temp['clips'][0]['frames']; self.replace_frames=replace_frames
+        temp, self.clip_id=insert_clip(new_montage(document['canvas'],document['fps']) | {'assets':{asset_id:document['assets'][asset_id]}},asset_id,frames=1)
+        self.duration=source_duration(temp,temp['clips'][0]); self.target=copy.deepcopy(target)
+        self.total=max(1,math.ceil((self.duration-1e-8)*document['fps']))
+        temp['clips'][0]['frames']=self.total; self.source=normalize_montage(temp)
         self.timer=QTimer(self); self.timer.setInterval(round(1000/document['fps'])); self.timer.timeout.connect(self.advance)
-        layout=QVBoxLayout(self); layout.addWidget(QLabel(document['assets'][asset_id]['name']))
+        layout=QVBoxLayout(self)
+        asset=document['assets'][asset_id]
+        self.context=QLabel(f"Material source: {asset['name']}\n{'Target' if target else 'Insert'}: {destination}")
+        self.context.setWordWrap(True); self.context.setTextFormat(Qt.TextFormat.PlainText); layout.addWidget(self.context)
+        rate=asset['footage']['fps'] if asset['kind']=='video' else asset['document']['fps']
+        self.clock=QLabel(f"Range positions use the montage rate: {document['fps']} fps. Source: {rate:g} fps.\n"
+                          'The source is sampled at these times; its playback speed is unchanged when inserted.')
+        self.clock.setWordWrap(True); layout.addWidget(self.clock)
         self.monitor=ImageMonitor(); layout.addWidget(self.monitor,1)
         self.scrub=Slider(Qt.Orientation.Horizontal); self.scrub.setRange(0,self.total-1); self.scrub.setAccessibleName('Source preview frame'); layout.addWidget(self.scrub)
         row=QHBoxLayout(); self.play=QPushButton('Play'); self.play.setCheckable(True); self.play.toggled.connect(lambda b:self.timer.start() if b else self.timer.stop()); row.addWidget(self.play)
         self.timecode=QLabel(); row.addWidget(self.timecode)
-        for label,callback in [('Set In [I]',self.set_in),('Set Out [O]',self.set_out)]:
+        for label,callback in [('Set In [I]',self.set_in)]+([] if target else [('Set Out [O]',self.set_out)]):
             button=QPushButton(label); button.clicked.connect(callback); row.addWidget(button)
         layout.addLayout(row); form=QFormLayout()
         self.start=SpinBox(); self.start.setRange(0,self.total-1); self.start.setAccessibleName('Source In frame')
-        self.end=SpinBox(); self.end.setRange(1,self.total); self.end.setValue(min(self.total,replace_frames or self.total)); self.end.setAccessibleName('Source Out frame exclusive')
+        self.end=DoubleSpinBox() if target else SpinBox()
+        if target: self.end.setDecimals(12)
+        self.end.setRange(0 if target else 1,432000*16 if target else self.total); self.end.setValue(self.total); self.end.setAccessibleName('Source Out frame exclusive')
         form.addRow('In · frame',self.start); form.addRow('Out · frame (exclusive)',self.end); layout.addLayout(form)
-        self.note=QLabel('Choose a range, then add it to the timeline.' if replace_frames is None else f'Replacement keeps the existing cut: {replace_frames} frames. Choose its starting point.')
+        self.note=QLabel()
         self.note.setWordWrap(True); layout.addWidget(self.note)
-        if replace_frames is not None:
-            self.end.setEnabled(False); self.start.valueChanged.connect(lambda v:self.end.setValue(min(self.total,v+replace_frames)))
+        if target: self.end.setEnabled(False)
         buttons=QDialogButtonBox(QDialogButtonBox.StandardButton.Ok|QDialogButtonBox.StandardButton.Cancel)
-        buttons.button(QDialogButtonBox.StandardButton.Ok).setText('Use this range'); buttons.accepted.connect(self.accept); buttons.rejected.connect(self.reject); layout.addWidget(buttons)
+        self.confirm=buttons.button(QDialogButtonBox.StandardButton.Ok)
+        buttons.accepted.connect(self.accept); buttons.rejected.connect(self.reject); layout.addWidget(buttons)
         for key,callback in [('I',self.set_in),('O',self.set_out)]:
             action=QAction(self); action.setShortcut(QKeySequence(key)); action.triggered.connect(callback); self.addAction(action)
-        self.scrub.valueChanged.connect(self.preview); QTimer.singleShot(0,self.preview)
+        self.preview_error=QLabel(); self.preview_error.setWordWrap(True); self.preview_error.hide(); layout.addWidget(self.preview_error)
+        self.start.valueChanged.connect(self.refresh_range)
+        if not target: self.end.valueChanged.connect(self.refresh_range)
+        self.refresh_range(); self.scrub.valueChanged.connect(self.preview); QTimer.singleShot(0,self.preview)
+
+    def refresh_range(self,*_):
+        start=self.start.value(); fps=self.document['fps']
+        if self.target:
+            frames=self.target['frames']; speed=self.target['speed']; last=start+(frames-1)*speed
+            self.end.setValue(start+frames*speed)
+            self.valid=last/fps < self.duration-1e-8
+            summary=f"Keeps target duration ({frames} frames · {frames/fps:.3f}s), speed ({speed:g}×) and treatment.\n"
+            summary+=f"Source samples: {start:g} through {last:g} at {fps} fps. Out is the next step boundary."
+            if not self.valid: summary+='\nThis range exceeds the source. Choose an earlier In point or a longer material.'
+            self.confirm.setText('Replace target block')
+        else:
+            end=self.end.value(); frames=end-start; self.valid=0<=start<end<=self.total
+            summary=f'In {start} inclusive · Out {end} exclusive · {max(0,frames)} frames at {fps} fps.\n'
+            summary+=f'Adds {max(0,frames)/fps:.3f}s to the timeline. Insertion uses the stated boundary, not the playhead.'
+            if not self.valid: summary+='\nOut must be after In and inside the source.'
+            self.confirm.setText(f'Insert {max(0,frames)}-frame range')
+        self.note.setText(summary); self.confirm.setEnabled(self.valid)
 
     def set_in(self): self.start.setValue(self.scrub.value())
     def set_out(self):
-        if self.replace_frames is None: self.end.setValue(self.scrub.value()+1)
+        if self.target is None: self.end.setValue(self.scrub.value()+1)
     def advance(self): self.scrub.setValue((self.scrub.value()+1)%self.total)
 
     def preview(self,*_):
@@ -232,13 +269,12 @@ class SourceRangeDialog(QDialog):
                 if self.scrub.value()!=frame: self.preview()
         def failed(error):
             self.pending=None
-            if not self.closed: self.note.setText(error)
+            if not self.closed: self.preview_error.setText(error); self.preview_error.show()
         task.signals.done.connect(done); task.signals.failed.connect(failed); self.pool.start(task)
 
     def accept(self):
-        end=self.start.value()+self.replace_frames if self.replace_frames is not None else self.end.value()
-        if end<=self.start.value() or end>self.total:
-            self.note.setText('Choose a range that fits inside the source.'); return
+        self.start.interpretText(); self.end.interpretText(); self.refresh_range()
+        if not self.valid: return
         super().accept()
 
     def done(self,result):
@@ -247,7 +283,7 @@ class SourceRangeDialog(QDialog):
         super().done(result)
 
 
-class MontageWindow(QMainWindow):
+class MontageWindow(MontageSelection, QMainWindow):
     def __init__(self,document=None,path=None,parent=None,*,embedded=False):
         super().__init__(parent,Qt.WindowType.Widget if embedded else Qt.WindowType.Window)
         if embedded:
@@ -257,6 +293,7 @@ class MontageWindow(QMainWindow):
         self.workspace_navigation=None; self.preview_suspended=False
         self.document=normalize_montage(document or new_montage()); self.path=Path(path) if path else None
         self.clean=copy.deepcopy(self.document); self.undo_stack=[]; self.redo_stack=[]; self.selected=set(); self.frame=0
+        self.timing_key=None; self.timing_base=None
         self.revision=0; self.identity=object(); self.closed=False; self.pending=[]; self.preview_task=None; self.prepare_task=None; self.export_task=None; self.editors=[]
         self.cache=OrderedDict(); self.cache_bytes=0; self.look=None; self.thumbnails={}; self.pool=QThreadPool(self); self.pool.setMaxThreadCount(2)
         self.audio=SoundtrackPreview(self); self.timer=QTimer(self); self.timer.setInterval(25); self.timer.timeout.connect(self.tick)
@@ -290,25 +327,37 @@ class MontageWindow(QMainWindow):
         library=QWidget(); left=QVBoxLayout(library); left.addWidget(QLabel('MATERIAL'))
         self.button('Import videos / studies…',self.import_dialog,left)
         self.library=LibraryList(); left.addWidget(self.library,1)
+        self.library.currentItemChanged.connect(self.update_material_context)
+        self.material_context=QLabel('Material source: None'); self.material_context.setWordWrap(True); self.material_context.setTextFormat(Qt.TextFormat.PlainText); left.addWidget(self.material_context)
         self.library.itemDoubleClicked.connect(lambda _:self.choose_range())
-        self.button('Preview / choose range…',self.choose_range,left)
-        self.button('Replace selected clip…',self.replace_selected,left)
+        self.insert_button=self.button('Insert range…',self.choose_range,left)
+        self.replace_button=self.button('Replace target block…',self.replace_selected,left)
+        self.material_hint=QLabel(); self.material_hint.setWordWrap(True); left.addWidget(self.material_hint)
         split.addWidget(library)
         center=QWidget(); middle=QVBoxLayout(center); self.monitor=ImageMonitor('Import videos or a study to begin'); middle.addWidget(self.monitor,1)
         transport=QHBoxLayout(); self.play=self.button('Play',self.toggle_play,transport); self.scrub=Slider(Qt.Orientation.Horizontal); self.scrub.setAccessibleName('Montage playhead'); transport.addWidget(self.scrub,1)
         self.timecode=QLabel(); transport.addWidget(self.timecode); self.detail=ComboBox(); self.detail.addItems(['360 px','720 px','Full canvas']); self.detail.currentIndexChanged.connect(self.request_frame); transport.addWidget(self.detail)
         middle.addLayout(transport); self.scrub.valueChanged.connect(self.seek)
         self.button('Prepare preview',self.prepare,middle); split.addWidget(center)
-        inspector=QWidget(); right=QVBoxLayout(inspector); right.addWidget(QLabel('SELECTED CLIP'))
-        self.clip_name=QLabel('Choose a clip'); self.clip_name.setWordWrap(True); right.addWidget(self.clip_name)
-        form=QFormLayout(); self.source_in=DoubleSpinBox(); self.source_in.setDecimals(3); self.source_in.setRange(0,432000); self.source_in.setAccessibleName('Clip source In frame')
+        inspector=QWidget(); right=QVBoxLayout(inspector); right.addWidget(QLabel('TARGET BLOCK'))
+        self.clip_name=QLabel('Target: None'); self.clip_name.setWordWrap(True); self.clip_name.setTextFormat(Qt.TextFormat.PlainText); right.addWidget(self.clip_name)
+        self.timing_empty=QLabel(); self.timing_empty.setWordWrap(True); right.addWidget(self.timing_empty)
+        self.timing_fields=QWidget(); form=QFormLayout(self.timing_fields); form.setContentsMargins(0,0,0,0)
+        self.source_in=DoubleSpinBox(); self.source_in.setDecimals(12); self.source_in.setRange(0,432000); self.source_in.setAccessibleName('Block source In frame')
         self.length=SpinBox(); self.length.setRange(1,432000); self.length.setAccessibleName('Clip duration frames')
-        self.speed=DoubleSpinBox(); self.speed.setRange(.05,16); self.speed.setValue(1); self.speed.setSuffix(' ×'); self.speed.setAccessibleName('Montage clip speed')
+        self.speed=DoubleSpinBox(); self.speed.setDecimals(12); self.speed.setRange(.05,16); self.speed.setValue(1); self.speed.setSuffix(' ×'); self.speed.setAccessibleName('Montage block speed')
         for label,control in [('Source In · frames',self.source_in),('Duration · frames',self.length),('Speed',self.speed)]: form.addRow(label,control)
-        right.addLayout(form); self.button('Apply timing',self.apply_timing,right)
-        self.button('Edit study / effects…',self.edit_selected,right)
-        self.button('Copy treatment',self.copy_look,right); self.button('Apply treatment to selection',self.paste_look,right)
-        self.button('Duplicate selection',self.duplicate,right); self.button('Remove selection',self.remove_selected,right)
+        for control in (self.source_in,self.length,self.speed):
+            control.setKeyboardTracking(False); control.valueChanged.connect(self.update_timing_state)
+            control.lineEdit().textEdited.connect(self.timing_text_edited)
+            control.editingFinished.connect(self.update_timing_state)
+        right.addWidget(self.timing_fields)
+        self.timing_state=QLabel(); self.timing_state.setWordWrap(True); self.timing_state.setTextFormat(Qt.TextFormat.PlainText); right.addWidget(self.timing_state)
+        self.apply_timing_button=self.button('Apply timing',self.apply_timing,right)
+        self.revert_timing_button=self.button('Revert timing draft',self.revert_timing,right)
+        self.edit_button=self.button('Edit study / effects…',self.edit_selected,right)
+        self.copy_button=self.button('Copy treatment',self.copy_look,right); self.paste_button=self.button('Apply treatment to selection',self.paste_look,right)
+        self.duplicate_button=self.button('Duplicate selection',self.duplicate,right); self.remove_button=self.button('Remove selection',self.remove_selected,right)
         right.addWidget(QLabel('MUSIC MARKERS')); self.marker_list=QListWidget(); self.marker_list.setMaximumHeight(150); right.addWidget(self.marker_list)
         self.marker_list.itemDoubleClicked.connect(lambda item:self.seek(item.data(Qt.ItemDataRole.UserRole)))
         self.button('Add marker at playhead…',self.add_marker,right); self.button('Remove marker',self.remove_marker,right)
@@ -360,10 +409,11 @@ class MontageWindow(QMainWindow):
             if not self.closed: (failed or self.status.setText)(error)
         task.signals.done.connect(complete); task.signals.failed.connect(failure); self.pool.start(task,priority); return task
 
-    def commit(self,document):
+    def commit(self,document,*,selected=None):
         doc=normalize_montage(document)
         if doc==self.document: return
-        self.stop(); self.undo_stack.append(self.document); self.undo_stack=self.undo_stack[-30:]; self.redo_stack=[]
+        self.stop(); self.undo_stack.append((self.document,set(self.selected))); self.undo_stack=self.undo_stack[-30:]; self.redo_stack=[]
+        if selected is not None: self.selected=set(selected)
         self.document=doc; self.invalidate(); self.refresh()
 
     def invalidate(self):
@@ -372,11 +422,12 @@ class MontageWindow(QMainWindow):
         if self.prepare_task: self.prepare_task.cancel.cancel(); self.prepare_task=None
 
     def undo(self):
-        if self.undo_stack:
-            self.stop(); self.redo_stack.append(self.document); self.document=self.undo_stack.pop(); self.invalidate(); self.refresh()
+        if self.undo_stack and self.resolve_timing('undoing the montage edit'):
+            self.stop(); self.redo_stack.append((self.document,set(self.selected))); self.document,self.selected=self.undo_stack.pop(); self.invalidate(); self.refresh()
+            self.status.setText('Edit undone · '+(self.block_label(next(iter(self.selected))) if len(self.selected)==1 else 'no target selected' if not self.selected else f'{len(self.selected)} blocks selected'))
     def redo(self):
-        if self.redo_stack:
-            self.stop(); self.undo_stack.append(self.document); self.document=self.redo_stack.pop(); self.invalidate(); self.refresh()
+        if self.redo_stack and self.resolve_timing('redoing the montage edit') and self.redo_stack:
+            self.stop(); self.undo_stack.append((self.document,set(self.selected))); self.document,self.selected=self.redo_stack.pop(); self.invalidate(); self.refresh()
 
     def refresh(self):
         self.setWindowTitle(f"Nebula · Montage / {self.document['name']}{' *' if self.document!=self.clean else ''}")
@@ -399,19 +450,6 @@ class MontageWindow(QMainWindow):
         track=self.document.get('soundtrack'); self.wave.set_track(track,total/self.document['fps']); self.audio.set_track(track)
         self.update_inspector(); self.seek(min(self.frame,max(0,total-1)))
 
-    def active_clip(self): return next((c for c in self.document['clips'] if c['id'] in self.selected),None)
-    def select_clip(self,key,additive=False):
-        if additive:
-            if key in self.selected: self.selected.remove(key)
-            else: self.selected.add(key)
-        else: self.selected={key}
-        self.timeline.selected=set(self.selected); self.timeline.update(); self.update_inspector()
-    def select_all(self):
-        self.selected={c['id'] for c in self.document['clips']}; self.timeline.selected=set(self.selected); self.timeline.update(); self.update_inspector()
-    def update_inspector(self):
-        clip=self.active_clip()
-        self.clip_name.setText(f"{len(self.selected)} clips selected" if len(self.selected)>1 else clip['name'] if clip else 'Choose a clip')
-        if clip: self.source_in.setValue(clip['in_frame']); self.length.setValue(clip['frames']); self.speed.setValue(clip['speed'])
     def update_track_geometry(self):
         self.timeline.set_document(self.document,self.selected)
         self.tracks.setMinimumWidth(self.timeline.minimumWidth())
@@ -532,49 +570,58 @@ class MontageWindow(QMainWindow):
     def choose_range(self,checked=False,*,asset=None,at=None,replace_id=None):
         key=asset or self.library_key()
         if key is None: self.status.setText('Select material in the library first.'); return
+        if not self.resolve_timing('choosing a source range'): return
         clip=next((c for c in self.document['clips'] if c['id']==replace_id),None)
-        self.stop(); dialog=SourceRangeDialog(self.document,key,self,replace_frames=round(clip['frames']*clip['speed']) if clip else None)
+        if replace_id is not None and (clip is None or self.selected!={replace_id}):
+            self.status.setText('Select exactly one target block to replace.'); return
+        if at is None:
+            at=max((i+1 for i,c in enumerate(self.document['clips']) if c['id'] in self.selected),default=len(self.document['clips']))
+        at=max(0,min(len(self.document['clips']),at))
+        destination=self.block_label(clip['id']) if clip else ('At the start of the timeline' if at==0 else 'After '+self.block_label(self.document['clips'][at-1]['id']))
+        self.stop(); dialog=SourceRangeDialog(self.document,key,self,target=clip,destination=destination)
         if not dialog.exec(): return
         def apply():
             if clip: self.commit(replace_clip(self.document,clip['id'],key,dialog.start.value()))
             else:
-                doc,identifier=insert_clip(self.document,key,at,dialog.start.value(),dialog.end.value()-dialog.start.value()); self.selected={identifier}; self.commit(doc)
+                doc,identifier=insert_clip(self.document,key,at,dialog.start.value(),dialog.end.value()-dialog.start.value()); self.commit(doc,selected={identifier})
+            self.status.setText(('Replaced ' if clip else 'Inserted ')+self.block_label(self.active_clip()['id'])+' · Save stores the montage.')
         self.guarded(apply)
     def replace_selected(self):
         clip=self.active_clip()
         if clip: self.choose_range(replace_id=clip['id'])
-        else: self.status.setText('Select the timeline clip to replace, then choose material in the library.')
+        else: self.status.setText('Select exactly one timeline block and choose material in the library.')
     def drop_asset(self,key,index): self.choose_range(asset=key,at=index)
 
-    def apply_timing(self):
-        clip=self.active_clip()
-        if not clip or len(self.selected)!=1: self.status.setText('Select one clip to edit its timing.'); return
-        doc=copy.deepcopy(self.document); target=next(c for c in doc['clips'] if c['id']==clip['id'])
-        target.update(in_frame=self.source_in.value(),frames=self.length.value(),speed=self.speed.value()); self.guarded(lambda:self.commit(doc))
     def resize_clip(self,key,frames):
+        if not self.resolve_timing('trimming a block'): return
         doc=copy.deepcopy(self.document); next(c for c in doc['clips'] if c['id']==key)['frames']=frames; self.guarded(lambda:self.commit(doc))
     def move_clip(self,key,index):
+        if not self.resolve_timing('moving a block'): return
         doc=copy.deepcopy(self.document); old=next(i for i,c in enumerate(doc['clips']) if c['id']==key)
         clip=doc['clips'].pop(old); doc['clips'].insert(index-(old<index),clip); self.commit(doc)
     def duplicate(self):
-        if not self.selected: return
+        if not self.selected or not self.resolve_timing('duplicating blocks'): return
         doc=copy.deepcopy(self.document); copies=[copy.deepcopy(c) for c in doc['clips'] if c['id'] in self.selected]
         after=max(i for i,c in enumerate(doc['clips']) if c['id'] in self.selected)+1
         for clip in copies: clip['id']=identifier()
         doc['clips'][after:after]=copies; self.guarded(lambda:self.commit(doc))
     def remove_selected(self):
+        if not self.selected or not self.resolve_timing('removing blocks'): return
         doc=copy.deepcopy(self.document); doc['clips']=[c for c in doc['clips'] if c['id'] not in self.selected]; self.commit(doc)
-    def split(self): self.guarded(lambda:self.commit(split_clip(self.document,self.frame)))
+    def split(self):
+        if self.resolve_timing('splitting a block'): self.guarded(lambda:self.commit(split_clip(self.document,self.frame)))
     def copy_look(self):
         clip=self.active_clip()
-        if clip: self.look=treatment(self.document,clip); self.status.setText('Treatment copied. Select target clips and apply it.')
+        if clip:
+            self.look=treatment(self.document,clip); self.update_inspector(); self.status.setText('Treatment copied. Select target blocks and apply it.')
     def paste_look(self):
-        if self.look and self.selected: self.guarded(lambda:self.commit(apply_treatment(self.document,self.selected,self.look)))
+        if self.look and self.selected and self.resolve_timing('applying a treatment'): self.guarded(lambda:self.commit(apply_treatment(self.document,self.selected,self.look)))
 
     def edit_selected(self):
         clip=self.active_clip()
         if clip: self.edit_clip(clip['id'])
     def edit_clip(self,key):
+        if not self.resolve_timing('editing a block'): return
         from synth_navigation import WorkspaceNavigation
         navigation=self.workspace_navigation or WorkspaceNavigation(self)
         return navigation.edit_clip(self,key)
@@ -615,12 +662,14 @@ class MontageWindow(QMainWindow):
         dialog.reactivity_button.hide(); refresh(); peaks(); dialog.show()
 
     def save(self,save_as=False):
+        if not self.resolve_timing('saving the montage'): return False
         path=str(self.path) if self.path and not save_as else QFileDialog.getSaveFileName(self,'Save montage',str(self.path or Path.home()/'Untitled.montage.json'),'Nebula montage (*.json)')[0]
         if not path: return False
         try: save_montage(path,self.document)
         except Exception as error: self.status.setText(str(error)); return False
         self.path=Path(path); self.clean=copy.deepcopy(self.document); self.refresh(); self.status.setText('Montage saved.'); return True
     def may_replace(self):
+        if not self.resolve_timing('closing or opening another document'): return False
         if self.document==self.clean: return True
         answer=QMessageBox.question(self,'Save montage?','Save your changes before closing?',QMessageBox.StandardButton.Save|QMessageBox.StandardButton.Discard|QMessageBox.StandardButton.Cancel)
         return self.save() if answer==QMessageBox.StandardButton.Save else answer==QMessageBox.StandardButton.Discard
@@ -636,9 +685,11 @@ class MontageWindow(QMainWindow):
         self.guarded(load)
     def export_dialog(self):
         if self.export_task or not self.document['clips']: return
+        if not self.resolve_timing('exporting the montage'): return
         path,_=QFileDialog.getSaveFileName(self,'Export montage',str((self.path or Path.home()/'Montage').with_suffix('.mp4')),'MP4 video (*.mp4)')
         if path: self.start_export(path)
     def start_export(self,path):
+        if not self.resolve_timing('exporting the montage'): return
         self.stop(); doc=copy.deepcopy(self.document); self.export_button.setEnabled(False); self.progress.show(); self.progress.setValue(0); self.cancel_button.show()
         self.status.setText('Rendering the complete montage at full canvas quality…')
         def finished(value):

@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.74.0 — 2026-11-08
+
+- Separate Montage's material source from its target block, with explicit empty
+  and multi-selection states. Hide stale timing values without a single target;
+  Undo/Redo restores document selection, including inserted and removed blocks.
+- Treat In, Duration and Speed edits as named timing drafts. Apply or revert
+  explicitly, and resolve drafts before changing targets, editing, saving,
+  exporting or leaving. Preserve exact stored values when only displaying them.
+- Name Insert range and Replace target block separately. Show the insertion
+  boundary, source/target names, montage and source FPS, and resulting duration.
+  Replacement keeps timing/speed/treatment and checks the renderer's existing
+  last-sample boundary without rounding the required source span.
+- Keep the dark appearance, file format, existing studies, source media, render
+  engine and sound unchanged. This completes the D06 Montage selection pass;
+  short-block identification and the remaining inspector UX are separate work.
+
 ## 0.73.0 — 2026-11-08
 
 - Show all 16 sequencer steps together, grouped in fours, with pitch contours,

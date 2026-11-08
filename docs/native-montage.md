@@ -6,10 +6,18 @@ Montage replaces the workspace in the same Nebula window.
 Existing composition files still use their original renderer. Montage documents
 use `format: nebula-montage`, version 1; Open recognizes both formats.
 
-Import videos or composition JSON files into Material. Double-click a library
-item to preview it and set In/Out, using the buttons or I/O. Out is exclusive.
-Add the range, or drag a library item to a timeline boundary to choose and insert
-it there. The source stays intact. The library displays usage counts.
+Import videos or composition JSON files into Material. Material source and Target
+block are separate selections, named beside their controls. Choosing material or
+moving the playhead does not change the target. Multi-selection keeps bulk actions
+available; single-block timing, editing and replacement require exactly one target.
+
+Use **Insert range…** (or double-click Material) to preview and set In/Out with
+the buttons or I/O. Out is exclusive. The dialog names its insertion boundary:
+after the selected block(s), or at the end when there is no selection. Dropping
+Material on the timeline uses that drop boundary. It does not split at the playhead.
+Range frames use the montage FPS, even when the source FPS differs; both rates
+and the resulting duration are shown. The source stays intact. The library
+displays usage counts. Undo/Redo restores the selection with the document edit.
 
 Drag timeline clips to reorder; Shift-click selects several. Drag a right edge
 to change duration. With snapping enabled it attaches to nearby music markers.
@@ -18,10 +26,19 @@ With the timeline focused, arrows select adjacent clips, Home/End select the
 first/last clip, and Return opens its editor.
 Source In slips the range without moving the cut; timing changes are checked
 against source bounds. Every document edit can be undone/redone.
+With no single target, the inspector shows an empty timing state instead of the
+previous block's numbers. Typing In, Duration or Speed creates a named timing
+draft. **Apply timing** updates that block; **Revert timing draft** restores its
+applied values. Before changing target, editing a block, saving, exporting or
+leaving, resolve a pending draft with Apply / Discard / Stay. Applying is distinct
+from saving the file. Preview continues to use the applied timing until Apply.
 
-To replace a shot, select its timeline clip and a library item, then Replace
-selected clip. Pick a new In point; the existing duration/speed and treatment are
-kept. Copy treatment / Apply treatment to selection transfers the current look
+To replace a shot, select one timeline block and a library item, then **Replace
+target block…**. The dialog names source and target. Pick a new In point; the
+existing duration/speed and treatment are kept, and Out is calculated. The last
+sample must fit inside the source, matching the renderer's existing boundary
+rule; an insufficient range disables replacement and explains why. Cancel leaves
+the document intact and Undo restores the prior source. Copy treatment / Apply treatment to selection transfers the current look
 without copying wording or source objects. A copied animated recipe is sampled
 at the chosen clip's starting frame; explicit overrides remain overrides.
 
