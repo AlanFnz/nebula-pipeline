@@ -19,6 +19,23 @@ Range frames use the montage FPS, even when the source FPS differs; both rates
 and the resulting duration are shown. The source stays intact. The library
 displays usage counts. Undo/Redo restores the selection with the document edit.
 
+Use the **Block list** tab beside Material to find short shots by name, number or
+source material. Each row wraps the full name and shows its kind, timeline start,
+duration in frames/seconds, and material. Selecting a row selects and reveals that
+timeline block without moving the playhead or starting playback; Enter or a double
+click opens its existing editor. Multiple selection and pending timing drafts use
+the same rules as the timeline. Search only filters the list and does not change
+the selection or document.
+
+Timeline blocks retain their proportional widths. Labels show the block number
+and as much of its name as fits; the selected-block strip and hover details show
+the full information, including for cuts too narrow to carry a number. Numbers
+follow timeline order after reorder and Undo/Redo; operations still use block IDs.
+**Show selected block** adjusts zoom and scroll explicitly; **Previous view**
+returns to the prior zoom and scroll. Neither operation changes playback, source
+ranges or document history. Marker selection reveals its full name beneath the
+marker list without seeking; double-click retains the existing seek action.
+
 Drag timeline clips to reorder; Shift-click selects several. Drag a right edge
 to change duration. With snapping enabled it attaches to nearby music markers.
 Split uses the playhead. Duplicate preserves the selected sequence's order.

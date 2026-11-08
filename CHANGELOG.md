@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.75.0 — 2026-11-08
+
+- Identify short Montage cuts with timeline-order numbers, a full selected-block
+  summary and matching hover details, while retaining proportional block widths.
+- Add a searchable Block list beside Material, with complete wrapped names,
+  source material, kind, start and frame/second duration. List selection reveals
+  the block without seeking or starting playback; Enter opens its existing editor.
+  Multi-selection, pending timing drafts and Undo/Redo share the timeline's IDs.
+- Add Show selected block and Previous view for reversible timeline framing,
+  and show the focused music marker's complete name without seeking.
+- Complete the D07 short-block identification pass. Existing studies, source
+  ranges, duration, effects, render engine, sound and file format are unchanged.
+
 ## 0.74.0 — 2026-11-08
 
 - Separate Montage's material source from its target block, with explicit empty

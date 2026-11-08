@@ -18,6 +18,10 @@ class MontageSelection:
     def select_clip(self, key, additive=False):
         if key not in {c['id'] for c in self.document['clips']}: return False
         selected = self.selected ^ {key} if additive else {key}
+        return self.select_blocks(selected)
+
+    def select_blocks(self, selected):
+        selected = set(selected) & {c['id'] for c in self.document['clips']}
         if selected != self.selected and not self.resolve_timing('changing the target block'): return False
         self.selected = selected
         self.timeline.selected = set(selected); self.timeline.update(); self.update_inspector()
@@ -64,7 +68,7 @@ class MontageSelection:
         self.edit_button.setEnabled(clip is not None); self.copy_button.setEnabled(clip is not None)
         self.paste_button.setEnabled(bool(count and self.look))
         self.duplicate_button.setEnabled(bool(count)); self.remove_button.setEnabled(bool(count))
-        self.update_timing_state(); self.update_material_context()
+        self.update_timing_state(); self.update_material_context(); self.update_block_identification()
 
     def load_timing_values(self):
         if self.timing_base is None: return

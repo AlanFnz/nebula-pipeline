@@ -8,11 +8,11 @@ import time
 from collections import OrderedDict
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal, QObject, QRunnable, QThreadPool, QTimer, QSize, QRectF, QMimeData
+from PySide6.QtCore import Qt, Signal, QObject, QRunnable, QThreadPool, QTimer, QSize, QRectF, QMimeData, QEvent, QSignalBlocker
 from PySide6.QtGui import QImage, QPixmap, QIcon, QPainter, QColor, QPen, QDrag, QAction, QKeySequence
 from PySide6.QtWidgets import (QMainWindow, QWidget, QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
     QLabel, QPushButton, QListWidget, QListWidgetItem, QAbstractItemView, QSplitter, QScrollArea,
-    QFileDialog, QMessageBox, QDialogButtonBox, QInputDialog, QCheckBox, QProgressBar)
+    QFileDialog, QMessageBox, QDialogButtonBox, QInputDialog, QCheckBox, QProgressBar, QTabWidget, QToolTip)
 
 from studio_widgets import SpinBox, DoubleSpinBox, Slider, ComboBox
 from media import Cancellation
@@ -22,6 +22,7 @@ from synth_montage import (FORMAT, identifier, new_montage, normalize_montage, l
 from synth_soundtrack_ui import SoundtrackLane, SoundtrackDialog
 from synth_soundtrack_preview import SoundtrackPreview
 from synth_montage_selection import MontageSelection
+from synth_montage_blocks import BlockBrowser, MontageBlockNavigation, block_details, clip_label, time_label
 
 
 def image_packet(image): return image.size, image.convert('RGB').tobytes()
@@ -81,6 +82,7 @@ class MontageTimeline(QWidget):
     insertRequested = Signal(str, int)
     resizeRequested = Signal(str, int)
     editRequested = Signal(str)
+    revealRequested = Signal(str)
 
     def __init__(self):
         super().__init__(); self.document = new_montage(); self.selected = set(); self.frame = 0
@@ -110,13 +112,16 @@ class MontageTimeline(QWidget):
         total = sum(c['frames'] for c in self.document['clips'])
         for second in range(int(total / self.document['fps'])+1):
             x=self.x(second*self.document['fps']); p.drawText(int(x),17,f'{second}s')
-        for clip,a,b,rect in self.rectangles():
+        for index,(clip,a,b,rect) in enumerate(self.rectangles(),1):
             chosen=clip['id'] in self.selected
             p.setBrush(QColor('#30493d' if chosen else '#20292c')); p.setPen(QColor('#acd991' if chosen else '#465153'))
             p.drawRoundedRect(rect,4,4)
             p.save(); p.setClipRect(rect.adjusted(4,2,-3,-2)); p.setPen(QColor('#e4e9e5'))
-            p.drawText(rect.adjusted(5,4,-2,-2), Qt.AlignmentFlag.AlignTop, clip['name'])
-            p.drawText(rect.adjusted(5,35,-2,-2), Qt.AlignmentFlag.AlignTop, f"{clip['frames']/self.document['fps']:.3f}s")
+            label=clip_label(index,clip['name'],rect.width()-10,p.fontMetrics())
+            p.drawText(rect.adjusted(5,4,-5,-2), Qt.AlignmentFlag.AlignTop, label)
+            duration=f"{clip['frames']/self.document['fps']:.3f}s"
+            if p.fontMetrics().horizontalAdvance(duration)<=rect.width()-10:
+                p.drawText(rect.adjusted(5,35,-5,-2), Qt.AlignmentFlag.AlignTop, duration)
             p.restore()
         for marker in self.document['markers']:
             x=self.x(marker['frame']); p.setPen(QPen(QColor('#e7b8d8'),1)); p.drawLine(int(x),22,int(x),108)
@@ -129,6 +134,24 @@ class MontageTimeline(QWidget):
                 label=p.fontMetrics().elidedText(marker['name'],Qt.TextElideMode.ElideRight,width)
                 p.drawText(int(x)+3,28,label)
         p.setPen(QPen(QColor('#ffffff'),2)); x=int(self.x(self.frame)); p.drawLine(x,30,x,114)
+
+    def event(self, event):
+        if event.type()==QEvent.Type.ToolTip:
+            text=''
+            if event.pos().y()<30:
+                markers=self.document['markers']
+                for i,marker in enumerate(markers):
+                    x=self.x(marker['frame'])
+                    end=self.x(markers[i+1]['frame']) if i+1<len(markers) else self.width()
+                    if x-3<=event.pos().x()<end-3:
+                        text=f"{time_label(marker['frame'],self.document['fps'])} · {marker['name']}"; break
+            else:
+                for clip,a,b,rect in self.rectangles():
+                    if rect.contains(event.pos()): text=block_details(self.document,clip['id']); break
+            if text: QToolTip.showText(event.globalPos(),text,self)
+            else: QToolTip.hideText()
+            return True
+        return super().event(event)
 
     def mousePressEvent(self, event):
         if event.button()!=Qt.MouseButton.LeftButton: return
@@ -170,6 +193,7 @@ class MontageTimeline(QWidget):
             else: index=max(0,min(len(clips)-1,index+(-1 if event.key()==Qt.Key.Key_Left else 1)))
             self.selectRequested.emit(clips[index]['id'],False)
             if self.selected != {clips[index]['id']}: event.accept(); return
+            self.revealRequested.emit(clips[index]['id'])
             self.seekRequested.emit(sum(c['frames'] for c in clips[:index])); event.accept()
         elif event.key() in (Qt.Key.Key_Return,Qt.Key.Key_Enter):
             self.editRequested.emit(clips[index]['id']); event.accept()
@@ -283,7 +307,7 @@ class SourceRangeDialog(QDialog):
         super().done(result)
 
 
-class MontageWindow(MontageSelection, QMainWindow):
+class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
     def __init__(self,document=None,path=None,parent=None,*,embedded=False):
         super().__init__(parent,Qt.WindowType.Widget if embedded else Qt.WindowType.Window)
         if embedded:
@@ -294,6 +318,7 @@ class MontageWindow(MontageSelection, QMainWindow):
         self.document=normalize_montage(document or new_montage()); self.path=Path(path) if path else None
         self.clean=copy.deepcopy(self.document); self.undo_stack=[]; self.redo_stack=[]; self.selected=set(); self.frame=0
         self.timing_key=None; self.timing_base=None
+        self.previous_timeline_view=None; self.view_request=0
         self.revision=0; self.identity=object(); self.closed=False; self.pending=[]; self.preview_task=None; self.prepare_task=None; self.export_task=None; self.editors=[]
         self.cache=OrderedDict(); self.cache_bytes=0; self.look=None; self.thumbnails={}; self.pool=QThreadPool(self); self.pool.setMaxThreadCount(2)
         self.audio=SoundtrackPreview(self); self.timer=QTimer(self); self.timer.setInterval(25); self.timer.timeout.connect(self.tick)
@@ -324,9 +349,15 @@ class MontageWindow(MontageSelection, QMainWindow):
         self.undo_button=self.button('Undo',self.undo,top); self.redo_button=self.button('Redo',self.redo,top)
         top.addStretch(); self.export_button=self.button('Export MP4',self.export_dialog,top); self.export_button.setObjectName('primary'); layout.addLayout(top)
         split=QSplitter(); layout.addWidget(split,1)
-        library=QWidget(); left=QVBoxLayout(library); left.addWidget(QLabel('MATERIAL'))
-        self.button('Import videos / studies…',self.import_dialog,left)
-        self.library=LibraryList(); left.addWidget(self.library,1)
+        library=QWidget(); left=QVBoxLayout(library)
+        self.material_tabs=QTabWidget(); self.material_tabs.setAccessibleName('Montage navigation'); left.addWidget(self.material_tabs,1)
+        material=QWidget(); material_layout=QVBoxLayout(material); material_layout.setContentsMargins(0,4,0,0)
+        self.button('Import videos / studies…',self.import_dialog,material_layout)
+        self.library=LibraryList(); material_layout.addWidget(self.library,1)
+        self.material_tabs.addTab(material,'Material')
+        self.block_browser=BlockBrowser(); self.material_tabs.addTab(self.block_browser,'Block list')
+        self.block_browser.selectionRequested.connect(self.select_from_block_list)
+        self.block_browser.editRequested.connect(self.edit_from_block_list)
         self.library.currentItemChanged.connect(self.update_material_context)
         self.material_context=QLabel('Material source: None'); self.material_context.setWordWrap(True); self.material_context.setTextFormat(Qt.TextFormat.PlainText); left.addWidget(self.material_context)
         self.library.itemDoubleClicked.connect(lambda _:self.choose_range())
@@ -359,6 +390,9 @@ class MontageWindow(MontageSelection, QMainWindow):
         self.copy_button=self.button('Copy treatment',self.copy_look,right); self.paste_button=self.button('Apply treatment to selection',self.paste_look,right)
         self.duplicate_button=self.button('Duplicate selection',self.duplicate,right); self.remove_button=self.button('Remove selection',self.remove_selected,right)
         right.addWidget(QLabel('MUSIC MARKERS')); self.marker_list=QListWidget(); self.marker_list.setMaximumHeight(150); right.addWidget(self.marker_list)
+        self.marker_list.setAccessibleName('Montage music markers')
+        self.marker_context=QLabel(); self.marker_context.setWordWrap(True); self.marker_context.setTextFormat(Qt.TextFormat.PlainText); right.addWidget(self.marker_context)
+        self.marker_list.currentItemChanged.connect(self.update_marker_context)
         self.marker_list.itemDoubleClicked.connect(lambda item:self.seek(item.data(Qt.ItemDataRole.UserRole)))
         self.button('Add marker at playhead…',self.add_marker,right); self.button('Remove marker',self.remove_marker,right)
         self.snap=QCheckBox('Snap clip edges to markers'); self.snap.setChecked(True); right.addWidget(self.snap)
@@ -367,9 +401,16 @@ class MontageWindow(MontageSelection, QMainWindow):
         inspector_scroll.setMinimumWidth(270); split.addWidget(inspector_scroll); split.setSizes([250,780,300])
         tools=QHBoxLayout()
         for label,method in [('Split at playhead',self.split),('Select all',self.select_all),('Soundtrack…',self.soundtrack_dialog)]: self.button(label,method,tools)
-        tools.addWidget(QLabel('Timeline zoom')); zoom=Slider(Qt.Orientation.Horizontal); zoom.setRange(25,220); zoom.setValue(65); zoom.setMaximumWidth(160); zoom.valueChanged.connect(self.zoom); tools.addWidget(zoom)
+        tools.addWidget(QLabel('Timeline zoom')); self.zoom_control=Slider(Qt.Orientation.Horizontal); self.zoom_control.setRange(25,220); self.zoom_control.setValue(65); self.zoom_control.setMaximumWidth(160); self.zoom_control.valueChanged.connect(self.zoom); self.zoom_control.setAccessibleName('Montage timeline zoom'); tools.addWidget(self.zoom_control)
         layout.addLayout(tools)
+        identity=QHBoxLayout(); self.block_summary=QLabel(); self.block_summary.setWordWrap(True); self.block_summary.setTextFormat(Qt.TextFormat.PlainText); self.block_summary.setAccessibleName('Selected montage block'); identity.addWidget(self.block_summary,1)
+        view_controls=QVBoxLayout(); self.show_block_button=self.button('Show selected block',self.show_selected_block,view_controls)
+        self.show_block_button.setToolTip('Zoom and scroll to the selected block without moving playback.')
+        self.previous_view_button=self.button('Previous view',self.restore_timeline_view,view_controls); self.previous_view_button.setEnabled(False)
+        self.previous_view_button.setToolTip('Restore the timeline zoom and scroll from before Show selected block.')
+        identity.addLayout(view_controls); layout.addLayout(identity)
         self.timeline=MontageTimeline(); self.timeline.selectRequested.connect(self.select_clip); self.timeline.seekRequested.connect(self.seek)
+        self.timeline.revealRequested.connect(self.reveal_block)
         self.timeline.moveRequested.connect(self.move_clip); self.timeline.resizeRequested.connect(self.resize_clip); self.timeline.insertRequested.connect(self.drop_asset); self.timeline.editRequested.connect(lambda key:self.edit_clip(key))
         tracks=QWidget(); self.tracks=tracks; track_layout=QVBoxLayout(tracks); track_layout.setContentsMargins(0,0,0,0); track_layout.addWidget(self.timeline)
         self.wave=SoundtrackLane(); wave_row=QHBoxLayout(); wave_row.setContentsMargins(12,0,12,0); wave_row.addWidget(self.wave); wave_row.addStretch(); track_layout.addLayout(wave_row)
@@ -444,9 +485,16 @@ class MontageWindow(MontageSelection, QMainWindow):
         self.selected.intersection_update(c['id'] for c in self.document['clips'])
         self.update_track_geometry()
         total=sum(c['frames'] for c in self.document['clips']); self.scrub.blockSignals(True); self.scrub.setRange(0,max(0,total-1)); self.scrub.blockSignals(False)
-        self.marker_list.clear()
-        for marker in self.document['markers']:
-            item=QListWidgetItem(f"{marker['frame']/self.document['fps']:.3f}s  {marker['name']}"); item.setData(Qt.ItemDataRole.UserRole,marker['frame']); self.marker_list.addItem(item)
+        marker_item=self.marker_list.currentItem()
+        marker_identity=marker_item.data(Qt.ItemDataRole.UserRole+1) if marker_item else None
+        with QSignalBlocker(self.marker_list):
+            self.marker_list.clear()
+            for marker in self.document['markers']:
+                text=f"{time_label(marker['frame'],self.document['fps'])} · {marker['name']}"
+                item=QListWidgetItem(text); item.setToolTip(text); item.setData(Qt.ItemDataRole.UserRole,marker['frame'])
+                item.setData(Qt.ItemDataRole.UserRole+1,(marker['frame'],marker['name'])); self.marker_list.addItem(item)
+                if marker_identity==(marker['frame'],marker['name']): self.marker_list.setCurrentItem(item)
+        self.update_marker_context(); self.refresh_block_navigation()
         track=self.document.get('soundtrack'); self.wave.set_track(track,total/self.document['fps']); self.audio.set_track(track)
         self.update_inspector(); self.seek(min(self.frame,max(0,total-1)))
 
@@ -455,7 +503,9 @@ class MontageWindow(MontageSelection, QMainWindow):
         self.tracks.setMinimumWidth(self.timeline.minimumWidth())
         width=round(sum(c['frames'] for c in self.document['clips'])/self.document['fps']*self.timeline.scale)
         self.wave.setFixedWidth(max(1,width))
-    def zoom(self,value): self.timeline.scale=value; self.update_track_geometry()
+    def zoom(self,value):
+        with QSignalBlocker(self.zoom_control): self.zoom_control.setValue(value)
+        self.timeline.scale=value; self.update_track_geometry()
 
     def seek(self,frame):
         total=sum(c['frames'] for c in self.document['clips']); self.frame=max(0,min(int(frame),max(0,total-1)))
