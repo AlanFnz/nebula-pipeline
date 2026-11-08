@@ -1,5 +1,10 @@
 # Text / burning print
 
+Historical record · 2026-10-23. Implemented 0.28.0 print study and treatments.
+Use [current guides](README.md) and the [status map](creative-controls-audio-roadmap.md)
+for current behavior. Implementation instructions, measurements and captures below
+belong to this record; they are not a new work order or current UI evidence.
+
 Reconstruct ref-10 as a separate, editable 10.25-second, 12 fps study at 956×720.
 The reference combines typographic cuts, red/magenta stock, drifting overexposure,
 outlined and reversed ink, gate closures and fine grain. Reference pixels are

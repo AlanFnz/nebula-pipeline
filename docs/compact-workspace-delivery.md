@@ -1,8 +1,13 @@
 # Compact workspace delivery
 
+Historical record · 2026-10-03 to 2026-10-05. Recorded 0.4.3/0.4.4 delivery and measurements.
+Use [current guides](README.md) and the [status map](creative-controls-audio-roadmap.md)
+for current behavior. Implementation instructions, measurements and captures below
+belong to this record; they are not a new work order or current UI evidence.
+
 2026-10-03 · v0.4.3
 These are the measurements and validation for that release. Current workflows
-are in [README](../README.md); video Source controls gained section scope in 0.6.0.
+are in [documentation index](README.md); video Source controls gained section scope in 0.6.0.
 
 Implementation follows [the recorded plan](compact-workspace-plan.md). Two
 GPT 6.1 Sol agents implemented the bounded timeline and effects overview work;

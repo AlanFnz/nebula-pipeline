@@ -1,5 +1,18 @@
 # Changelog
 
+Release history. Entries describe their version, including then-current limits
+and validation; use the [documentation index](docs/README.md) for current usage.
+Untagged work can be ahead of the most recent version.
+
+## Unreleased
+
+- Reorganize documentation around a first-piece guide, editing, source/effect
+  references, video, sound, Montage and local development.
+- Clarify sound drafts versus applied/saved/exported audio, experimental MIDI
+  monitoring and Montage audio limits.
+- Review plan status against 0.84.0 and label historical evidence separately.
+  No application behavior, presets, formats or version metadata changed.
+
 ## 0.84.0 — 2026-11-08
 
 - Extend live MIDI to the Layered resonant synth: sustained Drone on channel 1

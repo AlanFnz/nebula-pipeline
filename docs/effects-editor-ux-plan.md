@@ -1,9 +1,14 @@
 # Effects editor UX
 
+Historical record · 2026-09-30. Implemented 0.2.0 inspector milestone; later UI changes are documented separately.
+Use [current guides](README.md) and the [status map](creative-controls-audio-roadmap.md)
+for current behavior. Implementation instructions, measurements and captures below
+belong to this record; they are not a new work order or current UI evidence.
+
 Status: implemented and packaged 2026-09-30; merged into main and installed on 2026-10-01.
 Base: 4ba6a63 on codex/studio-editing-library (draft PR #9, itself based on #8).
 Delivery branch: codex/effects-editor-ux. Milestone version: 0.2.0.
-This records the original milestone. Current workflows are in [README](../README.md).
+This records the original milestone. Current workflows are in [documentation index](README.md).
 
 ## Goal and invariants
 

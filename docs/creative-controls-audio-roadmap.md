@@ -29,5 +29,5 @@ summary. These bounded improvements do not establish completion of a broader
 external UX proposal.
 
 Status was checked against the source registrations and UI/transport paths,
-with focused tests of the corresponding behavior.
+with focused tests listed in the [documentation review record](documentation-audit.md).
 No future milestone dates, work ordering or automatic follow-ups are implied.

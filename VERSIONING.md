@@ -1,5 +1,7 @@
 # Versioning
 
+Developer reference. See [local setup and testing](docs/development.md) first.
+
 Nebula uses one project version for its desktop app and existing pipeline. The canonical value is `__version__` in [`_version.py`](_version.py). The desktop CLI (`python studio.py --version`), Qt application metadata and window title read it directly. Both macOS bundle version fields are derived copies in `packaging/Info.plist`, maintained by `scripts/sync_version.py` and read by the app build.
 
 ## Convention
@@ -19,6 +21,6 @@ Use `MAJOR.MINOR.PATCH` and Git tags named `vMAJOR.MINOR.PATCH`.
 2. Run `.venv/bin/python scripts/sync_version.py` to update the committed macOS metadata.
 3. Run `.venv/bin/python scripts/sync_version.py --check`, `.venv/bin/python studio.py --version`, the focused test suite and `git diff --check`.
 4. Review and commit only the intended source, tests, metadata and documentation. Keep local environments, caches, presets, QA captures, reference clips and generated media out of Git.
-5. Create an annotated `vMAJOR.MINOR.PATCH` tag on the tested commit and push the intended branch and that exact tag explicitly. Do not push all tags or merge into `main` as part of this procedure.
+5. When publication is intended and authorized, create an annotated `vMAJOR.MINOR.PATCH` tag on the tested commit and push only the intended branch and that exact tag. Do not push all tags or merge into `main` as part of this procedure. A documentation review alone does not require a version bump, tag or release.
 
 No release automation or public GitHub Release is required.

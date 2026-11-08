@@ -1,7 +1,12 @@
 # Editing and preview improvements
 
+Historical record · 2026-09-30. Implemented original editing/preview milestone; its later roadmap is historical.
+Use [current guides](README.md) and the [status map](creative-controls-audio-roadmap.md)
+for current behavior. Implementation instructions, measurements and captures below
+belong to this record; they are not a new work order or current UI evidence.
+
 Status: implemented, validated and installed on 2026-09-30; merged through PR #9.
-This records the original milestone. Current workflows are in [README](../README.md).
+This records the original milestone. Current workflows are in [documentation index](README.md).
 Prepared: 2026-09-30.
 Repository: AlanFnz/nebula-pipeline.
 Baseline: main at 167636b; the separate playback-icons change is dee20f4 / PR #8.

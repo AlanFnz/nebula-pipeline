@@ -1,5 +1,10 @@
 # Imported soundtrack foundation
 
+Historical record · 2026-10-10. B1 delivered in 0.10.0. Frequency-band mapping listed as deferred below shipped in 0.11.0; mixing and multitrack remain pending.
+Use [current guides](README.md) and the [status map](creative-controls-audio-roadmap.md)
+for current behavior. Implementation instructions, measurements and captures below
+belong to this record; they are not a new work order or current UI evidence.
+
 Recorded: 2026-10-10. Scope: roadmap B1. Status: delivered in 0.10.0.
 
 Follow-up: continuous frequency-band responses shipped in 0.11.0; see the

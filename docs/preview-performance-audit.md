@@ -1,5 +1,10 @@
 # Preview performance audit
 
+Historical record · 2026-10-28. 0.48.1 source-build diagnosis recorded; installed-app validation and the complete proposed optimization program were not established as complete.
+Use [current guides](README.md) and the [status map](creative-controls-audio-roadmap.md)
+for current behavior. Implementation instructions, measurements and captures below
+belong to this record; they are not a new work order or current UI evidence.
+
 Prepared: 2026-10-28.
 Baseline: Nebula 0.48.1, commit `0e7c21b7c865da76c578571faa0ece638ba3f75a`.
 Status: source-build baseline and ranked diagnosis recorded in

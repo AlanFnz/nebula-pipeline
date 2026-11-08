@@ -52,3 +52,7 @@ The [current status map](creative-controls-audio-roadmap.md) distinguishes deliv
 partial, experimental and pending work. [History and plans](history.md) inventories
 the original proposals, delivery records, sound implementation notes and past
 performance measurements. [CHANGELOG](../CHANGELOG.md) retains release history.
+
+The [documentation review record](documentation-audit.md) names the reviewed
+checkout, evidence, checks and remaining uncertainty. It is for maintainers;
+you do not need it to use Nebula.

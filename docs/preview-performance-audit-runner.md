@@ -1,5 +1,14 @@
 # SynthStudio performance runner
 
+Developer reference for the 2026-10-28 audit. The harness requires local files
+that are not in a fresh checkout: `output/guerrilla-radio-soft-red/Guerrilla-Radio-soft-red.nebula.json`
+and `output/guerrilla-radio-v2/media/Guerrilla-Radio-guide.wav`, plus the
+project's referenced media. Its environment probe also contains the original
+machine's installed-app path. Inspect `freeze()` in
+[the runner](../tools/audit_synth_preview.py) before reproducing this local audit;
+the commands below are not a portable quick-start. They open a visible native
+window and do substantial rendering, so coordinate use of the machine first.
+
 Run from the repository with its existing `.venv`. This is an opt-in measurement
 tool; importing or launching the normal app does not enable instrumentation.
 No production renderer, quality setting, cache budget or scheduling rule is patched.

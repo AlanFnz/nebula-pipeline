@@ -52,4 +52,5 @@ The maintained corpus includes root documentation, `docs/`, asset READMEs and
 the Ableton integration. Third-party font/license texts are retained unchanged.
 `build/`, `dist/`, environments, caches, generated media and external UX reports
 are excluded. Asset provenance belongs in the font/model/icon READMEs; it is not
-evidence of current UI behavior.
+evidence of current UI behavior. See [documentation review](documentation-audit.md)
+for the audit's verification scope.

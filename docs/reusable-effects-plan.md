@@ -1,10 +1,16 @@
 # Reusable effects without changing the existing studies
 
+Historical record · 2026-09-30; updated through 2026-10-05. First region/compatibility milestone delivered. Tape instances followed in 0.5.1 and user ordering in 0.33.0; other proposed extractions remain partial.
+Use [current guides](README.md) and the [status map](creative-controls-audio-roadmap.md)
+for current behavior. Implementation instructions, measurements and captures below
+belong to this record; they are not a new work order or current UI evidence.
+
 Status: first milestone implemented; later extractions remain planned.
 Baseline: `2f4f8a2` on `codex/synthesizer-v0.2`.
 This records that milestone's design and validation. Current workflows are in
-[README](../README.md). The later 0.5.1 release adds Tape damage instances;
-arbitrary instances for other effect families and user-reordered stacks remain planned.
+[documentation index](README.md). The later 0.5.1 release adds Tape damage instances;
+arbitrary instances for other effect families remain planned. User-reordered image
+stacks later shipped in 0.33.0; see [processing order](editing.md#processing-order-and-instances).
 
 ## First milestone delivered
 

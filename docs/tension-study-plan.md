@@ -1,5 +1,10 @@
 # Tension / elastic signal
 
+Historical record · 2026-10-26. Implemented visual treatment and study revisions. Tension-to-sound remains a separate pending proposal.
+Use [current guides](README.md) and the [status map](creative-controls-audio-roadmap.md)
+for current behavior. Implementation instructions, measurements and captures below
+belong to this record; they are not a new work order or current UI evidence.
+
 ## Intent
 
 An original 15-second study: a centered luminous shape strains into filaments,

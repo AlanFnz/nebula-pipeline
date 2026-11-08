@@ -1,5 +1,10 @@
 # Studio interface redesign
 
+Historical record · 2026-10-10. Implemented 0.9.0 direction; see studio-design-delivery.md for the recorded outcome.
+Use [current guides](README.md) and the [status map](creative-controls-audio-roadmap.md)
+for current behavior. Implementation instructions, measurements and captures below
+belong to this record; they are not a new work order or current UI evidence.
+
 2026-10-10 · Approved direction: Studio
 
 ## Outcome

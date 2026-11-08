@@ -1,10 +1,15 @@
 # Compact Studio workspace
 
+Historical record · 2026-10-03. Implemented layout milestone (0.4.3); later releases changed labels and grouping.
+Use [current guides](README.md) and the [status map](creative-controls-audio-roadmap.md)
+for current behavior. Implementation instructions, measurements and captures below
+belong to this record; they are not a new work order or current UI evidence.
+
 Prepared: 2026-10-03. Baseline: v0.4.2 / aad682b on main.
 Status: implemented; see [delivery notes](compact-workspace-delivery.md) for
 measurements, validation and compatibility details.
 This records the 0.4.3 layout milestone. Current workflows are in
-[README](../README.md); video Source controls gained section scope in 0.6.0.
+[documentation index](README.md); video Source controls gained section scope in 0.6.0.
 
 ## Outcome
 

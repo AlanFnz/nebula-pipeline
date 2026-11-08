@@ -1,5 +1,10 @@
 # Studio interface delivery
 
+Historical record · 2026-10-10. Recorded 0.9.0 implementation and review.
+Use [current guides](README.md) and the [status map](creative-controls-audio-roadmap.md)
+for current behavior. Implementation instructions, measurements and captures below
+belong to this record; they are not a new work order or current UI evidence.
+
 2026-10-10 · v0.9.0
 
 Implementation follows [the development plan](studio-design-plan.md). Three

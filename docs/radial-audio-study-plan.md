@@ -1,5 +1,10 @@
 # Radial bloom and first audio-reactive Study
 
+Historical record · 2026-10-11. Delivered visual study and band-energy response slice (0.11.0–0.11.2). Personal audio examples require external media.
+Use [current guides](README.md) and the [status map](creative-controls-audio-roadmap.md)
+for current behavior. Implementation instructions, measurements and captures below
+belong to this record; they are not a new work order or current UI evidence.
+
 Recorded: 2026-10-11. Reference: local `ref-6.mp4`. Delivered in 0.11.0.
 
 ## Result

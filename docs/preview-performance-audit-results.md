@@ -1,5 +1,10 @@
 # Auditoría de rendimiento de SynthStudio
 
+Historical record · 2026-10-28. Measurements of 0.48.1 on the recorded machine. These are not measurements of 0.84.0.
+Use [current guides](README.md) and the [status map](creative-controls-audio-roadmap.md)
+for current behavior. Implementation instructions, measurements and captures below
+belong to this record; they are not a new work order or current UI evidence.
+
 Fecha: 2026-10-28. Estado: mediciones y diagnóstico del código fuente completos;
 comprobación de interacción en la app instalada pendiente por selección de instancia.
 

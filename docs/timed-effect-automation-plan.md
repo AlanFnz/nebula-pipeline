@@ -1,11 +1,16 @@
 # Timed effect automation
 
+Historical record · 2026-10-04. Implemented bounded 0.5.0 gesture milestone, not arbitrary keyframing.
+Use [current guides](README.md) and the [status map](creative-controls-audio-roadmap.md)
+for current behavior. Implementation instructions, measurements and captures below
+belong to this record; they are not a new work order or current UI evidence.
+
 Prepared: 2026-10-04. Baseline: main `5ded876`, Nebula Studio 0.4.4.
 Executor: GPT-6.1 Sol. Integration and independent review: parent agent.
 Branch: `codex/timed-effect-automation`.
 Roadmap: [A5 motion controls](creative-controls-audio-roadmap.md).
 Status: merged through PR #21, released and installed as 0.5.0 on 2026-10-04.
-This records the original milestone. Current workflows are in [README](../README.md).
+This records the original milestone. Current workflows are in [documentation index](README.md).
 Delivery: [implementation notes](timed-effect-automation-delivery.md).
 
 ## Outcome and acceptance journey

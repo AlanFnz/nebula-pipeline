@@ -1,9 +1,14 @@
 # Timed effect automation delivery
 
+Historical record · 2026-10-04 to 2026-10-05. Recorded 0.5.0–0.5.3 behavior and tests; the target list is not exhaustive for 0.84.0.
+Use [current guides](README.md) and the [status map](creative-controls-audio-roadmap.md)
+for current behavior. Implementation instructions, measurements and captures below
+belong to this record; they are not a new work order or current UI evidence.
+
 Implemented 2026-10-04 on `codex/timed-effect-automation`, based on 0.4.4.
 Merged through PR #21, released and installed as 0.5.0 on 2026-10-04.
 The validation below records the original implementation and isolated review.
-Current workflow: [README](../README.md).
+Current workflow: [documentation index](README.md).
 
 ## Artist workflow
 

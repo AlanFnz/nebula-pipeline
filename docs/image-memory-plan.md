@@ -1,5 +1,10 @@
 # Memory / afterimage garden
 
+Historical record · 2026-10-17. Implemented generated-form memory study. Arbitrary video/text/model frame history was outside its scope.
+Use [current guides](README.md) and the [status map](creative-controls-audio-roadmap.md)
+for current behavior. Implementation instructions, measurements and captures below
+belong to this record; they are not a new work order or current UI evidence.
+
 ## Intent
 
 Create a 15-second original study in Nebula's analog vocabulary. A luminous

@@ -1,5 +1,10 @@
 # A4 visual effect discovery delivery
 
+Historical record · 2026-10-02. Recorded 0.4.0 delivery. A5 and band-energy audio reactivity shipped later.
+Use [current guides](README.md) and the [status map](creative-controls-audio-roadmap.md)
+for current behavior. Implementation instructions, measurements and captures below
+belong to this record; they are not a new work order or current UI evidence.
+
 Merged through PR #16 from `codex/visual-effect-discovery`, based on 0.3.0.
 Included in the 0.4.0 release dated 2026-10-02. Validation below records the
 feature review before the release metadata update.

@@ -1,5 +1,10 @@
 # Visual effect discovery implementation plan
 
+Historical record · 2026-10-02. Implemented in 0.4.0. The original checklist below was retained as recorded, not as a live backlog.
+Use [current guides](README.md) and the [status map](creative-controls-audio-roadmap.md)
+for current behavior. Implementation instructions, measurements and captures below
+belong to this record; they are not a new work order or current UI evidence.
+
 Prepared: 2026-10-02.
 Status: merged through PR #16 and shipped in 0.4.0 on 2026-10-02; see
 [delivery notes](visual-effect-discovery-delivery.md) for validation and native adjustments.
@@ -496,7 +501,7 @@ launch is unavailable, report that limit and keep the build uninstalled.
 When the user authorizes implementation, give GPT 6.1 Sol this instruction:
 
 > Implement A4 using `docs/visual-effect-discovery-plan.md` in
-> `/Users/ixtlan/Documents/ChatGPT/nebula-pipeline`. Start by checking the current
+> the repository root. Start by checking the current
 > branch, working tree and applicable repository instructions. The planning
 > branch is `codex/visual-effect-discovery`, based on released 0.3.0. Read the
 > existing browser, composer, A3 preview lifecycle and nearby tests before editing.
