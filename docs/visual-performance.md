@@ -1,8 +1,10 @@
 # Visual performance
 
-Shipped in 0.64.0. Open **Perform** in a composition's inspector, or **Visuals**
+[Documentation](README.md) · [Sound](sound.md)
+
+Open **Perform** in a composition's inspector, or **Visuals**
 in **Generated sound…**. Both panels edit the same project immediately. Save the
-project to keep those edits. The sound window's Apply button still applies only
+project to keep those edits. The sound window's **Apply sound** button applies only
 the sound draft; closing it does not discard visual edits.
 
 ## Playing and recording
@@ -50,10 +52,9 @@ sound. Pace retimes its control signals; scale, position and recorded motion
 contribute approximate framing/motion signals. This is internal motion analysis,
 not recognition of arbitrary video pixels. Color and grain do not modulate the
 instrument. New signals crossfade into the running voice without resetting the
-audio device or playback clock. The producer keeps up to six 10 ms blocks
-ahead of the device, a bounded 20 ms increase over 0.63.2 to absorb visual
-editing peaks; surface analysis runs in the background while
-the previous sound continues. Other source types gain the visual controls, not
+audio device or playback clock. Surface analysis runs in the background while the previous sound continues.
+The [sound implementation record](visual-sound-prototype.md) describes delivery
+and buffering changes by version. Other source types gain the visual controls, not
 an automatic sound-analysis adapter.
 
 ## Storage and extension

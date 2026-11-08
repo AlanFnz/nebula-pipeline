@@ -1,7 +1,9 @@
-# Monitor and export clarity
+# Monitor and export
 
-The 0.77.0 D08 pass changes presentation and preview feedback. It does not change
-rendering, audio generation, project formats or study values.
+[Documentation](README.md) · [Editing](editing.md) · [Sound routes](sound.md)
+
+Use Output canvas for the finished frame, Preview resolution for the image
+Nebula prepares on screen, and View zoom for its displayed size.
 
 ## View, preview and output
 
@@ -46,7 +48,9 @@ is not mixed by the current montage exporter. Unapplied timing or sound drafts
 are identified without changing them. Export retains its existing apply/revert
 or applied-sound choice. Monitor mute and audition level do not change this route.
 
-Validation covers scoped/partial counters, stale revisions, resolution changes,
-read-only summaries and drafts, block-vs-montage ownership, 1024/1280/1440-point
-workspaces, existing preparation/navigation/export flows, and an MP4 whose decoded
-frames are identical at different view zoom and preview resolutions.
+
+Export does not save the editable project. Save first if you want to retain the
+current composition as a file. H.264 is lossy; a finished MP4 is not a replacement
+for project JSON and its source media. Playback can drop preview frames under
+load while export renders every frame. Imported soundtrack and generated-sound
+monitoring are audible; a video's original audio is currently export-only.

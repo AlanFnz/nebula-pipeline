@@ -1,5 +1,9 @@
 # Text / Guerrilla Radio — spoken intro
 
+Personal, source-specific example. The supplied bounce and rendered deliveries
+are not included in this repository. The commands below need that external
+audio and write new local outputs; validation counts record the original work.
+
 A personal study derived from the frozen `text-dye-transfer-v7.json` recipe,
 authored for the user's 28-second Ableton bounce. Only the spoken introduction
 is illustrated. The user supplies the separate footage montage after the band

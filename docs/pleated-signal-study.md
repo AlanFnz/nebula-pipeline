@@ -1,5 +1,8 @@
 # Pleated signal / violet transmission
 
+Built-in visual study reference. Revision notes describe the silent v3 recipe;
+use [Sound](sound.md) for the separate audible variants and current controls.
+
 An editable 20-second reconstruction of the opening movement of `ref-14.mp4`.
 The canvas is 960 × 720 (4:3), with the reference's 12 fps visual cadence.
 The project needs neither the reference movie nor a soundtrack to render.
@@ -12,7 +15,8 @@ rolls through ribbed views, then leaves the mirrors for an oblique camera pass.
 A brief settling at the end gives the upcoming sound experiment a release point.
 There are 240 frames at 12 fps, with no repeated clip or global slowdown.
 
-The study is still silent. Sound synthesis is the next separate milestone.
+This violet-transmission study remains silent. Separate electric-motion and
+acid-motion studies now include sound; see the [current sound guide](sound.md).
 
 ## Motion revision (v2)
 

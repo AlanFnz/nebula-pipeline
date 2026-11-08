@@ -1,5 +1,8 @@
 # Text / one more try
 
+Built-in study reference, reviewed against 0.84.0 on 2026-11-08. The current recipe
+is v7 (450 frames); earlier revision timing and validation below are historical.
+
 Reference-13 reconstruction added in 0.41.0, optically refined in 0.42.0,
 reframed for complete lettering in 0.43.0, and expanded with brief optical
 silhouettes in 0.44.0, and refined final ink in 0.45.0 and 0.46.0.

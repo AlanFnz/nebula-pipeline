@@ -1,10 +1,14 @@
-# Native montage
+# Montage
+
+[Documentation](README.md) · [Sound and export](sound.md#audio-in-montage)
 
 Open **Montage…** in the header (or File → Open in Montage) to arrange the
 current study alongside footage. The study becomes an embedded, editable copy.
 Montage replaces the workspace in the same Nebula window.
 Existing composition files still use their original renderer. Montage documents
 use `format: nebula-montage`, version 1; Open recognizes both formats.
+
+## Choose material and a target
 
 Import videos or composition JSON files into Material. Material source and Target
 block are separate selections, named beside their controls. Choosing material or
@@ -18,6 +22,8 @@ Material on the timeline uses that drop boundary. It does not split at the playh
 Range frames use the montage FPS, even when the source FPS differs; both rates
 and the resulting duration are shown. The source stays intact. The library
 displays usage counts. Undo/Redo restores the selection with the document edit.
+
+## Find short blocks
 
 Use the **Block list** tab beside Material to find short shots by name, number or
 source material. Each row wraps the full name and shows its kind, timeline start,
@@ -36,6 +42,8 @@ returns to the prior zoom and scroll. Neither operation changes playback, source
 ranges or document history. Marker selection reveals its full name beneath the
 marker list without seeking; double-click retains the existing seek action.
 
+## Edit timing
+
 Drag timeline clips to reorder; Shift-click selects several. Drag a right edge
 to change duration. With snapping enabled it attaches to nearby music markers.
 Split uses the playhead. Duplicate preserves the selected sequence's order.
@@ -49,6 +57,8 @@ draft. **Apply timing** updates that block; **Revert timing draft** restores its
 applied values. Before changing target, editing a block, saving, exporting or
 leaving, resolve a pending draft with Apply / Discard / Stay. Applying is distinct
 from saving the file. Preview continues to use the applied timing until Apply.
+
+## Replace or edit a block
 
 To replace a shot, select one timeline block and a library item, then **Replace
 target block…**. The dialog names source and target. Pick a new In point; the
@@ -72,13 +82,16 @@ including pending text edits. Closing the window or opening another document
 offers Save / Discard / Cancel for the complete montage. Export returns to the
 montage so its progress and Cancel button remain visible.
 
+## Sound, preview and export
+
 Soundtrack is a single absolute project track. Add named markers at the playhead
 to identify musical cuts. Markers stay on the music when clips move. Double-click
 a marker to seek. Waveform and clips share the same zoom and scroll position.
-Export supports soundtrack or silence; nested source audio is
-not mixed. Audio reactivity can still be authored inside an individual study.
+Export supports the Montage soundtrack or silence; generated sound and footage
+audio from blocks are not mixed. Sound can be heard while editing a supported
+block without becoming the parent Montage's export audio. Audio reactivity can still be authored inside an individual study.
 
-The monitor has explicit 360 px / 720 px / Full canvas detail. Prepare caches a
+The monitor has explicit 360 px / 720 px / Full canvas detail. **Prepare range** caches a
 bounded region at that selected detail. Playback drops late video frames rather
 than slowing the soundtrack. Export always uses the full montage canvas, with
 each study fitted proportionally. Choose a portrait study/canvas before opening
@@ -95,6 +108,11 @@ The monitor and exporter use this same renderer. Source media paths remain
 external and are resolved relative to the document on load; keep the media with
 the project. Save and export refuse to replace source media. Export is atomic
 and cancellation preserves an existing destination.
+
+### Historical acceptance example
+
+The following describes the original local Guerrilla Radio delivery; its media
+and acceptance project are not bundled or required for Montage.
 
 The Guerrilla Radio acceptance project embeds the editable v08 introduction and
 30 native shot recipes with their original optical clock offsets. It retains

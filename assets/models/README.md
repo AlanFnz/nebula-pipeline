@@ -34,7 +34,10 @@ their lighting. The separate Model silhouette source projects the same bundled
 triangles into a solid mask, with a fixed editable pose and optional neck
 extension; it does not change either mesh asset. Portrait particles receive a subdued iris brightness mask;
 optional point-depth occlusion prevents internal mouth and far-side points from
-shining through the assembled face. Mesh import through the UI is not yet supported.
+shining through the assembled face. These particle and silhouette targets use the bundled meshes. Static GLB/glTF
+import is available separately under Object → 3D solid → Imported model; see
+[model import](../../docs/sources-and-studies.md#importing-a-3d-model). It does
+not add imported meshes to the particle-attractor list.
 
 ## Doryphoros
 

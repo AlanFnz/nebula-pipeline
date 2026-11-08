@@ -1,8 +1,10 @@
 # Bundled text fonts
 
-The Studio renders text with these unmodified, bundled font files. It never
-substitutes a machine's installed font, so saved studies have the same layout
-in preview, export and another installation.
+Nebula bundles these unmodified fonts so built-in studies do not require a
+system-font installation. You can also explicitly select an active macOS system
+font through the [typeface picker](../../docs/system-typefaces.md). System fonts
+are referenced rather than bundled; missing or changed faces are reported without
+silent substitution. Preview and export use the selected face.
 
 - Archivo Black Regular — Omnibus-Type; `archivoblack-OFL.txt`.
 - Anton Regular — The Anton Project Authors; `anton-OFL.txt`.

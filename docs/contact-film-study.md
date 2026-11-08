@@ -1,5 +1,8 @@
 # FAC51 contact film
 
+Built-in study/control reference; historical delivery checks are listed separately below.
+Current text controls are in [Object inspector](object-inspector.md).
+
 New independent study, `Text / FAC51 contact film`, based on the supplied
 `ref-12.mp4`. The target is its FAC51 / THE HAÇIENDA mark, red/magenta exposure,
 positive-to-negative transition, black interval and final film transport.
@@ -13,7 +16,7 @@ No video frames, sampled reference textures or original audio are bundled.
 
 ## Source and effect
 
-**Object → Text → Framed label** is opt-in. In **Main text**, enter line breaks for up to eight
+**Object → Text → Subtitle → Framed label** is opt-in. In **Main text**, enter line breaks for up to eight
 main lines; **Subtitle** accepts up to eight additional lines. Uncheck
 **Show subtitle** to hide it without deleting its wording, changing its animation,
 or leaving reserved space. The main wording centers in the frame. Re-enable the

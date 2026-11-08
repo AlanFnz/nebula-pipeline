@@ -1,4 +1,13 @@
-# Visual sound / Pleated signal and Chromatic lattice
+# Visual sound implementation record
+
+Historical engineering record, 0.55.0–0.78.0 (2026-11-05 to 2026-11-08).
+Sections describe their named instrument/release, not one current UI. Use the
+[current sound guide](sound.md) for listening, Apply sound, Save project,
+sequencer editing and export, and [Live MIDI](../LIVE_MIDI.md) for DAW routing.
+Claims such as “closing without Apply” below describe the earlier workflow;
+0.72.0 introduced explicit draft resolution. Optional Chimes, Choir and Sub bass
+layers followed in 0.79.0–0.82.0. Validation counts and personal variants below
+are historical records, not checks repeated by the documentation audit.
 
 ## Metallic chime cascade (0.78.0)
 
@@ -501,3 +510,34 @@ notes during held geometry, event-triggered phrases and scale intervals, filter
 response/resonance, extreme settings, version-specific UI round trips, and full
 versus partial native MP4 audio. The original 20-second PCM hash was compared
 before/after the implementation and remained identical.
+
+## Live MIDI validation
+
+The following observations were recorded by the MIDI implementation work on
+2026-11-08. They are not fresh measurements from this documentation review.
+Their local recordings are not distributed as test fixtures.
+
+
+- Unit coverage: original attacks/tuning; sustain through seek and wrap; mute,
+  solo and disabled layers; thread start/stop/seek/close; session-only UI state.
+- Local CoreMIDI loopback over two 20-second cycles: all 328 expected authored
+  attacks arrived, maximum scheduling offset 3.3 ms in that run. Pad and choir
+  each attacked once (five tones each), with no loop retrigger. This measures
+  MIDI delivery, not end-to-end audio latency.
+- Ableton Live 12.4.6 Suite: seven native instrument tracks received their
+  separate channels. Actual resampled audio was captured; no clipped samples.
+
+- 0.83.1 installed-app QA with Live 12.4.6 and the user’s Podolski set:
+  re-enable and remove/Undo reloaded Choir without pause/play. CoreMIDI
+  capture over 51.8 seconds showed exactly one five-note Choir restoration,
+  no Pad note on/off events, and no additional Choir releases through the
+  following loop. Live’s Choir meter remained active. Final Color Steps gate
+  was approximately 0.68 seconds, matching the authored decay.
+
+- 0.84.0 installed-app QA with Pleated: full 240/240 frames at 960×720;
+  82.8 seconds of CoreMIDI capture across four loop boundaries. All 663 arp
+  attacks followed the saved 16-step order; median interval 125.04 ms. Drone
+  attacked once and released on pause; no held notes remained. Both Analog
+  filters responded to CC 74 through saved Live MIDI mappings. A resampled
+  Ableton capture peaked at −17.1 dBFS, without clipping. Original JSON
+  remained byte-identical; the MIDI route was not saved into it.
