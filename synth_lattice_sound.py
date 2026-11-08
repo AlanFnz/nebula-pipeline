@@ -16,8 +16,9 @@ from synth_sound_chimes import chime_defaults,chime_note,chime_layer_defaults,no
 
 from synth_lattice_wave_sound import wave_defaults,normalize_wave,wave_position,WaveSine
 from synth_sound_choir import choir_defaults,normalize_choir,ChoirVoice
+from synth_sound_sub import sub_defaults,normalize_sub,SubVoice
 
-COLOR_CHANNELS=(('body','Opening'),('arpeggio','Color steps'),('pad','Root pad'),('wave','Wave sine'),('chimes','Chimes'),('choir','Choir'))
+COLOR_CHANNELS=(('body','Opening'),('arpeggio','Color steps'),('pad','Root pad'),('wave','Wave sine'),('chimes','Chimes'),('choir','Choir'),('sub','Sub bass'))
 _ROOM_CACHE=OrderedDict()
 _ROOM_LOCK=threading.Lock()
 
@@ -38,11 +39,12 @@ def color_wave_sound():
                     'steps':dict(pitch=164.8138,pitch_mode='note',scale='minor',span=24,
                                  decay=.32,brightness=.55,character=.78,trigger=.5,clarity=1.,polyphony=1)},
                 mixer=mixer_defaults(COLOR_CHANNELS),pad=pad_defaults(),space=space_defaults(),delay=echo_defaults(),wave=wave_defaults(),
-                chime_layer=chime_layer_defaults(),choir=choir_defaults())
+                chime_layer=chime_layer_defaults(),choir=choir_defaults(),sub=sub_defaults())
     out['mixer']['pad']['level_db']=-22.
     out['mixer']['wave']['level_db']=-30.
     out['mixer']['chimes']['level_db']=-12.
     out['mixer']['choir']['level_db']=-22.
+    out['mixer']['sub']['level_db']=-18.
     for v in out['voices'].values():v.update(engine='partials',analog=analog_defaults(),chimes=chime_defaults(),reverb=0.,delay=0.)
     return out
 
@@ -122,10 +124,11 @@ def normalize_color_wave(raw):
     out['wave']=normalize_wave(raw.get('wave',wave_defaults()),number)
     out['chime_layer']=normalize_chime_layer(raw.get('chime_layer',chime_layer_defaults()),number)
     out['choir']=normalize_choir(raw.get('choir',choir_defaults()),number)
+    out['sub']=normalize_sub(raw.get('sub',sub_defaults()),number)
     raw_mixer=raw.get('mixer',out['mixer'])
     if isinstance(raw_mixer,dict):
         raw_mixer=dict(raw_mixer)
-        for key in ('pad','wave','chimes','choir'):raw_mixer.setdefault(key,out['mixer'][key])
+        for key in ('pad','wave','chimes','choir','sub'):raw_mixer.setdefault(key,out['mixer'][key])
     out['mixer']=normalize_mixer(raw_mixer,number,COLOR_CHANNELS)
     return out
 
@@ -294,6 +297,8 @@ class ColorWaveVoice:
         pad_root=config['voices']['strum']['pitch'] if config['pad']['follow_root'] else config['pad']['pitch']
         self.choir=ChoirVoice(pad_root,config['pad'],choir,self.total/RATE if self.looping else None) if choir['enabled'] else None
         self.choir_key=(pad_root,config['pad']['octave'],config['pad']['harmony'],tuple(sorted(choir.items())))
+        sub=config.get('sub',sub_defaults())
+        self.sub=SubVoice(pad_root,config['pad']['octave'],sub,self.total/RATE if self.looping else None) if sub['enabled'] else None
         self.analog=any(v['engine']=='analog' for v in config['voices'].values()) or config['pad']['enabled']
         self.chimes=any(v['engine']=='chimes' for v in self.voices.values())
         from synth_sound_analog import StereoSpace,StereoEcho
@@ -412,6 +417,13 @@ class ColorWaveVoice:
             wave=self.mixer['wave'].process(self.wave.render(t))
             result+=wave;send+=wave*c['wave']['reverb']
         if self.space is not None:result=self.space.process(result,send,start)
+        # Keep the physical low end mono and dry, outside the spatial buses.
+        if self.sub is not None and self.mixer['sub'].audible:
+            sub=self.sub.render(t)*.34
+            if not self.looping:
+                envelope=np.minimum(np.clip(t/.15,0,1),np.clip((self.total/RATE-t)/.25,0,1))
+                sub*=(envelope*envelope*(3-2*envelope))[:,None]
+            result+=self.mixer['sub'].process(sub)
         result=np.tanh(result)*c['gain']
         if not self.looping:
             fade=np.minimum(np.clip(t/.008,0,1),np.clip((self.total/RATE-t)/.04,0,1));result*=fade[:,None]

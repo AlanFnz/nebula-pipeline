@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.82.0 — 2026-11-08
+
+- Add an optional Sub bass layer to the color-wave instrument. Follow the pad
+  root in a lower octave with a centered sine, adjustable tuned harmonics and
+  low-pass filtering. Keep it dry, outside shared chorus, reverb and delay.
+- Add Sub bass controls with a resulting-note/frequency readout and a separate
+  mixer strip for level, Mute, Solo and EQ. Support live edits, undo/redo and
+  save/reload; wrap oscillator phases with the seamless audio loop.
+- Keep Sub bass disabled in existing documents, preserving their exact audio,
+  note timing, visuals and all previous layer settings.
+
 ## 0.81.0 — 2026-11-08
 
 - Add an optional Choir layer to the color-wave instrument, with three gently

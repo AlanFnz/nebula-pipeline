@@ -16,6 +16,7 @@ from synth_lattice_sound import color_wave_sound
 from synth_lattice_sound_ui import ColorWaveControls,PadSpaceControls,WaveSineControls
 from synth_sound_chimes_ui import ChimeLayerControls
 from synth_sound_choir_ui import ChoirControls
+from synth_sound_sub_ui import SubControls
 
 FACTORIES={1:default_sound,2:acid_sound,3:instrument_sound,4:color_wave_sound}
 
@@ -69,6 +70,8 @@ class VisualSoundDialog(SoundSession,SoundHistory,QDialog):
         self.chimes_tab=self.tabs.count()-1
         choir=self.page('Choir');self.choir=ChoirControls();choir.addWidget(self.choir)
         self.choir_tab=self.tabs.count()-1
+        sub=self.page('Sub bass');self.sub=SubControls();sub.addWidget(self.sub)
+        self.sub_tab=self.tabs.count()-1
         self.opening.setToolTip('Manual filter opening. Movement adds to this setting; disable its connection for a fixed opening.')
         self.unison=SoundKnob('Unison',1,5,1,' voices',integer=True);self.detune=SoundKnob('Detune',0,35,.5,' cents')
         self.detune.setToolTip('Pitch spread in cents between unison voices. Use two or more voices to hear it.')
@@ -158,6 +161,7 @@ class VisualSoundDialog(SoundSession,SoundHistory,QDialog):
         self.chime_layer.enabled.toggled.connect(self.queue_draft);self.chime_layer.scale.currentIndexChanged.connect(self.queue_draft)
         self.chime_layer.tuning.currentIndexChanged.connect(self.queue_draft)
         self.choir.enabled.toggled.connect(self.queue_draft)
+        self.sub.enabled.toggled.connect(self.queue_draft)
         self.sequencer.gestureStarted.connect(self.begin_sound_gesture);self.sequencer.gestureFinished.connect(self.end_sound_gesture)
         for widget in (self.enabled,self.output,self.scale,self.arp_pattern,self.arp_mode,self.seamless_loop):
             (widget.toggled if isinstance(widget,QCheckBox) else widget.currentIndexChanged).connect(self.queue_draft)
@@ -166,8 +170,13 @@ class VisualSoundDialog(SoundSession,SoundHistory,QDialog):
 
     def queue_draft(self,*_):
         if self.loading or not self.loaded:return
+        if self.voice.currentData()==4:self.update_sub_pitch()
         self.record_sound_edit()
         if not self.draft_timer.isActive(): self.draft_timer.start()
+
+    def update_sub_pitch(self):
+        root=self.color_wave.voices['strum']['pitch'].value() if self.pad_space.follow.isChecked() else self.pad_space.pitch.value()
+        self.sub.update_pitch(root,self.pad_space.pad['octave'].value())
 
     def update_sequence_mode(self):
         layered=self.voice.currentData()==3
@@ -233,11 +242,13 @@ class VisualSoundDialog(SoundSession,SoundHistory,QDialog):
         self.tabs.setTabVisible(5,color)
         self.tabs.setTabVisible(self.chimes_tab,color)
         self.tabs.setTabVisible(self.choir_tab,color)
+        self.tabs.setTabVisible(self.sub_tab,color)
         for widget in self.legacy_sound_widgets:widget.setVisible(not color)
         self.mixer.set_color_wave(color)
         for i in range(self.voice.count()):self.voice.model().item(i).setEnabled((self.voice.itemData(i)==4)==color)
         if color:
             self.color_wave.load(value);self.pad_space.load(value);self.wave_sine.load(value);self.chime_layer.load(value);self.choir.load(value);self.mixer.load(value['mixer'])
+            self.sub.load(value);self.update_sub_pitch()
             self.visual_dynamics.hide()
             for i in (1,2):self.tabs.setTabVisible(i,False)
             self.live.setEnabled(True)
@@ -301,6 +312,7 @@ class VisualSoundDialog(SoundSession,SoundHistory,QDialog):
             config.update(self.pad_space.config());config['wave']=self.wave_sine.config()
             config['chime_layer']=self.chime_layer.config()
             config['choir']=self.choir.config()
+            config['sub']=self.sub.config()
             config.update(enabled=self.enabled.isChecked(),output=self.output.currentData(),mixer=self.mixer.config())
             config['connections']={key:dict(enabled=check.isChecked(),amount=control.value()/100) for key,(check,control) in self.connections.items()}
             return normalize_sound(config)
