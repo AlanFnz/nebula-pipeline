@@ -11,10 +11,12 @@ BANDS = (('low', 'Low', 120., 40., 600.),
 
 
 def mixer_defaults(channels=CHANNELS):
-    return {key: dict(level_db=0., mute=False, solo=False, eq_enabled=True,
+    result={key: dict(level_db=0., mute=False, solo=False, eq_enabled=True,
                      **{field: value for band, _, hz, _, _ in BANDS
                         for field, value in ((band+'_db', 0.), (band+'_hz', hz))})
             for key, _ in channels}
+    if 'chimes' in result:result['chimes'].update(highpass_enabled=False,highpass_hz=120.)
+    return result
 
 
 def normalize_mixer(raw, number, channels=CHANNELS):
@@ -33,6 +35,11 @@ def normalize_mixer(raw, number, channels=CHANNELS):
             ranges.extend(((band+'_db', -18., 18.), (band+'_hz', low, high)))
         for field, low, high in ranges:
             channel[field] = number(entry.get(field, channel[field]), f'mixer {key} {field}', low, high)
+        if key=='chimes':
+            enabled=entry.get('highpass_enabled',False)
+            if type(enabled) is not bool:raise ValueError('Chimes high-pass must be a checkbox')
+            channel['highpass_enabled']=enabled
+            channel['highpass_hz']=number(entry.get('highpass_hz',120.),'Chimes high-pass frequency',20.,18000.)
     return defaults
 
 
@@ -60,13 +67,21 @@ def eq_coefficients(band, hz, gain, rate=48000):
     return tuple(v/den[0] for v in (*b, *den[1:]))
 
 
+def highpass_coefficients(hz,rate=48000):
+    """Second-order Butterworth high-pass, 12 dB/octave."""
+    w=math.tau*hz/rate;c=math.cos(w);alpha=math.sin(w)/math.sqrt(2)
+    return tuple(v/(1+alpha) for v in ((1+c)/2,-(1+c),(1+c)/2,-2*c,1-alpha))
+
+
 class MixerChannel:
     def __init__(self, config, solo_active=False):
         self.audible = not config['mute'] and (not solo_active or config['solo'])
         self.level = 10**(config['level_db']/20)
         self.coefficients = [eq_coefficients(band, config[band+'_hz'], config[band+'_db'])
                              if config['eq_enabled'] else None for band, *_ in BANDS]
-        self.states = [[(0., 0.), (0., 0.)] for _ in BANDS]
+        if 'highpass_enabled' in config:
+            self.coefficients.insert(0,highpass_coefficients(config['highpass_hz']) if config['highpass_enabled'] else None)
+        self.states = [[(0., 0.), (0., 0.)] for _ in self.coefficients]
 
     def inherit(self, old):
         # State is valid only while all upstream EQ stages match. Gain/mute/solo

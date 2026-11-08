@@ -174,6 +174,9 @@ class StereoSpace:
             lag=RATE*(.018+.003*np.sin(math.tau*rate*t[:,None]+np.array([0.,math.pi/2])))
             at=(self.chorus.position+np.arange(n)[:,None]-lag)%len(self.chorus.buffer)
             lo=np.floor(at).astype(int);frac=at-lo
+            # Floating remainder can round a tiny negative offset to the buffer
+            # length exactly. It is the wrapped first sample, not an extra slot.
+            lo%=len(self.chorus.buffer)
             delayed=self.chorus.buffer[lo,np.arange(2)]*(1-frac)+self.chorus.buffer[(lo+1)%len(self.chorus.buffer),np.arange(2)]*frac
             self.chorus.write(x)
             mixed=x*(1-.3*s['chorus'])+delayed*.6*s['chorus']

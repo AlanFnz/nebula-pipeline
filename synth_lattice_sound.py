@@ -12,11 +12,11 @@ import numpy as np
 
 from synth_visual_sound import CONTROL_RATE, RATE
 from synth_sound_analog import analog_defaults,pad_defaults,space_defaults,echo_defaults,PAD_HARMONIES
-from synth_sound_chimes import chime_defaults,chime_note
+from synth_sound_chimes import chime_defaults,chime_note,chime_layer_defaults,normalize_chime_layer
 
 from synth_lattice_wave_sound import wave_defaults,normalize_wave,wave_position,WaveSine
 
-COLOR_CHANNELS=(('body','Opening'),('arpeggio','Color steps'),('pad','Root pad'),('wave','Wave sine'))
+COLOR_CHANNELS=(('body','Opening'),('arpeggio','Color steps'),('pad','Root pad'),('wave','Wave sine'),('chimes','Chimes'))
 _ROOM_CACHE=OrderedDict()
 _ROOM_LOCK=threading.Lock()
 
@@ -36,9 +36,11 @@ def color_wave_sound():
                                  decay=.22,brightness=.65,character=.86,trigger=.5,clarity=1.,polyphony=1),
                     'steps':dict(pitch=164.8138,pitch_mode='note',scale='minor',span=24,
                                  decay=.32,brightness=.55,character=.78,trigger=.5,clarity=1.,polyphony=1)},
-                mixer=mixer_defaults(COLOR_CHANNELS),pad=pad_defaults(),space=space_defaults(),delay=echo_defaults(),wave=wave_defaults())
+                mixer=mixer_defaults(COLOR_CHANNELS),pad=pad_defaults(),space=space_defaults(),delay=echo_defaults(),wave=wave_defaults(),
+                chime_layer=chime_layer_defaults())
     out['mixer']['pad']['level_db']=-22.
     out['mixer']['wave']['level_db']=-30.
+    out['mixer']['chimes']['level_db']=-12.
     for v in out['voices'].values():v.update(engine='partials',analog=analog_defaults(),chimes=chime_defaults(),reverb=0.,delay=0.)
     return out
 
@@ -119,10 +121,11 @@ def normalize_color_wave(raw):
     for key,lo,hi in (('time',.04,1.2),('feedback',0,.65),('tone',400,8000)):
         out['delay'][key]=number(delay.get(key,out['delay'][key]),'Delay '+key,lo,hi)
     out['wave']=normalize_wave(raw.get('wave',wave_defaults()),number)
+    out['chime_layer']=normalize_chime_layer(raw.get('chime_layer',chime_layer_defaults()),number)
     raw_mixer=raw.get('mixer',out['mixer'])
     if isinstance(raw_mixer,dict):
         raw_mixer=dict(raw_mixer)
-        for key in ('pad','wave'):raw_mixer.setdefault(key,out['mixer'][key])
+        for key in ('pad','wave','chimes'):raw_mixer.setdefault(key,out['mixer'][key])
     out['mixer']=normalize_mixer(raw_mixer,number,COLOR_CHANNELS)
     return out
 
@@ -181,12 +184,20 @@ def lattice_signals(sequence,cancel):
     return apply_signals(signals,seq.get('visual_performance'),seq['duration'],seq['fps'])
 
 
+def playable_voices(config):
+    voices=dict(config['voices'])
+    if config.get('chime_layer',{}).get('enabled'):voices['chimes']=config['chime_layer']
+    return voices
+
+
 def color_notes(signals,config):
     times=signals['time'];levels=sorted(int(k.rsplit('_',1)[1]) for k in signals if k.startswith('lattice_phase_'))
     notes=[]
     if not config['enabled']:return notes
-    for voice,(begin,end) in (('strum',(0.,.12)),('steps',(.32,.38))):
-        settings=config['voices'][voice];connection=config['connections'][voice]
+    voices=playable_voices(config)
+    for voice,settings in voices.items():
+        begin,end=(.32,.38) if voice=='steps' else (0.,.12)
+        connection=config['connections'].get(voice,dict(enabled=True,amount=1.))
         if not connection['enabled'] or connection['amount']==0:continue
         threshold=begin+(end-begin)*settings['trigger']
         scale=[octave*12+n for octave in range(5) for n in SCALES[settings['scale']] if octave*12+n<=settings['span']]
@@ -209,6 +220,7 @@ def color_notes(signals,config):
 def color_activity(signals,config):
     times=signals['time'];out={k:np.zeros_like(times) for k in ('strum','steps')}
     for note in color_notes(signals,config):
+        if note['voice'] not in out:continue
         age=times-note['time'];envelope=np.where(age>=0,np.exp(-np.maximum(age,0)/.18),0.)
         out[note['voice']]=np.maximum(out[note['voice']],envelope)
     return out
@@ -256,7 +268,7 @@ def struck_tone(age,hz,voice,settings,partial_cache=None):
 def articulate_notes(notes,config,period,looping):
     """Limit overlapping tails without changing any visual attack time."""
     result=[]
-    for key,settings in config['voices'].items():
+    for key,settings in playable_voices(config).items():
         voice=[n for n in notes if n['voice']==key and n['time']<period]
         count=settings.get('polyphony',0)
         for i,note in enumerate(voice):
@@ -275,15 +287,17 @@ class ColorWaveVoice:
         from synth_sound_loop import cyclic_notes
         self.config=config;self.signals=signals;self.total=round(sequence['duration']*RATE)
         self.looping=config['seamless_loop'];self.states=[];self.mixer=make_mixer(config)
+        self.voices=playable_voices(config)
+        self.tone_keys={key:json.dumps(v,sort_keys=True) for key,v in self.voices.items()}
         self.wave=WaveSine(signals,config['wave'],self.total/RATE,self.looping) if config['wave']['enabled'] else None
         self.analog=any(v['engine']=='analog' for v in config['voices'].values()) or config['pad']['enabled']
-        self.chimes=any(v['engine']=='chimes' for v in config['voices'].values())
+        self.chimes=any(v['engine']=='chimes' for v in self.voices.values())
         from synth_sound_analog import StereoSpace,StereoEcho
         self.ambience=bool(config['space']['chorus'] or config['pad']['enabled'] and config['pad']['reverb']
-                           or any(v['reverb'] for v in config['voices'].values())
+                           or any(v['reverb'] for v in self.voices.values())
                            or self.wave is not None and config['wave']['reverb'])
         self.space=StereoSpace(config['space'],self.total/RATE if self.looping else None) if self.ambience else None
-        self.echo=StereoEcho(config['delay']) if any(v['delay'] for v in config['voices'].values()) else None
+        self.echo=StereoEcho(config['delay']) if any(v['delay'] for v in self.voices.values()) else None
         self.notes=articulate_notes(color_notes(signals,config),config,self.total/RATE,self.looping)
         if self.looping:self.notes=cyclic_notes(self.notes,self.total/RATE,lambda n:n['duration'])
         self.starts=np.array([n['time'] for n in self.notes]);self.max_tail=max((n['duration'] for n in self.notes),default=0.)
@@ -331,20 +345,28 @@ class ColorWaveVoice:
         from synth_sound_analog import analog_note,root_pad
         t=(start+np.arange(length))/RATE;c=self.config
         if not c['enabled']:return np.zeros((length,2),np.float32)
-        channels={k:np.zeros((length,2)) for k in ('strum','steps')}
+        channels={k:np.zeros((length,2)) for k in self.voices}
         lo=np.searchsorted(self.starts,t[0]-self.max_tail);hi=np.searchsorted(self.starts,t[-1],side='right')
         for note in self.notes[lo:hi]:
-            key=note['voice'];v=c['voices'][key];age=t-note['time']
+            key=note['voice'];v=self.voices[key];age=t-note['time']
+            if key=='chimes' and not self.mixer['chimes'].audible:continue
             if age[0]>note['duration']:continue
             hz=v['pitch']*2**(note['semitones']/12)
-            if v['engine']=='analog':tone=analog_note(age,hz,v)
-            elif v['engine']=='chimes':tone=chime_note(age,hz,v,RATE)
-            else:tone=struck_tone(age,hz,key,v,tone_cache)
+            cache_key=('color-note',key,start,length,note['time'],hz,self.tone_keys[key])
+            tone=tone_cache.get(cache_key) if tone_cache is not None else None
+            if tone is None:
+                if v['engine']=='analog':tone=analog_note(age,hz,v)
+                elif v['engine']=='chimes':tone=chime_note(age,hz,v,RATE)
+                else:tone=struck_tone(age,hz,key,v,tone_cache)
+                if tone_cache is not None:tone_cache[cache_key]=tone
+            # During a live crossfade, unchanged oscillators are shared by both
+            # mixes. Envelopes, pan and channel processing remain independent.
+            if tone_cache is not None:tone=tone.copy()
             if 'gate' in note:
                 release=np.clip((note['gate']+.02-age)/.02,0,1)
                 envelope=release*release*(3-2*release)
                 tone*=envelope[:,None] if tone.ndim==2 else envelope
-            tone*=.14*note['velocity']*c['connections'][key]['amount']
+            tone*=.14*note['velocity']*c['connections'].get(key,dict(amount=1.))['amount']
             pan=note['pan']*c['width']
             if tone.ndim==2:
                 mid=tone.mean(axis=1,keepdims=True);tone=mid+(tone-mid)*c['width']
@@ -353,8 +375,13 @@ class ColorWaveVoice:
                 channels[key][:,0]+=tone*math.sqrt((1-pan)*.5);channels[key][:,1]+=tone*math.sqrt((1+pan)*.5)
         opening=self.mixer['body'].process(channels['strum']);steps=self.mixer['arpeggio'].process(channels['steps'])
         result=opening+steps;send=opening*c['voices']['strum']['reverb']+steps*c['voices']['steps']['reverb']
+        echo_send=opening*c['voices']['strum']['delay']+steps*c['voices']['steps']['delay'] if self.echo is not None else None
+        if 'chimes' in channels:
+            chimes=self.mixer['chimes'].process(channels['chimes'])
+            result+=chimes;send+=chimes*self.voices['chimes']['reverb']
+            if echo_send is not None:echo_send+=chimes*self.voices['chimes']['delay']
         if self.echo is not None:
-            wet=self.echo.process(opening*c['voices']['strum']['delay']+steps*c['voices']['steps']['delay'])
+            wet=self.echo.process(echo_send)
             result+=wet;send+=wet*.25
         if c['pad']['enabled'] and self.mixer['pad'].audible:
             hz=c['voices']['strum']['pitch'] if c['pad']['follow_root'] else c['pad']['pitch']

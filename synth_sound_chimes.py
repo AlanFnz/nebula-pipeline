@@ -8,6 +8,37 @@ def chime_defaults():
     return dict(shimmer=.35, strike=.006)
 
 
+def chime_layer_defaults():
+    """Opt-in overlay; old documents keep both original color-wave voices."""
+    return dict(enabled=False, engine='chimes', pitch=329.6275569128699,
+                pitch_mode='note', scale='minor', span=24., decay=.9,
+                brightness=.66, trigger=.5, polyphony=0,
+                chimes=chime_defaults(), reverb=.42, delay=.06)
+
+
+def normalize_chime_layer(raw, number):
+    from synth_sound_sequence import snapped_frequency
+    from synth_lattice_sound import SCALES
+    out=chime_layer_defaults()
+    if not isinstance(raw,dict):raise ValueError('Invalid chimes layer')
+    out['enabled']=raw.get('enabled',False)
+    if type(out['enabled']) is not bool:raise ValueError('Chimes enabled must be a checkbox')
+    for field,lo,hi in (('pitch',40,1760),('span',12,48),('decay',.15,3.),
+                        ('brightness',0,1),('trigger',.05,.95),('reverb',0,1),('delay',0,1),('polyphony',0,8)):
+        out[field]=number(raw.get(field,out[field]),'Chimes '+field,lo,hi)
+    if out['polyphony']!=int(out['polyphony']):raise ValueError('Chimes sustain voices must be a whole number')
+    out['polyphony']=int(out['polyphony'])
+    for field,choices in (('pitch_mode',('hz','note')),('scale',SCALES)):
+        out[field]=raw.get(field,out[field])
+        if out[field] not in choices:raise ValueError('Choose a supported chimes '+field)
+    if out['pitch_mode']=='note':out['pitch']=snapped_frequency(out['pitch'],40,1760)
+    resonance=raw.get('chimes',out['chimes'])
+    if not isinstance(resonance,dict):raise ValueError('Invalid chime resonance')
+    for field,lo,hi in (('shimmer',0,1),('strike',.002,.04)):
+        out['chimes'][field]=number(resonance.get(field,out['chimes'][field]),'Chimes '+field,lo,hi)
+    return out
+
+
 def chime_note(age, hz, settings, rate=48000):
     """Evaluate a note by age so seeks and live/export packets share its phase.
 

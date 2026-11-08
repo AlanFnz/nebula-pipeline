@@ -14,6 +14,7 @@ from synth_sound_mixer import mixer_defaults
 from synth_sound_mixer_ui import SoundMixer
 from synth_lattice_sound import color_wave_sound
 from synth_lattice_sound_ui import ColorWaveControls,PadSpaceControls,WaveSineControls
+from synth_sound_chimes_ui import ChimeLayerControls
 
 FACTORIES={1:default_sound,2:acid_sound,3:instrument_sound,4:color_wave_sound}
 
@@ -63,6 +64,8 @@ class VisualSoundDialog(SoundSession,SoundHistory,QDialog):
         self.legacy_sound_widgets=[sound.itemAt(i).widget() for i in range(sound.count()) if sound.itemAt(i).widget()]
         self.color_wave=ColorWaveControls();sound.insertWidget(0,self.color_wave)
         pad=self.page('Pad && space');self.pad_space=PadSpaceControls();pad.addWidget(self.pad_space)
+        chimes=self.page('Chimes');self.chime_layer=ChimeLayerControls();chimes.addWidget(self.chime_layer)
+        self.chimes_tab=self.tabs.count()-1
         self.opening.setToolTip('Manual filter opening. Movement adds to this setting; disable its connection for a fixed opening.')
         self.unison=SoundKnob('Unison',1,5,1,' voices',integer=True);self.detune=SoundKnob('Detune',0,35,.5,' cents')
         self.detune.setToolTip('Pitch spread in cents between unison voices. Use two or more voices to hear it.')
@@ -149,6 +152,7 @@ class VisualSoundDialog(SoundSession,SoundHistory,QDialog):
         self.pad_space.enabled.toggled.connect(self.queue_draft);self.pad_space.follow.toggled.connect(self.queue_draft)
         self.pad_space.harmony.currentIndexChanged.connect(self.queue_draft)
         self.wave_sine.enabled.toggled.connect(self.queue_draft)
+        self.chime_layer.enabled.toggled.connect(self.queue_draft);self.chime_layer.scale.currentIndexChanged.connect(self.queue_draft)
         self.sequencer.gestureStarted.connect(self.begin_sound_gesture);self.sequencer.gestureFinished.connect(self.end_sound_gesture)
         for widget in (self.enabled,self.output,self.scale,self.arp_pattern,self.arp_mode,self.seamless_loop):
             (widget.toggled if isinstance(widget,QCheckBox) else widget.currentIndexChanged).connect(self.queue_draft)
@@ -222,11 +226,12 @@ class VisualSoundDialog(SoundSession,SoundHistory,QDialog):
         color=value['version']==4
         self.color_wave.setVisible(color);self.wave_sine.setVisible(color)
         self.tabs.setTabVisible(5,color)
+        self.tabs.setTabVisible(self.chimes_tab,color)
         for widget in self.legacy_sound_widgets:widget.setVisible(not color)
         self.mixer.set_color_wave(color)
         for i in range(self.voice.count()):self.voice.model().item(i).setEnabled((self.voice.itemData(i)==4)==color)
         if color:
-            self.color_wave.load(value);self.pad_space.load(value);self.wave_sine.load(value);self.mixer.load(value['mixer'])
+            self.color_wave.load(value);self.pad_space.load(value);self.wave_sine.load(value);self.chime_layer.load(value);self.mixer.load(value['mixer'])
             self.visual_dynamics.hide()
             for i in (1,2):self.tabs.setTabVisible(i,False)
             self.live.setEnabled(True)
@@ -288,6 +293,7 @@ class VisualSoundDialog(SoundSession,SoundHistory,QDialog):
         if self.voice.currentData()==4:
             config=self.color_wave.config()
             config.update(self.pad_space.config());config['wave']=self.wave_sine.config()
+            config['chime_layer']=self.chime_layer.config()
             config.update(enabled=self.enabled.isChecked(),output=self.output.currentData(),mixer=self.mixer.config())
             config['connections']={key:dict(enabled=check.isChecked(),amount=control.value()/100) for key,(check,control) in self.connections.items()}
             return normalize_sound(config)

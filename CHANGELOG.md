@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.79.0 — 2026-11-08
+
+- Add an optional Chimes layer alongside the original Opening and Color steps.
+  Give it independent root/note tuning, scale, range, visual trigger point,
+  decay, overlap, brightness, shimmer, strike softness, reverb and delay sends.
+- Add a Chimes mixer strip beside Opening with level, mute, solo, three-band EQ
+  and a bypassable 20 Hz–18 kHz high-pass filter. Its filter and level precede
+  reverb/delay sends. Controls support live audition, undo/redo, Apply and save.
+- Reuse unchanged note oscillators during live mixer/filter crossfades. Keep
+  offline and live synthesis equivalent and carry filter/tail state over loops.
+  Fix a rare rounded chorus-buffer index at a playback boundary.
+- Leave the layer disabled in existing documents, preserving their exact audio
+  and visuals. Retain the previous Chimes engine option for existing voices.
+
 ## 0.78.0 — 2026-11-08
 
 - Add a Chimes engine to the Opening and Color steps voices: pitched metallic
