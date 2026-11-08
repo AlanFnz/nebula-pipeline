@@ -33,6 +33,7 @@ class VisualSoundDialog(SoundSession,SoundHistory,QDialog):
     previewRequested=Signal()
     midiChanged=Signal(bool)
     midiPanicRequested=Signal()
+    midiRefreshRequested=Signal()
 
     def __init__(self,parent=None):
         super().__init__(parent);self.setWindowTitle('Generate sound');self.resize(1280,780)
@@ -131,6 +132,8 @@ class VisualSoundDialog(SoundSession,SoundHistory,QDialog):
         row=QHBoxLayout();self.midi=QCheckBox('Send live MIDI to Ableton / DAW (experimental)')
         self.midi.setToolTip('Color waves only. Creates the Nebula Visuals MIDI port. Channels: 1 Opening, 2 Color steps, 3 Pad, 4 Choir, 5 Chimes, 6 Sub, 7 Wave. Notes, velocity, pitch bend and visual CC 1/74 are sent. Choose instruments, effects and levels in the DAW. This monitoring route does not change project exports.')
         self.midi.toggled.connect(self.midiChanged);row.addWidget(self.midi)
+        self.midi_refresh=QPushButton('Refresh MIDI notes');self.midi_refresh.clicked.connect(self.midiRefreshRequested);row.addWidget(self.midi_refresh)
+        self.midi_refresh.setToolTip('Resend the currently held notes without pausing or moving the video. The optional Nebula Visuals Ableton control surface does this automatically for a replaced instrument.')
         self.midi_panic=QPushButton('Stop MIDI notes');self.midi_panic.clicked.connect(self.midiPanicRequested);row.addWidget(self.midi_panic);layout.addLayout(row)
         self.midi_hint=QLabel('MIDI: notes and pitch in Nebula. Instruments, effects and levels in your DAW. MP4 export keeps the saved Nebula audio.')
         self.midi_hint.setWordWrap(True);self.midi_hint.setVisible(False);layout.addWidget(self.midi_hint)

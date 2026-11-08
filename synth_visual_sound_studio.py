@@ -103,6 +103,7 @@ class VisualSoundStudio:
             dialog.liveChanged.connect(self.live_sound_changed)
             dialog.midiChanged.connect(self.change_midi_monitor)
             dialog.midiPanicRequested.connect(self.panic_midi)
+            dialog.midiRefreshRequested.connect(self.refresh_midi_notes)
             dialog.finished.connect(self.finish_live_sound)
             self.play.toggled.connect(dialog.set_playing)
         self.attach_sound_performance(self.visual_sound_dialog)
@@ -138,6 +139,9 @@ class VisualSoundStudio:
     def panic_midi(self):
         self.play.setChecked(False)
         if self.uses_midi() and self.live_sound: self.live_sound.panic()
+
+    def refresh_midi_notes(self):
+        if self.uses_midi() and self.live_sound: self.live_sound.refresh_notes()
 
     def sound_dialog_config(self):
         return (self.composition or {}).get('generated_sound') or sound_for_sequence(self.preview_sequence())

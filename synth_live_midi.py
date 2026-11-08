@@ -15,6 +15,9 @@ import numpy as np
 from PySide6.QtCore import QObject, Signal
 
 PORT_NAME = 'Nebula Visuals'
+FEEDBACK_PORT_NAME = 'Nebula Control'
+# Private, non-commercial SysEx request: protocol 1, refresh command, channel.
+REFRESH_PREFIX = (0xF0, 0x7D, 0x4E, 0x42, 0x4C, 1, 1)
 CHANNELS = {'strum': 0, 'steps': 1, 'pad': 2, 'choir': 3,
             'chimes': 4, 'sub': 5, 'wave': 6}
 MIXER_KEYS = dict(strum='body', steps='arpeggio')
@@ -73,9 +76,9 @@ class MidiPlan:
             pitch, fine = midi_pitch(v['pitch'] * 2 ** (n['semitones'] / 12))
             channel = CHANNELS[key]
             self.bends[channel] = fine
-            # DAW release is independent. Preserve the visual polyphony gate;
-            # an unrestricted voice holds for one authored decay, then releases.
-            gate = max(.015, min(n.get('gate', v['decay']), n['duration']))
+            # DAW envelopes sustain until note-off. A sparse next visual event
+            # must not stretch a pluck across the whole gap between phrases.
+            gate = max(.015, min(n.get('gate', v['decay']), v['decay'], n['duration']))
             velocity = max(1, min(127, round(n['velocity'] * 110)))
             self.notes.append(MidiNote(n['time'], n['time'] + gate, channel, pitch, velocity))
         pad = config['pad']
@@ -142,9 +145,26 @@ class MidiOutput:
         import rtmidi
         self.port = rtmidi.MidiOut(name='Nebula Studio')
         self.port.open_virtual_port(PORT_NAME)
+        self.feedback = None
+
+    def listen_refresh(self, callback):
+        import rtmidi
+        self.feedback = rtmidi.MidiIn(name='Nebula Studio')
+        self.feedback.ignore_types(sysex=False)
+        self.feedback.open_virtual_port(FEEDBACK_PORT_NAME)
+
+        def received(event, _):
+            message = tuple(event[0])
+            if (len(message) == 9 and message[:7] == REFRESH_PREFIX
+                    and message[-1] == 0xF7 and message[7] in CHANNELS.values()):
+                callback(message[7])
+        self.feedback.set_callback(received)
 
     def send(self, message): self.port.send_message(list(message))
-    def close(self): self.port.close_port(); self.port.delete()
+    def close(self):
+        if self.feedback:
+            self.feedback.cancel_callback(); self.feedback.close_port(); self.feedback.delete()
+        self.port.close_port(); self.port.delete()
 
 
 class MidiEngine:
@@ -171,6 +191,7 @@ class MidiEngine:
     def run(self):
         output = None; plan = None; playing = False; active = {}; controls = {}
         anchor = 0.; previous = 0.; next_controls = 0.
+        refreshed = {}
 
         def silence(hard=False):
             nonlocal active
@@ -193,8 +214,28 @@ class MidiEngine:
             active = plan.active(seconds)
             for (channel, pitch), velocity in active.items(): output.send((0x90 | channel, pitch, velocity))
 
+        def refresh_channel(channel, seconds):
+            """Recover a replaced receiver without moving clocks or other voices."""
+            for ch, pitch in list(active):
+                if ch == channel:
+                    output.send((0x80 | ch, pitch, 0)); del active[ch, pitch]
+            output.send((0xB0 | channel, 64, 0))
+            output.send((0xB0 | channel, 123, 0))
+            if channel in plan.bends:
+                span = 24 if channel == CHANNELS['wave'] else 2
+                for cc, value in ((101, 0), (100, 0), (6, span), (38, 0), (101, 127), (100, 127)):
+                    output.send((0xB0 | channel, cc, value))
+                output.send(bend_message(channel, plan.bends[channel], span))
+            for message in plan.controls(seconds):
+                if message[0] & 15 == channel: output.send(message)
+            for (ch, pitch), velocity in plan.active(seconds).items():
+                if ch == channel:
+                    output.send((0x90 | ch, pitch, velocity)); active[ch, pitch] = velocity
+
         try:
             output = self.output_factory(); self.ready('MIDI connected · Nebula Visuals · channels 1–7')
+            if hasattr(output, 'listen_refresh'):
+                output.listen_refresh(lambda channel: self.command('refresh', channel))
             while True:
                 with self.condition:
                     if not self.commands and not self.closed: self.condition.wait(.002 if playing else .1)
@@ -209,6 +250,12 @@ class MidiEngine:
                         if playing: restore(max(0., self.clock() - anchor))
                     elif name in ('stop', 'panic'):
                         playing = False; silence(name == 'panic')
+                    elif name == 'refresh' and playing and plan is not None:
+                        now = self.clock()
+                        channels = CHANNELS.values() if args[0] is None else (args[0],)
+                        for channel in channels:
+                            if channel in CHANNELS.values() and now - refreshed.get(channel, -math.inf) >= .2:
+                                refresh_channel(channel, max(0., now - anchor)); refreshed[channel] = now
                 if not playing or plan is None: continue
                 seconds = max(0., self.clock() - anchor)
                 desired = plan.active(seconds)
@@ -217,7 +264,9 @@ class MidiEngine:
                     restore(seconds)
                 else:
                     for (channel, pitch) in active.keys() - desired.keys(): output.send((0x80 | channel, pitch, 0))
-                    attacks = {(n.channel, n.pitch): n.velocity for _, n in plan.attacks(previous, seconds)}
+                    attacks = {(n.channel, n.pitch): n.velocity
+                               for at, n in plan.attacks(previous, seconds)
+                               if at + anchor > refreshed.get(n.channel, -math.inf)}
                     for key, velocity in desired.items():
                         if key not in active or key in attacks:
                             channel, pitch = key
@@ -281,6 +330,7 @@ class LiveMidiMonitor(QObject):
         if not self.closed: self.engine.command('stop')
 
     def panic(self): self.playing = False; self.engine.command('panic')
+    def refresh_notes(self, channel=None): self.engine.command('refresh', channel)
     def fail(self, message):
         self.unavailable = True; self.playing = False
         self.statusChanged.emit('MIDI unavailable: ' + message)

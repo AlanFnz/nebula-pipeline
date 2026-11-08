@@ -85,10 +85,16 @@ def test_midi_is_a_session_route_without_changing_saved_study(editor):
     assert 'MIDI → Nebula Visuals' in dialog.preview_source.text()
     assert not dialog.volume.isEnabled() and not dialog.live.isEnabled()
     assert dialog.midi_panic.isEnabled()
+    assert dialog.midi_refresh.isEnabled()
+    requested = []
+    dialog.midiRefreshRequested.connect(lambda: requested.append(True))
+    dialog.midi_refresh.click()
+    assert requested == [True]
     assert not dialog.has_sound_draft() and not window.has_unsaved_changes()
     assert window.composition == original and window.document_path.read_bytes() == saved
     dialog.midi.setChecked(False)
     assert dialog.volume.isEnabled() and dialog.live.isEnabled()
+    assert not dialog.midi_refresh.isEnabled()
     assert not window.uses_midi(config)
     dialog.midi.setChecked(True)
     window.reset_visual_sound()

@@ -49,6 +49,21 @@ def test_solo_mute_and_disabled_do_not_leak_notes():
     assert not p.notes and p.sustained
     c['mixer']['pad']['mute']=True
     assert not MidiPlan(seq,sig,c).active(.1)
+
+
+@pytest.mark.parametrize('looping', [False, True])
+def test_final_step_releases_before_long_gap(monkeypatch, looping):
+    seq, sig, c = source(); seq['duration'] = 4
+    c['seamless_loop'] = looping
+    c['voices']['steps'].update(decay=.2, polyphony=2)
+    authored = [dict(time=t, voice='steps', level=i, semitones=i, velocity=.8)
+                for i, t in enumerate((.1, .2, 3.1, 3.2))]
+    monkeypatch.setattr('synth_lattice_sound.color_notes', lambda *_: authored)
+    p = MidiPlan(seq, sig, c)
+    assert [n.start for n in p.notes] == [.1, .2, 3.1, 3.2]
+    assert all(n.end - n.start == pytest.approx(.2) for n in p.notes)
+    assert not any(ch == 1 for ch, _ in p.active(.41))
+    assert not any(ch == 1 for ch, _ in p.active(3.41))
     c['enabled']=False
     assert not MidiPlan(seq,sig,c).active(.1)
 
@@ -93,3 +108,32 @@ def test_monitor_loop_does_not_retrigger_pad():
         assert monitor.seconds==.8
         monitor.set_monitor(.7,True);assert not monitor.playing
     finally:monitor.close()
+
+
+def test_refresh_choir_only_restores_held_chord_without_transport_change():
+    seq, sig, c = source()
+    for connection in c['connections'].values(): connection['enabled'] = False
+    c['chime_layer']['enabled'] = False
+    c['pad']['enabled'] = c['choir']['enabled'] = True
+    port = Port(); errors = []; clock = [10.]
+    engine = MidiEngine(errors.append, lambda _:None, output_factory=lambda:port, clock=lambda:clock[0])
+    try:
+        engine.command('source', seq, sig, c)
+        engine.command('start', .7, clock[0])
+        wait_for(lambda:any(m[0] == 0x93 for _, m in port.messages))
+        before = len(port.messages)
+        engine.command('refresh', 3)
+        wait_for(lambda:any(m[0] == 0x93 for _, m in port.messages[before:]))
+        messages = [m for _, m in port.messages[before:]]
+        assert all(m[0] & 15 == 3 for m in messages)
+        expected = {(p, v) for ch, p, v in MidiPlan(seq, sig, c).sustained if ch == 3}
+        assert {(m[1], m[2]) for m in messages if m[0] == 0x93} == expected
+        assert [m[1] for m in messages if m[0] == 0x83] == [p for ch, p, _ in MidiPlan(seq,sig,c).sustained if ch == 3]
+        engine.command('stop')
+        wait_for(lambda:any(m[:2] == (0xB6, 123) for _, m in port.messages[before:]))
+        before = len(port.messages); clock[0] += .3
+        engine.command('refresh', 3)
+        time.sleep(.02)
+        assert len(port.messages) == before  # No sound when paused.
+    finally: engine.close()
+    assert not errors

@@ -71,6 +71,7 @@ class SoundSession:
         self.midi_hint.setVisible(midi)
         self.live.setEnabled(not midi)
         self.midi_panic.setEnabled(midi)
+        self.midi_refresh.setEnabled(midi)
         if midi:
             source = 'MIDI → Nebula Visuals · Audio and mix in your DAW'
             if not config.get('enabled', True): source += ' · Sound disabled'

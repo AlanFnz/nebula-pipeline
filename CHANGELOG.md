@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.83.1 — 2026-11-08
+
+- Cap live MIDI pluck gates at the authored voice decay so the last Color
+  Steps note releases instead of holding across the gap to the next phrase.
+- Add Refresh MIDI notes without restarting playback. An optional Ableton
+  control surface detects replaced/re-enabled instruments and requests only
+  that channel's held notes through the Nebula Control feedback port.
+- Keep sustained pad/choir chords continuous across loops. Instrument
+  envelopes remain controlled in the DAW; existing studies and audio exports
+  are unchanged.
+
 ## 0.83.0 — 2026-11-08
 
 - Add an experimental live MIDI monitoring route for Color waves. Send authored
