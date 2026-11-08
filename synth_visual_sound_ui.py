@@ -31,6 +31,8 @@ class VisualSoundDialog(SoundSession,SoundHistory,QDialog):
     draftChanged=Signal(object)
     liveChanged=Signal(bool)
     previewRequested=Signal()
+    midiChanged=Signal(bool)
+    midiPanicRequested=Signal()
 
     def __init__(self,parent=None):
         super().__init__(parent);self.setWindowTitle('Generate sound');self.resize(1280,780)
@@ -126,6 +128,12 @@ class VisualSoundDialog(SoundSession,SoundHistory,QDialog):
         motion.addStretch();self.connections={};self.meters={};self.voice.currentIndexChanged.connect(self.change_voice)
         self.live=QCheckBox('Live audition');self.live.setChecked(True);self.live.setToolTip('Hear synth changes during playback. Turn off to hear applied sound. Original instruments prepare audio after Apply sound.')
         self.live.toggled.connect(self.liveChanged);layout.addWidget(self.live)
+        row=QHBoxLayout();self.midi=QCheckBox('Send live MIDI to Ableton / DAW (experimental)')
+        self.midi.setToolTip('Color waves only. Creates the Nebula Visuals MIDI port. Channels: 1 Opening, 2 Color steps, 3 Pad, 4 Choir, 5 Chimes, 6 Sub, 7 Wave. Notes, velocity, pitch bend and visual CC 1/74 are sent. Choose instruments, effects and levels in the DAW. This monitoring route does not change project exports.')
+        self.midi.toggled.connect(self.midiChanged);row.addWidget(self.midi)
+        self.midi_panic=QPushButton('Stop MIDI notes');self.midi_panic.clicked.connect(self.midiPanicRequested);row.addWidget(self.midi_panic);layout.addLayout(row)
+        self.midi_hint=QLabel('MIDI: notes and pitch in Nebula. Instruments, effects and levels in your DAW. MP4 export keeps the saved Nebula audio.')
+        self.midi_hint.setWordWrap(True);self.midi_hint.setVisible(False);layout.addWidget(self.midi_hint)
         video=QHBoxLayout();self.preview_button=QPushButton('Prepare all video frames');self.preview_button.clicked.connect(self.previewRequested)
         video.addWidget(self.preview_button);self.preview_status=QLabel();video.addWidget(self.preview_status,1);layout.addLayout(video)
         self.preview_source=QLabel();self.preview_source.setWordWrap(True);layout.addWidget(self.preview_source)
@@ -238,6 +246,7 @@ class VisualSoundDialog(SoundSession,SoundHistory,QDialog):
         self.loading=True
         with QSignalBlocker(self.voice): self.voice.setCurrentIndex(self.voice.findData(value['version']))
         color=value['version']==4
+        self.midi.setEnabled(color);self.midi_panic.setEnabled(color)
         self.color_wave.setVisible(color);self.wave_sine.setVisible(color)
         self.tabs.setTabVisible(5,color)
         self.tabs.setTabVisible(self.chimes_tab,color)

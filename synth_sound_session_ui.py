@@ -67,11 +67,20 @@ class SoundSession:
             if output == 'generated' and not applied.get('enabled', True): source = 'Silent · Sound disabled'
         generated = live or (self.applied_available and (self.current or {}).get('output') == 'generated')
         self.volume.setEnabled(generated); self.mute.setEnabled(generated)
+        midi = getattr(owner, 'midi_monitor_enabled', False) and config.get('version') == 4 and config.get('output') == 'generated'
+        self.midi_hint.setVisible(midi)
+        self.live.setEnabled(not midi)
+        self.midi_panic.setEnabled(midi)
+        if midi:
+            source = 'MIDI → Nebula Visuals · Audio and mix in your DAW'
+            if not config.get('enabled', True): source += ' · Sound disabled'
+            self.volume.setEnabled(False)
         muted = self.mute.isChecked() if generated else getattr(owner, 'soundtrack_monitor_muted', False)
         if muted and 'Silent' not in source: source += ' · Monitor muted'
         prefix = 'Listening: ' if self.listen.isChecked() else 'Preview: '
         self.preview_source.setText(prefix + source)
         self.preview_source.setToolTip('Live audition plays draft synth settings. With live audition off, or another output selected, playback uses the applied project audio until you apply the changes.')
+        if midi: self.preview_source.setToolTip('Monitoring only. Play/seek/loop control the outgoing notes. Export still renders the saved Nebula sound; record or export audio from the DAW separately.')
 
     def choose_pending_sound(self, purpose, leaving=False):
         box = QMessageBox(self)

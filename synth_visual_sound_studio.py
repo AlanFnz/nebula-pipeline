@@ -50,15 +50,15 @@ class VisualSoundJob(QRunnable):
 
 
 class LiveSignalsJob(QRunnable):
-    def __init__(self,sequence,key,identity):
+    def __init__(self,sequence,key,identity,*,midi=False):
         super().__init__();self.sequence=copy.deepcopy(sequence);self.key=key;self.identity=identity
-        self.cancel=Cancellation();self.signals=SoundSignals()
+        self.cancel=Cancellation();self.signals=SoundSignals();self.midi=midi
 
     def run(self):
         try:
             signals=visual_signals(self.sequence,self.cancel)
             config=self.sequence.get('generated_sound',{})
-            if config.get('version')==4:
+            if config.get('version')==4 and not self.midi:
                 from synth_lattice_sound import ColorWaveVoice
                 # Prime the room on the preparation worker, before Listen.
                 ColorWaveVoice(self.sequence,config,signals,cancel=self.cancel)
@@ -68,6 +68,7 @@ class LiveSignalsJob(QRunnable):
 
 class VisualSoundStudio:
     def init_visual_sound(self):
+        self.midi_monitor_enabled=False
         self.visual_sound_dialog=None;self.visual_sound_job=None;self.visual_sound_key=None
         self.live_sound=None;self.live_signals_job=None;self.live_signals_key=None;self.live_signals=None;self.live_draft=None;self.live_meter_key=None
         self.live_document_cache=None
@@ -100,6 +101,8 @@ class VisualSoundStudio:
             dialog.previewRequested.connect(self.prepare_full_playback)
             dialog.draftChanged.connect(self.audition_visual_sound)
             dialog.liveChanged.connect(self.live_sound_changed)
+            dialog.midiChanged.connect(self.change_midi_monitor)
+            dialog.midiPanicRequested.connect(self.panic_midi)
             dialog.finished.connect(self.finish_live_sound)
             self.play.toggled.connect(dialog.set_playing)
         self.attach_sound_performance(self.visual_sound_dialog)
@@ -117,8 +120,24 @@ class VisualSoundStudio:
     def wants_live_sound(self,config=None):
         dialog=self.visual_sound_dialog
         config=config or self.live_draft or (self.composition or {}).get('generated_sound') or {}
-        listening = dialog.live.isChecked() if dialog and dialog.isVisible() else self.performing_visuals() or config.get('seamless_loop',False)
+        listening = self.uses_midi(config) or (dialog.live.isChecked() if dialog and dialog.isVisible() else self.performing_visuals() or config.get('seamless_loop',False))
         return bool(listening and config.get('version') in (3,4) and config.get('output')=='generated')
+
+    def uses_midi(self,config=None):
+        config=config or self.live_draft or (self.composition or {}).get('generated_sound') or {}
+        return self.midi_monitor_enabled and config.get('version')==4 and config.get('output')=='generated'
+
+    def change_midi_monitor(self,enabled):
+        self.midi_monitor_enabled=enabled
+        if self.live_sound: self.live_sound.close();self.live_sound=None
+        if self.live_signals_job: self.live_signals_job.cancel.cancel();self.live_signals_job=None
+        self.live_signals_key=None;self.live_base_signals=None
+        self.audition_visual_sound(self.visual_sound_dialog.read_config())
+        self.visual_sound_dialog.refresh_session()
+
+    def panic_midi(self):
+        self.play.setChecked(False)
+        if self.uses_midi() and self.live_sound: self.live_sound.panic()
 
     def sound_dialog_config(self):
         return (self.composition or {}).get('generated_sound') or sound_for_sequence(self.preview_sequence())
@@ -177,6 +196,7 @@ class VisualSoundStudio:
         import hashlib,json
         from synth_preview import _visual_document
         from synth_visual_sound_live import LiveSoundMonitor
+        from synth_live_midi import LiveMidiMonitor
         # Knobs only change the sound draft. Hash the visual document once per
         # revision, rather than deep-copying/serializing it on every drag event.
         revision=(self.document_identity,self.settings_generation,self.comparison_context())
@@ -187,14 +207,17 @@ class VisualSoundStudio:
         else: key=cached[2]
         self.cancel_visual_sound();self.visual_sound_player.set_track(None)
         self.soundtrack_playback.set_monitor_muted(True)
+        midi=self.uses_midi(config)
+        if self.live_sound is not None and isinstance(self.live_sound,LiveMidiMonitor)!=midi:
+            self.live_sound.close();self.live_sound=None;self.live_signals_key=None
         if self.live_sound is None:
-            self.live_sound=LiveSoundMonitor(self)
+            self.live_sound=LiveMidiMonitor(self) if midi else LiveSoundMonitor(self)
             self.live_sound.statusChanged.connect(self.set_visual_sound_status)
         self.live_sound.set_monitor(self.visual_sound_volume,self.visual_sound_muted)
         if key!=self.live_signals_key:
             if self.live_signals_job: self.live_signals_job.cancel.cancel()
             self.live_signals_key=key
-            job=LiveSignalsJob(seq,key,self.document_identity);self.live_signals_job=job;self.pending_jobs.append(job)
+            job=LiveSignalsJob(seq,key,self.document_identity,midi=midi);self.live_signals_job=job;self.pending_jobs.append(job)
             job.signals.done.connect(lambda result,j=job:self.live_signals_ready(j,result))
             job.signals.failed.connect(lambda error,j=job:self.live_signals_failed(j,error))
             self.set_visual_sound_status('Preparing visual motion for live sound…');self.jobs.start(job,-1)
@@ -202,7 +225,7 @@ class VisualSoundStudio:
             self.refresh_performed_signals(config)
             self.live_sound.set_config(config)
             self.update_live_activity(config)
-            self.set_visual_sound_status('Live audition ready.')
+            self.set_visual_sound_status('MIDI → Nebula Visuals · channels 1–7. Audio and mix in your DAW.' if midi else 'Live audition ready.')
             self.sync_soundtrack()
 
     def live_signals_ready(self,job,signals):
@@ -212,7 +235,7 @@ class VisualSoundStudio:
         self.live_performance_config=None
         self.refresh_performed_signals(self.live_draft, force=True)
         self.live_meter_key=None;self.update_live_activity(self.live_draft)
-        self.set_visual_sound_status('Live audition ready.')
+        self.set_visual_sound_status('MIDI → Nebula Visuals · channels 1–7. Audio and mix in your DAW.' if self.uses_midi() else 'Live audition ready.')
         self.sync_soundtrack()
 
     def refresh_performed_signals(self, config, force=False):
@@ -402,6 +425,12 @@ class VisualSoundStudio:
                 dialog.set_activity(*values)
 
     def reset_visual_sound(self):
+        if self.midi_monitor_enabled:
+            self.midi_monitor_enabled=False
+            if self.live_sound: self.live_sound.close();self.live_sound=None
+            if self.visual_sound_dialog:
+                from PySide6.QtCore import QSignalBlocker
+                with QSignalBlocker(self.visual_sound_dialog.midi): self.visual_sound_dialog.midi.setChecked(False)
         self.finish_live_sound(refresh=False)
         self.cancel_visual_sound();self.visual_sound_key=None;self.visual_sound_signals=None
         self.visual_sound_player.set_track(None)

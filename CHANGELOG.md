@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.83.0 — 2026-11-08
+
+- Add an experimental live MIDI monitoring route for Color waves. Send authored
+  visual note attacks, velocity, tuning, pad/choir chords, sub and radial pitch
+  to seven channels on the virtual `Nebula Visuals` port, with visual CC 1/74.
+- Schedule notes independently of the UI. Restore voices on seek, keep sustained
+  chords through a seamless loop, and release notes on pause, close and panic.
+- Keep the route session-only and off by default. DAW instruments and mixing
+  are separate; project files, existing DSP, visuals and MP4 audio are unchanged.
+- Validate a Chromatic Pulse pilot with Ableton Live 12 native Analog/Operator,
+  chorus, EQ, reverb and delay. Document channel routing and pilot boundaries.
+
 ## 0.82.0 — 2026-11-08
 
 - Add an optional Sub bass layer to the color-wave instrument. Follow the pad

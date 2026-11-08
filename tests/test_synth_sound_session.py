@@ -71,6 +71,30 @@ def test_output_label_matches_actual_applied_route_when_not_live(editor):
     assert dialog.preview_source.text() == 'Preview: Silent'
 
 
+def test_midi_is_a_session_route_without_changing_saved_study(editor):
+    from synth_lattice_sound import color_wave_sound
+    window, dialog, _ = editor
+    config = color_wave_sound(); config['enabled'] = True
+    window.composition['generated_sound'] = config
+    dialog.set_config(config)
+    window.save_sequence_dialog()
+    original = copy.deepcopy(window.composition)
+    saved = window.document_path.read_bytes()
+    dialog.midi.setChecked(True)
+    assert window.uses_midi(config) and window.wants_live_sound(config)
+    assert 'MIDI → Nebula Visuals' in dialog.preview_source.text()
+    assert not dialog.volume.isEnabled() and not dialog.live.isEnabled()
+    assert dialog.midi_panic.isEnabled()
+    assert not dialog.has_sound_draft() and not window.has_unsaved_changes()
+    assert window.composition == original and window.document_path.read_bytes() == saved
+    dialog.midi.setChecked(False)
+    assert dialog.volume.isEnabled() and dialog.live.isEnabled()
+    assert not window.uses_midi(config)
+    dialog.midi.setChecked(True)
+    window.reset_visual_sound()
+    assert not window.midi_monitor_enabled and not dialog.midi.isChecked()
+
+
 @pytest.mark.parametrize('choice', ['apply', 'discard', 'cancel'])
 def test_save_resolves_draft_without_silently_choosing_sound(editor, monkeypatch, choice):
     window, dialog, _ = editor
