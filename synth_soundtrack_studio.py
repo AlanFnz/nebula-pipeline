@@ -57,7 +57,7 @@ class SoundtrackStudio:
         layout.addWidget(self.soundtrack_lane)
 
     def build_soundtrack_action(self, layout):
-        self.soundtrack_button = QPushButton('Soundtrack…')
+        self.soundtrack_button = QPushButton('Soundtrack')
         self.soundtrack_button.setProperty('compact', True)
         self.soundtrack_button.setProperty('secondaryAction', True)
         self.soundtrack_button.setToolTip('Import, trim and position an audio track for the whole project.')
@@ -209,7 +209,7 @@ class SoundtrackStudio:
         duration = (self.sequence or {}).get('duration', self.preset['loop_seconds'])
         self.soundtrack_lane.set_track(track, duration)
         self.soundtrack_lane.setVisible(track is not None)
-        self.soundtrack_button.setText('Soundtrack…' if track else '+ Soundtrack…')
+        self.soundtrack_button.setText('Soundtrack' if track else '+ Soundtrack')
         self.soundtrack_button.setEnabled(self.composition is not None)
         if hasattr(self, 'soundtrack_action'):
             self.soundtrack_action.setEnabled(self.composition is not None)

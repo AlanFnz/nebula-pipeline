@@ -9,7 +9,7 @@ class SoundSession:
         self.applied_available = True
         self.applied_values = None
         row = QHBoxLayout()
-        self.context_title = QLabel('Generate sound')
+        self.context_title = QLabel('Synthesizer')
         self.context_title.setTextFormat(Qt.TextFormat.PlainText)
         self.context_title.setObjectName('effectTitle')
         self.context_title.setWordWrap(True)

@@ -18,7 +18,7 @@ The repository supports local macOS builds; these instructions do not provide a
 public notarized installer. Running without `--synth` opens the earlier
 [Print / Scan editor](docs/legacy-clip-editor.md).
 
-Choose **New piece… → Text**, or select a study and press **Load**.
+Choose **New piece → Text**, or select a study and press **Load**.
 [Your first piece](docs/getting-started.md) covers editing, saving and export.
 
 - [Sound](docs/sound.md): listening, applying changes and choosing export audio.

@@ -746,9 +746,9 @@ class CompositionPanel(QWidget):
         self.fps.setToolTip('Global frame rate for preview and export, across every clip, regardless of editing scope. Lower it for a stepped cadence without slowing the action. Clip durations round to the nearest frame. Source and effect cadence controls can hold individual parts longer.')
         self.fps_label.setToolTip(self.fps.toolTip())
         timeline_row.addWidget(self.fps_label); timeline_row.addWidget(self.fps); timeline_row.addStretch(1)
-        self.arrangement_button = QPushButton('Arrange clips…'); self.arrangement_button.setCheckable(True)
+        self.arrangement_button = QPushButton('Arrange clips'); self.arrangement_button.setCheckable(True)
         self.arrangement_button.setToolTip("Edit clip durations, order and loops.")
-        self.automations_button = QPushButton("Automations…")
+        self.automations_button = QPushButton("Automations")
         self.automations_button.setProperty("compact", True); self.automations_button.clicked.connect(lambda: self.open_automation_list())
         self.workspace_actions_layout.addWidget(self.automations_button)
         self.workspace_actions_layout.addWidget(self.arrangement_button); layout.addWidget(self.timeline_controls)
@@ -915,7 +915,7 @@ class CompositionPanel(QWidget):
 
     def show_arrangement(self, expanded):
         self.content_stack.setCurrentWidget(self.arrangement_scroll if expanded else self.parameters_group)
-        self.arrangement_button.setText('← Back to editing' if expanded else 'Arrange clips…')
+        self.arrangement_button.setText('← Back to editing' if expanded else 'Arrange clips')
         self.arrangement_button.setToolTip('Return to effects, object and source controls.' if expanded else 'Edit clip durations, order and loops.')
         self.emit_reset_context()
 
@@ -1007,7 +1007,7 @@ class CompositionPanel(QWidget):
             if self.object_editor.summary: self.object_editor.set_context(*self.object_editor_context)
             self.object_editor.set_automation_counts(counts)
             total_events = sum(len(owner.get("automations", ())) for owner in self.document["sections"])
-            self.automations_button.setText(f"Automations ({total_events})…" if total_events else "Automations…")
+            self.automations_button.setText(f"Automations ({total_events})" if total_events else "Automations")
             self.object_panel.refresh(self.effects_panel.summary, target['effects'], self.document['effects'] if self.scope else {}, bool(self.scope), context_key=(self.scope, context_key), scope_label=label.removeprefix('Editing: '))
             self.object_panel.set_automation_counts(counts)
             for key, control in self.macro_controls.items():

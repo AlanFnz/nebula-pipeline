@@ -37,7 +37,7 @@ class VisualSoundDialog(SoundSession,SoundHistory,QDialog):
     midiRefreshRequested=Signal()
 
     def __init__(self,parent=None):
-        super().__init__(parent);self.setWindowTitle('Generate sound');self.resize(1280,780)
+        super().__init__(parent);self.setWindowTitle('Synthesizer');self.resize(1280,780)
         self.current=None;self.loaded=False;self.loading=False;layout=QVBoxLayout(self)
         self.init_session_header(layout);row=QHBoxLayout()
         self.enabled=QCheckBox('Enable sound');row.addWidget(self.enabled)

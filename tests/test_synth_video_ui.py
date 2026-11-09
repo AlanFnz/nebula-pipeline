@@ -120,7 +120,7 @@ def test_save_as_study_is_independent_and_loads_from_the_renamed_library(window,
     from synth_studies import study_catalogue
     before = copy.deepcopy(window.composition)
     assert window.starter_combo.accessibleName() == 'Studies'
-    assert window.starter_combo.placeholderText() == 'Choose a study…'
+    assert window.starter_combo.placeholderText() == 'Choose a study'
     assert window.load_starter_button.accessibleName() == 'Load study'
     monkeypatch.setattr(QInputDialog, 'getText', lambda *args, **kwargs: ('My tape study', True))
     window.save_study_button.trigger()

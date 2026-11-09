@@ -2,7 +2,7 @@
 
 [Documentation](README.md) · [Editing](editing.md) · [Sound](sound.md)
 
-**Import video…** creates a composition using the footage's proportions and FPS.
+**Import video** creates a composition using the footage's proportions and FPS.
 In **Source**, trim In/Out and adjust framing. Fit, Fill-crop and Original pixel
 size preserve proportions. Changing trim does not resize the timeline until you
 choose **Use trimmed duration for timeline**.

@@ -3,7 +3,7 @@ import copy
 import os
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 import pytest
-from PySide6.QtCore import QPoint, QThreadPool
+from PySide6.QtCore import QEvent, QPoint, QThreadPool
 from PySide6.QtWidgets import QApplication, QMessageBox
 from studio_theme import apply_theme
 from synth_studio import SynthStudio
@@ -14,6 +14,7 @@ from synth_starting_points import new_piece
 def window(monkeypatch):
     app = QApplication.instance() or QApplication([]); apply_theme(app)
     monkeypatch.setattr(SynthStudio, 'request_frame', lambda self: None)
+    monkeypatch.setattr(SynthStudio, 'schedule_auto_preparation', lambda self: None)
     monkeypatch.setattr(QMessageBox, 'warning', lambda *args: QMessageBox.StandardButton.Discard)
     document = new_piece('shape')
     second = copy.deepcopy(document['sections'][0]); second['id'] = 'second'; second['duration'] = 2.
@@ -21,7 +22,8 @@ def window(monkeypatch):
     window = SynthStudio(composition=document); window.auto_prepare.setChecked(False)
     window.resize(1280, 800); window.show(); app.processEvents()
     yield window
-    window.close(); QThreadPool.globalInstance().waitForDone(10000); app.processEvents()
+    window.close(); QThreadPool.globalInstance().waitForDone(10000)
+    window.deleteLater(); app.sendPostedEvents(None, QEvent.Type.DeferredDelete)
 
 
 def inside(widget, host):
@@ -43,6 +45,8 @@ def test_global_fps_and_save_actions_survive_composer_replacement(window, monkey
         assert window.composer.arrangement_button.parentWidget() is window.timeline_navigation
         assert window.composer.automations_button.parentWidget() is window.timeline_navigation
         assert inside(window.composer.fps, window.header_host)
+        assert inside(window.section_hint, window.section_tools)
+        assert window.section_hint.geometry().right() == window.section_tools.rect().right()
         assert window.save_study_button.isEnabled()
     window.composer.fps.setValue(12)
     assert window.composition['fps'] == window.preview_fps() == 12
@@ -54,7 +58,7 @@ def test_global_fps_and_save_actions_survive_composer_replacement(window, monkey
 def test_studio_navigation_keeps_timeline_actions_and_quality_with_their_context(window):
     before = copy.deepcopy(window.composition)
     panel = window.composer
-    assert inside(window.quality, window.transport)
+    assert inside(window.quality, window.preview_splitter.widget(0))
     assert inside(panel.arrangement_button, window.section_tools)
     assert inside(panel.automations_button, window.section_tools)
     panel.arrangement_button.click(); QApplication.processEvents()
@@ -89,12 +93,12 @@ def test_prepared_count_means_actual_cached_frames_in_playback_scope(window):
     for frame in (0, 2, second_start):
         window.preview_frames.put(frame, ((1, 1), b'abc'))
     window.cached_ranges.set_ranges(window.preview_frames.ranges())
-    assert window.cache_status.text() == f'Preview ready: 3/{window.timeline.maximum()+1}'
+    assert window.cache_status.text() == f'Timeline: 3/{window.timeline.maximum()+1} frames · partial'
     window.composer.select_section(1)
     window.preview_scope.setCurrentIndex(1)
-    assert window.cache_status.text() == f'Preview ready: 1/{window.active_preview_scope().count}'
+    assert window.cache_status.text() == f'Selected clips: 1/{window.active_preview_scope().count} frames · partial'
     window.preview_frames.clear(); window.cached_ranges.set_ranges([])
-    assert window.cache_status.text().startswith('Preview ready: 0/')
+    assert window.cache_status.text() == f'Selected clips: 0/{window.active_preview_scope().count} frames · not prepared'
 
 
 def test_narrow_monitor_wraps_controls_without_editing_the_piece(window):
@@ -105,9 +109,33 @@ def test_narrow_monitor_wraps_controls_without_editing_the_piece(window):
     for control in (window.view_zoom, window.snapshots_button, window.compare_a,
                     window.compare_b, window.compare_exit, window.fullscreen_button):
         assert inside(control, monitor)
-    assert inside(window.export_button, window.header_host)
+    for control in (window.new_piece_button, window.open_button, window.save_button,
+                    window.import_video_button, window.montage_button, window.export_button):
+        assert inside(control, window.header_host)
+    assert inside(window.section_hint, window.section_tools)
+    assert window.section_hint.geometry().right() == window.section_tools.rect().right()
     assert window.composition == before
     window.end_comparison()
+
+
+def test_video_toolbar_wraps_with_all_actions_and_help_at_the_right(window, tmp_path):
+    from synth_video import normalize_footage, video_composition
+    project = video_composition(normalize_footage(dict(version=1, kind='video', path=str(tmp_path / 'footage.mkv'),
+                                    width=320, height=180, duration=1., fps=12.,
+                                    identity={'size': 0, 'mtime_ns': 0})))
+    window.set_composition(project, clean=True)
+    before = copy.deepcopy(window.composition)
+    for width in (920, 730, 480):
+        window.resize(1280 if width < 900 else 1728, 800)
+        window.splitter.setSizes([width, 700])
+        QApplication.processEvents()
+        for control in (window.timeline_view, window.add_footage_section, window.soundtrack_button,
+                        window.visual_sound_button, window.section_resize_mode,
+                        window.composer.arrangement_button, window.composer.automations_button,
+                        window.section_hint):
+            assert control.isVisible() and inside(control, window.section_tools)
+        assert window.section_hint.geometry().right() == window.section_tools.rect().right()
+        assert window.composition == before and not window.has_unsaved_changes()
 
 
 def test_fit_remains_a_mode_and_transport_strip_tracks_the_scrubber(window):

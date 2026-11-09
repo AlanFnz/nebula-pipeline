@@ -347,7 +347,7 @@ class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
     def build(self):
         root=QWidget(); layout=QVBoxLayout(root); self.setCentralWidget(root)
         top=QHBoxLayout(); brand=QLabel('nebula_  /  Montage'); brand.setObjectName('brand'); top.addWidget(brand)
-        for label,method in [('Open…',self.open_dialog),('Save',self.save),('Save as…',lambda:self.save(True))]: self.button(label,method,top)
+        for label,method in [('Open',self.open_dialog),('Save',self.save),('Save as',lambda:self.save(True))]: self.button(label,method,top)
         self.undo_button=self.button('Undo',self.undo,top); self.redo_button=self.button('Redo',self.redo,top)
         top.addStretch(); self.export_button=self.button('Export MP4',self.export_dialog,top); self.export_button.setObjectName('primary')
         self.export_summary=ExportSummaryButton(self,self.export_summary_rows,self.export_button); top.addWidget(self.export_summary); layout.addLayout(top)
@@ -409,7 +409,7 @@ class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
         inspector_scroll=QScrollArea(); inspector_scroll.setWidgetResizable(True); inspector_scroll.setWidget(inspector)
         inspector_scroll.setMinimumWidth(270); split.addWidget(inspector_scroll); split.setSizes([250,780,300])
         tools=QHBoxLayout()
-        for label,method in [('Split at playhead',self.split),('Select all',self.select_all),('Soundtrack…',self.soundtrack_dialog)]: self.button(label,method,tools)
+        for label,method in [('Split at playhead',self.split),('Select all',self.select_all),('Soundtrack',self.soundtrack_dialog)]: self.button(label,method,tools)
         tools.addWidget(QLabel('Timeline zoom')); self.zoom_control=Slider(Qt.Orientation.Horizontal); self.zoom_control.setRange(25,220); self.zoom_control.setValue(65); self.zoom_control.setMaximumWidth(160); self.zoom_control.valueChanged.connect(self.zoom); self.zoom_control.setAccessibleName('Montage timeline zoom'); tools.addWidget(self.zoom_control)
         layout.addLayout(tools)
         identity=QHBoxLayout(); self.block_summary=QLabel(); self.block_summary.setWordWrap(True); self.block_summary.setTextFormat(Qt.TextFormat.PlainText); self.block_summary.setAccessibleName('Selected montage block'); identity.addWidget(self.block_summary,1)

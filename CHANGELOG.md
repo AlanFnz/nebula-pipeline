@@ -6,6 +6,9 @@ Untagged work can be ahead of the most recent version.
 
 ## Unreleased
 
+- Use Synthesizer as the sound editor's name, simplify workspace button labels,
+  group file actions together, separate import/Montage and export controls, and
+  place timeline help at the right edge.
 - Link a composition to an existing Ableton Live Set, keep the association in
   saved projects/studies, and open it from the MIDI controls. Missing files can
   be located again; the link does not change sound, rendering or MIDI routing.

@@ -6,9 +6,12 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QLayout, QSizePolicy, QSplitt
 from studio_theme import COLORS
 
 
-def inline(*widgets, spacing=5):
+def inline(*widgets, spacing=5, separated=False):
     host = QWidget()
     layout = QHBoxLayout(host); layout.setContentsMargins(0, 0, 0, 0); layout.setSpacing(spacing)
+    if separated:
+        host.setProperty('actionGroup', True)
+        layout.setContentsMargins(12, 0, 0, 0)
     for widget in widgets: layout.addWidget(widget)
     return host
 

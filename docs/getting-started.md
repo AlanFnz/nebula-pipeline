@@ -3,7 +3,7 @@
 [Documentation](README.md) · [Local setup](development.md#run-from-source)
 
 1. Open the locally built app, or run `.venv/bin/python studio.py --synth`.
-   Choose **New piece… → Text** and enter a phrase. To start from an example,
+   Choose **New piece → Text** and enter a phrase. To start from an example,
    select a study and press **Load**.
 2. Edit **Object → Text → Main text**, then **Apply main text**. Choose a
    Typeface; Layout and Motion hold the size, position and animation controls.

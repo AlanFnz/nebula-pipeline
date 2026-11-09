@@ -9,7 +9,7 @@ on macOS; other platforms are unverified.
 
 ## Connect
 
-1. Open **Generate sound…** or **Generated sound…**, enable sound and select
+1. Open **Synthesizer**, enable sound and select
    **Audio output → Generated sound**.
 2. Enable **Send live MIDI to Ableton / DAW (experimental)**. The **Nebula
    Visuals** MIDI source appears; macOS needs no IAC setup.

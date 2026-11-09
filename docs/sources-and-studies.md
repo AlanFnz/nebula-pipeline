@@ -2,7 +2,7 @@
 
 [Documentation](README.md) · [Editing](editing.md) · [Effects](effects-reference.md)
 
-Use **Object** for generated material, **Import video…** for footage, or
+Use **Object** for generated material, **Import video** for footage, or
 **Studies → Load** for an editable example. Changing an Object source keeps
 its treatments, canvas and clip timing. Loading a study uses its own settings.
 

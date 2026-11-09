@@ -3,7 +3,7 @@
 [Documentation](README.md) · [Sound](sound.md)
 
 Open **Perform** in a composition's inspector, or **Visuals**
-in **Generated sound…**. Both panels edit the same project immediately. Save the
+in **Synthesizer**. Both panels edit the same project immediately. Save the
 project to keep those edits. The sound window's **Apply sound** button applies only
 the sound draft; closing it does not discard visual edits.
 

@@ -2,7 +2,7 @@
 
 [Documentation](README.md) · [Sound and export](sound.md#audio-in-montage)
 
-Open **Montage…** or **File → Open in Montage** to arrange the current study
+Open **Montage** or **File → Open in Montage** to arrange the current study
 alongside footage. It becomes an embedded, editable copy in the same window.
 
 ## Choose material and a target

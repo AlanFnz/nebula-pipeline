@@ -59,7 +59,7 @@ pass; other effect families currently have one instance each.
 
 Choose **Animate…** beside a supported control. Set the target clip, Start, Rise,
 Hold, Recover and Change amount, then Apply. The gesture adds to the base value
-and returns to it. Use **Automations…** or the timeline lane to edit it.
+and returns to it. Use **Automations** or the timeline lane to edit it.
 Overlapping enabled gestures on the same target are rejected.
 
 For recorded gestures, see [Visual performance](visual-performance.md). For
@@ -70,7 +70,7 @@ soundtrack-driven changes, see [Sound](sound.md#import-a-soundtrack-and-make-vis
 Tape damage, Frame jitter, Ghosts and Particles have **Creative** controls and
 **Vary this effect…**. Try a variation, then Keep or Discard before saving/exporting.
 
-**Snapshots…** stores named compositions inside the document. **Compare with B**
+**Snapshots** stores named compositions inside the document. **Compare with B**
 compares a snapshot with the working piece at the same time and quality when
 their canvas and timing are compatible. **Restore as working B** restores one.
 Export B MP4 always exports the working piece.
@@ -89,7 +89,7 @@ canvas. See [Monitor and export](monitor-and-export.md).
 and soundtrack media. System fonts remain external. Sound drafts have a separate
 [apply/save decision](sound.md#listen-apply-save-and-export).
 
-**Browse…** opens study previews and search. **Remove selected** hides a library
+**Browse** opens study previews and search. **Remove selected** hides a library
 entry without deleting its media; **Removed studies → Restore selected** brings
 it back. Copy the entire personal-study folder when moving it.
 

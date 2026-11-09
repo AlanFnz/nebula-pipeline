@@ -8,8 +8,8 @@ editor and apply it. Montage uses its own soundtrack or silence.
 
 ## Listen, apply, save and export
 
-Open **Generate sound…** beside Soundtrack. It becomes **Generated sound…** once
-sound is attached. The editor is available for Pleated field and Chromatic lattice.
+Open **Synthesizer** beside Soundtrack. It is available for Pleated field and
+Chromatic lattice.
 
 | Action | Result |
 | --- | --- |
@@ -51,7 +51,7 @@ a running pattern quiet or silent.
 
 ## Chromatic lattice: color-wave voices
 
-Load **Lattice / chromatic pulse** and open Generate sound. **Color waves / dual
+Load **Lattice / chromatic pulse** and open Synthesizer. **Color waves / dual
 synth** maps color transitions to Opening and Color steps notes. Each has its own
 root, scale and engine. Enable Pad, Chimes, Choir, Sub bass or Wave sine for
 additional layers, then balance them in Mixer.
@@ -67,7 +67,7 @@ Use [Perform / Visuals](visual-performance.md) to record visual gestures.
 
 ## Import a soundtrack and make visuals react
 
-Choose **+ Soundtrack… → Import…**. Set In/Out, Start and the end behavior, then
+Choose **+ Soundtrack → Import…**. Set In/Out, Start and the end behavior, then
 Apply. The visual timeline determines the piece's duration. **Relink…** repairs
 moved media while keeping trim; ordinary Save does not copy the audio file.
 

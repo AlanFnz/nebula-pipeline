@@ -28,7 +28,7 @@ python3 -m venv .venv
 ```
 
 `--synth-preset` accepts a standalone synth preset through `load_synth`; use
-**Open…** inside the composer for composition, sequence or Montage documents.
+**Open** inside the composer for composition, sequence or Montage documents.
 The Finder app uses [mac_app.py](../mac_app.py): with no arguments it opens the
 composer, and `--clip-studio` selects the older editor.
 

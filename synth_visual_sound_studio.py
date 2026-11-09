@@ -84,9 +84,9 @@ class VisualSoundStudio(LiveSetActions):
         self.visual_sound_debounce.setInterval(180);self.visual_sound_debounce.timeout.connect(self.prepare_visual_sound)
 
     def build_visual_sound_action(self,layout):
-        self.visual_sound_button=QPushButton('Generate sound…')
+        self.visual_sound_button=QPushButton('Synthesizer')
         self.visual_sound_button.setProperty('compact',True);self.visual_sound_button.setProperty('secondaryAction',True)
-        self.visual_sound_button.setToolTip('Generate sound from Pleated field motion or Chromatic lattice color waves.')
+        self.visual_sound_button.setToolTip('Shape sound from Pleated field motion or Chromatic lattice color waves. Includes the step sequencer, mixer and live MIDI controls.')
         self.visual_sound_button.clicked.connect(self.open_visual_sound);layout.addWidget(self.visual_sound_button)
 
     def open_visual_sound(self,checked=False):
@@ -342,7 +342,6 @@ class VisualSoundStudio(LiveSetActions):
             if self.visual_sound_dialog.isVisible(): self.live_draft=self.visual_sound_dialog.read_config()
             self.refresh_sound_context()
         if self.wants_live_sound():
-            self.visual_sound_button.setText('Generated sound…' if config else 'Generate sound…')
             self.audition_visual_sound(self.live_draft);return
         if self.live_sound: self.live_sound.stop()
         active=seq is not None and audio_output(seq)=='generated'
@@ -362,7 +361,6 @@ class VisualSoundStudio(LiveSetActions):
             else: self.set_visual_sound_status('Generated sound is off.' if config else '')
         if self.visual_sound_dialog:
             self.visual_sound_dialog.set_config(self.sound_dialog_config())
-        self.visual_sound_button.setText('Generated sound…' if config else 'Generate sound…')
 
     def cancel_visual_sound(self):
         self.visual_sound_debounce.stop()

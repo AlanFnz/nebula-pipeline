@@ -56,6 +56,7 @@ QLabel[warning="true"] { color: @warning@; }
 QLabel[destructive="true"] { color: @destructive@; }
 QFrame#monitorFrame { border: 1px solid @border@; border-radius: 6px; background: @monitor@; }
 QWidget#monitorHeader { background: @panel@; border-bottom: 1px solid @border@; }
+QWidget[actionGroup="true"] { border-left: 1px solid @border@; }
 QFrame#effectChoice { border: 1px solid @disabled_border@; border-radius: 4px; background: @panel@; }
 QFrame#effectChoice[selected="true"] { border-color: @accent@; background: @selected@; }
 QPushButton#effectChoiceButton { text-align: left; padding: 4px 6px; border: 1px solid transparent; background: transparent; }

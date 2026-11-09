@@ -9,7 +9,7 @@ from synth_exploration import comparison_problem, content, restore_snapshot, sna
 
 class ExplorationStudio:
     def build_exploration_controls(self, view_row, monitor_row):
-        self.snapshots_button = QPushButton('Snapshots…'); self.snapshots_button.clicked.connect(self.open_snapshots)
+        self.snapshots_button = QPushButton('Snapshots'); self.snapshots_button.clicked.connect(self.open_snapshots)
         self.snapshots_button.setToolTip('Capture complete named variations, compare A/B and restore them. Saved in this composition.')
         view_row.addWidget(self.snapshots_button); self.composition_widgets.append(self.snapshots_button)
         self.compare_a = QPushButton('A'); self.compare_b = QPushButton('B'); self.compare_exit = QPushButton('×')
