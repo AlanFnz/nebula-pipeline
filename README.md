@@ -30,8 +30,8 @@ Choose **New piece → Text**, or select a study and press **Load**.
 Save keeps the editable project. Export MP4 makes a movie and does not save the
 project. Keep imported video and audio files with it; they remain dependencies.
 
-Live MIDI is experimental. Record the DAW's audio separately: Nebula's MP4 export
-does not capture it. Montage exports its own soundtrack or silence, without
+Live playback sends MIDI. Record the DAW's audio separately and import it as a
+soundtrack to include it in an MP4. Montage exports its own soundtrack or silence, without
 mixing its blocks' audio. Output is 8-bit SDR H.264; preview may drop frames,
 while export renders every frame.
 

@@ -11,6 +11,11 @@ editor and apply it. Montage uses its own soundtrack or silence.
 Open **Synthesizer** beside Soundtrack. It is available for Pleated field and
 Chromatic lattice.
 
+For Ableton instruments, select **Audio output → Ableton Live (MIDI)**, then
+**Apply MIDI** and **Save project**. The toolbar becomes **Live controls** and
+Play uses MIDI even with that editor closed. Internal settings remain available
+when switching back. See [Live MIDI](../LIVE_MIDI.md) for routing and export.
+
 | Action | Result |
 | --- | --- |
 | Listen, with Live audition on | Hear the current Layered synth or Color waves draft. |

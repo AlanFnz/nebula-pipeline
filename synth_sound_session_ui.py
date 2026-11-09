@@ -2,6 +2,7 @@
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeySequence, QAction
 from PySide6.QtWidgets import QLabel, QHBoxLayout, QPushButton, QMessageBox
+from synth_live_mode import is_live
 
 
 class SoundSession:
@@ -56,6 +57,12 @@ class SoundSession:
         self.refresh_history_actions()
         owner = self.parent()
         config = self.history_value or {}
+        live_mode = is_live(config)
+        self.refresh_live_view()
+        if live_mode:
+            self.sound_state.setText('MIDI: Not applied' if draft else 'MIDI: Applied')
+            self.apply_button.setText('Apply MIDI')
+            self.workspace_hint.setText('MIDI · All clips · Instruments and audio in Live')
         live = self.live.isChecked() and config.get('version') in (3, 4) and config.get('output') == 'generated'
         if live:
             source = 'Draft sound' if draft else 'Applied sound'
@@ -63,25 +70,34 @@ class SoundSession:
         else:
             applied = self.current if self.applied_available else None
             output = (applied or {}).get('output', 'existing')
-            source = {'generated': 'Applied sound', 'existing': 'Existing soundtrack / footage', 'silent': 'Silent'}[output]
+            source = {'generated': 'Applied sound', 'existing': 'Existing soundtrack / footage', 'silent': 'Silent', 'ableton_live': 'Ableton Live · MIDI'}[output]
             if output == 'generated' and not applied.get('enabled', True): source = 'Silent · Sound disabled'
         generated = live or (self.applied_available and (self.current or {}).get('output') == 'generated')
         self.volume.setEnabled(generated); self.mute.setEnabled(generated)
-        midi = getattr(owner, 'midi_monitor_enabled', False) and config.get('version') in (3, 4) and config.get('output') == 'generated'
+        applied_live = not live and is_live(self.current if self.applied_available else None)
+        saved_midi = live_mode or applied_live
+        heard_config = self.current if applied_live and not live_mode else config
+        midi = saved_midi or (getattr(owner, 'midi_monitor_enabled', False) and config.get('version') in (3, 4) and config.get('output') == 'generated')
         self.midi_hint.setVisible(midi)
         self.live.setEnabled(not midi)
         self.midi_panic.setEnabled(midi)
         self.midi_refresh.setEnabled(midi)
         if midi:
             source = 'MIDI → Nebula Visuals · Audio and mix in your DAW'
-            if not config.get('enabled', True): source += ' · Sound disabled'
-            self.volume.setEnabled(False)
-        muted = self.mute.isChecked() if generated else getattr(owner, 'soundtrack_monitor_muted', False)
+            if not heard_config.get('enabled', True): source += ' · MIDI disabled'
+            self.volume.setEnabled(False);self.mute.setEnabled(True)
+        muted = self.mute.isChecked() if generated or midi else getattr(owner, 'soundtrack_monitor_muted', False)
         if muted and 'Silent' not in source: source += ' · Monitor muted'
         prefix = 'Listening: ' if self.listen.isChecked() else 'Preview: '
         self.preview_source.setText(prefix + source)
         self.preview_source.setToolTip('Live audition plays draft synth settings. With live audition off, or another output selected, playback uses the applied project audio until you apply the changes.')
         if midi: self.preview_source.setToolTip('Monitoring only. Play/seek/loop control the outgoing notes. Export still renders the saved Nebula sound; record or export audio from the DAW separately.')
+        if midi:
+            channels = '1 Opening · 2 Color steps · 3 Pad · 4 Choir · 5 Chimes · 6 Sub · 7 Wave' if heard_config['version'] == 4 else '1 Drone · 2 Arpeggio'
+            export = 'MP4 audio: import a recording from Live as a soundtrack; otherwise the export is silent.' if saved_midi else 'Temporary MIDI monitoring. MP4 export keeps the saved Nebula audio.'
+            self.midi_hint.setText('Live input: Nebula Visuals · Channels: '+channels+'. Enable input monitoring in Live. '+export)
+        if saved_midi:
+            self.preview_source.setToolTip('Saved Live mode. Play, pause, seek and loop control MIDI even with this editor closed. No internal synthesizer is heard or exported.')
 
     def choose_pending_sound(self, purpose, leaving=False):
         box = QMessageBox(self)

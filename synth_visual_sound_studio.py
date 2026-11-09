@@ -15,6 +15,7 @@ from synth_soundtrack_preview import SoundtrackPreview
 from synth_visual_sound import normalize_sound, audio_output, sound_key, write_sound, visual_signals, sound_for_sequence
 from synth_visual_sound_ui import VisualSoundDialog
 from synth_live_set_ui import LiveSetActions, LiveSetButton
+from synth_live_mode import LIVE_OUTPUT, is_live
 
 
 class SoundSignals(QObject):
@@ -127,11 +128,11 @@ class VisualSoundStudio(LiveSetActions):
         dialog=self.visual_sound_dialog
         config=config or self.live_draft or (self.composition or {}).get('generated_sound') or {}
         listening = self.uses_midi(config) or (dialog.live.isChecked() if dialog and dialog.isVisible() else self.performing_visuals() or config.get('seamless_loop',False))
-        return bool(listening and config.get('version') in (3,4) and config.get('output')=='generated')
+        return bool(listening and config.get('version') in (3,4) and config.get('output') in ('generated', LIVE_OUTPUT))
 
     def uses_midi(self,config=None):
         config=config or self.live_draft or (self.composition or {}).get('generated_sound') or {}
-        return self.midi_monitor_enabled and config.get('version') in (3,4) and config.get('output')=='generated'
+        return is_live(config) or (self.midi_monitor_enabled and config.get('version') in (3,4) and config.get('output')=='generated')
 
     def change_midi_monitor(self,enabled):
         self.midi_monitor_enabled=enabled
@@ -146,7 +147,9 @@ class VisualSoundStudio(LiveSetActions):
         if self.uses_midi() and self.live_sound: self.live_sound.panic()
 
     def refresh_midi_notes(self):
-        if self.uses_midi() and self.live_sound: self.live_sound.refresh_notes()
+        if not self.uses_midi(): return
+        if self.live_sound and not getattr(self.live_sound,'unavailable',False): self.live_sound.refresh_notes()
+        else: self.prepare_visual_sound()
 
     def sound_dialog_config(self):
         return (self.composition or {}).get('generated_sound') or sound_for_sequence(self.preview_sequence())
@@ -198,6 +201,7 @@ class VisualSoundStudio(LiveSetActions):
 
     def audition_visual_sound(self,config):
         config = config or (self.composition or {}).get('generated_sound') or {}
+        config = self.effective_live_config(config)
         self.live_draft=copy.deepcopy(config)
         if not self.wants_live_sound(config):
             self.finish_live_sound(refresh=True,keep_draft=True);return
@@ -237,6 +241,13 @@ class VisualSoundStudio(LiveSetActions):
             self.update_live_activity(config)
             self.set_visual_sound_status('MIDI → Nebula Visuals · Audio and mix in your DAW.' if midi else 'Live audition ready.')
             self.sync_soundtrack()
+
+    def effective_live_config(self, config):
+        # Existing audio / silence and non-live synth drafts only take effect
+        # after Apply. Until then, keep hearing the applied Live destination.
+        applied = (self.composition or {}).get('generated_sound')
+        if is_live(applied) and not self.wants_live_sound(config): return applied
+        return config
 
     def live_signals_ready(self,job,signals):
         if job in self.pending_jobs: self.pending_jobs.remove(job)
@@ -292,6 +303,13 @@ class VisualSoundStudio(LiveSetActions):
         self.set_visual_sound_status('Live sound: '+error)
 
     def finish_live_sound(self,*_,refresh=True,keep_draft=False):
+        # Closing the editor must not interrupt a saved Live performance.
+        if refresh and not self.closing and not keep_draft and is_live((self.composition or {}).get('generated_sound')):
+            if self.visual_sound_dialog:
+                self.visual_sound_dialog.draft_timer.stop();self.visual_sound_dialog.loaded=False
+            self.live_draft=None
+            self.refresh_visual_sound()
+            return
         if self.live_signals_job: self.live_signals_job.cancel.cancel();self.live_signals_job=None
         self.live_signals_key=None;self.live_signals=None;self.live_base_signals=None;self.live_performance_config=None
         if self.live_sound: self.live_sound.stop()
@@ -307,6 +325,12 @@ class VisualSoundStudio(LiveSetActions):
     def apply_visual_sound(self,config):
         if not self.composition or not self.composer or self.audition_pending(): return
         config=normalize_sound(config)
+        if is_live(config):
+            # The saved destination supersedes the older session-only switch.
+            self.midi_monitor_enabled=False
+            if self.visual_sound_dialog:
+                from PySide6.QtCore import QSignalBlocker
+                with QSignalBlocker(self.visual_sound_dialog.midi): self.visual_sound_dialog.midi.setChecked(False)
         self.live_draft=copy.deepcopy(config)
         if config!=self.composition.get('generated_sound'):
             project=copy.deepcopy(self.composition);project['generated_sound']=config
@@ -329,18 +353,28 @@ class VisualSoundStudio(LiveSetActions):
             self.set_visual_sound_status('Sound ready · press Play in the timeline.')
 
     def set_visual_sound_status(self,message):
+        unavailable=self.uses_midi() and getattr(self.live_sound,'unavailable',False)
+        if unavailable: message=self.live_sound.error
         self.visual_sound_status=message
         if self.visual_sound_dialog: self.visual_sound_dialog.status.setText(message)
+        if hasattr(self,'visual_sound_button') and is_live((self.composition or {}).get('generated_sound')):
+            self.visual_sound_button.setText('Live · reconnect' if unavailable else 'Live controls')
+            self.visual_sound_button.setToolTip('Playback: Ableton Live via Nebula Visuals.\n'+message+'\nOpen Live controls for notes, timing and connection status.')
 
     def refresh_visual_sound(self):
         if not hasattr(self,'visual_sound_button'): return
         seq=self.preview_sequence();config=(seq or {}).get('generated_sound')
         supported=any(set(state.get('enabled',())) & {'pleated_field','chromatic_lattice'} for state in (seq or {}).get('states',{}).values())
         self.visual_sound_button.setEnabled(self.composition is not None and (supported or config is not None))
+        live_mode=is_live(config)
+        self.visual_sound_button.setText('Live controls' if live_mode else 'Synthesizer')
+        self.visual_sound_button.setToolTip('Playback: Ableton Live via Nebula Visuals. Notes and motion in Nebula; instruments and audio in Live.' if live_mode else 'Shape sound from visual motion. Includes the step sequencer, mixer and live MIDI controls.')
+        self.live_draft=copy.deepcopy(config)
         if self.visual_sound_dialog:
             self.visual_sound_dialog.set_config(self.sound_dialog_config())
             if self.visual_sound_dialog.isVisible(): self.live_draft=self.visual_sound_dialog.read_config()
-            self.refresh_sound_context()
+        self.refresh_sound_context()
+        self.live_draft=copy.deepcopy(self.effective_live_config(self.live_draft))
         if self.wants_live_sound():
             self.audition_visual_sound(self.live_draft);return
         if self.live_sound: self.live_sound.stop()
@@ -370,6 +404,8 @@ class VisualSoundStudio(LiveSetActions):
     def prepare_visual_sound(self):
         if self.closing: return
         if self.wants_live_sound():
+            if self.live_sound and getattr(self.live_sound,'unavailable',False):
+                self.live_sound.close();self.live_sound=None
             self.live_signals_key=None;self.audition_visual_sound(self.live_draft);return
         seq=self.preview_sequence()
         if not seq or audio_output(seq)!='generated': return
@@ -413,7 +449,7 @@ class VisualSoundStudio(LiveSetActions):
         live=self.wants_live_sound() and self.live_sound is not None
         if live:
             if self.live_signals is not None: self.live_sound.sync(seconds,playing,force=force)
-        else: self.visual_sound_player.sync(seconds,playing,force=force)
+        elif not self.uses_midi(): self.visual_sound_player.sync(seconds,playing,force=force)
         dialog=self.visual_sound_dialog;signals=self.visual_sound_signals
         if dialog and dialog.isVisible():dialog.sequencer.set_time(seconds)
         if dialog and dialog.isVisible():
@@ -433,9 +469,9 @@ class VisualSoundStudio(LiveSetActions):
                 dialog.set_activity(*values)
 
     def reset_visual_sound(self):
+        if self.live_sound: self.live_sound.close();self.live_sound=None
         if self.midi_monitor_enabled:
             self.midi_monitor_enabled=False
-            if self.live_sound: self.live_sound.close();self.live_sound=None
             if self.visual_sound_dialog:
                 from PySide6.QtCore import QSignalBlocker
                 with QSignalBlocker(self.visual_sound_dialog.midi): self.visual_sound_dialog.midi.setChecked(False)

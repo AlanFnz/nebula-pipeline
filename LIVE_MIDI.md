@@ -3,20 +3,26 @@
 [Sound](docs/sound.md) · [Documentation](docs/README.md)
 
 Nebula can play DAW instruments from **Layered resonant synth** (Pleated) or
-**Color waves / dual synth** (Chromatic lattice). This experimental route is off
-by default and is not saved in projects. The virtual-port workflow has been tried
-on macOS; other platforms are unverified.
+**Color waves / dual synth** (Chromatic lattice). **Ableton Live (MIDI)** is a
+playback destination saved in projects and personal studies. Existing studies
+keep their internal sound until you choose Live. The virtual-port workflow has
+been tried on macOS; other platforms are unverified.
 
 ## Connect
 
-1. Open **Synthesizer**, enable sound and select
-   **Audio output → Generated sound**.
-2. Enable **Send live MIDI to Ableton / DAW (experimental)**. The **Nebula
-   Visuals** MIDI source appears; macOS needs no IAC setup.
+1. Open **Synthesizer**, select **Audio output → Ableton Live (MIDI)** and
+   enable MIDI. Choose **Apply MIDI**, then **Save project**.
+2. The toolbar now shows **Live controls**. The **Nebula Visuals** MIDI source
+   appears; macOS needs no IAC setup.
 3. In Live's MIDI settings, enable Track input for Nebula Visuals. Add an
    instrument track, select that input and an explicit channel below, then set
    monitoring to **In**. Use the equivalent routing in another DAW.
 4. Press **Listen** or Play in Nebula. Live's transport need not run.
+
+Play keeps using MIDI after closing the editor and after reopening the project.
+Loading a project does not launch Live: open its Set explicitly. A ready MIDI
+port does not confirm that Live's tracks are receiving it. If MIDI fails,
+Nebula stays silent; **Reconnect MIDI** retries without changing the destination.
 
 | Channel | Color waves | Layered resonant synth |
 | --- | --- | --- |
@@ -43,9 +49,12 @@ change or remove the link. If the file moved, Open asks for its new location.
 Linked studies have an **Ableton Live** label in the study selector and library.
 In **Browse**, use the Ableton Live filter or search for the Set's filename.
 
-The Set stays in its original folder and is not copied into the study. Opening
-it does not change Nebula's MIDI or playback settings. Save changes to the Set
-in Live.
+The Set stays in its original folder and is not copied into the study.
+**Open in Live** also selects Live playback for supported instruments. The
+button's menu offers **Use Ableton Live for playback** without opening a Set;
+uncheck it to return to the internal synthesizer. These are undoable edits.
+Save Nebula's project to retain the destination, and save instrument changes in Live.
+Linking, changing or removing the `.als` association alone does not change playback.
 
 ## While playing
 
@@ -64,10 +73,18 @@ start alignment; DAW buffers and instruments affect latency.
 
 ## Save and export
 
-Apply sound and Save project retain Nebula's sound settings. MIDI monitoring
-sends no audio back to Nebula: MP4 export uses the applied internal audio route.
-Record or export Live's audio separately. Internal filters, ambience and Mixer
-levels do not become equivalent processing in Live.
+**Apply MIDI** and **Save project** retain notes, visual mappings and the Live
+destination. Live controls show musical settings and channel Mute/Solo; timbre,
+levels and effects belong in Live. Internal synth settings remain stored for
+returning to that mode.
+
+MIDI sends no audio back to Nebula. In saved Live mode, MP4 export is silent
+unless you import a recording as a soundtrack and select it for export. Check
+the export summary. Nebula never substitutes its internal synth for Live audio.
+
+The older **Send live MIDI… (experimental)** checkbox remains a temporary
+monitoring option with internal output selected. It is not saved and does not
+change exports. Use **Ableton Live (MIDI)** for a persistent destination.
 
 ## Optional Ableton instrument recovery
 

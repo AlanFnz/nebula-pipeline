@@ -35,6 +35,9 @@ def export_audio_label(document, *, montage=False):
         return 'Generated sound · applied settings'
     if route == 'soundtrack':
         return f"Soundtrack · {Path(track['path']).name}"
+    from synth_live_mode import is_live
+    if not montage and is_live(document.get('generated_sound')):
+        return 'Silent · Live audio is external; import its recording as a soundtrack'
     if route == 'footage' and document.get('footage'):
         from synth_section_sources import rendered_footage
         if any(source['audio'] == 'keep' and source['has_audio'] for source in rendered_footage(document)):
@@ -54,6 +57,9 @@ def export_rows(document, *, preset=None, montage=False):
             ('Canvas', f'{width} × {height} px'),
             ('Timing', f'{fps} FPS · {frames / fps:.3f} s · {frames} frames'),
             ('Audio', export_audio_label(data if document is not None else {}, montage=montage))]
+    from synth_live_mode import is_live
+    if not montage and is_live(data.get('generated_sound')):
+        rows.append(('Live playback', 'MIDI only. Record or export audio in Live, then import it as a soundtrack to include it in the MP4.'))
     if width % 2 or height % 2:
         rows.append(('MP4 size', f'{width + width % 2} × {height + height % 2} px · padded to even dimensions'))
     rows.append(('Format', 'MP4 · H.264'))

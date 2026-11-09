@@ -1,7 +1,7 @@
-"""Live, audio-free MIDI pilot. Visual notes keep their original second clock.
+"""Audio-free MIDI transport for saved Live mode and legacy session monitoring.
 
-This is a monitoring route, not a project render setting. Instruments, FX and
-mix levels belong to the receiving DAW. No authored study is rewritten.
+Visual notes keep their original second clock. Instruments, FX and mix levels
+belong to the receiver; this transport never captures its audio for export.
 """
 from __future__ import annotations
 
@@ -285,7 +285,7 @@ class MidiEngine:
                     output.send((0x90 | ch, pitch, velocity)); active[ch, pitch] = velocity
 
         try:
-            output = self.output_factory(); self.ready('MIDI connected · Nebula Visuals · channels 1–7')
+            output = self.output_factory(); self.ready('MIDI port ready · Nebula Visuals · Enable input monitoring in Live')
             if hasattr(output, 'listen_refresh'):
                 output.listen_refresh(lambda channel: self.command('refresh', channel))
             while True:
@@ -345,6 +345,7 @@ class LiveMidiMonitor(QObject):
         super().__init__(parent)
         self.sequence = self.signals = self.config = None
         self.playing = self.closed = self.muted = self.unavailable = False
+        self.error = ''
         self.anchor = self.seconds = 0.; self.clock = clock
         self.failed.connect(self.fail)
         self.engine = MidiEngine(self.failed.emit, self.statusChanged.emit, output_factory=output_factory, clock=clock)
@@ -385,6 +386,7 @@ class LiveMidiMonitor(QObject):
     def refresh_notes(self, channel=None): self.engine.command('refresh', channel)
     def fail(self, message):
         self.unavailable = True; self.playing = False
-        self.statusChanged.emit('MIDI unavailable: ' + message)
+        self.error = 'MIDI unavailable: ' + message
+        self.statusChanged.emit(self.error)
     def close(self):
         if not self.closed: self.closed = True; self.engine.close()

@@ -87,9 +87,8 @@ def normalize_sound(raw):
         value = raw.get(key, out[key])
         if not isinstance(value, bool): raise ValueError(f'Generated sound {key} must be a checkbox')
         out[key] = value
-    out['output'] = raw.get('output', out['output'])
-    if out['output'] not in ('generated', 'existing', 'silent'):
-        raise ValueError('Choose generated sound, existing audio, or silence')
+    from synth_live_mode import normalize_output
+    out['output'] = normalize_output(raw.get('output', out['output']), out['version'])
     def number(value, key, low, high):
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not low <= value <= high:
             raise ValueError(f'Generated sound {key} must be between {low} and {high}')
@@ -157,7 +156,12 @@ def normalize_sound(raw):
 
 
 def audio_output(sequence):
+    """Export route. Live MIDI is external; only imported audio can be muxed."""
+    from synth_live_mode import is_live
     config = sequence.get('generated_sound') if sequence else None
+    if is_live(config):
+        track = sequence.get('soundtrack')
+        return 'soundtrack' if track and track['export_audio'] == 'soundtrack' else 'silent'
     if config and config['output'] != 'existing':
         return config['output'] if config['enabled'] else 'silent'
     track = sequence.get('soundtrack') if sequence else None

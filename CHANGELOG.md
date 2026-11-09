@@ -4,8 +4,14 @@ Release history. Entries describe their version, including then-current limits
 and validation; use the [documentation index](docs/README.md) for current usage.
 Untagged work can be ahead of the most recent version.
 
-## Unreleased
+## 0.85.0 — 2026-11-09
 
+- Save Ableton Live as the playback destination for Pleated and Color waves.
+  Open in Live selects this mode; Play sends MIDI after reopening the project
+  and with the editor closed. Live controls expose notes, timing and channels,
+  while retaining internal sound settings. MIDI failures stay silent and can be
+  retried. Live-mode exports use an imported soundtrack or silence, never a
+  substitute synth render. Existing studies retain their prior route.
 - Access linked Live Sets beside Synthesizer in the timeline toolbar. Mark linked
   studies with Ableton Live in the selector and library, with a library filter
   and search by Set filename. Existing study settings and MIDI routing are unchanged.

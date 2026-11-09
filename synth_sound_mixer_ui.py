@@ -50,7 +50,7 @@ class SoundMixer(QWidget):
             controls['eq_enabled'].toggled.connect(eq.setEnabled)
             column.addStretch(); self.channels[key] = controls
         foot = QLabel('0 dB = unchanged · Solo isolates a channel · EQ off keeps your settings. Channel controls are saved and exported; Listen level below only changes monitoring.')
-        foot.setWordWrap(True); layout.addWidget(foot); layout.addStretch()
+        foot.setWordWrap(True); layout.addWidget(foot); layout.addStretch();self.foot=foot
         for key in ('pad','wave','chimes','choir','sub'):self.boxes[key].hide()
 
     def set_color_wave(self,active):

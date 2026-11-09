@@ -63,7 +63,8 @@ def normalize_color_wave(raw):
         if type(v) is not bool:raise ValueError(f'{key} must be a checkbox')
         out[key]=v
     out['output']=raw.get('output',out['output'])
-    if out['output'] not in ('generated','existing','silent'):raise ValueError('Choose an audio output')
+    from synth_live_mode import normalize_output
+    out['output'] = normalize_output(out['output'], 4)
     for key in ('gain','width'):out[key]=number(raw.get(key,out[key]),key,0,1)
     voices=raw.get('voices',out['voices'])
     links=raw.get('connections',out['connections'])

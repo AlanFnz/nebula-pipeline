@@ -45,7 +45,8 @@ class VisualSoundDialog(SoundSession,SoundHistory,QDialog):
         for title,key in (('Layered resonant synth',3),('Acid triangle (original)',2),('Electric / tape (original)',1)): self.voice.addItem(title,key)
         self.voice.addItem('Color waves / dual synth',4)
         row.addWidget(self.voice,1);self.output=QComboBox();self.output.setAccessibleName('Audio output')
-        for title,key in (('Generated sound','generated'),('Existing soundtrack / footage','existing'),('Silent','silent')): self.output.addItem(title,key)
+        for title,key in (('Internal synthesizer','generated'),('Ableton Live (MIDI)','ableton_live'),('Existing soundtrack / footage','existing'),('Silent','silent')): self.output.addItem(title,key)
+        self.output.setToolTip('Playback destination, saved with the project after Apply and Save. Live sends MIDI; its audio must be recorded in Live.')
         row.addWidget(self.output);layout.addLayout(row)
         from synth_viewer import SynthViewer
         split=QSplitter(Qt.Orientation.Horizontal);left=QWidget();column=QVBoxLayout(left);column.setContentsMargins(0,0,8,0)
@@ -143,7 +144,7 @@ class VisualSoundDialog(SoundSession,SoundHistory,QDialog):
         video.addWidget(self.preview_button);self.preview_status=QLabel();video.addWidget(self.preview_status,1);layout.addLayout(video)
         self.preview_source=QLabel();self.preview_source.setWordWrap(True);layout.addWidget(self.preview_source)
         row=QHBoxLayout();self.listen=QPushButton('Listen');self.listen.setCheckable(True);self.listen.toggled.connect(self.playRequested);row.addWidget(self.listen)
-        self.mute=QCheckBox('Mute monitor');row.addWidget(self.mute);row.addWidget(QLabel('Listen level'))
+        self.mute=QCheckBox('Mute monitor');row.addWidget(self.mute);self.volume_label=QLabel('Listen level');row.addWidget(self.volume_label)
         self.volume=QSlider(Qt.Orientation.Horizontal);self.volume.setRange(0,100);self.volume.setValue(70)
         self.volume.setAccessibleName('Generated sound monitor level');row.addWidget(self.volume);layout.addLayout(row)
         self.volume.setToolTip('Listening level only. Does not affect the saved sound or export. Use the mixer to change output levels.')
@@ -273,7 +274,7 @@ class VisualSoundDialog(SoundSession,SoundHistory,QDialog):
             for i in (1,2):self.tabs.setTabVisible(i,False)
             self.live.setEnabled(True)
             self.enabled.setChecked(value['enabled']);self.output.setCurrentIndex(self.output.findData(value['output']))
-            self.load_connections(value);self.loading=False;return
+            self.load_connections(value);self.loading=False;self.refresh_live_view();return
         for i in (1,2):self.tabs.setTabVisible(i,True)
         acid=value['version']>=2;layered=value['version']==3;self.pitch.setRange(65 if acid else 35,440 if acid else 180)
         self.visual_dynamics.setVisible(layered)
@@ -308,7 +309,11 @@ class VisualSoundDialog(SoundSession,SoundHistory,QDialog):
                 check.setChecked(osc['enabled']);wave.setCurrentIndex(wave.findData(osc['wave']));level.setValue(osc['level']*100)
                 tune.setValue(osc['transpose']);fine.setValue(osc['detune'])
         self.load_connections(value)
-        self.update_sequence_mode();self.loading=False
+        self.update_sequence_mode();self.loading=False;self.refresh_live_view()
+
+    def refresh_live_view(self):
+        from synth_live_mode_ui import refresh_live_view
+        refresh_live_view(self)
 
     def load_connections(self,value):
         if set(self.connections)!=set(value['connections']):

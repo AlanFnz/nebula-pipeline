@@ -19,7 +19,7 @@ preserves its proposals, acceptance criteria and earlier priority decisions.
 | V2: reusable sound controls | Partial: versioned instruments, named connections, live audition, mixers, sequencer, save/export and optional layers exist. Arbitrary visual-signal routing is still pending. | [Sound](sound.md) |
 | Visual performance | Implemented: recordable common knobs and a Pleated surface adapter. Arbitrary knob assignment and a dedicated curve editor remain pending. | [Visual performance](visual-performance.md) |
 | V3: finished-image analysis | Pending: current sound reads supported internal source signals, not arbitrary final RGB images. | [Sound implementation history](visual-sound-prototype.md) |
-| DAW connection | Experimental: outgoing visual MIDI for Pleated and Color waves; optional Ableton instrument recovery. No MIDI Clock/Link/transport or DAW audio capture. | [Live MIDI](../LIVE_MIDI.md) |
+| DAW connection | Saved Live playback for Pleated and Color waves; optional Ableton instrument recovery. No MIDI Clock/Link/transport or DAW audio capture. | [Live MIDI](../LIVE_MIDI.md) |
 | C: live audio input | Pending: no microphone/system-audio input workflow. | [Original proposal](archive/creative-controls-audio-roadmap-2026-11-06.md#phase-c-live-input-later) |
 | Preview performance audit | Baseline and diagnosis recorded for 0.48.1. Installed-interaction validation remained open in that record. Later preview/audio/inspector work does not establish completion of every proposed optimization. | [Audit record](preview-performance-audit.md) |
 

@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from synth_composition import load_composition, blank_composition
 from synth_live_set import LIVE_SET
+from synth_live_mode import is_live
 from synth_live_set_ui import QDesktopServices
 from test_synth_sound_session import editor
 
@@ -35,15 +36,18 @@ def test_link_button_then_open_save_and_reopen(editor, monkeypatch, tmp_path, no
     dialog.live_set_button.click()
     assert no_real_launch == [str(live)]
     assert not window.midi_monitor_enabled
+    assert is_live(window.composition['generated_sound'])
     assert window.save_sequence_dialog()
     loaded = load_composition(window.document_path)
     assert loaded[LIVE_SET] == str(live)
+    assert is_live(loaded['generated_sound'])
     window.set_composition(loaded, guard=False);window.open_visual_sound()
     assert dialog.live_set_button.path == str(live)
     assert no_real_launch == [str(live)]
     window.set_composition(blank_composition(), guard=False)
     assert dialog.live_set_button.path is None
     assert window.workspace_live_set_button.path is None
+    assert not window.workspace_live_set_button.playback_action.isEnabled()
     assert no_real_launch == [str(live)]
 
 
@@ -103,6 +107,37 @@ def test_launch_failure_keeps_link_and_reports_error(editor, monkeypatch, tmp_pa
     before = copy.deepcopy(window.composition);dialog.live_set_button.click()
     assert window.composition == before and len(errors) == 1
     assert 'Ableton Live' in errors[0]
+
+
+def test_live_destination_menu_is_undoable_and_keeps_synth_settings(editor):
+    window, dialog, _ = editor
+    original = copy.deepcopy(window.composition)
+    action = window.workspace_live_set_button.playback_action
+    action.trigger()
+    expected = copy.deepcopy(original)
+    expected['generated_sound']['output'] = 'ableton_live'
+    assert window.composition == expected and action.isChecked()
+    window.undo_composition()
+    assert window.composition == original and not action.isChecked()
+    dialog.midi.setChecked(True)
+    action.trigger()
+    assert not window.midi_monitor_enabled and not dialog.midi.isChecked()
+    action.trigger()
+    assert window.composition == original and not window.uses_midi()
+
+
+def test_open_live_resolves_draft_before_launch(editor, monkeypatch, tmp_path, no_real_launch):
+    window, dialog, _ = editor
+    live = tmp_path / 'Music.als';live.touch();window.set_linked_live_set(str(live))
+    dialog.opening.setValue(87)
+    monkeypatch.setattr(dialog, 'choose_pending_sound', lambda *a: 'cancel')
+    dialog.live_set_button.click()
+    assert not no_real_launch and not is_live(window.composition['generated_sound'])
+    monkeypatch.setattr(dialog, 'choose_pending_sound', lambda *a: 'apply')
+    dialog.live_set_button.click()
+    assert no_real_launch == [str(live)]
+    assert is_live(window.composition['generated_sound'])
+    assert window.composition['generated_sound']['opening'] == .87
 
 
 @pytest.mark.parametrize('kind', ['missing', 'directory', 'wrong_extension'])
