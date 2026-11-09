@@ -1696,7 +1696,9 @@ class SynthStudio(PerformanceStudio, VisualSoundStudio, AudioReactivityStudio, S
         for document in documents:
             if not document: continue
             from synth_section_sources import footage_references, soundtrack_references
-            for footage in (*footage_references(document), *soundtrack_references(document)):
+            from synth_live_set import live_set_paths
+            for footage in (*footage_references(document), *soundtrack_references(document),
+                            *({'path': path} for path in live_set_paths(document))):
                 source = Path(footage['path']).expanduser()
                 if resolved == source.resolve(): return True
                 try:

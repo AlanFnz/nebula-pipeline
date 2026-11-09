@@ -27,12 +27,15 @@ def test_all_steps_and_precise_editor_fit_without_horizontal_scroll(app, width, 
     apply_theme(app)
     owner = QWidget();owner.midi_monitor_enabled = midi
     dialog = VisualSoundDialog(owner);dialog.set_config(config());dialog.tabs.setCurrentIndex(2)
+    dialog.live_set_button.set_link('/tmp/' + 'Long studio variation ' * 12 + '.als')
     dialog.resize(width, height);dialog.show();app.processEvents()
     seq = dialog.sequencer;scroll = dialog.tabs.widget(2);viewport = scroll.viewport()
     assert dialog.midi_hint.isVisible() == midi
     assert dialog.size().width() == width and dialog.size().height() == height
     assert seq.grid.width() <= viewport.width()
     assert scroll.horizontalScrollBar().maximum() == 0
+    for button in (dialog.live_set_button, dialog.midi_refresh, dialog.midi_panic):
+        assert dialog.rect().contains(button.mapTo(dialog, button.rect().bottomRight()))
     for widget in [dialog.arp_pitch.number, dialog.arp_pitch.mode, *seq.cells,
                    seq.step_on, seq.step_gate, seq.step_velocity, seq.step_note]:
         assert widget.isVisible()

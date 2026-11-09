@@ -143,7 +143,8 @@ def media_references(document):
 
 def protect_destination(document, path):
     target = Path(path).expanduser().resolve()
-    for source in media_references(document):
+    from synth_live_set import live_set_paths
+    for source in (*media_references(document), *({'path': link} for link in live_set_paths(document))):
         original = Path(source['path']).expanduser()
         if original.resolve() == target or (target.exists() and original.exists() and os.path.samefile(target, original)):
             raise ValueError('Choose a destination different from the original media')

@@ -14,6 +14,8 @@ from synth_soundtrack import probe_soundtrack
 from synth_soundtrack_preview import SoundtrackPreview
 from synth_visual_sound import normalize_sound, audio_output, sound_key, write_sound, visual_signals, sound_for_sequence
 from synth_visual_sound_ui import VisualSoundDialog
+from synth_live_set import LIVE_SET
+from synth_live_set_ui import LiveSetActions
 
 
 class SoundSignals(QObject):
@@ -66,7 +68,7 @@ class LiveSignalsJob(QRunnable):
         except Exception as exc: self.signals.failed.emit(str(exc))
 
 
-class VisualSoundStudio:
+class VisualSoundStudio(LiveSetActions):
     def init_visual_sound(self):
         self.midi_monitor_enabled=False
         self.visual_sound_dialog=None;self.visual_sound_job=None;self.visual_sound_key=None
@@ -104,6 +106,9 @@ class VisualSoundStudio:
             dialog.midiChanged.connect(self.change_midi_monitor)
             dialog.midiPanicRequested.connect(self.panic_midi)
             dialog.midiRefreshRequested.connect(self.refresh_midi_notes)
+            dialog.live_set_button.linkRequested.connect(self.link_live_set)
+            dialog.live_set_button.openRequested.connect(self.open_linked_live_set)
+            dialog.live_set_button.unlinkRequested.connect(self.unlink_live_set)
             dialog.finished.connect(self.finish_live_sound)
             self.play.toggled.connect(dialog.set_playing)
         self.attach_sound_performance(self.visual_sound_dialog)
@@ -164,6 +169,7 @@ class VisualSoundStudio:
         dialog.context_title.setToolTip(name)
         dialog.file_state.setText('File: Not saved' if path is None else 'File: Unsaved changes' if dirty else 'File: Saved')
         dialog.file_state.setToolTip(str(path) if path else 'Save project to create a file.')
+        dialog.live_set_button.set_link((self.composition or {}).get(LIVE_SET))
         dialog.applied_available = bool((self.composition or {}).get('generated_sound'))
         dialog.refresh_session()
 

@@ -32,6 +32,17 @@ Set the receiving instrument's pitch-bend range to **±2 semitones**; Color wave
 channel 7 needs **±24**. Nebula sends range requests, but some instruments require
 manual setup. Fractional tuning uses pitch bend.
 
+## Open the study's Live Set
+
+Choose **Link Live Set…** beside the MIDI controls and select an existing `.als`.
+Save the project or use **Save as study…** to keep the association. The button
+then shows the Set's name; click **Open in Live** to open it. Its menu lets you
+change or remove the link. If the file moved, Open asks for its new location.
+
+The Set stays in its original folder and is not copied into the study. Opening
+it does not change Nebula's MIDI or playback settings. Save changes to the Set
+in Live.
+
 ## While playing
 
 **Refresh MIDI notes** restores held notes after connecting or changing an

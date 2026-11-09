@@ -6,6 +6,9 @@ Untagged work can be ahead of the most recent version.
 
 ## Unreleased
 
+- Link a composition to an existing Ableton Live Set, keep the association in
+  saved projects/studies, and open it from the MIDI controls. Missing files can
+  be located again; the link does not change sound, rendering or MIDI routing.
 - Keep the sequencer's 16 steps and numeric editor fully visible at 1280×800 by
   showing the compact root control without the extra Pitch and phrase frame.
 - Shorten the README and everyday guides; keep setup, references and historical

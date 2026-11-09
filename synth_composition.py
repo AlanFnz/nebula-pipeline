@@ -548,6 +548,9 @@ def normalize_composition(raw):
         from synth_exploration import normalize_snapshots
         snapshots = normalize_snapshots(raw['snapshots'])
     result = copy.deepcopy(raw)
+    from synth_live_set import LIVE_SET, normalize_live_set
+    if raw.get(LIVE_SET) is not None: result[LIVE_SET] = normalize_live_set(raw[LIVE_SET])
+    else: result.pop(LIVE_SET, None)
     if raw.get('schema_version') in (4, 5, 6, 7):
         result['schema_version'] = 1
     if raw.get('soundtrack') is not None:

@@ -206,6 +206,7 @@ def _visual_document(document):
     """Keep audio inputs only when enabled connections can change pixels."""
     if document is None: return None
     result = copy.deepcopy(document)
+    result.pop('ableton_live_set', None)
     result.pop('generated_sound', None)
     if result.get('schema_version') == 6:
         result['schema_version'] = 5 if 'audio_reactivity' in result else 4

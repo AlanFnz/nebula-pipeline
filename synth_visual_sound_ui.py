@@ -17,6 +17,7 @@ from synth_lattice_sound_ui import ColorWaveControls,PadSpaceControls,WaveSineCo
 from synth_sound_chimes_ui import ChimeLayerControls
 from synth_sound_choir_ui import ChoirControls
 from synth_sound_sub_ui import SubControls
+from synth_live_set_ui import LiveSetButton
 
 FACTORIES={1:default_sound,2:acid_sound,3:instrument_sound,4:color_wave_sound}
 
@@ -134,7 +135,8 @@ class VisualSoundDialog(SoundSession,SoundHistory,QDialog):
         self.midi.toggled.connect(self.midiChanged);row.addWidget(self.midi)
         self.midi_refresh=QPushButton('Refresh MIDI notes');self.midi_refresh.clicked.connect(self.midiRefreshRequested);row.addWidget(self.midi_refresh)
         self.midi_refresh.setToolTip('Resend the currently held notes without pausing or moving the video. The optional Nebula Visuals Ableton control surface does this automatically for a replaced instrument.')
-        self.midi_panic=QPushButton('Stop MIDI notes');self.midi_panic.clicked.connect(self.midiPanicRequested);row.addWidget(self.midi_panic);layout.addLayout(row)
+        self.midi_panic=QPushButton('Stop MIDI notes');self.midi_panic.clicked.connect(self.midiPanicRequested);row.addWidget(self.midi_panic)
+        self.live_set_button=LiveSetButton();row.addWidget(self.live_set_button);layout.addLayout(row)
         self.midi_hint=QLabel('MIDI: notes and pitch in Nebula. Instruments, effects and levels in your DAW. MP4 export keeps the saved Nebula audio.')
         self.midi_hint.setWordWrap(True);self.midi_hint.setVisible(False);layout.addWidget(self.midi_hint)
         video=QHBoxLayout();self.preview_button=QPushButton('Prepare all video frames');self.preview_button.clicked.connect(self.previewRequested)
