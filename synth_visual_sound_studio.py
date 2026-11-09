@@ -14,8 +14,7 @@ from synth_soundtrack import probe_soundtrack
 from synth_soundtrack_preview import SoundtrackPreview
 from synth_visual_sound import normalize_sound, audio_output, sound_key, write_sound, visual_signals, sound_for_sequence
 from synth_visual_sound_ui import VisualSoundDialog
-from synth_live_set import LIVE_SET
-from synth_live_set_ui import LiveSetActions
+from synth_live_set_ui import LiveSetActions, LiveSetButton
 
 
 class SoundSignals(QObject):
@@ -88,6 +87,9 @@ class VisualSoundStudio(LiveSetActions):
         self.visual_sound_button.setProperty('compact',True);self.visual_sound_button.setProperty('secondaryAction',True)
         self.visual_sound_button.setToolTip('Shape sound from Pleated field motion or Chromatic lattice color waves. Includes the step sequencer, mixer and live MIDI controls.')
         self.visual_sound_button.clicked.connect(self.open_visual_sound);layout.addWidget(self.visual_sound_button)
+        self.workspace_live_set_button=LiveSetButton(compact=True)
+        self.connect_live_set_button(self.workspace_live_set_button)
+        layout.addWidget(self.workspace_live_set_button)
 
     def open_visual_sound(self,checked=False):
         if not self.composition or self.audition_pending(): return
@@ -106,9 +108,7 @@ class VisualSoundStudio(LiveSetActions):
             dialog.midiChanged.connect(self.change_midi_monitor)
             dialog.midiPanicRequested.connect(self.panic_midi)
             dialog.midiRefreshRequested.connect(self.refresh_midi_notes)
-            dialog.live_set_button.linkRequested.connect(self.link_live_set)
-            dialog.live_set_button.openRequested.connect(self.open_linked_live_set)
-            dialog.live_set_button.unlinkRequested.connect(self.unlink_live_set)
+            self.connect_live_set_button(dialog.live_set_button)
             dialog.finished.connect(self.finish_live_sound)
             self.play.toggled.connect(dialog.set_playing)
         self.attach_sound_performance(self.visual_sound_dialog)
@@ -153,6 +153,7 @@ class VisualSoundStudio(LiveSetActions):
 
     def refresh_sound_context(self):
         """Refresh on document edits/saves, never on the frame or audio clock."""
+        self.refresh_live_set_actions()
         dialog = self.visual_sound_dialog
         if dialog is None or not hasattr(self, 'clean_document'): return
         name = self.document_state()[1].get('name', 'Untitled')
@@ -169,7 +170,6 @@ class VisualSoundStudio(LiveSetActions):
         dialog.context_title.setToolTip(name)
         dialog.file_state.setText('File: Not saved' if path is None else 'File: Unsaved changes' if dirty else 'File: Saved')
         dialog.file_state.setToolTip(str(path) if path else 'Save project to create a file.')
-        dialog.live_set_button.set_link((self.composition or {}).get(LIVE_SET))
         dialog.applied_available = bool((self.composition or {}).get('generated_sound'))
         dialog.refresh_session()
 

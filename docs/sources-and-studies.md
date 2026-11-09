@@ -10,6 +10,10 @@ Built-in studies ship with the app. Personal variations and reference footage
 mentioned in older records may need external files. A study name can include
 a duration suffix.
 
+Studies linked to a Live Set carry an **Ableton Live** label. In **Browse**, filter
+by Ableton Live or search for the Set's filename. Load the study, then choose
+**Open in Live** beside Synthesizer. See [Live MIDI](../LIVE_MIDI.md) to link a Set.
+
 ## Text
 
 Choose **Object → Text**, edit **Main text** and press **Apply main text**.

@@ -1,5 +1,6 @@
 """Visual, sortable Study browser with independent, lazy still previews."""
 from collections import OrderedDict
+from pathlib import Path
 from PySide6.QtCore import QEvent, QItemSelectionModel, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QIcon, QPainter, QPalette, QPixmap
 from PySide6.QtWidgets import (
@@ -86,8 +87,8 @@ class StudiesDialog(QDialog):
                       'Removed studies retain their saved files and can be restored.')
         hint.setWordWrap(True); layout.addWidget(hint)
         filters = QHBoxLayout()
-        self.search = QLineEdit(); self.search.setPlaceholderText('Search study names')
-        self.search.setAccessibleName('Search study names'); self.search.setClearButtonEnabled(True)
+        self.search = QLineEdit(); self.search.setPlaceholderText('Search studies or Live Sets')
+        self.search.setAccessibleName('Search studies or Live Sets'); self.search.setClearButtonEnabled(True)
         self.search.textChanged.connect(self.apply_filters); filters.addWidget(self.search, 1)
         self.category = ComboBox(); self.category.addItem('All categories', '')
         for category in CATEGORIES: self.category.addItem(category, category)
@@ -95,6 +96,9 @@ class StudiesDialog(QDialog):
         filters.addWidget(self.category)
         self.favorites_only = QCheckBox('Favorites only'); self.favorites_only.toggled.connect(self.apply_filters)
         filters.addWidget(self.favorites_only)
+        self.live_only = QCheckBox('Ableton Live')
+        self.live_only.setToolTip('Show studies linked to a Live Set, including links that need locating.')
+        self.live_only.toggled.connect(self.apply_filters); filters.addWidget(self.live_only)
         self.show_removed = QCheckBox('Removed studies'); self.show_removed.toggled.connect(self.apply_filters)
         filters.addWidget(self.show_removed); layout.addLayout(filters)
         content = QHBoxLayout()
@@ -147,14 +151,21 @@ class StudiesDialog(QDialog):
         self.preview.clear()
         if len(identifiers) == 1:
             entry = self._records[identifiers[0]]
+            live_info = ''
+            if entry.live_set:
+                live_info = f'\n\nAbleton Live · {Path(entry.live_set).name}'
+                if not Path(entry.live_set).is_file(): live_info += '\nFile not found · locate it after loading.'
+                live_info += '\nLoad this study, then use Open in Live beside Synthesizer.'
             self.details.setText(f'{entry.name}\n{"Saved" if entry.personal else "Built-in"} · {entry.category}\n{entry.date}' +
-                                 (' · Removed' if entry.removed else ''))
+                                 (' · Removed' if entry.removed else '') + live_info)
+            self.details.setToolTip(entry.live_set or '')
             key = (entry.identifier, PREVIEW_BOUNDS)
             if key in self._images: self._show_preview(self._images[key])
             elif key in self._completed: self.preview.setText('Preview unavailable. See the Study row for details.')
             else: self.preview.setText('Preparing still preview…')
         else:
             self.details.clear()
+            self.details.setToolTip('')
             self.preview.setText('Select one Study to preview' if identifiers else 'Select a Study to preview')
         self._schedule_visible()
 
@@ -172,19 +183,20 @@ class StudiesDialog(QDialog):
         removed = self.show_removed.isChecked(); query = self.search.text().strip().casefold()
         category = self.category.currentData()
         records = [entry for entry in self._records.values() if entry.removed == removed
-                   and query in entry.name.casefold() and (not category or entry.category == category)
-                   and (not self.favorites_only.isChecked() or entry.favorite)]
+                   and query in entry.search_text.casefold() and (not category or entry.category == category)
+                   and (not self.favorites_only.isChecked() or entry.favorite)
+                   and (not self.live_only.isChecked() or entry.live_set)]
         header = self.table.horizontalHeader()
         column, order = header.sortIndicatorSection(), header.sortIndicatorOrder()
         if not self.table.isSortingEnabled(): column, order = 1, Qt.SortOrder.DescendingOrder
         self.table.blockSignals(True); self.table.setSortingEnabled(False)
         self.table.clearContents(); self.table.setRowCount(len(records))
         for row, entry in enumerate(records):
-            name = _StudyNameItem(entry.name); name.setData(Qt.ItemDataRole.UserRole, entry.identifier)
+            name = _StudyNameItem(entry.display_name); name.setData(Qt.ItemDataRole.UserRole, entry.identifier)
             key = (entry.identifier, ROW_BOUNDS)
             name.setIcon(QIcon(self._images[key]) if key in self._images else self._placeholder(
                 'Preview unavailable' if key in self._errors else 'Still preview'))
-            name.setToolTip(self._errors.get(key, entry.date_hint))
+            name.setToolTip(self._errors.get(key, entry.hint))
             date = QTableWidgetItem(entry.date); date.setToolTip(entry.date_hint)
             for column_index, item in enumerate((name, date, QTableWidgetItem(entry.category),
                                                 QTableWidgetItem('Saved' if entry.personal else 'Built-in'),
@@ -292,7 +304,7 @@ class StudiesDialog(QDialog):
             if item.data(Qt.ItemDataRole.UserRole) == identifier:
                 if bounds == ROW_BOUNDS and key in self._images: item.setIcon(QIcon(self._images[key]))
                 if bounds == ROW_BOUNDS and error: item.setIcon(self._placeholder('Preview unavailable'))
-                item.setToolTip(error or self._records[identifier].date_hint)
+                item.setToolTip(error or self._records[identifier].hint)
         if bounds == PREVIEW_BOUNDS and self.selected_identifiers() == [identifier]:
             if key in self._images: self._show_preview(self._images[key])
             else: self.preview.setText(error or 'Preview unavailable')

@@ -130,12 +130,51 @@ def test_video_toolbar_wraps_with_all_actions_and_help_at_the_right(window, tmp_
         window.splitter.setSizes([width, 700])
         QApplication.processEvents()
         for control in (window.timeline_view, window.add_footage_section, window.soundtrack_button,
-                        window.visual_sound_button, window.section_resize_mode,
+                        window.visual_sound_button, window.workspace_live_set_button, window.section_resize_mode,
                         window.composer.arrangement_button, window.composer.automations_button,
                         window.section_hint):
             assert control.isVisible() and inside(control, window.section_tools)
         assert window.section_hint.geometry().right() == window.section_tools.rect().right()
         assert window.composition == before and not window.has_unsaved_changes()
+
+
+def test_live_set_access_without_opening_synthesizer(window, monkeypatch, tmp_path):
+    from PySide6.QtWidgets import QFileDialog
+    from synth_live_set import LIVE_SET
+    from synth_live_set_ui import QDesktopServices
+    from synth_studies import save_study
+    import synth_studies
+    live = tmp_path / 'My music.als'; live.touch()
+    parents = []; launches = []
+    def choose(parent, *_args):
+        parents.append(parent)
+        return str(live), ''
+    monkeypatch.setattr(QFileDialog, 'getOpenFileName', choose)
+    monkeypatch.setattr(QDesktopServices, 'openUrl', lambda url: launches.append(url.toLocalFile()) or True)
+    button = window.workspace_live_set_button
+    assert window.visual_sound_dialog is None and button.text() == 'Link Live Set'
+    before = copy.deepcopy(window.composition)
+    button.click()
+    assert parents == [window] and not launches
+    assert window.composition == dict(before, **{LIVE_SET: str(live)})
+    assert button.text() == 'Open in Live' and str(live) in button.toolTip()
+    assert window.visual_sound_dialog is None and not window.midi_monitor_enabled
+    button.click()
+    assert launches == [str(live)]
+    button.unlink_action.trigger()
+    assert button.text() == 'Link Live Set' and window.composition == before
+    window.undo_composition()
+    assert button.path == str(live)
+    library = tmp_path / 'Studies'
+    identifier = save_study(window.composition, 'My linked study', library)
+    monkeypatch.setattr(synth_studies, 'studies_directory', lambda: library)
+    window.refresh_studies()
+    window.starter_combo.setCurrentIndex(window.starter_combo.findData(identifier))
+    window.refresh_studies()
+    assert window.starter_combo.currentData() == identifier
+    assert 'Ableton Live' in window.starter_combo.currentText()
+    window.set_composition(before, guard=False)
+    assert button.path is None and window.visual_sound_dialog is None
 
 
 def test_fit_remains_a_mode_and_transport_strip_tracks_the_scrubber(window):

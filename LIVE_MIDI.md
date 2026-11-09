@@ -34,10 +34,14 @@ manual setup. Fractional tuning uses pitch bend.
 
 ## Open the study's Live Set
 
-Choose **Link Live Set…** beside the MIDI controls and select an existing `.als`.
-Save the project or use **Save as study…** to keep the association. The button
-then shows the Set's name; click **Open in Live** to open it. Its menu lets you
+Choose **Link Live Set** beside **Synthesizer** in the timeline toolbar and select
+an existing `.als`. The same access is inside Synthesizer beside the MIDI controls.
+Save the project or use **Save as study…** to keep the association. Click
+**Open in Live** to open the linked Set. Its menu lets you
 change or remove the link. If the file moved, Open asks for its new location.
+
+Linked studies have an **Ableton Live** label in the study selector and library.
+In **Browse**, use the Ableton Live filter or search for the Set's filename.
 
 The Set stays in its original folder and is not copied into the study. Opening
 it does not change Nebula's MIDI or playback settings. Save changes to the Set

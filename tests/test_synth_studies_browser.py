@@ -130,6 +130,40 @@ def test_browser_laziness_stale_delivery_errors_pause_and_hide(app, tmp_path):
     dialog.close()
 
 
+def test_live_filter_search_and_details_preserve_study_files(app, tmp_path):
+    from synth_live_set import LIVE_SET
+    from synth_studies import study_records
+    project = starter_composition('profile-doryphoros')
+    unlinked = save_study(project, 'Same name', tmp_path)
+    live = tmp_path / 'Nebula concert.als'; live.touch()
+    project[LIVE_SET] = str(live)
+    linked = save_study(project, 'Same name', tmp_path)
+    project[LIVE_SET] = str(tmp_path / 'Missing concert.als')
+    missing = save_study(project, 'Missing link', tmp_path)
+    files = {path: path.read_bytes() for path in tmp_path.glob('*/study.json')}
+    records = {entry.identifier: entry for entry in study_records(tmp_path)}
+    assert 'Ableton Live' in records[linked].label
+    assert 'Ableton Live' not in records[unlinked].label
+    assert records[missing].live_set and str(live) in records[linked].hint
+    dialog = StudiesDialog(directory=tmp_path, thumbnail_service=FakeThumbnails())
+    requested = []; dialog.studyRequested.connect(requested.append)
+    dialog.live_only.setChecked(True)
+    assert dialog.table.rowCount() == 2
+    dialog.search.setText('NEBULA concert')
+    assert dialog.table.rowCount() == 1
+    row = select(dialog, linked)
+    assert 'Ableton Live' in dialog.table.item(row, 0).text()
+    assert live.name in dialog.details.text() and str(live) == dialog.details.toolTip()
+    assert 'File not found' not in dialog.details.text()
+    dialog.search.clear(); select(dialog, missing)
+    assert 'File not found' in dialog.details.text()
+    dialog.search.setText('Same name'); dialog.live_only.setChecked(False)
+    assert dialog.table.rowCount() == 2
+    assert not requested
+    assert files == {path: path.read_bytes() for path in files}
+    dialog.close()
+
+
 def test_queue_bounds_cancellation_and_reopen_uncached_result(app, tmp_path):
     started = threading.Event(); released = threading.Event(); calls = []
     def renderer(project, bounds, cancel, provider):

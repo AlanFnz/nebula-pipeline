@@ -15,6 +15,7 @@ from media import Cancellation
 from synth_composition import load_composition, normalize_composition, save_composition, section_ranges
 from synth_starters import STARTERS, STARTER_DATES, starter_composition
 from synth_video import check_source
+from synth_live_set import LIVE_SET
 
 PERSONAL_PREFIX = 'personal:'
 LIBRARY_FILE = '.library.json'
@@ -73,10 +74,23 @@ class Study:
     estimated_date: bool = False
     category: str = 'Other'
     favorite: bool = False
+    live_set: str | None = None
+
+    @property
+    def display_name(self):
+        return self.name + (' · Ableton Live' if self.live_set else '')
 
     @property
     def label(self):
-        return f'{self.name} · {self.date}'
+        return f'{self.display_name} · {self.date}'
+
+    @property
+    def hint(self):
+        return self.date_hint + (f'\nAbleton Live Set: {self.live_set}' if self.live_set else '')
+
+    @property
+    def search_text(self):
+        return self.display_name + (f' {Path(self.live_set).name}' if self.live_set else '')
 
     @property
     def date_hint(self):
@@ -140,7 +154,8 @@ def study_records(directory=None, include_removed=False):
                 date, estimated = _saved_date(folder)
                 personal.append(Study(identifier, f"{project['name']} · {duration:.1f}s",
                                       date, True, identifier in removed, estimated,
-                                      composition_category(project), identifier in favorites))
+                                      composition_category(project), identifier in favorites,
+                                      live_set=project.get(LIVE_SET)))
             except (OSError, ValueError, TypeError, KeyError):
                 # An incomplete or manually edited local file must not prevent
                 # the rest of the library or the app from opening.

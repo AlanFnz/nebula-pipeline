@@ -6,6 +6,9 @@ Untagged work can be ahead of the most recent version.
 
 ## Unreleased
 
+- Access linked Live Sets beside Synthesizer in the timeline toolbar. Mark linked
+  studies with Ableton Live in the selector and library, with a library filter
+  and search by Set filename. Existing study settings and MIDI routing are unchanged.
 - Use Synthesizer as the sound editor's name, simplify workspace button labels,
   group file actions together, separate import/Montage and export controls, and
   place timeline help at the right edge.

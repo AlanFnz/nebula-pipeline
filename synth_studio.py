@@ -1195,7 +1195,7 @@ class SynthStudio(PerformanceStudio, VisualSoundStudio, AudioReactivityStudio, S
             for entry in study_records():
                 self.starter_combo.addItem(entry.label, entry.identifier)
                 self.starter_combo.setItemData(self.starter_combo.count() - 1,
-                                              entry.date_hint, Qt.ItemDataRole.ToolTipRole)
+                                              entry.hint, Qt.ItemDataRole.ToolTipRole)
             self.starter_combo.setCurrentIndex(self.starter_combo.findData(selected) if selected else -1)
         self.load_starter_button.setEnabled(self.starter_combo.currentData() is not None)
 

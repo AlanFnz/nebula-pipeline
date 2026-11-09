@@ -30,6 +30,7 @@ def test_link_button_then_open_save_and_reopen(editor, monkeypatch, tmp_path, no
     assert window.has_unsaved_changes() and not dialog.has_sound_draft()
     assert not no_real_launch
     assert live.name in dialog.live_set_button.accessibleName()
+    assert window.workspace_live_set_button.path == str(live)
     assert '&&' in dialog.live_set_button.text()
     dialog.live_set_button.click()
     assert no_real_launch == [str(live)]
@@ -42,6 +43,7 @@ def test_link_button_then_open_save_and_reopen(editor, monkeypatch, tmp_path, no
     assert no_real_launch == [str(live)]
     window.set_composition(blank_composition(), guard=False)
     assert dialog.live_set_button.path is None
+    assert window.workspace_live_set_button.path is None
     assert no_real_launch == [str(live)]
 
 
