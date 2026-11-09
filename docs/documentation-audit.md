@@ -121,11 +121,19 @@ linked PNGs decode successfully. The edits remain confined to documentation.
 ## Separate possible UI issue and verification limits
 
 `test_synth_sound_pattern_ui.py::test_all_steps_and_precise_editor_fit_without_horizontal_scroll[1280-800]`
-fails in a fresh offscreen process: the selected-step numeric editor's bottom
-point is at y=464 in a viewport with valid y=0–463. The 1440×900 case passes.
-This is evidence of a one-pixel layout/test discrepancy in the existing source;
-it does not establish the appearance in the installed native app. No application
-or test code was changed to make it pass.
+failed during the audit in a fresh offscreen process: the selected-step numeric
+editor's bottom point was at y=464 in a viewport with valid y=0–463. The 1440×900
+case passed. No application or test code was changed during that documentation
+review.
+
+On 2026-11-09, a separate fix reproduced the failure and removed the redundant
+Pitch and phrase frame in sequencer mode. The compact root control keeps its
+label. At 1280×800, the numeric editor now ends at y=412, inside both the ordinary
+464-pixel viewport and the 443-pixel viewport with MIDI details visible. The
+expanded layout tests cover 1280×780, 1280×800 and 1440×900 with internal/MIDI
+monitoring, plus mode switching and undo. All 11 pattern UI tests pass offscreen,
+along with 29 sequencer tests and 21 sound-window/session tests. The installed
+native app has not been opened or updated for this check.
 
 An initial combined UI run accumulated substantial stylesheet work. It was
 interrupted after about 12 minutes in `apply_theme`; Qt then exited with a

@@ -1,8 +1,9 @@
 """Full-pattern editing, independent playhead, and lossless historic sound."""
 import copy
 import pytest
-from PySide6.QtCore import Qt, QPoint
+from PySide6.QtCore import Qt, QPoint, QEvent
 from PySide6.QtTest import QTest, QSignalSpy
+from PySide6.QtWidgets import QWidget
 from synth_sound_sequencer_ui import StepSequencer
 from synth_visual_sound_ui import VisualSoundDialog
 from synth_visual_sound import instrument_sound
@@ -20,16 +21,20 @@ def config():
     return c
 
 
-@pytest.mark.parametrize('width,height', [(1280, 800), (1440, 900)])
-def test_all_steps_and_precise_editor_fit_without_horizontal_scroll(app, width, height):
+@pytest.mark.parametrize('width,height', [(1280, 780), (1280, 800), (1440, 900)])
+@pytest.mark.parametrize('midi', [False, True], ids=['internal', 'midi'])
+def test_all_steps_and_precise_editor_fit_without_horizontal_scroll(app, width, height, midi):
     apply_theme(app)
-    dialog = VisualSoundDialog();dialog.set_config(config());dialog.tabs.setCurrentIndex(2)
+    owner = QWidget();owner.midi_monitor_enabled = midi
+    dialog = VisualSoundDialog(owner);dialog.set_config(config());dialog.tabs.setCurrentIndex(2)
     dialog.resize(width, height);dialog.show();app.processEvents()
     seq = dialog.sequencer;scroll = dialog.tabs.widget(2);viewport = scroll.viewport()
+    assert dialog.midi_hint.isVisible() == midi
     assert dialog.size().width() == width and dialog.size().height() == height
     assert seq.grid.width() <= viewport.width()
     assert scroll.horizontalScrollBar().maximum() == 0
-    for widget in [*seq.cells, seq.step_gate, seq.step_velocity, seq.step_note]:
+    for widget in [dialog.arp_pitch.number, dialog.arp_pitch.mode, *seq.cells,
+                   seq.step_on, seq.step_gate, seq.step_velocity, seq.step_note]:
         assert widget.isVisible()
         origin = widget.mapTo(viewport, QPoint(0, 0))
         assert viewport.rect().contains(origin)
@@ -44,7 +49,22 @@ def test_all_steps_and_precise_editor_fit_without_horizontal_scroll(app, width, 
     dialog.articulation_toggle.click();app.processEvents()
     assert dialog.attack.isVisible() and dialog.release.isVisible()
     assert scroll.horizontalScrollBar().maximum() == 0
-    dialog.close()
+    dialog.close();owner.deleteLater();app.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+
+
+def test_switching_pattern_mode_keeps_root_editable_and_undoable(app):
+    dialog = VisualSoundDialog();dialog.set_config(config());dialog.tabs.setCurrentIndex(2)
+    dialog.show();app.processEvents()
+    baseline = dialog.read_config()
+    dialog.arp_mode.setCurrentIndex(dialog.arp_mode.findData('visual'));app.processEvents()
+    assert dialog.arp_pitch.dial.isVisible() and dialog.arp_pitch.number.isVisible()
+    assert dialog.arp_notes.isVisible() and not dialog.sequencer.isVisible()
+    assert len(dialog.sound_undo) == 1
+    assert dialog.undo_draft();app.processEvents()
+    assert dialog.arp_pitch.number.isVisible() and not dialog.arp_pitch.dial.isVisible()
+    assert dialog.sequencer.isVisible() and not dialog.arp_notes.isVisible()
+    assert dialog.read_config() == baseline
+    dialog.close();dialog.deleteLater();app.sendPostedEvents(None, QEvent.Type.DeferredDelete)
 
 
 def test_selecting_focusing_and_playback_preserve_exact_values_and_pcm(app):

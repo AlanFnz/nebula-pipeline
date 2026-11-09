@@ -6,12 +6,15 @@ Untagged work can be ahead of the most recent version.
 
 ## Unreleased
 
+- Keep the sequencer's 16 steps and numeric editor fully visible at 1280×800 by
+  showing the compact root control without the extra Pitch and phrase frame.
 - Shorten the README and everyday guides; keep setup, references and historical
   records separately accessible.
 - Clarify sound drafts versus applied/saved/exported audio, experimental MIDI
   monitoring and Montage audio limits.
 - Review plan status against 0.84.0 and label historical evidence separately.
-  No application behavior, presets, formats or version metadata changed.
+  The documentation review did not change application behavior, presets, formats
+  or version metadata.
 
 ## 0.84.0 — 2026-11-08
 

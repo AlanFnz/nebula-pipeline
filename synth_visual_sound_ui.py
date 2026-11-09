@@ -193,6 +193,11 @@ class VisualSoundDialog(SoundSession,SoundHistory,QDialog):
         layered=self.voice.currentData()==3
         custom=layered and self.arp_mode.currentData()=='sequence'
         self.sequencer.setVisible(custom);self.arp_mode.setVisible(layered);self.arp_pitch.set_compact(custom)
+        # The compact root already has a label; omit the phrase box's extra
+        # chrome so the complete pattern editor fits beside the video.
+        pitch_layout=self.arp_sequence.parentWidget().layout() if custom else self.arp_sequence.layout()
+        if pitch_layout.indexOf(self.arp_pitch)<0: pitch_layout.insertWidget(0,self.arp_pitch)
+        self.arp_pitch.setVisible(layered);self.arp_sequence.setVisible(layered and not custom)
         for widget in (self.arp_notes,self.arp_steps,self.arp_pattern_box,self.arp_hint):widget.setVisible(layered and not custom)
         self.arp_rate.setVisible(self.voice.currentData()>=2 and not custom);self.scale.setEnabled(not custom)
         self.arp_scale_row.setVisible(not custom)
