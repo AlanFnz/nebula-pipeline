@@ -746,8 +746,9 @@ class CompositionPanel(QWidget):
         self.fps.setToolTip('Global frame rate for preview and export, across every clip, regardless of editing scope. Lower it for a stepped cadence without slowing the action. Clip durations round to the nearest frame. Source and effect cadence controls can hold individual parts longer.')
         self.fps_label.setToolTip(self.fps.toolTip())
         timeline_row.addWidget(self.fps_label); timeline_row.addWidget(self.fps); timeline_row.addStretch(1)
-        self.arrangement_button = QPushButton('Arrange clips'); self.arrangement_button.setCheckable(True)
-        self.arrangement_button.setToolTip("Edit clip durations, order and loops.")
+        self.arrangement_button = QPushButton('Duration && loops'); self.arrangement_button.setCheckable(True)
+        self.arrangement_button.setAccessibleName('Duration & loops')
+        self.arrangement_button.setToolTip('Show or hide timing and arrangement in the inspector. Quick Duration and Repeat controls are below the timeline.')
         self.automations_button = QPushButton("Automations")
         self.automations_button.setProperty("compact", True); self.automations_button.clicked.connect(lambda: self.open_automation_list())
         self.workspace_actions_layout.addWidget(self.automations_button)
@@ -760,10 +761,20 @@ class CompositionPanel(QWidget):
         arrangement_layout.setContentsMargins(0, 0, 0, 0)
         self.arrangement_scroll.setWidget(arrangement_host); self.content_stack.addWidget(self.arrangement_scroll)
 
-        clip = QGroupBox("CLIP / TIMING")
+        arrangement_header = QHBoxLayout()
+        arrangement_title = QLabel('DURATION & LOOPS'); arrangement_title.setObjectName('sectionTitle')
+        arrangement_header.addWidget(arrangement_title); arrangement_header.addStretch(1)
+        self.arrangement_done = QPushButton('Done')
+        self.arrangement_done.setToolTip('Return to effects, object and source controls.')
+        self.arrangement_done.clicked.connect(lambda: self.arrangement_button.setChecked(False))
+        arrangement_header.addWidget(self.arrangement_done); arrangement_layout.addLayout(arrangement_header)
+
+        clip = QGroupBox("ENTIRE TIMELINE")
         grid = QGridLayout(clip)
         self.duration = QDoubleSpinBox(); self.duration.setRange(.24, 3600); self.duration.setDecimals(2); self.duration.setSuffix(" s"); self.duration.setKeyboardTracking(False)
-        grid.addWidget(QLabel("Total duration"), 0, 0)
+        grid.addWidget(QLabel("Retime total duration"), 0, 0)
+        self.duration.setAccessibleName('Retime total duration')
+        self.duration.setToolTip('Stretch all clips and their effects to this total duration. To repeat without retiming, use Repeat below the timeline.')
         grid.addWidget(self.duration, 1, 0)
         self.duration.valueChanged.connect(self.resize_clip)
         self.fps.valueChanged.connect(self.change_fps)
@@ -782,7 +793,7 @@ class CompositionPanel(QWidget):
         self.resize_mode = 'effects'
         self.section_duration.setToolTip('Stretch this clip and all its effects. The Resize menu below the timeline chooses whether imported video also changes speed.')
         self.section_duration.valueChanged.connect(self.resize_section); row.addWidget(self.section_duration)
-        row.addWidget(QLabel('Loops'))
+        row.addWidget(QLabel('Repeat'))
         self.section_loops = QSpinBox(); self.section_loops.setRange(1, 32); self.section_loops.setSuffix(" ×"); self.section_loops.setFixedWidth(68); self.section_loops.setKeyboardTracking(False)
         self.section_loops.setAccessibleName('Clip loops')
         self.section_loops.setToolTip('Total plays of this clip: 1 = once, 2 = twice. '
@@ -928,8 +939,6 @@ class CompositionPanel(QWidget):
 
     def show_arrangement(self, expanded):
         self.content_stack.setCurrentWidget(self.arrangement_scroll if expanded else self.parameters_group)
-        self.arrangement_button.setText('← Back to editing' if expanded else 'Arrange clips')
-        self.arrangement_button.setToolTip('Return to effects, object and source controls.' if expanded else 'Edit clip durations, order and loops.')
         self.emit_reset_context()
 
     def target(self, document=None):
@@ -1458,9 +1467,15 @@ class CompositionPanel(QWidget):
             self.commit(document, 'sections-stretch')
 
     def resize_section_loops(self, loops):
+        self.set_section_loops(self.document['sections'][self.index]['id'], loops)
+
+    def set_section_loops(self, identifier, loops):
         if self.updating: return
-        document = copy.deepcopy(self.document); document["sections"][self.index]["loops"] = int(loops)
-        self.commit(document, "section-loops")
+        document = copy.deepcopy(self.document)
+        section = next((s for s in document['sections'] if s['id'] == identifier), None)
+        if section is None or section.get('loops', 1) == int(loops): return
+        section['loops'] = int(loops)
+        self.commit(document, 'section-loops')
 
     def loop_sections(self, identifiers, count):
         """One undoable operation; multi-selection repeats a shared sequence."""

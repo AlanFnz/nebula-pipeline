@@ -11,7 +11,8 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QListWidget, QL
 
 from media import Cancellation
 from studio_theme import COLORS
-from studio_widgets import DoubleSpinBox
+from studio_widgets import DoubleSpinBox, SpinBox
+from synth_workspace_widgets import FlowLayout, inline
 from synth_composition import section_ranges
 from synth_sequence import render_sequence_frame
 from synth_study_thumbnails import fitted_size
@@ -85,10 +86,12 @@ class ClipStoryboard(QWidget):
     selected = Signal(int)
     editRequested = Signal(int)
     durationRequested = Signal(str, float)
+    loopsRequested = Signal(str, int)
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.project = self.sequence = None
+        self.selected_index = 0
         self.generation = 0
         self.completed = set()
         self.work = _ThumbnailWork()
@@ -112,17 +115,33 @@ class ClipStoryboard(QWidget):
         self.cards.itemDoubleClicked.connect(lambda _item: self.editRequested.emit(self.cards.currentRow()))
         self.cards.horizontalScrollBar().valueChanged.connect(self.request_visible)
         layout.addWidget(self.cards)
-        row = QHBoxLayout(); row.setContentsMargins(0, 0, 0, 0)
+        # The studio places this same footer beneath either Timeline or Shots.
+        self.footer = QWidget(); self.footer.setAccessibleName('Selected clip timing')
+        row = FlowLayout(self.footer, spacing=8)
         self.caption = QLabel(); row.addWidget(self.caption)
-        row.addStretch(1); row.addWidget(QLabel('Duration'))
         self.duration = DoubleSpinBox(); self.duration.setDecimals(3); self.duration.setSuffix(' s')
-        self.duration.setKeyboardTracking(False); self.duration.setAccessibleName('Selected shot duration')
+        self.duration.setKeyboardTracking(False); self.duration.setAccessibleName('Selected clip duration per play')
         self.duration.setToolTip('Duration of this clip per play, rounded to a whole frame. Its movement and effects stretch with it. Undo restores the previous timing.')
         self.duration.setFixedWidth(112); self.duration.valueChanged.connect(self._resize)
-        row.addWidget(self.duration)
+        duration_label = QLabel('Duration'); duration_label.setBuddy(self.duration)
+        row.addWidget(inline(duration_label, self.duration))
+        self.loops = SpinBox(); self.loops.setRange(1, 32); self.loops.setSuffix(' ×')
+        self.loops.setKeyboardTracking(False); self.loops.setFixedWidth(72)
+        self.loops.setAccessibleName('Selected clip repeat count')
+        self.loops.setToolTip('Total plays of the selected clip: 1 = once, 2 = twice. Repeats the clip without stretching its timing. Procedural motion and footage keep running. Undo restores the previous count.')
+        self.loops.valueChanged.connect(self._repeat)
+        repeat_label = QLabel('Repeat'); repeat_label.setBuddy(self.loops)
+        row.addWidget(inline(repeat_label, self.loops))
+        self.timing_summary = QLabel(); self.timing_summary.setObjectName('monitorMeta')
+        self.timing_summary.setAccessibleName('Selected clip repeated duration')
+        self.timing_summary.setToolTip('Duration per play × total plays = duration of this clip. Any repeated sequence adds further plays. The monitor shows the total project duration.')
+        control_height = max(self.duration.sizeHint().height(), self.loops.sizeHint().height())
+        self.caption.setMinimumHeight(control_height)
+        self.timing_summary.setMinimumHeight(control_height)
+        row.addWidget(self.timing_summary)
         self.edit = QPushButton('Edit text'); self.edit.setAccessibleName('Edit selected shot')
-        self.edit.clicked.connect(lambda: self.editRequested.emit(self.cards.currentRow()))
-        row.addWidget(self.edit); layout.addLayout(row)
+        self.edit.clicked.connect(lambda: self.editRequested.emit(self.selected_index))
+        row.addWidget(self.edit); layout.addWidget(self.footer)
         self.timer = QTimer(self); self.timer.setInterval(40); self.timer.timeout.connect(self._deliver)
 
     def set_document(self, project, sequence, index=0):
@@ -150,25 +169,42 @@ class ClipStoryboard(QWidget):
                     item.setToolTip(title + '\nDouble-click to edit this clip.')
                     self.cards.addItem(item)
         with QSignalBlocker(self.cards): self.cards.setCurrentRow(index)
-        self._selection_controls(index)
+        self.set_timing_context(project, index)
         self.request_visible()
+
+    def set_timing_context(self, project, index):
+        # Timeline mode needs timing controls, not thumbnail/card construction.
+        self.project = project
+        self.selected_index = index
+        self._selection_controls(index)
 
     def _selection_controls(self, index):
         if not self.project or not 0 <= index < len(self.project['sections']): return
-        self.caption.setText(f"Shot {index + 1} / {len(self.project['sections'])}")
+        section = self.project['sections'][index]
+        self.caption.setText(f"Clip {index + 1} / {len(self.project['sections'])}")
+        self.caption.setToolTip(self.project['phrases'][section['phrase']]['name'])
         with QSignalBlocker(self.duration):
             self.duration.setRange(1 / self.project['fps'], 300)
             self.duration.setSingleStep(1 / self.project['fps'])
-            self.duration.setValue(self.project['sections'][index]['duration'])
+            self.duration.setValue(section['duration'])
+        loops = int(section.get('loops', 1))
+        with QSignalBlocker(self.loops): self.loops.setValue(loops)
+        seconds = lambda value: f'{value:.3f}'.rstrip('0').rstrip('.')
+        self.timing_summary.setText(f"{seconds(section['duration'])} s × {loops} = {seconds(section['duration'] * loops)} s")
 
     def _select(self, index):
         if not self.project or index < 0: return
-        self._selection_controls(index); self.selected.emit(index)
+        self.set_timing_context(self.project, index); self.selected.emit(index)
 
     def _resize(self, value):
-        if self.project and self.cards.currentRow() >= 0:
-            self.durationRequested.emit(self.project['sections'][self.cards.currentRow()]['id'], value)
-            self._selection_controls(self.cards.currentRow())
+        if self.project and 0 <= self.selected_index < len(self.project['sections']):
+            self.durationRequested.emit(self.project['sections'][self.selected_index]['id'], value)
+            self._selection_controls(self.selected_index)
+
+    def _repeat(self, value):
+        if self.project and 0 <= self.selected_index < len(self.project['sections']):
+            self.loopsRequested.emit(self.project['sections'][self.selected_index]['id'], value)
+            self._selection_controls(self.selected_index)
 
     def request_visible(self, *_args):
         if not self.sequence or not self.isVisible() or self.work.stopped: return

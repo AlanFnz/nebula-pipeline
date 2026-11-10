@@ -32,13 +32,20 @@ controls, see [Sources and studies](sources-and-studies.md) and
 
 ## Clips, duration and repetition
 
+Select a clip in **Timeline** or **Shots**. Directly below it, **Duration** changes
+the length of one play and **Repeat** sets how many times it plays: 1× = once,
+2× = twice. The calculation shows the resulting clip duration; for example,
+**6 s × 2 = 12 s**. Repeat keeps the timing of each play. Command-Z undoes either edit.
+
 Drag a clip to reorder it or its right edge to resize it. Resizing stretches
 animation and timed effects. Shift-click selects a range; Command-click adds
 individual clips. To stretch a selection, drag the last selected clip's right edge.
 Command-D duplicates the selection; Escape cancels a drag.
 
 Right-click **Loop** repeats a clip or selected sequence. Repeats share edits;
-duplicates can be edited independently. Project Duration extends or trims the
+duplicates can be edited independently. **Duration & loops** opens the inspector's
+timing and arrangement panel; its name stays the same while open. **Done** returns
+to the object/effects inspector. **Retime total duration** stretches the whole
 arrangement, while Timeline FPS changes frame cadence without changing speed.
 [Video](video.md#duration-speed-and-fps) has separate speed and resize choices.
 

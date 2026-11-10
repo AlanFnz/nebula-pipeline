@@ -63,13 +63,73 @@ def test_studio_navigation_keeps_timeline_actions_and_quality_with_their_context
     assert inside(panel.automations_button, window.section_tools)
     panel.arrangement_button.click(); QApplication.processEvents()
     assert panel.content_stack.currentWidget() is panel.arrangement_scroll
-    panel.arrangement_button.click(); QApplication.processEvents()
+    assert panel.arrangement_button.text() == 'Duration && loops'
+    panel.arrangement_done.click(); QApplication.processEvents()
     assert panel.content_stack.currentWidget() is panel.parameters_group
+    assert not panel.arrangement_button.isChecked()
+    assert panel.arrangement_button.text() == 'Duration && loops'
     panel.look_tabs.setCurrentWidget(panel.master_panel)
     assert window.reset_controls_button.isVisible()
     panel.look_tabs.setCurrentWidget(panel.effects_panel)
     assert not window.reset_controls_button.isVisible()
     assert window.composition == before and not window.has_unsaved_changes()
+
+
+def test_repeat_is_direct_and_preserves_timing_effects_and_edit_scope(window):
+    before = copy.deepcopy(window.composition)
+    states = copy.deepcopy(window.sequence['states'])
+    duration = window.sequence['duration']
+    window.section_timeline.select_at(1)
+    assert window.composer.scope == 0
+    assert window.clip_controls.isVisible() and window.shot_strip.isHidden()
+    assert window.shot_strip.caption.text() == 'Clip 2 / 2'
+    window.shot_strip.loops.setValue(2)
+    expected = copy.deepcopy(before); expected['sections'][1]['loops'] = 2
+    assert window.composition == expected
+    assert window.sequence['states'] == states
+    assert window.sequence['duration'] == duration + 2.
+    assert window.shot_strip.timing_summary.text() == '2 s × 2 = 4 s'
+    assert window.composer.section_loops.value() == 2 and window.composer.scope == 0
+    window.undo_composition()
+    assert window.composition == before
+    assert window.shot_strip.loops.value() == 1
+    assert window.shot_strip.timing_summary.text() == '2 s × 1 = 2 s'
+    window.redo_composition()
+    assert window.shot_strip.loops.value() == 2
+
+
+def test_timing_footer_survives_view_and_document_changes_without_edits(window):
+    before = copy.deepcopy(window.composition)
+    for width in (920, 730, 480):
+        window.resize(1280 if width < 900 else 1728, 800)
+        window.splitter.setSizes([width, 700])
+        for view in (1, 0):
+            window.timeline_view.setCurrentIndex(view)
+            QApplication.processEvents()
+            assert window.clip_controls.isVisible()
+            for control in (window.shot_strip.caption, window.shot_strip.duration,
+                            window.shot_strip.loops, window.shot_strip.timing_summary):
+                assert control.isVisible() and inside(control, window.clip_controls)
+            assert window.shot_strip.edit.isVisible() == bool(view)
+            assert window.composition == before and not window.has_unsaved_changes()
+    # Another study must refresh the shared controls rather than retaining repeats.
+    window.shot_strip.loops.setValue(3)
+    window.set_composition(before, guard=False, clean=True)
+    assert window.shot_strip.loops.value() == 1
+    assert window.composition == before and not window.has_unsaved_changes()
+
+
+def test_clip_repeat_keeps_existing_sequence_groups_and_syncs_both_editors(window):
+    members = [s['id'] for s in window.composition['sections']]
+    window.composer.loop_sections(members, 2)
+    groups = copy.deepcopy(window.composition['timeline_loops'])
+    window.section_timeline.select_at(1)
+    window.composer.section_loops.setValue(3)
+    assert window.shot_strip.loops.value() == 3
+    window.shot_strip.loops.setValue(2)
+    assert window.composer.section_loops.value() == 2
+    assert window.composition['timeline_loops'] == groups
+    assert window.shot_strip.timing_summary.text() == '2 s × 2 = 4 s'
 
 
 def test_editing_scope_is_independent_of_arrangement_selection(window):
@@ -212,4 +272,6 @@ def test_tall_restored_footer_keeps_controls_packed_at_the_top(window):
     assert tools.y() <= 6
     assert tools.height() <= tools.sizeHint().height() + 2
     assert window.section_scroll.y() <= tools.y() + tools.height() + 6
-    assert window.preview_scope.mapTo(pane, QPoint()).y() <= window.section_scroll.y() + window.section_scroll.height() + 6
+    footer = window.clip_controls
+    assert footer.y() <= window.section_scroll.y() + window.section_scroll.height() + 6
+    assert window.preview_scope.mapTo(pane, QPoint()).y() <= footer.y() + footer.height() + 6

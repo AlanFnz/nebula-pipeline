@@ -689,7 +689,10 @@ class SynthStudio(PerformanceStudio, VisualSoundStudio, AudioReactivityStudio, S
         self.shot_strip.selected.connect(self.section_timeline.select_at)
         self.shot_strip.editRequested.connect(self.edit_shot)
         self.shot_strip.durationRequested.connect(lambda identifier, duration: self.composer and self.composer.stretch_section(identifier, duration))
+        self.shot_strip.loopsRequested.connect(lambda identifier, count: self.composer and self.composer.set_section_loops(identifier, count))
         controls_layout.addWidget(self.shot_strip)
+        self.clip_controls = self.shot_strip.footer
+        controls_layout.addWidget(self.clip_controls)
         self.build_soundtrack_lane(controls_layout)
         self.section_tools = QWidget()
         tools_policy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
@@ -848,8 +851,12 @@ class SynthStudio(PerformanceStudio, VisualSoundStudio, AudioReactivityStudio, S
         self._showing_shots = shots
         self.section_scroll.setVisible(self.composition is not None and not shots)
         self.shot_strip.setVisible(shots)
+        self.clip_controls.setVisible(self.composition is not None)
+        self.shot_strip.edit.setVisible(shots)
         if shots:
             self.shot_strip.set_document(self.composition, self.sequence, self.composition_index)
+        elif self.composition is not None:
+            self.shot_strip.set_timing_context(self.composition, self.composition_index)
         if entering_shots:
             sizes = self.preview_splitter.sizes()
             if sizes[-1] < 280:

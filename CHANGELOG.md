@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.88.2 — 2026-11-10
+
+- Put the selected clip's Duration and Repeat controls directly below both
+  Timeline and Shots, with a visible calculation of its repeated duration.
+  Keep the **Duration & loops** button's name stable while its inspector is open;
+  **Done** returns to editing. Clarify that the whole-project duration retimes
+  clips. Existing studies, timing, render settings and loop behavior are unchanged.
+
 ## 0.88.1 — 2026-11-10
 
 - Correct Spectral tunnel’s reference motion: lights travel continuously from
