@@ -1,4 +1,5 @@
 import copy
+import hashlib
 
 import numpy as np
 import pytest
@@ -26,7 +27,8 @@ def test_portable_study_and_subject_switching(tmp_path):
     assert active_subjects(describe_effects(scope_states(project))) == ('tunnel',)
     assert 'spectral_tunnel' not in {e.id for e in effect_catalog()}
     seq = compile_composition(project)
-    assert seq['duration'] == 6. and seq['fps'] == 100
+    assert project['source']['states']['ripple']['overrides']['spectral_tunnel.motion'] == 1
+    assert seq['duration'] == 6. and seq['fps'] == 50
     assert (seq['canvas']['width'], seq['canvas']['height']) == (500, 500)
     frame = render_sequence_frame(seq, .09, (128, 128)).tobytes()
     assert frame != render_sequence_frame(seq, .21, (128, 128)).tobytes()
@@ -83,3 +85,47 @@ def test_does_not_enable_itself_in_existing_presets():
         before = copy.deepcopy(preset)
         assert not next(m for m in preset['modules'] if m['id']=='spectral_tunnel')['enabled']
         assert preset == before
+
+
+def test_original_ripple_render_is_unchanged():
+    arr = np.zeros((96, 96, 3), np.float32)
+    preset = dict(default_synth_preset(), width=96, height=96, speed=1., seed=151026)
+    image = render_spectral_tunnel(arr, defaults(), .09, preset)
+    # Captured from 0.88.0 before correcting the reference study.
+    assert hashlib.sha256(np.uint8(image*255).tobytes()).hexdigest() == (
+        '0a73c3806907236023286f6ca437c92e1a74d07ce1e987e1c23e235abc4ee81d')
+
+
+def test_a_light_moves_continuously_toward_the_foreground():
+    from synth_sequence import resolve_sequence_frame
+    seq = compile_composition(spectral_tunnel_composition())
+    preset = resolve_sequence_frame(seq, 0.)[-1]
+    p = next(m['params'] for m in preset['modules'] if m['id']=='spectral_tunnel')
+    p = dict(p, grain=0.)
+    preset.update(width=320, height=320)
+    previous, trace = 205., []
+    for frame in range(10):
+        image = render_spectral_tunnel(np.zeros((320,320,3),np.float32), p, frame*p['period']/10, preset)
+        mask = image.min(2) > .84
+        seen = np.zeros(mask.shape, bool)
+        candidates = []
+        # Track a connected emitter, not a centroid containing multiple lights.
+        for y, x in zip(*np.where(mask)):
+            if seen[y,x]:
+                continue
+            pending = [(y,x)]; seen[y,x] = True
+            sx = sy = count = 0
+            while pending:
+                yy, xx = pending.pop(); sx += xx; sy += yy; count += 1
+                for ry, rx in ((yy-1,xx),(yy+1,xx),(yy,xx-1),(yy,xx+1)):
+                    if 0 <= rx < 320 and 0 <= ry < 320 and mask[ry,rx] and not seen[ry,rx]:
+                        seen[ry,rx] = True; pending.append((ry,rx))
+            cx, cy = sx/count/.64, sy/count/.64
+            if count > 10 and 120 < cx < 250 and abs(cy-(29+.403*cx)) < 5:
+                candidates.append(cx)
+        previous = min(candidates, key=lambda x: abs(x-previous))
+        trace.append(previous)
+    # Positions measured in the supplied GIF, in its original 500px coordinates.
+    reference = np.array([205.,201.4,197.6,193.9,190.,186.3,182.5,178.4,174.3,170.1])
+    assert np.all(np.diff(trace) < -2.)
+    assert np.max(np.abs(np.array(trace)-reference)) < 2.

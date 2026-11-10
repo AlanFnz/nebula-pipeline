@@ -17,7 +17,7 @@ from synth_canvas import content_size, object_offset
 
 def modules(Module, P):
     return (Module('spectral_tunnel', 'Spectral tunnel',
-        'Two luminous perspective planes, a bright center rail and a seamless optical ripple.', (
+        'Two luminous perspective planes, a bright center rail and looping light motion.', (
         P('shape', 'Light shape', 0, 0, 3, 1, choices=('Ellipse', 'Square', 'Diamond', 'Polygon')),
         P('sides', 'Polygon sides', 6, 3, 12, 1),
         P('size', 'Light size', 1.1, .3, 2., .01),
@@ -77,7 +77,8 @@ def render_spectral_tunnel(arr, p, seconds, preset):
     ox, oy = w / 2 - 250 * unit + dx, h / 2 - 250 * unit + dy
     phase = loop_phase(seconds, p, preset.get('speed', 1.))
     direction = 1 if p['direction'] == 0 else -1
-    # This reference shimmers back and forth; it does not advance a whole cell.
+    # Ripple remains an alternate look. Traveling lights advance exactly one
+    # lattice interval, so the next emitter takes over at the cycle boundary.
     travel = (p['amplitude'] * (math.sin(math.tau * phase) +
               .12 * math.sin(2 * math.tau * phase))) if p['motion'] == 0 else phase
     travel *= direction
@@ -110,7 +111,7 @@ def render_spectral_tunnel(arr, p, seconds, preset):
         if plane == 2:
             y = np.full_like(x, horizon + 5)
             r = 350 * p['size'] / d
-            y += 45 / d * np.sin(j * 2.1 + math.tau * phase)
+            y += 45 / d * np.sin(j * 2.1 + (math.tau * phase if p['motion'] == 0 else 0.))
             slope = np.zeros_like(x)
         x, y, r = x * unit + ox, y * unit + oy, r * unit
         reach = 5 * p['spread'] * max(1., p['aspect']) + 2

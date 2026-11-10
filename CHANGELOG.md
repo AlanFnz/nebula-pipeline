@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.88.1 — 2026-11-10
+
+- Correct Spectral tunnel’s reference motion: lights travel continuously from
+  the vanishing point toward the foreground. The center rail follows that flow
+  instead of bobbing independently. Match the recording’s roughly 0.4-second
+  cadence (15 cycles in six seconds). Keep Optical ripple as an alternate mode
+  and preserve the first study snapshot.
+
 ## 0.88.0 — 2026-11-10
 
 - Add Spectral tunnel / luminous ripple: a square, seamless optical study with

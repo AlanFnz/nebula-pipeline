@@ -98,7 +98,8 @@ Open one and use Save as study to keep it in your library.
 ## Spectral tunnel / luminous ripple
 
 A square six-second study of warm-white lights and cool halos in perspective.
-The 0.3-second cycle repeats seamlessly, including its fine grain.
+The lights advance from the vanishing point toward the foreground. The
+0.4-second cycle repeats seamlessly, including its fine grain.
 **Object → Spectral tunnel** exposes light shape, perspective, loop motion and
 optical finish. **Loop period** changes speed; **Frames per loop** controls the
 stepped cadence (zero gives continuous motion). For a seamless export after

@@ -1,0 +1,149 @@
+{
+  "format": "nebula-composition",
+  "schema_version": 1,
+  "render_version": 2,
+  "name": "Spectral tunnel / luminous ripple",
+  "fps": 50,
+  "seed": 151026,
+  "source": {
+    "schema_version": 1,
+    "name": "Spectral tunnel / luminous ripple",
+    "duration": 6.0,
+    "fps": 50,
+    "seed": 151026,
+    "field": {
+      "valley_start": 0.0,
+      "valley_end": 0.0,
+      "valley_gain": 1.0,
+      "cloud_start": 0.0,
+      "cloud_strength": 0.0,
+      "cloud_late_start": 0.0,
+      "cloud_late_rate": 0.0
+    },
+    "states": {
+      "ripple": {
+        "preset": "Reference blinds",
+        "overrides": {
+          "speed": 1.0,
+          "depth": 0.0,
+          "treatment_fps": 50,
+          "object_x": 0.0,
+          "object_y": 0.0,
+          "spectral_tunnel.shape": 0,
+          "spectral_tunnel.sides": 6,
+          "spectral_tunnel.size": 1.1,
+          "spectral_tunnel.aspect": 0.52,
+          "spectral_tunnel.rows": 24,
+          "spectral_tunnel.spacing": 3.95,
+          "spectral_tunnel.vanishing_x": 1.286,
+          "spectral_tunnel.cross_x": 0.256,
+          "spectral_tunnel.horizon": 0.573,
+          "spectral_tunnel.depth": 1.006,
+          "spectral_tunnel.gap": 0.05,
+          "spectral_tunnel.rail": 1.0,
+          "spectral_tunnel.period": 0.4,
+          "spectral_tunnel.motion": 1,
+          "spectral_tunnel.amplitude": 0.12,
+          "spectral_tunnel.phase": 0.0,
+          "spectral_tunnel.direction": 0,
+          "spectral_tunnel.cadence": 10,
+          "spectral_tunnel.warm_hue": 0.065,
+          "spectral_tunnel.cool_hue": 0.6,
+          "spectral_tunnel.saturation": 0.98,
+          "spectral_tunnel.light": 1.0,
+          "spectral_tunnel.glow": 1.0,
+          "spectral_tunnel.spread": 1.0,
+          "spectral_tunnel.softness": 1.8,
+          "spectral_tunnel.grain": 0.019,
+          "spectral_tunnel.mix": 1.0
+        },
+        "enabled": [
+          "spectral_tunnel"
+        ]
+      }
+    },
+    "cues": [
+      {
+        "time": 0.0,
+        "state": "ripple",
+        "transition": "cut",
+        "duration": 0.0
+      }
+    ],
+    "render_version": 2,
+    "canvas": {
+      "width": 500,
+      "height": 500,
+      "framing": "native"
+    }
+  },
+  "canvas": {
+    "width": 500,
+    "height": 500,
+    "framing": "native"
+  },
+  "master": {
+    "enabled": true,
+    "brightness": 0.0,
+    "contrast": 1.0,
+    "saturation": 1.0
+  },
+  "phrases": {
+    "custom": {
+      "name": "Luminous ripple / seamless loop",
+      "start": 0.0,
+      "end": 6.0
+    }
+  },
+  "macros": {
+    "rhythm": 1.0,
+    "width": 1.0,
+    "motion": 1.0,
+    "texture": 1.0,
+    "glow": 1.0,
+    "flashes": 1.0,
+    "color": 1.0
+  },
+  "geometry": {
+    "shape": "original",
+    "height": 1.0,
+    "diameter": 0.6,
+    "sides": 6,
+    "rotation": 0.0,
+    "position_x": 0.0,
+    "position_y": 0.0
+  },
+  "effects": {},
+  "ink_timing": {},
+  "variation": 0,
+  "locks": [],
+  "sections": [
+    {
+      "id": "section-1",
+      "phrase": "custom",
+      "duration": 6.0,
+      "loops": 1,
+      "macros": {
+        "rhythm": 1.0,
+        "width": 1.0,
+        "motion": 1.0,
+        "texture": 1.0,
+        "glow": 1.0,
+        "flashes": 1.0,
+        "color": 1.0
+      },
+      "geometry": {
+        "shape": "inherit",
+        "height": 1.0,
+        "diameter": 0.6,
+        "sides": 6,
+        "rotation": 0.0,
+        "position_x": 0.0,
+        "position_y": 0.0
+      },
+      "effects": {},
+      "variation": 0,
+      "locks": []
+    }
+  ]
+}
