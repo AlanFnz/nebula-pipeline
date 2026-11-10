@@ -10,24 +10,9 @@ from synth_inspector import grouped_paths
 from synth_solids import hidden_controls as hidden_solid_controls
 from synth_fonts import variable_weight
 from synth_object_groups import ObjectGroupsMixin
+from synth_object_catalog import OBJECT_PATHS, PARAMETER_OWNER
 
 
-OBJECT_PATHS = {
-    'pleated': EFFECT_BY_ID['pleated_field'].paths,
-    'memory': tuple('image_memory.'+key for key in ('persistence','drift','dissolve','trail_opacity','shape','size','sides','path','travel','amplitude_x','amplitude_y','period','variation','palette')),
-    'lattice': tuple('chromatic_lattice.'+key for key in ('shape','sides','spacing','size','minimum','rotation','wave_shape','wavelength','color_rhythm','bpm','phrase_bars','period','phase','direction','angle','pulse','palette','color_period','color_phase','color_spread','gradient','saturation','light','rim','softness','glow','glow_radius','grain','background')),
-    'solid': tuple('solid.'+key for key in ('shape','model_data','height_stretch','scale','yaw','pitch','roll','turn_speed','tumble_speed','roll_speed','variation','perspective','corner_radius','material','roughness','specular','glass_transmission','glass_refraction','pip_size','pip_light','pip_depth','palette','shading','light')),
-    'prismatic': tuple('prismatic_field.'+key for key in ('shape','sides','center_shape','size','gather','opening','fold_depth','rotation','transition_ease','turn_settle','palette','wash','saturation','light')),
-    'radial': tuple('radial_bloom.'+key for key in ('expansion','petals','detail','branching','flow','variation','center_drift','palette','light')),
-    'text': EFFECT_BY_ID['text'].paths,
-    'silhouette': ('silhouette.model', 'silhouette.scale', 'silhouette.yaw', 'silhouette.definition', 'silhouette.pitch', 'silhouette.roll', 'silhouette.center_x', 'silhouette.center_y', 'silhouette.neck_length', 'silhouette.neck_fullness', 'silhouette.softness'),
-    'ink': ('ink_bloom.shape', 'ink_bloom.artwork', 'ink_bloom.shape_width', 'ink_bloom.shape_height',
-            'ink_bloom.sides', 'ink_bloom.shape_rotation', 'ink_bloom.size', 'ink_bloom.count',
-            'ink_bloom.spread'),
-    'particles': ('particles.attractor', 'particles.scale', 'particles.count', 'particles.dot_size',
-                  'particles.yaw', 'particles.pitch',
-                  'particles.neck_fade'),
-}
 TEXT_PAGE_PATHS = ('text.font', 'text.weight', 'text.content', 'text.badge',
                    'text.badge_show_subtitle', 'text.badge_subtitle')
 
@@ -136,7 +121,7 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
 
     def show_overview(self):
         self.pages.setCurrentWidget(self.overview_scroll)
-        self.object_navigation.setVisible(self.kind in ('text', 'pleated'))
+        self.object_navigation.setVisible(self.kind in OBJECT_PATHS)
         self.navigation_changed.emit()
 
     def change_text_tab(self, index):
@@ -154,7 +139,7 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
 
     def show_details(self, effect, timing=False):
         if effect == 'pleated_field' and timing:
-            self.show_overview(); self.reveal_object_group('Motion & timing' if timing else 'Camera')
+            self.show_overview(); self.reveal_object_group('Motion & timing')
         elif effect == 'text':
             self.show_overview(); self.text_tabs.setCurrentIndex(2 if timing else 1)
         else:
@@ -163,11 +148,11 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
             self.details_editor.parameter_tabs.setCurrentIndex((0 if timing else 1) if effect in CREATIVE_CONTROLS else (1 if timing else 0))
             self.pages.setCurrentWidget(self.details_editor)
             self.object_navigation.hide()
-            if effect == 'pleated_field': self.details_editor.activation_button.setChecked(True)
+            if not timing: self.details_editor.activation_button.setChecked(True)
         self.navigation_changed.emit()
 
     def reveal_control(self, path):
-        if path not in self.controls or self.kind not in ('text', 'pleated'): return False
+        if path not in self.controls or self.kind not in OBJECT_PATHS: return False
         self.show_overview()
         self.object_filter.clear()
         if self.kind == 'text':
@@ -218,13 +203,13 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
         with QSignalBlocker(self.selector): self.selector.setCurrentIndex(self.selector.findData(self.kind))
         self.restore.setEnabled(any(entries.get(key, {}).get('mode', 'recipe') != 'recipe' for key in SOURCE_EFFECTS))
         scope = 'this clip' if local else 'the entire project'
-        notes = {'prismatic': 'Choose the final shape and its placement. Transition easing and Turn settle shape the authored movements. Source controls opens the fold rhythm, rotation, ribbon and color drift. Color emulsion adds the film texture separately.', 'radial': 'Expanding crowns and fine branching rays. Source controls opens the full motion, palette and optical settings.', 'silhouette': 'A fixed human silhouette. Adjust its pose and framing here; Edge phosphor and Scan drag treat its outline.',
+        notes = {'prismatic': 'Choose the final shape and its placement. Transition easing and Turn settle shape the authored movements. Folds & motion contains the fold rhythm and rotation; Color & light contains the color drift. Color emulsion adds the film texture separately.', 'radial': 'Expanding crowns and fine branching rays. Use the motion, vibration, color and optical groups below.', 'silhouette': 'A fixed human silhouette. Adjust its pose and framing here; Edge phosphor and Scan drag treat its outline.',
                  'text': 'Text edits the typeface, main wording and subtitle. The typeface applies to both text blocks. Layout controls size, spacing, frame and placement; Motion controls word changes and animation. Effects treats the resulting image.',
                  'ink': 'Edit the printed silhouette here. Its unfold, turn and refold motion stays with it.',
                  'particles': 'The model is the target of the particles. Adjust its size, pose and point density here.',
                  'signal': 'The luminous form and ray aperture share this geometry.',
                  'none': 'Choose an object to introduce a source into the scene.'}
-        notes['memory'] = 'Persistence holds past positions; Drift carries the traces away; Dissolution erodes old silhouettes. This object generates its own history. Source controls opens trace direction, expansion, color aging and optical finish.'
+        notes['memory'] = 'Persistence holds past positions; Drift carries the traces away; Dissolution erodes old silhouettes. This object generates its own history. Use the groups below for trace direction, expansion, color aging and optical finish.'
         notes['lattice'] = 'A fixed grid with traveling waves of size and color. Color timing can follow the free optical cycle or a Musical phrase with one tempo for size, color and generated notes. Glow and softness shape the optical finish.'
         notes['pleated'] = 'Raised folds with an animated camera and mirrored views. Change the profile, relief, palette or field outline here. Color emulsion and Screen mesh add the filmed texture separately.'
         notes['solid'] = 'A die, cube or imported GLB/glTF model rotating around its center. Adjust rounded corners, material, reflections, pose, rotation speeds and dots here. Imported models use static geometry and the studio material. Color field controls the background; Color emulsion textures both together.'
@@ -233,20 +218,21 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
             note += ' Also present: ' + ', '.join(SUBJECTS[key][0] for key in active[1:]) + '. Choosing a type replaces the source families in this scope.'
         self.note.setText(note)
         self.note.setToolTip(note)
-        organized = self.kind in ('text', 'pleated')
+        organized = self.kind in OBJECT_PATHS
         self.object_navigation.setVisible(organized and self.pages.currentWidget() is self.overview_scroll)
         self.text_motion_link.hide()
         if organized:
-            info = summary['text' if self.kind == 'text' else 'pleated_field']
+            sources = [summary[key] for key in SUBJECTS[self.kind][1]]
             self.note.setText((scope_label or ('This clip' if local else 'Entire project')) +
-                              (' · Intermittent' if info['intermittent'] else ' · On' if info['active'] else ' · Off'))
+                              (' · Intermittent' if any(info['intermittent'] for info in sources) else
+                               ' · On' if any(info['active'] for info in sources) else ' · Off'))
         self.position_host.setVisible(bool(active))
         self.signal_host.setVisible(self.kind == 'signal')
         self.control_host.setVisible(self.kind in OBJECT_PATHS)
         self.wording_host.setVisible(self.kind == 'text')
         self.text_tabs.setVisible(self.kind == 'text')
         self.text_layout_note.hide()
-        self.details.setText('Text appearance…' if self.kind == 'text' else 'Activation & preset…' if self.kind == 'pleated' else 'Source controls…')
+        self.details.setText('Text appearance…' if self.kind == 'text' else 'Activation & preset…')
         self.timing.setText('Creative motion…' if self.kind == 'particles' else 'Motion & timing…')
         paths = OBJECT_PATHS.get(self.kind, ())
         reading = self.kind == 'text' and summary['text']['ranges']['text.reveal'] == (4, 4)
@@ -261,7 +247,7 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
             # host when the source family changes, keeping edits scroll-stable.
             host_layout = self.overview.layout()
             host_layout.removeWidget(self.control_host)
-            anchor = self.position_host if self.kind == 'memory' else self.details
+            anchor = self.details
             host_layout.insertWidget(host_layout.indexOf(anchor), self.control_host)
             for host_layout in (self.control_layout, self.wording_layout):
                 while host_layout.count():
@@ -276,7 +262,7 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
                 if not organized: self.control_layout.addWidget(label); label.show()
                 for path in members:
                     if path not in self.control_cache:
-                        control = EffectParameter(path, editable_text=True); effect = path.split('.')[0]
+                        control = EffectParameter(path, editable_text=True); effect = PARAMETER_OWNER[path]
                         control.changed.connect(lambda value, e=effect, p=path: self.parameter_changed.emit(e, p, value))
                         control.reset.connect(lambda e=effect, p=path: self.parameter_reset.emit(e, p))
                         control.animate.connect(self.automation_requested.emit)
@@ -293,7 +279,7 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
                     # steals focus from the workspace.
                     if not organized: control.show()
                     self.controls[path] = control
-                    if path == 'image_memory.amplitude_y':
+                    if not organized and path == 'image_memory.amplitude_y':
                         self.control_layout.addWidget(self.motion_frame); self.motion_frame.show()
             # Keep shared typography above the text editors, independent of the
             # parameter registry's grouping and the length of either text block.
@@ -305,43 +291,37 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
                         label = (('Text', 'Layout', 'Motion')[page] + ' / ' if self.kind == 'text' else '') + title
                         self.object_jump.addItem(label, title)
         for path, control in self.controls.items():
-            effect = path.split('.')[0]; entry = entries.get(effect, {'params': {}})
+            effect = PARAMETER_OWNER[path]; entry = entries.get(effect, {'params': {}})
             parent_params = parent_entries.get(effect, {}).get('params', {})
             control.refresh(summary[effect]['ranges'][path], entry['params'].get(path),
                             path in parent_params, True, parent_value=parent_params.get(path),
                             context_key=context_key, scope_label=scope_label)
-        if self.kind == 'memory':
-            shape = summary['image_memory']['ranges']['image_memory.shape']
-            self.controls['image_memory.sides'].setVisible(shape[0] != shape[1] or shape[0] == 2)
+        # Resolve applicability before folding/search, so navigation cannot expose
+        # fields belonging to another shape, material or clock mode.
+        self.object_eligible = set(self.controls)
+        def hide(*paths): self.object_eligible.difference_update(paths)
+        def selected(effect, key, value):
+            low, high = summary[effect]['ranges'][effect + '.' + key]
+            return low == high and low != value
+        if self.kind == 'memory' and selected('image_memory', 'shape', 2): hide('image_memory.sides')
         if self.kind == 'lattice':
-            ranges=summary['chromatic_lattice']['ranges']
-            shape=ranges['chromatic_lattice.shape']
-            self.controls['chromatic_lattice.sides'].setVisible(shape[0]!=shape[1] or shape[0]==3)
-            wave=ranges['chromatic_lattice.wave_shape']
-            self.controls['chromatic_lattice.angle'].setVisible(wave[0]!=wave[1] or wave[0]==2)
-            rhythm=ranges['chromatic_lattice.color_rhythm']
-            for key in ('bpm','phrase_bars'):
-                self.controls['chromatic_lattice.'+key].setVisible(rhythm[0]!=rhythm[1] or rhythm[0]==1)
-            for key in ('period','color_period','color_spread'):
-                self.controls['chromatic_lattice.'+key].setVisible(rhythm[0]!=rhythm[1] or rhythm[0]==0)
-        if self.kind == 'solid':
-            hidden = hidden_solid_controls(summary['solid']['ranges'])
-            for path, control in self.controls.items():
-                control.setVisible(path not in hidden)
-        if self.kind == 'prismatic':
-            shape = summary['prismatic_field']['ranges']['prismatic_field.shape']
-            self.controls['prismatic_field.sides'].setVisible(shape[0] != shape[1] or shape[0] == 0)
+            if selected('chromatic_lattice', 'shape', 3): hide('chromatic_lattice.sides')
+            if selected('chromatic_lattice', 'wave_shape', 2): hide('chromatic_lattice.angle')
+            if selected('chromatic_lattice', 'color_rhythm', 1): hide('chromatic_lattice.bpm', 'chromatic_lattice.phrase_bars')
+            if selected('chromatic_lattice', 'color_rhythm', 0): hide('chromatic_lattice.period', 'chromatic_lattice.color_period', 'chromatic_lattice.color_spread')
+        if self.kind == 'solid': hide(*hidden_solid_controls(summary['solid']['ranges']))
+        if self.kind == 'prismatic' and selected('prismatic_field', 'shape', 0): hide('prismatic_field.sides')
         if self.kind == 'ink':
             shape = summary['ink_bloom']['ranges']['ink_bloom.shape']
-            self.controls['ink_bloom.artwork'].setVisible(shape[0] == shape[1] == 5)
-            self.controls['ink_bloom.sides'].setVisible(shape[0] != shape[1] or shape[0] == 4)
+            if shape != (5, 5): hide('ink_bloom.artwork')
+            if selected('ink_bloom', 'shape', 4): hide('ink_bloom.sides')
         if self.kind == 'particles':
             model = summary['particles']['ranges']['particles.attractor']
-            self.controls['particles.neck_fade'].setVisible(model[0] != model[1] or model[0] in (0, 3, 4, 5))
+            if model[0] == model[1] and model[0] not in (0, 3, 4, 5): hide('particles.neck_fade')
         if self.kind == 'text':
             self.text_ranges = summary['text']['ranges']
             self.show_text_controls()
-        elif self.kind == 'pleated': self.show_object_groups()
+        elif organized: self.show_object_groups()
         self.details.setVisible(bool(active) and self.kind != 'text'); self.timing.setVisible(self.kind == 'ink')
         self.updating = False
 

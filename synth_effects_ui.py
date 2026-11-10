@@ -5,13 +5,13 @@ from synth_intensity import intensity_path
 import copy
 import math
 
-from PySide6.QtCore import QSignalBlocker, Signal, Qt
+from PySide6.QtCore import QSignalBlocker, Signal, Qt, QTimer
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QStackedWidget, QTabBar, QFrame, QLineEdit, QScrollArea, QSizePolicy,
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QStackedWidget, QTabBar, QFrame, QLineEdit, QScrollArea, QSizePolicy, QCheckBox,
 )
 from studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBox, SpinBox as QSpinBox
 from studio_widgets import Slider, configure_parameter_spin, parameter_number
-from synth_inspector import grouped_paths
+from synth_inspector import grouped_paths, control_group
 from synth_solids import hidden_controls as hidden_solid_controls
 
 from synth_effects import EFFECTS, EFFECT_BY_ID, describe_effects, is_removed_effect, parameter, effects_for
@@ -131,6 +131,7 @@ class EffectsPanel(QWidget):
         self.updating = False; self.allowed_effects = None; self.browser = None
         self.applied_ids = (); self.available_ids = (); self.effect_choices = {}; self.group_labels = {}
         self.group_expansion = {}; self.revealed_path = None
+        self.filter_snapshot = None; self.filter_generation = 0; self.search_results = []
         layout = QVBoxLayout(self); layout.setContentsMargins(8, 4, 8, 4); layout.setSpacing(4)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.scope_label = QLabel(); self.scope_label.setObjectName("sectionTitle"); self.scope_label.setWordWrap(True)
@@ -244,6 +245,10 @@ class EffectsPanel(QWidget):
         self.group = QComboBox(); self.group.setAccessibleName('Effect control group'); self.group.currentIndexChanged.connect(self.change_group); row.addWidget(self.group, 1)
         self.filter = QLineEdit(); self.filter.setPlaceholderText('Find a control…'); self.filter.setClearButtonEnabled(True)
         self.filter.setAccessibleName('Find effect control'); self.filter.textChanged.connect(self.change_filter); row.addWidget(self.filter, 1)
+        self.filter.returnPressed.connect(self.focus_filter_result)
+        self.show_all_controls = QCheckBox('Show all'); self.show_all_controls.setAccessibleName('Show all effect controls')
+        self.show_all_controls.setToolTip('Expand all groups in this tab. Turn off to restore your folded groups.')
+        self.show_all_controls.toggled.connect(self.show_controls); row.addWidget(self.show_all_controls)
         editor_layout.addLayout(row)
         self.parameter_scroll = QScrollArea(); self.parameter_scroll.setWidgetResizable(True); self.parameter_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.parameter_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -274,6 +279,14 @@ class EffectsPanel(QWidget):
         self.color_panel = ColorPanel(); body_layout.addWidget(self.color_panel); self.color_panel.hide()
         self.parameter_host = QWidget(); self.parameter_layout = QVBoxLayout(self.parameter_host); self.parameter_layout.setContentsMargins(0, 0, 0, 0); body_layout.addWidget(self.parameter_host)
         self.no_matches = QLabel('No matching controls in this tab.'); self.no_matches.setObjectName('muted'); body_layout.addWidget(self.no_matches); self.no_matches.hide()
+        self.other_matches = QWidget(); self.other_matches_layout = QVBoxLayout(self.other_matches)
+        self.other_matches_layout.setContentsMargins(0, 0, 0, 0)
+        self.other_match_buttons = []
+        for tab in range(4):
+            button = QPushButton(); button.setProperty('compact', True)
+            button.clicked.connect(lambda _checked=False, index=tab: self.open_search_tab(index))
+            self.other_match_buttons.append(button); self.other_matches_layout.addWidget(button)
+        body_layout.addWidget(self.other_matches); self.other_matches.hide()
         self.note = QLabel('Use fixed value to override an animated control. Restore follows the entire project or study again.')
         self.note.setWordWrap(True); self.note.setObjectName('muted'); body_layout.addWidget(self.note); body_layout.addStretch(1)
         self.note.hide()
@@ -443,6 +456,7 @@ class EffectsPanel(QWidget):
         if self.route_sources and effect_id in SOURCE_EFFECTS:
             self.object_details_requested.emit(effect_id); return
         if self.allowed_effects is not None and base_id(effect_id) not in self.allowed_effects: return
+        self.filter_snapshot = None; self.filter_generation += 1
         switched = self.effect_id != effect_id
         self.revealed_path = None
         self.effect_id = effect_id; self.focused = True; self.pages.setCurrentWidget(self.editor)
@@ -548,6 +562,7 @@ class EffectsPanel(QWidget):
         for path, control in self.controls.items(): control.set_automation_count(counts.get(path, 0))
 
     def change_parameter_tab(self, _index):
+        self.filter_snapshot = None; self.filter_generation += 1
         self.revealed_path = None
         with QSignalBlocker(self.filter): self.filter.clear()
         with QSignalBlocker(self.group): self.group.clear()
@@ -557,9 +572,56 @@ class EffectsPanel(QWidget):
         self.revealed_path = None
         self.show_controls()
 
-    def change_filter(self, _text):
+    def change_filter(self, text):
+        active = bool(text.strip())
+        if active and self.filter_snapshot is None:
+            self.filter_snapshot = (self.parameter_tabs.currentIndex(), self.group.currentData(), self.parameter_scroll.verticalScrollBar().value())
+        if active:
+            with QSignalBlocker(self.group): self.group.setCurrentIndex(0)
+        self.filter_generation += 1
+        generation = self.filter_generation
         self.revealed_path = None
         self.show_controls()
+        if not active and self.filter_snapshot is not None:
+            tab, title, scroll = self.filter_snapshot; self.filter_snapshot = None
+            with QSignalBlocker(self.parameter_tabs): self.parameter_tabs.setCurrentIndex(tab)
+            self.show_controls()
+            with QSignalBlocker(self.group): self.group.setCurrentIndex(max(0, self.group.findData(title)))
+            self.show_controls()
+            QTimer.singleShot(0, lambda: self.parameter_scroll.verticalScrollBar().setValue(scroll)
+                              if generation == self.filter_generation else None)
+        elif active: self.parameter_scroll.verticalScrollBar().setValue(0)
+
+    def focus_filter_result(self):
+        if not self.search_results:
+            button = next((b for b in self.other_match_buttons if b.isVisible()), None)
+            if button:
+                button.click()
+                if self.search_results: self.focus_filter_result()
+            return
+        control = self.controls[self.search_results[0]]
+        target = control.use_fixed if control.value_stack.currentIndex() == 1 else control.input
+        if hasattr(target, 'editor'): target = target.editor
+        elif control.spec.kind == 'font': target = target.choose
+        target.setFocus(Qt.FocusReason.OtherFocusReason)
+        self.parameter_scroll.ensureWidgetVisible(target, 0, 12)
+
+    def control_tab(self, path):
+        effect_id = base_id(self.effect_id)
+        if effect_id in CREATIVE_CONTROLS: return 1
+        if effect_id == 'broadcast':
+            return 1 if path in POLARITY_CONTROLS else 2 if path in SIGNAL_CONTROLS else 3 if path in SCREEN_CONTROLS else 0
+        if effect_id == 'ink_bloom': return 1 if path in INK_TIMING else 0
+        if effect_id == 'text': return 1 if path in TEXT_TIMING else 0
+        if effect_id == 'edge_phosphor': return 1 if path in REGION_CONTROLS else 0
+        return 0
+
+    def open_search_tab(self, index):
+        with QSignalBlocker(self.parameter_tabs): self.parameter_tabs.setCurrentIndex(index)
+        with QSignalBlocker(self.group): self.group.setCurrentIndex(0)
+        self.show_controls(); self.parameter_scroll.verticalScrollBar().setValue(0)
+        self.navigation_changed.emit()
+
 
     def toggle_control_group(self, title, expanded):
         # Expansion is navigation state, independent of project/clip settings.
@@ -579,7 +641,6 @@ class EffectsPanel(QWidget):
         creative = pilot and self.parameter_tabs.currentIndex() == 0
         ink = effect.id == 'ink_bloom'
         text = effect.id == 'text'
-        text_timing = text and self.parameter_tabs.currentIndex() == 1
         broadcast = effect.id == 'broadcast'
         polarity = broadcast and self.parameter_tabs.currentIndex() == 1
         phosphor = effect.id == 'edge_phosphor'
@@ -591,6 +652,9 @@ class EffectsPanel(QWidget):
         self.creative_panel.setVisible(creative)
         self.parameter_host.setVisible(not creative)
         self.filter.setVisible(not creative)
+        self.show_all_controls.setVisible(not creative)
+        self.filter.setPlaceholderText('Find a control…')
+        self.filter.setToolTip('Search controls and groups. Matches in other tabs have a direct link. Press Enter to edit the first match. Clear to restore the previous view.')
         self.note.hide()
         adjustments = dict(self.parent_entries.get(effect.id, {}).get('creative', {}).get('values', {}))
         adjustments.update(self.entries.get(effect.id, {}).get('creative', {}).get('values', {}))
@@ -613,7 +677,7 @@ class EffectsPanel(QWidget):
         self.scope_label.setText('Editing: Entire project · shared timing' if timing else self.context_scope_label)
         if not self.focused: self.scope_label.setText(self.context_scope_label)
         self.timing_selected.emit(timing and self.focused)
-        visible_paths = SHARED_TIMING_CONTROLS if timing else tuple(path for path in effect.paths if not ink or path not in INK_TIMING)
+        visible_paths = tuple(path for path in effect.paths if not ink or path not in INK_TIMING or path in SHARED_TIMING_CONTROLS)
         if effect.id == 'image_memory':
             shape = self.summary[effect.id]['ranges']['image_memory.shape']
             if shape[0] == shape[1] and shape[0] != 2:
@@ -632,7 +696,6 @@ class EffectsPanel(QWidget):
             if shape[0] == shape[1] and shape[0] != 0:
                 visible_paths = tuple(path for path in visible_paths if path != 'prismatic_field.sides')
         if text:
-            visible_paths = TEXT_TIMING if text_timing else tuple(path for path in effect.paths if path not in TEXT_TIMING)
             ranges = self.summary['text']['ranges']
             from synth_fonts import variable_weight
             if ranges['text.font'][0] == ranges['text.font'][1] and not variable_weight(ranges['text.font'][0]):
@@ -653,9 +716,6 @@ class EffectsPanel(QWidget):
             if not morph and reveal != (4, 4) and ranges['text.fit'][0] == ranges['text.fit'][1] and ranges['text.fit'][0] != 1:
                 visible_paths = tuple(path for path in visible_paths if path not in ('text.fit_width', 'text.copy_floor'))
         if broadcast:
-            groups = (tuple(path for path in effect.paths if path not in POLARITY_CONTROLS + SIGNAL_CONTROLS + SCREEN_CONTROLS),
-                      POLARITY_CONTROLS, SIGNAL_CONTROLS, SCREEN_CONTROLS)
-            visible_paths = groups[self.parameter_tabs.currentIndex()]
             if self.summary['broadcast']['ranges']['broadcast.timing'] == (0, 0):
                 visible_paths = tuple(path for path in visible_paths if path != 'broadcast.duration_variation')
             band_mode = self.summary['broadcast']['ranges']['broadcast.band_motion']
@@ -668,12 +728,12 @@ class EffectsPanel(QWidget):
         if effect.id == 'contour_melt' and self.summary['contour_melt']['ranges']['contour_melt.style'] == (0, 0):
             visible_paths = tuple(path for path in visible_paths if path != 'contour_melt.groove')
         if phosphor:
+            mode = self.summary['edge_phosphor']['ranges']['edge_phosphor.fade_mode']
+            legacy = mode == (0, 0)
+            region_paths = REGION_CONTROLS if mode[0] != mode[1] else REGION_CONTROLS[:2] if legacy else tuple(p for p in REGION_CONTROLS if p != 'edge_phosphor.neck_dissolve')
+            if mode == (2, 2): region_paths = tuple(p for p in region_paths if p != 'edge_phosphor.fade_anchor')
+            visible_paths = tuple(p for p in visible_paths if p not in REGION_CONTROLS or p in region_paths)
             if region:
-                mode = self.summary['edge_phosphor']['ranges']['edge_phosphor.fade_mode']
-                legacy = mode == (0, 0)
-                visible_paths = REGION_CONTROLS if mode[0] != mode[1] else REGION_CONTROLS[:2] if legacy else tuple(p for p in REGION_CONTROLS if p != 'edge_phosphor.neck_dissolve')
-                if mode == (2, 2):
-                    visible_paths = tuple(p for p in visible_paths if p != 'edge_phosphor.fade_anchor')
                 self.description.setText('Profile preset keeps the original neck blend. Choose Object to attach a reusable fade to a source, or Canvas to hold it in the viewport. The region affects contours, echoes, fill and surrounding light; it leaves the final background texture intact.')
                 sources = ('silhouette', 'forms', 'ink_bloom', 'particles', 'rays', 'text', 'radial_bloom', 'prismatic_field', 'solid', 'chromatic_lattice', 'image_memory')
                 anchor = self.summary['edge_phosphor']['ranges']['edge_phosphor.fade_anchor']
@@ -686,7 +746,6 @@ class EffectsPanel(QWidget):
                 if legacy and not self.summary['silhouette']['active']:
                     self.status.setText('Profile preset needs Model silhouette. Choose Object or Canvas to use the directional region with this source.')
             else:
-                visible_paths = tuple(p for p in visible_paths if p not in REGION_CONTROLS)
                 self.description.setText(effect.description)
         if effect.id == 'signal_repetition':
             ranges = self.summary[effect.id]['ranges']
@@ -700,6 +759,12 @@ class EffectsPanel(QWidget):
                 visible_paths = tuple(path for path in visible_paths if not path.startswith('signal_repetition.outside_') or path.endswith('.outside_mix'))
             if ranges['signal_repetition.edge_echo'] == (0., 0.):
                 visible_paths = tuple(path for path in visible_paths if path != 'signal_repetition.edge_distance')
+        # Search links use the same applicable controls as the destination tab.
+        # A hidden mode-specific parameter must not advertise an empty result.
+        searchable_paths = visible_paths
+        if not creative:
+            visible_paths = tuple(p for p in visible_paths if self.control_tab(p) == self.parameter_tabs.currentIndex())
+        if timing: visible_paths = tuple(p for p in SHARED_TIMING_CONTROLS if p in visible_paths)
         if self.revealed_path in self.controls and self.revealed_path not in visible_paths:
             visible_paths = (*visible_paths, self.revealed_path)
         mix_path = intensity_path(effect.id)
@@ -712,14 +777,15 @@ class EffectsPanel(QWidget):
                 self.group.clear(); self.group.addItem('All groups', None)
                 for title in titles: self.group.addItem(title, title)
         self.group.setVisible(not creative and len(titles) > 1)
-        selected_group = self.group.currentData()
+        query = self.filter.text().strip().casefold()
+        selected_group = None if query else self.group.currentData()
         if selected_group:
             visible_paths = next(paths for title, paths in groups if title == selected_group)
         query = self.filter.text().strip().casefold()
         self.color_panel.setVisible(effect.id == 'dye_transfer' and
                                     self.color_panel.context_provider is not None and
                                     not query and selected_group in (None, 'Color & light', 'Color channels'))
-        shown = {p for p in visible_paths if not query or query in parameter(p).label.casefold() or query in p.casefold()}
+        shown = {p for p in visible_paths if not query or query in parameter(p).label.casefold() or query in p.casefold() or query in control_group(p).casefold()}
         # Keep unchanged rows visible during value refreshes. Hiding a focused
         # editor makes Qt transfer focus and scroll to a different control.
         visible_controls = set()
@@ -734,13 +800,18 @@ class EffectsPanel(QWidget):
                 label.toggled.connect(lambda expanded, title=title: self.toggle_control_group(title, expanded))
                 self.group_labels[title] = label
             key = (effect.id, self.parameter_tabs.currentIndex(), title)
-            expanded = (bool(query) or bool(selected_group) or self.revealed_path in matching or
+            expanded = (bool(query) or self.show_all_controls.isChecked() or bool(selected_group) or self.revealed_path in matching or
                         self.group_expansion.get(key, title == titles[0] and title != 'Color channels'))
             label = self.group_labels[title]
             with QSignalBlocker(label): label.setChecked(expanded)
             label.setText(title.replace('&', '&&') + (' ▾' if expanded else ' ▸'))
             label.setAccessibleName(title + ' controls')
-            label.setToolTip('Matching controls are expanded while searching.' if query else 'Collapse or expand this control group.')
+            local_count = sum(p in self.entries.get(effect.id, {}).get('params', {}) for p in paths)
+            animated_count = sum(bool(self.automation_counts.get(p)) or self.controls[p].value_stack.currentIndex() == 1 for p in paths)
+            label.setAccessibleDescription(f'{local_count} local values · {animated_count} animated. Expand or collapse without changing values.')
+            label.setEnabled(not query and not self.show_all_controls.isChecked() and not selected_group)
+            label.setToolTip(f'{local_count} local values · {animated_count} animated. ' +
+                             ('Matching controls are expanded while searching.' if query else 'Collapse or expand this control group.'))
             visible_groups.add(title)
             if expanded: visible_controls.update(matching)
             for widget in (label, *(self.controls[p] for p in matching)):
@@ -748,7 +819,18 @@ class EffectsPanel(QWidget):
                 index += 1
         for path, control in self.controls.items(): control.setVisible(path == mix_path or path in visible_controls)
         for title, label in self.group_labels.items(): label.setVisible(title in visible_groups)
-        self.no_matches.setVisible(not creative and not shown)
+        intensity_match = bool(query and mix_path and
+                               (query in parameter(mix_path).label.casefold() or query in mix_path.casefold()))
+        self.search_results = ([mix_path] if intensity_match else []) + [p for p in visible_paths if p in visible_controls]
+        self.no_matches.setVisible(not creative and not shown and not intensity_match)
+        other_tabs = {self.control_tab(p) for p in searchable_paths if query and p != mix_path and
+                      (query in parameter(p).label.casefold() or query in p.casefold() or query in control_group(p).casefold())}
+        other_tabs.discard(self.parameter_tabs.currentIndex())
+        for index, button in enumerate(self.other_match_buttons):
+            button.setVisible(not creative and index in other_tabs)
+            name = 'Shared timing · all clips' if ink and index == 1 else self.parameter_tabs.tabText(index)
+            button.setText(f'Matches in {name} →')
+        self.other_matches.setVisible(not creative and bool(other_tabs))
         if timing:
             loops = self.shared_summary['loop_seconds']
             if not loops: loop = 'Enable Ink bloom to preview its timing.'

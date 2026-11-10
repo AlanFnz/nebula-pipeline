@@ -115,7 +115,7 @@ def test_pleated_navigation_and_family_switch_keep_cached_controls_and_no_stale_
     import shiboken6
     assert all(not g.isVisible() for g in groups if shiboken6.isValid(g))
     load(panel, 'chromatic-lattice')
-    assert not panel.object_navigation.isVisible()
+    assert panel.object_navigation.isVisible()
     load(panel, 'pleated-signal')
     assert panel.controls['pleated_field.depth'] is control
 

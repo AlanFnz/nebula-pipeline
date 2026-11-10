@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.87.0 — 2026-11-10
+
+- Extend Object's pinned search, group navigation and reversible Show all to
+  all eleven source families. Keep primary shape/model controls first, fold
+  canvas placement separately, and expose complete source parameters by task.
+  Preserve conditional controls, cached text/artwork/model editors, Image memory
+  centering and Ink Stamps' separate shared timing.
+- Group video source controls under a fixed scope/search header. Preserve shared
+  versus independent clip ownership, trim precision, speed and export audio.
+- Add reversible Show all, keyboard search focus and other-tab search links to
+  effect inspectors, retaining specialized tabs and color/artwork controls.
+- Navigation changes no values, defaults, studies, rendering, audio/MIDI,
+  automation timing or saved project formats.
+
 ## 0.86.0 — 2026-11-10
 
 - The inspector distinguishes the editable base from the read-only value at the

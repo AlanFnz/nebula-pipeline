@@ -32,6 +32,13 @@ The 0.86.0 pass adds base/monitor value origins, clip-automation and Perform
 annotations, recorded/fixed knob labels and a foldable precedence explanation.
 It changes presentation only; see [Editing](editing.md#scope-and-inherited-settings).
 
+The 0.87.0 D03 pass extends task groups and pinned navigation to all object
+families and video sources, with reversible group expansion and cross-tab search
+links in effects. Specialized timing/ownership and compact Finishing/Master
+pages retain their behavior. D01 context consistency and D09 terminology/time
+explanations remain separate follow-ups; this is not a completion claim for the
+whole external UX proposal.
+
 Status was checked against the source registrations and UI/transport paths,
 with focused tests listed in the [documentation review record](documentation-audit.md).
 No future milestone dates, work ordering or automatic follow-ups are implied.

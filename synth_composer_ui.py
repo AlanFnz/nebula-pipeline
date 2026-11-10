@@ -686,7 +686,7 @@ class InspectorTabs(QTabWidget):
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
     def addTab(self, page, label):
-        if isinstance(page, (EffectsPanel, SubjectPanel)): return super().addTab(page, label)
+        if isinstance(page, (EffectsPanel, SubjectPanel, VideoSourcePanel)): return super().addTab(page, label)
         scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         scroll.setWidget(page); self._scroll_pages[page] = scroll
