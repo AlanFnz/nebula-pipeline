@@ -35,6 +35,7 @@ All object families use the same pinned search, group navigation and reversible
 | Object | Groups include |
 | --- | --- |
 | Image memory | Memory, shape, path/travel, color/background, optical finish |
+| Spectral tunnel | Light geometry, perspective, loop/motion, color/light, optical finish |
 | Chromatic lattice | Shape/layout, wave motion, rhythm/timing, color/background, optical finish |
 | 3D solid | Model/scale, pose/camera, rotation, material/reflections, die markings, color/light |
 | Prismatic field | Shape/layout, folds/motion, color/light |

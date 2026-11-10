@@ -60,7 +60,7 @@ def composition_category(project):
                 ('text', 'Text'), ('silhouette', 'Profiles'), ('particles', 'Particles'),
                 ('ink_bloom', 'Mixed media')) if module in modules}
             # Rays, forms and flare also treat named primary objects.
-            kinds.update(primary or ({'Signals'} if modules & {'pleated_field', 'slab', 'blinds', 'flare', 'radial_bloom', 'prismatic_field', 'solid', 'color_field', 'chromatic_lattice', 'image_memory'} else set()))
+            kinds.update(primary or ({'Signals'} if modules & {'pleated_field', 'slab', 'blinds', 'flare', 'radial_bloom', 'prismatic_field', 'solid', 'color_field', 'chromatic_lattice', 'image_memory', 'spectral_tunnel'} else set()))
     return 'Mixed media' if len(kinds) > 1 else next(iter(kinds), 'Other')
 
 

@@ -16,6 +16,12 @@ OBJECT_PATHS = {
 # Primary controls are first; the remaining groups stay folded until requested.
 # A registry fallback keeps future controls reachable without changing a study.
 FAMILY_GROUPS = {
+    'tunnel': (
+        ('Light geometry', 'shape sides size aspect rows spacing rail'),
+        ('Perspective', 'vanishing_x cross_x horizon depth gap'),
+        ('Loop & motion', 'period motion amplitude phase direction cadence'),
+        ('Color & light', 'warm_hue cool_hue saturation light'),
+        ('Optical finish', 'glow spread softness grain mix')),
     'memory': (
         ('Memory', 'persistence drift dissolve trail_opacity drift_angle expansion'),
         ('Shape & scale', 'shape size sides rotation'),

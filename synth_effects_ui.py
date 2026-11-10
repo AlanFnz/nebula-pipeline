@@ -682,6 +682,12 @@ class EffectsPanel(QWidget):
             shape = self.summary[effect.id]['ranges']['image_memory.shape']
             if shape[0] == shape[1] and shape[0] != 2:
                 visible_paths = tuple(path for path in visible_paths if path != 'image_memory.sides')
+        if effect.id == 'spectral_tunnel':
+            ranges = self.summary[effect.id]['ranges']
+            for selector, value, path in (('shape', 3, 'sides'), ('motion', 0, 'amplitude')):
+                selected = ranges['spectral_tunnel.' + selector]
+                if selected[0] == selected[1] and selected[0] != value:
+                    visible_paths = tuple(p for p in visible_paths if p != 'spectral_tunnel.' + path)
         if effect.id == 'chromatic_lattice':
             ranges=self.summary[effect.id]['ranges']
             for selector,value,path in (('shape',3,'sides'),('wave_shape',2,'angle')):

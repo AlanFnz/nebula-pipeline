@@ -185,7 +185,7 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
         if not self.updating and index >= 0: self.selected.emit(self.selector.itemData(index))
 
     def open_details(self, timing):
-        effect = {'pleated': 'pleated_field', 'memory': 'image_memory', 'lattice': 'chromatic_lattice', 'solid': 'solid', 'prismatic': 'prismatic_field', 'radial': 'radial_bloom', 'ink': 'ink_bloom', 'particles': 'particles', 'signal': self.signal_effect, 'silhouette': 'silhouette', 'text': 'text'}.get(self.kind)
+        effect = {'tunnel': 'spectral_tunnel', 'pleated': 'pleated_field', 'memory': 'image_memory', 'lattice': 'chromatic_lattice', 'solid': 'solid', 'prismatic': 'prismatic_field', 'radial': 'radial_bloom', 'ink': 'ink_bloom', 'particles': 'particles', 'signal': self.signal_effect, 'silhouette': 'silhouette', 'text': 'text'}.get(self.kind)
         if effect: self.details_requested.emit(effect, timing)
 
     def refresh(self, summary, entries, parent_entries, local, *, context_key=None, scope_label=None):
@@ -210,6 +210,7 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
                  'signal': 'The luminous form and ray aperture share this geometry.',
                  'none': 'Choose an object to introduce a source into the scene.'}
         notes['memory'] = 'Persistence holds past positions; Drift carries the traces away; Dissolution erodes old silhouettes. This object generates its own history. Use the groups below for trace direction, expansion, color aging and optical finish.'
+        notes['tunnel'] = 'Two luminous perspective planes. Loop & motion controls the repeating ripple; Color & light and Optical finish control the warm/cool halos and fine grain.'
         notes['lattice'] = 'A fixed grid with traveling waves of size and color. Color timing can follow the free optical cycle or a Musical phrase with one tempo for size, color and generated notes. Glow and softness shape the optical finish.'
         notes['pleated'] = 'Raised folds with an animated camera and mirrored views. Change the profile, relief, palette or field outline here. Color emulsion and Screen mesh add the filmed texture separately.'
         notes['solid'] = 'A die, cube or imported GLB/glTF model rotating around its center. Adjust rounded corners, material, reflections, pose, rotation speeds and dots here. Imported models use static geometry and the studio material. Color field controls the background; Color emulsion textures both together.'
@@ -304,6 +305,9 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
             low, high = summary[effect]['ranges'][effect + '.' + key]
             return low == high and low != value
         if self.kind == 'memory' and selected('image_memory', 'shape', 2): hide('image_memory.sides')
+        if self.kind == 'tunnel':
+            if selected('spectral_tunnel', 'shape', 3): hide('spectral_tunnel.sides')
+            if selected('spectral_tunnel', 'motion', 0): hide('spectral_tunnel.amplitude')
         if self.kind == 'lattice':
             if selected('chromatic_lattice', 'shape', 3): hide('chromatic_lattice.sides')
             if selected('chromatic_lattice', 'wave_shape', 2): hide('chromatic_lattice.angle')

@@ -38,6 +38,7 @@ from synth_optical_print import modules as optical_print_modules, render_optical
 from synth_contact_print import modules as contact_print_modules, render_contact_print
 from synth_solids import modules as solid_modules, render_color_field, render_solid
 from synth_lattice import modules as lattice_modules, render_chromatic_lattice
+from synth_spectral_tunnel import modules as tunnel_modules, render_spectral_tunnel
 from synth_pleated import modules as pleated_modules, render_pleated_field
 from synth_memory import modules as memory_modules, render_image_memory
 from synth_tension import modules as tension_modules, render_signal_tension
@@ -742,6 +743,7 @@ MODULES += contact_print_modules(Module, P)
 MODULES += tension_modules(Module, P)
 MODULES += dye_transfer_modules(Module, P)
 MODULES += pleated_modules(Module, P)
+MODULES += tunnel_modules(Module, P)
 MODULES = add_parameters(MODULES, P)
 MODULE_BY_ID = InstanceRegistry({module.id: module for module in MODULES})
 
@@ -1391,6 +1393,9 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
     solid_source = next((entry for entry in p['modules'] if entry['id'] == 'solid' and entry['enabled']), None)
     if solid_source and source_image is None:
         arr = render_solid(arr, solid_source['params'], continuous_time, p)
+    tunnel_source = next((entry for entry in p['modules'] if entry['id'] == 'spectral_tunnel' and entry['enabled']), None)
+    if tunnel_source is not None and source_image is None:
+        arr = render_spectral_tunnel(arr, tunnel_source['params'], continuous_time, p)
     lattice_source = next((entry for entry in p['modules'] if entry['id'] == 'chromatic_lattice' and entry['enabled']), None)
     if lattice_source and source_image is None:
         arr = render_chromatic_lattice(arr, lattice_source['params'], continuous_time, p)

@@ -24,6 +24,8 @@ def frozen_data(key):
 
 
 def starter_snapshot(identifier):
+    if identifier == 'spectral-tunnel':
+        return json.loads((Path(__file__).parent / 'presets/spectral-tunnel-v1.json').read_text())
     if identifier == 'pleated-signal-acid':
         return json.loads((Path(__file__).parent / 'presets/pleated-signal-acid-v4.json').read_text())
     if identifier == 'pleated-signal-sound':

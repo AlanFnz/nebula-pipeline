@@ -95,6 +95,15 @@ Two editable examples are tracked separately: [tape garden](../examples/image-me
 and [unstable tape](../examples/image-memory-unstable-tape.nebula.json).
 Open one and use Save as study to keep it in your library.
 
+## Spectral tunnel / luminous ripple
+
+A square six-second study of warm-white lights and cool halos in perspective.
+The 0.3-second cycle repeats seamlessly, including its fine grain.
+**Object → Spectral tunnel** exposes light shape, perspective, loop motion and
+optical finish. **Loop period** changes speed; **Frames per loop** controls the
+stepped cadence (zero gives continuous motion). For a seamless export after
+changing the period, use a clip duration containing a whole number of cycles.
+
 ## Lattice / chromatic pulse
 
 A fixed grid with moving size and color waves. **Object → Chromatic lattice**

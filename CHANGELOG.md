@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.88.0 — 2026-11-10
+
+- Add Spectral tunnel / luminous ripple: a square, seamless optical study with
+  editable light shapes, perspective, timing, a center rail and warm/cool halos.
+  Its six-second duration repeats the reference GIF’s 0.3-second cycle.
+- Integrate the new source into Object, source selection, studies and normal
+  preview/export. Existing studies, defaults and rendering stay unchanged.
+
 ## 0.87.0 — 2026-11-10
 
 - Extend Object's pinned search, group navigation and reversible Show all to

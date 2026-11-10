@@ -7,7 +7,7 @@ from synth_effects import EFFECTS, EFFECT_BY_ID, effects_for
 from synth_instances import instance_ids, base_id
 
 
-SOURCE_EFFECT_IDS = frozenset(('pleated_field', 'image_memory', 'chromatic_lattice', 'radial_bloom', 'forms', 'rays', 'ink_bloom', 'particles', 'silhouette', 'text', 'prismatic_field', 'solid'))
+SOURCE_EFFECT_IDS = frozenset(('spectral_tunnel', 'pleated_field', 'image_memory', 'chromatic_lattice', 'radial_bloom', 'forms', 'rays', 'ink_bloom', 'particles', 'silhouette', 'text', 'prismatic_field', 'solid'))
 CATEGORIES = ('Distortion', 'Texture', 'Light & color', 'Motion & echoes', 'Cutout', 'Finishing', 'Other')
 EFFECT_CATEGORIES = {
     'dye_transfer': 'Texture',
@@ -97,6 +97,7 @@ CONTRIBUTIONS = {
     'contact_print': 'Contact print exposes the source on colored film with grain, gate travel and polarity changes.',
     'optical_print': 'Optical overprint layers enlarged, distressed impressions on dark stock with irregular exposure cuts.',
     'image_memory': 'Image memory deposits colored traces of its moving object; older traces drift and dissolve.',
+    'spectral_tunnel': 'Spectral tunnel creates two luminous perspective planes with a looping optical ripple.',
     'chromatic_lattice': 'Chromatic lattice creates luminous cells with traveling size and color waves.',
     'solid': '3D solid provides a rotating die or cube.',
     'color_field': 'Color field provides moving optical clouds behind the object.',

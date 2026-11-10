@@ -9,6 +9,7 @@ from synth_shared_timing import without_timing
 SUBJECTS = {
     'pleated': ('Pleated field', ('pleated_field',)),
     'memory': ('Image memory', ('image_memory',)),
+    'tunnel': ('Spectral tunnel', ('spectral_tunnel',)),
     'lattice': ('Chromatic lattice', ('chromatic_lattice',)),
     'solid': ('3D solid', ('solid',)),
     'prismatic': ('Prismatic field', ('prismatic_field',)),
@@ -20,12 +21,12 @@ SUBJECTS = {
     'silhouette': ('Model silhouette', ('silhouette',)),
     'none': ('No object', ()),
 }
-SOURCE_EFFECTS = ('pleated_field', 'image_memory', 'chromatic_lattice', 'radial_bloom', 'forms', 'rays', 'ink_bloom', 'particles', 'silhouette', 'text', 'prismatic_field', 'solid')
+SOURCE_EFFECTS = ('spectral_tunnel', 'pleated_field', 'image_memory', 'chromatic_lattice', 'radial_bloom', 'forms', 'rays', 'ink_bloom', 'particles', 'silhouette', 'text', 'prismatic_field', 'solid')
 
 
 def active_subjects(summary):
     # A head with intermittent ray accents is primarily a particle object.
-    return tuple(kind for kind in ('pleated', 'text', 'memory', 'lattice', 'solid', 'prismatic', 'radial', 'silhouette', 'ink', 'particles', 'signal')
+    return tuple(kind for kind in ('tunnel', 'pleated', 'text', 'memory', 'lattice', 'solid', 'prismatic', 'radial', 'silhouette', 'ink', 'particles', 'signal')
                  if any(summary[key]['active'] for key in SUBJECTS[kind][1]))
 
 
@@ -80,7 +81,7 @@ def select_subject(project, kind, index=None):
         if key == 'rays':
             continue
         entry['mode'] = 'on'
-        module = {'pleated_field': 'pleated_field', 'image_memory': 'image_memory', 'chromatic_lattice': 'chromatic_lattice', 'solid': 'solid', 'prismatic_field': 'prismatic_field', 'radial_bloom': 'radial_bloom', 'forms': 'slab', 'ink_bloom': 'ink_bloom', 'particles': 'particles', 'silhouette': 'silhouette', 'text': 'text'}[key]
+        module = {'spectral_tunnel': 'spectral_tunnel', 'pleated_field': 'pleated_field', 'image_memory': 'image_memory', 'chromatic_lattice': 'chromatic_lattice', 'solid': 'solid', 'prismatic_field': 'prismatic_field', 'radial_bloom': 'radial_bloom', 'forms': 'slab', 'ink_bloom': 'ink_bloom', 'particles': 'particles', 'silhouette': 'silhouette', 'text': 'text'}[key]
         configured = bool(entry['params'] or (index is not None and result['effects'].get(key, {}).get('params')))
         if module not in source_enabled and not configured and key != 'forms':
             initial = without_timing(effect_preset(key))

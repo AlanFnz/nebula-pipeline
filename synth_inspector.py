@@ -52,6 +52,13 @@ def control_group(path):
         if key in ('palette', 'color_speed', 'color_shift', 'light', 'background'): return 'Color & light'
         if key == 'mix': return 'Output & blending'
         return 'Optical finish'
+    if module == 'spectral_tunnel':
+        if key in ('shape','sides','size','aspect','rows','spacing','rail'): return 'Shape & layout'
+        if key in ('vanishing_x','cross_x','horizon','depth','gap'): return 'Perspective'
+        if key in ('period','motion','amplitude','phase','direction','cadence'): return 'Motion & timing'
+        if key in ('warm_hue','cool_hue','saturation','light'): return 'Color & light'
+        if key == 'mix': return 'Output & blending'
+        return 'Optical finish'
     if module == 'chromatic_lattice':
         if key in ('shape','sides','spacing','size','minimum','rotation'): return 'Shape & layout'
         if key in ('wave_shape','wavelength','period','phase','direction','angle','pulse','color_rhythm','bpm','phrase_bars'): return 'Motion & timing'

@@ -7,7 +7,7 @@ working resolution retain their original jobs rather than becoming fake layers.
 from synth_instances import base_id
 
 SOURCES = frozenset(('slab', 'blinds', 'particles', 'silhouette', 'ink_bloom',
-    'text', 'radial_bloom', 'prismatic_field', 'solid', 'chromatic_lattice', 'image_memory', 'pleated_field'))
+    'text', 'radial_bloom', 'prismatic_field', 'solid', 'chromatic_lattice', 'image_memory', 'pleated_field', 'spectral_tunnel'))
 SOURCE_PASSES = ('optical_print', 'dye_transfer', 'contact_print', 'print_collage', 'chroma_print', 'slice_echo',
                  'contour_melt', 'stretch_echo', 'signal_etch', 'scan_modulation', 'signal_tension', 'signal_repetition')
 FIXED = {

@@ -15,7 +15,7 @@ class ParameterPresentation:
 SECONDS = frozenset({
     'signal_tension.persistence', 'signal_tension.period',
     'image_memory.persistence', 'image_memory.period',
-    'chromatic_lattice.period', 'chromatic_lattice.color_period',
+    'spectral_tunnel.period', 'chromatic_lattice.period', 'chromatic_lattice.color_period',
     'prismatic_field.fold_period',
     'particles.period', 'particles.expand_seconds', 'particles.gather_seconds',
     'ink_bloom.period', 'ink_bloom.unfold_seconds', 'ink_bloom.unfolded_seconds',
