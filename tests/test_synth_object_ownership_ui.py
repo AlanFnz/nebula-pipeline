@@ -102,7 +102,7 @@ def test_source_details_and_shared_timing_stay_in_object(make_window):
     assert c.look_tabs.currentWidget() is obj
     assert obj.pages.currentWidget() is c.object_editor
     assert c.object_editor.effect_id=='ink_bloom'
-    assert c.timing_scope_label.isVisible() and not c.scope_combo.isVisible()
+    assert c.timing_scope_label.isVisible() and (c.scope_combo.isVisible() and not c.scope_combo.isEnabled())
     c.object_editor.controls['ink_bloom.folded_seconds'].input.setValue(2.)
     assert window.composition['ink_timing']['ink_bloom.folded_seconds']==2.
     c.object_editor.back_button.click()

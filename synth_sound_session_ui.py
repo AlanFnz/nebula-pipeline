@@ -9,6 +9,7 @@ class SoundSession:
     def init_session_header(self, layout):
         self.applied_available = True
         self.applied_values = None
+        self.context_scope = 'All clips in this composition'
         row = QHBoxLayout()
         self.context_title = QLabel('Synthesizer')
         self.context_title.setTextFormat(Qt.TextFormat.PlainText)
@@ -53,7 +54,9 @@ class SoundSession:
         self.apply_button.setEnabled(draft)
         self.apply_button.setToolTip('Use these settings in the project and in exports. This does not save the file.')
         visual = getattr(self, 'visuals_active', lambda: False)()
-        self.workspace_hint.setText('Visuals · All clips · Edits apply immediately' if visual else 'Sound · All clips')
+        self.workspace_hint.setText(('Visuals · ' + self.context_scope + ' · Edits apply immediately')
+                                    if visual else 'Sound · ' + self.context_scope)
+        self.workspace_hint.setWordWrap(True)
         self.refresh_history_actions()
         owner = self.parent()
         config = self.history_value or {}
@@ -62,7 +65,8 @@ class SoundSession:
         if live_mode:
             self.sound_state.setText('MIDI: Not applied' if draft else 'MIDI: Applied')
             self.apply_button.setText('Apply MIDI')
-            self.workspace_hint.setText('MIDI · All clips · Instruments and audio in Live')
+            if not visual:
+                self.workspace_hint.setText('MIDI · ' + self.context_scope + ' · Instruments and audio in Live')
         live = self.live.isChecked() and config.get('version') in (3, 4) and config.get('output') == 'generated'
         if live:
             source = 'Draft sound' if draft else 'Applied sound'

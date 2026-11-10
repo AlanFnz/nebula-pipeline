@@ -3,7 +3,7 @@
 [Documentation](README.md) · [Editing scopes](editing.md#scope-and-inherited-settings)
 
 Open **Object** to edit the active generator, text or model. Use the scope selector before
-changing a value: Entire project sets shared controls; Clip edits the selected
+changing a value: Composition sets shared controls; Clip edits the selected
 clip. Search and group navigation stay above the scrolling controls.
 
 ## Text

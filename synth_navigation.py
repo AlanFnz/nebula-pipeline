@@ -10,7 +10,8 @@ import copy
 
 from PySide6.QtCore import QObject, Qt
 from PySide6.QtGui import QAction, QKeySequence
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QMenu, QPushButton, QStackedWidget, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QMenu, QPushButton, QStackedWidget, QWidget
+from synth_workspace_context import ContextLabel
 
 
 class WorkspaceNavigation(QObject):
@@ -22,6 +23,7 @@ class WorkspaceNavigation(QObject):
         self.editor = None
         self.clip_id = None
         self.original_project = None
+        self.block_updated = False
         self.disposing = False
         self.presented_menus = []
         self.menus = {host: list(host.menuBar().actions())}
@@ -97,7 +99,9 @@ class WorkspaceNavigation(QObject):
             name += ' › ' + clip['name']
         title = f"Nebula · {name}{' *' if dirty else ''}"
         if self.host.windowTitle() != title: self.host.setWindowTitle(title)
-        if self.editor: self.editor.refresh_sound_context()
+        if self.editor:
+            self.editor.refresh_workspace_context()
+            self.editor.refresh_sound_context()
 
     def show_montage(self, document, path=None):
         from synth_montage_ui import MontageWindow
@@ -121,6 +125,7 @@ class WorkspaceNavigation(QObject):
         editor = SynthStudio(composition=project, parent=self.stack, embedded=True)
         self.editor, self.clip_id = editor, key
         self.original_project = copy.deepcopy(editor.composition)
+        self.block_updated = False
         montage.editors.append(editor)
         self.add_view(editor)
         # File commands act on the complete project; the inspector acts on the block.
@@ -141,8 +146,8 @@ class WorkspaceNavigation(QObject):
         editor.back_to_montage.setToolTip('Return to the montage with your changes. You can undo them there.')
         editor.back_to_montage.clicked.connect(self.return_to_montage)
         row.addWidget(editor.back_to_montage)
-        breadcrumb = QLabel(f"{montage.document['name']}  ›  {clip['name']}")
-        breadcrumb.setWordWrap(True); row.addWidget(breadcrumb, 1)
+        breadcrumb = ContextLabel('Editing this block · Save and Export use the complete montage')
+        breadcrumb.setAccessibleName('Montage document ownership'); row.addWidget(breadcrumb, 1)
         editor.header_host.layout().insertWidget(0, bar)
         back = QAction('Back to montage', editor)
         back.setShortcut(QKeySequence('Ctrl+[')); back.triggered.connect(self.return_to_montage)
@@ -175,6 +180,7 @@ class WorkspaceNavigation(QObject):
                 editor.status.setText(f'Could not update this block: {error}')
                 return False
             self.original_project = copy.deepcopy(editor.composition)
+            self.block_updated = True
         editor.mark_document_clean()
         self.update_title()
         return True
@@ -182,13 +188,17 @@ class WorkspaceNavigation(QObject):
     def return_to_montage(self):
         if not self.commit_editor(): return False
         editor = self.editor
+        block = self.montage.block_label(self.clip_id) if editor else ''
         self.editor = None
         if editor is not None: self.montage.detail.setCurrentIndex(editor.quality.currentIndex())
         self.activate(self.montage)
         if editor is not None:
             self.dispose(editor)
             self.montage.editors.remove(editor)
-        self.montage.status.setText('Back in the montage. Your block edits are kept; Save stores the complete project.')
+        change = block + ' updated' if editor and self.block_updated else 'No block changes'
+        file_state = ('Montage not saved' if self.montage.path is None else
+                      'Montage has unsaved changes' if self.montage.document != self.montage.clean else 'Montage saved')
+        self.montage.status.setText(change + ' · ' + file_state)
         return True
 
     def save(self, save_as=False):

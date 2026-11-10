@@ -132,6 +132,6 @@ def test_cards_and_numeric_animation_ranges_fit_without_editing(make_window, wid
     assert card.reset.geometry().right() < card.width()
     panel.reveal_control('dye_transfer.paper_hue'); QApplication.processEvents()
     control = panel.controls['dye_transfer.paper_hue']
-    assert control.animated_value.text().startswith('Animated range')
+    assert control.animated_value.text().startswith('Study range')
     assert control.value_stack.currentWidget() == control.animated_value
     assert not window.has_unsaved_changes()

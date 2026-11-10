@@ -31,7 +31,7 @@ def test_clip_and_project_precedence_and_gesture_return():
     assert '0.40' in text and 'Clip automation idle' in text
     assert 'keeps clip automation and Perform' in hint
     doc['sections'][0]['effects'].clear()
-    assert 'Project base → Clip automation' in inspect(doc, 4.2)[0]
+    assert 'Composition base → Clip automation' in inspect(doc, 4.2)[0]
     doc['effects'].clear()
     assert 'Study → Clip automation' in inspect(doc, 4.2)[0]
     assert before['sections'][0]['automations'] == doc['sections'][0]['automations']

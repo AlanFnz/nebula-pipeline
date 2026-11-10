@@ -126,7 +126,7 @@ class SectionTimeline(QWidget):
                       f"{int(section.get('loops', 1))}× total plays"
                       for index, section in enumerate(self.document['sections'])]
         scope = next((identities[index] for index, section in enumerate(self.document['sections'])
-                      if section['id'] == self.editing_section_id), 'Entire project')
+                      if section['id'] == self.editing_section_id), 'Composition')
         self.setAccessibleDescription('Editing: ' + scope + '. Click to select; double-click to edit a clip. Select clips and press Command-D to duplicate. Clips: ' + '; '.join(identities))
 
     def display_document(self):
@@ -720,6 +720,7 @@ class CompositionPanel(QWidget):
         self.document = normalize_composition(document)
         self.index = min(index, len(document["sections"]) - 1)
         self.scope = scope
+        self.block_context = False
         self.updating = False
         self.playhead_seconds = lambda: 0.
         self.automation_dialogs = []
@@ -809,14 +810,14 @@ class CompositionPanel(QWidget):
 
         shape = QWidget()
         shape_layout = QVBoxLayout(shape); shape_layout.setContentsMargins(0, 0, 0, 0); shape_layout.setSpacing(5)
-        self.scope_combo = QComboBox(); self.scope_combo.addItems(["Entire project", "Selected clip"])
+        self.scope_combo = QComboBox(); self.scope_combo.addItems(["Composition", "Selected clip"])
         self.scope_combo.currentIndexChanged.connect(self.change_scope)
         scope_row = QHBoxLayout(); scope_row.addWidget(self.scope_combo, 1); shape_layout.addLayout(scope_row)
-        self.timing_scope_label = QLabel('Editing: Entire project · shared timing'); self.timing_scope_label.hide()
+        self.timing_scope_label = QLabel('Editing: Composition · shared timing'); self.timing_scope_label.hide()
         shape_layout.addWidget(self.timing_scope_label)
-        self.master_scope_label = QLabel('Editing: Entire project · master adjustments'); self.master_scope_label.hide()
+        self.master_scope_label = QLabel('Editing: Composition · master adjustments'); self.master_scope_label.hide()
         shape_layout.addWidget(self.master_scope_label)
-        self.source_scope_label = QLabel('Editing: Entire project · source video'); self.source_scope_label.hide()
+        self.source_scope_label = QLabel('Editing: Composition · source video'); self.source_scope_label.hide()
         shape_layout.addWidget(self.source_scope_label)
         from synth_parameter_origin import VALUE_SOURCES_HELP
         self.value_sources_button = QPushButton('Value sources'); self.value_sources_button.setCheckable(True)
@@ -946,7 +947,54 @@ class CompositionPanel(QWidget):
         return document if self.scope == 0 else document["sections"][self.index]
 
     def emit_reset_context(self, *_args):
+        self.refresh_scope_context()
         self.reset_context_changed.emit(self.reset_label())
+
+    def clip_scope_name(self):
+        section = self.document['sections'][self.index]
+        return f"Clip {self.index + 1} · {self.document['phrases'][section['phrase']]['name']}"
+
+    def global_scope_reason(self):
+        page = self.look_tabs.currentWidget()
+        if page is self.master_panel: return 'Master'
+        if page.property('visualPerformance'): return 'Perform'
+        if (page is self.object_panel and self.object_panel.pages.currentWidget() is self.object_editor
+                and self.object_editor.effect_id == 'ink_bloom' and self.object_editor.parameter_tabs.currentIndex() == 1):
+            return 'Shared timing'
+        return ''
+
+    def editing_scope_name(self):
+        if self.arrangement_button.isChecked(): return 'Clip timing / composition duration'
+        reason = self.global_scope_reason()
+        if reason: return ('All internal clips' if self.block_context else 'All clips') + ' · ' + reason
+        return f'Clip {self.index + 1}' if self.scope else 'Block composition' if self.block_context else 'Composition'
+
+    def refresh_scope_context(self):
+        if not hasattr(self, 'take_label'): return
+        reason = self.global_scope_reason()
+        shared = 'Block composition' if self.block_context else 'Composition'
+        prefix = 'Return scope: ' if reason else 'Editing: '
+        self.scope_combo.setItemText(0, prefix + shared)
+        self.scope_combo.setItemText(1, prefix + self.clip_scope_name())
+        self.scope_combo.setVisible(True)
+        self.scope_combo.setEnabled(not reason)
+        self.scope_combo.setAccessibleName('Remembered editing scope' if reason else 'Editing scope')
+        all_clips = 'all internal clips in this block' if self.block_context else 'all clips in this composition'
+        hint = (f'{reason} affects {all_clips}. The scope above is kept for when you return to Object, Effects or Finishing.'
+                if reason else 'Shared settings apply to ' + all_clips + '; explicit clip overrides take priority. '
+                'Single-click selects a clip; double-click edits it. Playback has its own range.')
+        target = prefix + (self.clip_scope_name() if self.scope else shared)
+        self.scope_combo.setToolTip(target + '\n' + hint)
+        self.scope_combo.setAccessibleDescription(target + '. ' + hint)
+        timing = reason == 'Shared timing'
+        self.timing_scope_label.setText('Editing: ' + all_clips + ' · Shared timing')
+        self.master_scope_label.setText('Editing: ' + all_clips + (' · ' + reason if reason else ''))
+        for label in (self.timing_scope_label, self.master_scope_label):
+            label.setWordWrap(True); label.setToolTip(hint)
+        self.timing_scope_label.setVisible(timing)
+        self.master_scope_label.setVisible(bool(reason) and not timing)
+        self.source_scope_label.hide()
+        self.take_label.setVisible(not reason)
 
     def size_current_tab(self, _index=None):
         # Hidden pages must not leave a tall, empty inspector below a short tab.
@@ -985,10 +1033,7 @@ class CompositionPanel(QWidget):
             self.section_duration.setMinimum(1 / self.document["fps"])
             self.section_duration.setValue(section["duration"])
             with QSignalBlocker(self.section_loops): self.section_loops.setValue(section.get("loops", 1))
-            self.scope_combo.setItemText(0, 'Editing: Entire project')
-            self.scope_combo.setItemText(1, f"Editing: Clip {self.index + 1} — {self.document['phrases'][section['phrase']]['name']}")
             self.scope_combo.setCurrentIndex(self.scope)
-            self.scope_combo.setToolTip(self.scope_combo.currentText() + ('. Unedited controls follow the entire project or study.' if self.scope else '. Single-click keeps this scope; double-click a timeline clip to edit it. Explicit clip overrides take priority.'))
             self.master_panel.set_values(self.document['master'])
             target = self.target()
             needs_base = any('creative' in entry or 'bypassed' in entry
@@ -1008,7 +1053,7 @@ class CompositionPanel(QWidget):
             prefix = section["id"] + ":"
             all_states = list(compiled['states'].values())
             states = [state for name, state in compiled["states"].items() if name.startswith(prefix)] if self.scope else list(project_states.values())
-            label = f"Editing: Clip {self.index + 1} — {self.document['phrases'][section['phrase']]['name']}" if self.scope else "Editing: Entire project"
+            label = f"Editing: Clip {self.index + 1} — {self.document['phrases'][section['phrase']]['name']}" if self.scope else "Editing: Composition"
             context_key = section["id"] if self.scope else None
             authored_states = None
             if base_states is not None:
@@ -1037,7 +1082,7 @@ class CompositionPanel(QWidget):
             geometry = target["geometry"]
             self.object_panel.refresh_position(geometry, self.document["geometry"], self.document["canvas"], bool(self.scope))
             self.geometry_shape.clear()
-            if self.scope: self.geometry_shape.addItem("From entire project", "inherit")
+            if self.scope: self.geometry_shape.addItem("From composition", "inherit")
             self.geometry_shape.addItem("Original geometry", "original")
             for label in SHAPES: self.geometry_shape.addItem(label, label.lower())
             self.geometry_shape.setCurrentIndex(self.geometry_shape.findData(geometry["shape"]))
@@ -1285,16 +1330,7 @@ class CompositionPanel(QWidget):
         except ValueError as exc: self.failed.emit(str(exc))
 
     def show_timing_scope(self, timing):
-        timing = (hasattr(self, 'object_editor') and self.look_tabs.currentWidget() is self.object_panel
-                  and self.object_panel.pages.currentWidget() is self.object_editor
-                  and self.object_editor.effect_id == 'ink_bloom' and self.object_editor.parameter_tabs.currentIndex() == 1)
-        master = self.look_tabs.currentWidget() is self.master_panel
-        performing = bool(self.look_tabs.currentWidget().property('visualPerformance'))
-        self.scope_combo.setVisible(not (timing or master or performing))
-        self.timing_scope_label.setVisible(timing)
-        self.master_scope_label.setVisible(master)
-        self.source_scope_label.setVisible(False)
-        self.take_label.setVisible(not (master or performing))
+        self.refresh_scope_context()
 
     def change_video(self, key, value):
         if self.updating: return

@@ -50,11 +50,13 @@ class ColorPicker(QDialog):
         self.exact_selection = self.original
         self._selecting_swatch = False
         layout = QVBoxLayout(self)
+        from synth_workspace_context import DialogContext
+        self.document_context = DialogContext(self); layout.addWidget(self.document_context)
         title = QLabel(spec.label); title.setObjectName('effectTitle'); layout.addWidget(title)
         row = QHBoxLayout(); row.addWidget(QLabel('Apply to'))
         self.scope = ComboBox(); self.scope.setAccessibleName('Color editing scope')
         self.scope.addItem(context['shot_label'], context['section_id'])
-        self.scope.addItem('Entire project', None)
+        self.scope.addItem('Composition', None)
         row.addWidget(self.scope, 1); layout.addLayout(row)
         self.scope_note = QLabel(); self.scope_note.setObjectName('muted'); self.scope_note.setWordWrap(True)
         layout.addWidget(self.scope_note)
@@ -90,7 +92,7 @@ class ColorPicker(QDialog):
     def update_scope_note(self):
         self.scope_note.setText('Sets a fixed color for this shot. Other shots keep their colors.'
                                 if self.scope.currentData() is not None else
-                                'Sets one shared color across the project, replacing its color changes. Explicit clip colors still take priority.')
+                                'Sets one shared color across the composition, replacing its color changes. Explicit clip colors still take priority.')
 
     def select_swatch(self, hsv):
         self._selecting_swatch = True

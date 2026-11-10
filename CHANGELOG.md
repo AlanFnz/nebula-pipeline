@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.89.0 — 2026-11-10
+
+- Identify the current composition or Montage block and the owning file in a
+  persistent context header. Show selection, editing scope and playback range
+  separately; use Composition and shared effects consistently in the inspector.
+- Master, Perform and shared Ink timing announce their full scope while keeping
+  the previous local scope visible and disabled. Returning restores that scope.
+  Sound, snapshots, soundtrack, variations and automation editors retain document
+  context; detailed copies explicitly remain independent documents.
+- Inside a block, Save montage names the complete file owner. Returning reports
+  whether the block changed and whether the Montage still needs saving.
+  No study, rendering, audio/MIDI, timing or project-format changes.
+
 ## 0.88.2 — 2026-11-10
 
 - Put the selected clip's Duration and Repeat controls directly below both

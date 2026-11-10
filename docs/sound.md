@@ -12,7 +12,7 @@ Open **Synthesizer** beside Soundtrack. It is available for Pleated field and
 Chromatic lattice.
 
 For Ableton instruments, select **Audio output → Ableton Live (MIDI)**, then
-**Apply MIDI** and **Save project**. The toolbar becomes **Live controls** and
+**Apply MIDI** and **Save composition**. The toolbar becomes **Live controls** and
 Play uses MIDI even with that editor closed. Internal settings remain available
 when switching back. See [Live MIDI](../LIVE_MIDI.md) for routing and export.
 
@@ -20,7 +20,7 @@ when switching back. See [Live MIDI](../LIVE_MIDI.md) for routing and export.
 | --- | --- |
 | Listen, with Live audition on | Hear the current Layered synth or Color waves draft. |
 | Apply sound | Put the draft in the project as an undoable edit. |
-| Save project | Write the editable project to disk. |
+| Save composition / Save montage | Write the complete owning document to disk. |
 | Export MP4 | Render the applied settings, after resolving pending drafts. |
 
 **File: Saved** can coexist with an unapplied sound draft. On save or export,
@@ -31,6 +31,9 @@ the project and survive discarding sound.
 Read **Preview:** or **Listening:** to check what you hear. With Live audition
 off or another output selected, playback uses the applied route. The original
 Electric / tape and Acid triangle instruments prepare audio after Apply sound.
+The header names the same document or Montage block as the visual inspector.
+Inside a block, sound and Visuals affect its internal composition; Save montage
+writes the complete Montage. This does not change Montage's audio export route.
 
 **Listen level** and **Mute monitor** affect listening only. Instrument and Mixer
 levels, EQ, Mute and Solo affect generated export when applied. Mute wins over

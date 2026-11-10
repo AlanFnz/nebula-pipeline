@@ -35,9 +35,14 @@ It changes presentation only; see [Editing](editing.md#scope-and-inherited-setti
 The 0.87.0 D03 pass extends task groups and pinned navigation to all object
 families and video sources, with reversible group expansion and cross-tab search
 links in effects. Specialized timing/ownership and compact Finishing/Master
-pages retain their behavior. D01 context consistency and D09 terminology/time
-explanations remain separate follow-ups; this is not a completion claim for the
-whole external UX proposal.
+pages retain their behavior.
+
+The 0.89.0 D01 pass unifies document/block identity, file ownership, selection,
+editing scope and playback range across the workspace and auxiliary editors.
+Global panels keep the remembered local target visible without changing it.
+Return from a block distinguishes unchanged, updated and saved states. D09
+reading terminology/time explanations and a final end-to-end UX review remain;
+this is not a completion claim for the whole external proposal or its user study.
 
 Status was checked against the source registrations and UI/transport paths,
 with focused tests listed in the [documentation review record](documentation-audit.md).

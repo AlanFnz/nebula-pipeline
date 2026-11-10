@@ -11,7 +11,7 @@ existing project swatch copies its exact HSV values, including brightness above
 uses the brightness represented by that color.
 
 **Apply to** defaults to the shot at the playhead when editing the whole project,
-or the selected clip when editing a clip. Choosing **Entire project** authors a
+or the selected clip when editing a clip. Choosing **Composition** authors a
 shared color instead. This replaces the study's color changes in that shared
 scope; explicit clip overrides still take priority. Other effects and animation
 events are retained. Apply is a single undoable edit; Cancel changes nothing.

@@ -159,20 +159,18 @@ class VisualSoundStudio(LiveSetActions):
         self.refresh_live_set_actions()
         dialog = self.visual_sound_dialog
         if dialog is None or not hasattr(self, 'clean_document'): return
-        name = self.document_state()[1].get('name', 'Untitled')
-        path = self.document_path
-        dirty = self.has_unsaved_changes()
-        navigation = self.workspace_navigation
-        if navigation and navigation.montage and navigation.editor is self:
-            montage = navigation.montage
-            clip = next(c for c in montage.document['clips'] if c['id'] == navigation.clip_id)
-            name = f"{montage.document['name']} › {clip['name']}"
-            path = montage.path
-            dirty = dirty or montage.document != montage.clean
-        dialog.context_title.setText(name)
-        dialog.context_title.setToolTip(name)
-        dialog.file_state.setText('File: Not saved' if path is None else 'File: Unsaved changes' if dirty else 'File: Saved')
-        dialog.file_state.setToolTip(str(path) if path else 'Save project to create a file.')
+        from synth_workspace_context import studio_context
+        context = studio_context(self)
+        dialog.context_title.setText(context.location)
+        dialog.context_title.setToolTip(context.location)
+        dialog.context_scope = context.all_clips
+        dialog.file_state.setText('File: ' + context.file_state)
+        dialog.file_state.setToolTip(context.save_hint)
+        dialog.save_project_button.setText('Save ' + context.owner)
+        dialog.save_project_button.setToolTip(context.save_hint)
+        dialog.save_project_action.setText('Save ' + context.owner)
+        if hasattr(dialog, 'performance_panel'):
+            dialog.performance_panel.set_scope(context.all_clips)
         dialog.applied_available = bool((self.composition or {}).get('generated_sound'))
         dialog.refresh_session()
 

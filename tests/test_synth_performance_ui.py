@@ -94,7 +94,7 @@ def test_live_visual_changes_crossfade_without_stopping_audio():
 def test_keyboard_undo_from_visual_number_field(window):
     from PySide6.QtGui import QKeySequence
     window.composer.look_tabs.setCurrentWidget(window.performance_panel)
-    assert window.composer.scope_combo.isHidden()
+    assert window.composer.scope_combo.isVisible() and not window.composer.scope_combo.isEnabled()
     assert window.composer.reset_label()=='' and window.reset_controls_button.isHidden()
     knob=window.performance_panel.knobs['rotation']
     knob.setValue(25);QTest.qWait(60)

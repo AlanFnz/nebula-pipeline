@@ -429,13 +429,13 @@ class EffectParameter(QWidget):
         if self.slider:
             self.sync_slider(value); self.slider.setVisible(not animated); self.slider.setEnabled(available)
         self.reset_button.setEnabled(fixed is not None)
-        provenance = 'Entire project' if inherited else 'Study'
+        provenance = 'Composition' if inherited else 'Study'
         if fixed is not None:
-            provenance = 'Entire project' if scope_label == 'Entire project' else 'Clip' if scope_label and scope_label.startswith('Clip') else 'Local'
+            provenance = 'Composition' if scope_label in ('Composition', 'Entire project') else 'Clip' if scope_label and scope_label.startswith('Clip') else 'Local'
         state = 'Animated' if animated else 'Fixed' if fixed is not None or inherited_fixed else 'Following'
         self.origin.setText(origin_label or f'Base · {state.lower()} · {provenance}' + ('' if available else ' · Unavailable'))
         explanation = f'{state} value from {scope_label or "this scope" if fixed is not None else provenance.lower()}. ' + \
-                      ('Enable or add this effect to edit its values.' if not available else 'Editing authors a fixed base value in the selected scope. Clip overrides take priority over project values. Clip automation and Perform remain active.')
+                      ('Enable or add this effect to edit its values.' if not available else 'Editing authors a fixed base value in the selected scope. Clip overrides take priority over composition values. Clip automation and Perform remain active.')
         if animated:
             self.origin.setText('Base · Study animation' + ('' if available else ' · Unavailable'))
             explanation += ' Use fixed value replaces the study animation here, not the later modifiers.'
@@ -444,7 +444,7 @@ class EffectParameter(QWidget):
             self.origin.setText('Study wording varies · Apply to replace')
         self.origin.setToolTip(explanation)
         self.origin.setAccessibleDescription(explanation)
-        ordinary_project = available and not animated and not inherited and not origin_label and scope_label == 'Entire project'
+        ordinary_project = available and not animated and not inherited and not origin_label and scope_label in ('Composition', 'Entire project')
         self.origin.setVisible(not ordinary_project)
         self.setAccessibleDescription(self.origin.text() + '. ' + explanation)
         self.label.setAccessibleDescription(explanation)
@@ -457,6 +457,6 @@ class EffectParameter(QWidget):
         self.animated_value.setAccessibleDescription(explanation + ' ' + self.animated_value.toolTip())
         if self.slider: self.slider.setAccessibleDescription(explanation)
         self._arrange_row()
-        restore_target = 'entire project' if inherited else 'study'
+        restore_target = 'composition' if inherited else 'study'
         self.reset_button.setToolTip(f'Remove only this parameter’s local override and follow the {restore_target} again. Clip automation and Perform are kept.')
         self.setToolTip('Editing sets the base in this scope. Clip automation and Perform still act on it.')

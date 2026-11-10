@@ -22,16 +22,16 @@ def explain_effect(document, sequence, effect_id, seconds, section_id=None, reso
     local = next((s for s in document['sections'] if s['id'] == section_id), None)
     entries = merge_effects(document['effects'], local['effects']) if local else document['effects']
     entry = entries.get(effect_id, {})
-    scope = 'selected clip' if local else 'Entire project'
+    scope = 'selected clip' if local else 'Composition'
     result = []
     def fact(code, message, target=None, evidence='resolved', where='At this frame'):
         if target and target not in effect.paths and target not in ('activation', 'resume', 'object', 'source'):
             raise ValueError('Explanation points to an unavailable control.')
         result.append(EffectExplanation(code, where, evidence, message, target))
     if entry.get('bypassed'):
-        fact('bypassed', 'Bypassed. Your settings are retained.' if local else 'Entire project default is bypassed. Clip Resume overrides it.', 'resume', where='In this scope')
+        fact('bypassed', 'Bypassed. Your settings are retained.' if local else 'Composition default is bypassed. Clip Resume overrides it.', 'resume', where='In this scope')
     elif entry.get('mode') == 'off':
-        fact('off', f'Off in {scope}.' if local else 'Entire project default is off. Clip activation overrides it.', 'activation', where='In this scope')
+        fact('off', f'Off in {scope}.' if local else 'Composition default is off. Clip activation overrides it.', 'activation', where='In this scope')
     from synth_section_sources import video_source_at
     footage, _video_time = video_source_at(sequence, seconds)
     if footage and not Path(footage['path']).is_file():

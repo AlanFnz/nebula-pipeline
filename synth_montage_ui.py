@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (QMainWindow, QWidget, QDialog, QVBoxLayout, QHBox
     QFileDialog, QMessageBox, QDialogButtonBox, QInputDialog, QCheckBox, QProgressBar, QTabWidget, QToolTip)
 
 from studio_widgets import SpinBox, DoubleSpinBox, Slider, ComboBox
+from synth_workspace_context import ContextHeader, ContextSummary, montage_context
 from media import Cancellation
 from synth_montage import (FORMAT, identifier, new_montage, normalize_montage, load_montage, save_montage,
     placements, source_duration, clip_project, add_asset, insert_clip, replace_clip, split_clip,
@@ -351,6 +352,7 @@ class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
         self.undo_button=self.button('Undo',self.undo,top); self.redo_button=self.button('Redo',self.redo,top)
         top.addStretch(); self.export_button=self.button('Export MP4',self.export_dialog,top); self.export_button.setObjectName('primary')
         self.export_summary=ExportSummaryButton(self,self.export_summary_rows,self.export_button); top.addWidget(self.export_summary); layout.addLayout(top)
+        self.context_header=ContextHeader(); layout.addWidget(self.context_header)
         split=QSplitter(); layout.addWidget(split,1)
         library=QWidget(); left=QVBoxLayout(library)
         self.material_tabs=QTabWidget(); self.material_tabs.setAccessibleName('Montage navigation'); left.addWidget(self.material_tabs,1)
@@ -412,6 +414,8 @@ class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
         for label,method in [('Split at playhead',self.split),('Select all',self.select_all),('Soundtrack',self.soundtrack_dialog)]: self.button(label,method,tools)
         tools.addWidget(QLabel('Timeline zoom')); self.zoom_control=Slider(Qt.Orientation.Horizontal); self.zoom_control.setRange(25,220); self.zoom_control.setValue(65); self.zoom_control.setMaximumWidth(160); self.zoom_control.valueChanged.connect(self.zoom); self.zoom_control.setAccessibleName('Montage timeline zoom'); tools.addWidget(self.zoom_control)
         layout.addLayout(tools)
+        self.timeline_context=ContextSummary()
+        layout.addWidget(self.timeline_context)
         identity=QHBoxLayout(); self.block_summary=QLabel(); self.block_summary.setWordWrap(True); self.block_summary.setTextFormat(Qt.TextFormat.PlainText); self.block_summary.setAccessibleName('Selected montage block'); identity.addWidget(self.block_summary,1)
         view_controls=QVBoxLayout(); self.show_block_button=self.button('Show selected block',self.show_selected_block,view_controls)
         self.show_block_button.setToolTip('Zoom and scroll to the selected block without moving playback.')
@@ -507,6 +511,16 @@ class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
         self.update_marker_context(); self.refresh_block_navigation()
         track=self.document.get('soundtrack'); self.wave.set_track(track,total/self.document['fps']); self.audio.set_track(track)
         self.update_inspector(); self.seek(min(self.frame,max(0,total-1)))
+
+    def refresh_workspace_context(self):
+        context=montage_context(self); self.context_header.refresh(context)
+        clip=self.active_clip()
+        selected=self.block_label(clip['id']).split(' · ', 1)[0] if clip else f'{len(self.selected)} blocks' if self.selected else 'None'
+        editing='Block timing / treatment' if clip else 'Selected blocks' if self.selected else 'No target'
+        text=f'Selected: {selected}  ·  Editing: {editing}  ·  Playback: Entire montage'
+        self.timeline_context.setText(text)
+        self.timeline_context.setToolTip(text + '\nMaterial selects a source to insert or replace; it does not change the editing target. '
+                                        'Playhead movement does not change the selected block. Save and Export use the complete montage.')
 
     def update_track_geometry(self):
         self.timeline.set_document(self.document,self.selected)

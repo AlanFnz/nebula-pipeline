@@ -2,7 +2,7 @@
 
 [Documentation](README.md) · [Sources and studies](sources-and-studies.md)
 
-Open **Effects → Add effect…** (or **Add project effect…**), preview a preset
+Open **Effects → Add shared effect…** (or **Add clip effect…**), preview a preset
 and choose Apply effect. Search matches names and descriptions. Intensity adjusts
 the contribution; Bypass keeps settings; Remove clears the effect and its
 automation in the current scope. [Editing](editing.md#effects-and-animation)

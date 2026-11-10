@@ -19,6 +19,8 @@ class EffectAuditionDialog(EffectBrowserDialog):
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self.setWindowModality(Qt.WindowModality.ApplicationModal if sys.platform == 'darwin' else Qt.WindowModality.WindowModal)
         self.setWindowTitle('Compare contribution' if operation == 'without' else 'Preview effect preset')
+        from synth_workspace_context import DialogContext
+        self.document_context = DialogContext(self); self.layout().insertWidget(0, self.document_context)
         self.resize(430, 620); self.setMinimumWidth(380)
         self.browser_hint.setText('Choose a preset to audition on your piece, then Apply effect.' if operation == 'add' else 'Preview fixed preset values in this scope before replacing.' if operation == 'replace' else 'Compare the piece with this treatment temporarily bypassed.')
         self.action.setAccessibleName('Replace with preset' if operation == 'replace' else 'Apply selected effect')
@@ -27,7 +29,7 @@ class EffectAuditionDialog(EffectBrowserDialog):
         self.action.clicked.connect(self.apply_candidate)
         self.table.setMaximumHeight(180); self.results.setMaximumHeight(180)
         self.body_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        self.target_label = QLabel('Entire project' if section_id is None else panel.context_scope_label.removeprefix('Editing: '))
+        self.target_label = QLabel('Composition' if section_id is None else panel.context_scope_label.removeprefix('Editing: '))
         self.target_label.setWordWrap(True)
         self.body_layout.insertWidget(1, self.target_label)
         self.diagnostic_note = QLabel(); self.diagnostic_note.setWordWrap(True)
@@ -160,7 +162,7 @@ class EffectAuditionDialog(EffectBrowserDialog):
                 occurrence = next(i+1 for i, (start,end) in enumerate(session.target_scope.intervals) if start<=self.studio.timeline.value()<end)
                 note += f'\nClip occurrence {occurrence} of {len(session.target_scope.intervals)} · original absolute clock'
             if self.operation == 'without' and session.section_id is None:
-                note += '\nExplicit clip Resume overrides Entire project bypass.'
+                note += '\nExplicit clip Resume overrides Composition bypass.'
             if session.operation == 'replace' and self.studio.composer.effects_panel.is_bypassed(session.effect_id): note += '\nBypassed settings stay bypassed. Resume separately in the inspector.'
             if self.preview_play.isChecked() and getattr(self, 'waiting', False):
                 note = 'Preparing sampled loop… ' + str(sum(frame in self.studio.preview_frames.items for frame in session.samples)) + '/' + str(len(session.samples)) + ' frames\n' + note

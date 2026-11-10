@@ -249,17 +249,19 @@ def test_effect_inspector_shows_animation_and_local_absolute_edits(window):
 
 
 def test_new_clip_supports_combining_effects_and_local_bypass(window):
+    from synth_effects import effect_preset
     window.new_composition()
     panel = window.composer; effects = panel.effects_panel
+    # Author the shared stack directly; preset audition is tested separately.
     for effect in ("forms", "ghosts", "breakup"):
+        panel.change_effect(effect, effect_preset(effect, 1), 'effect-preset:' + effect)
         effects.inspect_effect(effect)
-        effects.apply_button.click()
     assert set(window.composition["effects"]) == {"forms", "ghosts", "breakup"}
     effects.controls["breakup.bands"].input.setValue(9)
     assert window.composition["effects"]["breakup"]["params"]["breakup.bands"] == 9
     panel.select_section(0)
     assert effects.controls["breakup.bands"].input.value() == 9
-    assert "entire project" in effects.controls["breakup.bands"].origin.text().lower()
+    assert "composition" in effects.controls["breakup.bands"].origin.text().lower()
     effects.mode.setCurrentIndex(effects.mode.findData("off"))
     assert window.composition["effects"]["breakup"]["mode"] == "on"
     assert window.composition["sections"][0]["effects"]["breakup"]["mode"] == "off"
@@ -873,7 +875,7 @@ def test_ink_timing_tabs_seconds_scope_reset_undo_and_save(window, tmp_path, mon
     effects.controls['ink_bloom.folded_seconds'].input.setValue(2.)
     assert window.composition['ink_timing']['ink_bloom.folded_seconds'] == 2.
     assert not window.composition['sections'][1]['effects']
-    assert not panel.scope_combo.isVisible()
+    assert panel.scope_combo.isVisible() and not panel.scope_combo.isEnabled()
     assert panel.timing_scope_label.isVisible()
     panel.select_section(0)
     assert effects.controls['ink_bloom.folded_seconds'].input.value() == 2.
@@ -910,7 +912,7 @@ def test_master_tab_is_global_reversible_and_preserved_in_detailed_copies(window
     panel = window.composer; master = panel.master_panel
     panel.select_section(1); panel.look_tabs.setCurrentWidget(master)
     QApplication.processEvents()
-    assert not panel.scope_combo.isVisible()
+    assert panel.scope_combo.isVisible() and not panel.scope_combo.isEnabled()
     assert panel.master_scope_label.isVisible()
     assert not panel.timing_scope_label.isVisible()
     original = copy.deepcopy(window.composition)

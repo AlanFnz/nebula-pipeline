@@ -56,7 +56,7 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
         self.selector.setToolTip('Replace the object in this scope. Treatments, canvas and clip durations stay in place.')
         self.selector.currentIndexChanged.connect(self.choose); row.addWidget(self.selector, 1)
         self.restore = QPushButton('↶'); self.restore.setAccessibleName('Restore study object')
-        self.restore.setToolTip('Follow the study or project source activation again. Keep your object parameters.')
+        self.restore.setToolTip('Follow the study or composition source activation again. Keep your object parameters.')
         self.restore.clicked.connect(self.restored.emit); row.addWidget(self.restore); header.addLayout(row)
         self.note = QLabel(); self.note.setWordWrap(True); self.note.setObjectName('muted'); header.addWidget(self.note)
         self.text_tabs = QTabBar()
@@ -176,9 +176,9 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
                 extent = max(canvas[dimension], abs(round(value)))
                 slider.setRange(-extent, extent); slider.setValue(round(value)); spin.setValue(value)
         self.reset_position.setEnabled(any(geometry[f'position_{axis}'] for axis in ('x', 'y')))
-        self.position_note.setText('Clip offset adds to project position. 0 keeps the inherited placement.' if local else '0 keeps the authored placement. X → right · Y → down. Motion and background stay intact.')
+        self.position_note.setText('Clip offset adds to composition position. 0 keeps the inherited placement.' if local else '0 keeps the authored placement. X → right · Y → down. Motion and background stay intact.')
         if local:
-            self.position_note.setToolTip(f"Project offset: X {parent['position_x']:g} px · Y {parent['position_y']:g} px")
+            self.position_note.setToolTip(f"Composition offset: X {parent['position_x']:g} px · Y {parent['position_y']:g} px")
         else: self.position_note.setToolTip('')
 
     def choose(self, index):
@@ -202,7 +202,7 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
         self.signal_effect = 'forms' if summary['forms']['active'] else 'rays'
         with QSignalBlocker(self.selector): self.selector.setCurrentIndex(self.selector.findData(self.kind))
         self.restore.setEnabled(any(entries.get(key, {}).get('mode', 'recipe') != 'recipe' for key in SOURCE_EFFECTS))
-        scope = 'this clip' if local else 'the entire project'
+        scope = 'this clip' if local else 'the composition'
         notes = {'prismatic': 'Choose the final shape and its placement. Transition easing and Turn settle shape the authored movements. Folds & motion contains the fold rhythm and rotation; Color & light contains the color drift. Color emulsion adds the film texture separately.', 'radial': 'Expanding crowns and fine branching rays. Use the motion, vibration, color and optical groups below.', 'silhouette': 'A fixed human silhouette. Adjust its pose and framing here; Edge phosphor and Scan drag treat its outline.',
                  'text': 'Text edits the typeface, main wording and subtitle. The typeface applies to both text blocks. Layout controls size, spacing, frame and placement; Motion controls word changes and animation. Effects treats the resulting image.',
                  'ink': 'Edit the printed silhouette here. Its unfold, turn and refold motion stays with it.',
@@ -224,7 +224,7 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
         self.text_motion_link.hide()
         if organized:
             sources = [summary[key] for key in SUBJECTS[self.kind][1]]
-            self.note.setText((scope_label or ('This clip' if local else 'Entire project')) +
+            self.note.setText((scope_label or ('This clip' if local else 'Composition')) +
                               (' · Intermittent' if any(info['intermittent'] for info in sources) else
                                ' · On' if any(info['active'] for info in sources) else ' · Off'))
         self.position_host.setVisible(bool(active))
@@ -368,7 +368,7 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
             control=self.controls['image_memory.'+key]
             control.set_numeric_maximum(maxima[axis])
             control.setEnabled(maxima[axis] is not None)
-        scope='this clip' if local else 'the project'
+        scope='this clip' if local else 'the composition'
         note=f'Canvas limits across {scope} · Center path balances both axes. Amplitude edits keep that center.'
         if bounds is None:
             note='No visible Image memory object in this scope.'

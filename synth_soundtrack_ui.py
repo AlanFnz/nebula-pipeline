@@ -141,6 +141,8 @@ class SoundtrackDialog(QDialog):
         self._loading = False
         self._busy = False
         layout = QVBoxLayout(self)
+        from synth_workspace_context import DialogContext
+        self.document_context = DialogContext(self); layout.addWidget(self.document_context)
         self.summary = QLabel('Import a soundtrack to hear it with your piece.')
         self.summary.setWordWrap(True)
         self.summary.setTextFormat(Qt.TextFormat.PlainText)

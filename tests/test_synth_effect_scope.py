@@ -63,10 +63,10 @@ def test_project_hides_clip_settings_until_scope_is_explicitly_changed(composer)
     assert panel.project_effect_ids == ('raster',)
     assert panel.clip_effect_ids == ()
     assert 'tape@2' not in panel.applied_ids
-    assert panel.project_title.text() == 'PROJECT EFFECTS · 1'
+    assert panel.project_title.text() == 'SHARED EFFECTS · 1'
     assert panel.clip_title.isHidden() and panel.clip_host.isHidden()
     assert not any('Inspect effects for clip' in b.accessibleName() for b in panel.findChildren(QPushButton))
-    assert panel.available_button.text() == 'Add project effect…'
+    assert panel.available_button.text() == 'Add shared effect…'
     edits = []; composer.changed.connect(lambda *args: edits.append(args))
     composer.select_section(0, preserve_scope=True)
     assert composer.scope == 0 and panel.clip_title.isHidden()

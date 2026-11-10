@@ -63,8 +63,8 @@ class CreativeValue(QWidget):
             self.input.setValue(display); self.slider.setValue(round(value * self.slider_unit))
         self.input.setEnabled(available); self.slider.setEnabled(available)
         self.reset.setEnabled(authored)
-        self.reset.setToolTip('Remove this adjustment and follow the entire project.' if local else 'Restore the study’s original values for this adjustment.')
-        origin = ('Clip' if local else 'Entire project') if authored else 'Entire project · inherited' if inherited else 'Original values'
+        self.reset.setToolTip('Remove this adjustment and follow the composition.' if local else 'Restore the study’s original values for this adjustment.')
+        origin = ('Clip' if local else 'Composition') if authored else 'Composition · inherited' if inherited else 'Original values'
         self.origin.setText(origin + (' · neutral' if value == self.spec.neutral else '') + ('' if available else ' · unavailable'))
         self.updating = False
 

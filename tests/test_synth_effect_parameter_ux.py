@@ -68,7 +68,7 @@ def test_disabled_animation_cannot_author_fixed_value_and_restore_is_local_only(
     control.use_fixed.click(); control.reset_button.click(); assert changes == resets == []
     control.refresh((.4, .4), None, True, True, parent_value=.4, scope_label='Clip 2 — Verse')
     assert control.input.value() == .4 and not control.reset_button.isEnabled()
-    assert control.origin.text() == 'Base · fixed · Entire project'
+    assert control.origin.text() == 'Base · fixed · Composition'
     control.input.setValue(.46); assert changes == [.46]
     control.refresh((.46, .46), .46, True, True, parent_value=.4, scope_label='Clip 2 — Verse')
     assert control.origin.text() == 'Base · fixed · Clip'
@@ -86,7 +86,7 @@ def test_inherited_non_numeric_fixed_values_remain_editable_without_local_restor
     control = EffectParameter(path); changes = []; control.changed.connect(changes.append)
     control.refresh((value, value), None, True, True, parent_value=value)
     assert control.value_stack.currentWidget() is control.input
-    assert control.origin.text() == 'Base · fixed · Entire project'
+    assert control.origin.text() == 'Base · fixed · Composition'
     assert not control.reset_button.isEnabled() and changes == []
     assert (control.input.currentIndex() if control.spec.choices else control.input.value()) == value
     control.close()

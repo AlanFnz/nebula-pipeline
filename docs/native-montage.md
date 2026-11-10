@@ -39,8 +39,11 @@ assembly; Montage Undo reverses the block edit. Its source duration must still
 cover the chosen range. **Copy treatment / Apply treatment to selection** copies
 the look without copying text or source objects.
 
-Save and Export from the block editor include the complete Montage. Editing one
-block does not change the library study or other blocks.
+The context header names the Montage and numbered block. **Save montage** and
+**Export montage** from the block editor include the complete Montage. Its
+**Block composition** scope affects all internal clips in that block; it does
+not change the library material or other uses. Returning reports whether the
+block changed and whether the Montage still needs saving.
 
 ## Sound, preview and export
 

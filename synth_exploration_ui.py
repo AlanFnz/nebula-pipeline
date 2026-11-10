@@ -26,6 +26,8 @@ class SnapshotsDialog(QDialog):
         super().__init__(studio); self.studio = studio
         self.setWindowTitle('Snapshots & comparison'); self.resize(460, 450)
         layout = QVBoxLayout(self)
+        from synth_workspace_context import DialogContext
+        self.document_context = DialogContext(self); layout.addWidget(self.document_context)
         note = QLabel('Capture a complete composition, including sources, effects, canvas and timing. A previews a saved snapshot; B is your working piece. Export uses B.'); note.setWordWrap(True); layout.addWidget(note)
         row = QHBoxLayout(); self.name = QLineEdit('Snapshot ' + str(len(studio.composition.get('snapshots', [])) + 1)); self.name.setMaxLength(80)
         self.name.setAccessibleName('Snapshot name'); row.addWidget(self.name)
@@ -92,7 +94,9 @@ class VaryEffectDialog(QDialog):
         self.section_id = studio.composer.document['sections'][studio.composer.index]['id'] if studio.composer.scope else None
         self.setWindowTitle('Vary ' + EFFECT_BY_ID[effect_id].label); self.resize(390, 450)
         layout = QVBoxLayout(self)
-        scope = 'Selected clip' if self.section_id else 'Entire project'
+        from synth_workspace_context import DialogContext
+        self.document_context = DialogContext(self); layout.addWidget(self.document_context)
+        scope = 'Selected clip' if self.section_id else 'Composition'
         self.scope = QLabel(scope); self.scope.setObjectName('sectionTitle'); layout.addWidget(self.scope)
         note = QLabel('Only checked controls vary. Object, palette, source and noise seed stay fixed. Timing starts unchecked. Try previews a temporary B; Keep commits one undoable edit.'); note.setWordWrap(True); layout.addWidget(note)
         self.amount = ComboBox(); self.amount.setAccessibleName('Variation amount')

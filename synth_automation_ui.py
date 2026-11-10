@@ -72,6 +72,8 @@ class AutomationEditor(QDialog):
         self.setWindowTitle('Edit automation' if event_id else 'Animate parameter')
         self.setMinimumWidth(320); self.resize(420, 480)
         layout = QVBoxLayout(self)
+        from synth_workspace_context import DialogContext
+        self.document_context = DialogContext(self); layout.addWidget(self.document_context)
         hint = QLabel('Adds a temporary change to the base value, then returns to the moving base. Clip loops repeat this gesture; editing changes every repetition.')
         hint.setWordWrap(True); layout.addWidget(hint)
         form = QFormLayout(); form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow); layout.addLayout(form)
@@ -206,6 +208,8 @@ class AutomationList(QDialog):
         super().__init__(composer); self.composer = composer; self.path = path; self.records = []
         self.setWindowTitle('Automations'); self.resize(500, 310)
         layout = QVBoxLayout(self)
+        from synth_workspace_context import DialogContext
+        self.document_context = DialogContext(self); layout.addWidget(self.document_context)
         hint = QLabel('Events belong to clips and repeat with their loops. Base values and presets remain editable.'); hint.setWordWrap(True); layout.addWidget(hint)
         self.list = QListWidget(); self.list.setAccessibleName('Clip automation events'); layout.addWidget(self.list)
         row = QHBoxLayout(); layout.addLayout(row)

@@ -24,7 +24,7 @@ def test_timeline_click_preserves_scope_and_routes_new_effect_to_that_scope(wind
     assert panel.index == 1 and panel.scope == int(local)
     assert window.composition == original and not window.undo_compositions
     assert window.section_timeline.editing_section_id == (original['sections'][1]['id'] if local else None)
-    assert effects.available_button.text() == ('Add clip effect…' if local else 'Add project effect…')
+    assert effects.available_button.text() == ('Add clip effect…' if local else 'Add shared effect…')
     assert effects.add_button.text() == effects.available_button.text()
     assert effects.clip_title.isHidden() == (not local)
     effects.available_button.click(); QApplication.processEvents()

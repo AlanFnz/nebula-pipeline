@@ -271,7 +271,9 @@ def test_tall_restored_footer_keeps_controls_packed_at_the_top(window):
     tools = window.section_tools
     assert tools.y() <= 6
     assert tools.height() <= tools.sizeHint().height() + 2
-    assert window.section_scroll.y() <= tools.y() + tools.height() + 6
+    context = window.timeline_context
+    assert context.y() <= tools.y() + tools.height() + 6
+    assert window.section_scroll.y() <= context.y() + context.height() + 6
     footer = window.clip_controls
     assert footer.y() <= window.section_scroll.y() + window.section_scroll.height() + 6
     assert window.preview_scope.mapTo(pane, QPoint()).y() <= footer.y() + footer.height() + 6

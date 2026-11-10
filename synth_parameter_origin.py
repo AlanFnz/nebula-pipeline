@@ -10,7 +10,7 @@ from synth_performance import CONTROLS, SURFACES
 
 
 VALUE_SOURCES_HELP = (
-    'Study → project base → clip base → Creative adjustments → clip automation → Perform surface. '
+    'Study → composition base → clip base → Creative adjustments → clip automation → Perform surface. '
     'Audio responses follow these values; Perform can also change the visual clock and finished image.\n'
     'Use fixed value replaces the study animation only in the editing scope. '
     'Clip automation and Perform are kept. Restore removes only the local base override.\n'
@@ -35,7 +35,7 @@ def performance_summary(config):
         title = 'Perform · ' + ' · '.join(parts)
     detail = ('Recorded: ' + ', '.join(recorded) + '. ' if recorded else '')
     detail += ('Fixed: ' + ', '.join(fixed) + '. ' if fixed else '')
-    detail += ('These project-wide controls are separate from the base editors. '
+    detail += ('These composition-wide controls are separate from the base editors. '
                'Frame/Finish alter the finished image; Motion can retime it; Surface adjusts object parameters. '
                'Editing a recorded knob with Record off replaces that knob’s recording. Undo restores it.')
     return title, detail
@@ -80,7 +80,7 @@ class FrameOrigins:
         project = self.document['effects'].get(effect_id, {})
         local = (self.section or {}).get('effects', {}).get(effect_id, {})
         overrides = path in local.get('params', {})
-        origin = self.clip_label + ' base' if overrides else 'Project base' if path in project.get('params', {}) else 'Study'
+        origin = self.clip_label + ' base' if overrides else 'Composition base' if path in project.get('params', {}) else 'Study'
         stages = [origin]
         module = self.modules[path.split('.')[0]]
         enabled = module['enabled']

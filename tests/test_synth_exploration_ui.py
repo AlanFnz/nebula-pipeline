@@ -152,9 +152,11 @@ def test_comparison_quality_changes_and_document_replacement_clear_a(window):
 
 
 def test_snapshot_capture_retains_ready_pixels_and_ui_save_open_library(window, monkeypatch, tmp_path):
-    cached = dict(window.preview_frames.items); identifier = capture(window)
+    cached = dict(window.preview_frames.items)
+    packet, request = window.viewer.packet, window.request_serial
+    identifier = capture(window)
     assert dict(window.preview_frames.items) == cached
-    assert 'cached' in window.preview_status.text()
+    assert window.viewer.packet == packet and window.request_serial == request
     path = tmp_path / 'snapshots.json'
     monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *args: (str(path), ''))
     assert window.save_sequence_dialog() and not window.has_unsaved_changes()

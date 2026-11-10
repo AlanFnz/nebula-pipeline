@@ -23,7 +23,8 @@ class PerformancePanel(QWidget):
         self.knobs = {}; self.origins = {}
         self.boxes = {}; self.control_groups = {}; self.surface_hint = None
         layout = QVBoxLayout(self)
-        intro = QLabel('Perform adjusts the entire project on top of its base values and clip automation. With Record off, editing a recorded knob replaces its recording with a fixed adjustment; Undo restores it.')
+        self.scope_hint = intro = QLabel()
+        self.set_scope('All clips in this composition')
         intro.setWordWrap(True)
         layout.addWidget(intro)
         row = QHBoxLayout()
@@ -64,6 +65,10 @@ class PerformancePanel(QWidget):
         row.addWidget(clear); row.addWidget(reset); layout.addLayout(row); layout.addStretch(1)
         self.enabled.toggled.connect(self.enabledChanged)
         self.record.toggled.connect(self.recordChanged)
+
+    def set_scope(self, scope):
+        self.scope_hint.setText('Perform · ' + scope + '. Adjustments follow base values and clip automation. '
+                               'With Record off, editing a recorded knob replaces its recording with a fixed adjustment; Undo restores it.')
 
     def set_available(self, controls):
         keys = {c.key for c in controls}

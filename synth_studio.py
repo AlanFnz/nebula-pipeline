@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
 from studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBox, SpinBox as QSpinBox, Slider as QSlider
 from studio_widgets import configure_parameter_spin, PlaybackButton
 from synth_workspace_widgets import FlowLayout, ElidingLabel, WorkspaceSplitter, inline
+from synth_workspace_context import ContextHeader, ContextSummary, studio_context
 
 from media import Cancellation
 from studio_theme import COLORS, apply_theme, terminal_font, ui_font
@@ -419,7 +420,42 @@ class SynthStudio(PerformanceStudio, VisualSoundStudio, AudioReactivityStudio, S
         self.document_title.setText(('* ' if self.has_unsaved_changes() else '') + self.document_title.fontMetrics().elidedText(name + (' · detailed copy' if self.detailed_copy else ''), Qt.TextElideMode.ElideRight, 200))
         self.document_title.setToolTip(title)
         self.document_title.setAccessibleDescription(title)
+        self.refresh_workspace_context()
         self.refresh_sound_context()
+
+    def refresh_workspace_context(self):
+        """Identity and selection only; never touch authored data or prepare frames."""
+        if not hasattr(self, 'context_header'): return
+        context = studio_context(self)
+        self.context_header.refresh(context)
+        if getattr(self, 'performance_panel', None): self.performance_panel.set_scope(context.all_clips)
+        self.save_button.setText('Save montage' if context.block else 'Save')
+        self.save_button.setAccessibleName('Save ' + context.owner)
+        self.save_button.setToolTip(context.save_hint)
+        self.export_button.setToolTip('Export the complete montage, including this block.' if context.block
+                                      else 'Export the complete ' + context.owner + ' at the output canvas size.')
+        if self.composition is not None and self.composer is not None:
+            panel = self.composer
+            panel.block_context = context.block
+            panel.refresh_scope_context()
+            selected = [f'Clip {i + 1}' for i, s in enumerate(self.composition['sections'])
+                        if s['id'] in self.section_timeline.selected_ids]
+            selection = ', '.join(selected) if len(selected) <= 3 else f'{len(selected)} clips'
+            selection = selection or 'None'
+            editing = panel.editing_scope_name()
+            playback = ('Selected clips' if self.preview_scope.currentIndex() else
+                        'Block composition' if context.block else 'Entire timeline')
+            self.timeline_context.setText(f'Selected: {selection}  ·  Editing: {editing}  ·  Playback: {playback}')
+            self.timeline_context.setToolTip(self.timeline_context.text() + '\n' +
+                'Selection chooses timing and arrangement actions. Editing chooses the inspector target. '
+                'Playback sets the range to play. Selecting or playing does not change shared settings.')
+            self.legacy_scope.hide()
+        else:
+            self.timeline_context.setText('Playback: Entire sequence' if self.sequence is not None else 'Playback: Entire preset')
+            text = (f'Editing: State {self.sequence_state_name or "—"} · Master affects the entire sequence'
+                    if self.sequence is not None else 'Editing: Entire preset')
+            if self.detailed_copy: text += ' · Independent document; edits do not return to the original'
+            self.legacy_scope.setText(text); self.legacy_scope.show()
 
     def pending_text_edits(self):
         if self.composer is not None:
@@ -737,6 +773,8 @@ class SynthStudio(PerformanceStudio, VisualSoundStudio, AudioReactivityStudio, S
         section_tools.addWidget(self.timeline_navigation)
         section_tools.addWidget(self.section_hint)
         controls_layout.insertWidget(0, self.section_tools)
+        self.timeline_context = ContextSummary()
+        controls_layout.insertWidget(1, self.timeline_context)
         self.section_tools.setProperty('chrome', True)
         self.status = ElidingLabel(auto_hide=True); self.status.setObjectName('muted'); self.status.setAccessibleName('Operation status')
         self.transport = transport = QWidget(); transport.setProperty('chrome', True)
@@ -822,7 +860,16 @@ class SynthStudio(PerformanceStudio, VisualSoundStudio, AudioReactivityStudio, S
         self.composer_layout = QVBoxLayout(self.composer_host)
         self.composer_layout.setContentsMargins(8, 0, 0, 0)
         self.inspector_host.addWidget(self.composer_host)
-        split.addWidget(self.inspector_host); split.setSizes([820, 420]); outer.addWidget(split, 1)
+        inspector_column = QWidget(); inspector_column.setMinimumWidth(380)
+        inspector_layout = QVBoxLayout(inspector_column); inspector_layout.setContentsMargins(8, 0, 0, 0)
+        inspector_layout.setSpacing(5)
+        self.context_header = ContextHeader(); inspector_layout.addWidget(self.context_header)
+        self.legacy_scope = QLabel(); self.legacy_scope.setWordWrap(True); self.legacy_scope.hide()
+        inspector_layout.addWidget(self.legacy_scope)
+        inspector_layout.addWidget(self.inspector_host, 1)
+        self.composer_layout.setContentsMargins(0, 0, 0, 0)
+        self.panel_layout.setContentsMargins(0, 0, 0, 0)
+        split.addWidget(inspector_column); split.setSizes([820, 420]); outer.addWidget(split, 1)
         split.handle(1).setToolTip('Drag to resize the monitor and controls column.')
         self.setCentralWidget(root)
 
@@ -841,9 +888,10 @@ class SynthStudio(PerformanceStudio, VisualSoundStudio, AudioReactivityStudio, S
     def sync_timeline_editing_scope(self):
         panel = self.composer
         section = None
-        if panel and panel.scope and not panel.scope_combo.isHidden():
+        if panel and panel.scope and not panel.global_scope_reason() and not panel.arrangement_button.isChecked():
             section = panel.document['sections'][panel.index]['id']
         self.section_timeline.set_editing_section(section)
+        self.refresh_workspace_context()
 
     def refresh_timeline_view(self, *_args):
         shots = self.composition is not None and self.timeline_view.currentIndex() == 1
@@ -1909,6 +1957,7 @@ class SynthStudio(PerformanceStudio, VisualSoundStudio, AudioReactivityStudio, S
         scope = self.active_preview_scope()
         self.preview_scope.setEnabled(self.composition is not None)
         self.scope_summary.setText(f'{scope.occurrences} occurrences · {scope.count/self.preview_fps():.2f}s' if self.preview_scope.currentIndex() and self.composition else '')
+        self.refresh_workspace_context()
         self.refresh_cache_status()
 
     def preview_scope_label(self):

@@ -34,7 +34,7 @@ def editor(monkeypatch, tmp_path):
 def test_draft_apply_save_undo_and_monitor_states(editor):
     window, dialog, _ = editor
     original = copy.deepcopy(window.composition)
-    assert dialog.context_title.text() == original['name']
+    assert dialog.context_title.text() == 'Composition · ' + original['name']
     assert dialog.sound_state.text() == 'Sound: Applied'
     assert dialog.file_state.text() == 'File: Saved'
     assert not dialog.apply_button.isEnabled()
@@ -178,7 +178,7 @@ def test_read_only_visit_preserves_numeric_precision_and_render_recipe(editor):
     assert not dialog.has_sound_draft()
     dialog.set_playing(True);dialog.set_playing(False)
     dialog.tabs.setCurrentIndex(dialog.performance_tab)
-    assert dialog.workspace_hint.text() == 'Visuals · All clips · Edits apply immediately'
+    assert dialog.workspace_hint.text() == 'Visuals · All clips in this composition · Edits apply immediately'
     dialog.close()
     assert window.composition == before and window.sequence == sequence
 

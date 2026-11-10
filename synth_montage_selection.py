@@ -69,6 +69,7 @@ class MontageSelection:
         self.paste_button.setEnabled(bool(count and self.look))
         self.duplicate_button.setEnabled(bool(count)); self.remove_button.setEnabled(bool(count))
         self.update_timing_state(); self.update_material_context(); self.update_block_identification()
+        self.refresh_workspace_context()
 
     def load_timing_values(self):
         if self.timing_base is None: return

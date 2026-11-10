@@ -8,8 +8,17 @@ independent studies and footage.
 
 ## Scope and inherited settings
 
-**Editing: Entire project** changes shared settings. Double-click a clip to edit
+The inspector header names the composition or Montage block and its file status.
+The line above the timeline separates **Selected**, **Editing** and **Playback**:
+selection chooses arrangement actions; the inspector scope chooses what edits
+affect; Playback chooses the range to play. Long document names are available on
+hover or keyboard focus.
+
+**Editing: Composition** changes shared settings. Double-click a clip to edit
 it locally; an ordinary click selects it and seeks. Clip overrides take priority.
+Master, Perform and shared Ink timing affect all clips. Their header states that
+scope and disables the remembered **Return scope** until you leave that panel.
+Inside Montage, “all internal clips” refers only to the block being edited.
 
 **Base · Study animation** and **Study range** describe the recipe, before clip
 automation and Perform. **Monitor** shows a read-only value at the displayed
@@ -57,7 +66,7 @@ it has no composer Undo/Redo history, so keep separate saved versions.
 
 ## Effects and animation
 
-Use **Add project effect…** or **Add effect…**, preview a preset, then choose
+Use **Add shared effect…** or **Add clip effect…**, preview a preset, then choose
 **Apply effect**. Browsing does not edit the piece. **Intensity** blends the
 contribution; **Bypass / Resume** keeps settings. **Remove** clears the effect
 and its automation in the selected scope. Removing a project effect also clears
@@ -68,7 +77,7 @@ See the [effects reference](effects-reference.md) for choosing one.
 
 ### Processing order and instances
 
-In Entire project, drag an effect's six-dot handle to change order. Image effects
+In Composition, drag an effect's six-dot handle to change order. Image effects
 run top to bottom; source/output stages keep their fixed roles. **Study order**
 restores the recipe's order. **Tape damage → Add instance** adds an independent
 pass; other effect families currently have one instance each.

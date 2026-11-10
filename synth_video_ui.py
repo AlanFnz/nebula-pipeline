@@ -21,7 +21,7 @@ class VideoSourcePanel(QWidget):
         self.updating = False
         self.footage = None
         layout = QVBoxLayout(self)
-        self.title = QLabel('VIDEO SOURCE / entire project'); self.title.setObjectName('sectionTitle'); layout.addWidget(self.title)
+        self.title = QLabel('VIDEO SOURCE / composition'); self.title.setObjectName('sectionTitle'); layout.addWidget(self.title)
         self.source_mode = ComboBox(); self.source_mode.setAccessibleName('Clip footage source')
         self.source_mode.addItem('Use shared footage · continuous', False)
         self.source_mode.addItem('Independent footage · starts at In', True)
@@ -95,7 +95,7 @@ class VideoSourcePanel(QWidget):
         self.duration.clicked.connect(lambda: self.footage and self.durationRequested.emit((self.footage['out'] - self.footage['in']) / (self.speed.value() if self.section else 1.)))
         trim_layout.addWidget(self.duration)
         treatment_layout = self.sections.add_group('Treatment preset')
-        treatment_layout.addWidget(QLabel('Entire project · keep sources'))
+        treatment_layout.addWidget(QLabel('Composition · keep sources'))
         self.treatment = ComboBox(); self.treatment.setAccessibleName('Video treatment preset'); self.treatment.addItems([name for name, _ in TREATMENTS]); treatment_layout.addWidget(self.treatment)
         apply = QPushButton('Apply treatment preset'); apply.clicked.connect(lambda: self.treatmentRequested.emit(self.treatment.currentIndex()))
         apply.setToolTip('Replace image effects and master adjustments throughout this composition. Source, framing and clip durations stay in place. Undo restores the previous treatment.')
@@ -114,7 +114,7 @@ class VideoSourcePanel(QWidget):
             local = section is not None
             independent = local and 'footage' in section
             inherited = local and not independent
-            self.title.setText('VIDEO SOURCE / selected clip' if local else 'VIDEO SOURCE / entire project')
+            self.title.setText('VIDEO SOURCE / selected clip' if local else 'VIDEO SOURCE / composition')
             self.source_mode.setVisible(local); self.source_mode.setCurrentIndex(1 if independent else 0)
             self.scope_note.setText('Independent source: playback starts at In on each clip repeat.' if independent else
                                    'This clip continues the shared video. Trim and framing belong to the shared source. Later repeats continue from later source times.' if inherited and repeated else
