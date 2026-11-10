@@ -11,9 +11,20 @@ independent studies and footage.
 **Editing: Entire project** changes shared settings. Double-click a clip to edit
 it locally; an ordinary click selects it and seeks. Clip overrides take priority.
 
-**Animated · Study** means the recipe changes a value over time. **Use fixed
-value** replaces that parameter's animation. **↶** removes a local override and
-follows its parent again. Search and group folding only change the view.
+**Base · Study animation** and **Study range** describe the recipe, before clip
+automation and Perform. **Monitor** shows a read-only value at the displayed
+time, its clip and any additional modifiers. It never replaces the editor's base.
+If you are editing another clip, the monitor annotation says so.
+
+**Use fixed value** sets the proposed **Fixed base** in this scope; it does not
+sample the playhead or remove clip automation or Perform. **↶** removes only the
+local base override and follows its parent again. **Value sources** beside the
+scope selector explains the order. Search and group folding only change the view.
+
+Active or bypassed Perform adjustments appear above the inspector tabs, with
+**Open Perform** to reach them. Recorded knobs are labeled **Recorded movement**;
+editing one with Record off replaces that knob's recording. Undo restores it.
+Audio-responsive parameters show their monitor value **before audio response**.
 
 Changing the generated source keeps treatments, canvas and timing. For source
 controls, see [Sources and studies](sources-and-studies.md) and

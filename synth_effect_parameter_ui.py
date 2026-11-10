@@ -66,6 +66,8 @@ class EffectParameter(QWidget):
         self._context_key = None
         self._text_drafts = {}
         self.fixed_start = spec.default
+        self.study_animated = False
+        self.automation_count = 0
         self.numeric_maximum = None
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
         layout = QVBoxLayout(self); layout.setContentsMargins(0, 0, 0, 6); layout.setSpacing(4)
@@ -171,6 +173,11 @@ class EffectParameter(QWidget):
         self.fixed_choice.hide()
         self.origin = QLabel(); self.origin.setWordWrap(True)
         self.origin.setObjectName('muted'); layout.addWidget(self.origin)
+        self.frame_value = QLabel(); self.frame_value.setWordWrap(True)
+        self.frame_value.setTextFormat(Qt.TextFormat.PlainText)
+        self.frame_value.setObjectName('muted')
+        self.frame_value.setAccessibleName(spec.label + ' value at monitor time')
+        self.frame_value.hide(); layout.addWidget(self.frame_value)
         self._arrange_row()
 
     def resizeEvent(self, event):
@@ -257,6 +264,7 @@ class EffectParameter(QWidget):
         self.updateGeometry()
 
     def set_automation_count(self, count):
+        self.automation_count = count
         if self.animate_button:
             text = f"Automations ({count})…" if count else "Animate…"
             label = self.spec.label + (" · Base" if count else "")
@@ -266,6 +274,14 @@ class EffectParameter(QWidget):
             self.label.setText(label)
             self._row_mode = None
             self._arrange_row()
+
+    def set_frame_origin(self, info):
+        """Read-only monitor annotation; never write back into the base editor."""
+        text, detail = info if info else ('', '')
+        if self.frame_value.text() != text: self.frame_value.setText(text)
+        self.frame_value.setVisible(bool(text))
+        self.frame_value.setToolTip(detail)
+        self.frame_value.setAccessibleDescription(detail)
 
     def emit_change(self, value):
         if self.numeric_maximum is not None:
@@ -380,14 +396,16 @@ class EffectParameter(QWidget):
         self.fixed_start = low
         if self.path in INK_DURATIONS: self.fixed_start = max(0, low)
         animated = fixed is None and not inherited_fixed and low != high
+        self.study_animated = animated
+        self.set_frame_origin(None)
         self.value_stack.setCurrentIndex(1 if animated and not direct_text else 0)
         range_text = f'{format_value(self.path, low)} … {format_value(self.path, high)}'
-        self.animated_value.setText('Animated range · ' + range_text)
-        self.animated_value.setToolTip('Read-only animated range. Use fixed value below to replace this animation in the selected scope.')
-        self.proposed_value.setText(f'Start: {format_value(self.path, self.fixed_start)}')
+        self.animated_value.setText('Study range · ' + range_text)
+        self.animated_value.setToolTip('Read-only range of study values in this scope, before clip automation and Perform. It is not the value at the monitor time.')
+        self.proposed_value.setText(f'Fixed base: {format_value(self.path, self.fixed_start)}')
         proposal = 'Proposed initial fixed value from the displayed range; this is not a sampled playhead value.'
         self.proposed_value.setToolTip(proposal)
-        self.use_fixed.setToolTip(proposal + ' Other parameters keep following their animation.')
+        self.use_fixed.setToolTip(proposal + ' Replaces only this parameter’s study animation in the selected scope. Clip automation and Perform remain active; other parameters keep following the study.')
         self.fixed_choice.setVisible(animated and not direct_text); self.use_fixed.setEnabled(available)
         with QSignalBlocker(self.input):
             if self.presentation.checkbox:
@@ -415,9 +433,12 @@ class EffectParameter(QWidget):
         if fixed is not None:
             provenance = 'Entire project' if scope_label == 'Entire project' else 'Clip' if scope_label and scope_label.startswith('Clip') else 'Local'
         state = 'Animated' if animated else 'Fixed' if fixed is not None or inherited_fixed else 'Following'
-        self.origin.setText(origin_label or f'{state} · {provenance}' + ('' if available else ' · Unavailable'))
+        self.origin.setText(origin_label or f'Base · {state.lower()} · {provenance}' + ('' if available else ' · Unavailable'))
         explanation = f'{state} value from {scope_label or "this scope" if fixed is not None else provenance.lower()}. ' + \
-                      ('Enable or add this effect to edit its values.' if not available else 'Editing authors a fixed value in the selected scope.')
+                      ('Enable or add this effect to edit its values.' if not available else 'Editing authors a fixed base value in the selected scope. Clip overrides take priority over project values. Clip automation and Perform remain active.')
+        if animated:
+            self.origin.setText('Base · Study animation' + ('' if available else ' · Unavailable'))
+            explanation += ' Use fixed value replaces the study animation here, not the later modifiers.'
         if direct_text and animated:
             explanation = 'The study varies this wording. Apply replaces it in the selected scope; Restore follows the study again.'
             self.origin.setText('Study wording varies · Apply to replace')
@@ -437,5 +458,5 @@ class EffectParameter(QWidget):
         if self.slider: self.slider.setAccessibleDescription(explanation)
         self._arrange_row()
         restore_target = 'entire project' if inherited else 'study'
-        self.reset_button.setToolTip(f'Remove only this parameter’s local override and follow the {restore_target} again.')
-        self.setToolTip('Editing fixes this parameter across the scope; other study changes keep playing.')
+        self.reset_button.setToolTip(f'Remove only this parameter’s local override and follow the {restore_target} again. Clip automation and Perform are kept.')
+        self.setToolTip('Editing sets the base in this scope. Clip automation and Perform still act on it.')

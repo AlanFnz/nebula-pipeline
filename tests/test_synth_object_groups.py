@@ -96,7 +96,7 @@ def test_group_counts_distinguish_inherited_fixed_and_event_animation(panel):
     assert panel.object_groups['Palette'].summary.text() == '1 local value · 1 animated'
     assert panel.object_groups['Profile & scale'].summary.text() == '2 animated'
     panel.reveal_object_group('Palette'); settle()
-    assert panel.controls['pleated_field.light'].origin.text() == 'Fixed · Entire project'
+    assert panel.controls['pleated_field.light'].origin.text() == 'Base · fixed · Entire project'
     assert panel.controls['pleated_field.saturation'].reset_button.isEnabled()
     assert not panel.controls['pleated_field.light'].reset_button.isEnabled()
 

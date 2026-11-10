@@ -49,7 +49,7 @@ def test_animation_range_is_read_only_with_visible_proposal_and_deliberate_keybo
     assert isinstance(control.animated_value, QLabel)
     assert control.value_stack.currentWidget() is control.animated_value
     assert control.fixed_choice.isVisible()
-    assert control.proposed_value.text() == 'Start: ' + format_value(path, bounds[0])
+    assert control.proposed_value.text() == 'Fixed base: ' + format_value(path, bounds[0])
     assert 'not a sampled playhead' in control.proposed_value.toolTip()
     QTest.mouseClick(control.animated_value, Qt.MouseButton.LeftButton)
     control.refresh(bounds, None, False, True)
@@ -68,10 +68,10 @@ def test_disabled_animation_cannot_author_fixed_value_and_restore_is_local_only(
     control.use_fixed.click(); control.reset_button.click(); assert changes == resets == []
     control.refresh((.4, .4), None, True, True, parent_value=.4, scope_label='Clip 2 — Verse')
     assert control.input.value() == .4 and not control.reset_button.isEnabled()
-    assert control.origin.text() == 'Fixed · Entire project'
+    assert control.origin.text() == 'Base · fixed · Entire project'
     control.input.setValue(.46); assert changes == [.46]
     control.refresh((.46, .46), .46, True, True, parent_value=.4, scope_label='Clip 2 — Verse')
-    assert control.origin.text() == 'Fixed · Clip'
+    assert control.origin.text() == 'Base · fixed · Clip'
     control.reset_button.click(); assert resets == [True]
     assert 'only this parameter' in control.reset_button.toolTip()
     # Reset emits intent; the owning panel removes the local override.
@@ -86,7 +86,7 @@ def test_inherited_non_numeric_fixed_values_remain_editable_without_local_restor
     control = EffectParameter(path); changes = []; control.changed.connect(changes.append)
     control.refresh((value, value), None, True, True, parent_value=value)
     assert control.value_stack.currentWidget() is control.input
-    assert control.origin.text() == 'Fixed · Entire project'
+    assert control.origin.text() == 'Base · fixed · Entire project'
     assert not control.reset_button.isEnabled() and changes == []
     assert (control.input.currentIndex() if control.spec.choices else control.input.value()) == value
     control.close()

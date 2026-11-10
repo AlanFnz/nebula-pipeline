@@ -20,10 +20,10 @@ class PerformancePanel(QWidget):
         super().__init__(parent)
         self.setProperty('visualPerformance', True)
         self.config = defaults()
-        self.knobs = {}
+        self.knobs = {}; self.origins = {}
         self.boxes = {}; self.control_groups = {}; self.surface_hint = None
         layout = QVBoxLayout(self)
-        intro = QLabel('Perform the entire project. Turn a knob while playing, or record its movement for playback and export.')
+        intro = QLabel('Perform adjusts the entire project on top of its base values and clip automation. With Record off, editing a recorded knob replaces its recording with a fixed adjustment; Undo restores it.')
         intro.setWordWrap(True)
         layout.addWidget(intro)
         row = QHBoxLayout()
@@ -49,7 +49,10 @@ class PerformancePanel(QWidget):
                 knob.dial.sliderReleased.connect(self.gestureFinished)
                 self.knobs[control.key] = knob
                 self.control_groups[control.key] = group
-                grid.addWidget(knob, index // 2, index % 2)
+                grid.addWidget(knob, (index // 2) * 2, index % 2)
+                origin = QLabel(); origin.setObjectName('muted'); origin.setWordWrap(True)
+                self.origins[control.key] = origin
+                grid.addWidget(origin, (index // 2) * 2 + 1, index % 2)
             groups.addWidget(box)
             if group == 'Surface':
                 hint = QLabel('Surface controls reshape the object and need new frames. Their recordings follow the visual source clock. Frame, Motion and Finish reuse prepared frames at your selected resolution.')
@@ -65,6 +68,7 @@ class PerformancePanel(QWidget):
     def set_available(self, controls):
         keys = {c.key for c in controls}
         for key, knob in self.knobs.items(): knob.setVisible(key in keys)
+        for key, label in self.origins.items(): label.setVisible(key in keys)
         for group, box in self.boxes.items():
             box.setVisible(any(self.control_groups[key] == group for key in keys))
         if self.surface_hint: self.surface_hint.setVisible(any(key in keys for key in SURFACE_CONTROLS))
@@ -78,6 +82,12 @@ class PerformancePanel(QWidget):
         self.record.setText('Stop recording' if recording else 'Record knobs')
         count = len(self.config.get('tracks', {}))
         self.summary.setText('Recording · turn knobs while playing' if recording else f'{count} recorded controls · movements replay and export' if count else 'No recorded movements')
+        for key, label in self.origins.items():
+            recorded = bool(self.config.get('tracks', {}).get(key))
+            label.setText(('Recorded movement' if recorded else 'Fixed adjustment') +
+                          ('' if self.enabled.isChecked() else ' · bypassed'))
+            label.setToolTip('With Record off, editing this knob replaces its recorded movement. Undo restores it.'
+                            if recorded else 'This adjustment stays constant until you change or record it.')
         self.set_playhead(seconds, duration, force=force)
 
     def set_playhead(self, seconds, duration, force=False):

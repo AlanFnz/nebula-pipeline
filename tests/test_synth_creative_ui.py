@@ -64,6 +64,8 @@ def test_relative_slider_keeps_animation_and_parameters_edit_the_base(panels):
     assert editor.authored_summary['tape']['ranges']['tape.tracking'] == (.025, .07)
     assert editor.summary['tape']['ranges']['tape.tracking'] == pytest.approx((.0375, .105))
     editor.parameter_tabs.setCurrentIndex(1)
+    # Parameters are grouped; explicitly open the target's collapsed group.
+    editor.reveal_control('tape.tracking')
     detailed = editor.controls['tape.tracking']
     assert detailed.animated_value.text() and detailed.fixed_choice.isVisible()
     assert 'adjusted by' in detailed.origin.text()

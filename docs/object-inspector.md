@@ -39,7 +39,9 @@ overrides only in the editing scope, and flag animated ranges or timed events.
 
 
 Use the restore arrow to remove a local parameter override and follow its parent
-again. **Animated · Study** ranges summarize authored changes; **Use fixed value**
-replaces only that parameter's animation. Text fields keep pending drafts during
+again. **Base · Study animation** and **Study range** summarize authored changes.
+**Monitor** identifies the displayed clip, value and modifiers. **Use fixed value**
+replaces only that parameter's study animation in this scope; clip automation and
+Perform are kept. **Value sources** explains their order. Text fields keep pending drafts during
 navigation; **Apply main text** and **Apply subtitle** commit them. Save validates
 and applies retained text drafts. Folding/searching alone does not apply edits.

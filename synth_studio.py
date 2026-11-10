@@ -1057,6 +1057,9 @@ class SynthStudio(PerformanceStudio, VisualSoundStudio, AudioReactivityStudio, S
             self.composer.effects_panel.refresh_breakdown()
             self.composer.effects_panel.discovery_requested.connect(self.open_effect_discovery)
             self.composer.effects_panel.navigation_changed.connect(self.refresh_effect_explanations)
+            self.composer.object_panel.navigation_changed.connect(self.refresh_effect_explanations)
+            self.composer.object_editor.navigation_changed.connect(self.refresh_effect_explanations)
+            self.composer.look_tabs.currentChanged.connect(lambda _: self.refresh_effect_explanations())
             self.composer.effects_panel.finishing_requested.connect(lambda: self.composer.look_tabs.setCurrentIndex(2))
             self.composer.effects_panel.master_requested.connect(lambda: self.composer.look_tabs.setCurrentWidget(self.composer.master_panel))
             self.composer.effects_panel.source_requested.connect(lambda: self.composer.look_tabs.setCurrentWidget(self.composer.video_panel))
@@ -2448,11 +2451,32 @@ class SynthStudio(PerformanceStudio, VisualSoundStudio, AudioReactivityStudio, S
         seconds = seconds if isinstance(seconds, (int, float)) else self.timeline.value()/self.preview_fps()
         # The editor owns an already compiled/normalized sequence. Revalidating
         # every state here stalls cached video and starves live audio output.
-        resolved = resolve_sequence_frame(self.sequence, seconds, normalized=True)
-        panel.set_explanations(explain_effect(self.composition, self.sequence, panel.effect_id, seconds, sid, resolved))
+        source_seconds = seconds if self.comparison else self.performance_source_time(seconds)
+        resolved = resolve_sequence_frame(self.sequence, source_seconds, normalized=True)
+        panel.set_explanations(explain_effect(self.composition, self.sequence, panel.effect_id, source_seconds, sid, resolved))
+        from synth_parameter_origin import FrameOrigins, performance_summary
+        origins = FrameOrigins(self.composition, self.sequence, seconds, resolved)
+        monitor_note = None
+        if self.comparison:
+            monitor_note = ('Monitor: A/B preview · editing the working project',
+                            'The monitor is comparing a snapshot or temporary preview. Exit comparison to inspect the working project’s frame values.')
+        elif self.preview_bypass():
+            monitor_note = ('Monitor: source preview · treatments bypassed',
+                            'Return to the processed preview to inspect frame values. Base editors still change the working project.')
+        for owner in (panel, self.composer.object_editor, self.composer.object_panel):
+            if not owner.isVisible(): continue
+            for path, control in owner.controls.items():
+                info = origins.describe(path, animated=control.study_animated,
+                                        automation_count=control.automation_count, selected_id=sid)
+                control.set_frame_origin(monitor_note if monitor_note and info else info)
+        title, detail = performance_summary(self.sequence.get('visual_performance'))
+        self.composer.performance_notice.setText(title + ' · <a href="perform">Open Perform</a>' if title else '')
+        self.composer.performance_notice.setToolTip(detail)
+        self.composer.performance_notice.setAccessibleDescription(detail)
+        self.composer.performance_notice.setVisible(bool(title))
         if panel.color_panel.isVisible(): panel.color_panel.refresh()
         if panel.breakdown_host.isVisible():
-            panel.update_breakdown_status({key: explain_effect(self.composition, self.sequence, key, seconds, sid, resolved)
+            panel.update_breakdown_status({key: explain_effect(self.composition, self.sequence, key, source_seconds, sid, resolved)
                                            for key in panel.breakdown_rows})
 
 

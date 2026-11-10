@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.86.0 — 2026-11-10
+
+- The inspector distinguishes the editable base from the read-only value at the
+  monitor time, including its clip, clip automation and Perform surface controls.
+  It identifies inherited project values, clip overrides, inactive automation and
+  bypassed effects. Audio responses are explicitly excluded from that sample.
+- Value sources explains precedence and what Use fixed value and Restore change.
+  Perform adjustments have a direct inspector link and each knob identifies its
+  recorded movement or fixed adjustment, including what editing a recording does.
+- Presentation only: no study migrations, parameter defaults, rendering, sound,
+  automation timing or saved project formats changed.
+
 Release history. Entries describe their version, including then-current limits
 and validation; use the [documentation index](docs/README.md) for current usage.
 Untagged work can be ahead of the most recent version.

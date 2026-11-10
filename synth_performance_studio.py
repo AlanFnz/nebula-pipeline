@@ -44,6 +44,8 @@ class PerformanceStudio:
     def attach_performance_panel(self):
         self.performance_panel = self.make_performance_panel()
         self.composer.look_tabs.addTab(self.performance_panel, 'Perform')
+        self.composer.performance_notice.linkActivated.connect(
+            lambda _: self.composer.look_tabs.setCurrentWidget(self.performance_panel))
         self.composer.look_tabs.currentChanged.connect(self.performance_tab_changed)
         self.refresh_performance_panels()
 
