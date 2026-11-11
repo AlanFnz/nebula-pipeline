@@ -8,7 +8,7 @@ from PIL import Image
 from synth import MODULE_BY_ID, default_synth_preset
 from synth_blender import ORBITAL_VARIANT_KEYS, render_blender_scene
 from synth_blender_recipes import (yin_yang_composition, yin_yang_flowing_composition,
-    yin_yang_drifting_composition, orbital_clean_painted_composition,
+    yin_yang_drifting_composition, yin_yang_continuous_composition, orbital_clean_painted_composition,
     orbital_smooth_painted_composition, optical_relic_composition)
 from synth_composition import compile_composition, save_composition, load_composition
 from synth_sequence import render_sequence_frame
@@ -33,11 +33,15 @@ def test_yin_yang_roundtrip_retains_only_two_moving_pieces(monkeypatch,tmp_path)
     assert all(params[f'orbit_shape_{i}']==0 for i in (1,3,4,5))
     assert set(kwargs['parts'])=={'ring3','ring4','ring5','core'}
     assert all(not edit['visible'] for edit in kwargs['parts'].values())
-    assert project==original==load_composition(tmp_path/'yin.json')==yin_yang_drifting_composition()
+    assert project==original==load_composition(tmp_path/'yin.json')==yin_yang_continuous_composition()
     assert project['source']['states']['rings']['enabled']==['blender_scene','optical_diffusion']
     settings=project['source']['states']['rings']['overrides']
     assert settings['blender_scene.period']==settings['optical_diffusion.period']==15.
     assert params['orbit_pace_2']>0. and params['orbit_drift_2']>0.
+    assert params['orbit_turns_1']==3 and params['size']==.88
+    for frame in range(10):
+        render_sequence_frame(seq,frame/30.,(72,90))
+    assert len({angle for _,angle,_ in calls[-10:]})==10  # no held poses
     for seconds in (0.,7.5,15.):
         render_sequence_frame(seq,seconds,(72,90))
     assert calls[-1]==calls[-3] and calls[-2]!=calls[-1]
@@ -74,6 +78,7 @@ def test_neutral_variants_preserve_original_requests_and_frozen_recipes(monkeypa
     assert optical_relic_composition()==json.loads((root/'optical-relic-v1.json').read_text())
     assert yin_yang_composition()==json.loads((root/'yin-yang-v1.json').read_text())
     assert yin_yang_flowing_composition()==json.loads((root/'yin-yang-v2.json').read_text())
+    assert yin_yang_drifting_composition()==json.loads((root/'yin-yang-v3.json').read_text())
 
 
 def test_painted_study_only_smooths_white_ring():

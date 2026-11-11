@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.99.0 — 2026-11-11
+
+- Make **Yin yang / orbital balance** move continuously at 30 fps, with no held
+  poses. The outer ring turns 50% faster and the framing leaves more side space.
+  Keep the varied inner orbit, 15-second loop, canvas and optical finish.
+  Earlier recipes and saved projects retain their settings.
+
 ## 0.98.0 — 2026-11-11
 
 - Apply orbit smoothing to the white ring in **Orbital rings / painted motion**.

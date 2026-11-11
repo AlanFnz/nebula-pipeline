@@ -155,3 +155,12 @@ def yin_yang_drifting_composition():
         'blender_scene.orbit_pace_1':.24, 'blender_scene.orbit_drift_1':5.,
         'blender_scene.orbit_pace_2':.80, 'blender_scene.orbit_drift_2':24.})
     return normalize_composition(project)
+
+
+def yin_yang_continuous_composition():
+    """Fluid frame-by-frame orbits with more space around the sculpture."""
+    project=yin_yang_drifting_composition()
+    project['source']['states']['rings']['overrides'].update({
+        'blender_scene.pose_steps':0, 'blender_scene.orbit_turns_1':3,
+        'blender_scene.size':.88})
+    return normalize_composition(project)

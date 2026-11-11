@@ -169,7 +169,10 @@ a yin-yang disc. Its transform, orbit and own material use the existing part
 controls. **Whole assembly → Material** adjusts dot size and the dark tone;
 **Stage & lighting → Studio finish** switches between the painted landscape
 and optical metal studio. **Optical diffusion** controls the photographic finish.
-The study makes one slower evolution over 15 seconds and loops continuously.
+The disc makes one slower evolution over 15 seconds, with a faster outer ring
+and continuous 30 fps movement. The loop closes seamlessly. **Whole assembly →
+Loop & motion → Poses per loop** is zero for fluid movement; increase it for held
+poses. **Framing size** adjusts the space around the sculpture.
 In each ring’s **Authored orbit**, **Pace variation** creates uneven slowdowns
 and accelerations; **Axis drift** varies the inclination in degrees. **Whole
 assembly → Loop & motion → Motion pattern** chooses a different repeatable path.
