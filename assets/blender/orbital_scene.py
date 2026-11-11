@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 from bisect import bisect_right
 import math
+from functools import lru_cache
 import bpy
 from mathutils import Vector, Matrix, Euler
 import scene_worker as shared
@@ -179,6 +180,28 @@ def measured_normal(key, phase):
     return v0.lerp(v1,factor).normalized()
 
 
+@lru_cache(maxsize=4)
+def orbit_coefficients(key):
+    """Low harmonics retain the authored precession without tracking jitter."""
+    import numpy as np
+    track=np.asarray(TRACKS[key],dtype=float)
+    angle=math.tau*track[:,0]
+    basis=np.column_stack([np.ones(len(track)),
+        *(f(k*angle) for k in range(1,6) for f in (np.cos,np.sin))])
+    return tuple(Vector(row) for row in np.linalg.lstsq(basis,track[:,1:],rcond=None)[0])
+
+
+def orbit_normal(key, phase, smoothing=0.):
+    if smoothing <= 0.: return measured_normal(key,phase)
+    # A periodic fit closes both position and velocity. Each sample is derived
+    # from timeline phase, so seeks, reverse playback and export agree.
+    angle=math.tau*(phase%1.)
+    weights=[1.,*(f(k*angle) for k in range(1,6) for f in (math.cos,math.sin))]
+    smooth=sum((v*w for v,w in zip(orbit_coefficients(key),weights)),Vector()).normalized()
+    if smoothing >= 1.: return smooth
+    return measured_normal(key,phase).lerp(smooth,smoothing).normalized()
+
+
 def pose(angle,p,overrides):
     for name in ('Olive ground','Painted blue sky'):
         node=bpy.data.materials[name].node_tree.nodes.get('Landscape drift')
@@ -196,7 +219,7 @@ def pose(angle,p,overrides):
         else: angle_outer=angle
         tilt=math.radians(p['orbit_tilt_'+str(i)])
         if i>1 and p.get('orbit_tumble',1.):
-            n=measured_normal(key,angle/math.tau*rate+phase)
+            n=orbit_normal(key,angle/math.tau*rate+phase,p.get('orbit_smooth_'+str(i),0.))
             # A round ring has no visible roll. The illustrated disc does:
             # keep its up axis stable instead of twisting near the back view.
             measured=(n.to_track_quat('-Y','Z') if p.get('orbit_shape_'+str(i),0)

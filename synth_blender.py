@@ -91,6 +91,9 @@ def orbital_parameters(P):
     ]
     for i,(turns,phase,tilt) in enumerate(((3,0,0),(1,0,0),(1,0,0),(1,0,0),(1,0,0)),1):
         settings.append(P('orbit_shape_'+str(i), f'Ring {i} · Shape', 0, 0, 1, 1, choices=('Ring', 'Yin yang disc')))
+        if i>1:
+            settings.append(P('orbit_smooth_'+str(i), f'Ring {i} · Orbit smoothing', 0., 0., 1., .05,
+                              'Smooth the authored precession to remove small reversals. Zero retains its original path; one gives a smooth repeating curve. Pose cadence stays separate.'))
         settings.extend((P('orbit_turns_'+str(i),f'Ring {i} · Orbit turns',turns,-8,8,1,
                            'Turns per shared loop. Zero stops this ring; a negative value reverses it.'),
                          P('orbit_phase_'+str(i),f'Ring {i} · Orbit phase',phase,-180.,180.,1.),
@@ -100,7 +103,8 @@ def orbital_parameters(P):
 
 ORBITAL_KEYS = frozenset(p.key for p in orbital_parameters(lambda key,*a,**kw:SimpleNamespace(key=key)))
 
-ORBITAL_VARIANT_KEYS = frozenset(('orbital_finish','yin_dot','yin_darkness',*(f'orbit_shape_{i}' for i in range(1,6))))
+ORBITAL_SMOOTH_KEYS = frozenset(f'orbit_smooth_{i}' for i in range(2,6))
+ORBITAL_VARIANT_KEYS = frozenset(('orbital_finish','yin_dot','yin_darkness',*(f'orbit_shape_{i}' for i in range(1,6)))) | ORBITAL_SMOOTH_KEYS
 
 MOTION_KEYS = frozenset(('period', 'phase', 'direction', 'ease', 'effect_intensity','motion_exposure','exposure_delay'))
 
@@ -126,7 +130,9 @@ def render_blender_scene(arr, p, seconds, preset):
     # Neutral additions do not change legacy source requests.
     if not parameters.get('orbital_finish',0): parameters.pop('orbital_finish',None)
     if not any(parameters.get(f'orbit_shape_{i}',0) for i in range(1,6)):
-        for key in ORBITAL_VARIANT_KEYS-{'orbital_finish'}: parameters.pop(key,None)
+        for key in ORBITAL_VARIANT_KEYS-ORBITAL_SMOOTH_KEYS-{'orbital_finish'}: parameters.pop(key,None)
+    for key in ORBITAL_SMOOTH_KEYS:
+        if not parameters.get(key,0.): parameters.pop(key,None)
     parameters.update(framing_height=h/max(1.,ch), offset_x=dx/w, offset_y=dy/h)
     def sample(time):
         parts = part_poses(p,time,preset['speed'])

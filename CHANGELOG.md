@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.97.0 — 2026-11-11
+
+- Refine **Yin yang / orbital balance** to 15 seconds: two complete 7.5-second
+  cycles, with the brief recoil in the disc's orbit removed. Keep its sculpture,
+  metallic finish and held-pose cadence.
+- Add **Orbit smoothing** to the inner orbital pieces. It smooths their authored
+  trajectories and remains editable per piece. The default is off, so earlier
+  studies and saved projects keep their original movement.
+
 ## 0.96.0 — 2026-11-11
 
 - Add **Yin yang / orbital balance**: the outer orbital ring and a solid yin-yang

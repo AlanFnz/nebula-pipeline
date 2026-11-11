@@ -158,7 +158,7 @@ All controls use the same saving, Undo, preview and export paths as other studie
 
 ## Yin yang / orbital balance
 
-An 11.3-second study combining Orbital rings’ outer ring and second piece with
+A 15-second study combining Orbital rings’ outer ring and second piece with
 Optical relic’s metallic finish. The second piece is a solid yin-yang disc;
 the other inner rings and center sphere are hidden. The pedestal and finial stay.
 
@@ -167,6 +167,9 @@ a yin-yang disc. Its transform, orbit and own material use the existing part
 controls. **Whole assembly → Material** adjusts dot size and the dark tone;
 **Stage & lighting → Studio finish** switches between the painted landscape
 and optical metal studio. **Optical diffusion** controls the photographic finish.
+The study repeats two complete 7.5-second cycles. **Ring 2 → Authored orbit →
+Orbit smoothing** removes small hesitations in the disc’s path; zero restores
+the original motion. The other inner rings have the same optional control.
 The earlier studies and saved projects retain their settings.
 
 ## Spectral tunnel / luminous ripple

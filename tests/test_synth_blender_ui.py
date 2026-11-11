@@ -127,4 +127,11 @@ def test_yin_yang_shape_material_and_finish_are_editable_with_undo(window,monkey
     assert panel.controls['blender_scene.yin_dot'].isVisible()
     panel.controls['blender_scene.yin_dot'].input.setValue(.2)
     window.undo_composition();assert window.composition==original
+    panel.reveal_control('blender_scene.orbit_smooth_2')
+    assert panel.part_selector.currentData()=='ring2'
+    control=panel.controls['blender_scene.orbit_smooth_2'].input
+    assert control.isVisible() and control.value()==1.
+    control.setValue(.5)
+    assert window.composition['effects']['blender_scene']['params']['blender_scene.orbit_smooth_2']==.5
+    window.undo_composition();assert window.composition==original
     wait_until(lambda:not window.render_running and not window.render_queued)

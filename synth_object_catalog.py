@@ -95,7 +95,8 @@ def family_groups(kind):
         for i in range(1,6):
             page = next(j for j,p in enumerate(PARTS,1) if p[0] == f'ring{i}')
             groups.append((page, f'Ring {i} / Geometry', False, (f'blender_scene.orbit_shape_{i}',)))
-            groups.append((page, f'Ring {i} / Authored orbit', False, tuple('blender_scene.orbit_'+key+'_'+str(i) for key in ('turns','phase','tilt'))))
+            fields=('turns','phase','tilt') + (('smooth',) if i>1 else ())
+            groups.append((page, f'Ring {i} / Authored orbit', False, tuple('blender_scene.orbit_'+key+'_'+str(i) for key in fields)))
     assigned = {p for _, _, _, members in groups for p in members}
     groups.extend((0, title, False, tuple(members)) for title, members
                   in grouped_paths(p for p in available if p not in assigned))

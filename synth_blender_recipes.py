@@ -123,3 +123,16 @@ def yin_yang_composition():
     project=composition_from_sequence(normalize_sequence(source))
     project['phrases']['custom']['name']='Outer ring & yin yang / Blender scene'
     return normalize_composition(project)
+
+
+def yin_yang_flowing_composition():
+    """Two complete cycles with the same sculpture and optical finish."""
+    source=yin_yang_composition()['source']
+    source['duration']=15.
+    source['states']['rings']['overrides'].update({
+        'blender_scene.orbit_smooth_2':1.,
+        'blender_scene.period':7.5,
+        'optical_diffusion.period':7.5})
+    project=composition_from_sequence(normalize_sequence(source))
+    project['phrases']['custom']['name']='Outer ring & yin yang / Blender scene'
+    return normalize_composition(project)

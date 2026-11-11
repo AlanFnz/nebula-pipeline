@@ -8,6 +8,25 @@ import orbital_scene as scene
 import orbital_variants as variants
 from mathutils import Matrix
 
+# Smoothing is opt-in and periodic, including its velocity at the loop seam.
+for key,track in scene.TRACKS.items():
+    for sample in track:
+        phase=sample[0]
+        assert scene.orbit_normal(key,phase,0.)==scene.measured_normal(key,phase)
+        fitted=scene.orbit_normal(key,phase,1.)
+        assert abs(fitted.length-1.)<1e-5
+        assert (fitted-scene.orbit_normal(key,phase+1.,1.)).length<1e-5
+    h=.00001
+    left=(scene.orbit_normal(key,0.,1.)-scene.orbit_normal(key,-h,1.))/h
+    right=(scene.orbit_normal(key,h,1.)-scene.orbit_normal(key,0.,1.))/h
+    assert (left-right).length<.2
+# The tracked path recoils briefly before continuing around the 7–8 s region.
+assert scene.measured_normal('ring2',.133).x>scene.measured_normal('ring2',.120).x
+assert scene.orbit_normal('ring2',.133,1.).x<scene.orbit_normal('ring2',.120,1.).x
+x=[scene.orbit_normal('ring2',.08+i*.0002,1.).x for i in range(601)]
+directions=[b>a for a,b in zip(x,x[1:])]
+assert sum(a!=b for a,b in zip(directions,directions[1:]))==1
+
 p=json.loads(Path(sys.argv[sys.argv.index('--')+1]).read_text())
 scene.build(p);variants.apply(p)
 identity=dict(position=[0.,0.,0.],rotation=[0.,0.,0.],scale=[1.,1.,1.],visible=True,follow=True,material=None)
@@ -34,7 +53,7 @@ scene.pose(0.,p,hidden);bpy.context.view_layer.update();start=disc.matrix_world.
 scene.pose(math.tau,p,hidden);bpy.context.view_layer.update()
 assert max(abs(start[i][j]-disc.matrix_world[i][j]) for i in range(4) for j in range(4))<1e-5
 # A printed symbol makes the legacy shortest-arc roll singularity visible.
-# Its new frame follows exactly the same normals without an abrupt 50° flip.
+# The symbol follows the selected normals without an abrupt 50° flip.
 previous=None
 for frame in range(226):
     scene.pose(math.tau*frame/226,p,hidden)
