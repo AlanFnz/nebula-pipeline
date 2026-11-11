@@ -205,6 +205,9 @@ def _background_mask(coverage, radius):
 def render_print_surface(arr, p, time, speed, seed):
     if p['mix'] == 0:
         return arr
+    if p.get('surface', 0) == 1:
+        from synth_print_paint import render_painted_surface
+        return render_painted_surface(arr, p, time, speed, seed)
     h, w = arr.shape[:2]
     scale = min(w, h) / 720
     tick = math.floor(time * speed * p['cadence'] + 1e-8)

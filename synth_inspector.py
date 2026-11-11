@@ -5,6 +5,13 @@ def control_group(path):
     from synth_instances import base_path
     path = base_path(path)
     module, key = path.split('.')
+    if module == 'print_surface':
+        if key == 'surface': return 'Surface'
+        if key in ('paint_drift', 'paint_registration', 'registration', 'rotation_jitter', 'cadence', 'boil', 'paper_motion', 'paint_period'): return 'Motion & timing'
+        if key in ('paint_outline', 'paint_outline_width', 'paint_rim'): return 'Drawing & edges'
+        if key in ('mix', 'effect_intensity'): return 'Output & blending'
+        if key.startswith('paint_') or key in ('ink_grain', 'ink_wear', 'grain_size'): return 'Pigment'
+        return 'Paper & scan'
     if module == 'blender_scene':
         from synth_blender_parts import part_controls, PARTS
         part = part_controls(key)

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.94.0 — 2026-11-11
+
+- Extend **Print surface** with **Painted color**: soft tone regions, drawn
+  contours, exposed paper edges and color that shifts independently from its
+  outline. Pigment renews at Scan FPS, with an optional repeating texture cycle.
+  Works on generated objects and footage; controls save and support Undo.
+- Refine the finish of **Orbital rings / painted motion**, retaining its scene,
+  editable pieces, choreography and duration. The first recipe remains frozen;
+  existing saved projects keep their previous finish. The new paint controls are
+  opt-in, and both earlier Print surface modes retain their original rendering.
+
 ## 0.93.0 — 2026-11-11
 
 - Add **Orbital rings / painted motion**, an 11.3-second, 720×900 study based

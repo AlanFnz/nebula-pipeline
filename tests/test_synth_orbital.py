@@ -64,7 +64,8 @@ def test_new_study_roundtrip_and_exposures_use_shared_renderer(monkeypatch,tmp_p
     assert len(calls)==2 and calls[0][0]==calls[1][0] and calls[0][1]!=calls[1][1]
     assert 'motion_exposure' not in calls[0][0]
     assert np.asarray(out).shape==(90,72,3)
-    assert load_composition(tmp_path/'rings.json')==original==starter_composition('orbital-rings')
+    assert load_composition(tmp_path/'rings.json')==original
+    assert original==json.loads((Path(__file__).parents[1]/'presets/orbital-rings-v1.json').read_text())
     assert optical_relic_composition()==starter_composition('optical-relic')
 
 

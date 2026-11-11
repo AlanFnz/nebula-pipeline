@@ -697,6 +697,9 @@ class EffectsPanel(QWidget):
         if effect.id == 'solid':
             hidden = hidden_solid_controls(self.summary[effect.id]['ranges'])
             visible_paths = tuple(path for path in visible_paths if path not in hidden)
+        if effect.id == 'print_surface':
+            from synth_print_paint import applicable_paths
+            visible_paths = applicable_paths(visible_paths, self.summary[effect.id]['ranges']['print_surface.surface'])
         if effect.id == 'prismatic_field':
             shape = self.summary[effect.id]['ranges']['prismatic_field.shape']
             if shape[0] == shape[1] and shape[0] != 0:

@@ -64,3 +64,27 @@ def orbital_rings_composition():
     project=composition_from_sequence(source)
     project['phrases']['custom']['name']='Five nested rings / Blender scene'
     return normalize_composition(project)
+
+
+def orbital_painted_composition():
+    """Second finish; keep the first sculpture, choreography and recipe intact."""
+    from synth_effects import effect_preset
+    project=orbital_rings_composition()
+    settings={
+        'print_surface':dict(surface=1,paint_flatten=.85,paint_tones=5,paint_wash=.6,
+            paint_drift=1.6,paint_registration=3.,paint_outline=.36,
+            paint_outline_width=1.2,paint_rim=.65,paint_period=226/30,
+            cadence=8,ink_grain=1.,ink_wear=.3,grain_size=1.3,boil=.85,
+            paper_motion=.05,registration=.0004,rotation_jitter=.035,softness=.15,mix=1.),
+        'optical_diffusion':dict(softness=.45),
+        'film_burn':dict(grain=.025,melt=.4,softness=.2),
+    }
+    for name, values in settings.items():
+        entry=effect_preset(name)
+        # Preserve every existing authored setting before applying this finish.
+        entry['params']={key:value for key,value in project['source']['states']['rings']['overrides'].items()
+                         if key.startswith(name+'.')}
+        entry['params'].update({name+'.'+key:value for key,value in values.items()})
+        project['effects'][name]=entry
+    project['effect_order']=['print_surface','optical_diffusion','film_burn','broadcast']
+    return normalize_composition(project)

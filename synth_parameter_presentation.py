@@ -13,6 +13,7 @@ class ParameterPresentation:
 # Explicit paths avoid treating arbitrary angles, rates or normalized distances
 # as physical units. In particular, separation.angle is a normalized direction.
 SECONDS = frozenset({
+    'print_surface.paint_period',
     'signal_tension.persistence', 'signal_tension.period',
     'image_memory.persistence', 'image_memory.period',
     'blender_scene.period', 'optical_diffusion.period', 'spectral_tunnel.period', 'chromatic_lattice.period', 'chromatic_lattice.color_period',
@@ -44,7 +45,7 @@ DEGREES = frozenset({
     'screen_mesh.angle', 'crt_capture.angle',
 })
 DEGREES_PER_SECOND = frozenset({'image_memory.spin', 'particles.rotation_speed', 'particles.orbit_speed', 'prismatic_field.rotation_speed', 'solid.turn_speed', 'solid.tumble_speed', 'solid.roll_speed'})
-PIXELS = frozenset({'low_res.resolution'})
+PIXELS = frozenset({'low_res.resolution', 'print_surface.paint_drift', 'print_surface.paint_registration', 'print_surface.paint_outline_width'})
 PERCENTAGES = frozenset({'image_memory.amplitude_x', 'image_memory.amplitude_y'})
 HUES = frozenset({
     'dye_transfer.paper_hue', 'dye_transfer.ink_hue',

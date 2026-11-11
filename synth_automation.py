@@ -58,6 +58,8 @@ TARGETS = frozenset({
 TARGETS |= frozenset(PATHS.values())
 from synth_blender_parts import AUTOMATION_TARGETS as BLENDER_PART_TARGETS
 TARGETS |= BLENDER_PART_TARGETS
+from synth_print_paint import PAINT_KEYS
+TARGETS |= frozenset('print_surface.'+key for key in PAINT_KEYS)
 STAGES = ('start', 'attack', 'hold', 'recovery')
 MAX_SECTION_EVENTS = 131072
 MAX_SEQUENCE_EVENTS = 131072
