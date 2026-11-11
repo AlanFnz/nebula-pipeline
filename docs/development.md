@@ -2,6 +2,10 @@
 
 [Documentation](README.md) · [Versioning](../VERSIONING.md)
 
+Reference studies should reuse or extend existing sources and effects before
+adding parallel tools. Keep useful controls editable and preserve earlier study
+recipes. See [the development guidelines](../AGENTS.md).
+
 ## Run from source
 
 Run these commands from the repository root. The recorded macOS development
