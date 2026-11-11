@@ -105,3 +105,26 @@ def test_orbital_navigation_is_scoped_without_rewriting_other_studies(window,mon
     assert panel.object_jump.findData('Ring 3 / Authored orbit')==-1
     assert panel.object_jump.findData('Upper hoop / Transform')!=-1
     wait_until(lambda:not window.render_running and not window.render_queued)
+
+
+def test_yin_yang_shape_material_and_finish_are_editable_with_undo(window,monkeypatch):
+    import synth_blender_bridge as bridge
+    monkeypatch.setattr(bridge,'render_frame',lambda p,a,size,**kw:Image.new('RGB',size,'seagreen'))
+    window.set_composition(starter_composition('yin-yang'))
+    panel=window.composer.object_panel;window.composer.look_tabs.setCurrentWidget(panel)
+    original=copy.deepcopy(window.composition)
+    panel.reveal_control('blender_scene.orbit_shape_2')
+    assert panel.part_selector.currentData()=='ring2'
+    control=panel.controls['blender_scene.orbit_shape_2'].input
+    assert control.currentText()=='Yin yang disc'
+    control.setCurrentIndex(0)
+    assert window.composition!=original
+    window.undo_composition();assert window.composition==original
+    panel.reveal_control('blender_scene.reflection_contrast')
+    assert panel.controls['blender_scene.reflection_contrast'].isVisible()
+    assert 'blender_scene.stage_bands' not in panel.object_eligible
+    panel.reveal_control('blender_scene.yin_dot')
+    assert panel.controls['blender_scene.yin_dot'].isVisible()
+    panel.controls['blender_scene.yin_dot'].input.setValue(.2)
+    window.undo_composition();assert window.composition==original
+    wait_until(lambda:not window.render_running and not window.render_queued)

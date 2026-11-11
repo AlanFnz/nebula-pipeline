@@ -22,6 +22,10 @@ def control_group(path):
                      'Independent motion' if field in ('period','phase','ease','turns_x','turns_y','turns_z') else 'Transform')
             return label+' / '+group
         if key in ('period','phase','direction','ease'): return 'Loop & motion'
+        if key.startswith('orbit_shape_'): return 'Ring '+key.rsplit('_',1)[1]+' / Geometry'
+        if key.startswith('orbit_') and key.rsplit('_',1)[1].isdigit(): return 'Ring '+key.rsplit('_',1)[1]+' / Authored orbit'
+        if key in ('yin_dot','yin_darkness'): return 'Material'
+        if key == 'orbital_finish': return 'Stage & lighting'
         if key in ('size','camera_yaw','camera_elevation'): return 'Camera'
         if key in ('metal_hue','metal_saturation','metallic','roughness','reflection_contrast'): return 'Material'
         if key in ('background_hue','background_saturation','light_angle','light_size','light_power','environment','exposure'): return 'Stage & lighting'

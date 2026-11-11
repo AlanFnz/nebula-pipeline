@@ -363,7 +363,14 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
             self.refresh_part_navigation(scene)
             active_parts = {p[0] for p in parts_for(scene)}
             if scene == 0: hide(*('blender_scene.'+key for key in ORBITAL_KEYS))
-            else: hide(*('blender_scene.'+key for key in ('tube_radius','hoop_bow','hoop_twist','axle_length','reflection_contrast')))
+            else:
+                ranges = summary['blender_scene']['ranges']
+                hide(*('blender_scene.'+key for key in ('tube_radius','hoop_bow','hoop_twist','axle_length')))
+                if ranges['blender_scene.orbital_finish'] == (1,1):
+                    hide(*('blender_scene.'+key for key in ('paint_light','accent_hue','accent_saturation','accent_light','surface_grain','sky_light','ground_hue','ground_saturation','ground_light','stage_bands','stage_motion','horizon_depth')))
+                else: hide('blender_scene.reflection_contrast')
+                if all(ranges[f'blender_scene.orbit_shape_{i}'] == (0,0) for i in range(1,6)):
+                    hide('blender_scene.yin_dot','blender_scene.yin_darkness')
             for part,_,_ in PARTS:
                 if part not in active_parts:
                     hide(*(path for path in self.controls if path.startswith('blender_scene.part_'+part+'_')))

@@ -197,7 +197,10 @@ def pose(angle,p,overrides):
         tilt=math.radians(p['orbit_tilt_'+str(i)])
         if i>1 and p.get('orbit_tumble',1.):
             n=measured_normal(key,angle/math.tau*rate+phase)
-            measured=Vector((0,-1,0)).rotation_difference(n)
+            # A round ring has no visible roll. The illustrated disc does:
+            # keep its up axis stable instead of twisting near the back view.
+            measured=(n.to_track_quat('-Y','Z') if p.get('orbit_shape_'+str(i),0)
+                      else Vector((0,-1,0)).rotation_difference(n))
             axial=Euler((0.,0.,angle*rate+phase*math.tau),'XYZ').to_quaternion()
             rotation=axial.slerp(measured,p['orbit_tumble']).to_matrix().to_4x4()
         else: rotation=Matrix.Rotation(angle_outer*rate+phase*math.tau,4,'Z')
@@ -219,6 +222,11 @@ def pose(angle,p,overrides):
             nodes=mat.node_tree.nodes;links=mat.node_tree.links
             shader=nodes.get('Principled BSDF')
             # Own color replaces the painted base while retaining its surface bump.
-            for link in list(shader.inputs['Base Color'].links):links.remove(link)
-            shader.inputs['Base Color'].default_value=(*shared.linear(colorsys.hsv_to_rgb(settings['hue'],settings['saturation'],.82)),1.)
+            if nodes.get('Yin colors'):
+                # Keep the symbol when a disc uses its own material.
+                from orbital_variants import tint_symbol
+                tint_symbol(mat,settings['hue'],settings['saturation'],p.get('yin_darkness',.12))
+            else:
+                for link in list(shader.inputs['Base Color'].links):links.remove(link)
+                shader.inputs['Base Color'].default_value=(*shared.linear(colorsys.hsv_to_rgb(settings['hue'],settings['saturation'],.82)),1.)
             shader.inputs['Metallic'].default_value=settings['metallic'];shader.inputs['Roughness'].default_value=settings['roughness']

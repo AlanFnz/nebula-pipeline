@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.96.0 — 2026-11-11
+
+- Add **Yin yang / orbital balance**: the outer orbital ring and a solid yin-yang
+  disc, with Optical relic’s metallic material, green studio and diffusion.
+  The pedestal and finial remain; other inner pieces are hidden.
+- Each orbital ring can become a rounded yin-yang disc. Dot size, dark tone,
+  individual transforms, motion and material remain editable. **Studio finish**
+  chooses the painted landscape or the shared optical metal studio. Existing
+  studies keep their original shapes, lighting, motion and saved settings.
+
 ## 0.95.0 — 2026-11-11
 
 - Save the approved, cleaner **Orbital rings / painted motion** finish as the

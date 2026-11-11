@@ -156,6 +156,19 @@ rounded corners; **Film corner radius** adjusts the rounding. Geometry and light
 edits prepare new 3D frames, while finishing edits reuse the clean frame cache.
 All controls use the same saving, Undo, preview and export paths as other studies.
 
+## Yin yang / orbital balance
+
+An 11.3-second study combining Orbital rings’ outer ring and second piece with
+Optical relic’s metallic finish. The second piece is a solid yin-yang disc;
+the other inner rings and center sphere are hidden. The pedestal and finial stay.
+
+In **Object → Part → Ring 2 → Geometry**, **Shape** switches between a ring and
+a yin-yang disc. Its transform, orbit and own material use the existing part
+controls. **Whole assembly → Material** adjusts dot size and the dark tone;
+**Stage & lighting → Studio finish** switches between the painted landscape
+and optical metal studio. **Optical diffusion** controls the photographic finish.
+The earlier studies and saved projects retain their settings.
+
 ## Spectral tunnel / luminous ripple
 
 A square six-second study of warm-white lights and cool halos in perspective.

@@ -1,6 +1,6 @@
 """A procedural 3D reference study, with its scene settings stored in the project."""
 from synth import MODULE_BY_ID
-from synth_blender import ORBITAL_KEYS
+from synth_blender import ORBITAL_KEYS, ORBITAL_VARIANT_KEYS
 from synth_composition import composition_from_sequence, normalize_composition
 from synth_sequence import normalize_sequence
 
@@ -41,7 +41,7 @@ def orbital_rings_composition():
     overrides={'speed':1.,'depth':0.,'treatment_fps':30,'object_x':0.,'object_y':0.}
     enabled=['blender_scene','optical_diffusion','film_burn','broadcast']
     for name in enabled:
-        overrides.update({name+'.'+p.key:p.default for p in MODULE_BY_ID[name].params if not p.key.startswith('part_')})
+        overrides.update({name+'.'+p.key:p.default for p in MODULE_BY_ID[name].params if not p.key.startswith('part_') and p.key not in ORBITAL_VARIANT_KEYS})
     settings={
         'blender_scene':dict(scene=1,period=226/30,phase=0.,ease=0.,size=1.02,motion_exposure=.13,exposure_delay=.125,
             band_width=.26,band_depth=.29,edge_radius=.065,ring_gap=.045,
@@ -97,4 +97,29 @@ def orbital_clean_painted_composition():
         'print_surface.paint_wash':.10, 'print_surface.ink_wear':.03,
         'print_surface.grain_size':.8, 'print_surface.ink_grain':.8})
     project['effects']['film_burn']['params']['film_burn.dust']=0.
+    return normalize_composition(project)
+
+
+def yin_yang_composition():
+    """Two orbital pieces in the original Optical relic studio."""
+    source=orbital_rings_composition()['source']
+    source['name']='Yin yang / orbital balance'
+    state=source['states']['rings']
+    state['enabled']=['blender_scene','optical_diffusion']
+    state['overrides']={k:v for k,v in state['overrides'].items()
+                        if not k.startswith(('film_burn.','broadcast.'))}
+    relic=optical_relic_composition()['source']['states']['relic']['overrides']
+    material_keys=('metal_hue','metal_saturation','metallic','roughness','environment',
+                   'reflection_contrast','background_hue','background_saturation',
+                   'light_angle','light_size','light_power','exposure')
+    for key in material_keys:
+        state['overrides']['blender_scene.'+key]=relic['blender_scene.'+key]
+    state['overrides'].update({k:v for k,v in relic.items() if k.startswith('optical_diffusion.')})
+    settings=dict(orbital_finish=1,orbit_shape_2=1,orbit_phase_2=48.,yin_dot=1/6,yin_darkness=.12,
+                  part_ring3_visible=0,part_ring4_visible=0,part_ring5_visible=0,part_core_visible=0,
+                  surface_grain=0.,motion_exposure=0.)
+    state['overrides'].update({'blender_scene.'+k:v for k,v in settings.items()})
+    state['overrides']['optical_diffusion.period']=226/30
+    project=composition_from_sequence(normalize_sequence(source))
+    project['phrases']['custom']['name']='Outer ring & yin yang / Blender scene'
     return normalize_composition(project)

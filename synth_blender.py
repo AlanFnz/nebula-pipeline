@@ -66,6 +66,9 @@ def modules(Module, P):
 # Opt-in additions are stripped from the v1 source request, preserving its cache.
 def orbital_parameters(P):
     settings = [
+        P('orbital_finish', 'Studio finish', 0, 0, 1, 1, choices=('Painted landscape', 'Optical metal')),
+        P('yin_dot', 'Yin yang dot radius', 1/6, .08, .28, .01, 'Dot radius as a fraction of the disc radius.'),
+        P('yin_darkness', 'Yin yang dark tone', .12, .02, .45, .01, 'Brightness of the dark half; the light half follows the assembly or part material.'),
         P('pose_steps', 'Poses per loop', 60, 0, 120, 1, 'Zero is continuous. The reference uses 60 held poses per loop; other counts create a different stop-motion cadence.'),
         P('orbit_tumble', 'Precessing motion', 1., 0., 1., .01, 'Blend the authored three-axis motion with simple axial rotation.'),
         P('band_width', 'Ring band width', .25, .08, .40, .01),
@@ -87,6 +90,7 @@ def orbital_parameters(P):
         P('horizon_depth', 'Horizon distance', 7., 1., 30., .1),
     ]
     for i,(turns,phase,tilt) in enumerate(((3,0,0),(1,0,0),(1,0,0),(1,0,0),(1,0,0)),1):
+        settings.append(P('orbit_shape_'+str(i), f'Ring {i} · Shape', 0, 0, 1, 1, choices=('Ring', 'Yin yang disc')))
         settings.extend((P('orbit_turns_'+str(i),f'Ring {i} · Orbit turns',turns,-8,8,1,
                            'Turns per shared loop. Zero stops this ring; a negative value reverses it.'),
                          P('orbit_phase_'+str(i),f'Ring {i} · Orbit phase',phase,-180.,180.,1.),
@@ -95,6 +99,8 @@ def orbital_parameters(P):
 
 
 ORBITAL_KEYS = frozenset(p.key for p in orbital_parameters(lambda key,*a,**kw:SimpleNamespace(key=key)))
+
+ORBITAL_VARIANT_KEYS = frozenset(('orbital_finish','yin_dot','yin_darkness',*(f'orbit_shape_{i}' for i in range(1,6))))
 
 MOTION_KEYS = frozenset(('period', 'phase', 'direction', 'ease', 'effect_intensity','motion_exposure','exposure_delay'))
 
@@ -117,6 +123,10 @@ def render_blender_scene(arr, p, seconds, preset):
     # Frame the same physical scene when the canvas is resized or repositioned.
     if not p.get('scene',0):
         parameters = {k:v for k,v in parameters.items() if k not in ORBITAL_KEYS and k != 'scene'}
+    # Neutral additions do not change legacy source requests.
+    if not parameters.get('orbital_finish',0): parameters.pop('orbital_finish',None)
+    if not any(parameters.get(f'orbit_shape_{i}',0) for i in range(1,6)):
+        for key in ORBITAL_VARIANT_KEYS-{'orbital_finish'}: parameters.pop(key,None)
     parameters.update(framing_height=h/max(1.,ch), offset_x=dx/w, offset_y=dy/h)
     def sample(time):
         parts = part_poses(p,time,preset['speed'])
