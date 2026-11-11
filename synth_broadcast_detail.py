@@ -75,10 +75,18 @@ def glass_optics(arr, p, rng, seed):
     edge_noise = noise_field(fixed, (w, h), (60, 30))
     inset = p['screen_inset'] * 2
     distance = 1 - inset - (np.abs(x)**8 + np.abs(y)**8)**(1/8)
+    if p.get('screen_shape',0) == 1:
+        # Photographic gate with straight sides, unlike the bowed CRT aperture.
+        unit=min(w,h); radius=p.get('screen_radius',.06)*unit
+        qx=np.abs(x)*w/2-(w*(.5-p['screen_inset'])-radius)
+        qy=np.abs(y)*h/2-(h*(.5-p['screen_inset'])-radius)
+        sdf=np.hypot(np.maximum(qx,0),np.maximum(qy,0))+np.minimum(np.maximum(qx,qy),0)-radius
+        distance=-sdf/unit*2
     distance -= (edge_noise-.5) * .065 * p['screen_wear'] * (.4 + .6*(y+1)/2)
     aperture = np.clip(distance * 70 + .5, 0, 1)
     upper = np.exp(-((y + 1-inset-.012 - .028*x*x)/.008)**2)
     reflection = upper * np.clip(1-x*x, 0, 1) * (.3 + edge_noise) * .18
+    if p.get('screen_shape',0) == 1: reflection *= 0.
     surface = noise_field(rng, (w, h), (max(8, w//7), h))
     cloud = noise_field(fixed, (w, h), (12, 16))
     coating = (surface * .028 + cloud * .035) * p['screen_wear']

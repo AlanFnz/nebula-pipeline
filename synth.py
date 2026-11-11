@@ -595,6 +595,8 @@ MODULES += (
         P('halo_hue', 'Halation hue', .61, 0, 1, .01),
         P('halo_threshold', 'Halation threshold', .5, 0, .95, .01, 'Only highlights above this value emit colored light.'),
         P('screen', 'CRT glass', 0., 0, 1, .01, 'Rounded screen aperture, uneven edge wear and a faint reflected rim.'),
+        P('screen_shape', 'Frame shape', 0, 0, 1, 1, choices=('CRT glass', 'Film frame')),
+        P('screen_radius', 'Film corner radius', .06, 0., .25, .005, 'Rounded film-frame corners, as a fraction of the shorter canvas edge.'),
         P('screen_inset', 'Glass inset', .045, 0, .2, .005, 'Border relative to each canvas edge. Changes the screen aperture, not the object proportions.'),
         P('screen_wear', 'Glass edge wear', .5, 0, 1, .01),
         P('mix', 'Mix', 1., 0, 1, .01),

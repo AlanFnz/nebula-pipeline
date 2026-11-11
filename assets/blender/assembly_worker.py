@@ -84,12 +84,25 @@ def apply_parts(poses):
 
 
 def render(request):
+    if request['params'].get('scene',0) == 1:
+        return render_orbital(request)
     key = json.dumps(request['params'], sort_keys=True)
     if key != base.scene_key:
         base.build(request['params']); base.configure_device(); base.scene_key = key
         remember()
     apply_parts(request.get('parts', {}))
     return original_render(request)
+
+
+def render_orbital(request):
+    import orbital_scene
+    p = request['params']; key = json.dumps(p,sort_keys=True)
+    if key != base.scene_key:
+        orbital_scene.build(p); base.configure_device(); base.scene_key=key
+    orbital_scene.pose(request['angle'],p,request.get('parts',{}))
+    # Shared renderer owns camera framing, file output and device setup. Its
+    # assembly turn is neutral here: the authored ring axes already carry it.
+    return original_render(dict(request,angle=0.))
 
 
 base.render = render

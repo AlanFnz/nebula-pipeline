@@ -61,6 +61,8 @@ HUES = frozenset({
 def presentation(path):
     from synth_instances import base_path
     from synth_intensity import PATHS
+    if path.startswith(('blender_scene.orbit_phase_','blender_scene.orbit_tilt_')): return ParameterPresentation(unit='°')
+    if path == 'blender_scene.exposure_delay': return ParameterPresentation(unit=' s')
     if path.startswith('blender_scene.part_'):
         from synth_blender_parts import part_controls
         part = part_controls(path.split('.',1)[1])

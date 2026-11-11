@@ -1,5 +1,6 @@
 """A procedural 3D reference study, with its scene settings stored in the project."""
 from synth import MODULE_BY_ID
+from synth_blender import ORBITAL_KEYS
 from synth_composition import composition_from_sequence, normalize_composition
 from synth_sequence import normalize_sequence
 
@@ -7,7 +8,7 @@ from synth_sequence import normalize_sequence
 def optical_relic_composition():
     overrides = {'speed':1., 'depth':0., 'treatment_fps':24, 'object_x':0., 'object_y':0.}
     for name in ('blender_scene','optical_diffusion'):
-        overrides.update({name+'.'+p.key:p.default for p in MODULE_BY_ID[name].params if not p.key.startswith('part_')})
+        overrides.update({name+'.'+p.key:p.default for p in MODULE_BY_ID[name].params if not p.key.startswith('part_') and p.key not in ORBITAL_KEYS and p.key not in ('scene','motion_exposure','exposure_delay')})
     overrides.update({'blender_scene.roughness':.24,
                       'blender_scene.metallic':1.,
                       'blender_scene.tube_radius':.125,
@@ -32,4 +33,34 @@ def optical_relic_composition():
         cues=[dict(time=0.,state='relic',transition='cut')]))
     project = composition_from_sequence(source)
     project['phrases']['custom']['name'] = 'Rotating relic / Blender scene'
+    return normalize_composition(project)
+
+
+def orbital_rings_composition():
+    """A painted armillary assembly; shares source, parts and optical treatments."""
+    overrides={'speed':1.,'depth':0.,'treatment_fps':30,'object_x':0.,'object_y':0.}
+    enabled=['blender_scene','optical_diffusion','film_burn','broadcast']
+    for name in enabled:
+        overrides.update({name+'.'+p.key:p.default for p in MODULE_BY_ID[name].params if not p.key.startswith('part_')})
+    settings={
+        'blender_scene':dict(scene=1,period=226/30,phase=0.,ease=0.,size=1.02,motion_exposure=.13,exposure_delay=.125,
+            band_width=.26,band_depth=.29,edge_radius=.065,ring_gap=.045,
+            metal_hue=.020,metal_saturation=.76,paint_light=.73,metallic=0.,roughness=.85,
+            accent_light=.88,surface_grain=.85,background_hue=.565,background_saturation=.53,
+            sky_light=.50,ground_hue=.195,ground_saturation=.52,ground_light=.49,stage_bands=.28,horizon_depth=8.25,
+            light_angle=48.,light_size=3.,light_power=650.,environment=.4,exposure=0.,camera_elevation=10.),
+        'optical_diffusion':dict(softness=1.1,bloom=.03,grain=0.,vignette=.11,period=226/30),
+        'film_burn':dict(print_mix=0.,exposure=0.,damage=0.,reversal=0.,halo=0.,melt=.5,
+                         grain=.09,dust=.015,softness=.5,opening=1.3,roughness=0.,cadence=8.),
+        'broadcast':dict(field=0.,static=0.,duration=0.,reverse=0.,band=0.,curve=0.,vignette=0.,
+                         screen=1.,screen_shape=1,screen_radius=.06,screen_inset=.021,screen_wear=.02),
+    }
+    for name,values in settings.items():overrides.update({name+'.'+k:v for k,v in values.items()})
+    source=normalize_sequence(dict(schema_version=1,render_version=2,
+        name='Orbital rings / painted motion',duration=11.3,fps=30,seed=181126,
+        canvas={'width':720,'height':900,'framing':'native'},
+        states={'rings':{'preset':'Reference blinds','enabled':enabled,'overrides':overrides}},
+        cues=[dict(time=0.,state='rings',transition='cut')]))
+    project=composition_from_sequence(source)
+    project['phrases']['custom']['name']='Five nested rings / Blender scene'
     return normalize_composition(project)

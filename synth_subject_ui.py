@@ -144,8 +144,28 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
         self.overview_scroll.verticalScrollBar().setValue(0)
 
     def object_page(self):
-        if self.kind == 'blender': return self.part_selector.currentIndex()
+        if self.kind == 'blender':
+            from synth_blender_parts import PARTS
+            key = self.part_selector.currentData()
+            return next((i for i,(part,_,_) in enumerate(PARTS,1) if part == key),0)
         return self.text_tabs.currentIndex() if self.kind == 'text' else 0
+
+    def set_part_page(self, page):
+        from synth_blender_parts import PARTS
+        key = PARTS[page-1][0] if page else None
+        self.part_selector.setCurrentIndex(max(0,self.part_selector.findData(key)))
+
+    def refresh_part_navigation(self, scene):
+        from synth_blender_parts import parts_for
+        parts = parts_for(scene)
+        keys = [self.part_selector.itemData(i) for i in range(1,self.part_selector.count())]
+        if keys == [p[0] for p in parts]: return
+        current = self.part_selector.currentData()
+        with QSignalBlocker(self.part_selector):
+            self.part_selector.clear(); self.part_selector.addItem('Whole assembly',None)
+            for key,label,_ in parts: self.part_selector.addItem(label,key)
+            self.part_selector.setCurrentIndex(max(0,self.part_selector.findData(current)))
+        self.search_snapshot = None
 
     def change_part(self, index):
         if self.kind != 'blender' or self.updating: return
@@ -187,7 +207,7 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
             if path in members:
                 self.object_expansion[(self.kind, title)] = True
                 if self.kind == 'blender':
-                    with QSignalBlocker(self.part_selector): self.part_selector.setCurrentIndex(page)
+                    with QSignalBlocker(self.part_selector): self.set_part_page(page)
         self.show_object_groups()
         self.focus_object_control(path)
         return True
@@ -337,11 +357,28 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
             return low == high and low != value
         if self.kind == 'memory' and selected('image_memory', 'shape', 2): hide('image_memory.sides')
         if self.kind == 'blender':
-            from synth_blender_parts import PARTS
+            from synth_blender_parts import PARTS, parts_for
+            from synth_blender import ORBITAL_KEYS
+            scene = summary['blender_scene']['ranges']['blender_scene.scene'][0]
+            self.refresh_part_navigation(scene)
+            active_parts = {p[0] for p in parts_for(scene)}
+            if scene == 0: hide(*('blender_scene.'+key for key in ORBITAL_KEYS))
+            else: hide(*('blender_scene.'+key for key in ('tube_radius','hoop_bow','hoop_twist','axle_length','reflection_contrast')))
             for part,_,_ in PARTS:
+                if part not in active_parts:
+                    hide(*(path for path in self.controls if path.startswith('blender_scene.part_'+part+'_')))
                 prefix = 'blender_scene.part_'+part+'_'
+                self.controls[prefix+'follow'].label.setText('Follow study motion' if scene else 'Follow assembly')
                 if summary['blender_scene']['ranges'][prefix+'inherit'] == (1,1):
                     hide(*(prefix+key for key in ('hue','saturation','metallic','roughness')))
+            choices=[(title,title) for _,title,_,members in self.object_definitions
+                     if title == 'Canvas position' or any(path in self.object_eligible for path in members)]
+            current_choices=[(self.object_jump.itemText(i),self.object_jump.itemData(i)) for i in range(1,self.object_jump.count())]
+            if choices != current_choices:
+                with QSignalBlocker(self.object_jump):
+                    self.object_jump.clear(); self.object_jump.addItem('Jump to a group…',None)
+                    for label,key in choices:self.object_jump.addItem(label,key)
+
         if self.kind == 'tunnel':
             if selected('spectral_tunnel', 'shape', 3): hide('spectral_tunnel.sides')
             if selected('spectral_tunnel', 'motion', 0): hide('spectral_tunnel.amplitude')

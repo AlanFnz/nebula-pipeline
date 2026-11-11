@@ -78,3 +78,30 @@ def test_independent_part_selection_edit_material_animation_and_undo(window,monk
     assert window.composition['sections'][0]['automations'][0]['path']==control.path
     window.undo_composition(); assert window.composition==original
     wait_until(lambda:not window.render_running and not window.render_queued)
+
+
+def test_orbital_navigation_is_scoped_without_rewriting_other_studies(window,monkeypatch):
+    import synth_blender_bridge as bridge
+    monkeypatch.setattr(bridge,'render_frame',lambda p,a,size,**kw:Image.new('RGB',size,'seagreen'))
+    project=starter_composition('orbital-rings');window.set_composition(project)
+    panel=window.composer.object_panel;window.composer.look_tabs.setCurrentWidget(panel)
+    original=copy.deepcopy(window.composition)
+    assert [panel.part_selector.itemData(i) for i in range(1,panel.part_selector.count())]==['base','ring1','ring2','ring3','ring4','ring5','core','finial']
+    assert panel.object_jump.findData('Upper hoop / Transform')==-1
+    panel.reveal_control('blender_scene.part_ring3_rotation_y')
+    assert panel.part_selector.currentData()=='ring3'
+    assert panel.controls['blender_scene.part_ring3_rotation_y'].isVisible()
+    panel.controls['blender_scene.part_ring3_rotation_y'].input.setValue(21.)
+    assert window.composition['effects']['blender_scene']['params']['blender_scene.part_ring3_rotation_y']==21.
+    window.undo_composition();assert window.composition==original
+    panel.object_filter.setText('Orbit phase');QApplication.processEvents()
+    assert panel.controls['blender_scene.orbit_phase_2'].isVisible()
+    panel.object_filter.clear();QApplication.processEvents()
+    assert panel.part_selector.currentData()=='ring3'
+    window.set_composition(starter_composition('optical-relic'))
+    panel=window.composer.object_panel
+    assert panel.part_selector.findData('ring3')==-1
+    assert panel.part_selector.currentData() is None
+    assert panel.object_jump.findData('Ring 3 / Authored orbit')==-1
+    assert panel.object_jump.findData('Upper hoop / Transform')!=-1
+    wait_until(lambda:not window.render_running and not window.render_queued)

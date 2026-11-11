@@ -159,6 +159,7 @@ def control_group(path):
     if module == 'screen_mesh':
         if key == 'exposure': return 'Color & light'
         if key == 'angle': return 'Shape & layout'
+    if module == 'broadcast' and key in ('screen','screen_shape','screen_radius','screen_inset','screen_wear','curve','vignette'): return 'Frame & glass'
     if module == 'broadcast' and key in ('timing', 'period', 'duration', 'duration_variation', 'phase', 'outages', 'rate', 'roll', 'band_motion', 'band_interval', 'band_travel', 'band_variation'): return 'Motion & timing'
     if module == 'tape' and key in ('pull', 'pull_edges'): return 'Motion & timing'
     if module == 'tape' and key == 'tracking': return 'Texture & detail'

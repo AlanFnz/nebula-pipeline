@@ -24,6 +24,8 @@ def frozen_data(key):
 
 
 def starter_snapshot(identifier):
+    if identifier == 'orbital-rings':
+        return json.loads((Path(__file__).parent / 'presets/orbital-rings-v1.json').read_text())
     if identifier == 'optical-relic':
         return json.loads((Path(__file__).parent / 'presets/optical-relic-v1.json').read_text())
     if identifier == 'spectral-tunnel':

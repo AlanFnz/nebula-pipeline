@@ -44,6 +44,8 @@ def cache_key(params, angle, size, executable, parts=None):
     payload = dict(params=params, angle=angle, size=list(size),
                    executable=[str(executable),stat.st_size,stat.st_mtime_ns],
                    builder=hashlib.sha256(SCRIPT.read_bytes()).hexdigest())
+    if params.get('scene',0):
+        payload['variant_builder'] = hashlib.sha256(RUNNER.read_bytes()+SCRIPT.with_name('orbital_scene.py').read_bytes()+SCRIPT.with_name('orbital-motion-v1.json').read_bytes()).hexdigest()
     if parts:
         payload.update(parts=parts, assembly=hashlib.sha256(RUNNER.read_bytes()).hexdigest())
     return hashlib.sha256(json.dumps(payload,sort_keys=True,allow_nan=False).encode()).hexdigest()

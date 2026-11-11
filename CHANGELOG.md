@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.93.0 — 2026-11-11
+
+- Add **Orbital rings / painted motion**, an 11.3-second, 720×900 study based
+  on ref-18. Five nested rings, a core, pedestal and finial share the existing
+  Blender integration and per-piece editor. Geometry, paint, landscape, lighting
+  and ring motion remain editable; the default uses 60 held poses per cycle.
+- Extend the Blender source with delayed motion exposure, and Broadcast wear
+  with a straight-sided photographic frame. Reuse Optical diffusion and Film
+  burn for the finish. Both additions are opt-in; existing recipes and default
+  rendering remain unchanged.
+
 ## 0.92.0 — 2026-11-11
 
 - Edit the seven pieces of Optical relic separately in **Object → Part**.

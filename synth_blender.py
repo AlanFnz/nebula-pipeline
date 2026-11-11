@@ -1,5 +1,10 @@
 """Opt-in Blender source and reusable optical finishing; old studies stay local."""
 import math
+import json
+from pathlib import Path
+from functools import lru_cache
+from bisect import bisect_right
+from types import SimpleNamespace
 import numpy as np
 from PIL import Image, ImageFilter
 
@@ -11,7 +16,8 @@ def modules(Module, P):
     return (
         Module('blender_scene', 'Blender scene',
             'A procedural 3D sculpture rendered by Blender. Geometry, light and camera changes prepare new frames; cached frames are reused by preview and export.', (
-            P('scene_version', 'Scene version', 1, 1, 1, 1, 'Versioned optical relic geometry.'),
+            P('scene', 'Sculpture', 0, 0, 1, 1, choices=('Optical relic', 'Orbital rings')),
+            P('scene_version', 'Scene version', 1, 1, 1, 1, 'Versioned procedural sculpture geometry.'),
             P('ring_width', 'Hoop width', 1., .4, 1.6, .01),
             P('tube_radius', 'Hoop thickness', .085, .025, .20, .005),
             P('hoop_bow', 'Hoop depth', .28, 0., .6, .01),
@@ -24,6 +30,8 @@ def modules(Module, P):
             P('phase', 'Starting turn', 0., 0., 1., .01),
             P('direction', 'Direction', 0, 0, 1, 1, choices=('Forward', 'Reverse')),
             P('ease', 'Turn easing', .6, 0., .95, .01, 'Slows near the frontal views without stopping or reversing.'),
+            P('motion_exposure', 'Motion exposure', 0., 0., .5, .01, 'Blend a delayed 3D exposure into the current pose. Clean cached frames are reused.'),
+            P('exposure_delay', 'Exposure delay', .125, .01, 1., .005, 'Seconds between the two exposures at global speed 1.'),
             P('size', 'Framing size', 1., .5, 1.5, .01),
             P('camera_yaw', 'Camera angle', 0., -60., 60., 1.),
             P('camera_elevation', 'Camera elevation', 10., 0., 45., 1.),
@@ -39,7 +47,7 @@ def modules(Module, P):
             P('light_size', 'Light softness', 4., .5, 8., .1),
             P('light_power', 'Light strength', 1000., 100., 3000., 25.),
             P('exposure', 'Exposure', .4, -3., 3., .05),
-        ) + part_parameters(P)),
+        ) + orbital_parameters(P) + part_parameters(P)),
         Module('optical_diffusion', 'Optical diffusion',
             'Photographic softness, broad highlight diffusion and fine grain. Works after any generated object or imported footage.', (
             P('softness', 'Focus softness', 2.2, 0., 8., .1, 'Pixels at a 720-pixel artwork width.'),
@@ -54,7 +62,41 @@ def modules(Module, P):
     )
 
 
-MOTION_KEYS = frozenset(('period', 'phase', 'direction', 'ease', 'effect_intensity'))
+
+# Opt-in additions are stripped from the v1 source request, preserving its cache.
+def orbital_parameters(P):
+    settings = [
+        P('pose_steps', 'Poses per loop', 60, 0, 120, 1, 'Zero is continuous. The reference uses 60 held poses per loop; other counts create a different stop-motion cadence.'),
+        P('orbit_tumble', 'Precessing motion', 1., 0., 1., .01, 'Blend the authored three-axis motion with simple axial rotation.'),
+        P('band_width', 'Ring band width', .25, .08, .40, .01),
+        P('band_depth', 'Ring depth', .16, .04, .4, .01),
+        P('ring_gap', 'Ring spacing', .055, .01, .18, .005),
+        P('edge_radius', 'Edge rounding', .045, .0, .1, .005),
+        P('core_size', 'Center sphere size', .32, .1, .5, .01),
+        P('paint_light', 'Paint brightness', .66, .05, 1., .01),
+        P('accent_hue', 'Ivory hue', .12, 0., 1., .01),
+        P('accent_saturation', 'Ivory saturation', .18, 0., 1., .01),
+        P('accent_light', 'Ivory brightness', .88, .05, 1., .01),
+        P('surface_grain', 'Paint texture', .5, 0., 1., .01),
+        P('sky_light', 'Sky brightness', .48, .05, 1., .01),
+        P('ground_hue', 'Ground hue', .21, 0., 1., .01),
+        P('ground_saturation', 'Ground saturation', .65, 0., 1., .01),
+        P('ground_light', 'Ground brightness', .36, .05, 1., .01),
+        P('stage_motion', 'Landscape movement', .6, 0., 2., .05, 'Looping drift of the painted background bands.'),
+        P('stage_bands', 'Landscape bands', .45, 0., 1., .01),
+        P('horizon_depth', 'Horizon distance', 7., 1., 30., .1),
+    ]
+    for i,(turns,phase,tilt) in enumerate(((3,0,0),(1,0,0),(1,0,0),(1,0,0),(1,0,0)),1):
+        settings.extend((P('orbit_turns_'+str(i),f'Ring {i} · Orbit turns',turns,-8,8,1,
+                           'Turns per shared loop. Zero stops this ring; a negative value reverses it.'),
+                         P('orbit_phase_'+str(i),f'Ring {i} · Orbit phase',phase,-180.,180.,1.),
+                         P('orbit_tilt_'+str(i),f'Ring {i} · Axis tilt',tilt,-90.,90.,1.)))
+    return tuple(settings)
+
+
+ORBITAL_KEYS = frozenset(p.key for p in orbital_parameters(lambda key,*a,**kw:SimpleNamespace(key=key)))
+
+MOTION_KEYS = frozenset(('period', 'phase', 'direction', 'ease', 'effect_intensity','motion_exposure','exposure_delay'))
 
 
 def rotation(seconds, p, speed=1., *, symmetric=True):
@@ -73,11 +115,35 @@ def render_blender_scene(arr, p, seconds, preset):
     dx, dy = object_offset(preset, (w,h))
     parameters = {k:v for k,v in p.items() if k not in MOTION_KEYS and not k.startswith('part_')}
     # Frame the same physical scene when the canvas is resized or repositioned.
+    if not p.get('scene',0):
+        parameters = {k:v for k,v in parameters.items() if k not in ORBITAL_KEYS and k != 'scene'}
     parameters.update(framing_height=h/max(1.,ch), offset_x=dx/w, offset_y=dy/h)
-    parts = part_poses(p, seconds, preset['speed'])
-    angle = rotation(seconds, p, preset['speed'], symmetric=not parts)
-    image = render_frame(parameters, angle, (w,h), parts=parts) if parts else render_frame(parameters, angle, (w,h))
-    return np.asarray(image, np.float32)/255.
+    def sample(time):
+        parts = part_poses(p,time,preset['speed'])
+        angle = rotation(time,p,preset['speed'],symmetric=not parts and not p.get('scene',0))
+        if p.get('scene',0): angle = stepped_orbit(angle,p.get('pose_steps',0))
+        image = render_frame(parameters,angle,(w,h),parts=parts) if parts else render_frame(parameters,angle,(w,h))
+        return np.asarray(image,np.float32)/255.
+    out=sample(seconds)
+    amount=p.get('motion_exposure',0.)
+    if amount:
+        previous=sample(seconds-p['exposure_delay']/max(1e-8,preset['speed']))
+        out=out*(1-amount)+previous*amount
+    return out
+
+
+@lru_cache(maxsize=1)
+def orbital_steps():
+    return tuple(json.loads((Path(__file__).parent/'assets/blender/orbital-motion-v1.json').read_text())['steps'])
+
+
+def stepped_orbit(angle, count):
+    if not count:return angle
+    phase=(angle/math.tau)%1.
+    if count == 60:
+        steps=orbital_steps();phase=steps[max(0,bisect_right(steps,phase+1e-8)-1)]
+    else:phase=math.floor(phase*count+1e-8)/count
+    return round(phase*math.tau,9)
 
 
 def _blur(arr, radius):

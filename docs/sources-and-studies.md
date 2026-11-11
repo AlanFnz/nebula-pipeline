@@ -120,8 +120,29 @@ Asymmetric edits can require a full turn to repeat, where the original sculpture
 repeats after half a turn. For a closed loop, match the clip duration to whole
 cycles of the assembly and any independently moving pieces.
 
-The first connection supports this bundled parametric scene. Importing arbitrary
-Blender scenes is not implemented. Existing studies do not need Blender.
+The connection supports the bundled parametric sculptures. Importing arbitrary
+Blender scenes is not implemented. Other sources do not need Blender.
+
+## Orbital rings / painted motion
+
+An 11.3-second, 720×900 study of five painted rings turning around a central
+sphere. It uses the same Blender connection as Optical relic. **Object → Part**
+selects any ring, the sphere, pedestal or finial; **Whole assembly** controls
+shared geometry, paint colors, landscape, camera and lighting.
+
+**Motion → Poses per loop** sets the stepped rhythm: 60 reproduces the study's
+held poses; zero gives continuous motion. **Precessing motion** blends the
+authored changes of axis with simple rotation. Select a ring to change its
+**Authored orbit** turns, phase and axis tilt, or add your own animated transforms.
+**Motion exposure** adds a faint delayed pose. The cycle is about 7.53 seconds;
+the default clip keeps the reference's 11.3-second duration, rather than ending
+at a complete cycle.
+
+The finish uses **Optical diffusion**, **Film burn** and **Broadcast wear**.
+Within Broadcast wear, **Frame shape → Film frame** selects straight sides and
+rounded corners; **Film corner radius** adjusts the rounding. Geometry and lighting
+edits prepare new 3D frames, while finishing edits reuse the clean frame cache.
+All controls use the same saving, Undo, preview and export paths as other studies.
 
 ## Spectral tunnel / luminous ripple
 
