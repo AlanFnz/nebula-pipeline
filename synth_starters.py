@@ -9,7 +9,7 @@ from synth_prismatic_recipes import prismatic_composition
 from synth_solid_recipes import rotating_die_composition
 from synth_lattice_recipes import lattice_composition
 from synth_spectral_tunnel_recipes import spectral_tunnel_composition
-from synth_blender_recipes import optical_relic_composition, orbital_clean_painted_composition, yin_yang_flowing_composition
+from synth_blender_recipes import optical_relic_composition, orbital_smooth_painted_composition, yin_yang_drifting_composition
 from synth_memory_recipes import memory_composition
 from synth_tension_recipes import tension_composition
 from synth_dye_recipes import dye_transfer_composition
@@ -20,8 +20,8 @@ from synth_pleated_recipes import pleated_composition, pleated_sound_composition
 
 
 STARTERS = (
-    ('yin-yang', 'Yin yang / orbital balance · 15s', yin_yang_flowing_composition),
-    ('orbital-rings', 'Orbital rings / painted motion · 11.3s', orbital_clean_painted_composition),
+    ('yin-yang', 'Yin yang / orbital balance · 15s', yin_yang_drifting_composition),
+    ('orbital-rings', 'Orbital rings / painted motion · 11.3s', orbital_smooth_painted_composition),
     ('optical-relic', 'Optical relic / green reverie · 8.75s', optical_relic_composition),
     ('spectral-tunnel', 'Spectral tunnel / luminous ripple · 6s', spectral_tunnel_composition),
     ('pleated-signal-acid', 'Pleated signal / acid motion · 20s', pleated_acid_composition),

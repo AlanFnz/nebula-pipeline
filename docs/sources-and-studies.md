@@ -141,6 +141,8 @@ at a complete cycle.
 The finish uses **Print surface**, **Optical diffusion**, **Film burn** and **Broadcast wear**.
 The current study uses a finer, cleaner pigment finish. Previously saved projects
 keep their authored texture settings.
+The white ring also uses **Orbit smoothing** to remove a small recoil; its
+timing and the other pieces retain their original movement.
 In **Print surface → Surface**, **Painted color** preserves the palette while
 adding drawn contours and moving pigment. **Painted shading** and **Paint tone
 steps** simplify the lighting. **Contour movement**, **Color misregistration**
@@ -167,7 +169,11 @@ a yin-yang disc. Its transform, orbit and own material use the existing part
 controls. **Whole assembly → Material** adjusts dot size and the dark tone;
 **Stage & lighting → Studio finish** switches between the painted landscape
 and optical metal studio. **Optical diffusion** controls the photographic finish.
-The study repeats two complete 7.5-second cycles. **Ring 2 → Authored orbit →
+The study makes one slower evolution over 15 seconds and loops continuously.
+In each ring’s **Authored orbit**, **Pace variation** creates uneven slowdowns
+and accelerations; **Axis drift** varies the inclination in degrees. **Whole
+assembly → Loop & motion → Motion pattern** chooses a different repeatable path.
+**Ring 2 → Authored orbit →
 Orbit smoothing** removes small hesitations in the disc’s path; zero restores
 the original motion. The other inner rings have the same optional control.
 The earlier studies and saved projects retain their settings.

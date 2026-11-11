@@ -1,0 +1,211 @@
+{
+  "format": "nebula-composition",
+  "schema_version": 1,
+  "render_version": 2,
+  "name": "Yin yang / orbital balance",
+  "fps": 30,
+  "seed": 181126,
+  "source": {
+    "schema_version": 1,
+    "name": "Yin yang / orbital balance",
+    "duration": 15.0,
+    "fps": 30,
+    "seed": 181126,
+    "field": {
+      "valley_start": 0.0,
+      "valley_end": 0.0,
+      "valley_gain": 1.0,
+      "cloud_start": 0.0,
+      "cloud_strength": 0.0,
+      "cloud_late_start": 0.0,
+      "cloud_late_rate": 0.0
+    },
+    "states": {
+      "rings": {
+        "preset": "Reference blinds",
+        "overrides": {
+          "speed": 1.0,
+          "depth": 0.0,
+          "treatment_fps": 30,
+          "object_x": 0.0,
+          "object_y": 0.0,
+          "blender_scene.scene": 1,
+          "blender_scene.scene_version": 1,
+          "blender_scene.ring_width": 1.0,
+          "blender_scene.tube_radius": 0.085,
+          "blender_scene.hoop_bow": 0.28,
+          "blender_scene.hoop_twist": 0.1,
+          "blender_scene.body_height": 1.0,
+          "blender_scene.base_width": 1.0,
+          "blender_scene.crown_size": 1.0,
+          "blender_scene.axle_length": 1.0,
+          "blender_scene.period": 15.0,
+          "blender_scene.phase": 0.0,
+          "blender_scene.direction": 0,
+          "blender_scene.ease": 0.0,
+          "blender_scene.motion_exposure": 0.0,
+          "blender_scene.exposure_delay": 0.125,
+          "blender_scene.size": 1.02,
+          "blender_scene.camera_yaw": 0.0,
+          "blender_scene.camera_elevation": 10.0,
+          "blender_scene.metal_hue": 0.15,
+          "blender_scene.metal_saturation": 0.15,
+          "blender_scene.metallic": 1.0,
+          "blender_scene.roughness": 0.24,
+          "blender_scene.environment": 0.65,
+          "blender_scene.reflection_contrast": 1.0,
+          "blender_scene.background_hue": 0.4,
+          "blender_scene.background_saturation": 0.52,
+          "blender_scene.light_angle": -50.0,
+          "blender_scene.light_size": 8.0,
+          "blender_scene.light_power": 400.0,
+          "blender_scene.exposure": 0.4,
+          "blender_scene.pose_steps": 120,
+          "blender_scene.orbit_tumble": 1.0,
+          "blender_scene.band_width": 0.26,
+          "blender_scene.band_depth": 0.29,
+          "blender_scene.ring_gap": 0.045,
+          "blender_scene.edge_radius": 0.065,
+          "blender_scene.core_size": 0.32,
+          "blender_scene.paint_light": 0.73,
+          "blender_scene.accent_hue": 0.12,
+          "blender_scene.accent_saturation": 0.18,
+          "blender_scene.accent_light": 0.88,
+          "blender_scene.surface_grain": 0.0,
+          "blender_scene.sky_light": 0.5,
+          "blender_scene.ground_hue": 0.195,
+          "blender_scene.ground_saturation": 0.52,
+          "blender_scene.ground_light": 0.49,
+          "blender_scene.stage_motion": 0.6,
+          "blender_scene.stage_bands": 0.28,
+          "blender_scene.horizon_depth": 8.25,
+          "blender_scene.orbit_turns_1": 2,
+          "blender_scene.orbit_phase_1": 0,
+          "blender_scene.orbit_tilt_1": 0,
+          "blender_scene.orbit_turns_2": 1,
+          "blender_scene.orbit_phase_2": 48.0,
+          "blender_scene.orbit_tilt_2": 0,
+          "blender_scene.orbit_turns_3": 1,
+          "blender_scene.orbit_phase_3": 0,
+          "blender_scene.orbit_tilt_3": 0,
+          "blender_scene.orbit_turns_4": 1,
+          "blender_scene.orbit_phase_4": 0,
+          "blender_scene.orbit_tilt_4": 0,
+          "blender_scene.orbit_turns_5": 1,
+          "blender_scene.orbit_phase_5": 0,
+          "blender_scene.orbit_tilt_5": 0,
+          "optical_diffusion.softness": 3.8,
+          "optical_diffusion.bloom": 0.22,
+          "optical_diffusion.radius": 18.0,
+          "optical_diffusion.warmth": 0.12,
+          "optical_diffusion.grain": 0.026,
+          "optical_diffusion.vignette": 0.12,
+          "optical_diffusion.period": 15.0,
+          "optical_diffusion.mix": 1.0,
+          "optical_diffusion.effect_intensity": 100.0,
+          "blender_scene.orbital_finish": 1,
+          "blender_scene.orbit_shape_2": 1,
+          "blender_scene.yin_dot": 0.16666666666666666,
+          "blender_scene.yin_darkness": 0.12,
+          "blender_scene.part_ring3_visible": 0,
+          "blender_scene.part_ring4_visible": 0,
+          "blender_scene.part_ring5_visible": 0,
+          "blender_scene.part_core_visible": 0,
+          "blender_scene.orbit_smooth_2": 1.0,
+          "blender_scene.orbit_pattern": 17,
+          "blender_scene.orbit_pace_1": 0.24,
+          "blender_scene.orbit_drift_1": 5.0,
+          "blender_scene.orbit_pace_2": 0.8,
+          "blender_scene.orbit_drift_2": 24.0
+        },
+        "enabled": [
+          "blender_scene",
+          "optical_diffusion"
+        ]
+      }
+    },
+    "cues": [
+      {
+        "time": 0.0,
+        "state": "rings",
+        "transition": "cut",
+        "duration": 0.0
+      }
+    ],
+    "render_version": 2,
+    "canvas": {
+      "width": 720,
+      "height": 900,
+      "framing": "native"
+    }
+  },
+  "canvas": {
+    "width": 720,
+    "height": 900,
+    "framing": "native"
+  },
+  "master": {
+    "enabled": true,
+    "brightness": 0.0,
+    "contrast": 1.0,
+    "saturation": 1.0
+  },
+  "phrases": {
+    "custom": {
+      "name": "Outer ring & yin yang / Blender scene",
+      "start": 0.0,
+      "end": 15.0
+    }
+  },
+  "macros": {
+    "rhythm": 1.0,
+    "width": 1.0,
+    "motion": 1.0,
+    "texture": 1.0,
+    "glow": 1.0,
+    "flashes": 1.0,
+    "color": 1.0
+  },
+  "geometry": {
+    "shape": "original",
+    "height": 1.0,
+    "diameter": 0.6,
+    "sides": 6,
+    "rotation": 0.0,
+    "position_x": 0.0,
+    "position_y": 0.0
+  },
+  "effects": {},
+  "ink_timing": {},
+  "variation": 0,
+  "locks": [],
+  "sections": [
+    {
+      "id": "section-1",
+      "phrase": "custom",
+      "duration": 15.0,
+      "loops": 1,
+      "macros": {
+        "rhythm": 1.0,
+        "width": 1.0,
+        "motion": 1.0,
+        "texture": 1.0,
+        "glow": 1.0,
+        "flashes": 1.0,
+        "color": 1.0
+      },
+      "geometry": {
+        "shape": "inherit",
+        "height": 1.0,
+        "diameter": 0.6,
+        "sides": 6,
+        "rotation": 0.0,
+        "position_x": 0.0,
+        "position_y": 0.0
+      },
+      "effects": {},
+      "variation": 0,
+      "locks": []
+    }
+  ]
+}

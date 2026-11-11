@@ -27,6 +27,23 @@ x=[scene.orbit_normal('ring2',.08+i*.0002,1.).x for i in range(601)]
 directions=[b>a for a,b in zip(x,x[1:])]
 assert sum(a!=b for a,b in zip(directions,directions[1:]))==1
 
+# The new timing cannot reverse, even at maximum depth. It is seek-order
+# independent and returns to its starting phase and velocity every loop.
+for pattern in (0,1,17,999):
+    for ring in range(1,6):
+        phases=scene.motion_phases(ring,pattern)
+        values=[scene.varied_phase(i/1000,1.,phases) for i in range(1001)]
+        assert values[0]==0. and abs(values[-1]-1.)<1e-10
+        assert min(b-a for a,b in zip(values,values[1:]))>.000149
+        assert max(b-a for a,b in zip(values,values[1:]))<.001851
+        assert scene.varied_phase(.37,0.,phases)==.37
+        first=scene.axis_drift(0.,24.,phases)
+        end=scene.axis_drift(1.,24.,phases)
+        assert max(abs(first[i][j]-end[i][j]) for i in range(4) for j in range(4))<1e-6
+        assert abs(scene.varied_phase(-.2,1.,phases)+1.-scene.varied_phase(.8,1.,phases))<1e-10
+        assert scene.motion_phases(ring,pattern)==phases
+assert scene.motion_phases(2,0)!=scene.motion_phases(2,17)
+
 p=json.loads(Path(sys.argv[sys.argv.index('--')+1]).read_text())
 scene.build(p);variants.apply(p)
 identity=dict(position=[0.,0.,0.],rotation=[0.,0.,0.],scale=[1.,1.,1.],visible=True,follow=True,material=None)
@@ -62,6 +79,16 @@ for frame in range(226):
         angle=math.degrees(previous.rotation_difference(current).angle)%360
         assert min(angle,360-angle)<15
     previous=current
+# Neutral settings preserve every frame. Drift edits affect only that piece.
+neutral={k:v for k,v in p.items() if not k.startswith(('orbit_pace_','orbit_drift_')) and k!='orbit_pattern'}
+scene.pose(1.1,neutral,hidden)
+original_frames={key:obj.matrix_basis.copy() for key,obj in scene.frames.items()}
+explicit=dict(neutral,orbit_pattern=77,**{f'orbit_{field}_{i}':0. for field in ('pace','drift') for i in range(1,6)})
+scene.pose(1.1,explicit,hidden)
+assert all(obj.matrix_basis==original_frames[key] for key,obj in scene.frames.items())
+scene.pose(1.1,dict(explicit,orbit_pace_2=.8,orbit_drift_2=24.),hidden)
+assert scene.frames['ring2'].matrix_basis!=original_frames['ring2']
+assert all(obj.matrix_basis==original_frames[key] for key,obj in scene.frames.items() if key!='ring2')
 # Build the legacy scene after a custom studio: no leaked geometry, light or material.
 scene.build(dict(p,orbital_finish=0,orbit_shape_2=0));scene.pose(0.,p,{})
 assert bpy.data.objects.get('Ground') and bpy.data.objects.get('Sky')

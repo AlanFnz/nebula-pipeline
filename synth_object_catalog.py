@@ -18,7 +18,7 @@ OBJECT_PATHS = {
 FAMILY_GROUPS = {
     'blender': (
         ('Sculpture', 'scene ring_width tube_radius hoop_bow hoop_twist body_height base_width crown_size axle_length band_width band_depth ring_gap edge_radius core_size'),
-        ('Loop & motion', 'period phase direction ease pose_steps orbit_tumble motion_exposure exposure_delay'),
+        ('Loop & motion', 'period phase direction ease pose_steps orbit_tumble orbit_pattern motion_exposure exposure_delay'),
         ('Camera', 'size camera_yaw camera_elevation'),
         ('Material', 'yin_dot yin_darkness metal_hue metal_saturation metallic roughness reflection_contrast paint_light accent_hue accent_saturation accent_light surface_grain'),
         ('Stage & lighting', 'orbital_finish background_hue background_saturation sky_light ground_hue ground_saturation ground_light stage_bands stage_motion horizon_depth light_angle light_size light_power environment exposure'),
@@ -95,7 +95,7 @@ def family_groups(kind):
         for i in range(1,6):
             page = next(j for j,p in enumerate(PARTS,1) if p[0] == f'ring{i}')
             groups.append((page, f'Ring {i} / Geometry', False, (f'blender_scene.orbit_shape_{i}',)))
-            fields=('turns','phase','tilt') + (('smooth',) if i>1 else ())
+            fields=('turns','phase','tilt','pace','drift') + (('smooth',) if i>1 else ())
             groups.append((page, f'Ring {i} / Authored orbit', False, tuple('blender_scene.orbit_'+key+'_'+str(i) for key in fields)))
     assigned = {p for _, _, _, members in groups for p in members}
     groups.extend((0, title, False, tuple(members)) for title, members

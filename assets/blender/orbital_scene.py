@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 from bisect import bisect_right
 import math
+import random
 from functools import lru_cache
 import bpy
 from mathutils import Vector, Matrix, Euler
@@ -202,6 +203,32 @@ def orbit_normal(key, phase, smoothing=0.):
     return measured_normal(key,phase).lerp(smooth,smoothing).normalized()
 
 
+@lru_cache(maxsize=64)
+def motion_phases(index, pattern):
+    rng=random.Random(int(pattern)*31+index*101)
+    return tuple(rng.random()*math.tau for _ in range(9))
+
+
+def varied_phase(phase, amount, phases):
+    if not amount: return phase
+    # The derivative is >= .15 even at maximum variation. Slow passages never
+    # become the accidental reverse-and-resume motion this control replaces.
+    offset=sum(weight*(math.sin(math.tau*n*phase+p)-math.sin(p))/n
+               for n,weight,p in zip((1,2,3),(.58,.29,.13),phases))
+    return phase+.85*amount*offset/math.tau
+
+
+def axis_drift(phase, degrees, phases):
+    # Low periodic harmonics: varied inclination with matching pose and tangent
+    # at the seam. No accumulated state, so scrubbing and rendering agree.
+    angles=[]
+    for axis,weight in enumerate((1.,.65,.8)):
+        a,b=phases[3+2*axis:5+2*axis]
+        wave=.72*math.sin(math.tau*phase+a)+.28*math.sin(2*math.tau*phase+b)
+        angles.append(math.radians(degrees)*weight*wave)
+    return Euler(angles,'XYZ').to_matrix().to_4x4()
+
+
 def pose(angle,p,overrides):
     for name in ('Olive ground','Painted blue sky'):
         node=bpy.data.materials[name].node_tree.nodes.get('Landscape drift')
@@ -209,24 +236,28 @@ def pose(angle,p,overrides):
     for i in range(1,6):
         key='ring'+str(i); f=frames[key]
         rate=p['orbit_turns_'+str(i)]; phase=p['orbit_phase_'+str(i)]/360.
+        pace=p.get('orbit_pace_'+str(i),0.); drift=p.get('orbit_drift_'+str(i),0.)
+        phases=motion_phases(i,p.get('orbit_pattern',0)) if pace or drift else ()
+        orbit_angle=math.tau*varied_phase(angle/math.tau,pace,phases) if pace else angle
         if i==1:
             # The authored exposures have slightly uneven frame holds. Advance
             # the outer axle by an equal angle per pose, as in the reference.
-            steps=MOTION['steps']; a=(angle/math.tau)%1.
+            steps=MOTION['steps']; a=(orbit_angle/math.tau)%1.
             j=max(0,bisect_right(steps,a+1e-8)-1)
             end=steps[j+1] if j+1<len(steps) else 1.
             angle_outer=math.tau*(j+(a-steps[j])/max(1e-8,end-steps[j]))/len(steps)
-        else: angle_outer=angle
+        else: angle_outer=orbit_angle
         tilt=math.radians(p['orbit_tilt_'+str(i)])
         if i>1 and p.get('orbit_tumble',1.):
-            n=orbit_normal(key,angle/math.tau*rate+phase,p.get('orbit_smooth_'+str(i),0.))
+            n=orbit_normal(key,orbit_angle/math.tau*rate+phase,p.get('orbit_smooth_'+str(i),0.))
             # A round ring has no visible roll. The illustrated disc does:
             # keep its up axis stable instead of twisting near the back view.
             measured=(n.to_track_quat('-Y','Z') if p.get('orbit_shape_'+str(i),0)
                       else Vector((0,-1,0)).rotation_difference(n))
-            axial=Euler((0.,0.,angle*rate+phase*math.tau),'XYZ').to_quaternion()
+            axial=Euler((0.,0.,orbit_angle*rate+phase*math.tau),'XYZ').to_quaternion()
             rotation=axial.slerp(measured,p['orbit_tumble']).to_matrix().to_4x4()
         else: rotation=Matrix.Rotation(angle_outer*rate+phase*math.tau,4,'Z')
+        if drift: rotation=axis_drift(angle/math.tau,drift,phases) @ rotation
         f.rotation_euler=(Matrix.Rotation(tilt,4,'Y') @ rotation).to_euler()
     for key,(name,_) in PARTS.items():
         obj=bpy.data.objects[name];parent,matrix,materials,copies=bindings[key];edit=overrides.get(key)

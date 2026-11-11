@@ -71,6 +71,7 @@ def orbital_parameters(P):
         P('yin_darkness', 'Yin yang dark tone', .12, .02, .45, .01, 'Brightness of the dark half; the light half follows the assembly or part material.'),
         P('pose_steps', 'Poses per loop', 60, 0, 120, 1, 'Zero is continuous. The reference uses 60 held poses per loop; other counts create a different stop-motion cadence.'),
         P('orbit_tumble', 'Precessing motion', 1., 0., 1., .01, 'Blend the authored three-axis motion with simple axial rotation.'),
+        P('orbit_pattern', 'Motion pattern', 0, 0, 999, 1, 'Choose a repeatable pattern for each ring’s pace variation and axis drift. Preview and export use the same movement.'),
         P('band_width', 'Ring band width', .25, .08, .40, .01),
         P('band_depth', 'Ring depth', .16, .04, .4, .01),
         P('ring_gap', 'Ring spacing', .055, .01, .18, .005),
@@ -91,6 +92,11 @@ def orbital_parameters(P):
     ]
     for i,(turns,phase,tilt) in enumerate(((3,0,0),(1,0,0),(1,0,0),(1,0,0),(1,0,0)),1):
         settings.append(P('orbit_shape_'+str(i), f'Ring {i} · Shape', 0, 0, 1, 1, choices=('Ring', 'Yin yang disc')))
+        settings.extend((
+            P('orbit_pace_'+str(i), f'Ring {i} · Pace variation', 0., 0., 1., .05,
+              'Uneven accelerations and slowdowns along the orbit. Keeps advancing and closes with the shared loop.'),
+            P('orbit_drift_'+str(i), f'Ring {i} · Axis drift', 0., 0., 45., 1.,
+              'Degrees of gently changing three-axis inclination. Zero keeps the authored axes. Follows the shared loop.')))
         if i>1:
             settings.append(P('orbit_smooth_'+str(i), f'Ring {i} · Orbit smoothing', 0., 0., 1., .05,
                               'Smooth the authored precession to remove small reversals. Zero retains its original path; one gives a smooth repeating curve. Pose cadence stays separate.'))
@@ -104,7 +110,9 @@ def orbital_parameters(P):
 ORBITAL_KEYS = frozenset(p.key for p in orbital_parameters(lambda key,*a,**kw:SimpleNamespace(key=key)))
 
 ORBITAL_SMOOTH_KEYS = frozenset(f'orbit_smooth_{i}' for i in range(2,6))
-ORBITAL_VARIANT_KEYS = frozenset(('orbital_finish','yin_dot','yin_darkness',*(f'orbit_shape_{i}' for i in range(1,6)))) | ORBITAL_SMOOTH_KEYS
+ORBITAL_DRIFT_KEYS = frozenset(f'orbit_{field}_{i}' for field in ('pace','drift') for i in range(1,6))
+ORBITAL_MOTION_KEYS = ORBITAL_SMOOTH_KEYS | ORBITAL_DRIFT_KEYS | {'orbit_pattern'}
+ORBITAL_VARIANT_KEYS = frozenset(('orbital_finish','yin_dot','yin_darkness',*(f'orbit_shape_{i}' for i in range(1,6)))) | ORBITAL_MOTION_KEYS
 
 MOTION_KEYS = frozenset(('period', 'phase', 'direction', 'ease', 'effect_intensity','motion_exposure','exposure_delay'))
 
@@ -130,8 +138,9 @@ def render_blender_scene(arr, p, seconds, preset):
     # Neutral additions do not change legacy source requests.
     if not parameters.get('orbital_finish',0): parameters.pop('orbital_finish',None)
     if not any(parameters.get(f'orbit_shape_{i}',0) for i in range(1,6)):
-        for key in ORBITAL_VARIANT_KEYS-ORBITAL_SMOOTH_KEYS-{'orbital_finish'}: parameters.pop(key,None)
-    for key in ORBITAL_SMOOTH_KEYS:
+        for key in ORBITAL_VARIANT_KEYS-ORBITAL_MOTION_KEYS-{'orbital_finish'}: parameters.pop(key,None)
+    if not any(parameters.get(key,0.) for key in ORBITAL_DRIFT_KEYS): parameters.pop('orbit_pattern',None)
+    for key in ORBITAL_MOTION_KEYS:
         if not parameters.get(key,0.): parameters.pop(key,None)
     parameters.update(framing_height=h/max(1.,ch), offset_x=dx/w, offset_y=dy/h)
     def sample(time):

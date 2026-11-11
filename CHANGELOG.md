@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.98.0 — 2026-11-11
+
+- Apply orbit smoothing to the white ring in **Orbital rings / painted motion**.
+  Keep its 11.3-second duration and approved painted finish.
+- Give **Yin yang / orbital balance** one slower 15-second evolution with varied
+  pacing and gently changing axes, retaining its optical metal finish and loop.
+- Add per-ring **Pace variation** and **Axis drift**, with a shared **Motion
+  pattern** selector. Motion is repeatable for preview, seeking and export.
+  Neutral defaults preserve earlier studies and saved versions.
+
 ## 0.97.0 — 2026-11-11
 
 - Refine **Yin yang / orbital balance** to 15 seconds: two complete 7.5-second

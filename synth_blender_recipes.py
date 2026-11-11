@@ -136,3 +136,22 @@ def yin_yang_flowing_composition():
     project=composition_from_sequence(normalize_sequence(source))
     project['phrases']['custom']['name']='Outer ring & yin yang / Blender scene'
     return normalize_composition(project)
+
+
+def orbital_smooth_painted_composition():
+    """The approved finish and timing, with the white ring's recoil removed."""
+    project=orbital_clean_painted_composition()
+    project['source']['states']['rings']['overrides']['blender_scene.orbit_smooth_2']=1.
+    return normalize_composition(project)
+
+
+def yin_yang_drifting_composition():
+    """A single slower evolution, with distinct pacing and drifting axes."""
+    project=yin_yang_flowing_composition()
+    project['source']['states']['rings']['overrides'].update({
+        'blender_scene.period':15., 'optical_diffusion.period':15.,
+        'blender_scene.pose_steps':120, 'blender_scene.orbit_turns_1':2,
+        'blender_scene.orbit_pattern':17,
+        'blender_scene.orbit_pace_1':.24, 'blender_scene.orbit_drift_1':5.,
+        'blender_scene.orbit_pace_2':.80, 'blender_scene.orbit_drift_2':24.})
+    return normalize_composition(project)

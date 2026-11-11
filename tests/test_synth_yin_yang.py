@@ -7,7 +7,9 @@ from PIL import Image
 
 from synth import MODULE_BY_ID, default_synth_preset
 from synth_blender import ORBITAL_VARIANT_KEYS, render_blender_scene
-from synth_blender_recipes import yin_yang_composition, yin_yang_flowing_composition, orbital_clean_painted_composition, optical_relic_composition
+from synth_blender_recipes import (yin_yang_composition, yin_yang_flowing_composition,
+    yin_yang_drifting_composition, orbital_clean_painted_composition,
+    orbital_smooth_painted_composition, optical_relic_composition)
 from synth_composition import compile_composition, save_composition, load_composition
 from synth_sequence import render_sequence_frame
 from synth_starters import starter_composition
@@ -31,13 +33,14 @@ def test_yin_yang_roundtrip_retains_only_two_moving_pieces(monkeypatch,tmp_path)
     assert all(params[f'orbit_shape_{i}']==0 for i in (1,3,4,5))
     assert set(kwargs['parts'])=={'ring3','ring4','ring5','core'}
     assert all(not edit['visible'] for edit in kwargs['parts'].values())
-    assert project==original==load_composition(tmp_path/'yin.json')==yin_yang_flowing_composition()
+    assert project==original==load_composition(tmp_path/'yin.json')==yin_yang_drifting_composition()
     assert project['source']['states']['rings']['enabled']==['blender_scene','optical_diffusion']
     settings=project['source']['states']['rings']['overrides']
-    assert settings['blender_scene.period']==settings['optical_diffusion.period']==7.5
+    assert settings['blender_scene.period']==settings['optical_diffusion.period']==15.
+    assert params['orbit_pace_2']>0. and params['orbit_drift_2']>0.
     for seconds in (0.,7.5,15.):
         render_sequence_frame(seq,seconds,(72,90))
-    assert calls[-1]==calls[-2]==calls[-3]
+    assert calls[-1]==calls[-3] and calls[-2]!=calls[-1]
 
 
 def test_neutral_variants_preserve_original_requests_and_frozen_recipes(monkeypatch):
@@ -49,6 +52,13 @@ def test_neutral_variants_preserve_original_requests_and_frozen_recipes(monkeypa
     arr=np.zeros((32,24,3))
     render_blender_scene(arr,p,0,default_synth_preset())
     assert not ORBITAL_VARIANT_KEYS.intersection(requests[-1])
+    p['orbit_pattern']=17
+    render_blender_scene(arr,p,0,default_synth_preset())
+    assert not ORBITAL_VARIANT_KEYS.intersection(requests[-1])
+    p['orbit_pace_3']=.4;p['orbit_drift_3']=12.
+    render_blender_scene(arr,p,0,default_synth_preset())
+    assert ORBITAL_VARIANT_KEYS.intersection(requests[-1])=={'orbit_pattern','orbit_pace_3','orbit_drift_3'}
+    p['orbit_pace_3']=p['orbit_drift_3']=0.
     p['orbit_smooth_2']=1.
     render_blender_scene(arr,p,0,default_synth_preset())
     assert ORBITAL_VARIANT_KEYS.intersection(requests[-1])=={'orbit_smooth_2'}
@@ -63,3 +73,13 @@ def test_neutral_variants_preserve_original_requests_and_frozen_recipes(monkeypa
     assert orbital_clean_painted_composition()==json.loads((root/'orbital-rings-v3.json').read_text())
     assert optical_relic_composition()==json.loads((root/'optical-relic-v1.json').read_text())
     assert yin_yang_composition()==json.loads((root/'yin-yang-v1.json').read_text())
+    assert yin_yang_flowing_composition()==json.loads((root/'yin-yang-v2.json').read_text())
+
+
+def test_painted_study_only_smooths_white_ring():
+    original=orbital_clean_painted_composition()
+    updated=orbital_smooth_painted_composition()
+    expected=copy.deepcopy(original)
+    expected['source']['states']['rings']['overrides']['blender_scene.orbit_smooth_2']=1.
+    assert updated==expected==starter_composition('orbital-rings')
+    assert compile_composition(updated)['duration']==11.3
