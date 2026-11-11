@@ -95,6 +95,22 @@ Two editable examples are tracked separately: [tape garden](../examples/image-me
 and [unstable tape](../examples/image-memory-unstable-tape.nebula.json).
 Open one and use Save as study to keep it in your library.
 
+## Optical relic / green reverie
+
+This 8.75-second study uses a procedural Blender sculpture at 720×960 and 24 fps.
+Install Blender 4.2 or newer in Applications, then load **Optical relic** from
+Studies. Blender runs in the background; its window does not need to be open.
+
+**Object → Blender scene** controls the sculpture, rotation, camera, material
+and stage lighting. **Effects → Optical diffusion** controls soft focus, glow
+and fine grain. The scene settings are saved in the Nebula project and support
+Undo. Geometry and light edits need new frames; finishing edits reuse the clean
+3D frames. Use Prepare range or Prepare all at your selected preview resolution.
+Export renders at the canvas resolution, with the same scene and treatments.
+
+The first connection supports this bundled parametric scene. Importing arbitrary
+Blender scenes is not implemented. Existing studies do not need Blender.
+
 ## Spectral tunnel / luminous ripple
 
 A square six-second study of warm-white lights and cool halos in perspective.

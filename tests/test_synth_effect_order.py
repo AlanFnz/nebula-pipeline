@@ -120,7 +120,13 @@ def test_project_order_applies_to_clip_overrides_without_changing_ownership():
 
 
 @pytest.mark.parametrize('identifier', [key for key, _, _ in STARTERS])
-def test_all_studies_can_opt_into_ordering_without_mutating_recipe(identifier):
+def test_all_studies_can_opt_into_ordering_without_mutating_recipe(identifier, monkeypatch):
+    if identifier == 'optical-relic':
+        # Ordering tests do not require the optional external render engine.
+        # Its actual cache/protocol and scene rendering are checked separately.
+        import synth_blender_bridge
+        monkeypatch.setattr(synth_blender_bridge, 'render_frame',
+                            lambda params, angle, size: Image.new('RGB', size, 'seagreen'))
     project = starter_composition(identifier)
     before = copy.deepcopy(project)
     seq = compile_composition(project)

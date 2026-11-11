@@ -17,7 +17,7 @@ IMAGE_MODULES = (
     'screen_mesh', 'broadcast', 'subject_cutout', 'photocopy', 'signal_background',
     'edge_phosphor', 'scan_drag', 'breakup', 'tape', 'flare', 'separation',
     'interference', 'frame_jitter', 'bloom', 'raster', 'print_surface', 'low_res',
-    'color_field',
+    'color_field', 'optical_diffusion',
 )
 PATHS = {key: key + '.effect_intensity' for key in IMAGE_MODULES}
 PATHS.update(ghosts='smear.effect_intensity', drift='warp.effect_intensity', cloud='slab.cloud_intensity')

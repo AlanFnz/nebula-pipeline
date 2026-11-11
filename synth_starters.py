@@ -9,6 +9,7 @@ from synth_prismatic_recipes import prismatic_composition
 from synth_solid_recipes import rotating_die_composition
 from synth_lattice_recipes import lattice_composition
 from synth_spectral_tunnel_recipes import spectral_tunnel_composition
+from synth_blender_recipes import optical_relic_composition
 from synth_memory_recipes import memory_composition
 from synth_tension_recipes import tension_composition
 from synth_dye_recipes import dye_transfer_composition
@@ -19,6 +20,7 @@ from synth_pleated_recipes import pleated_composition, pleated_sound_composition
 
 
 STARTERS = (
+    ('optical-relic', 'Optical relic / green reverie · 8.75s', optical_relic_composition),
     ('spectral-tunnel', 'Spectral tunnel / luminous ripple · 6s', spectral_tunnel_composition),
     ('pleated-signal-acid', 'Pleated signal / acid motion · 20s', pleated_acid_composition),
     ('pleated-signal-sound', 'Pleated signal / electric motion · 20s', pleated_sound_composition),
@@ -65,6 +67,7 @@ STARTERS = (
 
 # First appearance in the repository, retained independently of app builds.
 STARTER_DATES = {
+    'optical-relic': '2026-11-11',
     'spectral-tunnel': '2026-11-10',
     'pleated-signal-sound': '2026-11-05',
     'pleated-signal-acid': '2026-11-05',

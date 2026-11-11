@@ -1,0 +1,160 @@
+{
+  "format": "nebula-composition",
+  "schema_version": 1,
+  "render_version": 2,
+  "name": "Optical relic / green reverie",
+  "fps": 24,
+  "seed": 161126,
+  "source": {
+    "schema_version": 1,
+    "name": "Optical relic / green reverie",
+    "duration": 8.75,
+    "fps": 24,
+    "seed": 161126,
+    "field": {
+      "valley_start": 0.0,
+      "valley_end": 0.0,
+      "valley_gain": 1.0,
+      "cloud_start": 0.0,
+      "cloud_strength": 0.0,
+      "cloud_late_start": 0.0,
+      "cloud_late_rate": 0.0
+    },
+    "states": {
+      "relic": {
+        "preset": "Reference blinds",
+        "overrides": {
+          "speed": 1.0,
+          "depth": 0.0,
+          "treatment_fps": 24,
+          "object_x": 0.0,
+          "object_y": 0.0,
+          "blender_scene.scene_version": 1,
+          "blender_scene.ring_width": 1.0,
+          "blender_scene.tube_radius": 0.125,
+          "blender_scene.hoop_bow": 0.1,
+          "blender_scene.hoop_twist": 0.0,
+          "blender_scene.body_height": 1.0,
+          "blender_scene.base_width": 1.0,
+          "blender_scene.crown_size": 1.1,
+          "blender_scene.axle_length": 1.0,
+          "blender_scene.period": 5.833333333333333,
+          "blender_scene.phase": 0.9366666667,
+          "blender_scene.direction": 0,
+          "blender_scene.ease": 0.26,
+          "blender_scene.size": 1.0,
+          "blender_scene.camera_yaw": 0.0,
+          "blender_scene.camera_elevation": 10.0,
+          "blender_scene.metal_hue": 0.15,
+          "blender_scene.metal_saturation": 0.15,
+          "blender_scene.metallic": 1.0,
+          "blender_scene.roughness": 0.24,
+          "blender_scene.environment": 0.65,
+          "blender_scene.reflection_contrast": 1.0,
+          "blender_scene.background_hue": 0.4,
+          "blender_scene.background_saturation": 0.52,
+          "blender_scene.light_angle": -50.0,
+          "blender_scene.light_size": 8.0,
+          "blender_scene.light_power": 400.0,
+          "blender_scene.exposure": 0.4,
+          "optical_diffusion.softness": 3.8,
+          "optical_diffusion.bloom": 0.22,
+          "optical_diffusion.radius": 18.0,
+          "optical_diffusion.warmth": 0.12,
+          "optical_diffusion.grain": 0.026,
+          "optical_diffusion.vignette": 0.12,
+          "optical_diffusion.period": 8.75,
+          "optical_diffusion.mix": 1.0,
+          "optical_diffusion.effect_intensity": 100.0
+        },
+        "enabled": [
+          "blender_scene",
+          "optical_diffusion"
+        ]
+      }
+    },
+    "cues": [
+      {
+        "time": 0.0,
+        "state": "relic",
+        "transition": "cut",
+        "duration": 0.0
+      }
+    ],
+    "render_version": 2,
+    "canvas": {
+      "width": 720,
+      "height": 960,
+      "framing": "native"
+    }
+  },
+  "canvas": {
+    "width": 720,
+    "height": 960,
+    "framing": "native"
+  },
+  "master": {
+    "enabled": true,
+    "brightness": 0.0,
+    "contrast": 1.0,
+    "saturation": 1.0
+  },
+  "phrases": {
+    "custom": {
+      "name": "Rotating relic / Blender scene",
+      "start": 0.0,
+      "end": 8.75
+    }
+  },
+  "macros": {
+    "rhythm": 1.0,
+    "width": 1.0,
+    "motion": 1.0,
+    "texture": 1.0,
+    "glow": 1.0,
+    "flashes": 1.0,
+    "color": 1.0
+  },
+  "geometry": {
+    "shape": "original",
+    "height": 1.0,
+    "diameter": 0.6,
+    "sides": 6,
+    "rotation": 0.0,
+    "position_x": 0.0,
+    "position_y": 0.0
+  },
+  "effects": {},
+  "ink_timing": {},
+  "variation": 0,
+  "locks": [],
+  "sections": [
+    {
+      "id": "section-1",
+      "phrase": "custom",
+      "duration": 8.75,
+      "loops": 1,
+      "macros": {
+        "rhythm": 1.0,
+        "width": 1.0,
+        "motion": 1.0,
+        "texture": 1.0,
+        "glow": 1.0,
+        "flashes": 1.0,
+        "color": 1.0
+      },
+      "geometry": {
+        "shape": "inherit",
+        "height": 1.0,
+        "diameter": 0.6,
+        "sides": 6,
+        "rotation": 0.0,
+        "position_x": 0.0,
+        "position_y": 0.0
+      },
+      "effects": {},
+      "variation": 0,
+      "locks": []
+    }
+  ]
+}

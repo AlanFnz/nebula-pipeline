@@ -185,7 +185,7 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
         if not self.updating and index >= 0: self.selected.emit(self.selector.itemData(index))
 
     def open_details(self, timing):
-        effect = {'tunnel': 'spectral_tunnel', 'pleated': 'pleated_field', 'memory': 'image_memory', 'lattice': 'chromatic_lattice', 'solid': 'solid', 'prismatic': 'prismatic_field', 'radial': 'radial_bloom', 'ink': 'ink_bloom', 'particles': 'particles', 'signal': self.signal_effect, 'silhouette': 'silhouette', 'text': 'text'}.get(self.kind)
+        effect = {'blender': 'blender_scene', 'tunnel': 'spectral_tunnel', 'pleated': 'pleated_field', 'memory': 'image_memory', 'lattice': 'chromatic_lattice', 'solid': 'solid', 'prismatic': 'prismatic_field', 'radial': 'radial_bloom', 'ink': 'ink_bloom', 'particles': 'particles', 'signal': self.signal_effect, 'silhouette': 'silhouette', 'text': 'text'}.get(self.kind)
         if effect: self.details_requested.emit(effect, timing)
 
     def refresh(self, summary, entries, parent_entries, local, *, context_key=None, scope_label=None):
@@ -210,6 +210,7 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
                  'signal': 'The luminous form and ray aperture share this geometry.',
                  'none': 'Choose an object to introduce a source into the scene.'}
         notes['memory'] = 'Persistence holds past positions; Drift carries the traces away; Dissolution erodes old silhouettes. This object generates its own history. Use the groups below for trace direction, expansion, color aging and optical finish.'
+        notes['blender'] = 'Blender renders the 3D scene in the background. Shape, camera and light edits prepare new frames. Optical diffusion in Effects reuses those frames. Blender 4.2 or newer must be installed in Applications.'
         notes['tunnel'] = 'Two luminous perspective planes. Loop & motion controls the repeating ripple; Color & light and Optical finish control the warm/cool halos and fine grain.'
         notes['lattice'] = 'A fixed grid with traveling waves of size and color. Color timing can follow the free optical cycle or a Musical phrase with one tempo for size, color and generated notes. Glow and softness shape the optical finish.'
         notes['pleated'] = 'Raised folds with an animated camera and mirrored views. Change the profile, relief, palette or field outline here. Color emulsion and Screen mesh add the filmed texture separately.'

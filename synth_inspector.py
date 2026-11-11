@@ -5,6 +5,17 @@ def control_group(path):
     from synth_instances import base_path
     path = base_path(path)
     module, key = path.split('.')
+    if module == 'blender_scene':
+        if key in ('period','phase','direction','ease'): return 'Loop & motion'
+        if key in ('size','camera_yaw','camera_elevation'): return 'Camera'
+        if key in ('metal_hue','metal_saturation','metallic','roughness','reflection_contrast'): return 'Material'
+        if key in ('background_hue','background_saturation','light_angle','light_size','light_power','environment','exposure'): return 'Stage & lighting'
+        if key == 'scene_version': return 'Scene'
+        return 'Sculpture'
+    if module == 'optical_diffusion':
+        if key in ('grain','period'): return 'Grain & timing'
+        if key in ('mix','effect_intensity'): return 'Output & blending'
+        return 'Lens & light'
     if module == 'pleated_field':
         if key in ('profile','density','depth','curl','stagger','irregularity'): return 'Fold geometry'
         if key in ('size','angle','perspective','shear','tilt_x','tilt_y','symmetry','pan_x','pan_y',

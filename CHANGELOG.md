@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.91.0 — 2026-11-11
+
+- Add **Optical relic / green reverie**, a 720×960, 24 fps Blender study based
+  on ref-16. Its 8.75 seconds contain three repeating poses of a procedural
+  sculpture, with editable hoops, pedestal, crown, camera, rotation, alloy,
+  studio reflections and lighting in **Object → Blender scene**.
+- Render the bundled scene through a persistent background Blender process.
+  Cache clean frames at their exact resolution and pose for preview and export;
+  optical edits reuse them. Blender is optional for every existing study.
+  The first integration supports the bundled parametric scene, not arbitrary
+  `.blend` imports. Tested with Blender 4.2.0 and Metal on macOS.
+- Add **Optical diffusion**, an independent image effect for soft focus,
+  highlight diffusion, fine grain and edge shading. All new source/effect
+  settings use existing save, animation and undo paths. Earlier recipes and
+  render algorithms are unchanged.
+
 ## 0.90.0 — 2026-11-11
 
 - Add **Object → Perspective → Orientation** to Spectral tunnel. Choose a

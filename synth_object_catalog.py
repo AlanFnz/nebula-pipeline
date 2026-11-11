@@ -16,6 +16,13 @@ OBJECT_PATHS = {
 # Primary controls are first; the remaining groups stay folded until requested.
 # A registry fallback keeps future controls reachable without changing a study.
 FAMILY_GROUPS = {
+    'blender': (
+        ('Sculpture', 'ring_width tube_radius hoop_bow hoop_twist body_height base_width crown_size axle_length'),
+        ('Loop & motion', 'period phase direction ease'),
+        ('Camera', 'size camera_yaw camera_elevation'),
+        ('Material', 'metal_hue metal_saturation metallic roughness reflection_contrast'),
+        ('Stage & lighting', 'background_hue background_saturation light_angle light_size light_power environment exposure'),
+        ('Scene', 'scene_version')),
     'tunnel': (
         ('Light geometry', 'shape sides size aspect rows spacing rail'),
         ('Perspective', 'orientation vanishing_x cross_x horizon depth gap'),

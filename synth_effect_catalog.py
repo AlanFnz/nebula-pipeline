@@ -7,7 +7,7 @@ from synth_effects import EFFECTS, EFFECT_BY_ID, effects_for
 from synth_instances import instance_ids, base_id
 
 
-SOURCE_EFFECT_IDS = frozenset(('spectral_tunnel', 'pleated_field', 'image_memory', 'chromatic_lattice', 'radial_bloom', 'forms', 'rays', 'ink_bloom', 'particles', 'silhouette', 'text', 'prismatic_field', 'solid'))
+SOURCE_EFFECT_IDS = frozenset(('blender_scene', 'spectral_tunnel', 'pleated_field', 'image_memory', 'chromatic_lattice', 'radial_bloom', 'forms', 'rays', 'ink_bloom', 'particles', 'silhouette', 'text', 'prismatic_field', 'solid'))
 CATEGORIES = ('Distortion', 'Texture', 'Light & color', 'Motion & echoes', 'Cutout', 'Finishing', 'Other')
 EFFECT_CATEGORIES = {
     'dye_transfer': 'Texture',
@@ -16,6 +16,7 @@ EFFECT_CATEGORIES = {
     'optical_print': 'Texture',
     'color_field': 'Light & color',
     'film_emulsion': 'Texture',
+    'optical_diffusion': 'Texture',
     'film_burn': 'Texture',
     'print_collage': 'Motion & echoes',
     'contour_melt': 'Light & color',
