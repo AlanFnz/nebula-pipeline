@@ -128,3 +128,54 @@ def test_saved_study_is_frozen_and_new_sources_are_not_effects():
     assert active_subjects(describe_effects(scope_states(select_subject(project,'none'))))==()
     assert 'blender_scene' not in {e.id for e in effect_catalog()}
     assert 'optical_diffusion' in {e.id for e in effect_catalog()}
+
+
+def test_part_identity_cycles_and_symmetry_when_an_edit_breaks_the_half_turn():
+    from synth_blender_parts import part_poses
+    p=defaults('blender_scene')
+    assert part_poses(p,4.)=={}
+    # Inherited material and idle clock changes must preserve legacy renders.
+    p.update(part_upper_hue=.9,part_lower_period=3.)
+    assert part_poses(p,4.)=={}
+    p.update(part_upper_position_x=.2,part_upper_turns_y=-2,part_upper_period=4.,part_upper_ease=.6)
+    assert part_poses(p,.9)==part_poses(p,4.9)
+    assert set(part_poses(p,0))=={'upper'}
+    # An asymmetric assembly must keep turning through 180°, never jump back.
+    p['phase']=0.
+    before=rotation(p['period']*.5-.001,p,symmetric=False)
+    after=rotation(p['period']*.5+.001,p,symmetric=False)
+    assert 0<after-before<.01
+    assert part_poses(dict(p,part_upper_follow=0),0)['upper']['follow'] is False
+
+
+def test_part_cache_keeps_neutral_and_different_parts_separate(bridge):
+    from synth_blender_parts import part_poses
+    b,calls,exe=bridge
+    p=defaults('blender_scene'); physical={k:v for k,v in p.items() if not k.startswith('part_')}
+    b.render_frame(physical,0.,(24,32))
+    poses=part_poses(dict(p,part_crown_visible=0),0.)
+    b.render_frame(physical,0.,(24,32),parts=poses)
+    assert calls[-1]['parts']['crown']['visible'] is False
+    b.render_frame(physical,0.,(24,32),parts=poses)
+    b.render_frame(physical,0.,(24,32),parts={})
+    assert len(calls)==2
+    assert b.cache_key(physical,0.,(24,32),exe)==b.cache_key(physical,0.,(24,32),exe,{})
+
+
+def test_part_animation_survives_save_and_only_changes_its_target(tmp_path):
+    from synth_sequence import resolve_sequence_frame
+    from synth_blender_parts import part_poses
+    project=optical_relic_composition()
+    project['sections'][0]['automations']=[dict(id='lift-hoop',path='blender_scene.part_upper_position_z',
+        amount=.7,enabled=True,easing='smooth',start_fraction=0.,attack_fraction=.25,
+        hold_fraction=.25,recovery_fraction=.5)]
+    path=tmp_path/'parts.json';save_composition(path,project)
+    seq=compile_composition(load_composition(path))
+    def pose(t):
+        preset=resolve_sequence_frame(seq,t)[-1]
+        p=next(m['params'] for m in preset['modules'] if m['id']=='blender_scene')
+        return part_poses(p,t)
+    assert pose(0.)=={}
+    middle=pose(8.75*.375)
+    assert set(middle)=={'upper'} and middle['upper']['position'][2]==.7
+    assert pose(8.75-.00001)['upper']['position'][2]<1e-9

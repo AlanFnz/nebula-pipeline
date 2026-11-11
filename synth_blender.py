@@ -4,6 +4,7 @@ import numpy as np
 from PIL import Image, ImageFilter
 
 from synth_canvas import content_size, object_offset
+from synth_blender_parts import parameters as part_parameters, part_poses
 
 
 def modules(Module, P):
@@ -19,7 +20,7 @@ def modules(Module, P):
             P('base_width', 'Pedestal width', 1., .5, 1.5, .01),
             P('crown_size', 'Crown size', 1., .3, 1.5, .01),
             P('axle_length', 'Side pin length', 1., .4, 1.5, .01),
-            P('period', 'Rotation period', 6., .5, 60., .1, 'Seconds per full turn at global speed 1. The two sides of the sculpture repeat after half a turn.'),
+            P('period', 'Rotation period', 6., .5, 60., .1, 'Seconds per full turn at global speed 1. The original symmetric sculpture repeats after half a turn; edited pieces can require a full turn.'),
             P('phase', 'Starting turn', 0., 0., 1., .01),
             P('direction', 'Direction', 0, 0, 1, 1, choices=('Forward', 'Reverse')),
             P('ease', 'Turn easing', .6, 0., .95, .01, 'Slows near the frontal views without stopping or reversing.'),
@@ -38,7 +39,7 @@ def modules(Module, P):
             P('light_size', 'Light softness', 4., .5, 8., .1),
             P('light_power', 'Light strength', 1000., 100., 3000., 25.),
             P('exposure', 'Exposure', .4, -3., 3., .05),
-        )),
+        ) + part_parameters(P)),
         Module('optical_diffusion', 'Optical diffusion',
             'Photographic softness, broad highlight diffusion and fine grain. Works after any generated object or imported footage.', (
             P('softness', 'Focus softness', 2.2, 0., 8., .1, 'Pixels at a 720-pixel artwork width.'),
@@ -56,10 +57,11 @@ def modules(Module, P):
 MOTION_KEYS = frozenset(('period', 'phase', 'direction', 'ease', 'effect_intensity'))
 
 
-def rotation(seconds, p, speed=1.):
-    # Both bowed hoops retain half-turn symmetry. Normalize it before rounding
-    # so the three cycles in the reference reuse the identical clean renders.
-    phase = round((seconds*speed/p['period'] + p['phase']) % .5, 10) % .5
+def rotation(seconds, p, speed=1., *, symmetric=True):
+    # The untouched sculpture has half-turn symmetry. Reuse its original clean
+    # frames, but retain the full turn when individual edits break that symmetry.
+    cycle = .5 if symmetric else 1.
+    phase = round((seconds*speed/p['period'] + p['phase']) % cycle, 10) % cycle
     angle = math.tau*phase - p['ease']*.5*math.sin(2*math.tau*phase)
     return round(angle * (-1 if p['direction'] else 1), 9)
 
@@ -69,10 +71,12 @@ def render_blender_scene(arr, p, seconds, preset):
     h, w = arr.shape[:2]
     cw, ch = content_size(preset, (w,h))
     dx, dy = object_offset(preset, (w,h))
-    parameters = {k:v for k,v in p.items() if k not in MOTION_KEYS}
+    parameters = {k:v for k,v in p.items() if k not in MOTION_KEYS and not k.startswith('part_')}
     # Frame the same physical scene when the canvas is resized or repositioned.
     parameters.update(framing_height=h/max(1.,ch), offset_x=dx/w, offset_y=dy/h)
-    image = render_frame(parameters, rotation(seconds, p, preset['speed']), (w,h))
+    parts = part_poses(p, seconds, preset['speed'])
+    angle = rotation(seconds, p, preset['speed'], symmetric=not parts)
+    image = render_frame(parameters, angle, (w,h), parts=parts) if parts else render_frame(parameters, angle, (w,h))
     return np.asarray(image, np.float32)/255.
 
 

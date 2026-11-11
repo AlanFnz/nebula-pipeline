@@ -7,7 +7,7 @@ from synth_sequence import normalize_sequence
 def optical_relic_composition():
     overrides = {'speed':1., 'depth':0., 'treatment_fps':24, 'object_x':0., 'object_y':0.}
     for name in ('blender_scene','optical_diffusion'):
-        overrides.update({name+'.'+p.key:p.default for p in MODULE_BY_ID[name].params})
+        overrides.update({name+'.'+p.key:p.default for p in MODULE_BY_ID[name].params if not p.key.startswith('part_')})
     overrides.update({'blender_scene.roughness':.24,
                       'blender_scene.metallic':1.,
                       'blender_scene.tube_radius':.125,

@@ -61,6 +61,15 @@ HUES = frozenset({
 def presentation(path):
     from synth_instances import base_path
     from synth_intensity import PATHS
+    if path.startswith('blender_scene.part_'):
+        from synth_blender_parts import part_controls
+        part = part_controls(path.split('.',1)[1])
+        if part:
+            field = part[1]
+            if field in ('visible','follow','inherit'): return ParameterPresentation(checkbox=True)
+            if field.startswith('rotation_'): return ParameterPresentation(unit='°')
+            if field == 'period': return ParameterPresentation(unit=' s')
+            if field == 'hue': return ParameterPresentation(hue=True)
     if base_path(path) == 'low_res.resolution':
         return ParameterPresentation(unit=' px', presets=(180, 240, 360, 480, 720, 1080, 1440, 2160))
     if base_path(path) == 'signal_tension.registration_fps': return ParameterPresentation(unit=' fps')

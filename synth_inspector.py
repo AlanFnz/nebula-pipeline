@@ -6,6 +6,14 @@ def control_group(path):
     path = base_path(path)
     module, key = path.split('.')
     if module == 'blender_scene':
+        from synth_blender_parts import part_controls, PARTS
+        part = part_controls(key)
+        if part:
+            identifier, field = part
+            label = next(label for name,label,_ in PARTS if name == identifier)
+            group = ('Material' if field in ('inherit','hue','saturation','metallic','roughness') else
+                     'Independent motion' if field in ('period','phase','ease','turns_x','turns_y','turns_z') else 'Transform')
+            return label+' / '+group
         if key in ('period','phase','direction','ease'): return 'Loop & motion'
         if key in ('size','camera_yaw','camera_elevation'): return 'Camera'
         if key in ('metal_hue','metal_saturation','metallic','roughness','reflection_contrast'): return 'Material'

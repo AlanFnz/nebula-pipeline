@@ -22,6 +22,7 @@ import uuid
 from PIL import Image
 
 SCRIPT = Path(__file__).parent/'assets/blender/scene_worker.py'
+RUNNER = SCRIPT.with_name('assembly_worker.py')
 CACHE = Path.home()/'Library/Caches/Nebula Studio/blender-v1'
 PREFIX = b'NEBULA_FRAME '
 
@@ -38,11 +39,13 @@ def blender_executable():
     raise ValueError('This object needs Blender 4.2 or newer. Install Blender in Applications, then prepare the preview again. Existing Nebula studies do not require Blender.')
 
 
-def cache_key(params, angle, size, executable):
+def cache_key(params, angle, size, executable, parts=None):
     stat = executable.stat()
     payload = dict(params=params, angle=angle, size=list(size),
                    executable=[str(executable),stat.st_size,stat.st_mtime_ns],
                    builder=hashlib.sha256(SCRIPT.read_bytes()).hexdigest())
+    if parts:
+        payload.update(parts=parts, assembly=hashlib.sha256(RUNNER.read_bytes()).hexdigest())
     return hashlib.sha256(json.dumps(payload,sort_keys=True,allow_nan=False).encode()).hexdigest()
 
 
@@ -86,7 +89,7 @@ class BlenderWorker:
                 if self.process is None or self.process.poll() is not None or self.executable != executable:
                     self.close(); self.logs.clear(); self.executable = executable
                     self.process = subprocess.Popen([str(executable),'--background','--factory-startup',
-                        '--disable-autoexec','--python',str(SCRIPT)],stdin=subprocess.PIPE,
+                        '--disable-autoexec','--python',str(RUNNER)],stdin=subprocess.PIPE,
                         stdout=subprocess.PIPE,stderr=subprocess.STDOUT,bufsize=0)
                     response = self.receive()
                     if not response.get('ready'): raise RuntimeError('Blender did not initialize its scene worker.')
@@ -130,9 +133,9 @@ def trim_cache(folder=CACHE, limit=3*1024**3):
             except FileNotFoundError: pass
 
 
-def render_frame(params, angle, size):
+def render_frame(params, angle, size, *, parts=None):
     executable = blender_executable()
-    key = cache_key(params,angle,size,executable)
+    key = cache_key(params,angle,size,executable,parts)
     CACHE.mkdir(parents=True,exist_ok=True)
     target = CACHE/(key+'.png')
     cached = _read(target,size)
@@ -142,7 +145,9 @@ def render_frame(params, angle, size):
         if cached is not None: return cached
         temporary = CACHE/(key+'-'+uuid.uuid4().hex+'.part.png')
         try:
-            worker.request(dict(params=params,angle=angle,size=list(size),output=str(temporary)),executable)
+            payload = dict(params=params,angle=angle,size=list(size),output=str(temporary))
+            if parts: payload['parts'] = parts
+            worker.request(payload,executable)
             image = _read(temporary,size)
             if image is None: raise RuntimeError('Blender did not produce a complete frame at the selected resolution.')
             os.replace(temporary,target)

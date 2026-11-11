@@ -126,7 +126,7 @@ class ObjectGroupsMixin:
     def show_object_groups(self):
         if not self.object_groups: return
         query = self.object_filter.text().strip().casefold()
-        page = self.text_tabs.currentIndex() if self.kind == 'text' else 0
+        page = self.object_page()
         eligible = self.text_eligible if self.kind == 'text' else self.object_eligible
         self.search_results = []
         text_primary = ('text.font', 'text.weight', 'text.content') if self.kind == 'text' else ()
@@ -170,7 +170,8 @@ class ObjectGroupsMixin:
             for path in members: self.controls[path].setVisible(path in matching)
             if visible: self.search_results.extend(matching)
         position_match = bool(query) and any(query in term for term in ('position', 'position x', 'position y', 'canvas pixels'))
-        self.position_host.setVisible(position_match if query else self.kind != 'text' or page == 1)
+        self.position_host.setVisible(position_match if query else
+                                      page == 0 if self.kind == 'blender' else self.kind != 'text' or page == 1)
         self.control_host.show()
         if query:
             self.text_layout_note.hide(); self.text_motion_link.hide()
@@ -182,13 +183,14 @@ class ObjectGroupsMixin:
     def filter_object_controls(self, query):
         active = bool(query.strip())
         if active and self.search_snapshot is None:
-            self.search_snapshot = (self.text_tabs.currentIndex(), self.overview_scroll.verticalScrollBar().value())
+            self.search_snapshot = (self.object_page(), self.overview_scroll.verticalScrollBar().value())
         self.search_generation += 1
         generation = self.search_generation
         self.show_object_groups()
         if not active and self.search_snapshot is not None:
             page, scroll = self.search_snapshot; self.search_snapshot = None
-            with QSignalBlocker(self.text_tabs): self.text_tabs.setCurrentIndex(page)
+            selector = self.part_selector if self.kind == 'blender' else self.text_tabs
+            with QSignalBlocker(selector): selector.setCurrentIndex(page)
             self.show_text_controls() if self.kind == 'text' else self.show_object_groups()
             QTimer.singleShot(0, lambda: self.overview_scroll.verticalScrollBar().setValue(scroll)
                               if generation == self.search_generation else None)
@@ -219,6 +221,8 @@ class ObjectGroupsMixin:
         for page, name, opened, members in self.object_definitions:
             if name != title: continue
             if self.kind == 'text': self.text_tabs.setCurrentIndex(page)
+            if self.kind == 'blender':
+                with QSignalBlocker(self.part_selector): self.part_selector.setCurrentIndex(page)
             self.object_expansion[(self.kind, title)] = True
             self.show_object_groups()
             first = next((p for p in members if not self.controls[p].isHidden()), None)

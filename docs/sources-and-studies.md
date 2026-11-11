@@ -108,6 +108,18 @@ Undo. Geometry and light edits need new frames; finishing edits reuse the clean
 3D frames. Use Prepare range or Prepare all at your selected preview resolution.
 Export renders at the canvas resolution, with the same scene and treatments.
 
+Use **Object → Part** to select the pedestal, either hoop, the spindle and
+central body, crown, or either pin. **Whole assembly** returns to shared controls.
+Each piece has its own position, rotation, scale and visibility. **Independent
+motion** adds whole turns around any axis; **Follow assembly** includes the
+shared turn. Use **Animate** beside a transform to schedule a change. In
+**Material**, turn off **Use assembly material** for a separate color and finish.
+Selecting a piece changes no values, and the default study keeps its original look.
+
+Asymmetric edits can require a full turn to repeat, where the original sculpture
+repeats after half a turn. For a closed loop, match the clip duration to whole
+cycles of the assembly and any independently moving pieces.
+
 The first connection supports this bundled parametric scene. Importing arbitrary
 Blender scenes is not implemented. Existing studies do not need Blender.
 

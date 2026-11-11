@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.92.0 — 2026-11-11
+
+- Edit the seven pieces of Optical relic separately in **Object → Part**.
+  Each has visibility, position, rotation, scale, optional independent looping
+  turns and its own material. Transform controls support **Animate**; all
+  authored settings save with projects and use Undo/Redo.
+- Keep the original study and its cached frames unchanged at neutral settings.
+  Edited pieces use their own pivots without rebuilding the geometry each frame.
+  Asymmetric edits preserve a continuous full assembly turn. Other studies and
+  rendering effects retain their existing behavior.
+
 ## 0.91.0 — 2026-11-11
 
 - Add **Optical relic / green reverie**, a 720×960, 24 fps Blender study based

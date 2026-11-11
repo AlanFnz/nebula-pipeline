@@ -56,6 +56,8 @@ TARGETS = frozenset({
     'chroma_print.mid_saturation', 'chroma_print.warm_color', 'chroma_print.mix',
 })
 TARGETS |= frozenset(PATHS.values())
+from synth_blender_parts import AUTOMATION_TARGETS as BLENDER_PART_TARGETS
+TARGETS |= BLENDER_PART_TARGETS
 STAGES = ('start', 'attack', 'hold', 'recovery')
 MAX_SECTION_EVENTS = 131072
 MAX_SEQUENCE_EVENTS = 131072

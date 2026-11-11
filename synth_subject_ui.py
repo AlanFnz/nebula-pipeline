@@ -62,6 +62,16 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
         self.text_tabs = QTabBar()
         for label in ('Text', 'Layout', 'Motion'): self.text_tabs.addTab(label)
         self.text_tabs.currentChanged.connect(self.change_text_tab); header.addWidget(self.text_tabs)
+        self.part_navigation = QWidget(); part_row = QHBoxLayout(self.part_navigation)
+        part_row.setContentsMargins(0,0,0,0); part_row.addWidget(QLabel('Part'))
+        self.part_selector = ComboBox(); self.part_selector.setAccessibleName('Assembly part')
+        self.part_selector.addItem('Whole assembly', None)
+        from synth_blender_parts import PARTS
+        for key, label, _ in PARTS: self.part_selector.addItem(label, key)
+        self.part_selector.setToolTip('Choose a piece to edit its transform, independent motion and material. Selecting a piece changes no saved values.')
+        self.part_selector.currentIndexChanged.connect(self.change_part)
+        part_row.addWidget(self.part_selector,1); header.addWidget(self.part_navigation)
+        self.part_navigation.hide()
         self.object_navigation = QWidget(); navigation = QVBoxLayout(self.object_navigation)
         navigation.setContentsMargins(0, 0, 0, 0); navigation.setSpacing(4)
         row = QHBoxLayout()
@@ -122,6 +132,7 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
     def show_overview(self):
         self.pages.setCurrentWidget(self.overview_scroll)
         self.object_navigation.setVisible(self.kind in OBJECT_PATHS)
+        self.part_navigation.setVisible(self.kind == 'blender')
         self.navigation_changed.emit()
 
     def change_text_tab(self, index):
@@ -131,6 +142,20 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
             self.search_generation += 1
         self.show_text_controls(index)
         self.overview_scroll.verticalScrollBar().setValue(0)
+
+    def object_page(self):
+        if self.kind == 'blender': return self.part_selector.currentIndex()
+        return self.text_tabs.currentIndex() if self.kind == 'text' else 0
+
+    def change_part(self, index):
+        if self.kind != 'blender' or self.updating: return
+        if self.object_filter.text():
+            self.object_filter.clear()
+            with QSignalBlocker(self.part_selector): self.part_selector.setCurrentIndex(index)
+            self.search_generation += 1
+        self.show_object_groups()
+        self.overview_scroll.verticalScrollBar().setValue(0)
+        self.navigation_changed.emit()
 
     def jump_to_object_group(self, index):
         title = self.object_jump.itemData(index)
@@ -148,6 +173,7 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
             self.details_editor.parameter_tabs.setCurrentIndex((0 if timing else 1) if effect in CREATIVE_CONTROLS else (1 if timing else 0))
             self.pages.setCurrentWidget(self.details_editor)
             self.object_navigation.hide()
+            self.part_navigation.hide()
             if not timing: self.details_editor.activation_button.setChecked(True)
         self.navigation_changed.emit()
 
@@ -158,7 +184,10 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
         if self.kind == 'text':
             self.text_tabs.setCurrentIndex(0 if path in TEXT_PAGE_PATHS else 2 if path in TEXT_TIMING else 1)
         for page, title, opened, members in self.object_definitions:
-            if path in members: self.object_expansion[(self.kind, title)] = True
+            if path in members:
+                self.object_expansion[(self.kind, title)] = True
+                if self.kind == 'blender':
+                    with QSignalBlocker(self.part_selector): self.part_selector.setCurrentIndex(page)
         self.show_object_groups()
         self.focus_object_control(path)
         return True
@@ -210,7 +239,7 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
                  'signal': 'The luminous form and ray aperture share this geometry.',
                  'none': 'Choose an object to introduce a source into the scene.'}
         notes['memory'] = 'Persistence holds past positions; Drift carries the traces away; Dissolution erodes old silhouettes. This object generates its own history. Use the groups below for trace direction, expansion, color aging and optical finish.'
-        notes['blender'] = 'Blender renders the 3D scene in the background. Shape, camera and light edits prepare new frames. Optical diffusion in Effects reuses those frames. Blender 4.2 or newer must be installed in Applications.'
+        notes['blender'] = 'Choose Whole assembly for shared shape, camera and lighting, or a Part for its transform, motion and material. Independent motion adds looping turns; Animate schedules a change on the timeline. 3D edits prepare new frames. Optical diffusion in Effects reuses them.'
         notes['tunnel'] = 'Two luminous perspective planes. Loop & motion controls the repeating ripple; Color & light and Optical finish control the warm/cool halos and fine grain.'
         notes['lattice'] = 'A fixed grid with traveling waves of size and color. Color timing can follow the free optical cycle or a Musical phrase with one tempo for size, color and generated notes. Glow and softness shape the optical finish.'
         notes['pleated'] = 'Raised folds with an animated camera and mirrored views. Change the profile, relief, palette or field outline here. Color emulsion and Screen mesh add the filmed texture separately.'
@@ -233,6 +262,7 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
         self.control_host.setVisible(self.kind in OBJECT_PATHS)
         self.wording_host.setVisible(self.kind == 'text')
         self.text_tabs.setVisible(self.kind == 'text')
+        self.part_navigation.setVisible(self.kind == 'blender' and self.pages.currentWidget() is self.overview_scroll)
         self.text_layout_note.hide()
         self.details.setText('Text appearance…' if self.kind == 'text' else 'Activation & preset…')
         self.timing.setText('Creative motion…' if self.kind == 'particles' else 'Motion & timing…')
@@ -306,6 +336,12 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
             low, high = summary[effect]['ranges'][effect + '.' + key]
             return low == high and low != value
         if self.kind == 'memory' and selected('image_memory', 'shape', 2): hide('image_memory.sides')
+        if self.kind == 'blender':
+            from synth_blender_parts import PARTS
+            for part,_,_ in PARTS:
+                prefix = 'blender_scene.part_'+part+'_'
+                if summary['blender_scene']['ranges'][prefix+'inherit'] == (1,1):
+                    hide(*(prefix+key for key in ('hue','saturation','metallic','roughness')))
         if self.kind == 'tunnel':
             if selected('spectral_tunnel', 'shape', 3): hide('spectral_tunnel.sides')
             if selected('spectral_tunnel', 'motion', 0): hide('spectral_tunnel.amplitude')

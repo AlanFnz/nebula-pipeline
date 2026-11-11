@@ -88,6 +88,9 @@ def family_groups(kind):
     prefix = available[0].split('.')[0]
     groups = [(0, title, index == 0, tuple(f'{prefix}.{key}' for key in keys.split()))
               for index, (title, keys) in enumerate(FAMILY_GROUPS[kind])]
+    if kind == 'blender':
+        from synth_blender_parts import groups as part_groups
+        groups.extend(part_groups())
     assigned = {p for _, _, _, members in groups for p in members}
     groups.extend((0, title, False, tuple(members)) for title, members
                   in grouped_paths(p for p in available if p not in assigned))
