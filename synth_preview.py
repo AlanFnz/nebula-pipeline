@@ -102,11 +102,24 @@ def resolve_scope(composition, selected_ids, maximum, selected=False):
     return PreviewScope(intervals, len(intervals))
 
 
+def preview_window(scope, current, count):
+    """A fixed window in playback order, shifted back if near the scope end."""
+    count = min(max(0, int(count)), scope.count)
+    first = min(scope.position(current), scope.count - count)
+    last = first + count
+    intervals, offset = [], 0
+    for start, end in scope.intervals:
+        low, high = max(first, offset), min(last, offset + end - start)
+        if high > low: intervals.append((start + low - offset, start + high - offset))
+        offset += end - start
+    return PreviewScope(tuple(intervals))
+
+
 class PreviewScheduler:
     """Plan one stable bounded window, then deliver at most four frames per job."""
     batch_size = 4
 
-    def plan(self, scope, current, fps, size, budget, explicit=False):
+    def plan(self, scope, current, fps, size, budget, explicit=False, frame_count=None):
         frame_bytes = size[0] * size[1] * 3
         capacity = max(0, budget // frame_bytes)
         limited = scope.count > capacity
@@ -115,7 +128,7 @@ class PreviewScheduler:
         if explicit and not limited:
             ranks = tuple(range(origin, scope.count)) + tuple(range(origin))
         else:
-            count = min(scope.count, capacity, math.ceil(fps * 2.5) + 1)
+            count = min(scope.count, capacity, frame_count if frame_count is not None else math.ceil(fps * 2.5) + 1)
             behind = min(round(fps * .5), origin, max(0, count - 1))
             first = max(0, min(origin - behind, scope.count - count))
             last = first + count

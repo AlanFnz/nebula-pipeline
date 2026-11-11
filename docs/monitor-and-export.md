@@ -17,11 +17,18 @@ authored effect, so it does affect export.
 
 ## Preparation
 
-If playback skips, lower Preview resolution and prepare frames. **Prepare range**
-caches a bounded region; **Prepare all frames** prepares the complete composition
-using temporary storage. Preparing does not start playback. The counter names
-the scope and reports partial or complete coverage. Montage uses bounded ranges.
-Visual edits can invalidate prepared frames; sound-only changes keep them.
+Choose a frame count beside **Prepare range**, position the playhead, then prepare.
+The range uses the selected resolution and temporary lossless storage, even when
+it exceeds memory. Near the end it starts earlier to keep the requested length.
+When ready, enable **Loop prepared range** and press Play. The displayed range
+repeats with audio/MIDI following its timeline times; this does not change export
+or clip repeats. Seeking outside the range exits its loop.
+
+**Auto prepare** warms a nearby range within memory limits. **Prepare all frames**
+prepares the complete composition. Preparing does not start playback. Visual edits
+or resolution changes can invalidate the range; sound-only changes keep it.
+Montage's assembly monitor still uses bounded ranges; these controls are available
+when editing compositions and Montage blocks.
 
 ## Export details
 

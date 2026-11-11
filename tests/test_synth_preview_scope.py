@@ -108,22 +108,24 @@ def test_scope_clock_skips_gaps_and_retains_repeated_seek(window, monkeypatch):
     assert window.timeline.value() == 9
 
 
-def test_explicit_preparation_waits_for_foreground_and_oversize_warms_useful_window(window):
+def test_explicit_preparation_waits_for_foreground_and_keeps_chosen_window(window):
     window.auto_prepare.setChecked(False)
     window.set_composition(short_document())
     frame_bytes = window.preview_size()[0]*window.preview_size()[1]*3
     window.preview_frames.budget = frame_bytes*5
+    window.preview_range_frames.setValue(9)
     window.prepare_playback()  # Current-frame debounce/render is still pending.
     prepared(window)
-    assert len(window.preparation_target) == 5 and all(frame in window.preview_frames.items for frame in window.preparation_target)
+    assert len(window.preparation_target) == 9 and all(window.preview_frames.contains(frame) for frame in window.preparation_target)
     assert window.preview_frames.bytes + window.preview_frames.reserved <= window.preview_frames.budget
-    assert 'partially prepared' in window.preview_status.text() and not window.play.isChecked()
+    assert window.loop_preview_range.isEnabled() and not window.play.isChecked()
     old = dict(window.preview_frames.items)
     QTest.qWait(500)
     assert dict(window.preview_frames.items) == old and window.prepare_job is None
     window.preview_frames.clear(); window.preview_frames.budget = frame_bytes
     window.prepare_playback(); prepared(window)
     assert len(window.preview_frames.items) == 1 and window.preview_frames.reserved == 0
+    assert all(window.preview_frames.contains(frame) for frame in window.preparation_target)
 
 
 def test_automatic_warming_settles_without_idle_render_churn(window, monkeypatch):

@@ -38,8 +38,10 @@ class ComparisonFrames(PreviewFrames):
 
     def enable_full(self, size, count):
         from synth_preview_disk import DiskFrames
-        if self.namespace in self.disk_banks: return
-        store = DiskFrames(size, count)
+        if self.namespace in self.disk_banks:
+            self.disk_banks[self.namespace].check_capacity(count)
+            return
+        store = DiskFrames(size, max(count, len(self.items)))
         try:
             for frame, packet in self.items.items(): store.put(frame, packet)
         except Exception:

@@ -1,4 +1,4 @@
-"""Temporary, lossless RGB storage for explicitly prepared complete previews."""
+"""Temporary, lossless RGB storage for prepared preview ranges or timelines."""
 import shutil
 import tempfile
 from pathlib import Path
@@ -8,11 +8,14 @@ class DiskFrames:
     def __init__(self, size, count):
         self.size = tuple(size)
         self.frame_bytes = size[0] * size[1] * 3
-        required = self.frame_bytes * count
-        if shutil.disk_usage(tempfile.gettempdir()).free < required + 64 * 1024**2:
-            raise OSError(f'Full preview needs {required / 1024**2:.0f} MB of temporary disk space. Free space and try again.')
-        self.folder = tempfile.TemporaryDirectory(prefix='nebula-full-preview-')
         self.frames = set()
+        self.check_capacity(count)
+        self.folder = tempfile.TemporaryDirectory(prefix='nebula-full-preview-')
+
+    def check_capacity(self, count):
+        required = self.frame_bytes * max(0, count - len(self.frames))
+        if shutil.disk_usage(tempfile.gettempdir()).free < required + 64 * 1024**2:
+            raise OSError(f'Preview needs {required / 1024**2:.0f} MB of temporary disk space. Free space and try again.')
 
     def path(self, frame):
         return Path(self.folder.name) / f'{frame}.rgb'

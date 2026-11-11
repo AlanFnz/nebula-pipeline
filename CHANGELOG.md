@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.90.0 — 2026-11-11
+
+- Add **Object → Perspective → Orientation** to Spectral tunnel. Choose a
+  horizon on the left or right by reprojecting the lights and center rail.
+  Existing studies keep their original orientation and pixel output.
+- Choose how many frames **Prepare range** retains at the selected resolution,
+  using temporary lossless storage beyond the memory cache. **Loop prepared
+  range** repeats that ready interval with audio/MIDI following its timeline
+  times. Show the range and readiness; exit the loop after invalidating edits
+  or a seek outside it. Frame count is a workspace preference; project timing,
+  clip repeats, exported duration and saved study values remain unchanged.
+
 ## 0.89.0 — 2026-11-10
 
 - Identify the current composition or Montage block and the owning file in a
