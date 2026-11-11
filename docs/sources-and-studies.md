@@ -104,6 +104,9 @@ The lights advance from the vanishing point toward the foreground. The
 optical finish. **Loop period** changes speed; **Frames per loop** controls the
 stepped cadence (zero gives continuous motion). For a seamless export after
 changing the period, use a clip duration containing a whole number of cycles.
+**Object → Perspective → Orientation** chooses a horizon on the right or left.
+It changes the projected lights and center rail, leaving other effects in place.
+Existing studies keep their original right-hand horizon.
 
 ## Lattice / chromatic pulse
 

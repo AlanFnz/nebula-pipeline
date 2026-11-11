@@ -18,7 +18,7 @@ OBJECT_PATHS = {
 FAMILY_GROUPS = {
     'tunnel': (
         ('Light geometry', 'shape sides size aspect rows spacing rail'),
-        ('Perspective', 'vanishing_x cross_x horizon depth gap'),
+        ('Perspective', 'orientation vanishing_x cross_x horizon depth gap'),
         ('Loop & motion', 'period motion amplitude phase direction cadence'),
         ('Color & light', 'warm_hue cool_hue saturation light'),
         ('Optical finish', 'glow spread softness grain mix')),

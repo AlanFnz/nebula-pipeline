@@ -17,6 +17,14 @@ def test_tunnel_object_controls_and_undo(window):
     assert window.composition['effects']['spectral_tunnel']['params']['spectral_tunnel.period'] == .6
     window.undo_composition()
     assert obj.controls['spectral_tunnel.period'].input.value() == .4
+    orientation = obj.controls['spectral_tunnel.orientation'].input
+    assert orientation.currentIndex() == 0
+    orientation.setCurrentIndex(1)
+    assert window.composition['effects']['spectral_tunnel']['params']['spectral_tunnel.orientation'] == 1
+    from synth_composition import normalize_composition
+    assert normalize_composition(window.composition)['effects']['spectral_tunnel']['params']['spectral_tunnel.orientation'] == 1
+    window.undo_composition()
+    assert orientation.currentIndex() == 0
     obj.details.click()
     assert composer.object_editor.effect_id == 'spectral_tunnel'
     wait_until(lambda: not window.render_running and not window.render_queued)

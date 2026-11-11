@@ -8,7 +8,8 @@ def spectral_tunnel_composition():
     overrides = {'speed': 1., 'depth': 0., 'treatment_fps': 50,
                  'object_x': 0., 'object_y': 0.}
     overrides.update({'spectral_tunnel.' + p.key: p.default
-                      for p in MODULE_BY_ID['spectral_tunnel'].params})
+                      for p in MODULE_BY_ID['spectral_tunnel'].params if p.key != 'orientation'})
+    # The original study inherits the default orientation, preserving its file.
     # Each cell advances into its neighbor's position in one reference cycle.
     overrides.update({'spectral_tunnel.motion': 1,
                       'spectral_tunnel.period': .4,

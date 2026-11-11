@@ -96,6 +96,21 @@ def test_original_ripple_render_is_unchanged():
         '0a73c3806907236023286f6ca437c92e1a74d07ce1e987e1c23e235abc4ee81d')
 
 
+@pytest.mark.parametrize('shape', [0, 1, 2, 3])
+def test_left_orientation_reprojects_geometry_and_keeps_background(shape):
+    arr = np.zeros((96, 128, 3), np.float32)
+    arr[:, :40, 0] = .7  # An asymmetric underlying image must not move.
+    preset = dict(default_synth_preset(), width=128, height=96)
+    p = dict(defaults(), shape=shape, sides=3, grain=0., softness=0., mix=.6)
+    right = render_spectral_tunnel(arr, p, .09, preset) - arr * .4
+    left = render_spectral_tunnel(arr, dict(p, orientation=1), .09, preset) - arr * .4
+    # Reflection around the object's geometric center (x=64), not the pixel
+    # array's center (x=63.5). Compare matching interior sample coordinates.
+    assert np.mean(np.abs(left[:, 1:] - right[:, :0:-1])) < .0001
+    assert not np.allclose(left, right)
+    assert np.array_equal(left, render_spectral_tunnel(arr, dict(p, orientation=1), 6.09, preset) - arr * .4)
+
+
 def test_a_light_moves_continuously_toward_the_foreground():
     from synth_sequence import resolve_sequence_frame
     seq = compile_composition(spectral_tunnel_composition())

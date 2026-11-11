@@ -24,7 +24,8 @@ def modules(Module, P):
         P('aspect', 'Light height', .52, .25, 1.5, .01),
         P('rows', 'Rows per plane', 24, 6, 60, 1),
         P('spacing', 'Row spacing', 4., 2., 8., .1),
-        P('vanishing_x', 'Vanishing point X', 1.26, .65, 2., .01, 'Relative to the artwork width. Values above 1 place it beyond the right edge.'),
+        P('orientation', 'Orientation', 0, 0, 1, 1, 'Choose which side the tunnel recedes toward. Reprojects the lights and center rail; leaves other effects unchanged.', choices=('Horizon on right', 'Horizon on left')),
+        P('vanishing_x', 'Vanishing point X', 1.26, .65, 2., .01, 'Measured toward the chosen horizon side. Values above 1 place it beyond that edge.'),
         P('cross_x', 'Cross perspective X', .256, -.5, .8, .01),
         P('horizon', 'Horizon height', .57, .2, .8, .01),
         P('depth', 'Plane spread', 1., .5, 2., .01),
@@ -77,6 +78,7 @@ def render_spectral_tunnel(arr, p, seconds, preset):
     ox, oy = w / 2 - 250 * unit + dx, h / 2 - 250 * unit + dy
     phase = loop_phase(seconds, p, preset.get('speed', 1.))
     direction = 1 if p['direction'] == 0 else -1
+    left = p.get('orientation', 0) == 1
     # Ripple remains an alternate look. Traveling lights advance exactly one
     # lattice interval, so the next emitter takes over at the cycle boundary.
     travel = (p['amplitude'] * (math.sin(math.tau * phase) +
@@ -113,6 +115,9 @@ def render_spectral_tunnel(arr, p, seconds, preset):
             r = 350 * p['size'] / d
             y += 45 / d * np.sin(j * 2.1 + (math.tau * phase if p['motion'] == 0 else 0.))
             slope = np.zeros_like(x)
+        if left:
+            x = 500 - x
+            slope = -slope
         x, y, r = x * unit + ox, y * unit + oy, r * unit
         reach = 5 * p['spread'] * max(1., p['aspect']) + 2
         valid = (x + reach*r > 0) & (x - reach*r < w) & (y + reach*r > 0) & (y - reach*r < h)
@@ -122,6 +127,7 @@ def render_spectral_tunnel(arr, p, seconds, preset):
             if x0 >= x1 or y0 >= y1:
                 continue
             u = (xx[y0:y1, x0:x1] - x) / r
+            if left: u = -u  # Keep asymmetric polygon footprints in the projected plane.
             v = (yy[y0:y1, x0:x1] - y - sl*(xx[y0:y1, x0:x1] - x)) / (r*p['aspect'])
             dist = _distance(u, v, p['shape'], p['sides'])
             core = np.exp(-2 * dist**4) * 1.65
@@ -142,6 +148,8 @@ def render_spectral_tunnel(arr, p, seconds, preset):
             np.maximum(out, layer, out=out)
         else:
             rail_width = np.maximum(2*unit, 55*unit*(1-(xx-ox)/(max(vx, 501)*unit))) * p['size']
+            if left:
+                rail_width = np.maximum(2*unit, 55*unit*(1-(500*unit-(xx-ox))/(max(vx, 501)*unit))) * p['size']
             alpha = np.exp(-.5 * np.minimum(10., np.abs((yy-oy-(horizon+5)*unit)/rail_width))**8)[..., None]
             out = out*(1-alpha*p['rail']) + layer*alpha
     out = np.clip(out * p['light'], 0, 1)
