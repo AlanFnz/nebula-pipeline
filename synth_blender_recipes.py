@@ -88,3 +88,13 @@ def orbital_painted_composition():
         project['effects'][name]=entry
     project['effect_order']=['print_surface','optical_diffusion','film_burn','broadcast']
     return normalize_composition(project)
+
+
+def orbital_clean_painted_composition():
+    """Approved finer pigment finish; previous recipes remain reproducible."""
+    project=orbital_painted_composition()
+    project['effects']['print_surface']['params'].update({
+        'print_surface.paint_wash':.10, 'print_surface.ink_wear':.03,
+        'print_surface.grain_size':.8, 'print_surface.ink_grain':.8})
+    project['effects']['film_burn']['params']['film_burn.dust']=0.
+    return normalize_composition(project)

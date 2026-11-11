@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.95.0 — 2026-11-11
+
+- Save the approved, cleaner **Orbital rings / painted motion** finish as the
+  built-in study: finer grain, softer pigment variation and less ink wear, with
+  film dust removed. Geometry, movement, drawn edges and timing stay intact.
+  Previous recipes and saved projects retain their existing settings.
+
 ## 0.94.0 — 2026-11-11
 
 - Extend **Print surface** with **Painted color**: soft tone regions, drawn

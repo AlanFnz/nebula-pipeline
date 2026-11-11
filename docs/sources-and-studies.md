@@ -139,6 +139,8 @@ the default clip keeps the reference's 11.3-second duration, rather than ending
 at a complete cycle.
 
 The finish uses **Print surface**, **Optical diffusion**, **Film burn** and **Broadcast wear**.
+The current study uses a finer, cleaner pigment finish. Previously saved projects
+keep their authored texture settings.
 In **Print surface → Surface**, **Painted color** preserves the palette while
 adding drawn contours and moving pigment. **Painted shading** and **Paint tone
 steps** simplify the lighting. **Contour movement**, **Color misregistration**

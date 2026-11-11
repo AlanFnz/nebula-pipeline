@@ -9,7 +9,7 @@ from test_synth_effects_editor_integration import make_window
 from synth import MODULE_BY_ID
 from synth_print import render_print_surface
 from synth_print_paint import paint_tick
-from synth_blender_recipes import orbital_rings_composition, orbital_painted_composition
+from synth_blender_recipes import orbital_rings_composition, orbital_painted_composition, orbital_clean_painted_composition
 from synth_starters import starter_composition
 from synth_composition import save_composition, load_composition
 
@@ -59,16 +59,20 @@ def test_paint_preserves_palette_and_changes_fill_as_well_as_contours():
         assert out.shape==shape and np.isfinite(out).all()
 
 
-def test_second_recipe_retains_first_scene_and_roundtrips(tmp_path):
+def test_painted_recipes_retain_first_scene_and_roundtrip(tmp_path):
     original=orbital_rings_composition();painted=orbital_painted_composition()
     root=Path(__file__).parents[1]
     assert original==json.loads((root/'presets/orbital-rings-v1.json').read_text())
-    assert painted==starter_composition('orbital-rings')
-    assert painted['source']==original['source']
-    assert painted['sections']==original['sections']
-    assert painted['effects']['print_surface']['params']['print_surface.surface']==1
-    save_composition(tmp_path/'paint.json',painted)
-    assert load_composition(tmp_path/'paint.json')==painted
+    assert painted==json.loads((root/'presets/orbital-rings-v2.json').read_text())
+    clean=orbital_clean_painted_composition()
+    assert clean==starter_composition('orbital-rings')
+    for version, recipe in enumerate((painted,clean),2):
+        assert recipe['source']==original['source']
+        assert recipe['sections']==original['sections']
+        assert recipe['effects']['print_surface']['params']['print_surface.surface']==1
+        target=tmp_path/f'paint-v{version}.json'
+        save_composition(target,recipe)
+        assert load_composition(target)==recipe
 
 
 def test_paint_controls_show_only_applicable_fields_and_support_undo(make_window,monkeypatch):
