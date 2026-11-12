@@ -68,7 +68,7 @@ def test_audio_edits_keep_range_visual_edits_and_resolution_release_it(window, m
     window.quality.setCurrentIndex(1)  # Size monkeypatch is constant: use a real visual edit below.
     window.composer.macro_controls['width'].spin.setValue(1.3)
     assert not window.loop_preview_range.isChecked()
-    assert not window.loop_preview_range.isEnabled()
+    assert window.loop_preview_range.isEnabled()
     settle(window)
     window.prepare_playback(); prepared(window)
     window.loop_preview_range.setChecked(True)
@@ -96,7 +96,7 @@ def test_selected_clips_and_preparation_cancel_resume(window, monkeypatch):
     wait_until(lambda: len(window.preview_frames.available()) >= 6)
     window.prepare_playback()  # Cancel; keep completed frames.
     retained = set(window.preview_frames.available())
-    assert not window.preparation_explicit and not window.loop_preview_range.isEnabled()
+    assert not window.preparation_explicit and window.loop_preview_range.isEnabled()
     window.prepare_playback(); prepared(window)
     assert retained <= set(window.preview_frames.available())
     assert window.loop_preview_range.isEnabled()
@@ -131,3 +131,126 @@ def test_count_is_a_workspace_preference_and_loop_is_never_saved(window, monkeyp
         assert restored.composition == before
     finally:
         restored.close(); restored.deleteLater()
+
+
+def test_armed_loop_waits_then_grows_without_cancelling_worker_or_seeking_audio(window, monkeypatch):
+    before = setup(window, monkeypatch)
+    window.preview_frames.clear()
+    window.cached_ranges.set_ranges([])
+    started = []
+    monkeypatch.setattr(window.jobs, 'start', started.append)
+    window.loop_preview_range.setChecked(True)
+    assert window.loop_preview_range.isEnabled()
+    assert window.active_preview_scope().count == 0
+    window.prepare_playback()
+    job = started[-1]
+    clock = [100.]
+    monkeypatch.setattr('synth_studio.time.monotonic', lambda: clock[0])
+    audio = []
+    monkeypatch.setattr(window.soundtrack_playback, 'sync', lambda seconds, playing, **kw: audio.append((seconds, playing, kw)))
+    monkeypatch.setattr(window, 'sync_visual_sound', lambda *args: None)
+    window.play.setChecked(True)
+    window.advance()
+    assert not audio[-1][1] and window.timeline.value() == 4
+    assert window.prepare_job is job and not job.cancel.event.is_set()
+    assert 'Waiting for prepared frames' in window.preview_status.text()
+    packet = ((64, 48), bytes(64*48*3))
+    for frame in (4, 5):
+        window.prepared_frame(job, (window.settings_generation, frame, packet))
+    window.advance()
+    assert audio[-1][1]
+    for i in range(1, 7):
+        clock[0] = 100 + i/25
+        window.advance()
+        assert window.timeline.value() == 4 + i % 2
+        assert not window.render_running and not window.render_queued
+    # Several wraps must not change position when another packet arrives.
+    clock[0] = 100.26
+    window.prepared_frame(job, (window.settings_generation, 6, packet))
+    window.advance()
+    assert window.timeline.value() == 4
+    assert not audio[-1][2]['force']
+    assert abs(audio[-1][0] - 4.5/25) < 1e-7
+    for seconds, expected in ((100.28, 5), (100.32, 6), (100.36, 4)):
+        clock[0] = seconds
+        window.advance()
+        assert window.timeline.value() == expected
+    assert audio[-1][2]['force']  # Real wrap, unlike cache growth.
+    assert window.composition == before
+    window.cancel_preparation()
+    assert window.play.isChecked() and window.loop_preview_range.isChecked()
+    assert window.active_preview_scope().count == 3
+    window.preparation_finished(job)
+    window.play.setChecked(False)
+
+
+def test_playback_does_not_interrupt_real_preparation_and_cancel_keeps_loop(window, monkeypatch):
+    setup(window, monkeypatch)
+    window.preview_range_frames.setValue(12)
+    window.prepare_playback()
+    job = window.prepare_job
+    window.loop_preview_range.setChecked(True)
+    window.play.setChecked(True)
+    assert window.prepare_job is job and not job.cancel.event.is_set()
+    prepared(window)
+    assert window.play.isChecked() and window.loop_preview_range.isChecked()
+    assert window.active_preview_scope().count == 12
+    assert all(window.preview_frames.contains(frame) for frame in window.prepared_range_sources)
+    window.cancel_preparation()
+    assert window.play.isChecked() and window.active_preview_scope().count == 12
+    window.play.setChecked(False)
+
+
+def test_partial_loop_skips_gaps_in_output_time_with_perform_mapping(window, monkeypatch):
+    setup(window, monkeypatch)
+    monkeypatch.setattr(window, 'performance_source_time', lambda seconds: seconds * .5)
+    window.preview_frames.clear()
+    window.cached_ranges.set_ranges([])
+    packet = ((64, 48), bytes(64*48*3))
+    for source in (2, 4): window.preview_frames.put(source, packet)
+    window.loop_preview_range.setChecked(True)
+    assert list(frames_in(window.active_preview_scope())) == [4, 5, 7, 8, 9]
+    assert '5/7 frames' in window.cache_status.text()
+    clock = [100.]
+    monkeypatch.setattr('synth_studio.time.monotonic', lambda: clock[0])
+    audio = []
+    monkeypatch.setattr(window, 'sync_soundtrack', lambda **kw: audio.append(kw))
+    window.play.setChecked(True)
+    for i, expected in enumerate((5, 7, 8, 9, 4), 1):
+        clock[0] = 100 + i/25
+        window.advance()
+        assert window.timeline.value() == expected
+        assert abs(audio[-1]['seconds'] - expected/25) < 1e-7
+        assert not window.render_running and not window.render_queued
+    window.play.setChecked(False)
+
+
+def test_auto_preparation_finishes_fixed_window_while_loop_plays(window, monkeypatch):
+    setup(window, monkeypatch)
+    window.preview_frames.clear()
+    window.cached_ranges.set_ranges([])
+    window.loop_preview_range.setChecked(True)
+    window.auto_prepare.setChecked(True)
+    window.play.setChecked(True)
+    window._automatic_preparation()
+    requested = window.prepared_range_scope
+    wait_until(lambda: window.active_preview_scope().count == 7)
+    assert window.prepared_range_scope == requested
+    assert window.play.isChecked() and window.loop_preview_range.isChecked()
+    assert window.preview_frames.bytes + window.preview_frames.reserved <= window.preview_frames.budget
+    window.play.setChecked(False)
+
+
+def test_loop_expands_memory_limited_auto_window_to_requested_length(window, monkeypatch):
+    setup(window, monkeypatch)
+    window.auto_prepare.setChecked(True)
+    window._automatic_preparation()
+    wait_until(lambda: window.prepared_range_scope is not None)
+    assert window.prepared_range_scope.count == 2  # Only two RGB frames fit in RAM.
+    window.loop_preview_range.setChecked(True)
+    assert window.prepared_range_scope.count == window.preview_range_frames.value() == 7
+    window.play.setChecked(True)
+    wait_until(lambda: window.active_preview_scope().count == 7)
+    assert window.play.isChecked()
+    assert window.preview_frames.bytes + window.preview_frames.reserved <= window.preview_frames.budget
+    window.play.setChecked(False)

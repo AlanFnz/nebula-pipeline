@@ -267,14 +267,14 @@ class SoundtrackStudio:
         if not hasattr(self, 'timeline') or self.closing: return
         if seconds is None:
             seconds = self.timeline.value() / self.preview_fps()
-            if self.play.isChecked():
+            if self.play.isChecked() and self.active_preview_scope().count:
                 elapsed = self.play_origin + (time.monotonic() - self.play_started) * self.preview_fps()
                 whole = math.floor(elapsed)
                 scope = self.active_preview_scope()
                 seconds = (scope.frame_at(whole % max(1, scope.count)) + elapsed - whole) / self.preview_fps()
         self.soundtrack_lane.set_time(seconds)
         # Sampled effect auditions are separate from the project transport.
-        playing = self.play.isChecked() and not self.discovery_session
+        playing = self.play.isChecked() and not self.discovery_session and bool(self.active_preview_scope().count)
         self.soundtrack_playback.sync(seconds, playing, force=force)
         self.sync_audio_reactivity(seconds)
         self.sync_visual_sound(seconds, playing, force)

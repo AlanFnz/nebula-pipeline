@@ -820,7 +820,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.auto_prepare = QCheckBox('Auto prepare'); self.auto_prepare.setChecked(True)
         self.auto_prepare.setToolTip('Prepare frames near the playhead after editing or scrubbing settles.')
         self.auto_prepare.toggled.connect(self.auto_prepare_changed)
-        self.prepare_preview = QPushButton('Prepare range'); self.prepare_preview.setAccessibleName('Prepare preview range'); self.prepare_preview.setToolTip('Prepare the chosen number of frames at the selected resolution. Pauses playback; completed frames use temporary lossless storage.')
+        self.prepare_preview = QPushButton('Prepare range'); self.prepare_preview.setAccessibleName('Prepare preview range'); self.prepare_preview.setToolTip('Prepare the chosen number of frames at the selected resolution. With Loop prepared range enabled, playback continues over available frames. Completed frames use temporary lossless storage.')
         self.prepare_preview.clicked.connect(self.prepare_playback)
         self.prepare_full_preview = QPushButton('Prepare all frames')
         self.prepare_full_preview.setAccessibleName('Prepare all preview frames')
@@ -1963,7 +1963,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
 
     def active_preview_scope(self):
         if hasattr(self, 'loop_preview_range') and self.loop_preview_range.isChecked() and self.prepared_range_scope:
-            return self.prepared_range_scope
+            return self.prepared_playback_scope
         return self.base_preview_scope()
 
     def refresh_preview_scope(self):
@@ -1989,6 +1989,9 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         scope = self.active_preview_scope()
         available = self.preview_frames.available()
         count = sum(scope.contains(frame) for frame in available)
+        if self.loop_preview_range.isChecked() and self.prepared_range_scope:
+            count = self.prepared_playback_scope.count
+            scope = self.prepared_range_scope
         label = self.preview_scope_label()
         self.cache_status.setText(cache_caption(label, count, scope.count))
         if hasattr(self, 'preview_dimensions'):
@@ -2027,17 +2030,23 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
 
     def schedule_auto_preparation(self):
         if self.preview_suspended or self.discovery_session or self.closing or not hasattr(self, 'auto_prepare') or not self.auto_prepare.isChecked() or self.export_job: return
-        if self.loop_preview_range.isChecked(): return
+        if self.loop_preview_range.isChecked() and (self.preparation_explicit or
+                all(self.preview_frames.contains(frame) for frame in self.prepared_range_sources)): return
         self.warm_debounce.start(400)
 
     def _automatic_preparation(self):
         if self.preview_suspended or self.closing or self.export_job: return
-        if self.loop_preview_range.isChecked(): return
         if self.preparation_explicit:
             self._start_warm_batch(); return
         if not self.auto_prepare.isChecked(): return
         if self.preview_frames.complete(self.timeline.maximum() + 1): return
         self.preparation_full = False
+        if self.loop_preview_range.isChecked():
+            # The requested window stays fixed as playback wraps and grows.
+            if not self.retain_preview_range(): return
+            self.preparation_target = self.prepared_range_sources
+            self.preparation_limited = False
+            self._start_warm_batch(); return
         self.preparation_target, self.preparation_limited = self.preview_scheduler.plan(
             self.active_preview_scope(), self.timeline.value(), self.preview_fps(), self.preview_size(), self.preparation_budget(), frame_count=self.preview_range_frames.value())
         if not self.prepared_range_scope:
@@ -2141,7 +2150,9 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         if not self.ensure_preview_context(): return
         self.cache_preview_packet(frame, packet)
         self.cached_ranges.set_ranges(self.preview_frames.ranges())
-        if frame == self.timeline.value(): self.display_frame(frame/self.preview_fps(), packet, cached=True)
+        output_time = self.timeline.value()/self.preview_fps()
+        if frame == round(self.performance_source_time(output_time)*self.preview_fps()):
+            self.display_frame(output_time, packet, cached=True)
 
     def preparation_progress(self, job, done, total):
         if job is self.prepare_job and not self.closing:
@@ -2206,6 +2217,11 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         if packet is not None:
             self.render_queued = False
             self.display_frame(self.current_time, packet, cached=True)
+            return
+        if self.loop_preview_range.isChecked():
+            # Waiting for a prepared packet must not compete with/cancel its worker.
+            self.render_queued = False
+            self.refresh_cache_status()
             return
         self._obsolete_preparation()
         if self.render_running or (self.discovery_session and self.warming_job):
@@ -2297,29 +2313,44 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.preview_status.setText('Preview unavailable · see the operation status for details.')
     def scrub(self, value):
         if not self.advancing:
-            if self.loop_preview_range.isChecked() and not self.active_preview_scope().contains(value):
+            if self.loop_preview_range.isChecked() and (not self.prepared_range_scope or not self.prepared_range_scope.contains(value)):
                 self.loop_preview_range.setChecked(False)
             self.cancel_foreground_render()
-            self.cancel_preparation(); self.schedule_auto_preparation()
+            if not self.loop_preview_range.isChecked(): self.cancel_preparation()
+            self.schedule_auto_preparation()
         if self.play.isChecked() and not self.advancing:
             self.play_origin = self.active_preview_scope().position(value); self.play_started = time.monotonic(); self.display_times.clear()
         if not self.advancing: self.sync_soundtrack(force=True)
         self.request_frame()
 
     def advance(self):
-        elapsed_frames = self.play_origin + (time.monotonic()-self.play_started)*self.preview_fps()+1e-8
+        now = time.monotonic()
+        scope = self.active_preview_scope()
+        if not scope.count:
+            self.preview_status.setText('Waiting for prepared frames · playback will start automatically')
+            self.sync_soundtrack()
+            self.schedule_play_tick()
+            return
+        elapsed_frames = self.play_origin + (now-self.play_started)*self.preview_fps()+1e-8
         frame = int(elapsed_frames)
         self.advancing = True
         try:
-            scope = self.active_preview_scope()
+            previous_frame = self.timeline.value()
             self.timeline.setValue(scope.frame_at(frame % max(1, scope.count)))
+            if self.loop_preview_range.isChecked() and self.timeline.value() == previous_frame:
+                self.request_frame()
         finally: self.advancing = False
         rank = frame % max(1, scope.count)
         mapping = (scope.intervals, frame // max(1, scope.count), self.timeline.value() - rank)
         discontinuity = mapping != getattr(self, '_soundtrack_mapping', None)
         self._soundtrack_mapping = mapping
-        self.sync_soundtrack(force=discontinuity,
-            seconds=(self.timeline.value() + elapsed_frames - frame) / self.preview_fps())
+        seconds = (self.timeline.value() + elapsed_frames - frame) / self.preview_fps()
+        if self.loop_preview_range.isChecked():
+            previous = getattr(self, '_prepared_audio_position', None)
+            # A larger ready range alone is not an audio seek. Wraps/gaps are.
+            discontinuity = previous is None or abs(seconds - (previous[1] + now - previous[0])) > .5/self.preview_fps()
+            self._prepared_audio_position = (now, seconds)
+        self.sync_soundtrack(force=discontinuity, seconds=seconds)
         self.schedule_play_tick()
 
     def schedule_play_tick(self):
@@ -2337,12 +2368,17 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.monitor_state.setText("[ PLAY ]" if checked else "[ HOLD ]")
         fps = self.sequence["fps"] if self.sequence is not None else self.preset["export_fps"]
         if checked:
-            self.cancel_preparation()
+            if not self.loop_preview_range.isChecked(): self.cancel_preparation()
             scope = self.active_preview_scope()
-            if not scope.contains(self.timeline.value()): self.timeline.setValue(scope.frame_at(0))
+            self.advancing = True
+            try:
+                if scope.count and not scope.contains(self.timeline.value()): self.timeline.setValue(scope.frame_at(0))
+            finally: self.advancing = False
             self.play_origin = scope.position(self.timeline.value()); self.play_started = time.monotonic(); self.display_times.clear()
             self._soundtrack_mapping = None
+            self._prepared_audio_position = None
             self.preview_status.setText(f'Preview: measuring / {fps} fps')
+            if self.loop_preview_range.isChecked(): self.schedule_auto_preparation()
         else:
             self.play_timer.stop(); self.preview_status.setText('Preview paused')
         self.sync_soundtrack(force=True)

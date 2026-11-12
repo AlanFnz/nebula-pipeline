@@ -20,11 +20,14 @@ authored effect, so it does affect export.
 Choose a frame count beside **Prepare range**, position the playhead, then prepare.
 The range uses the selected resolution and temporary lossless storage, even when
 it exceeds memory. Near the end it starts earlier to keep the requested length.
-When ready, enable **Loop prepared range** and press Play. The displayed range
-repeats with audio/MIDI following its timeline times; this does not change export
-or clip repeats. Seeking outside the range exits its loop.
+Enable **Loop prepared range** at any time and press Play. It repeats the available
+frames while preparation continues, adding new frames to the loop as they arrive.
+If none are ready yet, playback waits for the first one. Audio/MIDI follows the
+displayed timeline times. The counter shows preparation progress; the loop does
+not change export or clip repeats. Seeking outside the requested range exits it.
 
-**Auto prepare** warms a nearby range within memory limits. **Prepare all frames**
+**Auto prepare** warms a nearby range within memory limits; with the loop enabled,
+it finishes that fixed range using temporary lossless storage. **Prepare all frames**
 prepares the complete composition. Preparing does not start playback. Visual edits
 or resolution changes can invalidate the range; sound-only changes keep it.
 Montage's assembly monitor still uses bounded ranges; these controls are available

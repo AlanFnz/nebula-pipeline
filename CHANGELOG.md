@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.101.0 — 2026-11-12
+
+- Enable **Loop prepared range** before or during preparation. Play repeats the
+  available frames and grows the loop as more arrive, keeping preparation running
+  in the background. With no frames ready, it waits without starting audio/MIDI.
+- Preserve playback position as the range grows, skip unprepared gaps, and keep
+  audio/MIDI on the original timeline times. Studies, export and saved settings
+  are unchanged; this remains a preview-only control.
+
 ## 0.100.0 — 2026-11-12
 
 - Add clickable color previews and a palette picker to Blender objects, reusing
