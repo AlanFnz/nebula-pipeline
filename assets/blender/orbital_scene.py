@@ -279,8 +279,8 @@ def pose(angle,p,overrides):
             if nodes.get('Yin colors'):
                 # Keep the symbol when a disc uses its own material.
                 from orbital_variants import tint_symbol
-                tint_symbol(mat,settings['hue'],settings['saturation'],p.get('yin_darkness',.12))
+                tint_symbol(mat,settings['hue'],settings['saturation'],p.get('yin_darkness',.12),settings.get('light',.82))
             else:
                 for link in list(shader.inputs['Base Color'].links):links.remove(link)
-                shader.inputs['Base Color'].default_value=(*shared.linear(colorsys.hsv_to_rgb(settings['hue'],settings['saturation'],.82)),1.)
+                shader.inputs['Base Color'].default_value=(*shared.linear(colorsys.hsv_to_rgb(settings['hue'],settings['saturation'],settings.get('light',.82))),1.)
             shader.inputs['Metallic'].default_value=settings['metallic'];shader.inputs['Roughness'].default_value=settings['roughness']

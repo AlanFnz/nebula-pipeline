@@ -37,12 +37,14 @@ def modules(Module, P):
             P('camera_elevation', 'Camera elevation', 10., 0., 45., 1.),
             P('metal_hue', 'Material hue', .15, 0., 1., .01),
             P('metal_saturation', 'Material saturation', .15, 0., 1., .01),
+            P('metal_light', 'Material brightness', .82, 0., 1., .01),
             P('metallic', 'Metallic', .8, 0., 1., .01),
             P('roughness', 'Roughness', .28, .05, .9, .01),
             P('environment', 'Environment light', .7, .01, 2., .01),
             P('reflection_contrast', 'Dark reflection', 1., 0., 1., .01),
             P('background_hue', 'Background hue', .40, 0., 1., .01),
             P('background_saturation', 'Background saturation', .58, 0., 1., .01),
+            P('background_light', 'Background brightness', .48, 0., 1., .01),
             P('light_angle', 'Light angle', -45., -180., 180., 1.),
             P('light_size', 'Light softness', 4., .5, 8., .1),
             P('light_power', 'Light strength', 1000., 100., 3000., 25.),
@@ -77,15 +79,15 @@ def orbital_parameters(P):
         P('ring_gap', 'Ring spacing', .055, .01, .18, .005),
         P('edge_radius', 'Edge rounding', .045, .0, .1, .005),
         P('core_size', 'Center sphere size', .32, .1, .5, .01),
-        P('paint_light', 'Paint brightness', .66, .05, 1., .01),
+        P('paint_light', 'Paint brightness', .66, 0., 1., .01),
         P('accent_hue', 'Ivory hue', .12, 0., 1., .01),
         P('accent_saturation', 'Ivory saturation', .18, 0., 1., .01),
-        P('accent_light', 'Ivory brightness', .88, .05, 1., .01),
+        P('accent_light', 'Ivory brightness', .88, 0., 1., .01),
         P('surface_grain', 'Paint texture', .5, 0., 1., .01),
-        P('sky_light', 'Sky brightness', .48, .05, 1., .01),
+        P('sky_light', 'Sky brightness', .48, 0., 1., .01),
         P('ground_hue', 'Ground hue', .21, 0., 1., .01),
         P('ground_saturation', 'Ground saturation', .65, 0., 1., .01),
-        P('ground_light', 'Ground brightness', .36, .05, 1., .01),
+        P('ground_light', 'Ground brightness', .36, 0., 1., .01),
         P('stage_motion', 'Landscape movement', .6, 0., 2., .05, 'Looping drift of the painted background bands.'),
         P('stage_bands', 'Landscape bands', .45, 0., 1., .01),
         P('horizon_depth', 'Horizon distance', 7., 1., 30., .1),
@@ -113,6 +115,8 @@ ORBITAL_SMOOTH_KEYS = frozenset(f'orbit_smooth_{i}' for i in range(2,6))
 ORBITAL_DRIFT_KEYS = frozenset(f'orbit_{field}_{i}' for field in ('pace','drift') for i in range(1,6))
 ORBITAL_MOTION_KEYS = ORBITAL_SMOOTH_KEYS | ORBITAL_DRIFT_KEYS | {'orbit_pattern'}
 ORBITAL_VARIANT_KEYS = frozenset(('orbital_finish','yin_dot','yin_darkness',*(f'orbit_shape_{i}' for i in range(1,6)))) | ORBITAL_MOTION_KEYS
+
+COLOR_DEFAULTS = {'metal_light': .82, 'background_light': .48}
 
 MOTION_KEYS = frozenset(('period', 'phase', 'direction', 'ease', 'effect_intensity','motion_exposure','exposure_delay'))
 
@@ -142,6 +146,8 @@ def render_blender_scene(arr, p, seconds, preset):
     if not any(parameters.get(key,0.) for key in ORBITAL_DRIFT_KEYS): parameters.pop('orbit_pattern',None)
     for key in ORBITAL_MOTION_KEYS:
         if not parameters.get(key,0.): parameters.pop(key,None)
+    for key, default in COLOR_DEFAULTS.items():
+        if parameters.get(key, default) == default: parameters.pop(key, None)
     parameters.update(framing_height=h/max(1.,ch), offset_x=dx/w, offset_y=dy/h)
     def sample(time):
         parts = part_poses(p,time,preset['speed'])

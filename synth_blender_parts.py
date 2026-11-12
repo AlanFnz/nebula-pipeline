@@ -53,6 +53,7 @@ def parameters(P):
             choices=('Own material','Use assembly material'))
         add('hue', 'Material hue', .15)
         add('saturation', 'Material saturation', .15)
+        add('light', 'Material brightness', .82)
         add('metallic', 'Metallic', 1.)
         add('roughness', 'Roughness', .24, .05, .9)
     return tuple(result)
@@ -85,6 +86,8 @@ def part_poses(p, seconds, speed=1.):
         material = None if value('inherit', 1) else {
             key:value(key, default) for key,default in
             (('hue',.15),('saturation',.15),('metallic',1.),('roughness',.24))}
+        if material is not None and value('light', .82) != .82:
+            material['light'] = value('light', .82)
         active = (not visible or follow != follows or any(position) or any(rotation)
                   or scale != [1.,1.,1.] or any(turns) or material is not None)
         if not active: continue
@@ -104,7 +107,7 @@ def groups():
         for title, opened, fields in (
             ('Transform', True, transform),
             ('Independent motion', False, ['period','turns_x','turns_y','turns_z','phase','ease']),
-            ('Material', False, ['inherit','hue','saturation','metallic','roughness'])):
+            ('Material', False, ['inherit','hue','saturation','light','metallic','roughness'])):
             result.append((page, label+' / '+title, opened, tuple(prefix+f for f in fields)))
     return tuple(result)
 

@@ -10,10 +10,10 @@ import scene_worker as shared
 import studio_stage
 
 
-def tint_symbol(mat, hue, saturation, dark):
+def tint_symbol(mat, hue, saturation, dark, light=.82):
     colors = mat.node_tree.nodes['Yin colors']
     colors.inputs[1].default_value = (*shared.linear(colorsys.hsv_to_rgb(hue, saturation, dark)), 1.)
-    colors.inputs[2].default_value = (*shared.linear(colorsys.hsv_to_rgb(hue, saturation, .82)), 1.)
+    colors.inputs[2].default_value = (*shared.linear(colorsys.hsv_to_rgb(hue, saturation, light)), 1.)
 
 
 def symbol_material(radius, p):
@@ -48,7 +48,7 @@ def symbol_material(radius, p):
     colors = nodes.new('ShaderNodeMixRGB'); colors.name = 'Yin colors'
     links.new(white, colors.inputs[0])
     links.new(colors.outputs[0], nodes['Principled BSDF'].inputs['Base Color'])
-    tint_symbol(mat, p['metal_hue'], p['metal_saturation'], p['yin_darkness'])
+    tint_symbol(mat, p['metal_hue'], p['metal_saturation'], p['yin_darkness'], p.get('metal_light', .82))
     return mat
 
 

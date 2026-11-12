@@ -16,10 +16,11 @@ class ColorSpec:
     key: str
     label: str
     channels: tuple[str, str, str]
+    module: str = 'dye_transfer'
 
     @property
     def paths(self):
-        return tuple('dye_transfer.' + channel for channel in self.channels)
+        return tuple(self.module + '.' + channel for channel in self.channels)
 
 
 COLORS = (
@@ -57,6 +58,8 @@ class ColorPicker(QDialog):
         self.scope = ComboBox(); self.scope.setAccessibleName('Color editing scope')
         self.scope.addItem(context['shot_label'], context['section_id'])
         self.scope.addItem('Composition', None)
+        if 'scope_id' in context:
+            self.scope.setCurrentIndex(max(0, self.scope.findData(context['scope_id'])))
         row.addWidget(self.scope, 1); layout.addLayout(row)
         self.scope_note = QLabel(); self.scope_note.setObjectName('muted'); self.scope_note.setWordWrap(True)
         layout.addWidget(self.scope_note)
@@ -83,6 +86,14 @@ class ColorPicker(QDialog):
         # initialize them after the options and window flags are in place.
         self.picker.setCurrentColor(display_color(self.original))
         self.picker.currentColorChanged.connect(self.color_changed)
+        comparison = QHBoxLayout()
+        self.before_swatch = QLabel(); self.after_swatch = QLabel()
+        for label, swatch in (('Current', self.before_swatch), ('New', self.after_swatch)):
+            comparison.addWidget(QLabel(label)); swatch.setFixedSize(64, 30); comparison.addWidget(swatch)
+        comparison.addStretch(1); layout.addLayout(comparison)
+        self.before_swatch.setStyleSheet(swatch_style(display_color(self.original)))
+        self.after_swatch.setStyleSheet(swatch_style(display_color(self.original)))
+        self.picker.currentColorChanged.connect(lambda c: self.after_swatch.setStyleSheet(swatch_style(c)))
         self.note = QLabel('Color before texture, lighting and other effects. The monitor shows the finished result.')
         self.note.setObjectName('muted'); self.note.setWordWrap(True); layout.addWidget(self.note)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Ok)
@@ -90,6 +101,8 @@ class ColorPicker(QDialog):
         buttons.accepted.connect(self.accept); buttons.rejected.connect(self.reject); layout.addWidget(buttons)
 
     def update_scope_note(self):
+        if 'scope_note' in self.context:
+            self.scope_note.setText(self.context['scope_note']); return
         self.scope_note.setText('Sets a fixed color for this shot. Other shots keep their colors.'
                                 if self.scope.currentData() is not None else
                                 'Sets one shared color across the composition, replacing its color changes. Explicit clip colors still take priority.')
@@ -152,12 +165,14 @@ class ColorPanel(QWidget):
     changed = Signal(str, object, object)
     restored = Signal(str)
 
-    def __init__(self):
+    def __init__(self, specs=COLORS):
         super().__init__()
+        self.specs = specs
+        self.active_keys = {spec.key for spec in specs}
         self.context_provider = None
         self.cards = {}
         layout = QVBoxLayout(self); layout.setContentsMargins(0, 4, 0, 4); layout.setSpacing(6)
-        for spec in COLORS:
+        for spec in self.specs:
             card = ColorCard(spec); self.cards[spec.key] = card
             card.choose.connect(self.open_picker); card.restore.connect(self.restored.emit)
             layout.addWidget(card)
@@ -166,18 +181,27 @@ class ColorPanel(QWidget):
 
     def refresh(self):
         if self.context_provider is None: return
-        for spec in COLORS:
-            self.cards[spec.key].refresh(self.context_provider(spec.key))
+        for spec in self.specs:
+            if spec.key in self.active_keys:
+                self.cards[spec.key].refresh(self.context_provider(spec.key))
+
+    def show_colors(self, keys):
+        self.active_keys = set(keys)
+        for key, card in self.cards.items(): card.setVisible(key in self.active_keys)
+        self.setVisible(bool(self.active_keys))
+        self.refresh()
 
     def open_picker(self, key):
         if self.context_provider is None: return
         context = self.context_provider(key)
-        spec = next(spec for spec in COLORS if spec.key == key)
+        spec = next(spec for spec in self.specs if spec.key == key)
         dialog = ColorPicker(spec, context, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             # Opening and accepting an unchanged selection must not freeze an
             # animated color or quantize its hidden precision.
             hsv = dialog.selected_hsv()
-            if tuple(hsv) != tuple(context['hsv']) or dialog.scope.currentData() is None:
+            if (tuple(hsv) != tuple(context['hsv']) or
+                    (dialog.scope.currentData() is None and 'scope_id' not in context) or
+                    ('scope_id' in context and dialog.scope.currentData() != context['scope_id'])):
                 self.changed.emit(key, hsv, dialog.scope.currentData())
         dialog.deleteLater()

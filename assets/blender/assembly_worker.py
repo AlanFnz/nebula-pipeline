@@ -77,7 +77,7 @@ def apply_parts(poses):
             if saved['custom'] is None: saved['custom'] = saved['material'].copy()
             mat = saved['custom']; obj.data.materials[0] = mat
             shader = mat.node_tree.nodes.get('Principled BSDF')
-            color = colorsys.hsv_to_rgb(settings['hue'], settings['saturation'], .82)
+            color = colorsys.hsv_to_rgb(settings['hue'], settings['saturation'], settings.get('light', .82))
             shader.inputs['Base Color'].default_value = (*base.linear(color),1.)
             shader.inputs['Metallic'].default_value = settings['metallic']
             shader.inputs['Roughness'].default_value = settings['roughness']

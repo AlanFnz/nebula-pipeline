@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.100.0 — 2026-11-12
+
+- Add clickable color previews and a palette picker to Blender objects, reusing
+  the existing color editor. Edit the seamless background and shared material,
+  the painted sky/ground/accent, or a piece with its own material. The picker
+  includes RGB/hex entry and current/new previews; each change is one Undo step.
+- Make optical material/background and individual material brightness editable,
+  preserving their previous values by default. Existing studies, colors and
+  animation remain unchanged; numeric color channels stay available.
+
 ## 0.99.1 — 2026-11-12
 
 - Fix exposed backdrop edges when resizing the canvas in **Optical relic**,

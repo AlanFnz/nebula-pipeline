@@ -86,6 +86,10 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
         self.object_jump = ComboBox(); self.object_jump.setAccessibleName('Jump to object control group')
         self.object_jump.activated.connect(self.jump_to_object_group); navigation.addWidget(self.object_jump)
         header.addWidget(self.object_navigation)
+        from synth_color_ui import ColorPanel
+        from synth_blender_colors import BLENDER_COLORS
+        self.color_panel = ColorPanel(BLENDER_COLORS); layout.addWidget(self.color_panel)
+        self.color_panel.hide()
         self.text_layout_note = QLabel(); self.text_layout_note.setWordWrap(True)
         self.text_layout_note.setObjectName('muted'); layout.addWidget(self.text_layout_note)
         self.text_motion_link = QPushButton('Reading mode in Motion…'); self.text_motion_link.setProperty('compact', True)
@@ -128,6 +132,17 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
         self.details = QPushButton('Source controls…'); self.details.clicked.connect(lambda: self.open_details(False)); layout.addWidget(self.details)
         self.timing = QPushButton('Motion & timing…'); self.timing.clicked.connect(lambda: self.open_details(True)); layout.addWidget(self.timing)
         layout.addStretch(1)
+
+    def refresh_object_colors(self, query=''):
+        if self.kind != 'blender':
+            self.color_panel.hide(); return
+        from synth_blender_colors import scene_colors, color_spec
+        ranges = self.object_ranges['blender_scene']['ranges']
+        params = {path.split('.', 1)[1]: value[0] for path, value in ranges.items()}
+        keys = scene_colors(params, self.part_selector.currentData())
+        if query:
+            keys = tuple(k for k in keys if query in (color_spec(k).label + ' color palette ' + ' '.join(color_spec(k).channels)).casefold())
+        self.color_panel.show_colors(keys)
 
     def show_overview(self):
         self.pages.setCurrentWidget(self.overview_scroll)
@@ -283,6 +298,7 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
         self.wording_host.setVisible(self.kind == 'text')
         self.text_tabs.setVisible(self.kind == 'text')
         self.part_navigation.setVisible(self.kind == 'blender' and self.pages.currentWidget() is self.overview_scroll)
+        if self.kind != 'blender': self.color_panel.hide()
         self.text_layout_note.hide()
         self.details.setText('Text appearance…' if self.kind == 'text' else 'Activation & preset…')
         self.timing.setText('Creative motion…' if self.kind == 'particles' else 'Motion & timing…')
@@ -368,7 +384,7 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
                 hide(*('blender_scene.'+key for key in ('tube_radius','hoop_bow','hoop_twist','axle_length')))
                 if ranges['blender_scene.orbital_finish'] == (1,1):
                     hide(*('blender_scene.'+key for key in ('paint_light','accent_hue','accent_saturation','accent_light','surface_grain','sky_light','ground_hue','ground_saturation','ground_light','stage_bands','stage_motion','horizon_depth')))
-                else: hide('blender_scene.reflection_contrast')
+                else: hide('blender_scene.reflection_contrast', 'blender_scene.metal_light', 'blender_scene.background_light')
                 if all(ranges[f'blender_scene.orbit_shape_{i}'] == (0,0) for i in range(1,6)):
                     hide('blender_scene.yin_dot','blender_scene.yin_darkness')
             for part,_,_ in PARTS:
@@ -377,7 +393,7 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
                 prefix = 'blender_scene.part_'+part+'_'
                 self.controls[prefix+'follow'].label.setText('Follow study motion' if scene else 'Follow assembly')
                 if summary['blender_scene']['ranges'][prefix+'inherit'] == (1,1):
-                    hide(*(prefix+key for key in ('hue','saturation','metallic','roughness')))
+                    hide(*(prefix+key for key in ('hue','saturation','light','metallic','roughness')))
             choices=[(title,title) for _,title,_,members in self.object_definitions
                      if title == 'Canvas position' or any(path in self.object_eligible for path in members)]
             current_choices=[(self.object_jump.itemText(i),self.object_jump.itemData(i)) for i in range(1,self.object_jump.count())]

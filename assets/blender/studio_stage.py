@@ -30,7 +30,7 @@ def environment(p):
     links.new(mask.outputs[0],strength.inputs[0])
     color=nodes.new('ShaderNodeMixRGB'); color.inputs[1].default_value=(.58,.76,.54,1.); color.inputs[2].default_value=(.012,.045,.025,1.)
     links.new(strength.outputs[0],color.inputs[0]); links.new(color.outputs[0],world.inputs[0])
-    floor_color = colorsys.hsv_to_rgb(p['background_hue'], p['background_saturation'], .48)
+    floor_color = colorsys.hsv_to_rgb(p['background_hue'], p['background_saturation'], p.get('background_light', .48))
     floor = material('Green seamless', linear(floor_color), rough=.7)
     floor_shader = floor.node_tree.nodes.get('Principled BSDF')
     floor_shader.inputs['Emission Color'].default_value = (*linear(floor_color),1.)
@@ -42,7 +42,7 @@ def environment(p):
     lift.inputs[1].default_value = .12
     floor.node_tree.links.new(ray.outputs['Is Camera Ray'],lift.inputs[0])
     floor.node_tree.links.new(lift.outputs[0],floor_shader.inputs['Emission Strength'])
-    tint = colorsys.hsv_to_rgb(p['metal_hue'], p['metal_saturation'], .82)
+    tint = colorsys.hsv_to_rgb(p['metal_hue'], p['metal_saturation'], p.get('metal_light', .82))
     metal = material('Satin alloy', linear(tint), p['metallic'], p['roughness'])
     profile = [(-25.,0.),(1.5,0.)]
     profile += [(1.5+3*math.sin(i*math.pi/48),3*(1-math.cos(i*math.pi/48))) for i in range(1,25)]

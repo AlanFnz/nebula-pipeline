@@ -1,6 +1,6 @@
 """A procedural 3D reference study, with its scene settings stored in the project."""
 from synth import MODULE_BY_ID
-from synth_blender import ORBITAL_KEYS, ORBITAL_VARIANT_KEYS
+from synth_blender import ORBITAL_KEYS, ORBITAL_VARIANT_KEYS, COLOR_DEFAULTS
 from synth_composition import composition_from_sequence, normalize_composition
 from synth_sequence import normalize_sequence
 
@@ -8,7 +8,7 @@ from synth_sequence import normalize_sequence
 def optical_relic_composition():
     overrides = {'speed':1., 'depth':0., 'treatment_fps':24, 'object_x':0., 'object_y':0.}
     for name in ('blender_scene','optical_diffusion'):
-        overrides.update({name+'.'+p.key:p.default for p in MODULE_BY_ID[name].params if not p.key.startswith('part_') and p.key not in ORBITAL_KEYS and p.key not in ('scene','motion_exposure','exposure_delay')})
+        overrides.update({name+'.'+p.key:p.default for p in MODULE_BY_ID[name].params if p.key not in COLOR_DEFAULTS and not p.key.startswith('part_') and p.key not in ORBITAL_KEYS and p.key not in ('scene','motion_exposure','exposure_delay')})
     overrides.update({'blender_scene.roughness':.24,
                       'blender_scene.metallic':1.,
                       'blender_scene.tube_radius':.125,
@@ -41,7 +41,7 @@ def orbital_rings_composition():
     overrides={'speed':1.,'depth':0.,'treatment_fps':30,'object_x':0.,'object_y':0.}
     enabled=['blender_scene','optical_diffusion','film_burn','broadcast']
     for name in enabled:
-        overrides.update({name+'.'+p.key:p.default for p in MODULE_BY_ID[name].params if not p.key.startswith('part_') and p.key not in ORBITAL_VARIANT_KEYS})
+        overrides.update({name+'.'+p.key:p.default for p in MODULE_BY_ID[name].params if p.key not in COLOR_DEFAULTS and not p.key.startswith('part_') and p.key not in ORBITAL_VARIANT_KEYS})
     settings={
         'blender_scene':dict(scene=1,period=226/30,phase=0.,ease=0.,size=1.02,motion_exposure=.13,exposure_delay=.125,
             band_width=.26,band_depth=.29,edge_radius=.065,ring_gap=.045,

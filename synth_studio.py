@@ -2556,7 +2556,8 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.composer.performance_notice.setToolTip(detail)
         self.composer.performance_notice.setAccessibleDescription(detail)
         self.composer.performance_notice.setVisible(bool(title))
-        if panel.color_panel.isVisible(): panel.color_panel.refresh()
+        for colors in (panel.color_panel, self.composer.object_panel.color_panel):
+            if colors.isVisible(): colors.refresh()
         if panel.breakdown_host.isVisible():
             panel.update_breakdown_status({key: explain_effect(self.composition, self.sequence, key, source_seconds, sid, resolved)
                                            for key in panel.breakdown_rows})

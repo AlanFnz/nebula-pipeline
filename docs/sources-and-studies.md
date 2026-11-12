@@ -158,6 +158,14 @@ rounded corners; **Film corner radius** adjusts the rounding. Geometry and light
 edits prepare new 3D frames, while finishing edits reuse the clean frame cache.
 All controls use the same saving, Undo, preview and export paths as other studies.
 
+For these three Blender studies, **Object → Whole assembly** starts with clickable
+color swatches. **Choose** opens a palette with RGB/hex entry and **Current / New**
+previews. The painted finish exposes sky, ground, paint and accent separately.
+Choose a piece and turn off **Use assembly material** in its **Material** group
+to edit its own color. Applying a color is one Undo step; cancelling changes
+nothing. Swatches show the base color before lighting and finishing effects.
+Numeric channels remain in **Material** and **Stage & lighting** for animation.
+
 Changing the canvas reframes the 3D scene. The physical floor and backdrop extend
 with the view in Optical relic, Orbital rings and Yin yang, including wider
 canvases with **Fit content** off. The object keeps its proportions and scale.
