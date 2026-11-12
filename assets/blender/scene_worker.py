@@ -167,6 +167,18 @@ def configure_device():
         bpy.context.scene.cycles.device = 'CPU'
 
 
+def frame_camera(scene, p, size):
+    w,h = size
+    scene.render.resolution_x = w; scene.render.resolution_y = h
+    scene.render.resolution_percentage = 100
+    # Blender's ortho scale is the width for landscape, height for portrait.
+    scene.camera.data.ortho_scale = 5.8/p['size'] * max(1., w/h) * p.get('framing_height',1.)
+    scene.camera.data.shift_x = -p.get('offset_x',0.)*w/max(w,h)
+    scene.camera.data.shift_y = p.get('offset_y',0.)*h/max(w,h)
+    import studio_stage
+    studio_stage.fit_to_camera(scene)
+
+
 def render(request):
     global scene_key
     p = request['params']
@@ -175,13 +187,7 @@ def render(request):
         build(p); configure_device(); scene_key = key
     rotor.rotation_euler.z = request['angle']
     scene = bpy.context.scene
-    w,h = request['size']
-    scene.render.resolution_x = w; scene.render.resolution_y = h
-    scene.render.resolution_percentage = 100
-    # Blender's ortho scale is the width for landscape, height for portrait.
-    scene.camera.data.ortho_scale = 5.8/p['size'] * max(1., w/h) * p.get('framing_height',1.)
-    scene.camera.data.shift_x = -p.get('offset_x',0.)*w/max(w,h)
-    scene.camera.data.shift_y = p.get('offset_y',0.)*h/max(w,h)
+    frame_camera(scene,p,request['size'])
     scene.render.filepath = request['output']
     if request.get('blend_output'):
         bpy.ops.wm.save_as_mainfile(filepath=request['blend_output'])

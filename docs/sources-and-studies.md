@@ -158,6 +158,10 @@ rounded corners; **Film corner radius** adjusts the rounding. Geometry and light
 edits prepare new 3D frames, while finishing edits reuse the clean frame cache.
 All controls use the same saving, Undo, preview and export paths as other studies.
 
+Changing the canvas reframes the 3D scene. The physical floor and backdrop extend
+with the view in Optical relic, Orbital rings and Yin yang, including wider
+canvases with **Fit content** off. The object keeps its proportions and scale.
+
 ## Yin yang / orbital balance
 
 A 15-second study combining Orbital rings’ outer ring and second piece with

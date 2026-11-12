@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.99.1 — 2026-11-12
+
+- Fix exposed backdrop edges when resizing the canvas in **Optical relic**,
+  **Orbital rings** and **Yin yang**. The shared 3D camera stays in front of the
+  stage, and the physical floor and wall extend to cover the new viewport.
+  Object scale, placement, motion and the original study framing stay intact.
+  The correction also applies to existing saved projects.
+
 ## 0.99.0 — 2026-11-11
 
 - Make **Yin yang / orbital balance** move continuously at 30 fps, with no held
