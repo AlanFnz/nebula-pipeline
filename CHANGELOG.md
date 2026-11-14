@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.102.0 — 2026-11-14
+
+- Add **Lattice / printed orbit**, an eight-second vertical study with opposing
+  size/color sweeps, round-to-square cells, hollow transitions and raised pigment.
+- Extend Chromatic lattice with an opt-in **Printed relief** surface. Edit shape,
+  spacing, size range, directions, periods, cadence, relief and three palette
+  swatches. Reuse Print surface for moving texture. Existing optical studies keep
+  their original recipes and renderer.
+
 ## 0.101.0 — 2026-11-12
 
 - Enable **Loop prepared range** before or during preparation. Play repeats the

@@ -90,6 +90,9 @@ def control_group(path):
         if key == 'mix': return 'Output & blending'
         return 'Optical finish'
     if module == 'chromatic_lattice':
+        if key in ('surface','morph','corner','grid_x','grid_y'): return 'Shape & layout'
+        if key in ('sweep_direction','color_direction','hollow','cadence'): return 'Motion & timing'
+        if key.startswith(('face_a_','face_b_','paper_')): return 'Color & light'
         if key in ('shape','sides','spacing','size','minimum','rotation'): return 'Shape & layout'
         if key in ('wave_shape','wavelength','period','phase','direction','angle','pulse','color_rhythm','bpm','phrase_bars'): return 'Motion & timing'
         if key in ('palette','color_period','color_phase','color_spread','gradient','saturation','light','background'): return 'Color & light'

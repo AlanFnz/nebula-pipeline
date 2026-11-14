@@ -9,6 +9,7 @@ import numpy as np
 from PIL import Image, ImageFilter
 
 from synth_canvas import content_size, object_offset
+from synth_lattice_relief import parameters as relief_parameters
 
 
 def modules(Module, P):
@@ -20,12 +21,12 @@ def modules(Module, P):
         P('size', 'Maximum size', .94, .1, 1., .01, 'Cell diameter relative to spacing. Small gaps keep neighboring shapes distinct.'),
         P('minimum', 'Minimum size', 0., 0, 1, .01, 'Smallest size during a pulse. Zero lets a cell disappear completely.'),
         P('rotation', 'Cell rotation', 0., -180, 180, 1),
-        P('wave_shape', 'Wave shape', 0, 0, 2, 1, choices=('Diamond rings', 'Circular rings', 'Parallel bands')),
+        P('wave_shape', 'Wave shape', 0, 0, 3, 1, choices=('Diamond rings', 'Circular rings', 'Parallel bands', 'Rotating sweep')),
         P('wavelength', 'Wave spacing', 10., 2, 30, .1, 'Cell intervals between neighboring size minima.'),
         P('period', 'Pulse period', 5., .3, 30, .1, 'Seconds between size pulses at global speed 1. Color has its own cycle.'),
         P('phase', 'Starting phase', 0., 0, 1, .01),
         P('direction', 'Travel direction', 0, 0, 1, 1, choices=('Inward', 'Outward')),
-        P('angle', 'Band angle', 45., -180, 180, 1, 'Direction used by Parallel bands.'),
+        P('angle', 'Wave orientation', 45., -180, 180, 1, 'Direction used by Parallel bands and Printed relief sweeps.'),
         P('pulse', 'Pulse depth', 1., 0, 1, .01, 'Zero holds every cell at Maximum size; color can keep moving.'),
         P('palette', 'Palette', 0, 0, 3, 1, choices=('Neon spectrum', 'Ember / rose', 'Lagoon / violet', 'Pearl / silver')),
         P('color_rhythm', 'Color timing', 0, 0, 1, 1, 'Musical phrase locks color changes and size pulses to one repeating beat cycle.', choices=('Free optical', 'Musical phrase')),
@@ -33,7 +34,7 @@ def modules(Module, P):
         P('phrase_bars', 'Phrase length (4/4 bars)', 2, 1, 4, 1, 'At 96 BPM, two bars take five seconds. Opening, color steps and return repeat together.'),
         P('color_period', 'Color cycle', 10., 1, 60, .1),
         P('color_phase', 'Color phase', 0., 0, 1, .01),
-        P('color_spread', 'Color wave depth', .8, 0, 2, .01, 'Spread color changes from the center through neighboring cells.'),
+        P('color_spread', 'Color wave depth', .8, 0, 2, .01, 'Spread color changes from the center through neighboring cells. In Printed relief, controls the curvature of the color spiral.'),
         P('gradient', 'Color across each cell', .8, 0, 2, .01, 'Curved bands of light within each shape. Zero gives flat color.'),
         P('saturation', 'Color saturation', 1., 0, 1.5, .01),
         P('light', 'Brightness', 1., 0, 2, .01),
@@ -44,6 +45,7 @@ def modules(Module, P):
         P('grain', 'Fine grain', .009, 0, .1, .001),
         P('background', 'Background brightness', 0., 0, .3, .01),
         P('mix', 'Mix', 1., 0, 1, .01),
+        *relief_parameters(P),
     )),)
 
 
@@ -158,7 +160,11 @@ def _cell_surface(p, t, center, spacing, w, top, bottom, levels=16):
     gy=(y-center[1])/spacing
     ix=np.floor(gx+.5);iy=np.floor(gy)+.5
     distance=wave_distance(ix,iy,p)
-    radius=.5*spacing*p['size']*pulse_size(distance,t,p)
+    if p['wave_shape'] == 3:
+        from synth_lattice_relief import sweep_size
+        size_wave = sweep_size(ix,iy,t,p)
+    else: size_wave = pulse_size(distance,t,p)
+    radius=.5*spacing*p['size']*size_wave
     qx=(gx-ix)*spacing/np.maximum(radius,.001)
     qy=(gy-iy)*spacing/np.maximum(radius,.001)
     angle=np.deg2rad(p['rotation']);cs=np.cos(angle);sn=np.sin(angle)
@@ -197,6 +203,9 @@ def _cell_surface(p, t, center, spacing, w, top, bottom, levels=16):
 
 def render_chromatic_lattice(arr,p,seconds,preset):
     if not p['mix']: return arr
+    if p.get('surface', 0) == 1:
+        from synth_lattice_relief import render_relief
+        return render_relief(arr, p, seconds, preset)
     h,w=arr.shape[:2]
     center,spacing,unit=lattice_frame(p,(w,h),preset)
     t=float(seconds)*preset.get('speed',1.)

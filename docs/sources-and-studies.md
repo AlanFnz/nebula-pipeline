@@ -214,6 +214,24 @@ keeps Pulse period and Color cycle independent; **Color timing → Musical phras
 uses Tempo and Phrase length. See [color-wave sound](sound.md#chromatic-lattice-color-wave-voices)
 for its generated voices and MIDI route.
 
+## Lattice / printed orbit
+
+An eight-second vertical loop with mint and magenta cells on dark paper.
+It extends **Chromatic lattice → Cell surface → Printed relief**; the existing
+Chromatic pulse study keeps its optical surface.
+
+- **Shape & layout**: circle, square, diamond or polygon; spacing, size range,
+  corner rounding and the amount small cells become round.
+- **Wave motion** and **Rhythm & timing**: independent size/color directions,
+  periods, starting phases, spiral depth and hollow transitions. Motion cadence
+  defaults to 12 poses per second; zero gives continuous movement.
+- The three color swatches edit both cell colors and the background, with hex
+  entry and palette previews. **Optical finish** controls bevels and grain;
+  **Effects → Print surface** controls the moving pigment texture.
+
+Both sweeps repeat every four seconds; the texture completes its cycle in eight.
+After changing periods, use a duration containing whole cycles for a seamless loop.
+
 ## Prismatic color film
 
 Opposing color planes fold into a shape. **Object → Prismatic field** controls

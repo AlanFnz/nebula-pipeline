@@ -1,6 +1,7 @@
 """Color bindings for the existing 3D materials and their scene-specific channels."""
 from synth_color_ui import ColorSpec, COLORS
 from synth_blender_parts import PARTS
+from synth_lattice_colors import LATTICE_COLORS
 
 
 def color(key, label, *channels):
@@ -20,7 +21,7 @@ BLENDER_COLORS = (
 
 
 def color_spec(key):
-    return next(spec for spec in (*COLORS, *BLENDER_COLORS) if spec.key == key)
+    return next(spec for spec in (*COLORS, *BLENDER_COLORS, *LATTICE_COLORS) if spec.key == key)
 
 
 def scene_colors(params, part=None):

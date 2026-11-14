@@ -88,7 +88,8 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
         header.addWidget(self.object_navigation)
         from synth_color_ui import ColorPanel
         from synth_blender_colors import BLENDER_COLORS
-        self.color_panel = ColorPanel(BLENDER_COLORS); layout.addWidget(self.color_panel)
+        from synth_lattice_colors import LATTICE_COLORS
+        self.color_panel = ColorPanel((*BLENDER_COLORS,*LATTICE_COLORS)); layout.addWidget(self.color_panel)
         self.color_panel.hide()
         self.text_layout_note = QLabel(); self.text_layout_note.setWordWrap(True)
         self.text_layout_note.setObjectName('muted'); layout.addWidget(self.text_layout_note)
@@ -134,12 +135,16 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
         layout.addStretch(1)
 
     def refresh_object_colors(self, query=''):
-        if self.kind != 'blender':
+        if self.kind not in ('blender','lattice'):
             self.color_panel.hide(); return
         from synth_blender_colors import scene_colors, color_spec
-        ranges = self.object_ranges['blender_scene']['ranges']
+        module = 'blender_scene' if self.kind == 'blender' else 'chromatic_lattice'
+        ranges = self.object_ranges[module]['ranges']
         params = {path.split('.', 1)[1]: value[0] for path, value in ranges.items()}
-        keys = scene_colors(params, self.part_selector.currentData())
+        if self.kind == 'lattice':
+            from synth_lattice_colors import lattice_colors
+            keys = lattice_colors(params)
+        else: keys = scene_colors(params, self.part_selector.currentData())
         if query:
             keys = tuple(k for k in keys if query in (color_spec(k).label + ' color palette ' + ' '.join(color_spec(k).channels)).casefold())
         self.color_panel.show_colors(keys)
@@ -277,6 +282,8 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
         notes['blender'] = 'Choose Whole assembly for shared shape, camera and lighting, or a Part for its transform, motion and material. Independent motion adds looping turns; Animate schedules a change on the timeline. 3D edits prepare new frames. Optical diffusion in Effects reuses them.'
         notes['tunnel'] = 'Two luminous perspective planes. Loop & motion controls the repeating ripple; Color & light and Optical finish control the warm/cool halos and fine grain.'
         notes['lattice'] = 'A fixed grid with traveling waves of size and color. Color timing can follow the free optical cycle or a Musical phrase with one tempo for size, color and generated notes. Glow and softness shape the optical finish.'
+        if self.kind == 'lattice' and summary['chromatic_lattice']['ranges'].get('chromatic_lattice.surface') == (1,1):
+            notes['lattice'] = 'Printed cells with independent size and color sweeps. Shape & layout controls the grid and round-to-angular morph. Rhythm & timing controls the periods, color direction, hollow transition and motion cadence. Print surface in Effects adds the moving pigment.'
         notes['pleated'] = 'Raised folds with an animated camera and mirrored views. Change the profile, relief, palette or field outline here. Color emulsion and Screen mesh add the filmed texture separately.'
         notes['solid'] = 'A die, cube or imported GLB/glTF model rotating around its center. Adjust rounded corners, material, reflections, pose, rotation speeds and dots here. Imported models use static geometry and the studio material. Color field controls the background; Color emulsion textures both together.'
         note = f'{notes[self.kind]} Changes apply to {scope}.'
@@ -298,7 +305,7 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
         self.wording_host.setVisible(self.kind == 'text')
         self.text_tabs.setVisible(self.kind == 'text')
         self.part_navigation.setVisible(self.kind == 'blender' and self.pages.currentWidget() is self.overview_scroll)
-        if self.kind != 'blender': self.color_panel.hide()
+        if self.kind not in ('blender','lattice'): self.color_panel.hide()
         self.text_layout_note.hide()
         self.details.setText('Text appearance…' if self.kind == 'text' else 'Activation & preset…')
         self.timing.setText('Creative motion…' if self.kind == 'particles' else 'Motion & timing…')
@@ -406,10 +413,22 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
             if selected('spectral_tunnel', 'shape', 3): hide('spectral_tunnel.sides')
             if selected('spectral_tunnel', 'motion', 0): hide('spectral_tunnel.amplitude')
         if self.kind == 'lattice':
+            from synth_lattice_relief import RELIEF_KEYS
             if selected('chromatic_lattice', 'shape', 3): hide('chromatic_lattice.sides')
-            if selected('chromatic_lattice', 'wave_shape', 2): hide('chromatic_lattice.angle')
-            if selected('chromatic_lattice', 'color_rhythm', 1): hide('chromatic_lattice.bpm', 'chromatic_lattice.phrase_bars')
-            if selected('chromatic_lattice', 'color_rhythm', 0): hide('chromatic_lattice.period', 'chromatic_lattice.color_period', 'chromatic_lattice.color_spread')
+            ranges = summary['chromatic_lattice']['ranges']
+            relief = ranges['chromatic_lattice.surface'] == (1,1)
+            if relief:
+                hide(*('chromatic_lattice.'+key for key in ('palette','background','color_rhythm','bpm','phrase_bars')))
+                if ranges['chromatic_lattice.shape'] == (0,0):
+                    hide('chromatic_lattice.morph','chromatic_lattice.corner')
+            else:
+                hide(*('chromatic_lattice.'+key for key in RELIEF_KEYS-{'surface','sweep_direction'}))
+                if ranges['chromatic_lattice.wave_shape'] not in ((2,2),(3,3)): hide('chromatic_lattice.angle')
+                if selected('chromatic_lattice', 'color_rhythm', 1): hide('chromatic_lattice.bpm', 'chromatic_lattice.phrase_bars')
+                if selected('chromatic_lattice', 'color_rhythm', 0): hide('chromatic_lattice.period', 'chromatic_lattice.color_period', 'chromatic_lattice.color_spread')
+            if ranges['chromatic_lattice.wave_shape'] == (3,3):
+                hide('chromatic_lattice.wavelength','chromatic_lattice.direction')
+            else: hide('chromatic_lattice.sweep_direction')
         if self.kind == 'solid': hide(*hidden_solid_controls(summary['solid']['ranges']))
         if self.kind == 'prismatic' and selected('prismatic_field', 'shape', 0): hide('prismatic_field.sides')
         if self.kind == 'ink':

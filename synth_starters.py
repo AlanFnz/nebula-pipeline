@@ -7,7 +7,7 @@ from synth_text_recipes import text_composition, opium_composition, word_morph_c
 from synth_radial_recipes import radial_composition
 from synth_prismatic_recipes import prismatic_composition
 from synth_solid_recipes import rotating_die_composition
-from synth_lattice_recipes import lattice_composition
+from synth_lattice_recipes import lattice_composition, printed_orbit_composition
 from synth_spectral_tunnel_recipes import spectral_tunnel_composition
 from synth_blender_recipes import optical_relic_composition, orbital_smooth_painted_composition, yin_yang_continuous_composition
 from synth_memory_recipes import memory_composition
@@ -20,6 +20,7 @@ from synth_pleated_recipes import pleated_composition, pleated_sound_composition
 
 
 STARTERS = (
+    ('printed-orbit', 'Lattice / printed orbit · 8s', printed_orbit_composition),
     ('yin-yang', 'Yin yang / orbital balance · 15s', yin_yang_continuous_composition),
     ('orbital-rings', 'Orbital rings / painted motion · 11.3s', orbital_smooth_painted_composition),
     ('optical-relic', 'Optical relic / green reverie · 8.75s', optical_relic_composition),
@@ -69,6 +70,7 @@ STARTERS = (
 
 # First appearance in the repository, retained independently of app builds.
 STARTER_DATES = {
+    'printed-orbit': '2026-11-14',
     'yin-yang': '2026-11-11',
     'orbital-rings': '2026-11-11',
     'optical-relic': '2026-11-11',

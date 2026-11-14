@@ -1228,12 +1228,16 @@ class CompositionPanel(QWidget):
                     from synth_blender_colors import scene_colors
                     params = next(m['params'] for m in preset['modules'] if m['id'] == spec.module)
                     values += [tuple(params[c] for c in color_spec(k).channels) for k in scene_colors(params)]
+                elif spec.module == 'chromatic_lattice':
+                    from synth_lattice_colors import lattice_colors
+                    params = next(m['params'] for m in preset['modules'] if m['id'] == spec.module)
+                    values += [tuple(params[c] for c in color_spec(k).channels) for k in lattice_colors(params)]
                 for value in values:
                     if value not in palette: palette.append(value)
             cache[key] = palette[:48]
         overridden = any(path in self.target()['effects'].get(spec.module, {}).get('params', {}) for path in spec.paths)
         extra = {}
-        if spec.module == 'blender_scene':
+        if spec.module in ('blender_scene','chromatic_lattice'):
             extra = dict(scope_id=section_id if self.scope else None,
                          scope_note='Sets the base color in the chosen scope. Clip overrides, automation and lighting remain active.')
         return dict(**extra, hsv=current, palette=cache[key], section_id=section_id,

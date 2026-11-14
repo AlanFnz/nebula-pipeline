@@ -36,11 +36,11 @@ FAMILY_GROUPS = {
         ('Color & background', 'palette color_speed color_shift light background'),
         ('Optical finish', 'softness glow mix')),
     'lattice': (
-        ('Shape & layout', 'shape sides spacing size minimum rotation'),
-        ('Wave motion', 'wave_shape wavelength direction angle pulse phase'),
-        ('Rhythm & timing', 'color_rhythm bpm phrase_bars period color_period color_spread color_phase'),
-        ('Color & background', 'palette gradient saturation light background'),
-        ('Optical finish', 'rim softness glow glow_radius grain mix')),
+        ('Shape & layout', 'surface shape sides spacing size minimum rotation morph corner grid_x grid_y'),
+        ('Wave motion', 'wave_shape wavelength direction sweep_direction angle pulse phase'),
+        ('Rhythm & timing', 'color_rhythm bpm phrase_bars period color_period color_spread color_phase color_direction hollow cadence'),
+        ('Color & background', 'palette gradient saturation light background face_a_hue face_a_saturation face_a_light face_b_hue face_b_saturation face_b_light paper_hue paper_saturation paper_light'),
+        ('Optical finish', 'bevel edge_width rim softness glow glow_radius grain mix')),
     'solid': (
         ('Model & scale', 'shape model_data height_stretch scale corner_radius'),
         ('Pose & camera', 'yaw pitch roll perspective'),
