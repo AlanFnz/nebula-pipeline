@@ -117,7 +117,7 @@ class ClipStoryboard(QWidget):
         layout.addWidget(self.cards)
         # The studio places this same footer beneath either Timeline or Shots.
         self.footer = QWidget(); self.footer.setAccessibleName('Selected clip timing')
-        row = FlowLayout(self.footer, spacing=8)
+        row = FlowLayout(self.footer, spacing=8, center_vertical=True)
         self.caption = QLabel(); row.addWidget(self.caption)
         self.duration = DoubleSpinBox(); self.duration.setDecimals(3); self.duration.setSuffix(' s')
         self.duration.setKeyboardTracking(False); self.duration.setAccessibleName('Selected clip duration per play')

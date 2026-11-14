@@ -799,13 +799,21 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.cached_ranges.rangesChanged.connect(self.refresh_cache_status)
         self.cache_status.setToolTip('Highlighted parts of the playback track have prepared frames at this quality. Unprepared frames may play more slowly.')
         preview_line.addWidget(self.cache_status); left_layout.addLayout(preview_line)
-        preparation_host = QWidget(); preparation_host.setProperty('chrome', True)
-        preparation_row = FlowLayout(preparation_host, spacing=5)
+        self.preparation_host = preparation_host = QWidget(); preparation_host.setProperty('chrome', True)
+        preparation_layout = QVBoxLayout(preparation_host)
+        preparation_layout.setContentsMargins(0, 0, 0, 0); preparation_layout.setSpacing(6)
+        playback_host = QWidget(); playback_row = FlowLayout(playback_host, spacing=12, center_vertical=True)
+        preparation_layout.addWidget(playback_host)
+        preparation_controls = QWidget(); preparation_row = FlowLayout(preparation_controls, spacing=12, center_vertical=True)
+        preparation_layout.addWidget(preparation_controls)
         self.preview_scope = QComboBox(); self.preview_scope.addItems(['Entire timeline', 'Selected clips']); self.preview_scope.setAccessibleName('Playback scope')
         self.preview_scope.setToolTip('Playback selection is separate from editing scope. Repeats play in timeline order.')
         self.preview_scope.currentIndexChanged.connect(self.preview_scope_changed)
-        preparation_row.addWidget(inline(QLabel('Playback'), self.preview_scope))
-        self.scope_summary = QLabel(); self.scope_summary.setObjectName('monitorMeta'); preparation_row.addWidget(self.scope_summary)
+        playback_label = QLabel('Playback'); preparation_label = QLabel('Preview')
+        label_width = max(playback_label.sizeHint().width(), preparation_label.sizeHint().width())
+        playback_label.setFixedWidth(label_width); preparation_label.setFixedWidth(label_width)
+        playback_row.addWidget(inline(playback_label, self.preview_scope))
+        self.scope_summary = QLabel(); self.scope_summary.setObjectName('monitorMeta')
         self.quality = QComboBox(); self.quality.setAccessibleName('Preview resolution'); self.quality.addItems(['360 px', '720 px', 'Full canvas'])
         self.quality.setToolTip(PREVIEW_HINT + ' Authored Low-res finish remains part of the artwork.')
         self.quality.setMaximumWidth(112)
@@ -827,9 +835,10 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.prepare_full_preview.setToolTip('Prepare the entire timeline at the selected resolution. Uses temporary lossless disk storage, keeping memory bounded. Does not start playback.')
         self.prepare_full_preview.clicked.connect(self.prepare_full_playback)
         self.setup_preview_range()
-        preparation_row.addWidget(self.auto_prepare)
+        playback_row.addWidget(self.loop_preview_range)
+        playback_row.addWidget(self.scope_summary)
+        preparation_row.addWidget(inline(preparation_label, self.auto_prepare))
         preparation_row.addWidget(inline(self.preview_range_frames, self.prepare_preview))
-        preparation_row.addWidget(self.loop_preview_range)
         preparation_row.addWidget(self.prepare_full_preview)
         if self.workspace_settings:
             self.auto_prepare.setChecked(self.workspace_settings.value('preview/auto_prepare', True, type=bool))
@@ -2073,11 +2082,12 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
             return
         self.cancel_preparation()
         if not self.ensure_preview_context(): return
-        self.discard_preview_range()
         try:
             self.preview_frames.enable_full(self.preview_size(), self.timeline.maximum() + 1)
         except OSError as exc:
             self.preview_status.setText(str(exc)); self.status.setText(str(exc)); return
+        from synth_preview import PreviewScope
+        self.remember_preview_range(PreviewScope(((0, self.timeline.maximum() + 1),)), mode='all')
         self.preparation_explicit = self.preparation_full = True
         self.preparation_limited = False
         self.preparation_target = range(self.timeline.maximum() + 1)
@@ -2096,7 +2106,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
 
     def prepare_playback(self, checked=False):
         if self.closing or self.export_job or self.audition_pending(): return
-        if self.preparation_explicit:
+        if self.preparation_explicit and not self.preparation_full:
             self.cancel_preparation(); self.preview_status.setText('Ready · preparation cancelled; completed frames remain cached.'); return
         self.prepare_configured_range()
 
@@ -2138,7 +2148,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.preview_frames.reserve(job.reserved_bytes, self.preparation_target)
         self.cached_ranges.set_ranges(self.preview_frames.ranges())
         self.prepare_job = self.warming_job = job; self.pending_jobs.append(job)
-        self.prepare_preview.setText('Cancel preparation' if self.preparation_explicit else 'Prepare range')
+        self.prepare_preview.setText('Cancel range' if self.preparation_explicit and not self.preparation_full else 'Prepare range')
         self.preview_status.setText(self.preparation_feedback())
         job.signals.done.connect(lambda result, j=job: self.preparation_finished(j, result=result))
         job.signals.failed.connect(lambda error, j=job: self.preparation_finished(j, error))
@@ -2180,7 +2190,10 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         if hasattr(self, "timeline"):
             duration = self.sequence["duration"] if self.sequence is not None else self.preset["loop_seconds"]
             fps = self.sequence["fps"] if self.sequence is not None else self.preset["export_fps"]
-            self.timeline.setMaximum(max(1, round(duration * fps)) - 1)
+            # A duration edit can clamp the playhead. It is not an explicit seek
+            # outside the loop, and must not turn the user's loop choice off.
+            with QSignalBlocker(self.timeline):
+                self.timeline.setMaximum(max(1, round(duration * fps)) - 1)
             centiseconds = round(duration * 100)
             self.total_time_label.setText(f'Total {centiseconds // 6000:02d}:{(centiseconds % 6000) / 100:05.2f}')
             self.total_time_label.setAccessibleDescription(f'{duration:.2f} seconds · {round(duration * fps)} frames at {fps} fps')
@@ -2190,7 +2203,6 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         if self.preview_suspended or self.closing: return
         if not self.ensure_preview_context(): return
         if self.loop_preview_range.isChecked() and self.prepared_range_stamp != self.preview_range_stamp():
-            self.discard_preview_range()
             self.refresh_preview_scope()
         sequence = self.performance_base_sequence()
         sample_time = self.performance_source_time(self.timeline.value() / self.preview_fps())

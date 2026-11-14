@@ -277,3 +277,25 @@ def test_tall_restored_footer_keeps_controls_packed_at_the_top(window):
     footer = window.clip_controls
     assert footer.y() <= window.section_scroll.y() + window.section_scroll.height() + 6
     assert window.preview_scope.mapTo(pane, QPoint()).y() <= footer.y() + footer.height() + 6
+
+
+def test_preparation_controls_align_and_wrap_without_overlaps(window):
+    before = copy.deepcopy(window.composition)
+    controls = (window.preview_scope, window.loop_preview_range, window.auto_prepare,
+                window.preview_range_frames, window.prepare_preview, window.prepare_full_preview)
+    host = window.preparation_host
+    for width in (1000, 730, 480):
+        window.resize(1800, 1000)
+        window.splitter.setSizes([width, 1800-width])
+        window.preview_splitter.setSizes([400, 550])
+        for _ in range(3): QApplication.processEvents()
+        rects = [control.rect().translated(control.mapTo(host, QPoint())) for control in controls]
+        assert all(control.isVisible() and inside(control, host) for control in controls)
+        for i, first in enumerate(rects):
+            for second in rects[i+1:]: assert not first.intersects(second)
+        # The loop checkbox is centered with the playback selector, rather than
+        # top-aligned; the preparation checkbox follows the same row alignment.
+        assert abs(rects[0].center().y() - rects[1].center().y()) <= 1
+        assert abs(rects[2].center().y() - rects[3].center().y()) <= 1
+        assert rects[2].top() > rects[0].bottom()
+    assert window.composition == before and not window.has_unsaved_changes()

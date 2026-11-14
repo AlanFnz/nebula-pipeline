@@ -57,7 +57,7 @@ def test_chosen_range_survives_eviction_and_loops_audio_at_absolute_time(window,
     assert window.active_preview_scope().count == window.timeline.maximum()+1
 
 
-def test_audio_edits_keep_range_visual_edits_and_resolution_release_it(window, monkeypatch):
+def test_edits_and_undo_keep_loop_choice_but_explicit_seek_exits_it(window, monkeypatch):
     setup(window, monkeypatch)
     window.prepare_playback(); prepared(window)
     window.loop_preview_range.setChecked(True)
@@ -66,12 +66,17 @@ def test_audio_edits_keep_range_visual_edits_and_resolution_release_it(window, m
     window.undo_composition()
     assert window.loop_preview_range.isChecked()
     window.quality.setCurrentIndex(1)  # Size monkeypatch is constant: use a real visual edit below.
+    requested = window.prepared_range_scope
     window.composer.macro_controls['width'].spin.setValue(1.3)
-    assert not window.loop_preview_range.isChecked()
+    assert window.loop_preview_range.isChecked()
     assert window.loop_preview_range.isEnabled()
+    assert window.prepared_range_scope == requested
+    assert window.active_preview_scope().count == 0  # No stale pixels.
     settle(window)
     window.prepare_playback(); prepared(window)
-    window.loop_preview_range.setChecked(True)
+    assert window.active_preview_scope().count == 7
+    window.undo_composition()
+    assert window.loop_preview_range.isChecked() and window.prepared_range_scope == requested
     window.timeline.setValue(15)  # Explicit seek outside the range exits loop mode.
     assert not window.loop_preview_range.isChecked()
     assert window.timeline.value() == 15
@@ -110,8 +115,87 @@ def test_range_prepares_perform_source_times_and_does_not_narrow_full_preview(wi
     assert window.loop_preview_range.isEnabled()
     window.loop_preview_range.setChecked(True)
     window.prepare_full_playback(); prepared(window)
-    assert not window.loop_preview_range.isChecked()
+    assert window.loop_preview_range.isChecked()
     assert window.preview_frames.complete(window.timeline.maximum()+1)
+    assert window.active_preview_scope().count == window.timeline.maximum()+1
+
+
+def test_full_preparation_then_enable_loop_uses_every_frame_even_after_cancel(window, monkeypatch):
+    before = setup(window, monkeypatch)
+    window.prepare_full_playback(); prepared(window)
+    window.cancel_preparation()  # Worker state is separate from the chosen target.
+    window.loop_preview_range.setChecked(True)
+    total = window.timeline.maximum() + 1
+    assert window.active_preview_scope().intervals == ((0, total),)
+    assert window.preview_range_summary.text().startswith('Entire timeline:')
+    clock = [100.]
+    monkeypatch.setattr('synth_studio.time.monotonic', lambda: clock[0])
+    window.play.setChecked(True)
+    for i in range(1, total * 2 + 1):
+        clock[0] = 100 + i/25
+        window.advance()
+        assert window.timeline.value() == (4 + i) % total
+    window.play.setChecked(False)
+    # A deliberate range request can still narrow a fully prepared timeline.
+    window.prepare_playback(); prepared(window)
+    assert window.active_preview_scope().count == 7
+    assert window.preview_range_summary.text().startswith('Range:')
+    assert window.composition == before
+
+
+def test_full_preparation_keeps_growing_when_loop_enabled_mid_job(window, monkeypatch):
+    setup(window, monkeypatch)
+    window.preview_frames.clear(); window.cached_ranges.set_ranges([])
+    started = []; monkeypatch.setattr(window.jobs, 'start', started.append)
+    window.prepare_full_playback()
+    job = started[-1]
+    window.loop_preview_range.setChecked(True)
+    window.play.setChecked(True)
+    assert window.prepare_job is job and not job.cancel.event.is_set()
+    packet = ((64, 48), bytes(64*48*3))
+    for frame in range(12):
+        window.prepared_frame(job, (window.settings_generation, frame, packet))
+    assert window.active_preview_scope().count == 12 > window.preview_range_frames.value()
+    window.prepare_full_playback()  # Cancel preserves all 12 ready frames and loop.
+    assert window.play.isChecked() and window.loop_preview_range.isChecked()
+    assert window.active_preview_scope().count == 12
+    window.preparation_finished(job)
+    window.play.setChecked(False)
+
+
+def test_visual_edit_rebuilds_loop_while_playing_and_quality_never_uses_old_pixels(window, monkeypatch):
+    setup(window, monkeypatch)
+    window.prepare_playback(); prepared(window)
+    window.loop_preview_range.setChecked(True)
+    window.auto_prepare.setChecked(True)
+    window.play.setChecked(True)
+    window.composer.macro_controls['width'].spin.setValue(1.3)
+    assert window.loop_preview_range.isChecked() and window.play.isChecked()
+    assert window.active_preview_scope().count == 0
+    wait_until(lambda: window.active_preview_scope().count == 7)
+    assert window.play.isChecked()
+    window.play.setChecked(False)
+    monkeypatch.setattr(window, 'preview_size', lambda: (80, 60))
+    window.quality.setCurrentIndex(1)
+    assert window.loop_preview_range.isChecked() and window.active_preview_scope().count == 0
+    wait_until(lambda: window.active_preview_scope().count == 7)
+    for source in window.prepared_range_sources:
+        assert window.preview_frames.get(source)[0] == (80, 60)
+
+
+def test_range_count_and_duration_edits_keep_loop_and_new_document_resets_it(window, monkeypatch):
+    before = setup(window, monkeypatch)
+    window.prepare_full_playback(); prepared(window)
+    window.loop_preview_range.setChecked(True)
+    window.timeline.setValue(window.timeline.maximum())
+    window.composer.duration.setValue(.48)
+    assert window.loop_preview_range.isChecked()
+    assert window.prepared_range_scope.intervals == ((0, window.timeline.maximum()+1),)
+    window.preview_range_frames.setValue(3)
+    assert window.loop_preview_range.isChecked() and window.prepared_range_scope.count == 3
+    window.set_composition(before, guard=False)
+    assert not window.loop_preview_range.isChecked()
+    assert window.prepared_range_scope is None
 
 
 def test_count_is_a_workspace_preference_and_loop_is_never_saved(window, monkeypatch, tmp_path):

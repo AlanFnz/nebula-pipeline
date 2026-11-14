@@ -18,9 +18,10 @@ def inline(*widgets, spacing=5, separated=False):
 
 class FlowLayout(QLayout):
     """Wrap whole control groups, keeping every action reachable at small widths."""
-    def __init__(self, parent=None, spacing=6, right_last=False):
+    def __init__(self, parent=None, spacing=6, right_last=False, center_vertical=False):
         super().__init__(parent)
         self.items = []; self.right_last = right_last
+        self.center_vertical = center_vertical
         self.setContentsMargins(0, 0, 0, 0); self.setSpacing(spacing)
 
     def addItem(self, item): self.items.append(item)
@@ -43,16 +44,24 @@ class FlowLayout(QLayout):
         super().setGeometry(rect); self._arrange(rect, True)
     def _arrange(self, rect, apply):
         x, y, height = rect.x(), rect.y(), 0
+        row = []
+        def place_row():
+            if apply:
+                for item, left, size in row:
+                    offset = (height - size.height()) // 2 if self.center_vertical else 0
+                    item.setGeometry(QRect(QPoint(left, y + offset), size))
         visible = [item for item in self.items if not item.isEmpty()]
         for index, item in enumerate(visible):
             size = item.sizeHint().boundedTo(item.maximumSize())
             width = min(size.width(), max(item.minimumSize().width(), rect.width()))
             if x > rect.x() and x + width > rect.right()+1:
+                place_row(); row = []
                 x = rect.x(); y += height+self.spacing(); height = 0
             if self.right_last and index == len(visible)-1:
                 x = max(x, rect.right()+1-width)
-            if apply: item.setGeometry(QRect(QPoint(x, y), QSize(width, size.height())))
+            row.append((item, x, QSize(width, size.height())))
             x += width+self.spacing(); height = max(height, size.height())
+        place_row()
         return y+height-rect.y()
 
 

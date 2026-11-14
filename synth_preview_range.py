@@ -29,6 +29,8 @@ class PreviewRangeStudio:
         self.prepared_range_mapping = ()
         self.prepared_playback_scope = PreviewScope(())
         self.prepared_range_stamp = None
+        self.prepared_range_mode = 'range'
+        self.prepared_range_fps = None
         self.preview_range_frames = SpinBox()
         self.preview_range_frames.setRange(1, 100000)
         self.preview_range_frames.setValue(150)
@@ -38,7 +40,7 @@ class PreviewRangeStudio:
         self.preview_range_frames.setToolTip('Frames to prepare from the playhead. Near the end, the range starts earlier to keep this length. Selected clips skip gaps. Preview only; does not change the project or export.')
         self.preview_range_frames.valueChanged.connect(self.preview_range_count_changed)
         self.loop_preview_range = QCheckBox('Loop prepared range')
-        self.loop_preview_range.setToolTip('Loop available frames while the range prepares. You can enable this before preparation; Play waits for the first frame and the loop grows as more arrive. Audio and MIDI follow the original timeline times. Does not change export or clip repeats.')
+        self.loop_preview_range.setToolTip('Loop available frames from the last preparation: the chosen range or the entire timeline after Prepare all frames. The loop grows as frames arrive and stays enabled when editing. Audio and MIDI follow the original timeline times. Does not change export or clip repeats.')
         self.loop_preview_range.toggled.connect(self.preview_range_loop_changed)
         self.preview_range_summary = QLabel()
         self.preview_range_summary.setObjectName('monitorMeta')
@@ -49,9 +51,11 @@ class PreviewRangeStudio:
         return (self.document_identity, self.settings_generation, self.preview_frames.namespace,
                 copy.deepcopy(sequence.get('visual_performance')))
 
-    def remember_preview_range(self, scope):
+    def remember_preview_range(self, scope, *, mode='range'):
         self.prepared_range_scope = scope
+        self.prepared_range_mode = mode
         fps = self.preview_fps()
+        self.prepared_range_fps = fps
         self.prepared_range_mapping = tuple((frame, round(self.performance_source_time(frame / fps) * fps))
                                             for frame in frames_in(scope))
         self.prepared_range_sources = tuple(dict.fromkeys(source for _, source in self.prepared_range_mapping))
@@ -66,18 +70,37 @@ class PreviewRangeStudio:
         self.prepared_range_sources = ()
         self.prepared_range_mapping = ()
         self.prepared_playback_scope = PreviewScope(())
+        self.prepared_range_stamp = None
+        self.prepared_range_mode = 'range'
+
+    def refresh_preview_range_target(self):
+        """Invalidate packets without discarding the user's playback choice."""
+        if not self.prepared_range_scope: return
+        stamp = self.preview_range_stamp()
+        if self.prepared_range_stamp == stamp: return
+        if self.prepared_range_stamp[0] is not self.document_identity:
+            self.discard_preview_range()
+            return
+        if self.prepared_range_mode == 'all':
+            scope = PreviewScope(((0, self.timeline.maximum() + 1),))
+        else:
+            start = self.prepared_range_scope.frame_at(0)
+            start = round(start / self.prepared_range_fps * self.preview_fps())
+            scope = preview_window(self.base_preview_scope(), start, self.preview_range_frames.value())
+        self.remember_preview_range(scope, mode=self.prepared_range_mode)
 
     def preview_range_count_changed(self, *_):
-        self.discard_preview_range()
         self.cancel_preparation()
+        if self.loop_preview_range.isChecked():
+            self.remember_preview_range(preview_window(self.base_preview_scope(), self.timeline.value(), self.preview_range_frames.value()))
+        else:
+            self.discard_preview_range()
         self.refresh_preview_scope()
         self.schedule_auto_preparation()
 
     def refresh_prepared_range(self):
         if not hasattr(self, 'loop_preview_range'): return
-        if self.prepared_range_scope and self.prepared_range_stamp != self.preview_range_stamp():
-            self.discard_preview_range()
-            self.refresh_workspace_context()
+        self.refresh_preview_range_target()
         scope = self.prepared_range_scope
         done = sum(self.preview_frames.contains(frame) for frame in self.prepared_range_sources)
         ready = bool(scope and scope.count and done == len(self.prepared_range_sources))
@@ -94,8 +117,9 @@ class PreviewRangeStudio:
             state = 'ready to loop' if ready else f'{done}/{len(self.prepared_range_sources)} prepared'
             if self.loop_preview_range.isChecked():
                 state += f' · looping {available.count} frames' if available.count else ' · waiting for frames'
-            self.preview_range_summary.setText(f'Range: {short} · {scope.count} frames · {state}')
-            self.preview_range_summary.setToolTip(spans + '. Only this prepared range repeats; the project stays unchanged.')
+            label = 'Entire timeline' if self.prepared_range_mode == 'all' else 'Range'
+            self.preview_range_summary.setText(f'{label}: {short} · {scope.count} frames · {state}')
+            self.preview_range_summary.setToolTip(spans + '. The loop follows this preparation target. Prepare range switches back to the chosen frame count; Prepare all frames covers the entire timeline. The project stays unchanged.')
         else:
             count = min(self.preview_range_frames.value(), self.base_preview_scope().count)
             self.preview_range_summary.setText(f'{count} frames · {count/fps:.2f}s at {fps:g} fps')
@@ -128,7 +152,7 @@ class PreviewRangeStudio:
         if checked:
             if not self.ensure_preview_context(): return
             requested = min(self.preview_range_frames.value(), self.base_preview_scope().count)
-            if not self.prepared_range_scope or self.prepared_range_scope.count != requested:
+            if not self.prepared_range_scope or (self.prepared_range_mode != 'all' and self.prepared_range_scope.count != requested):
                 self.remember_preview_range(preview_window(self.base_preview_scope(), self.timeline.value(), self.preview_range_frames.value()))
             # Retain packets while worker reservations displace the memory LRU.
             self.retain_preview_range()
@@ -143,7 +167,7 @@ class PreviewRangeStudio:
             self.discard_preview_range()
         self.cancel_preparation()
         if not self.ensure_preview_context(): return
-        scope = self.prepared_range_scope if looping else None
+        scope = self.prepared_range_scope if looping and self.prepared_range_mode == 'range' else None
         if scope is None:
             scope = preview_window(self.base_preview_scope(), self.timeline.value(), self.preview_range_frames.value())
             self.remember_preview_range(scope)

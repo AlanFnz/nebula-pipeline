@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.104.1 — 2026-11-14
+
+- Align timeline timing controls and group playback and preview preparation into
+  separate rows that wrap at narrow widths.
+- Keep **Loop prepared range** enabled through visual edits, Undo and resolution
+  changes while rebuilding the affected frames. Preparing the whole timeline
+  now makes it the loop target, including when the loop is enabled afterward or
+  while frames are still arriving. **Prepare range** selects the shorter window.
+  The summary shows the active target. Existing artwork and exports are unchanged.
+
 ## 0.104.0 — 2026-11-14
 
 - Add **Object → Eye blinking → Blink cadence** to hold eyelid poses at a chosen
