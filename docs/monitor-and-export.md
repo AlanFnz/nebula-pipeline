@@ -43,9 +43,15 @@ Click a dark gap **between two prepared spans** in the strip below the playhead
 to prepare only the missing frames at the selected resolution. Hover highlights
 the gap and shows its length. With **Loop prepared range** enabled, the current
 loop continues while it prepares, then expands to cover both joined spans.
-The summary calls this a **Joined range**. You can fill another gap to extend it
-again; **Prepare range** returns to the chosen frame count. This changes only
-preview playback, not the project or export.
+The clicked gap stays highlighted, with its time range, progress and **Cancel**
+beside the monitor. Choosing another range is disabled while it prepares;
+playback can continue. Cancel keeps completed frames and stops preparation,
+including Auto prepare, until you request another range or edit the preview.
+Click the remaining gap to resume.
+
+The summary calls the result a **Joined range**. Once preparation finishes or
+is cancelled, you can fill another gap; **Prepare range** returns to the chosen
+frame count. This changes only preview playback, not the project or export.
 
 Montage's assembly monitor still uses bounded ranges; these controls are available
 when editing compositions and Montage blocks.

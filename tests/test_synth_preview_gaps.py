@@ -61,6 +61,8 @@ def test_click_fills_only_missing_frames_then_loops_both_spans(window, monkeypat
     assert window.active_preview_scope().intervals == ((0, 12),)
     assert 'Joined range:' in window.preview_range_summary.text()
     assert window.composition == before and window.settings_generation == generation
+    assert window.preparing_gap is None and not window.gap_feedback.isVisible()
+    assert window.timeline.isEnabled() and window.prepare_full_preview.isEnabled()
     assert window.preview_frames.bytes + window.preview_frames.reserved <= window.preview_frames.budget
     # Join the next gap as well, then explicitly choose a short range again.
     click_gap(window, 13); prepared(window)
@@ -83,14 +85,19 @@ def test_playing_loop_waits_for_gap_and_expands_without_audio_seek(window, monke
     monkeypatch.setattr(window.jobs, 'start', started.append)
     click_gap(window, 6)
     job = started[-1]
+    assert window.gap_feedback.isVisible()
+    assert window.gap_progress.maximum() == 4 and window.gap_progress.value() == 0
     assert window.active_preview_scope().intervals == ((0, 4),)
     for f in (4, 5, 6): window.prepared_frame(job, (window.settings_generation, f, packet))
+    assert window.gap_progress.value() == 3
+    assert '3/4 frames' in window.gap_status.text()
     assert window.active_preview_scope().intervals == ((0, 4),)
     assert '11/12 frames' in window.cache_status.text()
     for i in range(1, 10):
         clock[0] = 100+i/25
         window.advance()
         assert window.timeline.value() == i % 4
+        assert window.gap_feedback.isVisible() and '3/4 frames' in window.gap_status.text()
     clock[0] += .01
     window.prepared_frame(job, (window.settings_generation, 7, packet))
     window.advance()
@@ -117,6 +124,8 @@ def test_cancel_gap_resume_and_quality_change_do_not_shrink_joined_target(window
     window.loop_preview_range.setChecked(True)
     monkeypatch.setattr(window, 'preview_size', lambda: (80, 60))
     window.quality.setCurrentIndex(1)
+    assert window.preparing_gap is None and not window.gap_feedback.isVisible()
+    assert window.timeline.isEnabled() and window.preview_range_frames.isEnabled()
     assert window.loop_preview_range.isChecked()
     assert window.prepared_range_scope.intervals == ((0, 12),)
     assert window.active_preview_scope().count == 0
@@ -194,3 +203,68 @@ def test_strip_hover_marks_gap_and_has_a_practical_hit_area(window, monkeypatch)
     strip.grab()  # Exercise custom hover painting.
     strip.update_hover(0)
     assert strip.hover_gap is None
+
+
+def test_busy_gap_blocks_replacement_and_cancel_stays_cancelled_with_auto_prepare(window, monkeypatch):
+    before = setup(window, monkeypatch)
+    packet = seed(window)
+    window.prepared_range_mode = 'joined'
+    window.loop_preview_range.setChecked(True)
+    window.auto_prepare.setChecked(True)
+    started = []
+    monkeypatch.setattr(window.jobs, 'start', started.append)
+    click_gap(window, 6)
+    job = started[-1]
+    target = window.preparation_target
+    assert window.cached_ranges.preparing_gap == (4, 8)
+    assert not window.timeline.isEnabled() and not window.preview_range_frames.isEnabled()
+    assert not window.prepare_full_preview.isEnabled() and not window.preview_scope.isEnabled()
+    assert window.prepare_preview.text() == 'Cancel gap'
+    for frame in (6, 13):
+        click_gap(window, frame)
+        window.prepare_preview_gap(frame)  # The controller rejects replacement too.
+    window.prepare_full_playback()
+    window.prepare_configured_range()
+    assert window.prepare_job is job and not job.cancel.event.is_set()
+    assert window.preparation_target == target and len(started) == 1
+    window.cached_ranges.update_hover(0)
+    assert window.cached_ranges.hover_gap is None
+    assert 'Cancel preparation' in window.cached_ranges.toolTip()
+    window.cached_ranges.grab()  # Busy marker is painted even without hovering.
+    window.prepared_frame(job, (window.settings_generation, 4, packet))
+    window.cancel_gap.click()
+    assert job.cancel.event.is_set()
+    assert not window.gap_feedback.isVisible() and window.cached_ranges.preparing_gap is None
+    assert window.timeline.isEnabled() and window.prepare_full_preview.isEnabled()
+    assert window.preview_frames.contains(4)
+    window.preparation_finished(job, result=(job.generation, [(5, packet)]))
+    assert not window.preview_frames.contains(5)
+    window.schedule_auto_preparation()
+    window._automatic_preparation()
+    assert not window.warm_debounce.isActive() and not window.preparation_target
+    assert len(started) == 1  # Auto prepare must not undo Cancel.
+    click_gap(window, 6)
+    assert not window.gap_preparation_paused
+    assert window.preparing_gap == (5, 8) and started[-1].frames == (5, 6)
+    assert window.gap_progress.maximum() == 3
+    window.prepare_preview.click()  # Lower preparation row cancels the same job.
+    window.preparation_finished(started[-1])
+    assert window.gap_preparation_paused and window.composition == before
+
+
+def test_gap_failure_unlocks_controls_and_play_without_loop_keeps_job(window, monkeypatch):
+    setup(window, monkeypatch)
+    seed(window)
+    started = []
+    monkeypatch.setattr(window.jobs, 'start', started.append)
+    window.prepare_preview_gap(6)
+    job = started[-1]
+    window.play.setChecked(True)
+    window.request_frame()  # Current frame is missing: must not cancel the gap worker.
+    assert window.prepare_job is job and not job.cancel.event.is_set()
+    window.play.setChecked(False)
+    window.preparation_finished(job, error='Test render failure')
+    assert window.preparing_gap is None and not window.gap_feedback.isVisible()
+    assert window.timeline.isEnabled() and window.preview_range_frames.isEnabled()
+    assert window.prepare_full_preview.isEnabled()
+    assert 'Test render failure' in window.preview_status.text()

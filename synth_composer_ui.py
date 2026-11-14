@@ -5,7 +5,7 @@ import copy
 import math
 
 from PySide6.QtCore import Qt, QRectF, QPoint, QSignalBlocker, Signal, QSize, QTimer
-from PySide6.QtGui import QAction, QColor, QPainter, QPen, QCursor, QKeySequence
+from PySide6.QtGui import QAction, QColor, QPainter, QPen, QCursor, QKeySequence, QBrush
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox, QLabel,
     QPushButton, QCheckBox, QTabWidget, QSizePolicy, QMenu, QInputDialog, QAbstractScrollArea, QApplication, QScrollArea, QFrame, QStackedWidget,
@@ -1804,6 +1804,7 @@ class CachedRangeStrip(QWidget):
         self.scope = None
         self.fps = 25
         self.hover_gap = None
+        self.preparing_gap = None
         self.setFixedHeight(14)
         self.setMouseTracking(True)
         self.setAccessibleName('Prepared preview coverage')
@@ -1812,6 +1813,11 @@ class CachedRangeStrip(QWidget):
 
     def set_scope(self, scope, fps):
         self.scope, self.fps = scope, fps
+        self.update_hover(self.mapFromGlobal(QCursor.pos()).x() if self.underMouse() else -1)
+
+    def set_preparing_gap(self, gap):
+        if self.preparing_gap == gap: return
+        self.preparing_gap = gap
         self.update_hover(self.mapFromGlobal(QCursor.pos()).x() if self.underMouse() else -1)
 
     def frame_at_x(self, x):
@@ -1827,7 +1833,16 @@ class CachedRangeStrip(QWidget):
         return cached_gap(self.ranges, frame, self.scope or PreviewScope(((0, self.slider.maximum()+1),)))
 
     def update_hover(self, x):
+        if self.preparing_gap is not None:
+            start, end = self.preparing_gap
+            self.hover_gap = None
+            self.setCursor(Qt.CursorShape.BusyCursor)
+            self.setToolTip(f'Preparing gap: {start/self.fps:.2f}–{end/self.fps:.2f}s. Cancel preparation to choose another gap. Completed frames are kept.')
+            self.setAccessibleDescription(self.toolTip())
+            self.update()
+            return
         match = self.gap_at_x(x)
+        self.setAccessibleDescription(f'{sum(b-a for a,b in self.ranges)} frames cached')
         self.hover_gap = match[0] if match else None
         self.setCursor(Qt.CursorShape.PointingHandCursor if match else Qt.CursorShape.ArrowCursor)
         if match:
@@ -1845,6 +1860,9 @@ class CachedRangeStrip(QWidget):
         super().leaveEvent(event)
 
     def mousePressEvent(self, event):
+        if self.preparing_gap is not None:
+            event.accept()
+            return
         if event.button() == Qt.MouseButton.LeftButton and self.gap_at_x(event.position().x()):
             self.gapRequested.emit(self.frame_at_x(event.position().x()))
             event.accept()
@@ -1869,3 +1887,14 @@ class CachedRangeStrip(QWidget):
         if self.hover_gap:
             start, end = self.hover_gap
             painter.fillRect(QRectF(origin + width*start/count, y-1, max(1, width*(end-start)/count), 5), QColor(COLORS['accent']))
+        if self.preparing_gap is not None:
+            start, end = self.preparing_gap
+            rect = QRectF(origin + width*start/count, y-2, max(2, width*(end-start)/count), 7)
+            painter.fillRect(rect, QColor(COLORS['selected']))
+            painter.setPen(QColor(COLORS['accent']))
+            painter.setBrush(QBrush(QColor(COLORS['accent']), Qt.BrushStyle.BDiagPattern))
+            painter.drawRect(rect)
+            for a, b in self.ranges:
+                a, b = max(a, start), min(b, end)
+                if a < b:
+                    painter.fillRect(QRectF(origin + width*a/count, y-2, max(1, width*(b-a)/count), 7), QColor(COLORS['accent']))

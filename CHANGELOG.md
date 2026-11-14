@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.106.1 — 2026-11-14
+
+- Keep the clicked preview gap highlighted while preparing, with a persistent
+  time range, progress and Cancel beside the monitor. Prevent another range
+  from replacing that work until it finishes or is cancelled. Cancel retains
+  completed frames and prevents Auto prepare from restarting the cancelled job.
+  Playback continues; studies, project values and exports are unchanged.
+
 ## 0.106.0 — 2026-11-14
 
 - Click a gap in the prepared-frame strip to render only the missing frames at

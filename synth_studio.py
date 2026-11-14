@@ -836,6 +836,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.prepare_full_preview.setToolTip('Prepare the entire timeline at the selected resolution. Uses temporary lossless disk storage, keeping memory bounded. Does not start playback.')
         self.prepare_full_preview.clicked.connect(self.prepare_full_playback)
         self.setup_preview_range()
+        left_layout.addWidget(self.gap_feedback)
         playback_row.addWidget(self.loop_preview_range)
         playback_row.addWidget(self.scope_summary)
         preparation_row.addWidget(inline(preparation_label, self.auto_prepare))
@@ -1996,6 +1997,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
     def refresh_cache_status(self):
         if not hasattr(self, 'cache_status') or not hasattr(self, 'preview_scope'): return
         self.refresh_prepared_range()
+        self.refresh_gap_feedback()
         self.cached_ranges.set_scope(self.base_preview_scope(), self.preview_fps())
         scope = self.active_preview_scope()
         available = self.preview_frames.available()
@@ -2020,7 +2022,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
 
     def preparation_feedback(self):
         done = sum(self.preview_frames.contains(i) for i in self.preparation_target)
-        if self.prepared_gap_hold is not None:
+        if self.preparing_gap is not None:
             return f'Joining prepared spans · {done}/{len(self.preparation_target)} frames ready'
         scope = ('block composition' if self.workspace_navigation and self.workspace_navigation.editor is self else 'entire timeline') if self.preparation_full else 'playback range'
         return f'Preparing {scope} · {done}/{len(self.preparation_target)} frames'
@@ -2042,12 +2044,14 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         else: self.schedule_auto_preparation()
 
     def schedule_auto_preparation(self):
+        if getattr(self, 'gap_preparation_paused', False): return
         if self.preview_suspended or self.discovery_session or self.closing or not hasattr(self, 'auto_prepare') or not self.auto_prepare.isChecked() or self.export_job: return
         if self.loop_preview_range.isChecked() and (self.preparation_explicit or
                 all(self.preview_frames.contains(frame) for frame in self.prepared_range_sources)): return
         self.warm_debounce.start(400)
 
     def _automatic_preparation(self):
+        if self.gap_preparation_paused: return
         if self.preview_suspended or self.closing or self.export_job: return
         if self.preparation_explicit:
             self._start_warm_batch(); return
@@ -2074,12 +2078,13 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self._obsolete_preparation()
         self.warm_debounce.stop()
         self.preparation_target = (); self.preparation_explicit = False; self.preparation_full = False
+        self.preparing_gap = None
         self.prepare_preview.setText('Prepare range')
         self.prepare_full_preview.setText('Prepare all frames')
         self.refresh_cache_status()
 
     def prepare_full_playback(self, checked=False):
-        if self.closing or self.export_job or self.audition_pending(): return
+        if self.preparing_gap is not None or self.closing or self.export_job or self.audition_pending(): return
         if self.preparation_full and self.preparation_explicit:
             self.cancel_preparation()
             self.preview_status.setText('Full preparation cancelled · prepared frames kept. Click Prepare all frames to resume.')
@@ -2110,11 +2115,14 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
 
     def prepare_playback(self, checked=False):
         if self.closing or self.export_job or self.audition_pending(): return
+        if self.preparing_gap is not None:
+            self.cancel_preview_gap(); return
         if self.preparation_explicit and not self.preparation_full:
             self.cancel_preparation(); self.preview_status.setText('Ready · preparation cancelled; completed frames remain cached.'); return
         self.prepare_configured_range()
 
     def _preparation_ready(self):
+        self.preparing_gap = None
         self.prepare_preview.setText('Prepare range')
         self.preparation_explicit = False
         self.prepare_full_preview.setText('Prepare all frames')
@@ -2153,6 +2161,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.refresh_cached_ranges()
         self.prepare_job = self.warming_job = job; self.pending_jobs.append(job)
         self.prepare_preview.setText('Cancel range' if self.preparation_explicit and not self.preparation_full else 'Prepare range')
+        self.refresh_gap_feedback()
         self.preview_status.setText(self.preparation_feedback())
         job.signals.done.connect(lambda result, j=job: self.preparation_finished(j, result=result))
         job.signals.failed.connect(lambda error, j=job: self.preparation_finished(j, error))
@@ -2184,7 +2193,8 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         if self.closing: return
         if valid and error:
             if self.discovery_session: self.discovery_session.fail(error)
-            self.cancel_preparation()
+            if self.preparing_gap is not None: self.cancel_preview_gap()
+            else: self.cancel_preparation()
             self.prepare_preview.setText('Prepare range'); self.preview_status.setText(f'Limited by rendering · {error}'); return
         if self.render_queued and not self.render_running and not self.preview_debounce.isActive(): QTimer.singleShot(0, self.request_frame)
         if self.preparation_target: QTimer.singleShot(0, self._start_warm_batch)
@@ -2234,7 +2244,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
             self.render_queued = False
             self.display_frame(self.current_time, packet, cached=True)
             return
-        if self.loop_preview_range.isChecked():
+        if self.loop_preview_range.isChecked() or self.preparing_gap is not None:
             # Waiting for a prepared packet must not compete with/cancel its worker.
             self.render_queued = False
             self.refresh_cache_status()
@@ -2332,7 +2342,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
             if self.loop_preview_range.isChecked() and (not self.prepared_range_scope or not self.prepared_range_scope.contains(value)):
                 self.loop_preview_range.setChecked(False)
             self.cancel_foreground_render()
-            if not self.loop_preview_range.isChecked(): self.cancel_preparation()
+            if not self.loop_preview_range.isChecked() and self.preparing_gap is None: self.cancel_preparation()
             self.schedule_auto_preparation()
         if self.play.isChecked() and not self.advancing:
             self.play_origin = self.active_preview_scope().position(value); self.play_started = time.monotonic(); self.display_times.clear()
@@ -2384,7 +2394,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.monitor_state.setText("[ PLAY ]" if checked else "[ HOLD ]")
         fps = self.sequence["fps"] if self.sequence is not None else self.preset["export_fps"]
         if checked:
-            if not self.loop_preview_range.isChecked(): self.cancel_preparation()
+            if not self.loop_preview_range.isChecked() and self.preparing_gap is None: self.cancel_preparation()
             scope = self.active_preview_scope()
             self.advancing = True
             try:

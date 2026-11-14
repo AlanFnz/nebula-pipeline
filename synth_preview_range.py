@@ -4,7 +4,7 @@ import math
 import time
 
 from PySide6.QtCore import QSignalBlocker
-from PySide6.QtWidgets import QCheckBox, QLabel
+from PySide6.QtWidgets import QCheckBox, QLabel, QWidget, QHBoxLayout, QPushButton, QProgressBar
 from studio_widgets import SpinBox
 from synth_preview import PreviewScope, preview_window, cached_gap
 
@@ -32,6 +32,9 @@ class PreviewRangeStudio:
         self.prepared_range_mode = 'range'
         self.prepared_range_fps = None
         self.prepared_gap_hold = None
+        self.preparing_gap = None
+        self.gap_preparation_paused = False
+        self.prepare_range_hint = self.prepare_preview.toolTip()
         self.preview_range_frames = SpinBox()
         self.preview_range_frames.setRange(1, 100000)
         self.preview_range_frames.setValue(150)
@@ -46,6 +49,55 @@ class PreviewRangeStudio:
         self.preview_range_summary = QLabel()
         self.preview_range_summary.setObjectName('monitorMeta')
         self.preview_range_summary.setWordWrap(True)
+        self.gap_feedback = QWidget()
+        row = QHBoxLayout(self.gap_feedback)
+        row.setContentsMargins(0, 0, 0, 0)
+        self.gap_status = QLabel()
+        self.gap_status.setWordWrap(True)
+        self.gap_status.setAccessibleName('Gap preparation status')
+        self.gap_progress = QProgressBar()
+        self.gap_progress.setFixedWidth(90)
+        self.gap_progress.setAccessibleName('Gap preparation progress')
+        self.cancel_gap = QPushButton('Cancel')
+        self.cancel_gap.setAccessibleName('Cancel gap preparation')
+        self.cancel_gap.setToolTip('Stop preparing this gap. Frames already prepared are kept; click the remaining gap to resume.')
+        self.cancel_gap.clicked.connect(self.cancel_preview_gap)
+        row.addWidget(self.gap_status, 1)
+        row.addWidget(self.gap_progress)
+        row.addWidget(self.cancel_gap)
+        self.gap_feedback.hide()
+
+    def refresh_gap_feedback(self):
+        """Persistent feedback beside the monitor, independent of playback FPS."""
+        gap = self.preparing_gap
+        busy = gap is not None
+        self.gap_feedback.setVisible(busy)
+        self.cached_ranges.set_preparing_gap(gap)
+        self.timeline.setEnabled(not busy)
+        self.preview_range_frames.setEnabled(not busy)
+        self.preview_scope.setEnabled(not busy and self.composition is not None)
+        self.prepare_full_preview.setEnabled(not busy)
+        self.prepare_preview.setToolTip(self.cancel_gap.toolTip() if busy else self.prepare_range_hint)
+        if busy:
+            start, end = gap
+            done = sum(self.preview_frames.contains(source) for frame, source in self.prepared_range_mapping
+                       if start <= frame < end)
+            self.gap_status.setText(f'Preparing gap · {start/self.preview_fps():.2f}–{end/self.preview_fps():.2f}s · {done}/{end-start} frames')
+            self.gap_status.setToolTip('This gap is being prepared. Playback can continue. Cancel to choose another range; completed frames are kept.')
+            self.gap_progress.setRange(0, end-start)
+            self.gap_progress.setValue(done)
+            self.prepare_preview.setText('Cancel gap')
+            self.prepare_preview.setAccessibleName('Cancel gap preparation')
+        else:
+            self.prepare_preview.setAccessibleName('Cancel preview range' if self.preparation_explicit and not self.preparation_full else 'Prepare preview range')
+
+    def cancel_preview_gap(self):
+        if self.preparing_gap is None: return
+        self.cancel_preparation()
+        # A cancelled explicit job must not restart via Auto prepare or playback.
+        # A new preparation request or an edited preview context releases this.
+        self.gap_preparation_paused = True
+        self.preview_status.setText('Gap preparation cancelled · completed frames kept. Click the remaining gap to resume.')
 
     def preview_range_stamp(self):
         sequence = self.preview_sequence() or {}
@@ -54,6 +106,7 @@ class PreviewRangeStudio:
 
     def remember_preview_range(self, scope, *, mode='range'):
         self.prepared_gap_hold = None
+        self.gap_preparation_paused = False
         self.prepared_range_scope = scope
         self.prepared_range_mode = mode
         fps = self.preview_fps()
@@ -75,6 +128,7 @@ class PreviewRangeStudio:
         self.prepared_range_stamp = None
         self.prepared_range_mode = 'range'
         self.prepared_gap_hold = None
+        self.gap_preparation_paused = False
 
     def refresh_preview_range_target(self):
         """Invalidate packets without discarding the user's playback choice."""
@@ -196,7 +250,7 @@ class PreviewRangeStudio:
         self.cached_ranges.set_ranges(self.cached_timeline_scope().intervals)
 
     def prepare_preview_gap(self, frame):
-        if self.closing or self.export_job or self.audition_pending(): return
+        if self.preparing_gap is not None or self.closing or self.export_job or self.audition_pending(): return
         if not self.ensure_preview_context(): return
         coverage = self.cached_timeline_scope()
         match = cached_gap(coverage.intervals, frame, self.base_preview_scope())
@@ -216,10 +270,12 @@ class PreviewRangeStudio:
         self.preparation_target = self.prepared_range_sources
         self.preparation_explicit = True
         self.preparation_limited = False
+        self.preparing_gap = gap
         self.refresh_preview_scope()
         self._start_warm_batch()
 
     def prepare_configured_range(self):
+        if self.preparing_gap is not None: return
         looping = self.loop_preview_range.isChecked()
         if not looping:
             self.play.setChecked(False)
