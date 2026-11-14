@@ -24,6 +24,8 @@ def frozen_data(key):
 
 
 def starter_snapshot(identifier):
+    if identifier == 'watching-eye':
+        return json.loads((Path(__file__).parent / 'presets/watching-eye-v1.json').read_text())
     if identifier == 'printed-orbit':
         return json.loads((Path(__file__).parent / 'presets/printed-orbit-v1.json').read_text())
     if identifier == 'yin-yang':

@@ -232,6 +232,15 @@ Chromatic pulse study keeps its optical surface.
 Both sweeps repeat every four seconds; the texture completes its cycle in eight.
 After changing periods, use a duration containing whole cycles for a seamless loop.
 
+**Lattice / watching eye** is a separate eight-second variant with an illustrated
+eye at the center. In **Object → Center eye**, adjust its width, opening, iris,
+pupil, outline and surrounding space, or disable it. Eye and ink colors have
+their own swatches; the iris follows First cell color. **Eye blinking** controls
+blink count, cycle, duration, irregularity and double blinks. A zero count holds
+the chosen opening. The default blink cycle is eight seconds; keep it equal to
+the clip duration or a divisor for a seamless loop. Print surface textures the
+eye and cells together. The original Printed orbit remains available unchanged.
+
 ## Prismatic color film
 
 Opposing color planes fold into a shape. **Object → Prismatic field** controls

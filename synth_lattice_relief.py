@@ -137,7 +137,14 @@ def render_relief(arr, p, seconds, preset):
         tile = tile*(1-face_mask[..., None])+face*face_mask[..., None]
         tile = tile*(1-next_mask[..., None])+next_color*next_mask[..., None]
         tile += rim[..., None]*np.array((.48, .50, .39), np.float32)
+        if p.get('eye_enabled', 0):
+            from synth_lattice_eye import reserved_cells
+            reserved = reserved_cells(ix, iy, spacing, (cx, cy), center, p)
+            tile[reserved] = paper
         result[top:top+128] = tile
+    if p.get('eye_enabled', 0):
+        from synth_lattice_eye import render_eye
+        result = render_eye(result, p, seconds, preset, center, spacing, unit)
     if p['grain']:
         from synth_print import _paper_noise
         tooth = (_paper_noise(int(preset['seed']), w, h, max(.65, unit), 0)-.5)*3.5

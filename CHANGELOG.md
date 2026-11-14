@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.103.0 — 2026-11-14
+
+- Add **Lattice / watching eye**, an eight-second variant of Printed orbit with
+  a centered illustrated eye, engraved iris and irregular, seamless blinking.
+- Printed relief has an optional **Center eye** with editable size, opening,
+  pupil, line weight, colors and spacing. **Eye blinking** controls the cycle,
+  blink count, speed, variation and double blinks. The eye shares the existing
+  pigment treatment; previous studies and their defaults remain unchanged.
+
 ## 0.102.0 — 2026-11-14
 
 - Add **Lattice / printed orbit**, an eight-second vertical study with opposing

@@ -414,9 +414,12 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
             if selected('spectral_tunnel', 'motion', 0): hide('spectral_tunnel.amplitude')
         if self.kind == 'lattice':
             from synth_lattice_relief import RELIEF_KEYS
+            from synth_lattice_eye import EYE_KEYS
             if selected('chromatic_lattice', 'shape', 3): hide('chromatic_lattice.sides')
             ranges = summary['chromatic_lattice']['ranges']
             relief = ranges['chromatic_lattice.surface'] == (1,1)
+            if not relief or ranges['chromatic_lattice.eye_enabled'] == (0,0):
+                hide(*('chromatic_lattice.'+key for key in EYE_KEYS-({'eye_enabled'} if relief else set())))
             if relief:
                 hide(*('chromatic_lattice.'+key for key in ('palette','background','color_rhythm','bpm','phrase_bars')))
                 if ranges['chromatic_lattice.shape'] == (0,0):

@@ -1,0 +1,96 @@
+import copy
+
+import numpy as np
+import pytest
+
+from synth import default_synth_preset
+from synth_composition import compile_composition, load_composition, save_composition
+from synth_lattice import render_chromatic_lattice
+from synth_lattice_eye import EYE_KEYS, blink_opening
+from synth_lattice_recipes import watching_eye_composition, printed_orbit_composition, lattice_composition
+from synth_sequence import render_sequence_frame, resolve_sequence_frame
+from synth_starters import starter_composition
+
+
+def params():
+    preset = resolve_sequence_frame(compile_composition(watching_eye_composition()), 0)[-1]
+    return next(m['params'] for m in preset['modules'] if m['id'] == 'chromatic_lattice')
+
+
+def test_eye_is_opt_in_and_previous_recipes_and_pixels_stay_unchanged():
+    assert starter_composition('printed-orbit') == printed_orbit_composition()
+    assert starter_composition('chromatic-lattice') == lattice_composition()
+    original = resolve_sequence_frame(compile_composition(printed_orbit_composition()), 0)[-1]
+    p = next(m['params'] for m in original['modules'] if m['id'] == 'chromatic_lattice')
+    legacy = {k: v for k, v in p.items() if k not in EYE_KEYS}
+    arr = np.zeros((240,135,3), np.float32)
+    for t in (0., 1.9, 2.1, 5.5):
+        assert np.array_equal(render_chromatic_lattice(arr, p, t, original),
+                              render_chromatic_lattice(arr, legacy, t, original))
+
+
+def test_irregular_blink_is_periodic_controllable_and_has_fast_closure():
+    p = params(); times = np.arange(0, 8, 1/240)
+    values = np.array([blink_opening(t, p, 141126) for t in times])
+    assert values.min() == 0 and values.max() == 1
+    assert values == pytest.approx([blink_opening(t+8, p, 141126) for t in times], abs=1e-12)
+    starts = times[np.flatnonzero(np.diff(values < .99, prepend=False) & (values < .99))]
+    assert len(starts) == 3  # Two events, one with an extra blink.
+    assert max(np.diff(starts)) > min(np.diff(starts))*3
+    first = values[(times >= starts[0]) & (times < starts[0]+.5)]
+    assert np.sum((first[:-1]-first[1:]) > .001) < np.sum((first[1:]-first[:-1]) > .001)
+    assert blink_opening(2, dict(p, eye_blink_count=0, eye_opening=.4), 141126) == .4
+    assert blink_opening(2, dict(p, eye_opening=0), 141126) == 0
+
+
+def test_eye_study_round_trip_random_seeking_and_complete_loop(tmp_path):
+    project = watching_eye_composition()
+    assert starter_composition('watching-eye') == project
+    save_composition(tmp_path/'eye.json', project)
+    assert load_composition(tmp_path/'eye.json') == project
+    s = compile_composition(project); size = (144,256)
+    first = render_sequence_frame(s,0,size).tobytes()
+    s['duration'] = 16
+    assert render_sequence_frame(s,8,size).tobytes() == first
+    before = render_sequence_frame(s,2.1,size).tobytes()
+    render_sequence_frame(s,6.4,size)
+    assert render_sequence_frame(s,2.1,size).tobytes() == before
+    assert before != first
+
+
+@pytest.mark.parametrize('size',[(144,256),(240,135),(192,192)])
+def test_eye_extremes_keep_frames_finite_at_all_aspects(size):
+    w,h = size; arr=np.zeros((h,w,3),np.float32)
+    preset=dict(default_synth_preset(),width=w,height=h,speed=1.)
+    p=params()
+    for controls in (dict(eye_size=1,eye_opening=0),
+                     dict(eye_size=7,eye_iris=1.35,eye_pupil=.85,eye_line=2),
+                     dict(eye_blink_count=12,eye_blink_period=1,eye_blink_duration=1.5)):
+        result=render_chromatic_lattice(arr,dict(p,**controls),2.06,preset)
+        assert result.shape == arr.shape and np.isfinite(result).all()
+        assert result.min() >= 0 and result.max() <= 1
+    assert not arr.any()
+
+
+def test_eye_controls_palette_and_undo_are_available(make_window):
+    from PySide6.QtWidgets import QApplication
+    w=make_window(composition=watching_eye_composition());c=w.composer;p=c.object_panel
+    c.look_tabs.setCurrentWidget(p);QApplication.processEvents()
+    original=copy.deepcopy(c.document)
+    assert p.color_panel.active_keys == {'lattice_face_a','lattice_face_b','lattice_paper','lattice_eye','lattice_eye_ink'}
+    assert 'chromatic_lattice.eye_blink_duration' in p.object_eligible
+    assert 'chromatic_lattice.eye_pupil' in p.object_eligible
+    assert 'Center eye' in p.object_groups and 'Eye blinking' in p.object_groups
+    c.change_color('lattice_eye',(.21,.25,.92),None)
+    changed=copy.deepcopy(c.document)
+    assert changed['effects']['chromatic_lattice']['params']['chromatic_lattice.eye_light'] == .92
+    w.undo_composition();assert c.document==original
+    w.redo_composition();assert c.document==changed
+    w.undo_composition()
+    p.controls['chromatic_lattice.eye_enabled'].input.setCurrentIndex(0)
+    assert 'chromatic_lattice.eye_pupil' not in p.object_eligible
+    assert p.color_panel.active_keys == {'lattice_face_a','lattice_face_b','lattice_paper'}
+    w.undo_composition();assert c.document==original
+
+
+from test_synth_effects_editor_integration import make_window

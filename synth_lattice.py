@@ -10,6 +10,7 @@ from PIL import Image, ImageFilter
 
 from synth_canvas import content_size, object_offset
 from synth_lattice_relief import parameters as relief_parameters
+from synth_lattice_eye import parameters as eye_parameters
 
 
 def modules(Module, P):
@@ -46,6 +47,7 @@ def modules(Module, P):
         P('background', 'Background brightness', 0., 0, .3, .01),
         P('mix', 'Mix', 1., 0, 1, .01),
         *relief_parameters(P),
+        *eye_parameters(P),
     )),)
 
 
