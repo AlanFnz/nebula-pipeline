@@ -26,6 +26,7 @@ def parameters(P):
         P('eye_blink_count', 'Blinks per cycle', 2, 0, 12, 1, 'Zero disables automatic blinking; Eye opening remains editable.'),
         P('eye_blink_period', 'Blink cycle (s)', 8., 1., 60., .1, 'Use the clip duration, or a divisor of it, for a seamless repeating blink pattern.'),
         P('eye_blink_duration', 'Blink duration (s)', .38, .12, 1.5, .01, 'Quick closure, brief contact and a slower reopening.'),
+        P('eye_blink_fps', 'Blink cadence', 0, 0, 60, 1, 'Zero follows Timeline FPS. Positive values hold eyelid poses at this many frames per second, independently of the cells and texture. Try 6, 8 or 12 for stepped motion. Blink duration and Blinks per cycle control speed and frequency separately.'),
         P('eye_blink_variation', 'Blink irregularity', .75, 0., 1., .01, 'Vary intervals and speed deterministically, so export and random seeking agree.'),
         P('eye_double_blink', 'Double blink amount', .30, 0., 1., .01),
         P('eye_blink_phase', 'Blink phase', 0., 0., 1., .01),
@@ -34,7 +35,7 @@ def parameters(P):
 
 EYE_KEYS = frozenset(('eye_enabled', 'eye_size', 'eye_clearance', 'eye_opening',
     'eye_iris', 'eye_pupil', 'eye_line', 'eye_blink_count', 'eye_blink_period',
-    'eye_blink_duration', 'eye_blink_variation', 'eye_double_blink', 'eye_blink_phase',
+    'eye_blink_duration', 'eye_blink_fps', 'eye_blink_variation', 'eye_double_blink', 'eye_blink_phase',
     *(name+'_'+channel for name in ('eye', 'eye_ink') for channel in ('hue', 'saturation', 'light'))))
 
 
@@ -46,6 +47,12 @@ def blink_opening(seconds, p, seed=0):
     slot = period/count
     rng = np.random.default_rng((int(seed)+0xE1E) % (2**32))
     phase = float(seconds)+p['eye_blink_phase']*period
+    fps = p.get('eye_blink_fps', 0)
+    if fps:
+        # Sample on a cycle-local clock so fractional cycle lengths still loop.
+        # The shorter final hold ends at the cycle boundary, not at an unrelated
+        # global frame tick. Missing/zero preserves the original continuous path.
+        phase = (np.floor((phase % period)*fps+1e-9)/fps) % period
     closure = 0.
     for i in range(count):
         jitter, speed, double = rng.random(3)

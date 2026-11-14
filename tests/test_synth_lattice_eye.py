@@ -43,6 +43,58 @@ def test_irregular_blink_is_periodic_controllable_and_has_fast_closure():
     assert blink_opening(2, dict(p, eye_opening=0), 141126) == 0
 
 
+def test_blink_cadence_holds_poses_and_keeps_fractional_cycles_periodic():
+    p = params()
+    legacy = {k:v for k,v in p.items() if k != 'eye_blink_fps'}
+    for t in np.arange(0,8,1/120):
+        assert blink_opening(t,p,141126) == blink_opening(t,legacy,141126)
+    for fps in (6,8,12):
+        stepped = dict(p,eye_blink_fps=fps,eye_blink_period=3.7,eye_blink_phase=.23)
+        continuous = dict(stepped,eye_blink_fps=0,eye_blink_phase=0)
+        changed = False
+        for t in np.arange(0,3.7,1/120):
+            value = blink_opening(t,stepped,141126)
+            assert value == pytest.approx(blink_opening(t+3.7,stepped,141126),abs=1e-12)
+            sample = np.floor(((t+.23*3.7)%3.7)*fps+1e-9)/fps
+            assert value == blink_opening(sample,continuous,141126)
+            changed |= value != blink_opening(t,dict(stepped,eye_blink_fps=0),141126)
+        assert changed
+
+
+def test_cadence_changes_only_the_eye_not_cells_or_texture():
+    p=params();arr=np.zeros((256,144,3),np.float32)
+    preset=dict(default_synth_preset(),width=144,height=256,seed=141126,speed=1.)
+    differences=[]
+    for t in (1.95,2.04,2.12,5.21,5.38):
+        a=render_chromatic_lattice(arr,p,t,preset)
+        b=render_chromatic_lattice(arr,dict(p,eye_blink_fps=6),t,preset)
+        assert np.array_equal(a[:80],b[:80])
+        assert np.array_equal(a[175:],b[175:])
+        differences.append(np.max(abs(a-b)))
+    assert max(differences)>.05
+
+
+def test_blink_cadence_ui_save_and_undo(make_window,tmp_path):
+    from synth_effect_parameter_ui import format_value
+    w=make_window(composition=watching_eye_composition());c=w.composer
+    control=c.object_panel.controls['chromatic_lattice.eye_blink_fps']
+    original=copy.deepcopy(c.document)
+    assert control.input.text()=='Timeline FPS'
+    assert format_value(control.path,0)=='Timeline FPS'
+    assert format_value(control.path,8)=='8 fps'
+    control.input.setValue(8)
+    changed=copy.deepcopy(c.document)
+    assert changed['effects']['chromatic_lattice']['params'][control.path]==8
+    save_composition(tmp_path/'cadence.json',changed)
+    loaded=load_composition(tmp_path/'cadence.json')
+    assert loaded==changed
+    preset=resolve_sequence_frame(compile_composition(loaded),0)[-1]
+    assert next(m['params'] for m in preset['modules'] if m['id']=='chromatic_lattice')['eye_blink_fps']==8
+    w.undo_composition();assert c.document==original
+    assert control.input.text()=='Timeline FPS'
+    w.redo_composition();assert c.document==changed
+
+
 def test_eye_study_round_trip_random_seeking_and_complete_loop(tmp_path):
     project = watching_eye_composition()
     assert starter_composition('watching-eye') == project

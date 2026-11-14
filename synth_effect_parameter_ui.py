@@ -47,6 +47,8 @@ def format_value(path, value):
     if spec.kind == 'artwork': return 'Embedded artwork' if value else 'No artwork'
     if spec.choices:
         return spec.choices[int(value)]
+    display = presentation(path)
+    if display.minimum_text and value == spec.minimum: return display.minimum_text
     # Respect the shared percentage convention, including its saved precision.
     unit = '' if spec.kind == 'float' and spec.step < .01 else presentation(path).unit
     return parameter_number(spec, value) + unit
@@ -102,6 +104,7 @@ class EffectParameter(QWidget):
         else:
             self.input = QSpinBox() if spec.kind == 'int' else QDoubleSpinBox()
             configure_parameter_spin(self.input, spec)
+            if self.presentation.minimum_text: self.input.setSpecialValueText(self.presentation.minimum_text)
             if spec.kind != 'float' or spec.step >= .01:
                 self.input.setSuffix(self.presentation.unit)
             if path in INK_DURATIONS: self.input.setMinimum(0)

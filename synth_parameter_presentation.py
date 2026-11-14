@@ -8,6 +8,7 @@ class ParameterPresentation:
     hue: bool = False
     checkbox: bool = False
     presets: tuple[int, ...] = ()
+    minimum_text: str = ''
 
 
 # Explicit paths avoid treating arbitrary angles, rates or normalized distances
@@ -76,6 +77,8 @@ def presentation(path):
     if base_path(path) == 'low_res.resolution':
         return ParameterPresentation(unit=' px', presets=(180, 240, 360, 480, 720, 1080, 1440, 2160))
     if base_path(path) == 'signal_tension.registration_fps': return ParameterPresentation(unit=' fps')
+    if base_path(path) == 'chromatic_lattice.eye_blink_fps':
+        return ParameterPresentation(unit=' fps', minimum_text='Timeline FPS')
     if base_path(path) == 'text.badge_show_subtitle': return ParameterPresentation(checkbox=True)
     if base_path(path) in PATHS.values() or path in PERCENTAGES: return ParameterPresentation(unit=' %')
     unit = ' s' if path in SECONDS else '°' if path in DEGREES else '°/s' if path in DEGREES_PER_SECOND else ' px' if path in PIXELS else ''

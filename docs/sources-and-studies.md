@@ -237,7 +237,10 @@ eye at the center. In **Object → Center eye**, adjust its width, opening, iris
 pupil, outline and surrounding space, or disable it. Eye and ink colors have
 their own swatches; the iris follows First cell color. **Eye blinking** controls
 blink count, cycle, duration, irregularity and double blinks. A zero count holds
-the chosen opening. The default blink cycle is eight seconds; keep it equal to
+the chosen opening. **Blink cadence** holds the eyelid poses at a chosen FPS;
+try 6, 8 or 12 for a stepped look. **Timeline FPS** (zero) keeps the original
+smooth movement. This does not change the cells, texture or blink duration.
+The default blink cycle is eight seconds; keep it equal to
 the clip duration or a divisor for a seamless loop. Print surface textures the
 eye and cells together. The original Printed orbit remains available unchanged.
 

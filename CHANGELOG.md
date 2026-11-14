@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.104.0 — 2026-11-14
+
+- Add **Object → Eye blinking → Blink cadence** to hold eyelid poses at a chosen
+  FPS independently of the cells and texture. **Timeline FPS** (zero) preserves
+  the existing movement. Duration and blink frequency remain separate controls;
+  the cadence is saved, undoable and shared by preview and export.
+
 ## 0.103.0 — 2026-11-14
 
 - Add **Lattice / watching eye**, an eight-second variant of Printed orbit with
