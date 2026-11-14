@@ -74,6 +74,55 @@ def test_cadence_changes_only_the_eye_not_cells_or_texture():
     assert max(differences)>.05
 
 
+def test_overlay_preserves_cells_outside_eye_even_when_closed_and_clearance_is_ignored():
+    from synth_lattice import lattice_frame
+    p = dict(params(), eye_placement=1, grain=0., softness=0., glow=0.)
+    arr = np.zeros((256,144,3),np.float32)
+    preset = dict(default_synth_preset(),width=144,height=256,seed=141126,speed=1.)
+    center, spacing, _ = lattice_frame(p,(144,256),preset)
+    yy,xx = np.mgrid[:256,:144]
+    # The old reserve removes whole cells beyond the contour. Those surrounding
+    # pixels must now match the uninterrupted lattice, for every eyelid pose.
+    width = p['eye_size']*spacing
+    outside = (abs(xx-center[0]) > width*.55) | (abs(yy-center[1]) > width*.32)
+    for opening in (0.,.4,1.):
+        values = dict(p, eye_blink_count=0, eye_opening=opening)
+        overlay = render_chromatic_lattice(arr,values,2.1,preset)
+        cells = render_chromatic_lattice(arr,dict(values,eye_enabled=0),2.1,preset)
+        reserved = render_chromatic_lattice(arr,dict(values,eye_placement=0),2.1,preset)
+        assert np.array_equal(overlay[outside],cells[outside])
+        assert np.max(abs(reserved[outside]-cells[outside])) > .05
+        assert np.max(abs(overlay-cells)) > .05
+        assert np.array_equal(overlay,render_chromatic_lattice(arr,dict(values,eye_clearance=1.5),2.1,preset))
+
+
+def test_missing_eye_placement_keeps_legacy_rendering():
+    p=params(); arr=np.zeros((256,144,3),np.float32)
+    legacy={k:v for k,v in p.items() if k != 'eye_placement'}
+    preset=dict(default_synth_preset(),width=144,height=256,seed=141126,speed=1.)
+    for t in (0.,2.04,2.12,5.38):
+        assert np.array_equal(render_chromatic_lattice(arr,p,t,preset),
+                              render_chromatic_lattice(arr,legacy,t,preset))
+
+
+def test_eye_placement_ui_hides_unused_spacing_and_round_trips_with_undo(make_window,tmp_path):
+    w=make_window(composition=watching_eye_composition()); c=w.composer; panel=c.object_panel
+    c.look_tabs.setCurrentWidget(panel)
+    original=copy.deepcopy(c.document)
+    control=panel.controls['chromatic_lattice.eye_placement']
+    assert control.input.currentText() == 'Leave space'
+    assert 'chromatic_lattice.eye_clearance' in panel.object_eligible
+    control.input.setCurrentIndex(1)
+    changed=copy.deepcopy(c.document)
+    assert 'chromatic_lattice.eye_clearance' not in panel.object_eligible
+    assert 'chromatic_lattice.eye_size' in panel.object_eligible
+    save_composition(tmp_path/'overlay.json',changed)
+    assert load_composition(tmp_path/'overlay.json') == changed
+    w.undo_composition(); assert c.document == original
+    assert 'chromatic_lattice.eye_clearance' in panel.object_eligible
+    w.redo_composition(); assert c.document == changed
+
+
 def test_blink_cadence_ui_save_and_undo(make_window,tmp_path):
     from synth_effect_parameter_ui import format_value
     w=make_window(composition=watching_eye_composition());c=w.composer

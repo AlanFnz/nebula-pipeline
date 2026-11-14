@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.105.0 — 2026-11-14
+
+- Add **Object → Center eye → Eye placement**. **Overlay figures** keeps the
+  complete lattice moving behind the eye, including during blinks, with shared
+  pigment and finishing effects. **Eye width (cells)** still controls its size.
+  **Leave space** preserves the original rendering and surrounding-space control;
+  existing projects and study recipes keep their appearance.
+
 ## 0.104.1 — 2026-11-14
 
 - Align timeline timing controls and group playback and preview preparation into

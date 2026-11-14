@@ -420,6 +420,8 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
             relief = ranges['chromatic_lattice.surface'] == (1,1)
             if not relief or ranges['chromatic_lattice.eye_enabled'] == (0,0):
                 hide(*('chromatic_lattice.'+key for key in EYE_KEYS-({'eye_enabled'} if relief else set())))
+            if ranges['chromatic_lattice.eye_placement'] == (1,1):
+                hide('chromatic_lattice.eye_clearance')
             if relief:
                 hide(*('chromatic_lattice.'+key for key in ('palette','background','color_rhythm','bpm','phrase_bars')))
                 if ranges['chromatic_lattice.shape'] == (0,0):

@@ -234,7 +234,11 @@ After changing periods, use a duration containing whole cycles for a seamless lo
 
 **Lattice / watching eye** is a separate eight-second variant with an illustrated
 eye at the center. In **Object → Center eye**, adjust its width, opening, iris,
-pupil, outline and surrounding space, or disable it. Eye and ink colors have
+pupil, outline and surrounding space, or disable it.
+**Eye placement → Overlay figures** keeps the full grid moving
+behind the eye, without a reserved gap. **Leave space** uses the original gap and
+shows **Space around eye**. **Eye width (cells)** controls size in either mode.
+Eye and ink colors have
 their own swatches; the iris follows First cell color. **Eye blinking** controls
 blink count, cycle, duration, irregularity and double blinks. A zero count holds
 the chosen opening. **Blink cadence** holds the eyelid poses at a chosen FPS;

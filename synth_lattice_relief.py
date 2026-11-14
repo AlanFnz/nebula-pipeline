@@ -137,7 +137,7 @@ def render_relief(arr, p, seconds, preset):
         tile = tile*(1-face_mask[..., None])+face*face_mask[..., None]
         tile = tile*(1-next_mask[..., None])+next_color*next_mask[..., None]
         tile += rim[..., None]*np.array((.48, .50, .39), np.float32)
-        if p.get('eye_enabled', 0):
+        if p.get('eye_enabled', 0) and not p.get('eye_placement', 0):
             from synth_lattice_eye import reserved_cells
             reserved = reserved_cells(ix, iy, spacing, (cx, cy), center, p)
             tile[reserved] = paper

@@ -12,7 +12,8 @@ def parameters(P):
     return (
         P('eye_enabled', 'Center eye', 0, 0, 1, 1, choices=('Off', 'On')),
         P('eye_size', 'Eye width (cells)', 3.2, 1., 7., .05),
-        P('eye_clearance', 'Space around eye', .18, 0., 1.5, .01, 'Extra space in cell intervals. Nearby cells leave room for the eye, including while it blinks.'),
+        P('eye_placement', 'Eye placement', 0, 0, 1, 1, 'Leave space removes nearby cells. Overlay figures keeps every cell moving behind the eye, including during blinks. The eye shares the same surface treatment.', choices=('Leave space', 'Overlay figures')),
+        P('eye_clearance', 'Space around eye', .18, 0., 1.5, .01, 'Extra space in cell intervals when Eye placement is Leave space. Nearby cells leave room for the eye, including while it blinks.'),
         P('eye_opening', 'Eye opening', 1., 0., 1., .01, 'Resting opening. Zero holds the eyelids closed.'),
         P('eye_iris', 'Iris size', 1., .5, 1.35, .01),
         P('eye_pupil', 'Pupil size', .59, .2, .85, .01, 'Relative to the iris. The iris stays circular while the lids close over it.'),
@@ -33,7 +34,7 @@ def parameters(P):
     )
 
 
-EYE_KEYS = frozenset(('eye_enabled', 'eye_size', 'eye_clearance', 'eye_opening',
+EYE_KEYS = frozenset(('eye_enabled', 'eye_size', 'eye_placement', 'eye_clearance', 'eye_opening',
     'eye_iris', 'eye_pupil', 'eye_line', 'eye_blink_count', 'eye_blink_period',
     'eye_blink_duration', 'eye_blink_fps', 'eye_blink_variation', 'eye_double_blink', 'eye_blink_phase',
     *(name+'_'+channel for name in ('eye', 'eye_ink') for channel in ('hue', 'saturation', 'light'))))
