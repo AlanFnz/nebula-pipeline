@@ -31,12 +31,16 @@ def parameters(P):
         P('eye_blink_variation', 'Blink irregularity', .75, 0., 1., .01, 'Vary intervals and speed deterministically, so export and random seeking agree.'),
         P('eye_double_blink', 'Double blink amount', .30, 0., 1., .01),
         P('eye_blink_phase', 'Blink phase', 0., 0., 1., .01),
+        P('eye_reveal', 'Materialization', 0., 0., 1., .01, 'Granular appearance of cells uncovered by a blink in Overlay figures. Zero keeps the immediate reveal.'),
+        P('eye_reveal_duration', 'Reveal duration (s)', .16, .03, .6, .01, 'Time for newly uncovered pigment to become solid, at global speed 1. Independent of held eyelid poses.'),
+        P('eye_reveal_grain', 'Reveal grain size', 1.5, .4, 5., .1, 'Pigment particle size in pixels at a 720-pixel artwork edge. Shares the existing print and finishing effects.'),
     )
 
 
 EYE_KEYS = frozenset(('eye_enabled', 'eye_size', 'eye_placement', 'eye_clearance', 'eye_opening',
     'eye_iris', 'eye_pupil', 'eye_line', 'eye_blink_count', 'eye_blink_period',
     'eye_blink_duration', 'eye_blink_fps', 'eye_blink_variation', 'eye_double_blink', 'eye_blink_phase',
+    'eye_reveal', 'eye_reveal_duration', 'eye_reveal_grain',
     *(name+'_'+channel for name in ('eye', 'eye_ink') for channel in ('hue', 'saturation', 'light'))))
 
 
@@ -79,6 +83,54 @@ def reserved_cells(ix, iy, spacing, grid_center, center, p):
     return (np.maximum(np.abs(x)-spacing*.4, 0)/rx)**2+(np.maximum(np.abs(y)-spacing*.4, 0)/ry)**2 < 1
 
 
+def materialize_cells(tile, x, y, width, arch, span, aa, p, clock, seed, unit, opening):
+    """Reveal only pigment recently uncovered by the lid, without frame history.
+
+    Sample the same periodic blink clock, including its held poses. A stable
+    particle field fills in with exposure age instead of flickering each frame.
+    The moving lattice remains untouched beneath this short-lived pigment mask.
+    """
+    amount = p.get('eye_reveal', 0.)
+    if (not amount or not p.get('eye_placement', 0) or not p['eye_blink_count']
+            or opening >= p['eye_opening']):
+        return tile
+    duration = p.get('eye_reveal_duration', .16)
+    ages = np.linspace(duration/24, duration, 24)
+    history = []
+    seen = set()
+    for age in ages:
+        pose = blink_opening(clock-age, p, seed)
+        # Older samples of the same held pose cannot add more missing pigment.
+        if pose > opening+1e-8 and pose not in seen:
+            history.append((age, pose))
+            seen.add(pose)
+    if not history:
+        return tile
+
+    canthus = .0525*width
+    closed = canthus+.025*width*arch
+    def coverage(pose):
+        upper = closed+pose*(canthus-.265*width*arch-closed)
+        lower = closed+pose*(canthus+.160*width*arch-closed)
+        return smooth((y-upper+aa)/(2*aa))*smooth((lower-y+aa)/(2*aa))*span
+
+    current = coverage(opening)
+    grain = max(.2, p.get('eye_reveal_grain', 1.5)*unit)
+    # Float64 hashing keeps the same artwork-space field at preview/export sizes.
+    gx = np.floor(x.astype(np.float64)/grain)
+    gy = np.floor(y.astype(np.float64)/grain)
+    noise = np.mod(np.sin(gx*127.1+gy*311.7+(int(seed) % 65536)*.123)*43758.5453, 1.)
+    missing = np.zeros_like(x)
+    for age, pose in history:
+        progress = age/duration
+        pigment = smooth((progress*1.2-noise)/.2)
+        uncovered = np.maximum(coverage(pose)-current, 0.)
+        missing = np.maximum(missing, uncovered*(1-pigment))
+    missing *= amount
+    paper = rgb(p, 'paper')
+    return tile*(1-missing[..., None])+paper*missing[..., None]
+
+
 def render_eye(result, p, seconds, preset, center, spacing, unit):
     """Composite an almond contour, engraved iris and offset relief highlights."""
     h, w = result.shape[:2]
@@ -91,7 +143,9 @@ def render_eye(result, p, seconds, preset, center, spacing, unit):
     x, y = xx-cx, yy-cy
     u = x/(width*.5)
     arch = np.maximum(0, 1-u*u)**1.15
-    opening = blink_opening(float(seconds)*preset.get('speed', 1.), p, preset.get('seed', 0))
+    clock = float(seconds)*preset.get('speed', 1.)
+    seed = preset.get('seed', 0)
+    opening = blink_opening(clock, p, seed)
     # The open drawing's bounds are centered. Corners stay put during a blink.
     canthus = .0525*width
     closed = canthus+.025*width*arch
@@ -148,6 +202,7 @@ def render_eye(result, p, seconds, preset, center, spacing, unit):
     tone += (highlight*p['bevel']*.22)[...,None]*body
     shadow = np.exp(-((dl-weight*2)/max(.6,unit*1.2))**2)*span*.3
     tile = result[top:bottom,left:right]
+    tile = materialize_cells(tile, x, y, width, arch, span, aa, p, clock, seed, unit, opening)
     tile *= 1-shadow[...,None]
     result[top:bottom,left:right] = tile*(1-alpha[...,None])+tone*alpha[...,None]
     return result

@@ -54,6 +54,6 @@ def watching_eye_composition():
     project['source']['name'] = project['name']
     params = project['source']['states']['orbit']['overrides']
     # Preserve the first version's frozen recipe; later controls are opt-in.
-    params.update({'chromatic_lattice.'+p.key: p.default for p in MODULE_BY_ID['chromatic_lattice'].params if p.key in EYE_KEYS-{'eye_blink_fps','eye_placement'}})
+    params.update({'chromatic_lattice.'+p.key: p.default for p in MODULE_BY_ID['chromatic_lattice'].params if p.key in EYE_KEYS-{'eye_blink_fps','eye_placement','eye_reveal','eye_reveal_duration','eye_reveal_grain'}})
     params['chromatic_lattice.eye_enabled'] = 1
     return normalize_composition(project)

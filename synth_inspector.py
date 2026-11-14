@@ -90,6 +90,7 @@ def control_group(path):
         if key == 'mix': return 'Output & blending'
         return 'Optical finish'
     if module == 'chromatic_lattice':
+        if key.startswith('eye_reveal'): return 'Eye reveal'
         if key.startswith('eye_blink_') or key == 'eye_double_blink': return 'Eye blinking'
         if key.startswith('eye_'): return 'Center eye'
         if key in ('surface','morph','corner','grid_x','grid_y'): return 'Shape & layout'

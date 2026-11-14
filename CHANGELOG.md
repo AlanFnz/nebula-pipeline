@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.107.0 — 2026-11-14
+
+- Add **Object → Eye reveal** for Overlay figures: cells uncovered by the closing
+  eyelid briefly materialize as fine pigment, with adjustable amount, duration
+  and grain size. The reveal follows the blink, including held eyelid poses,
+  while the underlying cells keep moving. Preview, seeking and export share
+  the same deterministic timing. Disabled by default; existing studies and
+  saved projects retain their rendering until enabled.
+
 ## 0.106.1 — 2026-11-14
 
 - Keep the clicked preview gap highlighted while preparing, with a persistent

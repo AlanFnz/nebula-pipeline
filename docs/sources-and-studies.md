@@ -238,6 +238,10 @@ pupil, outline and surrounding space, or disable it.
 **Eye placement → Overlay figures** keeps the full grid moving
 behind the eye, without a reserved gap. **Leave space** uses the original gap and
 shows **Space around eye**. **Eye width (cells)** controls size in either mode.
+With Overlay figures, **Object → Eye reveal → Materialization** makes newly
+uncovered cells appear as fine pigment. Adjust **Reveal duration** and **Reveal
+grain size**; zero Materialization restores the immediate reveal. It follows
+the blink while leaving the surrounding grid and its motion intact.
 Eye and ink colors have
 their own swatches; the iris follows First cell color. **Eye blinking** controls
 blink count, cycle, duration, irregularity and double blinks. A zero count holds
