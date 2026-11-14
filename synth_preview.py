@@ -115,6 +115,25 @@ def preview_window(scope, current, count):
     return PreviewScope(tuple(intervals))
 
 
+def cached_gap(ranges, frame, scope):
+    """Return the missing span and its two neighbors, within one playback span."""
+    # Adjacent selected clips are continuous; unselected clips are not gaps.
+    allowed = []
+    for start, end in scope.intervals:
+        if allowed and start <= allowed[-1][1]:
+            allowed[-1] = (allowed[-1][0], max(end, allowed[-1][1]))
+        else:
+            allowed.append((start, end))
+    for low, high in allowed:
+        if not low <= frame < high: continue
+        spans = [(max(low, start), min(high, end)) for start, end in ranges
+                 if start < high and end > low]
+        for left, right in zip(spans, spans[1:]):
+            if left[1] <= frame < right[0]:
+                return (left[1], right[0]), (left[0], right[1])
+    return None
+
+
 class PreviewScheduler:
     """Plan one stable bounded window, then deliver at most four frames per job."""
     batch_size = 4

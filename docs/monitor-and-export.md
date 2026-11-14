@@ -38,6 +38,15 @@ timeline, even if you enable the checkbox afterward or while preparation is runn
 **Prepare range** switches back to the chosen frame count. Cancelling preparation
 keeps the completed frames available to loop. The summary shows the target and
 how many frames are ready. Opening another document resets the preview loop.
+
+Click a dark gap **between two prepared spans** in the strip below the playhead
+to prepare only the missing frames at the selected resolution. Hover highlights
+the gap and shows its length. With **Loop prepared range** enabled, the current
+loop continues while it prepares, then expands to cover both joined spans.
+The summary calls this a **Joined range**. You can fill another gap to extend it
+again; **Prepare range** returns to the chosen frame count. This changes only
+preview playback, not the project or export.
+
 Montage's assembly monitor still uses bounded ranges; these controls are available
 when editing compositions and Montage blocks.
 

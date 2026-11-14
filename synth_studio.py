@@ -783,10 +783,11 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.transport = transport = QWidget(); transport.setProperty('chrome', True)
         timeline = QHBoxLayout(transport); timeline.setContentsMargins(0, 0, 0, 0); timeline.setSpacing(6)
         self.play = PlaybackButton(); self.play.setFixedSize(30, 28); self.play.toggled.connect(self.toggle_play); timeline.addWidget(self.play)
-        track = QWidget(); track.setFixedHeight(22); track_layout = QVBoxLayout(track); track_layout.setContentsMargins(0, 0, 0, 0); track_layout.setSpacing(0)
+        track = QWidget(); track.setFixedHeight(33); track_layout = QVBoxLayout(track); track_layout.setContentsMargins(0, 0, 0, 0); track_layout.setSpacing(0)
         self.timeline = QSlider(Qt.Orientation.Horizontal); self.timeline.setObjectName('transportScrubber'); self.timeline.setFixedHeight(19)
         self.timeline.valueChanged.connect(self.scrub); track_layout.addWidget(self.timeline)
         self.cached_ranges = CachedRangeStrip(self.timeline); track_layout.addWidget(self.cached_ranges)
+        self.cached_ranges.gapRequested.connect(self.prepare_preview_gap)
         timeline.addWidget(track, 1)
         self.time_label = QLabel('00:00.00'); self.time_label.setObjectName('timecode'); self.time_label.setFont(terminal_font()); timeline.addWidget(self.time_label)
         self.total_time_label = QLabel(); self.total_time_label.setObjectName('monitorMeta'); self.total_time_label.setAccessibleName('Total duration')
@@ -1954,7 +1955,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
             self.play_origin = self.active_preview_scope().position(self.timeline.value()); self.play_started = time.monotonic()
         self.refresh_soundtrack()
         self.cancel_preparation()
-        self.cached_ranges.set_ranges(self.preview_frames.ranges())
+        self.refresh_cached_ranges()
         self.prepare_preview.setText('Prepare range')
         self.schedule_auto_preparation()
         self.preview_status.setText('Preview outdated · updating…')
@@ -1995,11 +1996,12 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
     def refresh_cache_status(self):
         if not hasattr(self, 'cache_status') or not hasattr(self, 'preview_scope'): return
         self.refresh_prepared_range()
+        self.cached_ranges.set_scope(self.base_preview_scope(), self.preview_fps())
         scope = self.active_preview_scope()
         available = self.preview_frames.available()
         count = sum(scope.contains(frame) for frame in available)
         if self.loop_preview_range.isChecked() and self.prepared_range_scope:
-            count = self.prepared_playback_scope.count
+            count = sum(self.preview_frames.contains(source) for _, source in self.prepared_range_mapping)
             scope = self.prepared_range_scope
         label = self.preview_scope_label()
         self.cache_status.setText(cache_caption(label, count, scope.count))
@@ -2014,10 +2016,12 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
             w, h = self.preview_size()
             whole = 'Block composition' if self.workspace_navigation and self.workspace_navigation.editor is self else 'Timeline'
             dialog.set_preview_status(f'{cache_caption(whole, ready, total)} · {w}×{h} px', self.preparation_full and self.preparation_explicit)
-        self.cache_status.setToolTip(f'{label}: {count} of {scope.count} frames prepared at this resolution for the current edits. Green ranges mark prepared positions. Gaps may skip during playback; export renders every frame.')
+        self.cache_status.setToolTip(f'{label}: {count} of {scope.count} frames prepared at this resolution for the current edits. Click a gap in the prepared-frame strip to fill it and join the neighboring spans. Export renders every frame.')
 
     def preparation_feedback(self):
         done = sum(self.preview_frames.contains(i) for i in self.preparation_target)
+        if self.prepared_gap_hold is not None:
+            return f'Joining prepared spans · {done}/{len(self.preparation_target)} frames ready'
         scope = ('block composition' if self.workspace_navigation and self.workspace_navigation.editor is self else 'entire timeline') if self.preparation_full else 'playback range'
         return f'Preparing {scope} · {done}/{len(self.preparation_target)} frames'
 
@@ -2146,7 +2150,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         job = PreparePreviewJob(self.preset, self.performance_base_sequence(), size, frames, self.preview_fps(), self.settings_generation, self.preview_bypass())
         job.reserved_bytes = len(frames)*size[0]*size[1]*3
         self.preview_frames.reserve(job.reserved_bytes, self.preparation_target)
-        self.cached_ranges.set_ranges(self.preview_frames.ranges())
+        self.refresh_cached_ranges()
         self.prepare_job = self.warming_job = job; self.pending_jobs.append(job)
         self.prepare_preview.setText('Cancel range' if self.preparation_explicit and not self.preparation_full else 'Prepare range')
         self.preview_status.setText(self.preparation_feedback())
@@ -2159,7 +2163,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         if self.closing or job is not self.prepare_job or generation != self.settings_generation: return
         if not self.ensure_preview_context(): return
         self.cache_preview_packet(frame, packet)
-        self.cached_ranges.set_ranges(self.preview_frames.ranges())
+        self.refresh_cached_ranges()
         output_time = self.timeline.value()/self.preview_fps()
         if frame == round(self.performance_source_time(output_time)*self.preview_fps()):
             self.display_frame(output_time, packet, cached=True)
@@ -2249,7 +2253,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.render_job = job
         job.reserved_bytes = size[0]*size[1]*3 if size[0]*size[1]*3 <= self.preview_frames.budget else 0
         self.preview_frames.reserve(job.reserved_bytes, (source_frame,))
-        self.cached_ranges.set_ranges(self.preview_frames.ranges())
+        self.refresh_cached_ranges()
         self.pending_jobs.append(job)
         job.signals.done.connect(lambda result, j=job: self._receive_foreground_frame(j, result))
         job.signals.done.connect(lambda _result, j=job: self._release_job(j))
@@ -2287,7 +2291,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.last_displayed_request = request_serial
         self.last_render_seconds = elapsed
         self.cache_preview_packet(round(time_seconds*self.preview_fps()), (size, raw))
-        self.cached_ranges.set_ranges(self.preview_frames.ranges())
+        self.refresh_cached_ranges()
         # A job from an earlier source mapping must never replace a newer view.
         output_time = time_seconds if output_time is None else output_time
         if not self.play.isChecked() and abs(output_time-self.current_time) > .5/self.preview_fps(): return

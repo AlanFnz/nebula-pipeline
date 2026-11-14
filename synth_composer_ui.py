@@ -1796,18 +1796,65 @@ class CompositionPanel(QWidget):
 class CachedRangeStrip(QWidget):
     """Cached absolute frame ranges aligned with the transport slider."""
     rangesChanged = Signal()
+    gapRequested = Signal(int)
     def __init__(self, slider):
         super().__init__()
         self.slider = slider
         self.ranges = []
-        self.setFixedHeight(3)
+        self.scope = None
+        self.fps = 25
+        self.hover_gap = None
+        self.setFixedHeight(14)
+        self.setMouseTracking(True)
         self.setAccessibleName('Prepared preview coverage')
-        self.setToolTip('Thin strip: prepared frames at the current preview quality. Use the slider above to move the playhead.')
+        self.hint = 'Prepared frames at the selected resolution. Click a gap between two prepared spans to fill it and join their loop. Use the slider above to move the playhead.'
+        self.setToolTip(self.hint)
+
+    def set_scope(self, scope, fps):
+        self.scope, self.fps = scope, fps
+        self.update_hover(self.mapFromGlobal(QCursor.pos()).x() if self.underMouse() else -1)
+
+    def frame_at_x(self, x):
+        origin = self.mapFromGlobal(self.slider.mapToGlobal(QPoint())).x()
+        width = self.slider.width()
+        if not origin <= x < origin + width: return None
+        return int((x - origin) * (self.slider.maximum() + 1) / max(1, width))
+
+    def gap_at_x(self, x):
+        from synth_preview import PreviewScope, cached_gap
+        frame = self.frame_at_x(x)
+        if frame is None: return None
+        return cached_gap(self.ranges, frame, self.scope or PreviewScope(((0, self.slider.maximum()+1),)))
+
+    def update_hover(self, x):
+        match = self.gap_at_x(x)
+        self.hover_gap = match[0] if match else None
+        self.setCursor(Qt.CursorShape.PointingHandCursor if match else Qt.CursorShape.ArrowCursor)
+        if match:
+            start, end = match[0]
+            self.setToolTip(f'Prepare gap: {end-start} frames · {start/self.fps:.2f}–{end/self.fps:.2f}s. Joins both prepared spans when complete.')
+        else:
+            self.setToolTip(self.hint)
+        self.update()
+
+    def mouseMoveEvent(self, event):
+        self.update_hover(event.position().x())
+
+    def leaveEvent(self, event):
+        self.update_hover(-1)
+        super().leaveEvent(event)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton and self.gap_at_x(event.position().x()):
+            self.gapRequested.emit(self.frame_at_x(event.position().x()))
+            event.accept()
+        else:
+            event.ignore()
 
     def set_ranges(self, ranges):
         self.ranges = list(ranges)
         self.setAccessibleDescription(f'{sum(b-a for a,b in self.ranges)} frames cached')
-        self.update()
+        self.update_hover(self.mapFromGlobal(QCursor.pos()).x() if self.underMouse() else -1)
         self.rangesChanged.emit()
 
     def paintEvent(self, event):
@@ -1815,6 +1862,10 @@ class CachedRangeStrip(QWidget):
         origin = self.mapFromGlobal(self.slider.mapToGlobal(QPoint(0, 0))).x()
         width = self.slider.width()
         count = max(1, self.slider.maximum() + 1)
-        painter.fillRect(QRectF(origin, 0, width, 2), QColor(COLORS['border']))
+        y = (self.height() - 3) / 2
+        painter.fillRect(QRectF(origin, y, width, 3), QColor(COLORS['border']))
         for start, end in self.ranges:
-            painter.fillRect(QRectF(origin + width*start/count, 0, max(1, width*(end-start)/count), 2), QColor(COLORS['muted']))
+            painter.fillRect(QRectF(origin + width*start/count, y, max(1, width*(end-start)/count), 3), QColor(COLORS['muted']))
+        if self.hover_gap:
+            start, end = self.hover_gap
+            painter.fillRect(QRectF(origin + width*start/count, y-1, max(1, width*(end-start)/count), 5), QColor(COLORS['accent']))

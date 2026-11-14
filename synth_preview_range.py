@@ -6,7 +6,7 @@ import time
 from PySide6.QtCore import QSignalBlocker
 from PySide6.QtWidgets import QCheckBox, QLabel
 from studio_widgets import SpinBox
-from synth_preview import PreviewScope, preview_window
+from synth_preview import PreviewScope, preview_window, cached_gap
 
 
 def frames_in(scope):
@@ -31,6 +31,7 @@ class PreviewRangeStudio:
         self.prepared_range_stamp = None
         self.prepared_range_mode = 'range'
         self.prepared_range_fps = None
+        self.prepared_gap_hold = None
         self.preview_range_frames = SpinBox()
         self.preview_range_frames.setRange(1, 100000)
         self.preview_range_frames.setValue(150)
@@ -52,6 +53,7 @@ class PreviewRangeStudio:
                 copy.deepcopy(sequence.get('visual_performance')))
 
     def remember_preview_range(self, scope, *, mode='range'):
+        self.prepared_gap_hold = None
         self.prepared_range_scope = scope
         self.prepared_range_mode = mode
         fps = self.preview_fps()
@@ -72,6 +74,7 @@ class PreviewRangeStudio:
         self.prepared_playback_scope = PreviewScope(())
         self.prepared_range_stamp = None
         self.prepared_range_mode = 'range'
+        self.prepared_gap_hold = None
 
     def refresh_preview_range_target(self):
         """Invalidate packets without discarding the user's playback choice."""
@@ -83,6 +86,12 @@ class PreviewRangeStudio:
             return
         if self.prepared_range_mode == 'all':
             scope = PreviewScope(((0, self.timeline.maximum() + 1),))
+        elif self.prepared_range_mode == 'joined':
+            ratio = self.preview_fps() / self.prepared_range_fps
+            maximum = self.timeline.maximum() + 1
+            scope = PreviewScope(tuple((round(start*ratio), min(maximum, round(end*ratio)))
+                                       for start, end in self.prepared_range_scope.intervals
+                                       if round(start*ratio) < maximum))
         else:
             start = self.prepared_range_scope.frame_at(0)
             start = round(start / self.prepared_range_fps * self.preview_fps())
@@ -106,6 +115,13 @@ class PreviewRangeStudio:
         ready = bool(scope and scope.count and done == len(self.prepared_range_sources))
         available = scope_from_frames(frame for frame, source in self.prepared_range_mapping
                                       if self.preview_frames.contains(source))
+        if self.prepared_gap_hold is not None:
+            if ready:
+                self.prepared_gap_hold = None
+            else:
+                # Keep the current loop continuous until both sides are joined.
+                available = scope_from_frames(frame for frame in frames_in(self.prepared_gap_hold)
+                    if self.preview_frames.contains(round(self.performance_source_time(frame/self.preview_fps()) * self.preview_fps())))
         self.rebase_prepared_loop(available)
         self.prepared_playback_scope = available
         fps = self.preview_fps()
@@ -117,7 +133,7 @@ class PreviewRangeStudio:
             state = 'ready to loop' if ready else f'{done}/{len(self.prepared_range_sources)} prepared'
             if self.loop_preview_range.isChecked():
                 state += f' · looping {available.count} frames' if available.count else ' · waiting for frames'
-            label = 'Entire timeline' if self.prepared_range_mode == 'all' else 'Range'
+            label = {'all': 'Entire timeline', 'joined': 'Joined range'}.get(self.prepared_range_mode, 'Range')
             self.preview_range_summary.setText(f'{label}: {short} · {scope.count} frames · {state}')
             self.preview_range_summary.setToolTip(spans + '. The loop follows this preparation target. Prepare range switches back to the chosen frame count; Prepare all frames covers the entire timeline. The project stays unchanged.')
         else:
@@ -152,13 +168,56 @@ class PreviewRangeStudio:
         if checked:
             if not self.ensure_preview_context(): return
             requested = min(self.preview_range_frames.value(), self.base_preview_scope().count)
-            if not self.prepared_range_scope or (self.prepared_range_mode != 'all' and self.prepared_range_scope.count != requested):
+            if not self.prepared_range_scope or (self.prepared_range_mode == 'range' and self.prepared_range_scope.count != requested):
                 self.remember_preview_range(preview_window(self.base_preview_scope(), self.timeline.value(), self.preview_range_frames.value()))
             # Retain packets while worker reservations displace the memory LRU.
             self.retain_preview_range()
         self.refresh_preview_scope()
         if playing: self.play.setChecked(True)
         self.schedule_auto_preparation()
+
+    def cached_timeline_scope(self):
+        """Coverage is shown in output time, even when Perform changes the clock."""
+        sequence = self.preview_sequence() or {}
+        config = sequence.get('visual_performance')
+        if not config or self.preview_bypass():
+            maximum = self.timeline.maximum() + 1
+            return PreviewScope(tuple((max(0, a), min(maximum, b)) for a, b in self.preview_frames.ranges()
+                                      if b > 0 and a < maximum))
+        import numpy as np
+        from synth_performance import source_times
+        fps = self.preview_fps()
+        frames = np.arange(self.timeline.maximum() + 1)
+        sources = np.rint(source_times(config, frames / fps, sequence['duration'], fps) * fps).astype(int)
+        return scope_from_frames(int(frame) for frame, source in zip(frames, sources)
+                                 if self.preview_frames.contains(int(source)))
+
+    def refresh_cached_ranges(self):
+        self.cached_ranges.set_ranges(self.cached_timeline_scope().intervals)
+
+    def prepare_preview_gap(self, frame):
+        if self.closing or self.export_job or self.audition_pending(): return
+        if not self.ensure_preview_context(): return
+        coverage = self.cached_timeline_scope()
+        match = cached_gap(coverage.intervals, frame, self.base_preview_scope())
+        if not match: return  # A completed/stale gap, or outside the playback scope.
+        gap, joined = match
+        hold = self.active_preview_scope() if self.loop_preview_range.isChecked() else None
+        if not hold or not hold.count:
+            hold = PreviewScope(((joined[0], gap[0]),))
+        self.cancel_preparation()
+        self.remember_preview_range(PreviewScope((joined,)), mode='joined')
+        self.prepared_gap_hold = hold
+        if not self.retain_preview_range():
+            self.refresh_preview_scope()
+            return
+        # The scheduler skips existing packets, including a source frame shared
+        # by multiple output frames. Existing previews keep their exact pixels.
+        self.preparation_target = self.prepared_range_sources
+        self.preparation_explicit = True
+        self.preparation_limited = False
+        self.refresh_preview_scope()
+        self._start_warm_batch()
 
     def prepare_configured_range(self):
         looping = self.loop_preview_range.isChecked()

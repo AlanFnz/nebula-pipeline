@@ -185,6 +185,7 @@ class PerformanceStudio:
         # and hashing all source states on every live knob sample.
         self.preview_performance_config = copy.deepcopy(self.sequence.get('visual_performance'))
         self.refresh_performance_panels()
+        self.refresh_cached_ranges()
         if self.wants_live_sound():
             self.audition_visual_sound(self.live_draft)
         else:

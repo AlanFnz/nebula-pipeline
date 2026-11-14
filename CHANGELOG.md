@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.106.0 — 2026-11-14
+
+- Click a gap in the prepared-frame strip to render only the missing frames at
+  the selected preview resolution. Hover highlights the gap and its length.
+  The current preview loop continues during preparation, then expands to both
+  joined spans. Existing cached frames are retained; projects, studies and exports
+  are unchanged.
+
 ## 0.105.0 — 2026-11-14
 
 - Add **Object → Center eye → Eye placement**. **Overlay figures** keeps the
