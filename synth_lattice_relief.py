@@ -92,9 +92,14 @@ def render_relief(arr, p, seconds, preset):
     result = np.empty_like(arr, dtype=np.float32)
     rotation = np.deg2rad(p['rotation']); cs, sn = np.cos(rotation), np.sin(rotation)
     edge_width = max(.25, p['edge_width']*unit)
+    ripple = None
+    if p.get('eye_ripple', 0.) and p.get('eye_enabled', 0):
+        from synth_lattice_eye_ripple import ripple_profile, ripple_coordinates
+        ripple = ripple_profile(p, float(seconds)*preset.get('speed', 1.), preset.get('seed', 0))
     for top in range(0, h, 128):
         y, x = np.mgrid[top:min(h, top+128), :w].astype(np.float32)
-        gx = (x-cx)/spacing; gy = (y-cy)/spacing
+        sample_x, sample_y = ripple_coordinates(x, y, center, spacing, ripple) if ripple is not None else (x, y)
+        gx = (sample_x-cx)/spacing; gy = (sample_y-cy)/spacing
         ix = np.floor(gx+.5); iy = np.floor(gy)+.5
         wave = (sweep_size(ix, iy, t, p) if p['wave_shape'] == 3 else
                 pulse_size(wave_distance(ix, iy, p), t, p))

@@ -80,6 +80,10 @@ def presentation(path):
     if base_path(path) == 'signal_tension.registration_fps': return ParameterPresentation(unit=' fps')
     if base_path(path) == 'chromatic_lattice.eye_blink_fps':
         return ParameterPresentation(unit=' fps', minimum_text='Timeline FPS')
+    if base_path(path) == 'chromatic_lattice.eye_ripple_speed':
+        return ParameterPresentation(unit=' cells/s')
+    if base_path(path) in ('chromatic_lattice.eye_ripple_reach','chromatic_lattice.eye_ripple_width'):
+        return ParameterPresentation(unit=' cells')
     if base_path(path) == 'text.badge_show_subtitle': return ParameterPresentation(checkbox=True)
     if base_path(path) in PATHS.values() or path in PERCENTAGES: return ParameterPresentation(unit=' %')
     unit = ' s' if path in SECONDS else '°' if path in DEGREES else '°/s' if path in DEGREES_PER_SECOND else ' px' if path in PIXELS else ''

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.108.0 — 2026-11-15
+
+- Add **Object → Eye ripple**: a gentle circular displacement travels through
+  the printed cells when the eye closes, then dissipates. Amount, speed, reach
+  and width are editable. Waves follow visible blink poses and double blinks,
+  remain smooth with held motion cadence and repeat deterministically. The eye
+  and paper texture stay in place. Disabled by default; previous studies and
+  saved projects preserve their rendering until enabled.
+
 ## 0.107.0 — 2026-11-14
 
 - Add **Object → Eye reveal** for Overlay figures: cells uncovered by the closing

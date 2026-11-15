@@ -1,0 +1,76 @@
+"""Blink-driven circular displacement of the existing printed-cell geometry."""
+from functools import lru_cache
+
+import numpy as np
+
+from synth_lattice_eye import blink_events
+from synth_lattice_relief import smooth
+
+
+@lru_cache(maxsize=128)
+def ripple_triggers(count, period, duration, variation, double, fps, seed):
+    """Trigger at the deepest visible lid pose, skipping blinks lost to cadence."""
+    p = dict(eye_blink_count=count, eye_blink_period=period,
+             eye_blink_duration=duration, eye_blink_variation=variation,
+             eye_double_blink=double)
+    events = blink_events(p, seed)
+    if not fps:
+        return tuple(((start+length*.24) % period, 1.) for start, length in events)
+    samples = np.arange(int(np.ceil(period*fps)), dtype=np.float64)/fps
+    triggers = {}
+    for start, length in events:
+        q = ((samples-start) % period)/max(.001, length)
+        closure = np.where(q < .24, smooth(q/.24), 1-smooth((q-.34)/.66))
+        closure[q >= 1] = 0.
+        i = int(np.argmax(closure))
+        strength = float(closure[i])
+        if strength > .01:
+            trigger = float(samples[i])
+            triggers[trigger] = max(triggers.get(trigger, 0.), strength)
+    return tuple(sorted(triggers.items()))
+
+
+def ripple_profile(p, seconds, seed=0):
+    """One radial lookup per frame; independent of canvas size and render history."""
+    amount = p.get('eye_ripple', 0.)
+    if not amount or not p.get('eye_enabled', 0) or not p['eye_blink_count'] or not p['eye_opening']:
+        return None
+    period = p['eye_blink_period']
+    triggers = ripple_triggers(int(p['eye_blink_count']), period, p['eye_blink_duration'],
+                              p['eye_blink_variation'], p['eye_double_blink'],
+                              p.get('eye_blink_fps', 0), int(seed))
+    speed = p.get('eye_ripple_speed', 7.)
+    reach = p.get('eye_ripple_reach', 10.)
+    width = p.get('eye_ripple_width', .8)
+    lifetime = (reach+3*width)/speed
+    phase = (float(seconds)+p['eye_blink_phase']*period) % period
+    ages = [(age, strength) for trigger, strength in triggers
+            for age in np.arange((phase-trigger) % period, lifetime, period)]
+    if not ages:
+        return None
+    radius = np.linspace(0., reach, 2049)
+    wave = np.zeros_like(radius)
+    for age, strength in ages:
+        front = age*speed
+        z = (radius-front)/width
+        packet = (1-z*z)*np.exp(-.5*z*z)
+        packet *= 1-smooth(np.abs(z)-2.)  # Finite support: untouched cells stay exact.
+        envelope = smooth(front/.8)*(1-smooth((front-reach)/(3*width)))
+        wave += packet*strength*envelope
+    # A single crest and its shallow trough spread out and lose energy. Both
+    # the origin and outer limit are smooth, without moving the eye itself.
+    falloff = np.exp(-radius/(reach*.65))*(1-smooth((radius/reach-.7)/.3))*smooth(radius/.8)
+    limit = .18*min(1., width)
+    displacement = limit*np.tanh(wave*amount*p['eye_opening'])*falloff
+    return radius, displacement
+
+
+def ripple_coordinates(x, y, center, spacing, profile):
+    """Warp sampling coordinates before drawing, so no cell is clipped or resampled."""
+    if profile is None:
+        return x, y
+    dx = (x-center[0])/spacing; dy = (y-center[1])/spacing
+    radius = np.hypot(dx, dy)
+    displacement = np.interp(radius, *profile, right=0.)
+    scale = displacement/np.maximum(radius, 1e-6)
+    return (x-dx*scale*spacing).astype(x.dtype), (y-dy*scale*spacing).astype(y.dtype)

@@ -34,6 +34,10 @@ def parameters(P):
         P('eye_reveal', 'Materialization', 0., 0., 1., .01, 'Granular appearance of cells uncovered by a blink in Overlay figures. Zero keeps the immediate reveal.'),
         P('eye_reveal_duration', 'Reveal duration (s)', .16, .03, .6, .01, 'Time for newly uncovered pigment to become solid, at global speed 1. Independent of held eyelid poses.'),
         P('eye_reveal_grain', 'Reveal grain size', 1.5, .4, 5., .1, 'Pigment particle size in pixels at a 720-pixel artwork edge. Shares the existing print and finishing effects.'),
+        P('eye_ripple', 'Ripple amount', 0., 0., 1., .01, 'A subtle circular wave through the cells when the eye closes. Zero disables it. The eye and paper texture stay in place.'),
+        P('eye_ripple_speed', 'Ripple speed', 7., 2., 24., .1, 'Cell intervals per second at global speed 1. The wave starts with each visible blink and moves smoothly, independently of held cell poses.'),
+        P('eye_ripple_reach', 'Ripple reach', 10., 2., 20., .1, 'Maximum radius in cell intervals. The wave loses strength as it travels and fades out at this distance.'),
+        P('eye_ripple_width', 'Ripple width', .8, .3, 2.5, .05, 'Width of the wave in cell intervals. Larger values give a broader, gentler undulation.'),
     )
 
 
@@ -41,16 +45,31 @@ EYE_KEYS = frozenset(('eye_enabled', 'eye_size', 'eye_placement', 'eye_clearance
     'eye_iris', 'eye_pupil', 'eye_line', 'eye_blink_count', 'eye_blink_period',
     'eye_blink_duration', 'eye_blink_fps', 'eye_blink_variation', 'eye_double_blink', 'eye_blink_phase',
     'eye_reveal', 'eye_reveal_duration', 'eye_reveal_grain',
+    'eye_ripple', 'eye_ripple_speed', 'eye_ripple_reach', 'eye_ripple_width',
     *(name+'_'+channel for name in ('eye', 'eye_ink') for channel in ('hue', 'saturation', 'light'))))
+
+
+def blink_events(p, seed=0):
+    """Shared deterministic schedule for the lids and their visual responses."""
+    count = int(p['eye_blink_count'])
+    if not count: return ()
+    period = max(.01, p['eye_blink_period'])
+    slot = period/count
+    rng = np.random.default_rng((int(seed)+0xE1E) % (2**32))
+    events = []
+    for i in range(count):
+        jitter, speed, double = rng.random(3)
+        start = (i+.36+(jitter-.5)*.35*p['eye_blink_variation'])*slot
+        duration = min(p['eye_blink_duration']*(1+(speed-.5)*.4*p['eye_blink_variation']), slot*.28)
+        starts = (start, start+duration*1.35) if double < p['eye_double_blink'] else (start,)
+        events.extend((event, duration) for event in starts)
+    return tuple(events)
 
 
 def blink_opening(seconds, p, seed=0):
     """A deterministic circular schedule; no accumulated animation state."""
-    count = int(p['eye_blink_count'])
-    if not count: return float(p['eye_opening'])
+    if not int(p['eye_blink_count']): return float(p['eye_opening'])
     period = max(.01, p['eye_blink_period'])
-    slot = period/count
-    rng = np.random.default_rng((int(seed)+0xE1E) % (2**32))
     phase = float(seconds)+p['eye_blink_phase']*period
     fps = p.get('eye_blink_fps', 0)
     if fps:
@@ -59,16 +78,11 @@ def blink_opening(seconds, p, seed=0):
         # global frame tick. Missing/zero preserves the original continuous path.
         phase = (np.floor((phase % period)*fps+1e-9)/fps) % period
     closure = 0.
-    for i in range(count):
-        jitter, speed, double = rng.random(3)
-        start = (i+.36+(jitter-.5)*.35*p['eye_blink_variation'])*slot
-        duration = min(p['eye_blink_duration']*(1+(speed-.5)*.4*p['eye_blink_variation']), slot*.28)
-        starts = (start, start+duration*1.35) if double < p['eye_double_blink'] else (start,)
-        for event in starts:
-            q = ((phase-event) % period)/max(.001, duration)
-            if q >= 1: continue
-            amount = smooth(q/.24) if q < .24 else 1-smooth((q-.34)/.66)
-            closure = max(closure, float(amount))
+    for event, duration in blink_events(p, seed):
+        q = ((phase-event) % period)/max(.001, duration)
+        if q >= 1: continue
+        amount = smooth(q/.24) if q < .24 else 1-smooth((q-.34)/.66)
+        closure = max(closure, float(amount))
     return float(p['eye_opening'])*(1-closure)
 
 

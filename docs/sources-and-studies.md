@@ -242,6 +242,10 @@ With Overlay figures, **Object → Eye reveal → Materialization** makes newly
 uncovered cells appear as fine pigment. Adjust **Reveal duration** and **Reveal
 grain size**; zero Materialization restores the immediate reveal. It follows
 the blink while leaving the surrounding grid and its motion intact.
+**Object → Eye ripple** sends a subtle circular wave through the figures at
+each blink. **Ripple amount** controls the movement; zero disables it.
+**Speed**, **reach** and **width** use cell intervals, so the wave stays circular
+when reframing. It fades as it travels and leaves the eye itself in place.
 Eye and ink colors have
 their own swatches; the iris follows First cell color. **Eye blinking** controls
 blink count, cycle, duration, irregularity and double blinks. A zero count holds
