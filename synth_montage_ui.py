@@ -428,6 +428,8 @@ class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
         tracks=QWidget(); self.tracks=tracks; track_layout=QVBoxLayout(tracks); track_layout.setContentsMargins(0,0,0,0); track_layout.addWidget(self.timeline)
         self.wave=SoundtrackLane(); wave_row=QHBoxLayout(); wave_row.setContentsMargins(12,0,12,0); wave_row.addWidget(self.wave); wave_row.addStretch(); track_layout.addLayout(wave_row)
         self.wave.seekRequested.connect(lambda seconds:self.seek(round(seconds*self.document['fps']))); self.wave.editRequested.connect(self.soundtrack_dialog)
+        self.wave.offsetRequested.connect(self.move_soundtrack)
+        self.wave.set_editable(True)
         self.scroll=QScrollArea(); self.scroll.setWidgetResizable(True); self.scroll.setWidget(tracks); self.scroll.setMinimumHeight(184); self.scroll.setMaximumHeight(210); layout.addWidget(self.scroll)
         self.status=QLabel(); self.status.setWordWrap(True); layout.addWidget(self.status)
         row=QHBoxLayout(); self.progress=QProgressBar(); self.progress.hide(); row.addWidget(self.progress)
@@ -509,7 +511,7 @@ class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
                 item.setData(Qt.ItemDataRole.UserRole+1,(marker['frame'],marker['name'])); self.marker_list.addItem(item)
                 if marker_identity==(marker['frame'],marker['name']): self.marker_list.setCurrentItem(item)
         self.update_marker_context(); self.refresh_block_navigation()
-        track=self.document.get('soundtrack'); self.wave.set_track(track,total/self.document['fps']); self.audio.set_track(track)
+        track=self.document.get('soundtrack'); self.wave.set_track(track,total/self.document['fps'],self.document['fps']); self.audio.set_track(track)
         self.update_inspector(); self.seek(min(self.frame,max(0,total-1)))
 
     def refresh_workspace_context(self):
@@ -737,6 +739,20 @@ class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
         row=self.marker_list.currentRow()
         if row>=0:
             doc=copy.deepcopy(self.document); doc['markers'].pop(row); self.commit(doc)
+
+    def move_soundtrack(self, offset):
+        dialog = getattr(self, 'sound_dialog', None)
+        if dialog and dialog.isVisible() and dialog.has_pending_changes():
+            self.status.setText('Apply or close the pending Soundtrack edits before moving the track.')
+            return
+        if not self.resolve_timing('moving the soundtrack'): return
+        track = self.document.get('soundtrack')
+        if track:
+            doc = copy.deepcopy(self.document)
+            doc['soundtrack']['offset'] = offset
+            self.guarded(lambda: self.commit(doc))
+            if dialog:
+                dialog.set_track(self.document.get('soundtrack'),sum(c['frames'] for c in self.document['clips'])/self.document['fps'])
 
     def soundtrack_dialog(self):
         from synth_soundtrack import probe_soundtrack, waveform_peaks

@@ -162,3 +162,75 @@ def test_external_names_and_status_are_plain_text(app, track):
     app.processEvents()
     assert dialog.minimumSizeHint().width() <= 340
     dialog.close()
+
+
+def test_drag_is_frame_snapped_and_commits_only_on_release(app, track):
+    lane = SoundtrackLane(); lane.resize(400, 48)
+    lane.set_track(track, 20., 24); lane.set_editable(True); lane.show(); app.processEvents()
+    moved, seek = QSignalSpy(lane.offsetRequested), QSignalSpy(lane.seekRequested)
+    QTest.mousePress(lane, Qt.MouseButton.LeftButton, pos=QPoint(40, 32))
+    QTest.mouseMove(lane, QPoint(81, 32))
+    assert moved.count() == seek.count() == 0
+    assert lane.track == track
+    assert lane._drag_offset == pytest.approx(73 / 24)
+    lane.set_track(track, 20., 24)  # Transport/waveform refresh does not lose the gesture.
+    lane.set_time(2.); lane.set_peaks([.5, .8]); lane.grab()
+    assert lane._drag_offset == pytest.approx(73 / 24)
+    QTest.mouseRelease(lane, Qt.MouseButton.LeftButton, pos=QPoint(81, 32))
+    assert moved.count() == 1 and moved.at(0)[0] == pytest.approx(73 / 24)
+    assert seek.count() == 0 and lane.track == track and lane._drag_offset is None
+    lane.close()
+
+
+@pytest.mark.parametrize('cancel', ['escape', 'replace', 'disable', 'duration'])
+def test_drag_cancel_never_seeks_or_changes_track(app, track, cancel):
+    lane = SoundtrackLane(); lane.resize(400, 48)
+    lane.set_track(track, 20., 24); lane.set_editable(True); lane.show(); app.processEvents()
+    moved, seek = QSignalSpy(lane.offsetRequested), QSignalSpy(lane.seekRequested)
+    QTest.mousePress(lane, Qt.MouseButton.LeftButton, pos=QPoint(40, 32))
+    QTest.mouseMove(lane, QPoint(100, 32))
+    assert lane._drag_offset is not None
+    if cancel == 'escape': QTest.keyClick(lane, Qt.Key.Key_Escape)
+    elif cancel == 'replace': lane.set_track(dict(track, path='/other.wav'), 20., 24)
+    elif cancel == 'disable': lane.set_editable(False)
+    else: lane.set_track(track, 10., 24)
+    QTest.mouseRelease(lane, Qt.MouseButton.LeftButton, pos=QPoint(100, 32))
+    assert moved.count() == seek.count() == 0
+    assert lane._drag_offset is None
+    lane.close()
+
+
+def test_drag_bounds_nudge_and_click_have_distinct_intents(app, track):
+    lane = SoundtrackLane(); lane.resize(400, 48)
+    lane.set_track(track, 20., 24); lane.set_editable(True); lane.show(); app.processEvents()
+    moved, seek = QSignalSpy(lane.offsetRequested), QSignalSpy(lane.seekRequested)
+    for end, expected in [(QPoint(-100, 32), 0.), (QPoint(500, 32), 479 / 24)]:
+        QTest.mousePress(lane, Qt.MouseButton.LeftButton, pos=QPoint(40, 32))
+        QTest.mouseMove(lane, end)
+        QTest.mouseRelease(lane, Qt.MouseButton.LeftButton, pos=end)
+        assert moved.at(moved.count() - 1)[0] == expected
+    assert moved.count() == 2 and seek.count() == 0
+    QTest.keyClick(lane, Qt.Key.Key_Right, Qt.KeyboardModifier.ShiftModifier)
+    assert moved.at(2)[0] == 25 / 24
+    QTest.mouseClick(lane, Qt.MouseButton.LeftButton, pos=QPoint(40, 32))
+    assert seek.at(0)[0] == 2.
+    # Slight hand movement below the platform drag threshold is still a click.
+    QTest.mousePress(lane, Qt.MouseButton.LeftButton, pos=QPoint(40, 32))
+    QTest.mouseMove(lane, QPoint(41, 32))
+    QTest.mouseRelease(lane, Qt.MouseButton.LeftButton, pos=QPoint(41, 32))
+    assert moved.count() == 3 and seek.count() == 2
+    lane.close()
+
+
+def test_readonly_lane_does_not_move_or_normalize_existing_placements(app, track):
+    lane = SoundtrackLane(); lane.resize(400, 48)
+    lane.set_track(dict(track, offset=25.), 20., 24)
+    assert lane.track['offset'] == 25.
+    lane.set_track(track, 20., 24); lane.show(); app.processEvents()
+    moved = QSignalSpy(lane.offsetRequested)
+    QTest.mousePress(lane, Qt.MouseButton.LeftButton, pos=QPoint(40, 32))
+    QTest.mouseMove(lane, QPoint(100, 32))
+    QTest.mouseRelease(lane, Qt.MouseButton.LeftButton, pos=QPoint(100, 32))
+    QTest.keyClick(lane, Qt.Key.Key_Right, Qt.KeyboardModifier.ShiftModifier)
+    assert moved.count() == 0 and lane.track == track
+    lane.close()

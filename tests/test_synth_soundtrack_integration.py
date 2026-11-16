@@ -246,3 +246,45 @@ def test_rejected_lower_sample_rate_import_preserves_project_monitor_and_error(s
     assert 'Adjust the response frequency range first' in studio.soundtrack_lane.status
     assert 'Adjust the response frequency range first' in studio.status.text()
     assert 'Soundtrack ready' not in studio.status.text()
+
+
+def test_lane_placement_is_one_undo_and_saved_on_project_clock(studio, soundtrack, tmp_path):
+    from synth_soundtrack import soundtrack_source_time
+    studio.apply_soundtrack(dict(soundtrack, **{'in': 1., 'out': 5.}))
+    original = copy.deepcopy(studio.composition)
+    history = len(studio.undo_compositions)
+    wave_key = studio.soundtrack_wave_key
+    assert studio.soundtrack_lane.editable
+    studio.soundtrack_lane.offsetRequested.emit(2.)
+    expected = copy.deepcopy(original); expected['soundtrack']['offset'] = 2.
+    assert studio.composition == expected
+    assert len(studio.undo_compositions) == history + 1
+    assert studio.soundtrack_wave_key == wave_key
+    assert studio.soundtrack_playback.track == expected['soundtrack']
+    assert soundtrack_source_time(studio.sequence['soundtrack'], 1.99) is None
+    assert soundtrack_source_time(studio.sequence['soundtrack'], 2.) == 1.
+    path = tmp_path / 'moved.json'; save_composition(path, studio.composition)
+    assert load_composition(path) == expected
+    studio.undo_composition(); assert studio.composition == original
+    assert studio.soundtrack_lane.track['offset'] == original['soundtrack']['offset']
+    studio.redo_composition(); assert studio.composition == expected
+    studio.soundtrack_lane.offsetRequested.emit(2.)
+    assert len(studio.undo_compositions) == history + 1
+
+
+def test_lane_placement_preserves_pending_dialog_and_snapshot(studio, soundtrack):
+    studio.apply_soundtrack(soundtrack)
+    studio.open_soundtrack(); dialog = studio.soundtrack_dialog
+    dialog.in_control.setValue(dialog.out_control.value())  # Invalid draft also must survive.
+    studio.soundtrack_lane.offsetRequested.emit(2.)
+    assert studio.composition['soundtrack'] == soundtrack
+    assert dialog.has_pending_changes()
+    assert 'pending Soundtrack edits' in studio.status.text()
+    dialog.close()
+    studio.soundtrack_lane.offsetRequested.emit(2.)
+    captured, identifier = capture_snapshot(studio.composition, 'Sound A')
+    studio.composer.commit(captured, 'snapshot-capture')
+    studio.compare_snapshot(identifier)
+    assert not studio.soundtrack_lane.editable
+    studio.soundtrack_lane.offsetRequested.emit(3.)
+    assert studio.composition['soundtrack']['offset'] == 2.

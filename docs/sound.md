@@ -79,6 +79,13 @@ Choose **+ Soundtrack → Import…**. Set In/Out, Start and the end behavior, t
 Apply. The visual timeline determines the piece's duration. **Relink…** repairs
 moved media while keeping trim; ordinary Save does not copy the audio file.
 
+To move the start, drag the waveform in the composition or Montage timeline.
+The start time updates as you drag; release to apply or press Esc to cancel.
+With the waveform focused, Shift + left/right moves it one frame. **Undo**
+reverses a move. This keeps the source In/Out and end behavior unchanged;
+playback and export stop at the end of the visual timeline. Click the lane to
+seek, or double-click for precise trim and start settings.
+
 **React to audio… → Add response** maps a frequency band to an active visual
 control. Set Amount, Sensitivity, Rise and Fall, then Apply. Up to 16 responses
 can follow band energy; this does not isolate instruments or detect beats.

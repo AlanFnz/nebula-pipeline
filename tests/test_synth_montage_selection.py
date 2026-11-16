@@ -211,3 +211,21 @@ def test_replace_keeps_duration_speed_treatment_then_undo_restores(window, monke
     assert window.document['assets'] == original['assets']
     window.undo(); assert window.document == original and window.selected == {target['id']}
     window.redo(); assert window.document['clips'][0] == result
+
+
+def test_soundtrack_lane_placement_undo_preserves_trim_and_source(window, tmp_path):
+    from synth_montage import load_montage, save_montage
+    track = dict(id='music', name='Music', path='/missing.wav', duration=10.,
+                 sample_rate=48000, channels=2, **{'in': 2., 'out': 8.},
+                 offset=0., end_mode='silence', gain=.8, export_audio='soundtrack')
+    doc = copy.deepcopy(window.document); doc['soundtrack'] = track
+    window.commit(doc)
+    original = copy.deepcopy(window.document); count = len(window.undo_stack)
+    assert window.wave.editable and window.wave.fps == window.document['fps']
+    window.wave.offsetRequested.emit(.2)
+    expected = copy.deepcopy(original); expected['soundtrack']['offset'] = .2
+    assert window.document == expected and len(window.undo_stack) == count + 1
+    path = tmp_path / 'moved.json'; save_montage(path, window.document)
+    assert load_montage(path) == expected
+    window.undo(); assert window.document == original and window.wave.track['offset'] == 0.
+    window.redo(); assert window.document == expected

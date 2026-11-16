@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.114.0 — 2026-11-16
+
+- Move a soundtrack's start by dragging its waveform in the composition or
+  Montage timeline. Placement snaps to frames, shows the start time during the
+  gesture and applies on release as one undoable edit. Escape cancels; Shift +
+  arrow keys nudge one frame. Click still seeks and double-click opens settings.
+  Existing soundtrack trims, studies and rendered output remain unchanged until
+  the track is moved.
+
 ## 0.113.4 — 2026-11-16
 
 - Rename the eye's **Eye reveal** group to **Background reveal** and explain that

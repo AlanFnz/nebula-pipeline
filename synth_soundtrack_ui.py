@@ -4,7 +4,7 @@ import math
 
 from PySide6.QtCore import Qt, Signal, QRectF
 from PySide6.QtGui import QColor, QPainter, QPen
-from PySide6.QtWidgets import (QWidget, QDialog, QVBoxLayout, QHBoxLayout,
+from PySide6.QtWidgets import (QApplication, QWidget, QDialog, QVBoxLayout, QHBoxLayout,
                              QFormLayout, QLabel, QPushButton, QCheckBox)
 from studio_theme import COLORS
 from studio_widgets import ComboBox, DoubleSpinBox, Slider
@@ -13,6 +13,7 @@ from studio_widgets import ComboBox, DoubleSpinBox, Slider
 class SoundtrackLane(QWidget):
     seekRequested = Signal(float)
     editRequested = Signal()
+    offsetRequested = Signal(float)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -21,20 +22,58 @@ class SoundtrackLane(QWidget):
         self.peaks = []
         self.time = 0.
         self.status = ''
+        self.fps = 30.
+        self.editable = False
+        self._press = None
+        self._drag_offset = None
+        self._can_drag = False
+        self.setMouseTracking(True)
         self.setFixedHeight(48)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setAccessibleName('Soundtrack timeline')
-        self.setToolTip('Click to seek; double-click to edit soundtrack. Arrow keys seek one second.')
+        self.set_editable(False)
         self.hide()
 
-    def set_track(self, track, project_duration):
+    def set_track(self, track, project_duration, fps=30.):
         old = self.track
+        if track != old or project_duration != self.project_duration or fps != self.fps:
+            self.cancel_drag()
         self.track = copy.deepcopy(track)
         self.project_duration = max(0., float(project_duration))
+        self.fps = max(1., float(fps))
         if not old or not track or old.get('path') != track.get('path') or old.get('duration') != track.get('duration'):
             self.peaks = []
         self.setVisible(track is not None)
         self.update()
+
+    def set_editable(self, editable):
+        self.editable = bool(editable)
+        if not self.editable:
+            self.cancel_drag()
+        self.setToolTip(('Drag the waveform to move its start; Shift + arrow keys move one frame. '
+                         'Esc cancels a drag. ' if self.editable else '') +
+                        'Click to seek; double-click to edit soundtrack. Arrow keys seek one second.')
+
+    def cancel_drag(self):
+        self._press = None
+        self._drag_offset = None
+        self._can_drag = False
+        self.unsetCursor()
+        self.update()
+
+    def _over_waveform(self, position):
+        if not self.track or self.project_duration <= 0 or not 18 <= position.y() <= 45:
+            return False
+        seconds = position.x() / max(1, self.width()) * self.project_duration
+        offset = self.track.get('offset', 0.)
+        span = self.track.get('out', self.track.get('duration', 0.)) - self.track.get('in', 0.)
+        return offset <= seconds <= (self.project_duration if self.track.get('end_mode') == 'loop' else offset + span)
+
+    def _snapped_offset(self, seconds):
+        # Keep at least one project frame reachable. Existing out-of-range
+        # placements are left intact until the user explicitly moves them.
+        last_frame = max(0, math.ceil(self.project_duration * self.fps - 1e-7) - 1)
+        return max(0, min(last_frame, round(seconds * self.fps))) / self.fps
 
     def set_peaks(self, peaks):
         self.peaks = [min(1., abs(float(p))) if math.isfinite(float(p)) else 0. for p in peaks]
@@ -51,19 +90,66 @@ class SoundtrackLane(QWidget):
 
     def mousePressEvent(self, event):
         if self.track and self.project_duration > 0 and event.button() == Qt.MouseButton.LeftButton:
-            self.seekRequested.emit(max(0., min(1., event.position().x() / max(1, self.width()))) * self.project_duration)
+            self._press = event.position()
+            self._can_drag = self.editable and self._over_waveform(event.position())
+            self.setFocus(Qt.FocusReason.MouseFocusReason)
             event.accept()
         else:
             super().mousePressEvent(event)
 
+    def mouseMoveEvent(self, event):
+        if self._press is not None and self._can_drag:
+            if self._drag_offset is not None or (event.position() - self._press).manhattanLength() >= QApplication.startDragDistance():
+                seconds = (event.position().x() - self._press.x()) / max(1, self.width()) * self.project_duration
+                self._drag_offset = self._snapped_offset(self.track.get('offset', 0.) + seconds)
+                self.setCursor(Qt.CursorShape.ClosedHandCursor)
+                self.update()
+            event.accept()
+        else:
+            self.setCursor(Qt.CursorShape.OpenHandCursor if self.editable and self._over_waveform(event.position()) else Qt.CursorShape.ArrowCursor)
+            super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton and self._press is not None:
+            offset = self._drag_offset
+            self.cancel_drag()
+            if offset is not None:
+                if offset != self.track.get('offset', 0.):
+                    # The parent owns the document and undo. One transaction on
+                    # release; mouse moves only paint a local placement preview.
+                    self.offsetRequested.emit(offset)
+            else:
+                self.seekRequested.emit(max(0., min(1., event.position().x() / max(1, self.width()))) * self.project_duration)
+            event.accept()
+        else:
+            super().mouseReleaseEvent(event)
+
     def mouseDoubleClickEvent(self, event):
         if self.track and event.button() == Qt.MouseButton.LeftButton:
+            self.cancel_drag()
             self.editRequested.emit()
             event.accept()
         else:
             super().mouseDoubleClickEvent(event)
 
+    def focusOutEvent(self, event):
+        self.cancel_drag()
+        super().focusOutEvent(event)
+
     def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Escape and self._press is not None:
+            self.cancel_drag()
+            event.accept()
+            return
+        if (self.track and self.editable and self.project_duration > 0 and
+                event.modifiers() == Qt.KeyboardModifier.ShiftModifier and
+                event.key() in (Qt.Key.Key_Left, Qt.Key.Key_Right)):
+            direction = -1 if event.key() == Qt.Key.Key_Left else 1
+            offset = self._snapped_offset(self.track.get('offset', 0.) + direction / self.fps)
+            if offset != self.track.get('offset', 0.):
+                self.offsetRequested.emit(offset)
+            event.accept()
+            return
         targets = {Qt.Key.Key_Left: self.time - 1., Qt.Key.Key_Right: self.time + 1.,
                    Qt.Key.Key_Home: 0., Qt.Key.Key_End: self.project_duration}
         if self.track and event.key() in targets:
@@ -81,7 +167,7 @@ class SoundtrackLane(QWidget):
             return
         track = self.track
         duration = self.project_duration
-        offset = track.get('offset', 0.)
+        offset = self._drag_offset if self._drag_offset is not None else track.get('offset', 0.)
         start = track.get('in', 0.)
         stop = track.get('out', track.get('duration', 0.))
         used = stop - start
@@ -106,10 +192,17 @@ class SoundtrackLane(QWidget):
                 p.drawLine(x0, 32, x1, 32)
             p.setPen(QColor(COLORS['border_hover']))
             p.drawLine(x0, 18, x0, 45)
+            if self._drag_offset is not None:
+                p.setPen(QPen(QColor(COLORS['accent']), 1.5))
+                p.drawRect(QRectF(x0, 18, max(0, x1 - x0 - 1), 27))
         p.setPen(QColor(COLORS['muted']))
         name = track.get('name', 'Soundtrack')
-        label = f'{name} · {start:.2f}–{stop:.2f} s · Start {offset:.2f} s · {"Loop" if loop else "Silence at end"}'
-        if self.status:
+        label = f'Start {offset:.2f} s · {name} · {start:.2f}–{stop:.2f} s · {"Loop" if loop else "Silence at end"}'
+        if self._drag_offset is not None:
+            label = f'Start {offset:.2f} s · Release to place · Esc to cancel'
+        elif self.editable:
+            label = f'Start {offset:.2f} s · Drag to move · {name} · {start:.2f}–{stop:.2f} s · {"Loop" if loop else "Silence at end"}'
+        if self.status and self._drag_offset is None:
             label += ' · ' + self.status
         p.drawText(QRectF(6, 1, max(0, self.width() - 12), 16), Qt.AlignmentFlag.AlignLeft,
                    p.fontMetrics().elidedText(label, Qt.TextElideMode.ElideRight, max(0, self.width() - 12)))
@@ -294,6 +387,9 @@ class SoundtrackDialog(QDialog):
         draft = self._draft()
         valid = draft and draft['in'] < draft['out'] <= draft['duration']
         self.apply_button.setEnabled(bool(valid and draft != self.track and not self._busy))
+
+    def has_pending_changes(self):
+        return self.track is not None and self._draft() != self.track
 
     def apply(self):
         if not self.apply_button.isEnabled():

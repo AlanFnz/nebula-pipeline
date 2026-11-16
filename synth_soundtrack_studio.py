@@ -54,6 +54,7 @@ class SoundtrackStudio:
         self.soundtrack_lane.hide()
         self.soundtrack_lane.seekRequested.connect(self.seek_soundtrack)
         self.soundtrack_lane.editRequested.connect(self.open_soundtrack)
+        self.soundtrack_lane.offsetRequested.connect(self.move_soundtrack)
         layout.addWidget(self.soundtrack_lane)
 
     def build_soundtrack_action(self, layout):
@@ -203,11 +204,25 @@ class SoundtrackStudio:
             self.status.setText(message)
             return False
 
+    def move_soundtrack(self, offset):
+        if (not self.composition or not self.composer or self.audition_pending() or
+                self.comparison or self.soundtrack_import_job):
+            return
+        if (self.soundtrack_dialog and self.soundtrack_dialog.isVisible() and
+                self.soundtrack_dialog.has_pending_changes()):
+            self.status.setText('Apply or close the pending Soundtrack edits before moving the track.')
+            return
+        track = self.authored_soundtrack()
+        if track:
+            self.apply_soundtrack(dict(track, offset=offset))
+
     def refresh_soundtrack(self):
         if not hasattr(self, 'soundtrack_lane'): return
         track = (self.preview_sequence() or {}).get('soundtrack')
         duration = (self.sequence or {}).get('duration', self.preset['loop_seconds'])
-        self.soundtrack_lane.set_track(track, duration)
+        self.soundtrack_lane.set_track(track, duration, (self.sequence or {}).get('fps', 30))
+        self.soundtrack_lane.set_editable(bool(self.composition and self.composer and
+            not self.audition_pending() and not self.comparison and not self.soundtrack_import_job))
         self.soundtrack_lane.setVisible(track is not None)
         self.soundtrack_button.setText('Soundtrack' if track else '+ Soundtrack')
         self.soundtrack_button.setEnabled(self.composition is not None)
