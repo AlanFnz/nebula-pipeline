@@ -97,9 +97,14 @@ def render_relief(arr, p, seconds, preset):
         from synth_lattice_eye_ripple import ripple_profile, ripple_coordinates, ripple_cells
         ripple = ripple_profile(p, float(seconds)*preset.get('speed', 1.), preset.get('seed', 0))
     cell_response = bool(p.get('eye_ripple_response', 0))
+    fluid = None
+    if ripple is not None:
+        if not cell_response: fluid = ripple
+        elif p['eye_ripple_response'] == 3 and p.get('eye_ripple_fluid', 0.):
+            fluid = (ripple[0], ripple[3])
     for top in range(0, h, 128):
         y, x = np.mgrid[top:min(h, top+128), :w].astype(np.float32)
-        sample_x, sample_y = ripple_coordinates(x, y, center, spacing, ripple) if ripple is not None and not cell_response else (x, y)
+        sample_x, sample_y = ripple_coordinates(x, y, center, spacing, fluid) if fluid is not None else (x, y)
         gx = (sample_x-cx)/spacing; gy = (sample_y-cy)/spacing
         ix = np.floor(gx+.5); iy = np.floor(gy)+.5
         wave = (sweep_size(ix, iy, t, p) if p['wave_shape'] == 3 else

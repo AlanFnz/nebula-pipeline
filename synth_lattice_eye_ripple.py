@@ -49,8 +49,22 @@ def ripple_profile(p, seconds, seed=0):
     if not ages:
         return None
     radius = np.linspace(0., reach, 2049)
-    if p.get('eye_ripple_response', 0):
+    response = p.get('eye_ripple_response', 0)
+    if response in (1, 2):
         return cell_pulse_profile(radius, ages, p)
+    if response == 3:
+        fluid = (fluid_wave_profile(radius, ages, p)[1]*p.get('eye_ripple_fluid', 0.)/100.
+                 if p.get('eye_ripple_fluid', 0.) else np.zeros_like(radius))
+        return (*cell_pulse_profile(radius, ages, p), fluid)
+    return fluid_wave_profile(radius, ages, p)
+
+
+def fluid_wave_profile(radius, ages, p):
+    """Original displacement, reused unchanged by the custom response mixer."""
+    speed = p.get('eye_ripple_speed', 7.)
+    reach = p.get('eye_ripple_reach', 10.)
+    width = p.get('eye_ripple_width', .8)
+    amount = p.get('eye_ripple', 0.)
     wave = np.zeros_like(radius)
     for age, strength in ages:
         front = age*speed
@@ -87,11 +101,21 @@ def cell_pulse_profile(radius, ages, p):
 
 
 def ripple_cells(ix, iy, u, v, radius, rounding, spacing, p, profile):
-    """Scale/translate each cell rigidly; leave grid, shape and neighbors intact."""
+    """Scale/translate/rotate whole cells, respecting their sampling boundaries."""
     # Grid offsets affect cell centers, while the wave's origin is the eye.
     distance = np.hypot(ix+p['grid_x'], iy+p['grid_y'])
     pulse = np.interp(distance, profile[0], profile[1], right=0.)
     angle = np.deg2rad(p['rotation'])
+    custom = p['eye_ripple_response'] == 3
+    turn = None
+    if custom:
+        pulse *= p.get('eye_ripple_size', 100.)/100.
+        if p.get('eye_ripple_rotation', 0.):
+            vibration = np.interp(distance, profile[0], profile[2], right=0.)
+            direction = np.where(np.sin(ix*2.39996323+iy*1.61803399) >= 0, 1., -1.)
+            turn = np.deg2rad(p['eye_ripple_rotation'])*vibration*direction
+            turn = limit_cell_rotation(turn, angle, radius, rounding, spacing, p['shape'])
+            angle = angle+turn
     extent = radius
     if p['shape'] in (1, 2):
         factor = 1.
@@ -103,14 +127,37 @@ def ripple_cells(ix, iy, u, v, radius, rounding, spacing, p, profile):
     # cells grow less; no new clipping at their fixed sampling-tile boundaries.
     room = np.maximum(0., .485*spacing-extent)
     dx = dy = 0.
-    if p['eye_ripple_response'] == 2:
+    position = p.get('eye_ripple_position', 0.)/100. if custom else 1.
+    if p['eye_ripple_response'] == 2 or (custom and position):
         vibration = np.interp(distance, profile[0], profile[2], right=0.)
+        if custom: vibration *= position
         direction = ix*2.39996323 + iy*1.61803399
         shift = vibration*np.minimum(.035*spacing, room)
         dx, dy = shift*np.cos(direction), shift*np.sin(direction)
     available = np.maximum(1., (.485*spacing-np.maximum(np.abs(dx), np.abs(dy)))/np.maximum(extent, .001))
     scale = np.minimum(1+pulse*.20, available)
+    if turn is not None:
+        # Rotate sampling about the cell's own center, after its optional shake.
+        dtype = u.dtype
+        u, v = u-dx, v-dy
+        cs, sn = np.cos(turn), np.sin(turn)
+        return (u*cs+v*sn).astype(dtype), (-u*sn+v*cs).astype(dtype), (radius*scale).astype(radius.dtype)
     return (u-dx).astype(u.dtype), (v-dy).astype(v.dtype), (radius*scale).astype(radius.dtype)
+
+
+def limit_cell_rotation(turn, angle, radius, rounding, spacing, shape):
+    """Limit rotation of dense square cells without silently shrinking them."""
+    if shape not in (1, 2):
+        return turn
+    factor = .70710678 if shape == 2 else 1.
+    base = angle+(np.pi/4 if shape == 2 else 0.)
+    # Extent of a rounded square: r * ((cos a + sin a)*(1-corner)+corner).
+    limit = (.485*spacing/np.maximum(radius*factor, .001)-rounding)/np.maximum(1-rounding, 1e-6)
+    half_angle = np.arcsin(np.clip(limit/np.sqrt(2), 1/np.sqrt(2), 1))-np.pi/4
+    folded = (base+np.pi/4) % (np.pi/2)-np.pi/4
+    safe = np.where(np.abs(folded) <= half_angle+1e-7,
+                    np.clip(turn, -half_angle-folded, half_angle-folded), 0.)
+    return np.where((limit >= np.sqrt(2)) | (rounding >= 1.), turn, safe)
 
 
 def ripple_coordinates(x, y, center, spacing, profile):

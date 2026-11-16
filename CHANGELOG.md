@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.110.0 — 2026-11-16
+
+- Add **Custom mix** to **Object → Eye ripple → Cell response**: independent
+  size pulse, rotation shake, position shake and fluid-wave controls share the
+  blink-driven radial timing. Figures rock about their own centers; dense cells
+  limit rotation and growth to keep their boundaries intact. Amount remains the
+  shared master control. Each component can be disabled independently, saved
+  and undone. Existing response modes and study recipes retain their rendering.
+
 ## 0.109.0 — 2026-11-16
 
 - Add **Cell response** to **Object → Eye ripple**. **Size pulse** sends a brief
