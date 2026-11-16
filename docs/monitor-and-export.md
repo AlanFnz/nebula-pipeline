@@ -17,6 +17,10 @@ authored effect, so it does affect export.
 
 ## Preparation
 
+Below the timeline, timing and playback share a row when space permits;
+preparation controls and the range summary share the next. They stack in narrow
+windows. Drag the divider above the timeline to adjust the monitor's height.
+
 A small spinner beside the monitor status indicates an image update or frame
 preparation. It stops when the work finishes or is cancelled. A stationary pause
 symbol during export means preview preparation is waiting; the message indicates

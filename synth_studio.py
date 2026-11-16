@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 )
 from studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBox, SpinBox as QSpinBox, Slider as QSlider
 from studio_widgets import configure_parameter_spin, PlaybackButton
-from synth_workspace_widgets import FlowLayout, ElidingLabel, WorkspaceSplitter, inline
+from synth_workspace_widgets import FlowLayout, PairedControlsLayout, ElidingLabel, WorkspaceSplitter, inline
 from synth_workspace_context import ContextHeader, ContextSummary, studio_context
 from synth_preview_range import PreviewRangeStudio, scope_from_frames
 from synth_monitor_status import MonitorStatus
@@ -537,7 +537,23 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
             self.splitter.restoreState(settings.value('window/splitter'))
         if settings.contains('window/preview_splitter'):
             self.preview_splitter.restoreState(settings.value('window/preview_splitter'))
+        if not settings.value('window/compact_preview_footer', False, type=bool):
+            QTimer.singleShot(0, self.compact_preview_footer)
         self.viewer.set_zoom(float(settings.value('viewer/zoom', 0.)))
+
+    def compact_preview_footer(self):
+        """Return space freed by the new footer to the monitor, once per workspace."""
+        pane = self.preview_controls_scroll.widget()
+        height = pane.layout().totalHeightForWidth(self.preview_controls_scroll.viewport().width())
+        sizes = self.preview_splitter.sizes()
+        target = max(self.preview_controls_scroll.minimumHeight(), height + 4)
+        if sizes[-1] > target:
+            self.preview_splitter.setSizes([sum(sizes)-target, target])
+
+    def refresh_timeline_height(self, *_args):
+        bar = self.section_scroll.horizontalScrollBar()
+        extra = bar.sizeHint().height() if bar.maximum() > 0 else 0
+        self.section_scroll.setFixedHeight(self.section_timeline.height() + extra)
 
     def save_workspace(self):
         if self.workspace_settings is None: return
@@ -546,6 +562,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         settings.setValue('window/mode', 'fullscreen' if self.isFullScreen() else 'maximized' if self.isMaximized() else 'normal')
         settings.setValue('window/splitter', self.splitter.saveState())
         settings.setValue('window/preview_splitter', self.preview_splitter.saveState())
+        settings.setValue('window/compact_preview_footer', True)
         settings.setValue('viewer/zoom', self.viewer.zoom)
         settings.setValue('preview/auto_prepare', self.auto_prepare.isChecked())
         settings.setValue('preview/scope', self.preview_scope.currentIndex())
@@ -723,8 +740,9 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.section_scroll.setWidgetResizable(True); self.section_scroll.setWidget(self.section_timeline)
         self.section_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.section_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.section_scroll.setFixedHeight(78)
-        self.section_timeline.automationVisibilityChanged.connect(lambda visible: self.section_scroll.setFixedHeight(108 if visible else 78))
+        self.section_scroll.setFixedHeight(self.section_timeline.height())
+        self.section_scroll.horizontalScrollBar().rangeChanged.connect(self.refresh_timeline_height)
+        self.section_timeline.automationVisibilityChanged.connect(self.refresh_timeline_height)
         controls_layout.addWidget(self.section_scroll)
         self.shot_strip = ClipStoryboard()
         self.shot_strip.selected.connect(self.section_timeline.select_at)
@@ -733,7 +751,6 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.shot_strip.loopsRequested.connect(lambda identifier, count: self.composer and self.composer.set_section_loops(identifier, count))
         controls_layout.addWidget(self.shot_strip)
         self.clip_controls = self.shot_strip.footer
-        controls_layout.addWidget(self.clip_controls)
         self.build_soundtrack_lane(controls_layout)
         self.section_tools = QWidget()
         tools_policy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
@@ -805,10 +822,17 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.preparation_host = preparation_host = QWidget(); preparation_host.setProperty('chrome', True)
         preparation_layout = QVBoxLayout(preparation_host)
         preparation_layout.setContentsMargins(0, 0, 0, 0); preparation_layout.setSpacing(6)
+        self.timing_playback_host = QWidget()
+        timing_playback = PairedControlsLayout(self.timing_playback_host)
+        timing_playback.addWidget(self.clip_controls)
         playback_host = QWidget(); playback_row = FlowLayout(playback_host, spacing=12, center_vertical=True)
-        preparation_layout.addWidget(playback_host)
+        timing_playback.addWidget(playback_host)
+        preparation_layout.addWidget(self.timing_playback_host)
+        self.preparation_details_host = QWidget()
+        preparation_details = PairedControlsLayout(self.preparation_details_host, right_width=220)
         preparation_controls = QWidget(); preparation_row = FlowLayout(preparation_controls, spacing=12, center_vertical=True)
-        preparation_layout.addWidget(preparation_controls)
+        preparation_details.addWidget(preparation_controls)
+        preparation_layout.addWidget(self.preparation_details_host)
         self.preview_scope = QComboBox(); self.preview_scope.addItems(['Entire timeline', 'Selected clips']); self.preview_scope.setAccessibleName('Playback scope')
         self.preview_scope.setToolTip('Playback selection is separate from editing scope. Repeats play in timeline order.')
         self.preview_scope.currentIndexChanged.connect(self.preview_scope_changed)
@@ -838,6 +862,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.prepare_full_preview.setToolTip('Prepare the entire timeline at the selected resolution. Uses temporary lossless disk storage, keeping memory bounded. Does not start playback.')
         self.prepare_full_preview.clicked.connect(self.prepare_full_playback)
         self.setup_preview_range()
+        preparation_details.addWidget(self.preview_range_summary)
         left_layout.addWidget(self.gap_feedback)
         playback_row.addWidget(self.loop_preview_range)
         playback_row.addWidget(self.scope_summary)
@@ -850,7 +875,6 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
             self.quality.setCurrentIndex(int(self.workspace_settings.value('preview/quality', 0)))
             self.preview_range_frames.setValue(int(self.workspace_settings.value('preview/range_frames', 150)))
         controls_layout.addWidget(preparation_host)
-        controls_layout.addWidget(self.preview_range_summary)
         controls_layout.addWidget(self.status)
         self.export_progress = QProgressBar(); self.export_progress.setRange(0, 100); self.export_progress.setValue(0)
         self.export_progress.setTextVisible(True); self.export_progress.setFormat('Ready to export')

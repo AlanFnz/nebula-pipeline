@@ -275,8 +275,9 @@ def test_tall_restored_footer_keeps_controls_packed_at_the_top(window):
     assert context.y() <= tools.y() + tools.height() + 6
     assert window.section_scroll.y() <= context.y() + context.height() + 6
     footer = window.clip_controls
-    assert footer.y() <= window.section_scroll.y() + window.section_scroll.height() + 6
-    assert window.preview_scope.mapTo(pane, QPoint()).y() <= footer.y() + footer.height() + 6
+    footer_top = footer.mapTo(pane, QPoint()).y()
+    assert footer_top <= window.section_scroll.y() + window.section_scroll.height() + 6
+    assert window.preview_scope.mapTo(pane, QPoint()).y() <= footer_top + footer.height() + 6
 
 
 def test_preparation_controls_align_and_wrap_without_overlaps(window):
@@ -299,3 +300,62 @@ def test_preparation_controls_align_and_wrap_without_overlaps(window):
         assert abs(rects[2].center().y() - rects[3].center().y()) <= 1
         assert rects[2].top() > rects[0].bottom()
     assert window.composition == before and not window.has_unsaved_changes()
+
+
+def test_wide_footer_pairs_controls_and_returns_unused_height_to_monitor(window):
+    before = copy.deepcopy(window.composition)
+    generation = window.settings_generation
+    window.resize(1800, 1000); window.splitter.setSizes([1050, 700])
+    window.preview_splitter.setSizes([450, 430])
+    window.scope_summary.setText('4.00s loop')
+    window.preview_range_summary.setText(
+        'Range: 0.00–4.00s · 96 frames · prepared · Loop: 0.00–4.00s · 96 frames')
+    for _ in range(3): QApplication.processEvents()
+    height = window.viewer.height()
+    window.compact_preview_footer()
+    for _ in range(3): QApplication.processEvents()
+    host = window.preparation_host
+    timing = window.shot_strip.duration.rect().translated(window.shot_strip.duration.mapTo(host, QPoint()))
+    playback = window.preview_scope.rect().translated(window.preview_scope.mapTo(host, QPoint()))
+    prepare = window.prepare_full_preview.rect().translated(window.prepare_full_preview.mapTo(host, QPoint()))
+    summary = window.preview_range_summary.rect().translated(window.preview_range_summary.mapTo(host, QPoint()))
+    assert abs(timing.center().y() - playback.center().y()) <= 1
+    assert playback.left() > timing.right()
+    assert summary.left() > prepare.right()
+    assert window.viewer.height() > height + 100
+    assert window.preview_controls_scroll.verticalScrollBar().maximum() == 0
+    assert inside(window.preview_range_summary, window.preview_controls_scroll.viewport())
+    assert window.composition == before and window.settings_generation == generation
+    assert not window.has_unsaved_changes()
+
+
+def test_footer_compaction_does_not_expand_a_deliberately_collapsed_pane(window):
+    window.preview_splitter.moveSplitter(window.height(), 1)
+    QApplication.processEvents()
+    sizes = window.preview_splitter.sizes()
+    window.compact_preview_footer(); QApplication.processEvents()
+    assert window.preview_splitter.sizes() == sizes
+
+
+def test_timeline_reserves_space_only_for_visible_lanes_and_scrollbar(window):
+    window.resize(1728, 1000); window.splitter.setSizes([1000, 700])
+    for _ in range(3): QApplication.processEvents()
+    timeline = window.section_timeline
+    bar = window.section_scroll.horizontalScrollBar()
+    assert bar.maximum() == 0
+    assert window.section_scroll.height() == timeline.LANE_HEIGHT
+    document = copy.deepcopy(window.composition)
+    document['sections'] = [dict(document['sections'][0], id=f'clip-{i}') for i in range(20)]
+    timeline.set_document(document)
+    for _ in range(3): QApplication.processEvents()
+    assert bar.maximum() > 0
+    assert window.section_scroll.height() == timeline.LANE_HEIGHT + bar.sizeHint().height()
+    # Showing the automation lane must preserve both its height and scrollbar.
+    timeline.setFixedHeight(timeline.LANE_HEIGHT + 30)
+    timeline.automationVisibilityChanged.emit(True)
+    QApplication.processEvents()
+    assert window.section_scroll.height() == timeline.LANE_HEIGHT + 30 + bar.sizeHint().height()
+    timeline.set_document(window.composition)
+    for _ in range(3): QApplication.processEvents()
+    assert bar.maximum() == 0
+    assert window.section_scroll.height() == timeline.LANE_HEIGHT

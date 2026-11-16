@@ -65,6 +65,33 @@ class FlowLayout(QLayout):
         return y+height-rect.y()
 
 
+class PairedControlsLayout(FlowLayout):
+    """Two related groups share the width, or stack without squeezing controls."""
+    def __init__(self, parent, *, right_width=None):
+        super().__init__(parent, spacing=6)
+        self.right_width = right_width
+
+    def _arrange(self, rect, apply):
+        items = [item for item in self.items if not item.isEmpty()]
+        if not items: return 0
+        gap = 20
+        paired = (len(items) == 2 and rect.width() >= items[0].sizeHint().width() + gap
+                  + (self.right_width or items[1].sizeHint().width()))
+        widths = ([items[0].sizeHint().width(), rect.width()-items[0].sizeHint().width()-gap]
+                  if paired else [rect.width()] * len(items))
+        heights = [max(item.minimumSize().height(), item.heightForWidth(width)
+                       if item.hasHeightForWidth() else item.sizeHint().height())
+                   for item, width in zip(items, widths)]
+        height = max(heights) if paired else sum(heights) + (len(items)-1)*self.spacing()
+        x, y = rect.x(), rect.y()
+        for item, width, h in zip(items, widths, heights):
+            if apply:
+                item.setGeometry(QRect(x, y + ((height-h)//2 if paired else 0), width, h))
+            if paired: x += width + gap
+            else: y += h + self.spacing()
+        return height
+
+
 class ElidingLabel(QLabel):
     """A single visible line with the complete status retained for accessibility."""
     def __init__(self, text='', *, auto_hide=False):

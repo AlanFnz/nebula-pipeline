@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.113.3 — 2026-11-16
+
+- Use the timeline footer's width to place duration beside playback and the
+  range summary beside preparation. Groups stack in narrower windows. Remove
+  unused scrollbar space and return spare footer height to the monitor once;
+  subsequent divider adjustments remain remembered. Studies, preview behavior
+  and exported output are unchanged.
+
 ## 0.113.2 — 2026-11-16
 
 - Add a subtle loading indicator beside the monitor status for image updates and

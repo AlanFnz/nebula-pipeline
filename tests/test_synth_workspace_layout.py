@@ -89,7 +89,9 @@ def test_small_window_keeps_timeline_and_scrolled_controls_reachable(app):
         app.processEvents()
         scroll = window.preview_controls_scroll
         assert scroll.height() >= 112
-        assert window.section_scroll.height() == 78
+        bar = window.section_scroll.horizontalScrollBar()
+        extra = bar.sizeHint().height() if bar.maximum() else 0
+        assert window.section_scroll.height() == window.section_timeline.height() + extra
         # At minimum column width the existing toolbar wraps above the timeline.
         # The scrollable pane must still reveal it without changing the document.
         scroll.ensureWidgetVisible(window.section_timeline)
