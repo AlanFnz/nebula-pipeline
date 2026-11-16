@@ -14,7 +14,7 @@ def parameters(P):
         P('eye_size', 'Eye width (cells)', 3.2, 1., 7., .05),
         P('eye_placement', 'Eye placement', 0, 0, 1, 1, 'Leave space removes nearby cells. Overlay figures keeps every cell moving behind the eye, including during blinks. The eye shares the same surface treatment.', choices=('Leave space', 'Overlay figures')),
         P('eye_clearance', 'Space around eye', .18, 0., 1.5, .01, 'Extra space in cell intervals when Eye placement is Leave space. Nearby cells leave room for the eye, including while it blinks.'),
-        P('eye_separation', 'Contour gap', 0., 0., 40., .5, 'Background-colored space following the eye outline, including during blinks. In Overlay figures only. Pixels at a 720-pixel artwork edge; zero restores the original overlay.'),
+        P('eye_separation', 'Contour gap', 0., 0., 200., .5, 'Background-colored space following the eye outline, including during blinks. In Overlay figures only. Up to 200 pixels at a 720-pixel artwork edge; try 60–100 for a wider margin. Zero restores the original overlay.'),
         P('eye_opening', 'Eye opening', 1., 0., 1., .01, 'Resting opening. Zero holds the eyelids closed.'),
         P('eye_iris', 'Iris size', 1., .5, 1.35, .01),
         P('eye_pupil', 'Pupil size', .59, .2, .85, .01, 'Relative to the iris. The iris stays circular while the lids close over it.'),

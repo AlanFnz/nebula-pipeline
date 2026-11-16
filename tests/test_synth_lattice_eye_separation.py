@@ -80,7 +80,7 @@ def test_reveal_covers_the_new_margin_during_a_held_blink_then_settles():
 def test_gap_stays_local_finite_and_seek_independent_at_extremes(size):
     w,h=size;arr=np.zeros((h,w,3),np.float32)
     preset=dict(default_synth_preset(),width=w,height=h,seed=141126,speed=1.)
-    p=params(eye_placement=1,eye_size=7.,eye_line=2.,eye_separation=40.,
+    p=params(eye_placement=1,eye_size=7.,eye_line=2.,eye_separation=200.,
              eye_reveal=1.,eye_blink_fps=6,eye_ripple=.8,eye_ripple_response=3,eye_ripple_glow=200.)
     a=render_chromatic_lattice(arr,p,2.1,preset)
     render_chromatic_lattice(arr,p,6.,preset)
@@ -97,14 +97,15 @@ def test_gap_control_visibility_undo_and_saved_render(make_window,tmp_path):
     panel.controls['chromatic_lattice.eye_placement'].input.setCurrentIndex(1)
     assert path in panel.object_eligible
     before=copy.deepcopy(c.document)
-    panel.controls[path].input.setValue(8.)
+    assert panel.controls[path].input.maximum()==200.
+    panel.controls[path].input.setValue(80.)
     changed=copy.deepcopy(c.document)
-    assert changed['effects']['chromatic_lattice']['params'][path]==8.
+    assert changed['effects']['chromatic_lattice']['params'][path]==80.
     save_composition(tmp_path/'gap.json',changed)
     loaded=load_composition(tmp_path/'gap.json');assert loaded==changed
     a,b=compile_composition(changed),compile_composition(loaded)
     preset=resolve_sequence_frame(b,0)[-1]
-    assert next(m['params'] for m in preset['modules'] if m['id']=='chromatic_lattice')['eye_separation']==8.
+    assert next(m['params'] for m in preset['modules'] if m['id']=='chromatic_lattice')['eye_separation']==80.
     assert render_sequence_frame(a,2.1,(144,256)).tobytes()==render_sequence_frame(b,2.1,(144,256)).tobytes()
     w.undo_composition();assert c.document==before
     w.redo_composition();assert c.document==changed

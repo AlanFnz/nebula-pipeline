@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.113.1 — 2026-11-16
+
+- Expand **Contour gap** from 40 to 200 px for a wider background margin around
+  the eye. Existing widths retain their exact rendering; zero remains the default.
+
 ## 0.113.0 — 2026-11-16
 
 - Add **Contour gap** to the Watching eye overlay: a narrow, background-colored
