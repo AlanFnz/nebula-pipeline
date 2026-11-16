@@ -31,7 +31,7 @@ def parameters(P):
         P('eye_blink_fps', 'Blink cadence', 0, 0, 60, 1, 'Zero follows Timeline FPS. Positive values hold eyelid poses at this many frames per second, independently of the cells and texture. Try 6, 8 or 12 for stepped motion. Blink duration and Blinks per cycle control speed and frequency separately.'),
         P('eye_blink_variation', 'Blink irregularity', .75, 0., 1., .01, 'Vary intervals and speed deterministically, so export and random seeking agree.'),
         P('eye_double_blink', 'Double blink amount', .30, 0., 1., .01),
-        P('eye_blink_phase', 'Blink phase', 0., 0., 1., .01),
+        P('eye_blink_phase', 'Blink phase', 0., 0., 1., .01, 'Choose where the repeating blink pattern starts. 0.5 starts halfway through the cycle, shifting single and double blinks together without changing their duration.'),
         P('eye_reveal', 'Materialization', 0., 0., 1., .01, 'Granular appearance of cells uncovered by a blink in Overlay figures. Zero keeps the immediate reveal.'),
         P('eye_reveal_duration', 'Reveal duration (s)', .16, .03, .6, .01, 'Time for newly uncovered pigment to become solid, at global speed 1. Independent of held eyelid poses.'),
         P('eye_reveal_grain', 'Reveal grain size', 1.5, .4, 5., .1, 'Pigment particle size in pixels at a 720-pixel artwork edge. Shares the existing print and finishing effects.'),

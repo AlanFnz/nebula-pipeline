@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.113.4 — 2026-11-16
+
+- Rename the eye's **Eye reveal** group to **Background reveal** and explain that
+  it materializes figures behind the eye during blinks. Clarify the existing
+  **Blink phase** control. Saved parameter identifiers, values and rendering
+  are unchanged.
+
 ## 0.113.3 — 2026-11-16
 
 - Use the timeline footer's width to place duration beside playback and the

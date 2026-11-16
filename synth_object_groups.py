@@ -165,6 +165,10 @@ class ObjectGroupsMixin:
                     summary += '\nEnable Framed label in Text / Subtitle to use these controls.'
             if self.kind == 'text' and title == 'Reading':
                 summary += '\nReading timing does not change the clip or project duration.'
+            if self.kind == 'lattice' and title == 'Background reveal':
+                summary = '\n'.join(part for part in (
+                    summary if summary != 'No local overrides' else '',
+                    'Materialization of the figures behind the eye during blinks.') if part)
             group.summary.setText(summary); group.summary.setVisible(bool(summary) and summary != 'No local overrides')
             group.button.setAccessibleDescription(summary + '. Expand or collapse. Changes no values.')
             group.body.setVisible(expanded)

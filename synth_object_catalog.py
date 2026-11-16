@@ -39,7 +39,7 @@ FAMILY_GROUPS = {
         ('Shape & layout', 'surface shape sides spacing size minimum rotation morph corner grid_x grid_y'),
         ('Center eye', 'eye_enabled eye_size eye_placement eye_clearance eye_separation eye_opening eye_iris eye_pupil eye_line eye_hue eye_saturation eye_light eye_ink_hue eye_ink_saturation eye_ink_light'),
         ('Eye blinking', 'eye_blink_fps eye_blink_count eye_blink_period eye_blink_duration eye_blink_variation eye_double_blink eye_blink_phase'),
-        ('Eye reveal', 'eye_reveal eye_reveal_duration eye_reveal_grain'),
+        ('Background reveal', 'eye_reveal eye_reveal_duration eye_reveal_grain'),
         ('Eye ripple', 'eye_ripple eye_ripple_response eye_ripple_size eye_ripple_rotation eye_ripple_position eye_ripple_fluid eye_ripple_glow eye_ripple_glow_radius eye_ripple_speed eye_ripple_reach eye_ripple_width'),
         ('Wave motion', 'wave_shape wavelength direction sweep_direction angle pulse phase'),
         ('Rhythm & timing', 'color_rhythm bpm phrase_bars period color_period color_spread color_phase color_direction hollow cadence'),

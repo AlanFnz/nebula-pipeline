@@ -253,7 +253,7 @@ background-colored margin following the eye and its blinks. Zero removes it;
 try 8 px for a subtle separation or 60–100 px for a wider margin. The maximum
 is 200 px. The width scales with the artwork.
 **Eye width (cells)** controls size in either mode.
-With Overlay figures, **Object → Eye reveal → Materialization** makes newly
+With Overlay figures, **Object → Background reveal → Materialization** makes newly
 uncovered cells appear as fine pigment. Adjust **Reveal duration** and **Reveal
 grain size**; zero Materialization restores the immediate reveal. It follows
 the blink while leaving the surrounding grid and its motion intact.
@@ -274,7 +274,10 @@ when reframing. It fades as it travels and leaves the eye itself in place.
 Eye and ink colors have
 their own swatches; the iris follows First cell color. **Eye blinking** controls
 blink count, cycle, duration, irregularity and double blinks. A zero count holds
-the chosen opening. **Blink cadence** holds the eyelid poses at a chosen FPS;
+the chosen opening. **Blink phase** chooses where that repeating pattern starts:
+0.5 starts halfway through the cycle. It shifts single and double blinks together;
+it does not author a new sequence of blinks.
+**Blink cadence** holds the eyelid poses at a chosen FPS;
 try 6, 8 or 12 for a stepped look. **Timeline FPS** (zero) keeps the original
 smooth movement. This does not change the cells, texture or blink duration.
 The default blink cycle is eight seconds; keep it equal to

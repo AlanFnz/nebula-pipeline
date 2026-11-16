@@ -95,7 +95,9 @@ def test_reveal_controls_follow_overlay_and_are_undoable(make_window):
     assert path not in panel.object_eligible
     panel.controls['chromatic_lattice.eye_placement'].input.setCurrentIndex(1)
     assert path in panel.object_eligible
-    assert 'Eye reveal' in panel.object_groups
+    group = panel.object_groups['Background reveal']
+    assert 'Materialization of the figures behind the eye during blinks.' in group.summary.text()
+    assert 'Eye reveal' not in panel.object_groups
     original=copy.deepcopy(c.document)
     panel.controls[path].input.setValue(.9)
     changed=copy.deepcopy(c.document)
