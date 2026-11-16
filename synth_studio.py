@@ -27,6 +27,7 @@ from studio_widgets import configure_parameter_spin, PlaybackButton
 from synth_workspace_widgets import FlowLayout, ElidingLabel, WorkspaceSplitter, inline
 from synth_workspace_context import ContextHeader, ContextSummary, studio_context
 from synth_preview_range import PreviewRangeStudio, scope_from_frames
+from synth_monitor_status import MonitorStatus
 
 from media import Cancellation
 from studio_theme import COLORS, apply_theme, terminal_font, ui_font
@@ -287,6 +288,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.render_running = False
         self.render_job = None
         self.render_queued = False
+        self.preview_image_stale = True
         self.preview_frames = ComparisonFrames()
         self.preview_validity = None
         self.prepare_job = None
@@ -794,7 +796,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.total_time_label.setToolTip('Duration of all clips and loops. Updates automatically when timing changes.')
         timeline.addWidget(self.total_time_label); left_layout.addWidget(transport)
         preview_line = QHBoxLayout(); preview_line.setContentsMargins(0, 0, 0, 3); preview_line.setSpacing(8)
-        self.preview_status = ElidingLabel('Preview paused'); self.preview_status.setObjectName('muted'); self.preview_status.setAccessibleName('Preview performance')
+        self.preview_status = MonitorStatus('Preview paused', self.preview_activity); self.preview_status.setObjectName('muted'); self.preview_status.setAccessibleName('Monitor activity')
         preview_line.addWidget(self.preview_status, 1)
         self.cache_status = QLabel('Preview ready: 0 frames'); self.cache_status.setObjectName('monitorMeta'); self.cache_status.setAccessibleName('Prepared preview frames')
         self.cached_ranges.rangesChanged.connect(self.refresh_cache_status)
@@ -1944,6 +1946,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
             if performance_changed: self.request_frame()
             return
         self.cancel_foreground_render()
+        self.preview_image_stale = True
         retain = None if force_clear else retained_frame_predicate(self.preview_validity, current)
         self.settings_generation += 1  # Worker rejection changes even when pixels can be retained.
         if not comparison_switch:
@@ -1962,6 +1965,31 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.preview_status.setText('Preview outdated · updating…')
         self.render_queued = True
         self.preview_debounce.start(100)
+        self.refresh_preview_activity()
+
+    def preview_activity(self):
+        """Describe actual work, separately from playback and cache readiness."""
+        if self.closing or self.preview_suspended: return 'idle', ''
+        foreground = self.render_job
+        if (foreground is not None and foreground.settings_generation == self.settings_generation
+                and not foreground.cancel.event.is_set()):
+            return 'loading', 'Updating preview…'
+        preparation = self.prepare_job
+        if (preparation is not None and preparation.generation == self.settings_generation
+                and not preparation.cancel.event.is_set()):
+            return 'loading', self.preparation_feedback()
+        if self.export_job:
+            if self.preview_image_stale:
+                return 'waiting', 'Preview waiting for export · changes pending'
+            return 'waiting', 'Preview preparation paused during export'
+        if self.render_queued or self.preview_debounce.isActive():
+            return 'loading', 'Updating preview…'
+        if self.warm_debounce.isActive() and not self.preview_frames.complete(self.timeline.maximum()+1):
+            return 'loading', 'Preparing preview…'
+        return 'idle', ''
+
+    def refresh_preview_activity(self):
+        if hasattr(self, 'preview_status'): self.preview_status.refresh()
 
     def preview_fps(self):
         return self.sequence['fps'] if self.sequence is not None else self.preset['export_fps']
@@ -2041,6 +2069,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
             self.warm_debounce.stop()
             if not self.preparation_explicit: self.cancel_preparation()
         else: self.schedule_auto_preparation()
+        self.refresh_preview_activity()
 
     def schedule_auto_preparation(self):
         if getattr(self, 'gap_preparation_paused', False): return
@@ -2048,8 +2077,10 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         if self.loop_preview_range.isChecked() and (self.preparation_explicit or
                 all(self.preview_frames.contains(frame) for frame in self.prepared_range_sources)): return
         self.warm_debounce.start(400)
+        self.refresh_preview_activity()
 
     def _automatic_preparation(self):
+        self.refresh_preview_activity()
         if self.gap_preparation_paused: return
         if self.preview_suspended or self.closing or self.export_job: return
         if self.preparation_explicit:
@@ -2081,6 +2112,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.prepare_preview.setText('Prepare range')
         self.prepare_full_preview.setText('Prepare all frames')
         self.refresh_cache_status()
+        self.refresh_preview_activity()
 
     def prepare_full_playback(self, checked=False):
         if self.preparing_gap is not None or self.closing or self.export_job or self.audition_pending(): return
@@ -2148,6 +2180,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         if self.warming_job: return
         if self.render_running or self.render_queued or self.preview_debounce.isActive():
             if not self.warm_debounce.isActive(): self.warm_debounce.start(100)
+            self.refresh_preview_activity()
             return
         frames = self.preview_scheduler.batch(self.preparation_target, self.preview_frames)
         size = self.preview_size()
@@ -2198,6 +2231,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         if self.render_queued and not self.render_running and not self.preview_debounce.isActive(): QTimer.singleShot(0, self.request_frame)
         if self.preparation_target: QTimer.singleShot(0, self._start_warm_batch)
         else: self.schedule_auto_preparation()
+        self.refresh_preview_activity()
 
     def update_timeline_max(self):
         if hasattr(self, "timeline"):
@@ -2243,10 +2277,12 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
             self.render_queued = False
             self.display_frame(self.current_time, packet, cached=True)
             return
+        self.preview_image_stale = True
         if self.loop_preview_range.isChecked() or self.preparing_gap is not None:
             # Waiting for a prepared packet must not compete with/cancel its worker.
             self.render_queued = False
             self.refresh_cache_status()
+            self.refresh_preview_activity()
             return
         self._obsolete_preparation()
         if self.render_running or (self.discovery_session and self.warming_job):
@@ -2260,6 +2296,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         job = RenderJob(self.preset, sample_time, size, self.settings_generation, self.request_serial, sequence, self.video_frames, self.preview_bypass())
         job.output_time = self.current_time
         self.render_job = job
+        self.refresh_preview_activity()
         job.reserved_bytes = size[0]*size[1]*3 if size[0]*size[1]*3 <= self.preview_frames.budget else 0
         self.preview_frames.reserve(job.reserved_bytes, (source_frame,))
         self.refresh_cached_ranges()
@@ -2291,6 +2328,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
             QTimer.singleShot(0, self.request_frame)
         if self.preparation_target: QTimer.singleShot(0, self._start_warm_batch)
         elif not self.warm_debounce.isActive(): self.schedule_auto_preparation()
+        self.refresh_preview_activity()
 
     def frame_ready(self, result, output_time=None):
         if self.closing or not self.ensure_preview_context(): return
@@ -2308,6 +2346,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.display_frame(output_time, (size, raw))
 
     def display_frame(self, time_seconds, packet, cached=False):
+        self.preview_image_stale = False
         self.refresh_effect_explanations(time_seconds)
         if self.discovery_session: self.discovery_session.accept_packet()
         if self.comparison:
@@ -2332,6 +2371,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
             self.preview_status.setText(f'Preview paused · {"cached frame" if cached else f"rendered in {self.last_render_seconds*1000:.0f} ms"}')
         if self.play.isChecked() and not self.warm_debounce.isActive() and not self.preparation_explicit:
             self.schedule_auto_preparation()
+        self.refresh_preview_activity()
     def render_failed(self, message):
         if self.discovery_session: self.discovery_session.fail(message)
         self.status.setText(f"Render error: {message}")
@@ -2500,6 +2540,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         p = copy.deepcopy(self.preset) if self.sequence is not None else self.collect()
         canvas = self.current_canvas(); size = (canvas["width"], canvas["height"])
         job = ExportJob(p, path, size, self.sequence); self.export_job = job; self.cancel_export.setEnabled(True); self.pending_jobs.append(job)
+        self.refresh_preview_activity()
         job.signals.progress.connect(lambda done, total, j=job: self.export_progressed(j, done, total))
         job.signals.done.connect(lambda result, j=job: self.export_finished(j, result))
         job.signals.done.connect(lambda _result, j=job: self._finish_export(j))
@@ -2542,7 +2583,9 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
             self.export_job = None
             self.cancel_export.setEnabled(False); self.cancel_export.hide(); self.export_progress.hide()
             self.export_button.setEnabled(True)
+            self.preview_status.setText('Preview outdated · prepare frames to update' if self.preview_image_stale else 'Preview paused')
             self.schedule_auto_preparation()
+            self.refresh_preview_activity()
 
     def cancel_export_job(self):
         if self.export_job:

@@ -17,6 +17,12 @@ authored effect, so it does affect export.
 
 ## Preparation
 
+A small spinner beside the monitor status indicates an image update or frame
+preparation. It stops when the work finishes or is cancelled. A stationary pause
+symbol during export means preview preparation is waiting; the message indicates
+when the displayed image has pending changes. Auto prepare resumes after export.
+The export uses the project as it was when started, without later edits.
+
 Choose a frame count beside **Prepare range**, position the playhead, then prepare.
 The range uses the selected resolution and temporary lossless storage, even when
 it exceeds memory. Near the end it starts earlier to keep the requested length.

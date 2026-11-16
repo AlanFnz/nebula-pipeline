@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.113.2 — 2026-11-16
+
+- Add a subtle loading indicator beside the monitor status for image updates and
+  frame preparation. Export waits use a stationary pause symbol and explicitly
+  identify pending preview changes. The animation stops when idle or hidden and
+  never renders extra frames. Studies, saved settings and export pixels are unchanged.
+
 ## 0.113.1 — 2026-11-16
 
 - Expand **Contour gap** from 40 to 200 px for a wider background margin around
