@@ -28,6 +28,7 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
     center_path_requested = Signal()
     automation_requested = Signal(str)
     navigation_changed = Signal()
+    palette_changed = Signal(str)
 
     def __init__(self):
         super().__init__()
@@ -89,6 +90,12 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
         from synth_color_ui import ColorPanel
         from synth_blender_colors import BLENDER_COLORS
         from synth_lattice_colors import LATTICE_COLORS
+        from synth_lattice_palettes import PALETTES
+        from synth_palette_ui import PaletteSelector
+        self.palette_context_provider = None
+        self.palette_selector = PaletteSelector(PALETTES); layout.addWidget(self.palette_selector)
+        self.palette_selector.chosen.connect(self.palette_changed.emit)
+        self.palette_selector.hide()
         self.color_panel = ColorPanel((*BLENDER_COLORS,*LATTICE_COLORS)); layout.addWidget(self.color_panel)
         self.color_panel.hide()
         self.text_layout_note = QLabel(); self.text_layout_note.setWordWrap(True)
@@ -135,6 +142,7 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
         layout.addStretch(1)
 
     def refresh_object_colors(self, query=''):
+        self.palette_selector.hide()
         if self.kind not in ('blender','lattice'):
             self.color_panel.hide(); return
         from synth_blender_colors import scene_colors, color_spec
@@ -144,6 +152,9 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
         if self.kind == 'lattice':
             from synth_lattice_colors import lattice_colors
             keys = lattice_colors(params)
+            if keys and self.palette_context_provider and (not query or query in 'color palette skin'):
+                self.palette_selector.refresh(*self.palette_context_provider())
+                self.palette_selector.show()
         else: keys = scene_colors(params, self.part_selector.currentData())
         if query:
             keys = tuple(k for k in keys if query in (color_spec(k).label + ' color palette ' + ' '.join(color_spec(k).channels)).casefold())
@@ -305,7 +316,8 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
         self.wording_host.setVisible(self.kind == 'text')
         self.text_tabs.setVisible(self.kind == 'text')
         self.part_navigation.setVisible(self.kind == 'blender' and self.pages.currentWidget() is self.overview_scroll)
-        if self.kind not in ('blender','lattice'): self.color_panel.hide()
+        if self.kind not in ('blender','lattice'):
+            self.color_panel.hide(); self.palette_selector.hide()
         self.text_layout_note.hide()
         self.details.setText('Text appearance…' if self.kind == 'text' else 'Activation & preset…')
         self.timing.setText('Creative motion…' if self.kind == 'particles' else 'Motion & timing…')

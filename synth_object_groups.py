@@ -176,7 +176,7 @@ class ObjectGroupsMixin:
         self.control_host.show()
         if query:
             self.text_layout_note.hide(); self.text_motion_link.hide()
-        self.no_object_matches.setVisible(bool(query) and not self.search_results and not position_match and not any(not g.isHidden() for g in self.object_groups.values()) and self.color_panel.isHidden())
+        self.no_object_matches.setVisible(bool(query) and not self.search_results and not position_match and not any(not g.isHidden() for g in self.object_groups.values()) and self.color_panel.isHidden() and self.palette_selector.isHidden())
         if self.kind == 'memory':
             self.motion_frame.setVisible(not query or any(query in term for term in ('center path', 'path & travel', 'amplitude', 'travel')))
         self.object_filter.setToolTip('Search all object pages and groups. Press Enter to edit the first matching control. Clear to return to your previous view.')

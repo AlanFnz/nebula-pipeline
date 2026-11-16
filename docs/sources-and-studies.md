@@ -232,6 +232,17 @@ Chromatic pulse study keeps its optical surface.
 Both sweeps repeat every four seconds; the texture completes its cycle in eight.
 After changing periods, use a duration containing whole cycles for a seamless loop.
 
+**Object → Color palette** changes the cell colors, background and enabled eye
+together. The menu shows swatches for **Original · Jade / violet** and five
+warm/mineral alternatives. Active Broadcast wear accents follow the palette too.
+It applies to the current Composition or Clip scope in one undoable edit;
+individual swatches remain editable and then show **Custom / animated**.
+Other clip overrides and automation retain priority. Opening the menu changes
+nothing, and the palette saves as ordinary color values with the project.
+The alternatives are artistic interpretations inspired by Buddhist painting,
+including the [mineral pigments documented by the Smithsonian](https://mci.si.edu/node/1200385),
+rather than prescribed religious color schemes.
+
 **Lattice / watching eye** is a separate eight-second variant with an illustrated
 eye at the center. In **Object → Center eye**, adjust its width, opening, iris,
 pupil, outline and surrounding space, or disable it.

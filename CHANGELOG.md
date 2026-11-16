@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.112.0 — 2026-11-16
+
+- Add a swatch-backed **Color palette** menu for Printed orbit and Watching eye:
+  the original Jade/violet colors plus five coordinated warm/mineral palettes.
+  Each selection updates cells, background, an enabled eye and active Broadcast
+  wear accents in one undoable edit, using existing saved color parameters.
+  The menu respects Composition/Clip scope and shows Custom/animated after
+  manual edits. Existing projects, motion, texture and render defaults are unchanged.
+
 ## 0.111.0 — 2026-11-16
 
 - Add **Glow pulse** and **Glow softness** to the eye ripple's Custom mix. Each

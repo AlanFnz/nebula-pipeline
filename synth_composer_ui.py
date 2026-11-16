@@ -854,6 +854,8 @@ class CompositionPanel(QWidget):
         self.object_panel.color_panel.context_provider = self.color_context
         self.object_panel.color_panel.changed.connect(self.change_color)
         self.object_panel.color_panel.restored.connect(self.restore_color)
+        self.object_panel.palette_context_provider = self.lattice_palette_context
+        self.object_panel.palette_changed.connect(self.change_lattice_palette)
         geometry_layout = self.object_panel.signal_layout
         self.object_panel.selected.connect(self.change_object)
         self.object_panel.restored.connect(self.restore_object)
@@ -1202,6 +1204,37 @@ class CompositionPanel(QWidget):
             for section in document['sections']:
                 section['effects'].pop(effect_id, None)
         self.commit(document, f"{action}:{self.scope}:{self.index}:{effect_id}")
+
+    def lattice_palette_options(self):
+        summary = self.effects_panel.summary
+        eye = summary['chromatic_lattice']['ranges']['chromatic_lattice.eye_enabled'][1] > 0
+        return dict(eye=eye, broadcast=summary['broadcast']['active'])
+
+    def lattice_palette_context(self):
+        from synth_lattice_palettes import matching_palette
+        ranges = {path: values for item in self.effects_panel.summary.values()
+                  for path,values in item['ranges'].items()}
+        options = self.lattice_palette_options()
+        key = matching_palette(ranges, **options)
+        scope = f'Clip {self.index+1}' if self.scope else 'Composition'
+        note = f'{scope} · Cells, background' + (' and eye.' if options['eye'] else '.')
+        if options['broadcast']: note += ' Also matches Broadcast wear accents.'
+        note += ' Individual colors remain editable; clip overrides and automation still apply.'
+        return key, note
+
+    def change_lattice_palette(self, key):
+        if self.updating or self.object_panel.kind != 'lattice': return
+        from synth_lattice_palettes import PALETTES, palette_values
+        if key not in {p.key for p in PALETTES}: return
+        # Choosing the already resolved palette is read-only, even if inherited.
+        if self.lattice_palette_context()[0] == key: return
+        document = copy.deepcopy(self.document)
+        effects = self.target(document)['effects']
+        for path,value in palette_values(key, **self.lattice_palette_options()).items():
+            module = path.split('.',1)[0]
+            entry = effects.setdefault(module, {'mode':'recipe','params':{}})
+            entry['params'][path] = value
+        self.commit(document, f'color-palette:{self.scope}:{self.index}:{key}')
 
     def color_context(self, key):
         """Sample the displayed shot, not a numeric minimum across the study."""
