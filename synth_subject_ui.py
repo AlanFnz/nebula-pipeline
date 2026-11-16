@@ -425,7 +425,7 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
             elif ranges['chromatic_lattice.eye_placement'] == (0,0):
                 hide(*('chromatic_lattice.'+key for key in ('eye_reveal','eye_reveal_duration','eye_reveal_grain')))
             if ranges['chromatic_lattice.eye_ripple_response'][1] < 3:
-                hide(*('chromatic_lattice.eye_ripple_'+key for key in ('size','rotation','position','fluid')))
+                hide(*('chromatic_lattice.eye_ripple_'+key for key in ('size','rotation','position','fluid','glow','glow_radius')))
             if relief:
                 hide(*('chromatic_lattice.'+key for key in ('palette','background','color_rhythm','bpm','phrase_bars')))
                 if ranges['chromatic_lattice.shape'] == (0,0):

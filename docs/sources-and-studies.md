@@ -251,6 +251,9 @@ Choose **Custom mix** to adjust **Size pulse**, **Rotation shake**, **Position
 shake** and **Fluid wave** independently. Zero disables an individual response;
 **Ripple amount** scales the whole mix. Rotation rocks each figure around its
 own center. Try 10–20% Fluid wave to bring back a little flowing movement.
+In Custom mix, **Glow pulse** briefly brightens each figure in its own color as
+the wave arrives; zero turns it off. **Glow softness** controls the halo spread,
+while **Ripple width** controls how long the pulse lasts. The eye covers the glow.
 **Speed**, **reach** and **width** use cell intervals, so the wave stays circular
 when reframing. It fades as it travels and leaves the eye itself in place.
 Eye and ink colors have

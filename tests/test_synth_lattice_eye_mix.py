@@ -80,14 +80,15 @@ def test_dense_rotating_cells_stay_inside_their_tiles(shape):
 
 def test_mix_is_periodic_seek_independent_and_saved_with_all_controls(tmp_path):
     p=params(eye_ripple=.8,eye_ripple_response=3,eye_ripple_rotation=8.,eye_ripple_fluid=15.,
-             eye_ripple_position=20.,eye_ripple_size=70.,eye_blink_period=3.7,eye_blink_phase=.94)
+             eye_ripple_position=20.,eye_ripple_size=70.,eye_ripple_glow=75.,eye_ripple_glow_radius=7.,
+             eye_blink_period=3.7,eye_blink_phase=.94)
     for t in (0.,.05,.7,1.5,2.7,3.69):
         a=ripple_profile(p,t,141126);b=ripple_profile(p,t+3.7,141126)
         ripple_profile(p,t+2,141126)
         c=ripple_profile(p,t,141126)
         assert np.array_equal(a,c) and np.allclose(a,b,atol=1e-12)
     project=watching_eye_composition()
-    keys=('response','size','rotation','position','fluid','speed','width','reach')
+    keys=('response','size','rotation','position','fluid','glow','glow_radius','speed','width','reach')
     values={'chromatic_lattice.eye_ripple_'+k:p['eye_ripple_'+k] for k in keys}
     values['chromatic_lattice.eye_ripple']=.8
     project['effects']['chromatic_lattice']={'mode':'recipe','params':values}
@@ -101,11 +102,11 @@ def test_mix_is_periodic_seek_independent_and_saved_with_all_controls(tmp_path):
 def test_custom_mix_controls_are_visible_saved_and_undoable(make_window):
     w=make_window(composition=watching_eye_composition());c=w.composer;panel=c.object_panel
     c.look_tabs.setCurrentWidget(panel)
-    keys=['chromatic_lattice.eye_ripple_'+k for k in ('size','rotation','position','fluid')]
+    keys=['chromatic_lattice.eye_ripple_'+k for k in ('size','rotation','position','fluid','glow','glow_radius')]
     assert not any(key in panel.object_eligible for key in keys)
     panel.controls['chromatic_lattice.eye_ripple_response'].input.setCurrentIndex(3)
     assert all(key in panel.object_eligible for key in keys)
-    for key,value in zip(keys,(60.,8.,12.,15.)):
+    for key,value in zip(keys,(60.,8.,12.,15.,80.,7.)):
         before=copy.deepcopy(c.document)
         panel.controls[key].input.setValue(value)
         after=copy.deepcopy(c.document)

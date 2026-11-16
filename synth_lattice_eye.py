@@ -40,6 +40,8 @@ def parameters(P):
         P('eye_ripple_rotation', 'Rotation shake', 0., 0., 20., .1, 'Custom mix: maximum rotation in degrees before Ripple amount and distance attenuation. Each figure briefly rocks around its own center, then returns to its original angle.'),
         P('eye_ripple_position', 'Position shake', 0., 0., 100., 1., 'Custom mix: strength of the small position vibration. 100% matches Pulse + shake; zero keeps each cell center in place.'),
         P('eye_ripple_fluid', 'Fluid wave', 0., 0., 100., 1., 'Custom mix: blend in the original flowing deformation. Try 10–20% for a subtle trace; zero removes it. Ripple amount remains the shared master control.'),
+        P('eye_ripple_glow', 'Glow pulse', 0., 0., 200., 1., 'Custom mix: briefly light each figure as the radial signal arrives, using its own color. Zero disables the light pulse. Ripple amount scales it together with the other responses.'),
+        P('eye_ripple_glow_radius', 'Glow softness', 6., 1., 24., .5, 'Custom mix: spread of the halo, in pixels at a 720-pixel artwork edge. The eye stays in front of the glowing cells. Ripple width sets pulse duration.'),
         P('eye_ripple_speed', 'Ripple speed', 7., 2., 24., .1, 'Cell intervals per second at global speed 1. The wave starts with each visible blink and moves smoothly, independently of held cell poses.'),
         P('eye_ripple_reach', 'Ripple reach', 10., 2., 20., .1, 'Maximum radius in cell intervals. The wave loses strength as it travels and fades out at this distance.'),
         P('eye_ripple_width', 'Ripple width', .8, .3, 2.5, .05, 'Width of the wave in cell intervals. Larger values make each response last longer.'),
@@ -52,6 +54,7 @@ EYE_KEYS = frozenset(('eye_enabled', 'eye_size', 'eye_placement', 'eye_clearance
     'eye_reveal', 'eye_reveal_duration', 'eye_reveal_grain',
     'eye_ripple', 'eye_ripple_response', 'eye_ripple_speed', 'eye_ripple_reach', 'eye_ripple_width',
     'eye_ripple_size', 'eye_ripple_rotation', 'eye_ripple_position', 'eye_ripple_fluid',
+    'eye_ripple_glow', 'eye_ripple_glow_radius',
     *(name+'_'+channel for name in ('eye', 'eye_ink') for channel in ('hue', 'saturation', 'light'))))
 
 

@@ -102,6 +102,9 @@ def render_relief(arr, p, seconds, preset):
         if not cell_response: fluid = ripple
         elif p['eye_ripple_response'] == 3 and p.get('eye_ripple_fluid', 0.):
             fluid = (ripple[0], ripple[3])
+    pulse_light = (p.get('eye_ripple_glow', 0.)/100.
+                   if ripple is not None and p.get('eye_ripple_response') == 3 else 0.)
+    emission = np.zeros_like(result) if pulse_light else None
     for top in range(0, h, 128):
         y, x = np.mgrid[top:min(h, top+128), :w].astype(np.float32)
         sample_x, sample_y = ripple_coordinates(x, y, center, spacing, fluid) if fluid is not None else (x, y)
@@ -155,6 +158,16 @@ def render_relief(arr, p, seconds, preset):
             reserved = reserved_cells(ix, iy, spacing, (cx, cy), center, p)
             tile[reserved] = paper
         result[top:top+128] = tile
+        if emission is not None:
+            # Reuse the arrival envelope at the cell's center. Only its printed
+            # pigment emits; the paper and empty centers do not flash together.
+            radial = np.hypot(ix+p['grid_x'], iy+p['grid_y'])
+            pulse = np.interp(radial, ripple[0], ripple[1], right=0.)
+            emission[top:top+128] = np.maximum(tile-paper, 0)*(pulse*pulse_light)[..., None]
+    if emission is not None:
+        # Blur after assembling the strips to avoid seams, then cover with the
+        # original eye/reveal. Both direct light and halo share the cell color.
+        result += emission*.8 + _blur(emission, p.get('eye_ripple_glow_radius', 6.)*unit)*1.2
     if p.get('eye_enabled', 0):
         from synth_lattice_eye import render_eye
         result = render_eye(result, p, seconds, preset, center, spacing, unit)

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.111.0 — 2026-11-16
+
+- Add **Glow pulse** and **Glow softness** to the eye ripple's Custom mix. Each
+  figure briefly lights in its own color as the blink-driven wave reaches it,
+  with a soft halo beneath the eye. The pulse shares the ripple's amount, speed,
+  reach and width, and can be saved, animated and undone. Glow defaults to zero;
+  existing studies, saved projects and response modes retain their rendering.
+
 ## 0.110.0 — 2026-11-16
 
 - Add **Custom mix** to **Object → Eye ripple → Cell response**: independent
