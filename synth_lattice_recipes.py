@@ -54,7 +54,7 @@ def watching_eye_composition():
     project['source']['name'] = project['name']
     params = project['source']['states']['orbit']['overrides']
     # Preserve the first version's frozen recipe; later controls are opt-in.
-    later_controls = {'eye_blink_fps','eye_placement','eye_reveal','eye_reveal_duration','eye_reveal_grain',
+    later_controls = {'eye_separation','eye_blink_fps','eye_placement','eye_reveal','eye_reveal_duration','eye_reveal_grain',
                       'eye_ripple','eye_ripple_response','eye_ripple_speed','eye_ripple_reach','eye_ripple_width',
                       'eye_ripple_size','eye_ripple_rotation','eye_ripple_position','eye_ripple_fluid',
                       'eye_ripple_glow','eye_ripple_glow_radius'}

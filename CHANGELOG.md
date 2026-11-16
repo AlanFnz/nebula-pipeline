@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.113.0 — 2026-11-16
+
+- Add **Contour gap** to the Watching eye overlay: a narrow, background-colored
+  margin follows the eyelids and clears nearby cell pigment and glow. Its width
+  is editable and scales with the artwork. Blink materialization includes the
+  margin as it uncovers figures. Zero is the default; existing studies and the
+  original Leave space placement retain their rendering.
+
 ## 0.112.1 — 2026-11-16
 
 - **Loop prepared range** now follows the longest continuous ready span in the

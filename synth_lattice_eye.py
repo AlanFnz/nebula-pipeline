@@ -14,6 +14,7 @@ def parameters(P):
         P('eye_size', 'Eye width (cells)', 3.2, 1., 7., .05),
         P('eye_placement', 'Eye placement', 0, 0, 1, 1, 'Leave space removes nearby cells. Overlay figures keeps every cell moving behind the eye, including during blinks. The eye shares the same surface treatment.', choices=('Leave space', 'Overlay figures')),
         P('eye_clearance', 'Space around eye', .18, 0., 1.5, .01, 'Extra space in cell intervals when Eye placement is Leave space. Nearby cells leave room for the eye, including while it blinks.'),
+        P('eye_separation', 'Contour gap', 0., 0., 40., .5, 'Background-colored space following the eye outline, including during blinks. In Overlay figures only. Pixels at a 720-pixel artwork edge; zero restores the original overlay.'),
         P('eye_opening', 'Eye opening', 1., 0., 1., .01, 'Resting opening. Zero holds the eyelids closed.'),
         P('eye_iris', 'Iris size', 1., .5, 1.35, .01),
         P('eye_pupil', 'Pupil size', .59, .2, .85, .01, 'Relative to the iris. The iris stays circular while the lids close over it.'),
@@ -48,7 +49,7 @@ def parameters(P):
     )
 
 
-EYE_KEYS = frozenset(('eye_enabled', 'eye_size', 'eye_placement', 'eye_clearance', 'eye_opening',
+EYE_KEYS = frozenset(('eye_enabled', 'eye_size', 'eye_placement', 'eye_clearance', 'eye_separation', 'eye_opening',
     'eye_iris', 'eye_pupil', 'eye_line', 'eye_blink_count', 'eye_blink_period',
     'eye_blink_duration', 'eye_blink_fps', 'eye_blink_variation', 'eye_double_blink', 'eye_blink_phase',
     'eye_reveal', 'eye_reveal_duration', 'eye_reveal_grain',
@@ -106,6 +107,33 @@ def reserved_cells(ix, iy, spacing, grid_center, center, p):
     return (np.maximum(np.abs(x)-spacing*.4, 0)/rx)**2+(np.maximum(np.abs(y)-spacing*.4, 0)/ry)**2 < 1
 
 
+def contour_gap_mask(x, y, width, arch, aa, p, opening, gap):
+    """Expand the moving ink silhouette with a rounded, artwork-scaled gap.
+
+    Normal distances keep the margin even along the curved lids. The horizontal
+    distance rounds the two tips instead of extending a rectangular cutout.
+    This is local to the eye, independent of grid motion and frame history.
+    """
+    canthus = .0525*width
+    closed = canthus+.025*width*arch
+    upper = closed+opening*(canthus-.265*width*arch-closed)
+    lower = closed+opening*(canthus+.160*width*arch-closed)
+    us = np.gradient(upper, axis=1) if x.shape[1] > 1 else np.zeros_like(x)
+    ls = np.gradient(lower, axis=1) if x.shape[1] > 1 else np.zeros_like(x)
+    un, ln = np.sqrt(1+us*us), np.sqrt(1+ls*ls)
+    weight = width*.009*p['eye_line']
+    top = (upper-y)/un-weight*(.6+.65*arch)
+    # Include the crease when visible, so the gap surrounds the entire drawing.
+    if opening > 0:
+        fold = upper-.035*width*arch*opening
+        top = np.minimum(top, (fold-y)/un-weight*.4*opening)
+    bottom = (y-lower)/ln-weight*.52
+    dy = np.maximum(top, bottom)
+    dx = np.abs(x)-width*.5
+    distance = np.hypot(np.maximum(dx, 0), np.maximum(dy, 0))+np.minimum(np.maximum(dx, dy), 0)
+    return smooth((gap-distance+aa)/(2*aa))
+
+
 def materialize_cells(tile, x, y, width, arch, span, aa, p, clock, seed, unit, opening):
     """Reveal only pigment recently uncovered by the lid, without frame history.
 
@@ -133,6 +161,9 @@ def materialize_cells(tile, x, y, width, arch, span, aa, p, clock, seed, unit, o
     canthus = .0525*width
     closed = canthus+.025*width*arch
     def coverage(pose):
+        gap = p.get('eye_separation', 0.)*unit
+        if gap:
+            return contour_gap_mask(x, y, width, arch, aa, p, pose, gap)
         upper = closed+pose*(canthus-.265*width*arch-closed)
         lower = closed+pose*(canthus+.160*width*arch-closed)
         return smooth((y-upper+aa)/(2*aa))*smooth((lower-y+aa)/(2*aa))*span
@@ -158,9 +189,10 @@ def render_eye(result, p, seconds, preset, center, spacing, unit):
     """Composite an almond contour, engraved iris and offset relief highlights."""
     h, w = result.shape[:2]
     width = p['eye_size']*spacing
+    gap = p.get('eye_separation', 0.)*unit if p.get('eye_placement', 0) else 0.
     cx, cy = center
-    left, right = max(0, int(cx-width*.56-3)), min(w, int(cx+width*.56+4))
-    top, bottom = max(0, int(cy-width*.34-3)), min(h, int(cy+width*.34+4))
+    left, right = max(0, int(cx-width*.56-gap-3)), min(w, int(cx+width*.56+gap+4))
+    top, bottom = max(0, int(cy-width*.34-gap-3)), min(h, int(cy+width*.34+gap+4))
     if right <= left or bottom <= top: return result
     yy, xx = np.mgrid[top:bottom, left:right].astype(np.float32)
     x, y = xx-cx, yy-cy
@@ -226,6 +258,9 @@ def render_eye(result, p, seconds, preset, center, spacing, unit):
     shadow = np.exp(-((dl-weight*2)/max(.6,unit*1.2))**2)*span*.3
     tile = result[top:bottom,left:right]
     tile = materialize_cells(tile, x, y, width, arch, span, aa, p, clock, seed, unit, opening)
+    if gap:
+        separation = contour_gap_mask(x, y, width, arch, aa, p, opening, gap)[...,None]
+        tile = tile*(1-separation)+rgb(p, 'paper')*separation
     tile *= 1-shadow[...,None]
     result[top:bottom,left:right] = tile*(1-alpha[...,None])+tone*alpha[...,None]
     return result

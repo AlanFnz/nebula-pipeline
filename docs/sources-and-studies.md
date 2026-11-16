@@ -248,7 +248,10 @@ eye at the center. In **Object → Center eye**, adjust its width, opening, iris
 pupil, outline and surrounding space, or disable it.
 **Eye placement → Overlay figures** keeps the full grid moving
 behind the eye, without a reserved gap. **Leave space** uses the original gap and
-shows **Space around eye**. **Eye width (cells)** controls size in either mode.
+shows **Space around eye**. In Overlay figures, **Contour gap** adds a thin
+background-colored margin following the eye and its blinks. Zero removes it;
+try 8 px for a subtle separation. The width scales with the artwork.
+**Eye width (cells)** controls size in either mode.
 With Overlay figures, **Object → Eye reveal → Materialization** makes newly
 uncovered cells appear as fine pigment. Adjust **Reveal duration** and **Reveal
 grain size**; zero Materialization restores the immediate reveal. It follows

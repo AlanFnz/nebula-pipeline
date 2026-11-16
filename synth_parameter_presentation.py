@@ -48,7 +48,7 @@ DEGREES = frozenset({
     'screen_mesh.angle', 'crt_capture.angle',
 })
 DEGREES_PER_SECOND = frozenset({'image_memory.spin', 'particles.rotation_speed', 'particles.orbit_speed', 'prismatic_field.rotation_speed', 'solid.turn_speed', 'solid.tumble_speed', 'solid.roll_speed'})
-PIXELS = frozenset({'low_res.resolution', 'print_surface.paint_drift', 'print_surface.paint_registration', 'print_surface.paint_outline_width', 'chromatic_lattice.eye_reveal_grain', 'chromatic_lattice.eye_ripple_glow_radius'})
+PIXELS = frozenset({'chromatic_lattice.eye_separation', 'low_res.resolution', 'print_surface.paint_drift', 'print_surface.paint_registration', 'print_surface.paint_outline_width', 'chromatic_lattice.eye_reveal_grain', 'chromatic_lattice.eye_ripple_glow_radius'})
 PERCENTAGES = frozenset({'image_memory.amplitude_x', 'image_memory.amplitude_y',
     'chromatic_lattice.eye_ripple_size', 'chromatic_lattice.eye_ripple_position', 'chromatic_lattice.eye_ripple_fluid', 'chromatic_lattice.eye_ripple_glow'})
 HUES = frozenset({
