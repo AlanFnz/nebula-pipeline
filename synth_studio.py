@@ -1973,7 +1973,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         return resolve_scope(self.composition, self.section_timeline.selected_ids, self.timeline.maximum(), bool(self.preview_scope.currentIndex()))
 
     def active_preview_scope(self):
-        if hasattr(self, 'loop_preview_range') and self.loop_preview_range.isChecked() and self.prepared_range_scope:
+        if hasattr(self, 'loop_preview_range') and self.loop_preview_range.isChecked():
             return self.prepared_playback_scope
         return self.base_preview_scope()
 
@@ -2002,9 +2002,8 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         scope = self.active_preview_scope()
         available = self.preview_frames.available()
         count = sum(scope.contains(frame) for frame in available)
-        if self.loop_preview_range.isChecked() and self.prepared_range_scope:
-            count = sum(self.preview_frames.contains(source) for _, source in self.prepared_range_mapping)
-            scope = self.prepared_range_scope
+        if self.loop_preview_range.isChecked():
+            count = scope.count  # Output frames; the ready loop may exceed its preparation target.
         label = self.preview_scope_label()
         self.cache_status.setText(cache_caption(label, count, scope.count))
         if hasattr(self, 'preview_dimensions'):
@@ -2339,7 +2338,8 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.preview_status.setText('Preview unavailable · see the operation status for details.')
     def scrub(self, value):
         if not self.advancing:
-            if self.loop_preview_range.isChecked() and (not self.prepared_range_scope or not self.prepared_range_scope.contains(value)):
+            loop_scope = self.prepared_playback_scope if self.prepared_playback_scope.count else self.prepared_range_scope
+            if self.loop_preview_range.isChecked() and (not loop_scope or not loop_scope.contains(value)):
                 self.loop_preview_range.setChecked(False)
             self.cancel_foreground_render()
             if not self.loop_preview_range.isChecked() and self.preparing_gap is None: self.cancel_preparation()

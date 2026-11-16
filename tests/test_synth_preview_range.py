@@ -1,7 +1,7 @@
 import copy
 
 from PySide6.QtCore import Qt
-from synth_preview import PreviewScope, preview_window
+from synth_preview import PreviewScope, preview_window, longest_cached_scope
 from synth_preview_range import frames_in
 from synth_sequence import render_sequence_frame
 from synth_visual_sound import instrument_sound
@@ -15,6 +15,21 @@ def test_window_keeps_absolute_times_and_clamps_without_duplicate_frames():
     assert preview_window(scope, 39, 6).intervals == ((34, 40),)
     assert preview_window(scope, 0, 200).intervals == scope.intervals
     assert preview_window(PreviewScope(()), 0, 150).count == 0
+
+
+def test_longest_ready_span_never_crosses_holes_and_keeps_equal_runs_stable():
+    coverage = PreviewScope(((0, 6), (7, 13), (17, 22)))
+    whole = PreviewScope(((0, 30),))
+    assert longest_cached_scope(coverage, whole).intervals == ((0, 6),)
+    assert longest_cached_scope(coverage, whole, current=9).intervals == ((7, 13),)
+    previous = PreviewScope(((7, 13),))
+    assert longest_cached_scope(coverage, whole, previous, current=1) == previous
+    # Selected clip boundaries join only if adjacent; other clips remain excluded.
+    selected = PreviewScope(((2, 4), (4, 6), (8, 11)))
+    assert longest_cached_scope(coverage, selected).intervals == ((2, 6),)
+    assert longest_cached_scope(PreviewScope(()), whole).count == 0
+    assert longest_cached_scope(coverage, PreviewScope(())).count == 0
+    assert longest_cached_scope(PreviewScope(((0, 1000000000),)), whole) == whole
 
 
 def setup(window, monkeypatch):
@@ -92,7 +107,7 @@ def test_selected_clips_and_preparation_cancel_resume(window, monkeypatch):
     window.prepare_playback(); prepared(window)
     assert window.prepared_range_scope.intervals == ((0, 3), (6, 7))
     window.loop_preview_range.setChecked(True)
-    assert list(frames_in(window.active_preview_scope())) == [0,1,2,6]
+    assert list(frames_in(window.active_preview_scope())) == [0,1,2]
     window.preview_scope.setCurrentIndex(0)
     assert not window.loop_preview_range.isChecked() and window.prepared_range_scope is None
     window.preview_range_frames.setValue(12)
@@ -136,9 +151,9 @@ def test_full_preparation_then_enable_loop_uses_every_frame_even_after_cancel(wi
         window.advance()
         assert window.timeline.value() == (4 + i) % total
     window.play.setChecked(False)
-    # A deliberate range request can still narrow a fully prepared timeline.
+    # A smaller preparation request never narrows an already prepared loop.
     window.prepare_playback(); prepared(window)
-    assert window.active_preview_scope().count == 7
+    assert window.active_preview_scope().count == total
     assert window.preview_range_summary.text().startswith('Range:')
     assert window.composition == before
 
@@ -285,22 +300,27 @@ def test_playback_does_not_interrupt_real_preparation_and_cancel_keeps_loop(wind
     window.play.setChecked(False)
 
 
-def test_partial_loop_skips_gaps_in_output_time_with_perform_mapping(window, monkeypatch):
+def test_partial_loop_uses_longest_continuous_output_span_with_perform_mapping(window, monkeypatch):
     setup(window, monkeypatch)
-    monkeypatch.setattr(window, 'performance_source_time', lambda seconds: seconds * .5)
+    from synth_performance import defaults
+    project = copy.deepcopy(window.composition)
+    project['visual_performance'] = defaults()
+    project['visual_performance']['values']['pace'] = 50
+    window.set_composition(project); settle(window)
     window.preview_frames.clear()
+    window.preview_frames.enable_full(window.preview_size(), window.timeline.maximum()+1)
     window.cached_ranges.set_ranges([])
     packet = ((64, 48), bytes(64*48*3))
-    for source in (2, 4): window.preview_frames.put(source, packet)
+    for source in (2, 4, 5): window.preview_frames.put(source, packet)
     window.loop_preview_range.setChecked(True)
-    assert list(frames_in(window.active_preview_scope())) == [4, 5, 7, 8, 9]
-    assert '5/7 frames' in window.cache_status.text()
+    assert list(frames_in(window.active_preview_scope())) == [8, 9, 10, 11]
+    assert '4/4 frames' in window.cache_status.text()
     clock = [100.]
     monkeypatch.setattr('synth_studio.time.monotonic', lambda: clock[0])
     audio = []
     monkeypatch.setattr(window, 'sync_soundtrack', lambda **kw: audio.append(kw))
     window.play.setChecked(True)
-    for i, expected in enumerate((5, 7, 8, 9, 4), 1):
+    for i, expected in enumerate((9, 10, 11, 8, 9), 1):
         clock[0] = 100 + i/25
         window.advance()
         assert window.timeline.value() == expected
@@ -334,7 +354,9 @@ def test_loop_expands_memory_limited_auto_window_to_requested_length(window, mon
     window.loop_preview_range.setChecked(True)
     assert window.prepared_range_scope.count == window.preview_range_frames.value() == 7
     window.play.setChecked(True)
-    wait_until(lambda: window.active_preview_scope().count == 7)
+    # Previously warmed neighbors join too, so the ready loop can exceed seven.
+    wait_until(lambda: window.active_preview_scope().count >= 7)
+    assert all(window.active_preview_scope().contains(frame) for frame in window.prepared_range_sources)
     assert window.play.isChecked()
     assert window.preview_frames.bytes + window.preview_frames.reserved <= window.preview_frames.budget
     window.play.setChecked(False)

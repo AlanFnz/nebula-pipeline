@@ -6,7 +6,7 @@ import time
 from PySide6.QtCore import QSignalBlocker
 from PySide6.QtWidgets import QCheckBox, QLabel, QWidget, QHBoxLayout, QPushButton, QProgressBar
 from studio_widgets import SpinBox
-from synth_preview import PreviewScope, preview_window, cached_gap
+from synth_preview import PreviewScope, preview_window, cached_gap, longest_cached_scope
 
 
 def frames_in(scope):
@@ -31,7 +31,6 @@ class PreviewRangeStudio:
         self.prepared_range_stamp = None
         self.prepared_range_mode = 'range'
         self.prepared_range_fps = None
-        self.prepared_gap_hold = None
         self.preparing_gap = None
         self.gap_preparation_paused = False
         self.prepare_range_hint = self.prepare_preview.toolTip()
@@ -44,7 +43,7 @@ class PreviewRangeStudio:
         self.preview_range_frames.setToolTip('Frames to prepare from the playhead. Near the end, the range starts earlier to keep this length. Selected clips skip gaps. Preview only; does not change the project or export.')
         self.preview_range_frames.valueChanged.connect(self.preview_range_count_changed)
         self.loop_preview_range = QCheckBox('Loop prepared range')
-        self.loop_preview_range.setToolTip('Loop available frames from the last preparation: the chosen range or the entire timeline after Prepare all frames. The loop grows as frames arrive and stays enabled when editing. Audio and MIDI follow the original timeline times. Does not change export or clip repeats.')
+        self.loop_preview_range.setToolTip('Loop the longest continuous prepared span within the playback scope. Updates as frames arrive, regardless of which range prepared them; never skips a missing frame. Stays enabled when editing. Audio and MIDI follow the original timeline times. Does not change export or clip repeats.')
         self.loop_preview_range.toggled.connect(self.preview_range_loop_changed)
         self.preview_range_summary = QLabel()
         self.preview_range_summary.setObjectName('monitorMeta')
@@ -105,7 +104,6 @@ class PreviewRangeStudio:
                 copy.deepcopy(sequence.get('visual_performance')))
 
     def remember_preview_range(self, scope, *, mode='range'):
-        self.prepared_gap_hold = None
         self.gap_preparation_paused = False
         self.prepared_range_scope = scope
         self.prepared_range_mode = mode
@@ -127,7 +125,6 @@ class PreviewRangeStudio:
         self.prepared_playback_scope = PreviewScope(())
         self.prepared_range_stamp = None
         self.prepared_range_mode = 'range'
-        self.prepared_gap_hold = None
         self.gap_preparation_paused = False
 
     def refresh_preview_range_target(self):
@@ -167,15 +164,8 @@ class PreviewRangeStudio:
         scope = self.prepared_range_scope
         done = sum(self.preview_frames.contains(frame) for frame in self.prepared_range_sources)
         ready = bool(scope and scope.count and done == len(self.prepared_range_sources))
-        available = scope_from_frames(frame for frame, source in self.prepared_range_mapping
-                                      if self.preview_frames.contains(source))
-        if self.prepared_gap_hold is not None:
-            if ready:
-                self.prepared_gap_hold = None
-            else:
-                # Keep the current loop continuous until both sides are joined.
-                available = scope_from_frames(frame for frame in frames_in(self.prepared_gap_hold)
-                    if self.preview_frames.contains(round(self.performance_source_time(frame/self.preview_fps()) * self.preview_fps())))
+        available = longest_cached_scope(self.cached_timeline_scope(), self.base_preview_scope(),
+                                         self.prepared_playback_scope, self.timeline.value())
         self.rebase_prepared_loop(available)
         self.prepared_playback_scope = available
         fps = self.preview_fps()
@@ -184,16 +174,20 @@ class PreviewRangeStudio:
         if scope:
             spans = ', '.join(f'{start/fps:.2f}–{end/fps:.2f}s' for start, end in scope.intervals)
             short = spans if len(scope.intervals) <= 2 else f'{len(scope.intervals)} spans'
-            state = 'ready to loop' if ready else f'{done}/{len(self.prepared_range_sources)} prepared'
+            state = 'prepared' if ready else f'{done}/{len(self.prepared_range_sources)} prepared'
             if self.loop_preview_range.isChecked():
-                state += f' · looping {available.count} frames' if available.count else ' · waiting for frames'
+                if available.count:
+                    start, end = available.intervals[0]
+                    state += f' · Loop: {start/fps:.2f}–{end/fps:.2f}s · {available.count} frames'
+                else:
+                    state += ' · waiting for frames'
             label = {'all': 'Entire timeline', 'joined': 'Joined range'}.get(self.prepared_range_mode, 'Range')
             self.preview_range_summary.setText(f'{label}: {short} · {scope.count} frames · {state}')
-            self.preview_range_summary.setToolTip(spans + '. The loop follows this preparation target. Prepare range switches back to the chosen frame count; Prepare all frames covers the entire timeline. The project stays unchanged.')
+            self.preview_range_summary.setToolTip(spans + '. Preparation target only. The loop always uses the longest continuous prepared span in the playback scope, including frames from earlier requests. Prepare range changes what to render, not the loop limit. The project stays unchanged.')
         else:
             count = min(self.preview_range_frames.value(), self.base_preview_scope().count)
             self.preview_range_summary.setText(f'{count} frames · {count/fps:.2f}s at {fps:g} fps')
-            self.preview_range_summary.setToolTip('Choose a playhead position and frame count. Enable Loop prepared range at any time; Play repeats available frames while preparation continues.')
+            self.preview_range_summary.setToolTip('Choose a playhead position and frame count. Enable Loop prepared range at any time; Play repeats the longest continuous prepared span while preparation continues.')
 
     def rebase_prepared_loop(self, available):
         """Changing the cache must not change the current transport phase."""
@@ -256,12 +250,8 @@ class PreviewRangeStudio:
         match = cached_gap(coverage.intervals, frame, self.base_preview_scope())
         if not match: return  # A completed/stale gap, or outside the playback scope.
         gap, joined = match
-        hold = self.active_preview_scope() if self.loop_preview_range.isChecked() else None
-        if not hold or not hold.count:
-            hold = PreviewScope(((joined[0], gap[0]),))
         self.cancel_preparation()
         self.remember_preview_range(PreviewScope((joined,)), mode='joined')
-        self.prepared_gap_hold = hold
         if not self.retain_preview_range():
             self.refresh_preview_scope()
             return

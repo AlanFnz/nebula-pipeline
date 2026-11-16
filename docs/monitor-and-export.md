@@ -20,11 +20,14 @@ authored effect, so it does affect export.
 Choose a frame count beside **Prepare range**, position the playhead, then prepare.
 The range uses the selected resolution and temporary lossless storage, even when
 it exceeds memory. Near the end it starts earlier to keep the requested length.
-Enable **Loop prepared range** at any time and press Play. It repeats the available
-frames while preparation continues, adding new frames to the loop as they arrive.
+Enable **Loop prepared range** at any time and press Play. It repeats the longest
+continuous prepared span within the playback scope, including frames from earlier
+requests. It grows as neighboring frames arrive and never jumps across a gap.
+If another separate span becomes longer, the loop switches to it; equal lengths
+keep the current loop stable.
 If none are ready yet, playback waits for the first one. Audio/MIDI follows the
 displayed timeline times. The counter shows preparation progress; the loop does
-not change export or clip repeats. Seeking outside the requested range exits it.
+not change export or clip repeats. Seeking outside the current loop exits it.
 
 **Auto prepare** warms a nearby range within memory limits; with the loop enabled,
 it finishes that fixed range using temporary lossless storage. **Prepare all frames**
@@ -33,16 +36,16 @@ or resolution changes rebuild affected frames while keeping the loop enabled;
 sound-only changes keep prepared pixels. With Auto prepare enabled, the loop fills
 again automatically. Otherwise, click Prepare range or Prepare all frames to rebuild.
 
-The loop follows your last preparation: **Prepare all frames** loops the entire
-timeline, even if you enable the checkbox afterward or while preparation is running.
-**Prepare range** switches back to the chosen frame count. Cancelling preparation
-keeps the completed frames available to loop. The summary shows the target and
-how many frames are ready. Opening another document resets the preview loop.
+**Prepare range** and **Prepare all frames** choose what to render; they do not
+limit the loop to that request. A fully prepared timeline loops in full, even
+after a smaller preparation request. Cancelling keeps completed frames available.
+The summary shows the preparation target and the actual loop's times and frame
+count separately. Opening another document resets the preview loop.
 
 Click a dark gap **between two prepared spans** in the strip below the playhead
 to prepare only the missing frames at the selected resolution. Hover highlights
 the gap and shows its length. With **Loop prepared range** enabled, the current
-loop continues while it prepares, then expands to cover both joined spans.
+loop grows through contiguous new frames, then covers both spans when they join.
 The clicked gap stays highlighted, with its time range, progress and **Cancel**
 beside the monitor. Choosing another range is disabled while it prepares;
 playback can continue. Cancel keeps completed frames and stops preparation,
@@ -50,8 +53,8 @@ including Auto prepare, until you request another range or edit the preview.
 Click the remaining gap to resume.
 
 The summary calls the result a **Joined range**. Once preparation finishes or
-is cancelled, you can fill another gap; **Prepare range** returns to the chosen
-frame count. This changes only preview playback, not the project or export.
+is cancelled, you can fill another gap. This changes only preview playback,
+not the project or export.
 
 Montage's assembly monitor still uses bounded ranges; these controls are available
 when editing compositions and Montage blocks.

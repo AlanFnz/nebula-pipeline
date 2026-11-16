@@ -64,14 +64,14 @@ def test_click_fills_only_missing_frames_then_loops_both_spans(window, monkeypat
     assert window.preparing_gap is None and not window.gap_feedback.isVisible()
     assert window.timeline.isEnabled() and window.prepare_full_preview.isEnabled()
     assert window.preview_frames.bytes + window.preview_frames.reserved <= window.preview_frames.budget
-    # Join the next gap as well, then explicitly choose a short range again.
+    # Join the next gap; a short preparation request cannot shrink the loop.
     click_gap(window, 13); prepared(window)
     assert window.active_preview_scope().intervals == ((0, 18),)
     window.prepare_playback(); prepared(window)
-    assert window.active_preview_scope().count == 7
+    assert window.active_preview_scope().count == 18
 
 
-def test_playing_loop_waits_for_gap_and_expands_without_audio_seek(window, monkeypatch):
+def test_playing_loop_grows_through_gap_and_joins_without_audio_seek(window, monkeypatch):
     setup(window, monkeypatch)
     packet = seed(window)
     window.prepared_range_mode = 'joined'  # Keep the existing four-frame loop.
@@ -91,20 +91,98 @@ def test_playing_loop_waits_for_gap_and_expands_without_audio_seek(window, monke
     for f in (4, 5, 6): window.prepared_frame(job, (window.settings_generation, f, packet))
     assert window.gap_progress.value() == 3
     assert '3/4 frames' in window.gap_status.text()
-    assert window.active_preview_scope().intervals == ((0, 4),)
-    assert '11/12 frames' in window.cache_status.text()
+    assert window.active_preview_scope().intervals == ((0, 7),)
+    assert '7/7 frames' in window.cache_status.text()
     for i in range(1, 10):
         clock[0] = 100+i/25
         window.advance()
-        assert window.timeline.value() == i % 4
+        assert window.timeline.value() == i % 7
         assert window.gap_feedback.isVisible() and '3/4 frames' in window.gap_status.text()
     clock[0] += .01
     window.prepared_frame(job, (window.settings_generation, 7, packet))
     window.advance()
     assert window.active_preview_scope().intervals == ((0, 12),)
-    assert window.timeline.value() == 1 and not audio[-1]['force']
+    assert window.timeline.value() == 2 and not audio[-1]['force']
     assert window.play.isChecked() and window.loop_preview_range.isChecked()
     window.cancel_preparation(); window.preparation_finished(job)
+    window.play.setChecked(False)
+
+
+def test_old_request_cannot_limit_loop_enabled_mid_job_and_single_frame_hole_joins(window, monkeypatch):
+    before = setup(window, monkeypatch)
+    packet = seed(window, ((0, 10), (11, 18)))
+    # Auto preparation has moved on, but the remembered request is still short.
+    window.remember_preview_range(PreviewScope(((0, 4),)))
+    started = []
+    monkeypatch.setattr(window.jobs, 'start', started.append)
+    window.preparation_target = (10,)
+    window._start_warm_batch()
+    job = started[-1]
+    window.loop_preview_range.setChecked(True)
+    assert window.prepare_job is job and not job.cancel.event.is_set()
+    assert window.active_preview_scope().intervals == ((0, 10),)
+    clock = [100.]
+    monkeypatch.setattr('synth_studio.time.monotonic', lambda: clock[0])
+    audio = []
+    monkeypatch.setattr(window, 'sync_soundtrack', lambda **kw: audio.append(kw))
+    window.play.setChecked(True)
+    clock[0] += 2/25
+    window.advance()
+    position = window.timeline.value()
+    clock[0] += .01
+    window.prepared_frame(job, (window.settings_generation, 10, packet))
+    assert window.cached_ranges.ranges == [(0, 18)]
+    assert window.active_preview_scope().intervals == ((0, 18),)
+    window.advance()
+    assert window.timeline.value() == position and not audio[-1]['force']
+    assert 'Loop: 0.00–0.72s · 18 frames' in window.preview_range_summary.text()
+    # Seeking into ready frames outside the old request keeps the loop enabled.
+    window.timeline.setValue(16)
+    assert window.loop_preview_range.isChecked()
+    window.play.setChecked(False)
+    window.cancel_preparation(); window.preparation_finished(job)
+    assert window.composition == before
+
+
+def test_longer_ready_island_takes_over_and_updates_audio_time(window, monkeypatch):
+    setup(window, monkeypatch)
+    packet = seed(window, ((0, 4), (8, 11)))
+    window.loop_preview_range.setChecked(True)
+    clock = [100.]
+    monkeypatch.setattr('synth_studio.time.monotonic', lambda: clock[0])
+    audio = []
+    monkeypatch.setattr(window, 'sync_soundtrack', lambda **kw: audio.append(kw))
+    window.play.setChecked(True)
+    clock[0] += 1/25
+    window.advance()
+    window.preview_frames.put(11, packet); window.refresh_cached_ranges()
+    assert window.active_preview_scope().intervals == ((0, 4),)  # Equal: keep stable.
+    window.preview_frames.put(12, packet); window.refresh_cached_ranges()
+    assert window.active_preview_scope().intervals == ((8, 13),)
+    window.advance()
+    assert window.timeline.value() == 8
+    assert audio[-1]['force'] and abs(audio[-1]['seconds'] - 8/25) < 1e-7
+    window.play.setChecked(False)
+
+
+def test_left_growth_preserves_playhead_and_fractional_audio_position(window, monkeypatch):
+    setup(window, monkeypatch)
+    packet = seed(window, ((8, 14),))
+    window.loop_preview_range.setChecked(True)
+    clock = [100.]
+    monkeypatch.setattr('synth_studio.time.monotonic', lambda: clock[0])
+    audio = []
+    monkeypatch.setattr(window, 'sync_soundtrack', lambda **kw: audio.append(kw))
+    window.play.setChecked(True)
+    clock[0] += 2.25/25
+    window.advance()
+    assert window.timeline.value() == 10
+    for frame in (7, 6):
+        window.preview_frames.put(frame, packet); window.refresh_cached_ranges()
+    window.advance()
+    assert window.active_preview_scope().intervals == ((6, 14),)
+    assert window.timeline.value() == 10 and not audio[-1]['force']
+    assert abs(audio[-1]['seconds'] - 10.25/25) < 1e-7
     window.play.setChecked(False)
 
 

@@ -115,6 +115,29 @@ def preview_window(scope, current, count):
     return PreviewScope(tuple(intervals))
 
 
+def longest_cached_scope(coverage, allowed, previous=PreviewScope(()), current=0):
+    """One continuous ready span, independent of the last preparation request.
+
+    Adjacent selected clips can join, but missing or unselected frames cannot.
+    Equal lengths keep the current loop stable, then prefer the playhead.
+    """
+    spans = []
+    for low, high in allowed.intervals:
+        for start, end in coverage.intervals:
+            start, end = max(low, start), min(high, end)
+            if start >= end: continue
+            if spans and start <= spans[-1][1]:
+                spans[-1] = (spans[-1][0], max(end, spans[-1][1]))
+            else:
+                spans.append((start, end))
+    if not spans: return PreviewScope(())
+    def priority(span):
+        start, end = span
+        overlap = any(a < end and b > start for a, b in previous.intervals)
+        return end-start, overlap, start <= current < end, -start
+    return PreviewScope((max(spans, key=priority),))
+
+
 def cached_gap(ranges, frame, scope):
     """Return the missing span and its two neighbors, within one playback span."""
     # Adjacent selected clips are continuous; unselected clips are not gaps.

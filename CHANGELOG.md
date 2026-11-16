@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.112.1 — 2026-11-16
+
+- **Loop prepared range** now follows the longest continuous ready span in the
+  playback scope, including frames from earlier preparation requests. It updates
+  during preparation and gap filling, keeps equal-length loops stable and never
+  skips missing frames. The summary separates the preparation target from the
+  actual loop. Preview timing, audio synchronization and current-resolution cache
+  validation are preserved; saved studies and exports are unchanged.
+
 ## 0.112.0 — 2026-11-16
 
 - Add a swatch-backed **Color palette** menu for Printed orbit and Watching eye:
