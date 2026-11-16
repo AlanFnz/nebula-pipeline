@@ -94,20 +94,23 @@ def render_relief(arr, p, seconds, preset):
     edge_width = max(.25, p['edge_width']*unit)
     ripple = None
     if p.get('eye_ripple', 0.) and p.get('eye_enabled', 0):
-        from synth_lattice_eye_ripple import ripple_profile, ripple_coordinates
+        from synth_lattice_eye_ripple import ripple_profile, ripple_coordinates, ripple_cells
         ripple = ripple_profile(p, float(seconds)*preset.get('speed', 1.), preset.get('seed', 0))
+    cell_response = bool(p.get('eye_ripple_response', 0))
     for top in range(0, h, 128):
         y, x = np.mgrid[top:min(h, top+128), :w].astype(np.float32)
-        sample_x, sample_y = ripple_coordinates(x, y, center, spacing, ripple) if ripple is not None else (x, y)
+        sample_x, sample_y = ripple_coordinates(x, y, center, spacing, ripple) if ripple is not None and not cell_response else (x, y)
         gx = (sample_x-cx)/spacing; gy = (sample_y-cy)/spacing
         ix = np.floor(gx+.5); iy = np.floor(gy)+.5
         wave = (sweep_size(ix, iy, t, p) if p['wave_shape'] == 3 else
                 pulse_size(wave_distance(ix, iy, p), t, p))
         radius = .5*spacing*p['size']*wave
         u = (gx-ix)*spacing; v = (gy-iy)*spacing
-        u, v = u*cs+v*sn, -u*sn+v*cs
         small = np.clip((1-wave)/max(.001, 1-p['minimum']), 0, 1)*p['morph']
         rounding = p['corner']+(1-p['corner'])*small
+        if ripple is not None and cell_response:
+            u, v, radius = ripple_cells(ix, iy, u, v, radius, rounding, spacing, p, ripple)
+        u, v = u*cs+v*sn, -u*sn+v*cs
         sdf = lambda r: distance(u, v, r, rounding, int(p['shape']), int(p['sides']))
         outer = sdf(radius)
         q = color_phase(ix, iy, t, p)

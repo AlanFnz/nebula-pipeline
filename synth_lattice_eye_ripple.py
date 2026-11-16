@@ -1,4 +1,4 @@
-"""Blink-driven circular displacement of the existing printed-cell geometry."""
+"""Blink-driven circular waves: fluid displacement or rigid cell responses."""
 from functools import lru_cache
 
 import numpy as np
@@ -49,6 +49,8 @@ def ripple_profile(p, seconds, seed=0):
     if not ages:
         return None
     radius = np.linspace(0., reach, 2049)
+    if p.get('eye_ripple_response', 0):
+        return cell_pulse_profile(radius, ages, p)
     wave = np.zeros_like(radius)
     for age, strength in ages:
         front = age*speed
@@ -63,6 +65,52 @@ def ripple_profile(p, seconds, seed=0):
     limit = .18*min(1., width)
     displacement = limit*np.tanh(wave*amount*p['eye_opening'])*falloff
     return radius, displacement
+
+
+def cell_pulse_profile(radius, ages, p):
+    """A causal attack/release after the front reaches each cell's center.
+
+    Unlike a fluid crest/trough, this only grows and restores a whole figure.
+    It never shrinks past the original size or changes its contour.
+    """
+    pulse = np.zeros_like(radius)
+    shake = np.zeros_like(radius)
+    for age, strength in ages:
+        q = (age*p['eye_ripple_speed']-radius)/p['eye_ripple_width']
+        envelope = smooth(q/.24)*(1-smooth((q-.24)/.76))*strength
+        pulse += envelope
+        shake += envelope*np.sin(q*4*np.pi)
+    reach = p['eye_ripple_reach']
+    falloff = np.exp(-radius/(reach*.85))*(1-smooth((radius/reach-.7)/.3))
+    amount = p['eye_ripple']*p['eye_opening']
+    return radius, np.tanh(pulse*amount)*falloff, np.tanh(shake*amount)*falloff
+
+
+def ripple_cells(ix, iy, u, v, radius, rounding, spacing, p, profile):
+    """Scale/translate each cell rigidly; leave grid, shape and neighbors intact."""
+    # Grid offsets affect cell centers, while the wave's origin is the eye.
+    distance = np.hypot(ix+p['grid_x'], iy+p['grid_y'])
+    pulse = np.interp(distance, profile[0], profile[1], right=0.)
+    angle = np.deg2rad(p['rotation'])
+    extent = radius
+    if p['shape'] in (1, 2):
+        factor = 1.
+        if p['shape'] == 2:
+            angle += np.pi/4
+            factor = .70710678
+        extent = radius*factor*((abs(np.cos(angle))+abs(np.sin(angle)))*(1-rounding)+rounding)
+    # Respect the existing inter-cell space, including rotated squares. Dense
+    # cells grow less; no new clipping at their fixed sampling-tile boundaries.
+    room = np.maximum(0., .485*spacing-extent)
+    dx = dy = 0.
+    if p['eye_ripple_response'] == 2:
+        vibration = np.interp(distance, profile[0], profile[2], right=0.)
+        direction = ix*2.39996323 + iy*1.61803399
+        shift = vibration*np.minimum(.035*spacing, room)
+        dx, dy = shift*np.cos(direction), shift*np.sin(direction)
+    available = np.maximum(1., (.485*spacing-np.maximum(np.abs(dx), np.abs(dy)))/np.maximum(extent, .001))
+    scale = np.minimum(1+pulse*.20, available)
+    return (u-dx).astype(u.dtype), (v-dy).astype(v.dtype), (radius*scale).astype(radius.dtype)
 
 
 def ripple_coordinates(x, y, center, spacing, profile):

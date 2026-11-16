@@ -244,6 +244,9 @@ grain size**; zero Materialization restores the immediate reveal. It follows
 the blink while leaving the surrounding grid and its motion intact.
 **Object → Eye ripple** sends a subtle circular wave through the figures at
 each blink. **Ripple amount** controls the movement; zero disables it.
+**Cell response → Size pulse** briefly enlarges each whole figure as the signal
+arrives. **Pulse + shake** adds a small vibration. **Fluid wave** preserves the
+original flowing deformation and remains the default for existing projects.
 **Speed**, **reach** and **width** use cell intervals, so the wave stays circular
 when reframing. It fades as it travels and leaves the eye itself in place.
 Eye and ink colors have

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.109.0 — 2026-11-16
+
+- Add **Cell response** to **Object → Eye ripple**. **Size pulse** sends a brief
+  enlargement through whole figures as the radial signal reaches each center;
+  **Pulse + shake** adds a restrained vibration. Both preserve figure contours,
+  respect the space between cells and share the existing blink timing, amount,
+  speed, reach and width controls. Previous studies and saved projects retain
+  their **Fluid wave** response until another mode is selected.
+
 ## 0.108.0 — 2026-11-15
 
 - Add **Object → Eye ripple**: a gentle circular displacement travels through

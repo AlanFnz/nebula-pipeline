@@ -7,7 +7,7 @@ from synth import default_synth_preset
 from synth_composition import compile_composition, load_composition, save_composition
 from synth_lattice import render_chromatic_lattice
 from synth_lattice_eye import blink_opening
-from synth_lattice_eye_ripple import ripple_coordinates, ripple_profile, ripple_triggers
+from synth_lattice_eye_ripple import ripple_coordinates, ripple_profile, ripple_triggers, ripple_cells
 from synth_lattice_recipes import watching_eye_composition
 from synth_sequence import resolve_sequence_frame, render_sequence_frame
 
@@ -136,8 +136,87 @@ def test_ripple_controls_save_undo_and_hide_with_eye(make_window,tmp_path):
     assert load_composition(tmp_path/'ui.json')==changed
     w.undo_composition();assert c.document==original
     w.redo_composition();assert c.document==changed
+    panel.controls['chromatic_lattice.eye_ripple_response'].input.setCurrentIndex(1)
+    pulse=copy.deepcopy(c.document)
+    assert pulse['effects']['chromatic_lattice']['params']['chromatic_lattice.eye_ripple_response']==1
+    save_composition(tmp_path/'pulse.json',pulse)
+    assert load_composition(tmp_path/'pulse.json')==pulse
+    w.undo_composition();assert c.document==changed
+    w.redo_composition();assert c.document==pulse
     panel.controls['chromatic_lattice.eye_enabled'].input.setCurrentIndex(0)
     assert path not in panel.object_eligible
+
+
+def test_cell_pulse_arrives_at_center_then_restores_without_a_trough():
+    p=params(eye_ripple=.75,eye_ripple_response=1,eye_blink_count=1,eye_double_blink=0.,
+             eye_blink_variation=0.,eye_blink_fps=0,eye_ripple_speed=5.,eye_ripple_width=1.)
+    trigger=ripple_triggers(1,8.,.38,0.,0.,0,141126)[0][0]
+    def response(age, radius):
+        profile=ripple_profile(p,trigger+age,141126)
+        return np.interp(radius,profile[0],profile[1])
+    assert response(.5,3.)==0.  # Front has not reached this cell.
+    assert response(.66,3.)>.3
+    assert response(.81,3.)==0.  # No inward contraction after the pulse.
+    assert response(.86,4.)>0
+    profile=ripple_profile(p,trigger+.66,141126)
+    assert profile[1].min()>=0
+    for age in (.5,.66,.81):
+        a=ripple_profile(p,trigger+age,141126)
+        b=ripple_profile(p,trigger+age+8,141126)
+        assert np.allclose(a,b,atol=1e-12)
+
+
+def test_cell_response_is_rigid_circular_and_leaves_space_between_cells():
+    p=params(eye_ripple_response=1,grid_x=0.,grid_y=0.)
+    ix=np.array([3.,0.,-3.,0.],np.float32);iy=np.array([0.,3.,0.,-3.],np.float32)
+    u=np.array([1.,2.,3.,4.],np.float32);v=-u
+    radius=np.full(4,3.,np.float32); rounding=np.full(4,.16,np.float32)
+    profile=(np.array([0.,3.,10.]),np.array([0.,.5,0.]),np.array([0.,.5,0.]))
+    a,b,r=ripple_cells(ix,iy,u,v,radius,rounding,10.,p,profile)
+    assert np.array_equal(a,u) and np.array_equal(b,v)
+    assert np.allclose(r,radius*1.1)  # Whole-cell scaling, same at four directions.
+    # Every pixel belonging to one cell shares its center/response.
+    a,b,r=ripple_cells(np.full(4,3.,np.float32),np.zeros(4,np.float32),u,v,radius,rounding,10.,p,profile)
+    assert np.allclose(r,r[0]) and np.array_equal(a,u)
+    for mode in (1,2):
+        for shape in (0,1,2,3):
+            for rotation in (0,19,45,90):
+                q=dict(p,eye_ripple_response=mode,shape=shape,rotation=rotation)
+                a,b,r=ripple_cells(ix,iy,u,v,radius,rounding,10.,q,profile)
+                angle=np.deg2rad(rotation)+(np.pi/4 if shape==2 else 0)
+                extent=r
+                if shape in (1,2):
+                    extent=r*(.70710678 if shape==2 else 1.)*((abs(np.cos(angle))+abs(np.sin(angle)))*(1-rounding)+rounding)
+                assert np.all(extent+np.maximum(abs(a-u),abs(b-v))<=4.85001)
+    # Position is relative to the eye, including grid offsets.
+    shifted=dict(p,grid_x=1.,grid_y=0.)
+    assert np.allclose(ripple_cells(ix-1,iy,u,v,radius,rounding,10.,shifted,profile)[2],
+                       ripple_cells(ix,iy,u,v,radius,rounding,10.,p,profile)[2])
+
+
+@pytest.mark.parametrize('mode',[1,2])
+def test_cell_modes_keep_eye_and_distant_cells_and_survive_random_seeks(mode):
+    p=params(eye_placement=1,eye_size=5.7,eye_ripple=.75,eye_ripple_response=mode,
+             eye_blink_count=1,eye_double_blink=0.,eye_blink_variation=0.,eye_blink_fps=0,
+             grain=0.,softness=0.,glow=0.)
+    source=np.zeros((640,360,3),np.float32)
+    preset=dict(default_synth_preset(),seed=141126,width=360,height=640,speed=1.)
+    a=render_chromatic_lattice(source,p,3.6,preset)
+    b=render_chromatic_lattice(source,dict(p,eye_ripple=0.),3.6,preset)
+    render_chromatic_lattice(source,p,5.3,preset)
+    assert np.array_equal(a,render_chromatic_lattice(source,p,3.6,preset))
+    assert np.array_equal(a[305:335,165:195],b[305:335,165:195])
+    assert np.max(abs(a-b))>.05
+    assert np.array_equal(a[:40],b[:40])
+
+
+def test_old_fluid_response_is_default_and_pixel_identical():
+    p=params(eye_ripple=.55)
+    p.pop('eye_ripple_response',None)
+    source=np.zeros((256,144,3),np.float32)
+    preset=dict(default_synth_preset(),seed=141126,width=144,height=256,speed=1.)
+    assert np.array_equal(render_chromatic_lattice(source,p,2.3,preset),
+                          render_chromatic_lattice(source,dict(p,eye_ripple_response=0),2.3,preset))
 
 
 from test_synth_effects_editor_integration import make_window

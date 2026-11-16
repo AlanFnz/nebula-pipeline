@@ -35,9 +35,10 @@ def parameters(P):
         P('eye_reveal_duration', 'Reveal duration (s)', .16, .03, .6, .01, 'Time for newly uncovered pigment to become solid, at global speed 1. Independent of held eyelid poses.'),
         P('eye_reveal_grain', 'Reveal grain size', 1.5, .4, 5., .1, 'Pigment particle size in pixels at a 720-pixel artwork edge. Shares the existing print and finishing effects.'),
         P('eye_ripple', 'Ripple amount', 0., 0., 1., .01, 'A subtle circular wave through the cells when the eye closes. Zero disables it. The eye and paper texture stay in place.'),
+        P('eye_ripple_response', 'Cell response', 0, 0, 2, 1, 'Choose a fluid wave, a brief size pulse on each whole figure, or that pulse with a small shake. Existing projects keep Fluid wave.', choices=('Fluid wave', 'Size pulse', 'Pulse + shake')),
         P('eye_ripple_speed', 'Ripple speed', 7., 2., 24., .1, 'Cell intervals per second at global speed 1. The wave starts with each visible blink and moves smoothly, independently of held cell poses.'),
         P('eye_ripple_reach', 'Ripple reach', 10., 2., 20., .1, 'Maximum radius in cell intervals. The wave loses strength as it travels and fades out at this distance.'),
-        P('eye_ripple_width', 'Ripple width', .8, .3, 2.5, .05, 'Width of the wave in cell intervals. Larger values give a broader, gentler undulation.'),
+        P('eye_ripple_width', 'Ripple width', .8, .3, 2.5, .05, 'Width of the wave in cell intervals. Larger values make each response last longer.'),
     )
 
 
@@ -45,7 +46,7 @@ EYE_KEYS = frozenset(('eye_enabled', 'eye_size', 'eye_placement', 'eye_clearance
     'eye_iris', 'eye_pupil', 'eye_line', 'eye_blink_count', 'eye_blink_period',
     'eye_blink_duration', 'eye_blink_fps', 'eye_blink_variation', 'eye_double_blink', 'eye_blink_phase',
     'eye_reveal', 'eye_reveal_duration', 'eye_reveal_grain',
-    'eye_ripple', 'eye_ripple_speed', 'eye_ripple_reach', 'eye_ripple_width',
+    'eye_ripple', 'eye_ripple_response', 'eye_ripple_speed', 'eye_ripple_reach', 'eye_ripple_width',
     *(name+'_'+channel for name in ('eye', 'eye_ink') for channel in ('hue', 'saturation', 'light'))))
 
 
