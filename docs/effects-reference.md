@@ -41,6 +41,12 @@ Under **Motion & timing**, Surface vibration moves the whole plane, Surface
 flutter disturbs it locally, Curvature motion varies its bend and Texture movement
 animates its wear. Motion speed zero freezes them. All four default to zero.
 
+Set **Wire grid → Grid geometry → Sphere** for a rigid rotating globe behind the
+source. **Sphere rotation** controls radius, speed, axis tilt and initial angle.
+Negative Rotation degrees / sec reverses direction; zero stops it. This rotation
+is independent of Surface motion speed and does not rotate or distort the source.
+Grid spacing and wear also apply to the sphere. Curved plane retains older renders.
+
 ## Temporal fragments
 
 **Signal repetition**, under **Add effect → Motion & echoes**, compresses image

@@ -33,7 +33,13 @@ def test_phosphor_scroll_exposes_motion_and_surface_controls_with_undo(window):
     panel.controls['curved_screen.vibration'].input.setValue(3.)
     assert window.composition['effects']['curved_screen']['params']['curved_screen.vibration'] == 3.
     window.undo_composition()
-    assert panel.controls['curved_screen.vibration'].input.value() == 1.35
+    assert panel.controls['curved_screen.vibration'].input.value() == 0.
+    panel.reveal_control('curved_screen.sphere_spin')
+    assert not panel.controls['curved_screen.sphere_spin'].isHidden()
+    panel.controls['curved_screen.sphere_spin'].input.setValue(-12.)
+    assert window.composition['effects']['curved_screen']['params']['curved_screen.sphere_spin'] == -12.
+    window.undo_composition()
+    assert panel.controls['curved_screen.sphere_spin'].input.value() == 7.5
     panel.inspect_effect('signal_etch')
     panel.reveal_control('signal_etch.glints')
     assert not panel.controls['signal_etch.glints'].isHidden()

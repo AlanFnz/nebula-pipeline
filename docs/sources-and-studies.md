@@ -55,10 +55,12 @@ the lettering; **Traveling highlights** controls moving glints. CRT capture and
 Bloom provide focus softness and light spill. These treatments also accept other
 objects and imported video.
 
-The current study keeps moving during text holds. In **Curved screen → Motion &
-timing**, adjust Surface vibration, Surface flutter, Curvature motion and Texture
-movement. **Signal etch → Organic edges → Deformation speed** sets the lettering's
-local motion. Previously saved versions retain their original motion settings.
+The current study has a rigid rotating spherical grid behind the vibrating text.
+In **Curved screen → Sphere rotation**, adjust speed, direction (negative speed),
+radius and axis tilt. Surface vibration, flutter, curvature motion and texture
+movement are off in this version. **Signal etch → Organic edges → Deformation
+speed** sets the lettering's local motion. Previously saved versions retain their
+original motion settings.
 
 ## Text / burning print
 

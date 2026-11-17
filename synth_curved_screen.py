@@ -29,7 +29,53 @@ def modules(Module, P):
         P('flutter', 'Surface flutter', 0., 0, 20, .1, 'Local vibration of the curved surface. Zero keeps the original projection.'),
         P('breathing', 'Curvature motion', 0., 0, .3, .005, 'Subtle continuous variation around the chosen surface curvature.'),
         P('boil', 'Texture movement', 0., 0, 1, .05, 'Evolution of the worn grid and surface texture. Zero keeps their original placement.'),
+        P('grid_surface', 'Grid geometry', 0, 0, 1, 1, 'Change only the background grid. The source keeps its own projection.', choices=('Curved plane', 'Sphere')),
+        P('sphere_radius', 'Sphere radius', 1.1, .35, 3., .05, 'Radius relative to the shorter canvas edge. Large values show a cropped portion of the sphere.'),
+        P('sphere_spin', 'Rotation degrees / sec', 0., -60., 60., .5, 'Rotate the sphere continuously. Negative values reverse direction; zero pauses rotation. Independent of Surface motion speed.'),
+        P('sphere_axis', 'Rotation axis tilt', 18., -180., 180., 1., 'Tilt the sphere rotation axis in the image plane. Zero rotates around the vertical axis.'),
+        P('sphere_phase', 'Initial rotation', 0., -180., 180., 1.),
     )),)
+
+
+def _sphere_grid(u, v, p, time, speed, seed, reference_size):
+    """Orthographic sphere with a rigid latitude/longitude grid.
+
+    Inverse rotation samples the same painted sphere at every time. The image
+    source is never sampled through these coordinates. Cartesian wear avoids
+    a texture seam where longitude wraps through +/- pi.
+    """
+    cw, ch = reference_size
+    unit = min(cw, ch)/720
+    radius = p.get('sphere_radius', 1.1)*min(cw, ch)
+    nx = (u-p['center_x']*cw)/radius
+    ny = (v-p['center_y']*ch)/radius
+    radial = nx*nx+ny*ny
+    nz = np.sqrt(np.maximum(0., 1-radial))
+    tilt = math.radians(p.get('sphere_axis', 18.))
+    ax, ay = math.sin(tilt), math.cos(tilt)
+    angle = math.radians((p.get('sphere_phase', 0.)+time*speed*p.get('sphere_spin', 0.)) % 360.)
+    c, s = math.cos(angle), math.sin(angle)
+    dot = ax*nx+ay*ny
+    # Inverse Rodrigues rotation about a fixed axis, no displacement field.
+    rx = nx*c-ay*nz*s+ax*dot*(1-c)
+    ry = ny*c+ax*nz*s+ay*dot*(1-c)
+    rz = nz*c-(ax*ny-ay*nx)*s
+    lon = np.arctan2(rx, rz)
+    lat = np.arcsin(np.clip(ry, -1., 1.))
+    meridians = max(8, round(2*math.pi*radius/(p['spacing']*unit)))
+    parallels = max(4, round(meridians/2))
+    lon_step, lat_step = 2*math.pi/meridians, math.pi/parallels
+    tx, ty = (rx+.41*rz)*radius/unit, (ry-.31*rz)*radius/unit
+    rough = (_field(tx/3.5, ty/3.5, seed+3)-.5)*(1+p['wear']*3.)
+    jitter = rough*unit/radius
+    dl = np.abs((lon+jitter+lon_step/2) % lon_step-lon_step/2)
+    dp = np.abs((lat+jitter+lat_step/2) % lat_step-lat_step/2)
+    distance = np.minimum(dl*np.sqrt(np.maximum(0.,1-ry*ry)),dp)*radius/unit
+    distance *= .3+.7*nz
+    grid = np.exp(-.5*(distance/max(.5/unit,p['line_width']))**2)
+    broken = np.clip((_field(tx/7.,ty/7.,seed+5)-.2)*2.,0,1)
+    edge = np.clip((1-radial)*radius/max(1.,2*unit),0,1)
+    return grid*(1-p['wear']+p['wear']*broken)*edge
 
 
 def render_curved_screen(arr, p, time, speed, seed, reference_size):
@@ -72,14 +118,18 @@ def render_curved_screen(arr, p, time, speed, seed, reference_size):
     if p.get('boil', 0):
         tx = ux + p['boil']*clock*27.
         ty = vy - p['boil']*clock*19.
-    rough = (_field(tx/3.5, ty/3.5, seed+3)-.5)*(1.+p['wear']*3.)
-    gx = np.abs((ux+rough+p['spacing']/2) % p['spacing'] - p['spacing']/2)
-    gy = np.abs((vy+rough+p['spacing']/2) % p['spacing'] - p['spacing']/2)
-    distance = np.minimum(gx, gy)
-    grid = np.exp(-.5*(distance/max(.5/unit, p['line_width']))**2)
     direction = np.clip((u/cw+.45)*2., .04, 1.)
-    broken = np.clip((_field(tx/7., ty/7., seed+5)-.2)*2., 0, 1)
-    grid *= p['grid']*(1-p['wear']+p['wear']*broken)*(1-p['grid_fade']+p['grid_fade']*direction)
+    if p.get('grid_surface', 0) == 1:
+        grid = _sphere_grid(u, v, p, time, speed, seed, reference_size)
+        grid *= p['grid']*(1-p['grid_fade']+p['grid_fade']*direction)
+    else:
+        rough = (_field(tx/3.5, ty/3.5, seed+3)-.5)*(1.+p['wear']*3.)
+        gx = np.abs((ux+rough+p['spacing']/2) % p['spacing'] - p['spacing']/2)
+        gy = np.abs((vy+rough+p['spacing']/2) % p['spacing'] - p['spacing']/2)
+        distance = np.minimum(gx, gy)
+        grid = np.exp(-.5*(distance/max(.5/unit, p['line_width']))**2)
+        broken = np.clip((_field(tx/7., ty/7., seed+5)-.2)*2., 0, 1)
+        grid *= p['grid']*(1-p['wear']+p['wear']*broken)*(1-p['grid_fade']+p['grid_fade']*direction)
     cloud = _field(ux/115., vy/115., seed+7)
     fibers = .55*_field(tx/1.4, ty/1.4, seed+9)+.45*_noise(np.floor(tx), np.floor(ty), seed+10)
     left = np.exp(-.5*((u/cw+.25)/.32)**2-.5*((v/ch+.04)/.48)**2)

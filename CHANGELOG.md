@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.117.0 — 2026-11-17
+
+- Replace the current **Text / phosphor scroll** study's background deformation
+  with a rigid rotating spherical grid, retaining the lettering's local motion.
+- Extend **Curved screen** with optional Sphere geometry, radius, rotation speed,
+  axis tilt and initial angle. Rotation affects only the grid and supports reverse
+  direction and deterministic seeking. Older saved projects and frozen study
+  versions retain their rendering.
+
 ## 0.116.0 — 2026-11-17
 
 - Give the current **Text / phosphor scroll** study continuous irregular motion

@@ -7,7 +7,8 @@ def control_group(path):
     module, key = path.split('.')
     if module == 'curved_screen':
         if key in ('angle','curve','center_x','center_y','scale'): return 'Projection'
-        if key in ('spacing','line_width','grid','grid_fade','wear'): return 'Wire grid'
+        if key in ('grid_surface','spacing','line_width','grid','grid_fade','wear'): return 'Wire grid'
+        if key.startswith('sphere_'): return 'Sphere rotation'
         if key in ('rate','drift','vibration','flutter','breathing','boil'): return 'Motion & timing'
         if key == 'effect_intensity': return 'Output & blending'
         return 'Surface'
