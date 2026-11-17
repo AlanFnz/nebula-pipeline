@@ -1,6 +1,10 @@
-# Documentation review, 2026-11-08
+# Documentation reviews
 
 [Documentation](README.md) · [History inventory](history.md)
+
+The original record below covers 0.84.0 and its sequencer follow-up. Its routing
+descriptions and test counts belong to that baseline. The
+[0.114.1 review](#review-against-01141-2026-11-17) records the latest documentation checks.
 
 ## Baseline and scope
 
@@ -148,3 +152,59 @@ retained; this review checked relative navigation, not fresh availability or
 third-party documentation accuracy. The interpretation that the README should
 be shorter is an editorial judgment; source labels, routing and test outcomes
 above are directly checked facts.
+
+## Review against 0.114.1 (2026-11-17)
+
+Baseline: `65c4462`, the clean `codex/soundtrack-negative-start` checkout, with
+`_version.py` at 0.114.1. Documentation work is isolated on
+`codex/docs-0114-audit` in a separate worktree. Product code, tests, study recipes,
+personal files and the open installed-app session were left unchanged.
+
+The existing guides already covered most releases. This pass adds missing
+conditions, separates Watching eye from Printed orbit, and links to the relevant
+sections instead of repeating their instructions. The README remains brief.
+
+| Guide | Implementation checked |
+| --- | --- |
+| [Monitor and export](monitor-and-export.md) | [Preparation and gaps](../synth_preview_range.py), [continuous-span selection](../synth_preview.py), [workspace/transport](../synth_studio.py), [activity indicator](../synth_monitor_status.py). |
+| [Watching eye](sources-and-studies.md#lattice--watching-eye) | [Eye, blinks, reveal and margin](../synth_lattice_eye.py), [radial timing/responses](../synth_lattice_eye_ripple.py), [glow/render order](../synth_lattice_relief.py), [palette values](../synth_lattice_palettes.py), [Object groups](../synth_object_catalog.py). |
+| [Soundtrack placement](sound.md#move-or-trim-the-audio) | [Lane and dialog](../synth_soundtrack_ui.py), [composition edits](../synth_soundtrack_studio.py), [source clock and export](../synth_soundtrack.py), [Montage edits](../synth_montage_ui.py), [audio reactions](../synth_audio_reactivity.py), [export routing](../synth_visual_sound.py). |
+
+Bounded checks used the existing Python environment and Qt `offscreen`; no
+application installation, native playback or DAW session was used. Audio export
+checks decoded generated tone fixtures; preview monitoring used a fake backend.
+
+| Coverage | Result |
+| --- | --- |
+| Preview ranges, gaps and monitor activity | Initial combined run: 31 passed, 2 failed. Isolated reruns: one failure reproduced; the other passed. |
+| Eye, reveal, radial responses, Custom mix, glow and margin | 48 selected cases passed. |
+| Palette navigation, scope, persistence and Undo | 9 passed. |
+| Soundtrack widgets, source clock, negative-start export, preview and composition placement/Undo | 27 passed. |
+| Negative-start audio reactions and Montage placement/Undo | 4 passed. |
+
+These cover 121 distinct cases: 120 passed at least once, one still fails. The
+isolated reruns are not counted twice. This is not a full product test run.
+
+All 303 relative file/heading links across 54 tracked Markdown documents passed;
+the four linked PNGs decode. External-link availability was not rechecked.
+Version metadata matches 0.114.1 and `git diff --check` passed. Only Markdown
+changed; no release version or tag was created.
+
+### Behavior to verify with the product agent
+
+- [Waiting-loop test](../tests/test_synth_preview_range.py) expects
+  `Waiting for prepared frames`, but the monitor displays
+  `Preparing playback range · 0/7 frames` while its worker is active. The same
+  mismatch reproduced alone. Earlier assertions confirm that audio remains
+  stopped and preparation continues. The activity indicator prioritizes the
+  worker message; confirm the intended wording before changing product or test.
+- [Foreground-update-during-export test](../tests/test_synth_monitor_status.py)
+  expected loading but saw waiting after a 150 ms event-loop delay in the combined
+  run. It passed alone. Check the native transition during export and subsequent
+  edits; this result does not establish a persistent product failure.
+- Real-device audio onset, looping and synchronization after moving a soundtrack
+  across video zero were not listened to. Source-clock, decoded export and fake
+  playback checks agree, but they do not measure native audio latency.
+
+The user guides describe verified source behavior without promising a specific
+waiting caption. No product or test correction was included in this review.
