@@ -37,6 +37,7 @@ def paths(module, keys=None):
 
 
 EFFECTS = (
+    Effect('curved_screen', 'Curved screen', 'Project any source and a worn wire grid onto one tilted, curved surface.', paths('curved_screen'), ('curved_screen',)),
     Effect('blender_scene', 'Blender scene', 'Procedural optical sculpture rendered with Blender. Requires Blender 4.2 or newer; frames are cached at the selected resolution.', paths('blender_scene'), ('blender_scene',)),
     Effect('optical_diffusion', 'Optical diffusion', 'Soft photographic focus, highlight diffusion and fine grain. Reuses the clean scene when its controls change.', paths('optical_diffusion'), ('optical_diffusion',)),
     Effect('pleated_field', 'Pleated field', 'Raised repeating folds, mirrored into optical tunnels. Adjust relief, camera, symmetry, palette and field outline independently.', paths('pleated_field'), ('pleated_field',)),

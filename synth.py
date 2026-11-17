@@ -27,6 +27,7 @@ from synth_fonts import validate_font
 from synth_contour import modules as contour_modules, render_contour_melt
 from synth_broadcast import render_broadcast, render_broadcast_exposure
 from synth_echo import render_stretch_echo, render_signal_etch
+from synth_curved_screen import modules as curved_screen_modules, render_curved_screen
 from synth_chroma import render_chroma_print, render_slice_echo, render_screen_mesh
 from synth_modulation import render_scan_modulation, render_crt_capture
 from synth_modulation_controls import modules as modulation_modules
@@ -495,7 +496,7 @@ MODULES = (
 )
 MODULES += (
     Module('text', 'Text', 'Editable typography rendered before the image treatments. Fonts travel with the Studio.', (
-        P('content', 'Wording', 'REVOLUTION IS NOW', kind='text', hint='Up to 512 characters and eight lines. Line breaks are preserved.'),
+        P('content', 'Wording', 'REVOLUTION IS NOW', kind='text', hint='Up to 512 characters and 32 lines. Line breaks are preserved.'),
         P('font', 'Typeface', 0, 0, len(FONTS)-1, 1, choices=FONTS, kind='font'),
         P('weight', 'Font weight', 400, 400, 900, 10, 'Weight of Bodoni Moda, Fraunces or Fredoka. Fredoka stops at 700. Other typefaces retain their own weight.'),
         P('press_height', 'Letter height variation', 0., 0, .5, .01, 'Uneven printed letter heights. Zero keeps the original type. Applies to Whole phrase, One word, Type on and Reading montage.'),
@@ -521,7 +522,7 @@ MODULES += (
         P('back_hue', 'Backdrop hue', .6, 0, 1, .01),
         P('back_saturation', 'Backdrop saturation', .75, 0, 1, .01),
         P('back_brightness', 'Backdrop brightness', .045, 0, 1, .005),
-        P('reveal', 'Show', 0, 0, 4, 1, choices=('Whole phrase', 'One word at a time', 'Type on', 'Morph words', 'Reading montage')),
+        P('reveal', 'Show', 0, 0, 5, 1, choices=('Whole phrase', 'One word at a time', 'Type on', 'Morph words', 'Reading montage', 'Line scroll')),
         P('reading_duration', 'Montage duration', 7., 1, 120, .1, 'Seconds for all words and the final phrase. Match the clip duration to show one complete montage. Longer phrases need more reading time.'),
         P('reading_final', 'Final phrase hold', 2., .2, 30, .1, 'Reserve this many seconds for the complete phrase, up to 80% of the montage. Hold ending keeps it visible afterward.'),
         P('reading_transition', 'Interruption duration', .25, 0, 2, .01, 'Maximum seconds per interruption. Dense phrases shorten interruptions to preserve reading time.'),
@@ -563,6 +564,11 @@ MODULES += (
         P('badge_subtitle_width', 'Subtitle width', .975, .05, 1, .005, 'Width of the subtitle relative to the main label. Uses line alignment for its position.'),
         P('badge_gap', 'Subtitle gap', 35., 0, 200, 1, 'Space between the main wording and subtitle in reference-label units.'),
         P('badge_radius', 'Frame corner radius', .12, 0, .5, .01, 'Used by Rounded rectangle; zero makes square corners.'),
+        P('scroll_position', 'Line position', 0., 0, 32, .01, 'Line scroll only. Zero is empty; one shows the first line. Animate fractional values to push earlier lines upward.'),
+        P('scroll_rate', 'Lines per second', 1., 0, 10, .05, 'Zero uses only Line position, for precisely timed steps and holds.'),
+        P('scroll_window', 'Visible rows', 8, 1, 32, 1),
+        P('scroll_bottom', 'Bottom anchor', .32, -.5, .5, .01, 'Relative to the authored canvas center and height.'),
+        P('scroll_edge', 'Window edge softness', .003, 0, .1, .001),
     )),
     Module('broadcast', 'Broadcast wear', 'Color drift in shadows, static interruptions, polarity reversals and curved CRT framing. Works on any source.', (
         P('field', 'Color field', .18, 0, 1, .01, 'Soft color variation in shadows, across the full canvas.'),
@@ -655,6 +661,12 @@ MODULES += (
         P('phase', 'Pulse phase', 0., 0, 1, .01),
         P('cadence', 'Texture FPS', 24., 0, 60, 1, 'Zero freezes the texture; exposure pulses keep their own clock.'),
         P('mix', 'Mix', 1., 0, 1, .01),
+        P('organic', 'Organic edge motion', 0., 0, 40, .5, 'Two-dimensional deformation of the source, in pixels at a 720-pixel reference edge. Zero retains the original treatment.'),
+        P('organic_scale', 'Deformation scale', 16., 3, 100, 1),
+        P('organic_rate', 'Deformation speed', 1., 0, 5, .05),
+        P('glints', 'Traveling highlights', 0., 0, 6, .05, 'Uneven light blooms only on bright source pixels. Zero disables this additional light.'),
+        P('glint_size', 'Highlight size', 70., 10, 250, 1),
+        P('glint_rate', 'Highlight speed', 1., 0, 5, .05),
     )),
 )
 
@@ -758,6 +770,7 @@ MODULES += dye_transfer_modules(Module, P)
 MODULES += pleated_modules(Module, P)
 MODULES += tunnel_modules(Module, P)
 MODULES += blender_modules(Module, P)
+MODULES += curved_screen_modules(Module, P)
 MODULES = add_parameters(MODULES, P)
 MODULE_BY_ID = InstanceRegistry({module.id: module for module in MODULES})
 
@@ -1465,13 +1478,15 @@ def render_synth_frame(preset, frame=0, time_seconds=None, size=None, source_ima
                                  content_size(p, (width, height)), reading))
 
     source_effects = {entry['id']: entry['params'] for entry in p['modules']
-                      if entry['enabled'] and entry['id'] in ('chroma_print', 'slice_echo', 'stretch_echo', 'signal_etch', 'scan_modulation', 'signal_repetition', 'contour_melt', 'print_collage', 'contact_print', 'signal_tension', 'dye_transfer')}
+                      if entry['enabled'] and entry['id'] in ('curved_screen', 'chroma_print', 'slice_echo', 'stretch_echo', 'signal_etch', 'scan_modulation', 'signal_repetition', 'contour_melt', 'print_collage', 'contact_print', 'signal_tension', 'dye_transfer')}
     def treat_source(image, only=None, original_source=None):
         reference = content_size(p, (width, height))
         source_pixels = untreated if untreated is not None else original_source if original_source is not None else image
         # The legacy group retains its exact intermediate samples. Explicit
         # ordering dispatches one independent pass with a stable original input.
         effects = source_effects if only is None else {only: source_effects[only]}
+        if 'curved_screen' in effects:
+            image = blend_pass(image, effect_amount(effects['curved_screen']), lambda pixels: render_curved_screen(pixels, effects['curved_screen'], continuous_time, p['speed'], _seed(p['seed'], 'curved-screen'), reference))
         if 'dye_transfer' in effects:
             image = blend_pass(image, effect_amount(effects['dye_transfer']), lambda pixels: render_dye_transfer(pixels, effects['dye_transfer'], continuous_time, p['speed'], _seed(p['seed'], 'dye-transfer'), reference))
         if 'contact_print' in effects:

@@ -471,10 +471,14 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
         ranges = self.text_ranges
         tab = self.text_tabs.currentIndex()
         reveal, fit = ranges['text.reveal'], ranges['text.fit']
-        morph, reading = reveal == (3, 3), reveal == (4, 4)
+        morph, reading, scrolling = reveal == (3, 3), reveal == (4, 4), reveal == (5, 5)
         hidden = set()
         if ranges['text.font'][0] == ranges['text.font'][1] and not variable_weight(ranges['text.font'][0]): hidden.add('text.weight')
         if reveal[0] == reveal[1]:
+            if not scrolling: hidden.update(p for p in self.controls if p.startswith('text.scroll_'))
+            if scrolling:
+                hidden.update('text.'+p for p in ('word_seconds','copies','copy_gap','copy_floor','wrap_columns','badge'))
+                hidden.update(p for p in self.controls if p.startswith('text.badge_'))
             if not morph: hidden.update(p for p in self.controls if p.startswith('text.morph_'))
             if not reading: hidden.update(p for p in self.controls if p.startswith('text.reading_'))
             if morph or reading:
@@ -486,13 +490,13 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
         if not morph and not reading and fit[0] == fit[1] and fit[0] != 1: hidden.update(('text.fit_width','text.copy_floor'))
         if ranges['text.motion'][0] == ranges['text.motion'][1] and ranges['text.motion'][0] != 1: hidden.add('text.ease')
         self.text_eligible = set(self.controls) - hidden
-        label_active = ranges['text.badge'] != (0, 0) and not (morph or reading)
+        label_active = ranges['text.badge'] != (0, 0) and not (morph or reading or scrolling)
         for path, control in self.controls.items():
             if path.startswith('text.badge_'): control.setEnabled(label_active)
-            elif path == 'text.badge': control.setEnabled(not (morph or reading))
+            elif path == 'text.badge': control.setEnabled(not (morph or reading or scrolling))
         self.text_layout_note.setText('This word animation uses the main text only. Choose Whole phrase, One word or Type on in Motion to use a subtitle and frame.' if morph or reading else
                                      'Turn on Framed label to use a subtitle and frame. Choose Frame shape → None in Layout for text without an outline.')
-        self.text_layout_note.setVisible(tab in (0, 1) and not label_active and not self.object_filter.text())
+        self.text_layout_note.setVisible(tab in (0, 1) and not label_active and not scrolling and not self.object_filter.text())
         self.text_motion_link.setVisible(tab in (0, 1) and (morph or reading) and not self.object_filter.text())
         self.show_object_groups()
         self.navigation_changed.emit()

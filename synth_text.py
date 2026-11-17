@@ -13,8 +13,8 @@ from synth_canvas import content_size, object_offset
 
 
 def validate_text(value):
-    if not isinstance(value, str) or len(value) > 512 or value.count('\n') > 7:
-        raise ValueError('Text supports up to 512 characters and eight lines.')
+    if not isinstance(value, str) or len(value) > 512 or value.count('\n') > 31:
+        raise ValueError('Text supports up to 512 characters and 32 lines.')
     if any(unicodedata.category(c) in ('Cc', 'Cs') and c != '\n' for c in value):
         raise ValueError('Text contains unsupported control characters.')
     return value
@@ -53,9 +53,9 @@ def letterpress_settings(p, clock):
 @lru_cache(maxsize=24)
 def _glyph_mask(text, font_index, tracking, leading, alignment, visible=None, wrapped=False, weight=400, press=()):
     """Bounded canonical masks keep preview/export type and spacing identical."""
-    # Layout can insert up to seven breaks into a valid 512-character source.
+    # Automatic wrapping keeps at most eight rows; explicit rows allow 32.
     validate_text(text.replace('\n', '') if wrapped else text)
-    if text.count('\n') > 7: raise ValueError('Text supports up to eight lines.')
+    if text.count('\n') > 31: raise ValueError('Text supports up to 32 lines.')
     if not text.strip(): return Image.new('L', (1, 1))
     lines = text.split('\n')
     font_size = 256
@@ -129,7 +129,7 @@ def wrapped_text(text, columns):
     while True:
         wrapper = textwrap.TextWrapper(width=max(1, columns), replace_whitespace=False, break_on_hyphens=False)
         pieces = [wrapper.wrap(line) or [''] for line in lines]
-        if sum(map(len, pieces)) <= 8: break
+        if sum(map(len, pieces)) <= max(8, len(lines)): break
         columns += 1
     result = []; indices = []; offset = 0
     for line, chunks in zip(lines, pieces):
@@ -287,6 +287,13 @@ def repeat_mask(mask, copies, gap):
 def render_text(arr, p, time, preset):
     h, w = arr.shape[:2]
     dx, dy = object_offset(preset, (w, h))
+    if p['reveal'] == 5:
+        from synth_text_scroll import scroll_mask
+        placed = scroll_mask(p, time, preset['speed'], (w, h), content_size(preset, (w, h)), (dx, dy))
+        alpha = np.asarray(placed, dtype=np.float32) / 255 * p['opacity']
+        ink = color(p['hue'], p['saturation'], p['brightness'])
+        paper = color(p['back_hue'], p['back_saturation'], p['back_brightness'])
+        return paper + alpha[..., None] * (ink - paper)
     mask, sx, sy = text_layout(p, time, preset['speed'], content_size(preset, (w, h)))
     angle = math.radians(p['rotation']); c, s = math.cos(angle), math.sin(angle)
     cx, cy = w / 2 + dx, h / 2 + dy

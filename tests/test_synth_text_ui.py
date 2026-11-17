@@ -5,6 +5,35 @@ from synth import MODULE_BY_ID
 from test_synth_composer_ui import window, wait_until
 
 
+def test_phosphor_scroll_exposes_motion_and_surface_controls_with_undo(window):
+    window.set_composition(starter_composition('text-phosphor-scroll'))
+    composer = window.composer
+    composer.look_tabs.setCurrentWidget(composer.object_panel)
+    obj = composer.object_panel
+    obj.text_tabs.setCurrentIndex(2)
+    obj.reveal_control('text.scroll_rate')
+    assert not obj.controls['text.scroll_rate'].isHidden()
+    assert obj.controls['text.word_seconds'].isHidden()
+    assert obj.controls['text.copies'].isHidden()
+    obj.controls['text.scroll_rate'].input.setValue(.8)
+    assert window.composition['effects']['text']['params']['text.scroll_rate'] == .8
+    window.undo_composition()
+    assert obj.controls['text.scroll_rate'].input.value() == 0.
+    composer.look_tabs.setCurrentWidget(composer.effects_panel)
+    panel = composer.effects_panel
+    panel.inspect_effect('curved_screen')
+    panel.reveal_control('curved_screen.angle')
+    assert not panel.controls['curved_screen.angle'].isHidden()
+    panel.controls['curved_screen.angle'].input.setValue(12.)
+    assert window.composition['effects']['curved_screen']['params']['curved_screen.angle'] == 12.
+    window.undo_composition()
+    assert panel.controls['curved_screen.angle'].input.value() == 20.
+    panel.inspect_effect('signal_etch')
+    panel.reveal_control('signal_etch.glints')
+    assert not panel.controls['signal_etch.glints'].isHidden()
+    wait_until(lambda: not window.render_running and not window.render_queued)
+
+
 def test_liquid_words_exposes_working_controls_and_undo(window):
     window.set_composition(starter_composition('text-liquid-words'))
     composer = window.composer

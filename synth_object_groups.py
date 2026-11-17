@@ -19,6 +19,7 @@ TEXT_GROUPS = (
     (1, 'Repetitions', False, 'copies copy_gap copy_floor'),
     (1, 'Frame & subtitle layout', False, 'badge_shape badge_border badge_padding_x badge_padding_y badge_type_fit badge_subtitle_scale badge_subtitle_width badge_gap badge_radius'),
     (2, 'Reading', True, 'reveal reading_duration reading_final word_seconds morph_hold morph_seconds'),
+    (2, 'Line scroll', True, 'scroll_position scroll_rate scroll_window scroll_bottom scroll_edge'),
     (2, 'Interruptions & ending', False, 'reading_transition reading_weight reading_breakup reading_fragments reading_loop morph_loop'),
     (2, 'Morph character', False, 'morph_ease morph_snap morph_settle morph_flow morph_living'),
     (2, 'Size motion', False, 'motion zoom_start zoom_end period ease phase cadence'),

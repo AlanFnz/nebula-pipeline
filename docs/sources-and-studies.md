@@ -21,7 +21,7 @@ Layout holds size, spacing and position; Motion holds reveals and animation.
 **Text fitting → Fill block** deliberately stretches lettering into a rectangle.
 Canvas resizing preserves proportions.
 
-Text supports eight lines and 512 characters. Choose a bundled font for easy
+Text supports 32 explicit lines and 512 characters. Choose a bundled font for easy
 sharing or an active macOS [system typeface](system-typefaces.md). System fonts
 are referenced, not embedded. Independent text-over-video layers are not supported.
 
@@ -32,10 +32,28 @@ are referenced, not embedded. Independent text-over-video layers are not support
 | Text / lost transmission | Repeated words and chromatic ghosts. |
 | Text / night monitor | Smaller lettering and a worn blue screen. |
 | Text / opium | Monochrome exposure pulses and stretched lettering. |
+| Text / phosphor scroll | Rising white lines on a tilted, worn wire grid. |
 
 For Opium's look, **Stretch echo** shapes the secondary lettering and **Signal
 etch** controls erosion and flashes. Both also treat other generated sources
 and footage. Their cycle controls are independent.
+
+## Text / phosphor scroll
+
+A silent 16.46-second study at 960 × 720 and 24 fps, with two separately editable
+stanzas. Select a stanza and use the clip editing scope to change **Object → Main
+text** without replacing the other stanza. Each manual line break starts a row.
+
+**Object → Motion → Line scroll** controls line position, speed, visible rows and
+the bottom anchor. The study animates Line position with timed advances and holds;
+Lines per second is zero. Change a clip's Duration to stretch its stanza, or animate
+Line position for a different rhythm. Added lines need enough time to enter.
+
+**Curved screen** projects the text and grid together: adjust angle, curvature,
+scale, grid spacing and the dark surface. **Signal etch → Organic edges** shapes
+the lettering; **Traveling highlights** controls moving glints. CRT capture and
+Bloom provide focus softness and light spill. These treatments also accept other
+objects and imported video.
 
 ## Text / burning print
 

@@ -12,7 +12,7 @@ covers scope, order and animation.
 | --- | --- |
 | Film, ink and optical exposures | Film burn, Print collage, Optical overprint, Color emulsion |
 | Luminous letterforms | Stretch echo, Signal etch, Contour melt |
-| Scan displacement and filmed screens | Scan modulation, CRT capture, Screen mesh, Scan drag |
+| Scan displacement and filmed screens | Scan modulation, CRT capture, Screen mesh, Curved screen, Scan drag |
 | Repeated image fragments | Slice echo, Signal repetition |
 | Signal faults and unstable motion | Tape damage, Broadcast wear, Frame jitter |
 | Printing | Photocopy, Print surface, Contact print, Dye transfer |
@@ -32,6 +32,11 @@ image; Fragment flashes adds a separate rhythm of smaller patches.
 **Screen mesh** adds phosphor columns and fine rows. **CRT capture** adds filmed
 screen texture, moiré and focus changes. For softer source details with a sharp
 screen surface, use Chroma print's Image softness rather than final Raster softness.
+
+**Curved screen** tilts and curves the image and a wire grid on the same surface.
+Grid brightness zero hides the grid; surface brightness, grain and patina control
+the dark backing. **Signal etch** can add Organic edges and Traveling highlights
+before that projection. Those additions default to zero in existing projects.
 
 ## Temporal fragments
 

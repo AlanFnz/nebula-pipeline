@@ -14,6 +14,9 @@ from synth_instances import base_path
 from synth_intensity import PATHS
 
 TARGETS = frozenset({
+    'text.scroll_position', 'text.scroll_rate', 'text.scroll_bottom',
+    'curved_screen.angle', 'curved_screen.curve', 'curved_screen.scale', 'curved_screen.grid',
+    'signal_etch.organic', 'signal_etch.glints',
     'dye_transfer.scale', 'dye_transfer.x', 'dye_transfer.y', 'dye_transfer.angle',
     'dye_transfer.paper_hue', 'dye_transfer.paper_saturation', 'dye_transfer.paper_light',
     'dye_transfer.ink_hue', 'dye_transfer.ink_light', 'dye_transfer.wash',

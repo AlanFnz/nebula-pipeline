@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.115.0 — 2026-11-17
+
+- Add **Text / phosphor scroll**, a silent 16.46-second study with two editable
+  stanzas, timed upward advances, luminous irregular lettering and a curved grid.
+- Extend Text with **Line scroll**, 32 explicit lines, a row window and editable
+  position/speed. Add **Curved screen** for a shared image/grid projection, and
+  optional Organic edges and Traveling highlights to Signal etch. The effects
+  work with generated objects and footage, with intensity and undoable controls.
+  Existing study recipes and default rendering remain unchanged.
+
 ## 0.114.1 — 2026-11-17
 
 - Allow soundtrack starts before video zero. Drag left to begin playback later
