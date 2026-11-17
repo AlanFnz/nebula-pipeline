@@ -17,6 +17,7 @@ TARGETS = frozenset({
     'text.scroll_position', 'text.scroll_rate', 'text.scroll_bottom',
     'curved_screen.angle', 'curved_screen.curve', 'curved_screen.scale', 'curved_screen.grid',
     'curved_screen.vibration', 'curved_screen.flutter', 'curved_screen.breathing', 'curved_screen.boil',
+    'curved_screen.sphere_spin', 'curved_screen.sphere_axis', 'curved_screen.sphere_phase', 'curved_screen.sphere_radius',
     'signal_etch.organic', 'signal_etch.glints',
     'dye_transfer.scale', 'dye_transfer.x', 'dye_transfer.y', 'dye_transfer.angle',
     'dye_transfer.paper_hue', 'dye_transfer.paper_saturation', 'dye_transfer.paper_light',

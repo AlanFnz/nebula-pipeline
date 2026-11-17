@@ -32,6 +32,7 @@ SECONDS = frozenset({
 })
 DEGREES = frozenset({
     'curved_screen.angle',
+    'curved_screen.sphere_axis', 'curved_screen.sphere_phase',
     'chromatic_lattice.eye_ripple_rotation',
     'dye_transfer.angle',
     'signal_tension.direction',

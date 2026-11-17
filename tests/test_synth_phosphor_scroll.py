@@ -90,6 +90,37 @@ def test_new_etch_controls_are_opt_in_and_random_seek_is_repeatable():
     assert not np.array_equal(first,baseline)
 
 
+def test_sphere_rotation_moves_only_the_grid_and_is_reversible_and_periodic():
+    arr=np.zeros((180,240,3),np.float32)
+    arr[50:100,80:160]=1.
+    p=params('curved_screen',grid_surface=1,sphere_spin=30.,grid=.4,
+             grain=0.,drift=0.,patina=0.,background=0.,rate=0.)
+    def render(t, **values):
+        return render_curved_screen(arr,dict(p,**values),t,1,71,(240,180))
+    first=render(0.)
+    moved=render(1.)
+    assert not np.array_equal(first,moved)
+    assert np.array_equal(first,render(12.))
+    assert np.array_equal(render(1.,sphere_spin=-30.),render(11.))
+    assert np.array_equal(render(1.,grid=0.),render(9.,grid=0.))
+    assert np.array_equal(render(1.,sphere_spin=0.),render(9.,sphere_spin=0.))
+    assert np.array_equal(first[first>.9],moved[first>.9])
+    render(9.)
+    assert np.array_equal(moved,render(1.))
+
+
+@pytest.mark.parametrize('shape', [(160,80,3),(80,160,3)])
+def test_sphere_grid_supports_reframing_without_edges_or_longitude_seams(shape):
+    arr=np.zeros(shape,np.float32)
+    p=params('curved_screen',grid_surface=1,sphere_spin=0.,sphere_radius=.5,
+             grain=0.,drift=0.,patina=0.,background=0.)
+    size=(shape[1],shape[0])
+    left=render_curved_screen(arr,dict(p,sphere_phase=179.999),0.,1,71,size)
+    right=render_curved_screen(arr,dict(p,sphere_phase=-179.999),0.,1,71,size)
+    assert left.shape==shape and np.isfinite(left).all()
+    assert np.abs(left-right).max()<.005
+
+
 def test_study_words_duration_cuts_roundtrip_and_editability(tmp_path):
     project=starter_composition('text-phosphor-scroll')
     assert project==phosphor_scroll_composition()
