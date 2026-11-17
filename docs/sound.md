@@ -76,24 +76,41 @@ Use [Perform / Visuals](visual-performance.md) to record visual gestures.
 ## Import a soundtrack and make visuals react
 
 Choose **+ Soundtrack → Import…**. Set In/Out, Start and the end behavior, then
-Apply. The visual timeline determines the piece's duration. **Relink…** repairs
-moved media while keeping trim; ordinary Save does not copy the audio file.
+Apply. **In / Out** select the source audio; **Start** places that trimmed segment
+on the video timeline. These edits leave the source file intact. The visual
+timeline determines the piece's duration. **Relink…** repairs moved media while
+keeping trim; ordinary Save does not copy the audio file.
+
+### Move or trim the audio
 
 To move the start, drag the waveform in the composition or Montage timeline.
-The start time updates as you drag; release to apply or press Esc to cancel.
-With the waveform focused, Shift + left/right moves it one frame. **Undo**
-reverses a move. This keeps the source In/Out and end behavior unchanged;
-playback and export stop at the end of the visual timeline. Click the lane to
-seek, or double-click for precise trim and start settings.
+The displayed start snaps to video frames; the sound placement changes only on
+release, as one Undo step. Esc cancels. With the lane focused, Shift + left/right
+moves it one frame; arrows alone seek one second. Moving keeps In/Out and the end
+behavior unchanged. Click to seek or double-click for precise settings, then
+Apply to keep dialog edits. Apply pending Soundtrack edits before dragging;
+closing the dialog lets you move the applied track without applying its draft.
 
-Drag left past video zero to begin later in the audio. For example, **Start
-−2 s** skips two seconds after the source In point; moving right restores them.
-The lane shows **Audio at 0**, the source time heard when the video starts.
-If the waveform moves entirely out of view, drag its label to bring it back.
-Negative Start also works in the Soundtrack dialog and is saved with the project.
+Drag left past video zero to begin later in the trimmed audio. With **In 10 s**,
+**Out 16 s** and **Start −2 s**, video zero uses source second 12. Moving right restores the
+earlier material. For negative Start, **Audio at 0** shows this source position.
+**Silence at end** becomes silent at Out; if the whole trim ends before video
+zero, the lane says **Ends before video**. **Loop trimmed audio** wraps within
+In/Out, including at video zero. Positive Start leaves silence before the track.
+Drag the label to recover a waveform moved out of view. Start is saved with the
+project; Undo restores moves and applied trim edits.
+
+Playback and export use the same placement and end at the visual timeline's end.
+To export the track, choose **Export audio → Soundtrack**. An applied Synthesizer
+route must allow imported audio: **Existing soundtrack / footage** or **Ableton
+Live (MIDI)**. **Output volume** affects the saved audio level; monitor volume
+and mute affect listening. Check Details for the final export route.
+
+### React to audio
 
 **React to audio… → Add response** maps a frequency band to an active visual
-control. Set Amount, Sensitivity, Rise and Fall, then Apply. Up to 16 responses
+control. Responses follow the same trim, signed Start and loop as the soundtrack.
+Set Amount, Sensitivity, Rise and Fall, then Apply. Up to 16 responses
 can follow band energy; this does not isolate instruments or detect beats.
 Monitor mute and the chosen export route do not disable these responses.
 

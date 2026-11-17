@@ -50,6 +50,8 @@ block changed and whether the Montage still needs saving.
 Montage has one soundtrack on an absolute timeline. Music markers stay in place
 when blocks move. Export uses that soundtrack or silence; it does not mix audio
 from blocks, even if you hear it while editing a block.
+For waveform dragging, negative Start, trim and Undo, see
+[soundtrack placement](sound.md#move-or-trim-the-audio).
 
 Preview resolution affects only the monitor. Prepare range caches a bounded
 region; export uses the full canvas. Source media remain external, so keep them

@@ -1,5 +1,8 @@
 # Visual color editing
 
+For coordinated colors in Printed orbit and Watching eye, use
+[Object → Color palette](sources-and-studies.md#shared-color-palette).
+
 In the composition inspector, open **Effects → Dye transfer**. The Background
 color and Ink color cards show the color at the preview frame, before texture,
 lighting and other effects. Click a swatch or **Choose…** to open the picker.

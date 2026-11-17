@@ -10,8 +10,10 @@
 3. Open **Effects → Add shared effect…**, preview a treatment and choose
    **Apply effect**. Intensity adjusts its contribution; Bypass lets you compare.
 4. Press Play. If playback skips, lower **Preview resolution** and use
-   **Prepare all frames**. Preparation does not start playback or reduce export
-   quality. Drag a clip's right edge to change its duration.
+   **Prepare all frames**. Enable **Loop prepared range** to play the longest
+   ready span while preparation continues. This does not reduce export quality.
+   See [preview controls](monitor-and-export.md#prepare-frames). Drag a clip's
+   right edge to change its duration.
 5. Press **Save** (Command-S on macOS) to keep the editable JSON project.
 6. Check **Details** beside **Export MP4**, then export the movie. Export uses
    the output canvas and does not save your project.

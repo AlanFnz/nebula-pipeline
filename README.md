@@ -22,6 +22,7 @@ Choose **New piece → Text**, or select a study and press **Load**.
 [Your first piece](docs/getting-started.md) covers editing, saving and export.
 
 - [Sound](docs/sound.md): listening, applying changes and choosing export audio.
+- [Preview and export](docs/monitor-and-export.md): prepare frames and loop a ready span.
 - [Live MIDI](LIVE_MIDI.md): connect instruments in Ableton or another DAW.
 - [Documentation](docs/README.md): editing references, development and history.
 
