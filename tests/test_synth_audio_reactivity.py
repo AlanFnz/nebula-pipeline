@@ -414,3 +414,19 @@ def test_same_size_overwrite_with_restored_mtime_invalidates_actual_analysis(ton
     second = prepare_reactivity(sequence)
     assert second is not first
     assert response(sequence, .5)['low'] < old_response * .6
+
+
+@pytest.mark.parametrize('mode', ['silence', 'loop'])
+def test_negative_start_reactivity_follows_audible_source(tones, mode):
+    track = dict(tones, offset=-1., out=2., end_mode=mode)
+    low = mapping(track)
+    high = mapping(track, 'high'); high.update(low_hz=2000., high_hz=4000.)
+    sequence = document(track, [low, high], duration=2.)
+    prepare_reactivity(sequence)
+    assert response(sequence, .4)['high'] > .6
+    assert response(sequence, .4)['low'] == 0.
+    if mode == 'loop':
+        assert response(sequence, 1.5)['low'] > .6
+        assert response(sequence, 1.5)['high'] == 0.
+    else:
+        assert response(sequence, 1.5) == {'low': 0., 'high': 0.}

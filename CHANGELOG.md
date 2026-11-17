@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.114.1 — 2026-11-17
+
+- Allow soundtrack starts before video zero. Drag left to begin playback later
+  in the audio, keeping source In/Out reversible and unchanged. Preview, export,
+  looping and audio reactions use the same signed placement. The lane shows the
+  audio position heard at zero; its label remains draggable when the waveform
+  has moved off canvas. Existing projects retain their timing and rendering.
+
 ## 0.114.0 — 2026-11-16
 
 - Move a soundtrack's start by dragging its waveform in the composition or

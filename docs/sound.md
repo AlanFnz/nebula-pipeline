@@ -86,6 +86,12 @@ reverses a move. This keeps the source In/Out and end behavior unchanged;
 playback and export stop at the end of the visual timeline. Click the lane to
 seek, or double-click for precise trim and start settings.
 
+Drag left past video zero to begin later in the audio. For example, **Start
+−2 s** skips two seconds after the source In point; moving right restores them.
+The lane shows **Audio at 0**, the source time heard when the video starts.
+If the waveform moves entirely out of view, drag its label to bring it back.
+Negative Start also works in the Soundtrack dialog and is saved with the project.
+
 **React to audio… → Add response** maps a frequency band to an active visual
 control. Set Amount, Sensitivity, Rise and Fall, then Apply. Up to 16 responses
 can follow band energy; this does not isolate instruments or detect beats.

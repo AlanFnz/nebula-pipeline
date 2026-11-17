@@ -49,7 +49,9 @@ def normalize_soundtrack(raw):
     result['out'] = _number(raw.get('out', result['duration']), 'Out', 0., result['duration'])
     if result['out'] <= result['in']:
         raise ValueError('Soundtrack Out must be after In')
-    result['offset'] = _number(raw.get('offset', 0.), 'Start')
+    # Negative placement skips the part of the trimmed audio before video zero.
+    # Keep In/Out intact so moving right again restores that material.
+    result['offset'] = _number(raw.get('offset', 0.), 'Start', low=-float('inf'))
     result['gain'] = _number(raw.get('gain', 1.), 'gain', 0., 1.)
     for key, default, choices in (('end_mode', 'silence', ('silence', 'loop')),
                                  ('export_audio', 'soundtrack', ('soundtrack', 'footage', 'silent'))):

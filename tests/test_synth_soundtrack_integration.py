@@ -248,27 +248,32 @@ def test_rejected_lower_sample_rate_import_preserves_project_monitor_and_error(s
     assert 'Soundtrack ready' not in studio.status.text()
 
 
-def test_lane_placement_is_one_undo_and_saved_on_project_clock(studio, soundtrack, tmp_path):
+@pytest.mark.parametrize('offset', [2., -2.])
+def test_lane_placement_is_one_undo_and_saved_on_project_clock(studio, soundtrack, tmp_path, offset):
     from synth_soundtrack import soundtrack_source_time
     studio.apply_soundtrack(dict(soundtrack, **{'in': 1., 'out': 5.}))
     original = copy.deepcopy(studio.composition)
     history = len(studio.undo_compositions)
     wave_key = studio.soundtrack_wave_key
     assert studio.soundtrack_lane.editable
-    studio.soundtrack_lane.offsetRequested.emit(2.)
-    expected = copy.deepcopy(original); expected['soundtrack']['offset'] = 2.
+    studio.soundtrack_lane.offsetRequested.emit(offset)
+    expected = copy.deepcopy(original); expected['soundtrack']['offset'] = offset
     assert studio.composition == expected
     assert len(studio.undo_compositions) == history + 1
     assert studio.soundtrack_wave_key == wave_key
     assert studio.soundtrack_playback.track == expected['soundtrack']
-    assert soundtrack_source_time(studio.sequence['soundtrack'], 1.99) is None
-    assert soundtrack_source_time(studio.sequence['soundtrack'], 2.) == 1.
+    if offset >= 0:
+        assert soundtrack_source_time(studio.sequence['soundtrack'], offset - .01) is None
+        assert soundtrack_source_time(studio.sequence['soundtrack'], offset) == 1.
+    else:
+        assert soundtrack_source_time(studio.sequence['soundtrack'], 0.) == 3.
+        assert soundtrack_source_time(studio.sequence['soundtrack'], 2.) is None
     path = tmp_path / 'moved.json'; save_composition(path, studio.composition)
     assert load_composition(path) == expected
     studio.undo_composition(); assert studio.composition == original
     assert studio.soundtrack_lane.track['offset'] == original['soundtrack']['offset']
     studio.redo_composition(); assert studio.composition == expected
-    studio.soundtrack_lane.offsetRequested.emit(2.)
+    studio.soundtrack_lane.offsetRequested.emit(offset)
     assert len(studio.undo_compositions) == history + 1
 
 

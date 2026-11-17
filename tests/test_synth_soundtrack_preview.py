@@ -600,3 +600,21 @@ def test_native_backend_muted_tone_load_pause_seek_and_loop(tmp_path):
     finally:
         preview.close()
         app.processEvents()
+
+
+def test_negative_start_uses_real_source_clock_in_preview(monitor):
+    from synth_soundtrack import soundtrack_source_time
+    preview, track, backends, clock = monitor
+    preview._source_time = soundtrack_source_time
+    track['offset'] = -1.
+    preview.set_track(track)
+    backend = backends[-1]; backend.readyChanged.emit(True)
+    preview.sync(0., True)
+    assert backend.playing and backend.seeks[-1] == 3.
+    clock.advance(2.1); preview._tick()
+    assert not backend.playing
+    preview.set_track(dict(track, end_mode='loop', offset=-4.))
+    preview.sync(0., True)
+    assert backend.playing and backend.seeks[-1] == 3.
+    clock.advance(2.1); preview._tick()
+    assert backend.playing and backend.seeks[-1] == pytest.approx(2.1)

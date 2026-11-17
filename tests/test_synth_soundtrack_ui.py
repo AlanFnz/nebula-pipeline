@@ -204,7 +204,7 @@ def test_drag_bounds_nudge_and_click_have_distinct_intents(app, track):
     lane = SoundtrackLane(); lane.resize(400, 48)
     lane.set_track(track, 20., 24); lane.set_editable(True); lane.show(); app.processEvents()
     moved, seek = QSignalSpy(lane.offsetRequested), QSignalSpy(lane.seekRequested)
-    for end, expected in [(QPoint(-100, 32), 0.), (QPoint(500, 32), 479 / 24)]:
+    for end, expected in [(QPoint(-100, 32), -6.), (QPoint(500, 32), 479 / 24)]:
         QTest.mousePress(lane, Qt.MouseButton.LeftButton, pos=QPoint(40, 32))
         QTest.mouseMove(lane, end)
         QTest.mouseRelease(lane, Qt.MouseButton.LeftButton, pos=end)
@@ -233,4 +233,40 @@ def test_readonly_lane_does_not_move_or_normalize_existing_placements(app, track
     QTest.mouseRelease(lane, Qt.MouseButton.LeftButton, pos=QPoint(100, 32))
     QTest.keyClick(lane, Qt.Key.Key_Right, Qt.KeyboardModifier.ShiftModifier)
     assert moved.count() == 0 and lane.track == track
+    lane.close()
+
+
+def test_negative_placement_dialog_and_off_canvas_drag_handle(app, track):
+    track = dict(track, offset=-10.)
+    dialog = SoundtrackDialog(); dialog.set_track(track, 20.)
+    assert dialog.offset_control.value() == -10.
+    assert not dialog.has_pending_changes()
+    dialog.gain.setValue(.5); dialog.apply()
+    assert dialog.track['offset'] == -10.
+    assert dialog.track['in'] == track['in'] and dialog.track['out'] == track['out']
+    dialog.close()
+    lane = SoundtrackLane(); lane.resize(400, 48)
+    lane.set_track(track, 20., 24); lane.set_editable(True); lane.show(); app.processEvents()
+    moved = QSignalSpy(lane.offsetRequested)
+    # The audio ends before zero; its visible label can bring it back.
+    QTest.mousePress(lane, Qt.MouseButton.LeftButton, pos=QPoint(40, 8))
+    QTest.mouseMove(lane, QPoint(240, 8))
+    QTest.mouseRelease(lane, Qt.MouseButton.LeftButton, pos=QPoint(240, 8))
+    assert moved.count() == 1 and moved.at(0)[0] == 0.
+    lane.set_track(dict(track, offset=0.), 20., 24)
+    QTest.keyClick(lane, Qt.Key.Key_Left, Qt.KeyboardModifier.ShiftModifier)
+    assert moved.at(1)[0] == -1 / 24
+    lane.close()
+
+
+def test_negative_waveform_draws_the_audible_part(app, track):
+    lane = SoundtrackLane(); lane.resize(400, 48)
+    lane.set_track(dict(track, offset=-1.), 20., 24)
+    lane.set_peaks([.1, .3, .9, .5, .6, .4, .2, .8, .7, .2]); lane.show(); app.processEvents()
+    negative = lane.grab().toImage().copy(15, 18, 380, 27)
+    lane.set_track(dict(track, offset=0., **{'in': 3.}), 20., 24)
+    equivalent = lane.grab().toImage().copy(15, 18, 380, 27)
+    assert negative == equivalent
+    lane.set_track(dict(track, offset=-1e9, end_mode='loop'), 20., 24)
+    assert not lane.grab().isNull()  # Drawing stays bounded to the viewport.
     lane.close()

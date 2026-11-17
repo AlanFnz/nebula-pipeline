@@ -74,7 +74,7 @@ def test_probe_defaults_and_normalization_are_independent(tones):
 
 @pytest.mark.parametrize('key,value', [
     ('duration', 0.), ('duration', 10 ** 1000), ('duration', float('nan')), ('in', float('inf')), ('out', -1.),
-    ('offset', -1.), ('offset', float('inf')), ('gain', True), ('gain', 1.01),
+    ('offset', float('-inf')), ('offset', float('inf')), ('gain', True), ('gain', 1.01),
     ('sample_rate', 1.5), ('channels', 0), ('channels', float('nan')),
     ('id', ''), ('path', 'x\0y'), ('end_mode', 'hold'), ('export_audio', 'mix'),
 ])
@@ -279,3 +279,40 @@ def test_removed_audio_restores_video_schema_and_timing_edits_do_not_retime_trac
     removed = normalize_composition(project)
     assert removed['schema_version'] == 2
     assert 'soundtrack' not in compile_composition(removed)
+
+
+def test_negative_start_preserves_trim_and_uses_later_audio(tones):
+    track = dict(tones, **{'in': .25, 'out': 1.75, 'offset': -.5})
+    assert normalize_soundtrack(track) == track
+    assert soundtrack_source_time(track, 0.) == .75
+    assert soundtrack_source_time(track, .75) == 1.5
+    assert soundtrack_source_time(track, 1.) is None
+    track['end_mode'] = 'loop'
+    assert soundtrack_source_time(track, 1.) == .25
+    track['offset'] = -2.
+    assert soundtrack_source_time(track, 0.) == .75
+
+
+@pytest.mark.parametrize('offset,mode,start,duration,windows', [
+    (-.5, 'silence', 0., 1.6, [(.05, .15, 440), (.4, .6, 880), (1.2, 1.4, None)]),
+    (-.5, 'silence', .75, .7, [(.02, .12, 880), (.4, .6, None)]),
+    (-1.5, 'silence', 0., .6, [(.1, .4, None)]),
+    (-2., 'loop', 0., 1.6, [(.05, .15, 440), (.4, .6, 880), (1.2, 1.4, 440)]),
+    (-2., 'loop', .75, .7, [(.02, .12, 880), (.4, .6, 440)]),
+])
+def test_negative_start_export_matches_source_clock(tones, tmp_path, offset, mode, start, duration, windows):
+    track = dict(tones, **{'in': .25, 'out': 1.75, 'offset': offset, 'end_mode': mode})
+    original = copy.deepcopy(track)
+    video = silent_video(tmp_path / 'video.mp4', duration)
+    result = tmp_path / 'result.mp4'
+    mux_soundtrack_audio(video, result, track, start, duration)
+    data = samples(result)
+    for left, right, tone in windows:
+        source = soundtrack_source_time(track, start + (left + right) / 2)
+        if tone is None:
+            assert source is None and rms(data, left, right) < .001
+        else:
+            assert (440 if source < 1. else 880) == tone
+            assert rms(data, left, right) > .04
+            assert frequency(data, left, right) == pytest.approx(tone, abs=12)
+    assert track == original

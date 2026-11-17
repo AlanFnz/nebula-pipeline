@@ -50,7 +50,8 @@ class SoundtrackLane(QWidget):
         self.editable = bool(editable)
         if not self.editable:
             self.cancel_drag()
-        self.setToolTip(('Drag the waveform to move its start; Shift + arrow keys move one frame. '
+        self.setToolTip(('Drag the waveform or its label to move its start, including before video zero. '
+                         'A negative Start plays a later point in the audio. Shift + arrow keys move one frame. '
                          'Esc cancels a drag. ' if self.editable else '') +
                         'Click to seek; double-click to edit soundtrack. Arrow keys seek one second.')
 
@@ -62,7 +63,12 @@ class SoundtrackLane(QWidget):
         self.update()
 
     def _over_waveform(self, position):
-        if not self.track or self.project_duration <= 0 or not 18 <= position.y() <= 45:
+        if not self.track or self.project_duration <= 0:
+            return False
+        # The label remains a handle even if the whole audio moved off canvas.
+        if 0 <= position.y() < 18:
+            return True
+        if not 18 <= position.y() <= 45:
             return False
         seconds = position.x() / max(1, self.width()) * self.project_duration
         offset = self.track.get('offset', 0.)
@@ -70,10 +76,10 @@ class SoundtrackLane(QWidget):
         return offset <= seconds <= (self.project_duration if self.track.get('end_mode') == 'loop' else offset + span)
 
     def _snapped_offset(self, seconds):
-        # Keep at least one project frame reachable. Existing out-of-range
-        # placements are left intact until the user explicitly moves them.
+        # Moving before zero advances the audio; never rewrite the source trim.
+        # The right edge retains a frame of visible audio as before.
         last_frame = max(0, math.ceil(self.project_duration * self.fps - 1e-7) - 1)
-        return max(0, min(last_frame, round(seconds * self.fps))) / self.fps
+        return min(last_frame, round(seconds * self.fps)) / self.fps
 
     def set_peaks(self, peaks):
         self.peaks = [min(1., abs(float(p))) if math.isfinite(float(p)) else 0. for p in peaks]
@@ -175,8 +181,8 @@ class SoundtrackLane(QWidget):
         loop = track.get('end_mode') == 'loop'
         # One bounded sample per screen column, including all loop cycles.
         if duration > 0 and used > 0:
-            x0 = int(min(self.width(), offset / duration * self.width()))
-            x1 = self.width() if loop else int(min(self.width(), (offset + used) / duration * self.width()))
+            x0 = int(max(0., min(self.width(), offset / duration * self.width())))
+            x1 = self.width() if loop else int(max(0., min(self.width(), (offset + used) / duration * self.width())))
             p.fillRect(QRectF(x0, 18, max(0, x1 - x0), 27), QColor(COLORS['selected']))
             p.setPen(QColor(COLORS['accent']))
             if self.peaks and source_duration > 0:
@@ -191,17 +197,25 @@ class SoundtrackLane(QWidget):
             else:
                 p.drawLine(x0, 32, x1, 32)
             p.setPen(QColor(COLORS['border_hover']))
-            p.drawLine(x0, 18, x0, 45)
-            if self._drag_offset is not None:
+            if offset >= 0:
+                p.drawLine(x0, 18, x0, 45)
+            elif x1 > 0:
+                p.drawLine(2, 32, 7, 27)
+                p.drawLine(2, 32, 7, 37)
+            if self._drag_offset is not None and x1 > x0:
                 p.setPen(QPen(QColor(COLORS['accent']), 1.5))
                 p.drawRect(QRectF(x0, 18, max(0, x1 - x0 - 1), 27))
         p.setPen(QColor(COLORS['muted']))
         name = track.get('name', 'Soundtrack')
-        label = f'Start {offset:.2f} s · {name} · {start:.2f}–{stop:.2f} s · {"Loop" if loop else "Silence at end"}'
+        placement = f'Start {offset:.2f} s'
+        if offset < 0 and used > 0:
+            elapsed = -offset % used if loop else -offset
+            placement += f' · Audio at 0: {start + elapsed:.2f} s' if elapsed < used else ' · Ends before video'
+        label = f'{placement} · {name} · {start:.2f}–{stop:.2f} s · {"Loop" if loop else "Silence at end"}'
         if self._drag_offset is not None:
-            label = f'Start {offset:.2f} s · Release to place · Esc to cancel'
+            label = f'{placement} · Release to place · Esc to cancel'
         elif self.editable:
-            label = f'Start {offset:.2f} s · Drag to move · {name} · {start:.2f}–{stop:.2f} s · {"Loop" if loop else "Silence at end"}'
+            label = f'{placement} · Drag to move · {name} · {start:.2f}–{stop:.2f} s · {"Loop" if loop else "Silence at end"}'
         if self.status and self._drag_offset is None:
             label += ' · ' + self.status
         p.drawText(QRectF(6, 1, max(0, self.width() - 12), 16), Qt.AlignmentFlag.AlignLeft,
@@ -258,6 +272,8 @@ class SoundtrackDialog(QDialog):
         self.in_control = self._seconds('Soundtrack In')
         self.out_control = self._seconds('Soundtrack Out')
         self.offset_control = self._seconds('Soundtrack start on project timeline')
+        self.offset_control.setMinimum(-1e9)
+        self.offset_control.setToolTip('Negative Start places the soundtrack before video zero, so playback begins later in the audio. In and Out stay unchanged.')
         self.end_mode = ComboBox()
         self.end_mode.addItem('Silence at end', 'silence')
         self.end_mode.addItem('Loop trimmed audio', 'loop')
