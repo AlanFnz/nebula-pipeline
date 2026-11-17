@@ -37,6 +37,9 @@ screen surface, use Chroma print's Image softness rather than final Raster softn
 Grid brightness zero hides the grid; surface brightness, grain and patina control
 the dark backing. **Signal etch** can add Organic edges and Traveling highlights
 before that projection. Those additions default to zero in existing projects.
+Under **Motion & timing**, Surface vibration moves the whole plane, Surface
+flutter disturbs it locally, Curvature motion varies its bend and Texture movement
+animates its wear. Motion speed zero freezes them. All four default to zero.
 
 ## Temporal fragments
 

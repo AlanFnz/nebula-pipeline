@@ -8,7 +8,7 @@ def control_group(path):
     if module == 'curved_screen':
         if key in ('angle','curve','center_x','center_y','scale'): return 'Projection'
         if key in ('spacing','line_width','grid','grid_fade','wear'): return 'Wire grid'
-        if key in ('rate','drift'): return 'Motion & timing'
+        if key in ('rate','drift','vibration','flutter','breathing','boil'): return 'Motion & timing'
         if key == 'effect_intensity': return 'Output & blending'
         return 'Surface'
     if module == 'signal_etch' and key.startswith('organic'): return 'Organic edges'
