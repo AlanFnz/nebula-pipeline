@@ -232,8 +232,11 @@ Chromatic pulse study keeps its optical surface.
 Both sweeps repeat every four seconds; the texture completes its cycle in eight.
 After changing periods, use a duration containing whole cycles for a seamless loop.
 
-**Object → Color palette** changes the cell colors, background and enabled eye
-together. The menu shows swatches for **Original · Jade / violet** and five
+### Shared color palette
+
+For Printed orbit and Watching eye, **Object → Color palette** changes the cell
+colors, background and enabled eye together. The menu shows swatches for
+**Original · Jade / violet** and five
 warm/mineral alternatives. Active Broadcast wear accents follow the palette too.
 It applies to the current Composition or Clip scope in one undoable edit;
 individual swatches remain editable and then show **Custom / animated**.
@@ -243,46 +246,58 @@ The alternatives are artistic interpretations inspired by Buddhist painting,
 including the [mineral pigments documented by the Smithsonian](https://mci.si.edu/node/1200385),
 rather than prescribed religious color schemes.
 
-**Lattice / watching eye** is a separate eight-second variant with an illustrated
-eye at the center. In **Object → Center eye**, adjust its width, opening, iris,
-pupil, outline and surrounding space, or disable it.
-**Eye placement → Overlay figures** keeps the full grid moving
-behind the eye, without a reserved gap. **Leave space** uses the original gap and
-shows **Space around eye**. In Overlay figures, **Contour gap** adds a thin
-background-colored margin following the eye and its blinks. Zero removes it;
-try 8 px for a subtle separation or 60–100 px for a wider margin. The maximum
-is 200 px. The width scales with the artwork.
-**Eye width (cells)** controls size in either mode.
-With Overlay figures, **Object → Background reveal → Materialization** makes newly
-uncovered cells appear as fine pigment. Adjust **Reveal duration** and **Reveal
-grain size**; zero Materialization restores the immediate reveal. It follows
-the blink while leaving the surrounding grid and its motion intact.
-**Object → Eye ripple** sends a subtle circular wave through the figures at
-each blink. **Ripple amount** controls the movement; zero disables it.
-**Cell response → Size pulse** briefly enlarges each whole figure as the signal
-arrives. **Pulse + shake** adds a small vibration. **Fluid wave** preserves the
-original flowing deformation and remains the default for existing projects.
-Choose **Custom mix** to adjust **Size pulse**, **Rotation shake**, **Position
-shake** and **Fluid wave** independently. Zero disables an individual response;
-**Ripple amount** scales the whole mix. Rotation rocks each figure around its
-own center. Try 10–20% Fluid wave to bring back a little flowing movement.
-In Custom mix, **Glow pulse** briefly brightens each figure in its own color as
-the wave arrives; zero turns it off. **Glow softness** controls the halo spread,
-while **Ripple width** controls how long the pulse lasts. The eye covers the glow.
-**Speed**, **reach** and **width** use cell intervals, so the wave stays circular
-when reframing. It fades as it travels and leaves the eye itself in place.
-Eye and ink colors have
-their own swatches; the iris follows First cell color. **Eye blinking** controls
-blink count, cycle, duration, irregularity and double blinks. A zero count holds
-the chosen opening. **Blink phase** chooses where that repeating pattern starts:
-0.5 starts halfway through the cycle. It shifts single and double blinks together;
-it does not author a new sequence of blinks.
-**Blink cadence** holds the eyelid poses at a chosen FPS;
-try 6, 8 or 12 for a stepped look. **Timeline FPS** (zero) keeps the original
-smooth movement. This does not change the cells, texture or blink duration.
-The default blink cycle is eight seconds; keep it equal to
-the clip duration or a divisor for a seamless loop. Print surface textures the
-eye and cells together. The original Printed orbit remains available unchanged.
+## Lattice / watching eye
+
+An eight-second Printed relief variant with a centered eye. **Object → Center
+eye** controls its opening, iris, pupil, outline and **Eye width (cells)**.
+Eye and ink have separate swatches; the iris follows First cell color. Use the
+[shared palette](#shared-color-palette) to recolor the whole study. Print surface
+textures the eye and cells together.
+
+**Eye placement → Leave space** removes nearby cells using **Space around eye**.
+**Overlay figures** keeps the full grid moving behind the eye. Its **Contour gap**
+clears cell pigment and glow around the eyelids with the background color. The
+margin follows blinks; zero removes it. Width runs up to 200 px, scaled from a
+720-pixel short artwork edge, so it also scales with preview resolution.
+
+### Blinks and background reveal
+
+**Eye blinking** sets count, cycle, duration, irregularity and double blinks.
+Zero **Blinks per cycle** holds the chosen opening. **Blink phase** shifts the
+whole repeating pattern: 0.5 starts halfway through its cycle. **Blink cadence**
+holds eyelid poses independently of cells and texture; zero follows Timeline FPS.
+A very low cadence can miss a short blink. At global Speed 1, the default cycle
+is eight seconds; match the clip duration to whole cycles for a repeating blink.
+
+With Overlay figures, **Background reveal → Materialization** makes the cells
+uncovered by a closing eyelid appear as fine pigment, including the contour
+margin. **Reveal duration** sets how long that takes at global Speed 1; **Reveal
+grain size** sets particle size. The fill continues during held eyelid poses
+while the grid keeps moving. Zero Materialization gives an immediate reveal.
+
+### Radial responses and glow
+
+**Eye ripple** works in either placement mode. Raise **Ripple amount** to send
+a circular response through the cells at visible blinks, including double blinks.
+The eye must be enabled, have a nonzero opening and blink count. A blink missed
+by Blink cadence produces no ripple. The wave moves between held cell/eyelid
+poses and leaves the eye in place.
+
+| Cell response | Result |
+| --- | --- |
+| Fluid wave | Flowing deformation; the original response. |
+| Size pulse | Brief enlargement of each whole figure. |
+| Pulse + shake | Enlargement with a small position vibration. |
+| Custom mix | Independent size, rotation, position, fluid deformation and glow. |
+
+In Custom mix, zero disables each component; **Ripple amount** scales all of
+them. Rotation rocks figures around their centers. Dense cells limit growth and
+rotation to preserve spacing. **Glow pulse** lights each arriving figure in its
+own color, with the eye and contour margin covering the light. **Glow softness**
+spreads its halo. **Ripple speed** sets travel speed; **reach** limits distance;
+**width** controls the pulse's extent and duration. These use cell intervals,
+keeping the wave circular when reframed. Ripple amount and Glow pulse default
+to zero, preserving existing studies until enabled.
 
 ## Prismatic color film
 

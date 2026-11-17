@@ -11,6 +11,8 @@ Start with [Your first piece](getting-started.md). For sound, read
   [Object inspector](object-inspector.md), [color](color-editing.md)
   and [typefaces](system-typefaces.md).
 - [Recording visual gestures](visual-performance.md).
+- [Watching eye](sources-and-studies.md#lattice--watching-eye): blinks, background
+  reveal, radial responses and color.
 
 Study notes: [FAC51](contact-film-study.md), [One more try](dye-transfer-study.md),
 [Pleated](pleated-signal-study.md), [Earth dreams](earth-dreams-print-study.md)
