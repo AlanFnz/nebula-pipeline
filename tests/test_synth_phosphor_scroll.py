@@ -1,5 +1,6 @@
 """Line timing, seek reproducibility and opt-in treatment contracts."""
 import copy
+import hashlib
 
 import numpy as np
 import pytest
@@ -49,6 +50,31 @@ def test_curved_screen_can_be_neutral_and_supports_other_canvas_shapes():
     for shape in ((120,40,3),(40,120,3)):
         out=render_curved_screen(np.zeros(shape,np.float32),params('curved_screen'),.3,1,5,(shape[1],shape[0]))
         assert out.shape==shape and np.isfinite(out).all() and out.max()>0
+
+
+def test_curved_screen_without_new_motion_retains_0115_pixels():
+    arr=np.random.default_rng(42).random((64,80,3),dtype=np.float32)
+    out=render_curved_screen(arr,params('curved_screen'),.7,1,71,(80,64))
+    # Captured from the 0.115.0 renderer before adding surface motion.
+    assert hashlib.sha256(out.tobytes()).hexdigest() == '575aae0259c82b1e33ad3643f77b6c8ad51608f4fa71de1d25b2319fc34b240b'
+
+
+@pytest.mark.parametrize('motion', ['vibration','flutter','breathing','boil'])
+def test_surface_motion_animates_a_held_frame_and_seeks_repeatably(motion):
+    arr=np.zeros((120,160,3),np.float32)
+    arr[45:75,55:105]=.8
+    p=params('curved_screen',grain=0.,drift=0.,rate=1.)
+    p[motion]={'vibration':3.,'flutter':4.,'breathing':.12,'boil':1.}[motion]
+    def render(t, speed=1.):
+        return render_curved_screen(arr,p,t,speed,71,(160,120))
+    first=render(.7)
+    assert not np.array_equal(first,render(.7+1/24))
+    assert not np.array_equal(first[:35,100:],render(.7+1/24)[:35,100:])
+    render(10.)
+    assert np.array_equal(first,render(.7))
+    assert np.array_equal(render(.7,0.),render(10.,0.))
+    p['rate']=0.
+    assert np.array_equal(render(.7),render(10.))
 
 
 def test_new_etch_controls_are_opt_in_and_random_seek_is_repeatable():

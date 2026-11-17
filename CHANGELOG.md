@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.116.0 — 2026-11-17
+
+- Give the current **Text / phosphor scroll** study continuous irregular motion
+  during line holds, with faster edge deformation and a living curved grid.
+- Add opt-in Surface vibration, Surface flutter, Curvature motion and Texture
+  movement to **Curved screen**. These controls work on objects and footage and
+  are deterministic when seeking, previewing and exporting. Previously saved
+  studies and the original frozen phosphor-scroll recipe retain their pixels.
+
 ## 0.115.0 — 2026-11-17
 
 - Add **Text / phosphor scroll**, a silent 16.46-second study with two editable
