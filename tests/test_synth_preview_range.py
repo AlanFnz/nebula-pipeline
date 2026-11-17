@@ -252,7 +252,9 @@ def test_armed_loop_waits_then_grows_without_cancelling_worker_or_seeking_audio(
     window.advance()
     assert not audio[-1][1] and window.timeline.value() == 4
     assert window.prepare_job is job and not job.cancel.event.is_set()
-    assert 'Waiting for prepared frames' in window.preview_status.text()
+    assert window.preview_status.mode == 'loading'
+    assert window.preview_status.text() == 'Preparing playback range · 0/7 frames'
+    assert 'Waiting for prepared frames' in window.preview_status.detail
     packet = ((64, 48), bytes(64*48*3))
     for frame in (4, 5):
         window.prepared_frame(job, (window.settings_generation, frame, packet))
