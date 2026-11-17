@@ -31,6 +31,7 @@ SECONDS = frozenset({
     'slice_echo.period', 'slice_echo.flash_period', 'slice_echo.flash_seconds',
 })
 DEGREES = frozenset({
+    'curved_screen.angle',
     'chromatic_lattice.eye_ripple_rotation',
     'dye_transfer.angle',
     'signal_tension.direction',

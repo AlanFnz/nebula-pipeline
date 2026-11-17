@@ -92,6 +92,26 @@ def render_signal_etch(arr, p, time, speed, seed, reference_size, pulse_source=N
     ix = x + shift
     warped = arr[y, np.clip(ix, 0, w-1)].copy()
     warped[(ix < 0) | (ix >= w)] = 0
+    if p.get('organic', 0):
+        from synth_modulation import _field as field
+        from synth_print_paint import _sample
+        scale = p.get('organic_scale', 16.) * unit
+        t = (frame / p['cadence'] if p['cadence'] else 0.) * p.get('organic_rate', 1.)
+        xx, yy = x.astype(np.float32), y.astype(np.float32)
+        u, v = xx/scale, yy/scale
+        a = field(u+t*.7, v-t*.45, seed+135)
+        b = field(u*.37-t*.31, v*.37+t*.5, seed+137)
+        dx = (a-.5)*2. + (b-.5)*1.3
+        dy = (field(u-t*.5, v+t*.8, seed+139)-.5)*2.
+        warped = _sample(warped, xx+dx*p['organic']*unit, yy+dy*p['organic']*unit)
+    if p.get('glints', 0):
+        from synth_modulation import _field as field
+        t = clock*p.get('glint_rate', 1.)
+        scale = p.get('glint_size', 70.)*unit
+        spots = field(x.astype(np.float32)/scale+t*.6, y.astype(np.float32)/scale-t*.9, seed+149)
+        spots = np.clip((spots-.55)*3., 0, 1)**2
+        bright = np.clip((warped.max(axis=2)-.28)/.3, 0, 1)
+        warped = warped*(1+spots[...,None]*bright[...,None]*p['glints'])
     light = warped.max(axis=2)
     support = _blur(light, max(.5, p['spread_x'] * unit), max(.5, p['spread_y'] * unit))
     phase = (clock / p['period'] + p['phase']) % 1

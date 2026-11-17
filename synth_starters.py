@@ -4,6 +4,7 @@ from synth_composition import normalize_composition
 from synth_compat import starter_snapshot
 from synth_profile_recipes import clear_profile_composition, doryphoros_composition
 from synth_text_recipes import text_composition, opium_composition, word_morph_composition
+from synth_phosphor_recipes import phosphor_scroll_composition
 from synth_radial_recipes import radial_composition
 from synth_prismatic_recipes import prismatic_composition
 from synth_solid_recipes import rotating_die_composition
@@ -20,6 +21,7 @@ from synth_pleated_recipes import pleated_composition, pleated_sound_composition
 
 
 STARTERS = (
+    ('text-phosphor-scroll', 'Text / phosphor scroll · 16.46s', phosphor_scroll_composition),
     ('watching-eye', 'Lattice / watching eye · 8s', watching_eye_composition),
     ('printed-orbit', 'Lattice / printed orbit · 8s', printed_orbit_composition),
     ('yin-yang', 'Yin yang / orbital balance · 15s', yin_yang_continuous_composition),
@@ -71,6 +73,7 @@ STARTERS = (
 
 # First appearance in the repository, retained independently of app builds.
 STARTER_DATES = {
+    'text-phosphor-scroll': '2026-11-17',
     'watching-eye': '2026-11-14',
     'printed-orbit': '2026-11-14',
     'yin-yang': '2026-11-11',

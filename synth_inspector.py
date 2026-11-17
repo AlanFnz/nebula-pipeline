@@ -5,6 +5,14 @@ def control_group(path):
     from synth_instances import base_path
     path = base_path(path)
     module, key = path.split('.')
+    if module == 'curved_screen':
+        if key in ('angle','curve','center_x','center_y','scale'): return 'Projection'
+        if key in ('spacing','line_width','grid','grid_fade','wear'): return 'Wire grid'
+        if key in ('rate','drift'): return 'Motion & timing'
+        if key == 'effect_intensity': return 'Output & blending'
+        return 'Surface'
+    if module == 'signal_etch' and key.startswith('organic'): return 'Organic edges'
+    if module == 'signal_etch' and key.startswith('glint'): return 'Traveling highlights'
     if module == 'print_surface':
         if key == 'surface': return 'Surface'
         if key in ('paint_drift', 'paint_registration', 'registration', 'rotation_jitter', 'cadence', 'boil', 'paper_motion', 'paint_period'): return 'Motion & timing'

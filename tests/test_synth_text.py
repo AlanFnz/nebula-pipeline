@@ -42,7 +42,7 @@ def test_fonts_have_pinned_bytes_and_bundled_licenses():
     assert all(m.getbbox() and max(m.size) <= 4096 for m in masks)
 
 
-@pytest.mark.parametrize('value', [123, 'a' * 513, '\n' * 8, 'a\x00b', '\ud800'])
+@pytest.mark.parametrize('value', [123, 'a' * 513, '\n' * 32, 'a\x00b', '\ud800'])
 def test_invalid_text_is_rejected_in_documents_and_effects(value):
     with pytest.raises(ValueError): validate_text(value)
     p=source(); next(m for m in p['modules'] if m['id']=='text')['params']['content']=value

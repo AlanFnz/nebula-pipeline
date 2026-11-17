@@ -53,6 +53,14 @@ def source_frame(preset, size, time, anchor='auto', continuous_time=None):
                           -p['rotation'] * seconds * preset['speed'])
     if anchor == 'text':
         from synth_text import text_layout, text_pose
+        if p['reveal'] == 5:
+            from synth_text_scroll import scroll_mask
+            seconds = time if continuous_time is None else continuous_time
+            bounds = scroll_mask(p, seconds, preset['speed'], size, (cw, ch), (dx, dy)).getbbox()
+            if bounds:
+                left, top, right, bottom = bounds
+                return LocalFrame(((left+right)/2, (top+bottom)/2), max(1., (bottom-top)/2), -p['rotation'])
+            return LocalFrame((w/2+dx, h/2+dy), max(1., ch*p['size']/2), -p['rotation'])
         if p['reveal'] == 3:
             _, zoom = text_pose(p, time if continuous_time is None else continuous_time, preset['speed'])
             return LocalFrame((w / 2 + dx, h / 2 + dy), max(1., ch * p['size'] * p['stretch_y'] * zoom / 2), -p['rotation'])
