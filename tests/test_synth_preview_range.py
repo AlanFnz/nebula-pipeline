@@ -1,4 +1,5 @@
 import copy
+import pytest
 
 from PySide6.QtCore import Qt
 from synth_preview import PreviewScope, preview_window, longest_cached_scope
@@ -40,6 +41,61 @@ def setup(window, monkeypatch):
     window.preview_range_frames.setValue(7)
     window.timeline.setValue(4); settle(window)
     return copy.deepcopy(window.composition)
+
+
+@pytest.mark.parametrize('playing', [False, True])
+def test_enabling_cached_loop_never_restarts_a_stale_preparation_window(window, monkeypatch, playing):
+    before = setup(window, monkeypatch)
+    window.preview_frames.clear()
+    window.preview_frames.enable_full(window.preview_size(), window.timeline.maximum()+1)
+    packet = (window.preview_size(), bytes(64*48*3))
+    for frame in (*range(6), 9, 10): window.preview_frames.put(frame, packet)
+    window.timeline.setValue(0); settle(window)
+    # A past automatic request is incomplete and far from the current ready loop.
+    window.remember_preview_range(PreviewScope(((8, 15),)))
+    window.auto_prepare.setChecked(True)
+    window.warm_debounce.stop()
+    window.play.setChecked(playing)
+    started = []; monkeypatch.setattr(window.jobs, 'start', started.append)
+    window.loop_preview_range.setChecked(True)
+    assert window.active_preview_scope().intervals == ((0, 6),)
+    assert not window.warm_debounce.isActive()
+    window._automatic_preparation()  # A queued callback cannot resurrect the old request either.
+    assert not started
+    assert window.prepared_range_scope.intervals == ((0, 6),)
+    window.play.setChecked(True)
+    window.schedule_auto_preparation()
+    assert not window.warm_debounce.isActive()
+    assert not started and window.composition == before
+    window.play.setChecked(False)
+
+
+def test_auto_prepare_remembers_current_request_after_scrubbing(window, monkeypatch):
+    setup(window, monkeypatch)
+    window.auto_prepare.setChecked(True)
+    window._automatic_preparation(); prepared(window)
+    previous = window.prepared_range_scope
+    window.timeline.setValue(14); settle(window)
+    window._automatic_preparation(); prepared(window)
+    assert window.prepared_range_scope != previous
+    assert set(window.prepared_range_sources) == set(window.preparation_target)
+    assert window.prepared_range_scope.contains(14)
+
+
+def test_preview_events_capture_loop_and_preparation_decisions(window, monkeypatch, tmp_path):
+    import json
+    from studio_diagnostics import configure, close
+    setup(window, monkeypatch)
+    path = configure(tmp_path)
+    try:
+        window.prepare_playback(); prepared(window)
+        window.loop_preview_range.setChecked(True)
+        events = [json.loads(line) for line in path.read_text().splitlines()]
+        assert any(e['event'] == 'preview.prepare_requested' and e['reason'] == 'range' for e in events)
+        changed = next(e for e in events if e['event'] == 'preview.loop_changed')
+        assert changed['enabled'] and [4, 11] in changed['cached']
+        assert changed['ready_loop'] == [[4, 11]]
+    finally: close()
 
 
 def test_chosen_range_survives_eviction_and_loops_audio_at_absolute_time(window, monkeypatch):
@@ -347,13 +403,15 @@ def test_auto_preparation_finishes_fixed_window_while_loop_plays(window, monkeyp
     window.play.setChecked(False)
 
 
-def test_loop_expands_memory_limited_auto_window_to_requested_length(window, monkeypatch):
+def test_loop_keeps_memory_limited_auto_window_until_explicit_prepare_request(window, monkeypatch):
     setup(window, monkeypatch)
     window.auto_prepare.setChecked(True)
     window._automatic_preparation()
-    wait_until(lambda: window.prepared_range_scope is not None)
+    wait_until(lambda: window.prepare_job is None and window.prepared_range_scope is not None)
     assert window.prepared_range_scope.count == 2  # Only two RGB frames fit in RAM.
     window.loop_preview_range.setChecked(True)
+    assert window.prepared_range_scope.count == 2
+    window.prepare_playback()
     assert window.prepared_range_scope.count == window.preview_range_frames.value() == 7
     window.play.setChecked(True)
     # Previously warmed neighbors join too, so the ready loop can exceed seven.
