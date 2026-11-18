@@ -318,6 +318,7 @@ class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
             self.menuBar().setNativeMenuBar(False)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self.workspace_navigation=None; self.preview_suspended=False
+        self.recent_projects=None
         self.document=normalize_montage(document or new_montage()); self.path=Path(path) if path else None
         self.clean=copy.deepcopy(self.document); self.undo_stack=[]; self.redo_stack=[]; self.selected=set(); self.frame=0
         self.timing_key=None; self.timing_base=None
@@ -782,7 +783,11 @@ class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
         if not path: return False
         try: save_montage(path,self.document)
         except Exception as error: self.status.setText(str(error)); return False
-        self.path=Path(path); self.clean=copy.deepcopy(self.document); self.refresh(); self.status.setText('Montage saved.'); return True
+        self.path=Path(path); self.clean=copy.deepcopy(self.document); self.refresh(); self.status.setText('Montage saved.')
+        if self.recent_projects is not None:
+            packet = self.cache.get((self.revision, self.preview_size(), self.frame))
+            self.recent_projects.remember(path, self.frame/self.document['fps'], packet)
+        return True
     def may_replace(self):
         if not self.resolve_timing('closing or opening another document'): return False
         if self.document==self.clean: return True
