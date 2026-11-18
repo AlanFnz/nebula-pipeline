@@ -70,13 +70,14 @@ def test_preview_scope_complete_does_not_claim_full_document(editor):
     editor.preparation_target = tuple(range(scope.count))
     editor._preparation_ready()
     assert editor.cache_status.text() == 'Selected clips: 6/6 frames · complete'
-    assert editor.preview_status.text().startswith('Selected clips fully prepared')
+    # This test stubs frame requests; loading feedback can cover the range detail.
+    assert editor.preview_status.detail.startswith('Selected clips fully prepared')
     editor.preview_scope.setCurrentIndex(0); editor._preparation_ready()
     assert editor.cache_status.text() == 'Timeline: 6/12 frames · partial'
-    assert 'fully prepared' not in editor.preview_status.text()
+    assert 'fully prepared' not in editor.preview_status.detail
     editor.invalidate(force_clear=True)
     assert editor.cache_status.text() == 'Timeline: 0/12 frames · not prepared'
-    assert 'outdated' in editor.preview_status.text()
+    assert 'outdated' in editor.preview_status.detail
 
 
 def test_auto_window_is_partial_even_when_memory_would_fit_timeline(editor):
