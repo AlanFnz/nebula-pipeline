@@ -2004,6 +2004,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
             return
         self.cancel_foreground_render()
         self.preview_image_stale = True
+        self.trace_preview('invalidated', force_clear=force_clear, comparison_switch=comparison_switch)
         retain = None if force_clear else retained_frame_predicate(self.preview_validity, current)
         self.settings_generation += 1  # Worker rejection changes even when pixels can be retained.
         if not comparison_switch:
@@ -2147,14 +2148,16 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.preparation_full = False
         if self.loop_preview_range.isChecked():
             # The requested window stays fixed as playback wraps and grows.
+            if all(self.preview_frames.contains(frame) for frame in self.prepared_range_sources): return
             if not self.retain_preview_range(): return
             self.preparation_target = self.prepared_range_sources
             self.preparation_limited = False
             self._start_warm_batch(); return
         self.preparation_target, self.preparation_limited = self.preview_scheduler.plan(
             self.active_preview_scope(), self.timeline.value(), self.preview_fps(), self.preview_size(), self.preparation_budget(), frame_count=self.preview_range_frames.value())
-        if not self.prepared_range_scope:
-            self.remember_preview_range(scope_from_frames(self.preparation_target))
+        # Follow each real automatic request; a later loop must not resurrect
+        # the first window prepared before the user moved the playhead.
+        self.remember_preview_range(scope_from_frames(self.preparation_target))
         self._start_warm_batch()
 
     def _obsolete_preparation(self):
@@ -2162,6 +2165,8 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
             self.prepare_job.cancel.cancel(); self.prepare_job = None
 
     def cancel_preparation(self):
+        if self.prepare_job or self.preparation_explicit or self.warm_debounce.isActive():
+            self.trace_preview('prepare_cancelled')
         self._obsolete_preparation()
         self.warm_debounce.stop()
         self.preparation_target = (); self.preparation_explicit = False; self.preparation_full = False
@@ -2188,6 +2193,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.preparation_explicit = self.preparation_full = True
         self.preparation_limited = False
         self.preparation_target = range(self.timeline.maximum() + 1)
+        self.trace_preview('prepare_requested', reason='all')
         self.prepare_full_preview.setText('Cancel full preview')
         self.refresh_cache_status()
         self._start_warm_batch()
@@ -2245,6 +2251,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         if not frames:
             self._preparation_ready(); return
         job = PreparePreviewJob(self.preset, self.performance_base_sequence(), size, frames, self.preview_fps(), self.settings_generation, self.preview_bypass())
+        self.trace_preview('batch_started', frames=tuple(frames))
         job.reserved_bytes = len(frames)*size[0]*size[1]*3
         self.preview_frames.reserve(job.reserved_bytes, self.preparation_target)
         self.refresh_cached_ranges()
@@ -2281,6 +2288,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         if job is self.prepare_job: self.prepare_job = None
         if self.closing: return
         if valid and error:
+            self.trace_preview('prepare_failed', error=str(error)[:300])
             if self.discovery_session: self.discovery_session.fail(error)
             if self.preparing_gap is not None: self.cancel_preview_gap()
             else: self.cancel_preparation()
@@ -2729,6 +2737,8 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
 def run_synth_app(preset=None):
     app = QApplication.instance() or QApplication(sys.argv)
     apply_theme(app)
+    from studio_diagnostics import configure
+    configure()
     state_dir = os.environ.get('NEBULA_STATE_DIR')
     settings = QSettings(str(Path(state_dir) / 'settings.ini'), QSettings.Format.IniFormat) if state_dir else QSettings('AlanFnz', 'Nebula Studio')
     from synth_recent_projects import RecentProjects

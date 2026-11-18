@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.118.1 — 2026-11-18
+
+- Activating **Loop prepared range** uses the longest ready span without
+  restarting an old preparation elsewhere in the timeline. Active preparation
+  continues, and the loop grows as before. Automatic preparation now remembers
+  its current request after seeking; **Prepare range** still honors the chosen
+  frame count. Study pixels, timing and export are unchanged.
+- Add bounded local preview diagnostics for loop decisions, preparation batches,
+  cancellations and invalidation. Logs contain timing and cache metadata, not
+  artwork or audio. See [monitor diagnostics](docs/monitor-and-export.md#diagnostics).
+
 ## 0.118.0 — 2026-11-18
 
 - Open now shows recent projects with saved previews, searchable names and

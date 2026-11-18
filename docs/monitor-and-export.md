@@ -39,8 +39,8 @@ Near the end, the range starts earlier to keep the requested length. With
 **Prepare all frames** covers the complete composition. Both use the selected
 resolution and temporary lossless storage beyond the memory cache.
 
-**Auto prepare** warms a nearby range within memory limits; with the loop enabled,
-it finishes the fixed range using temporary lossless storage. Preparation does
+**Auto prepare** warms a nearby range within memory limits. With the loop enabled,
+subsequent edits refill the remembered range using temporary lossless storage. Preparation does
 not start playback. Starting Play without the loop cancels ordinary preparation;
 gap filling can continue during playback.
 
@@ -52,6 +52,8 @@ to stop that automatic work. Request the range again to prepare what is missing.
 
 Enable **Loop prepared range** and press Play. It repeats the longest continuous
 ready span within the playback scope, including frames from earlier requests.
+The checkbox does not start or resume preparation elsewhere. Work already in
+progress continues; use **Prepare range** or **Prepare all frames** to request more.
 It grows as neighboring frames arrive and never crosses a missing or unselected
 frame. A longer separate span takes over; equal lengths keep the current loop
 stable. With no ready frames, Play waits before starting audio/MIDI, which follows
@@ -85,6 +87,19 @@ continuous ready span, so it uses the joined spans only when they are the longes
 
 Montage's assembly monitor still uses bounded ranges; these controls are available
 when editing compositions and Montage blocks.
+
+## Diagnostics
+
+On macOS, logs live in `~/Library/Logs/Nebula Studio/`:
+
+- `studio.log`: console output and errors from the installed app.
+- `preview-events.log`: loop changes, requested ranges, preparation batches,
+  cancellations and preview invalidation, with times, resolution and ready spans.
+
+The preview log keeps two older files and stays below about 1.5 MB in total.
+It records no images, audio or document contents. When reporting a preview bug,
+include the time it happened and these logs alongside a screenshot or recording.
+If `NEBULA_STATE_DIR` is set, logs go there instead.
 
 ## Export details
 
