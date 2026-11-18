@@ -260,8 +260,10 @@ class RecentProjects(QObject):
         self.changed.emit()
 
     def import_folder(self, folder):
+        from synth_project_files import is_project_path
         try:
-            paths = sorted(Path(folder).glob('*.json'), key=lambda p: p.stat().st_mtime, reverse=True)
+            paths = sorted((p for p in Path(folder).iterdir() if p.is_file() and is_project_path(p)),
+                           key=lambda p: p.stat().st_mtime, reverse=True)
         except OSError: return
         self.import_paths = paths[:MAX_RECENTS]
         self.import_timer.start()

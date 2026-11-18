@@ -20,24 +20,31 @@ APP_NAME = "Nebula Studio.app"
 def build_icon():
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     from PySide6.QtCore import Qt
-    from PySide6.QtGui import QImage
+    from PySide6.QtGui import QImage, QPainter
+    from PySide6.QtSvg import QSvgRenderer
     from PySide6.QtWidgets import QApplication
     app = QApplication.instance() or QApplication([])
     folder = ROOT / "build" / "icons"
-    iconset = folder / "nebula.iconset"
-    iconset.mkdir(parents=True, exist_ok=True)
     source = QImage(str(ROOT / "assets" / "nebula-icon.png"))
     if source.isNull():
         raise RuntimeError("Invalid application icon")
-    for points in (16, 32, 128, 256, 512):
-        for scale in (1, 2):
-            image = source.scaled(points * scale, points * scale,
-                                  Qt.AspectRatioMode.KeepAspectRatio,
-                                  Qt.TransformationMode.SmoothTransformation)
-            name = f"icon_{points}x{points}{'@2x' if scale == 2 else ''}.png"
-            if not image.save(str(iconset / name)):
-                raise RuntimeError(f"Could not write {name}")
-    subprocess.run(["/usr/bin/iconutil", "-c", "icns", str(iconset), "-o", str(folder / "nebula.icns")], check=True)
+    document = QImage(1024, 1024, QImage.Format.Format_ARGB32_Premultiplied)
+    document.fill(Qt.GlobalColor.transparent)
+    renderer = QSvgRenderer(str(ROOT / 'assets' / 'nebula-document.svg'))
+    if not renderer.isValid(): raise RuntimeError('Invalid document icon')
+    painter = QPainter(document); renderer.render(painter); painter.end()
+    for stem, original in (('nebula', source), ('nebula-document', document)):
+        iconset = folder / f'{stem}.iconset'
+        iconset.mkdir(parents=True, exist_ok=True)
+        for points in (16, 32, 128, 256, 512):
+            for scale in (1, 2):
+                image = original.scaled(points * scale, points * scale,
+                                      Qt.AspectRatioMode.KeepAspectRatio,
+                                      Qt.TransformationMode.SmoothTransformation)
+                name = f"icon_{points}x{points}{'@2x' if scale == 2 else ''}.png"
+                if not image.save(str(iconset / name)):
+                    raise RuntimeError(f"Could not write {name}")
+        subprocess.run(["/usr/bin/iconutil", "-c", "icns", str(iconset), "-o", str(folder / f'{stem}.icns')], check=True)
     app.quit()
 
 

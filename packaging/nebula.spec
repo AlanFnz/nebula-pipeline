@@ -10,7 +10,8 @@ assets = [(str(path), str(path.parent.relative_to(root)))
           if path.is_file() and '__pycache__' not in path.parts and path.suffix != '.pyc']
 analysis = Analysis(
     [str(root / "mac_app.py")], pathex=[str(root)],
-    datas=assets + [(str(root / "presets"), "presets")],
+    datas=assets + [(str(root / "presets"), "presets"),
+                    (str(root / 'build/icons/nebula-document.icns'), '.')],
     binaries=[(str(root / "build/native/nebula-mask"), "native")],
     hiddenimports=["PySide6.QtSvg"] + collect_submodules('fontTools.ttLib.tables'),
     excludes=["tkinter", "pytest", "PySide6.QtWebEngineCore", "PySide6.QtWebEngineWidgets"],

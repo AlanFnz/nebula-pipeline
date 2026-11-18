@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.119.0 — 2026-11-18
+
+- New projects and **Save as** default to `.nebula`, with a dedicated document
+  icon and double-click opening on macOS. Composition, sequence, preset and
+  Montage payloads keep their existing JSON structure and rendering behavior.
+- Existing JSON projects remain editable and ordinary **Save** keeps their
+  original filename. Open, recent projects, folder import and Montage study
+  import accept both extensions. No existing files or library studies are renamed.
+- Finder opens use the normal unsaved-change safeguards, queue during startup
+  or modal dialogs, and focus an already open project without losing its edits.
+
 ## 0.118.1 — 2026-11-18
 
 - Activating **Loop prepared range** uses the longest ready span without
