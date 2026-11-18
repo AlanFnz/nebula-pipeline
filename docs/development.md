@@ -31,10 +31,18 @@ python3 -m venv .venv
 .venv/bin/python studio.py /path/to/clip.mp4 --preset /path/to/settings.json
 ```
 
-`--synth-preset` accepts a standalone synth preset through `load_synth`; use
-**Open** inside the composer for composition, sequence or Montage documents.
+`--synth-preset` accepts a standalone synth preset through `load_synth`.
+`--project /path/to/file.nebula` opens a composition, sequence, preset or Montage;
+legacy JSON documents also work. These extensions share the existing payload
+formats and schema versions. **Open** uses the same document loaders.
 The Finder app uses [mac_app.py](../mac_app.py): with no arguments it opens the
 composer, and `--clip-studio` selects the older editor.
+
+The macOS bundle declares only `.nebula` as its owned document type; it does not
+take over JSON associations. Qt `QFileOpenEvent` requests are queued by
+`synth_project_files.py` before the workspace is ready and use its replacement
+guards. Packaging includes the app icon and `nebula-document.icns`, generated
+from the source assets by the build script.
 
 Foreground extraction requires macOS 14+ and the Swift helper. For source
 runs, compile it with Apple's command-line developer tools installed:

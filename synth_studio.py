@@ -1827,8 +1827,10 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.finish_focused_edit()
         path = str(self.document_path) if self.document_path and not save_as else None
         if path is None:
+            from synth_project_files import choose_save_path
             kind = self.document_state()[0]
-            path, _ = QFileDialog.getSaveFileName(self, f"Save {kind}", self.suggested_output_path('.json'), "Nebula document (*.json)")
+            suggestion = self.document_path.with_suffix('.nebula') if self.document_path else self.suggested_output_path('.nebula')
+            path = choose_save_path(self, f"Save {kind}", suggestion)
         if not path: return False
         if self.protected_document_destination(path):
             QMessageBox.critical(self, 'Save error', 'Choose a document file outside bundled resources, the Study library and source/proxy media.')
@@ -1883,7 +1885,8 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
             relocated_from = dialog.relocated_from
             dialog.deleteLater()
         else:
-            path, _ = QFileDialog.getOpenFileName(self, "Open composition, sequence or preset", "", "Nebula document (*.json)")
+            from synth_project_files import OPEN_FILTER
+            path, _ = QFileDialog.getOpenFileName(self, "Open composition, sequence or preset", "", OPEN_FILTER)
         if not path: return False
         opened = self.open_document_path(path)
         if opened and relocated_from: self.recent_projects.remove(relocated_from)
@@ -2734,8 +2737,10 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
                                            for key in panel.breakdown_rows})
 
 
-def run_synth_app(preset=None):
+def run_synth_app(preset=None, *, project_paths=()):
     app = QApplication.instance() or QApplication(sys.argv)
+    from synth_project_files import ProjectFileOpener
+    file_opener = ProjectFileOpener(app)
     apply_theme(app)
     from studio_diagnostics import configure
     configure()
@@ -2746,6 +2751,7 @@ def run_synth_app(preset=None):
     app.aboutToQuit.connect(recent_projects.close)
     window = SynthStudio(preset, settings=settings, recent_projects=recent_projects); window.show_workspace()
     recent_projects.busy = window.project_cover_work_busy
+    file_opener.bind(window, project_paths)
     return app.exec()
 
 

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="paper" x2="0.8" y2="1"><stop stop-color="#f5f5f0"/><stop offset="1" stop-color="#cdd5d1"/></linearGradient>
+    <linearGradient id="crystal" x2="0.7" y2="1"><stop stop-color="#e6b8cc"/><stop offset="0.5" stop-color="#b39acb"/><stop offset="1" stop-color="#8574bb"/></linearGradient>
+  </defs>
+  <path d="M94 26 H330 L426 122 V464 Q426 486 404 486 H94 Q72 486 72 464 V48 Q72 26 94 26Z" fill="#0a1113" opacity=".18" transform="translate(4 5)"/>
+  <path d="M94 26 H330 L426 122 V464 Q426 486 404 486 H94 Q72 486 72 464 V48 Q72 26 94 26Z" fill="url(#paper)" stroke="#a5b0ac" stroke-width="3"/>
+  <path d="M330 27 V100 Q330 122 352 122 H425" fill="#b0bfba" stroke="#a5b0ac" stroke-width="3"/>
+  <rect x="116" y="157" width="268" height="228" rx="38" fill="#172022"/>
+  <path d="M250 191 L322 234 V313 L250 355 L178 313 V234Z" fill="url(#crystal)"/>
+  <path d="M250 191 V270 L178 313 V234Z" fill="#e9c5d5" opacity=".18"/>
+  <path d="M250 270 L322 234 V313 L250 355Z" fill="#554b8e" opacity=".18"/>
+  <text x="250" y="442" text-anchor="middle" font-family="Helvetica,Arial,sans-serif" font-size="36" font-weight="700" letter-spacing="3" fill="#283536">NEBULA</text>
+</svg>

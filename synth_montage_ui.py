@@ -633,18 +633,19 @@ class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
         self.seek(frame)
 
     def import_dialog(self):
-        paths,_=QFileDialog.getOpenFileNames(self,'Import videos or native studies','','Media (*.mp4 *.mov *.mkv *.m4v *.webm *.json)')
+        paths,_=QFileDialog.getOpenFileNames(self,'Import videos or native studies','','Media (*.mp4 *.mov *.mkv *.m4v *.webm *.nebula *.json)')
         if paths: self.import_paths(paths)
 
     def import_paths(self,paths):
         from synth_video import inspect_video
         from synth_composition import load_composition
+        from synth_project_files import is_project_path
         self.status.setText('Importing material…'); identity=self.identity
         def inspect(cancel,progress):
             imported=[]
             for path in paths:
                 cancel.check()
-                if Path(path).suffix.lower()=='.json':
+                if is_project_path(path):
                     doc=load_composition(path); imported.append(dict(name=doc['name'],study=doc))
                 else: imported.append(dict(name=Path(path).stem,footage=inspect_video(path)))
             return imported
@@ -779,7 +780,9 @@ class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
 
     def save(self,save_as=False):
         if not self.resolve_timing('saving the montage'): return False
-        path=str(self.path) if self.path and not save_as else QFileDialog.getSaveFileName(self,'Save montage',str(self.path or Path.home()/'Untitled.montage.json'),'Nebula montage (*.json)')[0]
+        from synth_project_files import choose_save_path
+        suggestion = self.path.with_suffix('.nebula') if self.path else Path.home()/'Untitled.nebula'
+        path=str(self.path) if self.path and not save_as else choose_save_path(self,'Save montage',suggestion)
         if not path: return False
         try: save_montage(path,self.document)
         except Exception as error: self.status.setText(str(error)); return False
@@ -798,7 +801,8 @@ class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
             return self.workspace_navigation.host.load_sequence_dialog()
         if any(editor.isVisible() for editor in self.editors):
             self.status.setText('Apply or close the open clip editor before opening another montage.'); return
-        path,_=QFileDialog.getOpenFileName(self,'Open montage','','Nebula montage (*.json)')
+        from synth_project_files import OPEN_FILTER
+        path,_=QFileDialog.getOpenFileName(self,'Open montage','',OPEN_FILTER)
         if not path or not self.may_replace(): return
         def load():
             doc=load_montage(path); self.stop(); self.identity=object(); self.document=doc; self.clean=copy.deepcopy(doc); self.path=Path(path); self.undo_stack=[]; self.redo_stack=[]; self.invalidate(); self.refresh(); self.initialize_media()

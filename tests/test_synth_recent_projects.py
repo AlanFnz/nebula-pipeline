@@ -213,14 +213,15 @@ def test_montage_open_and_save_registers_outer_document(window,tmp_path):
 
 def test_folder_import_skips_unrelated_json_and_preserves_timestamps(app,tmp_path):
     path,_=project_file(tmp_path)
+    native = tmp_path/'Native.NEBULA'; native.write_bytes(path.read_bytes())
     (tmp_path/'unrelated.json').write_text('{"hello": "world"}')
     (tmp_path/'broken.json').write_text('broken')
     library=RecentProjects(tmp_path/'library',renderer=lambda *_:png())
     try:
         library.import_folder(tmp_path)
         wait_for(app,lambda:not library.import_timer.isActive())
-        entries=library.store.records(); assert len(entries)==1
-        assert entries[0]['path']==str(path)
-        assert entries[0]['updated']==path.stat().st_mtime_ns/1e9
+        entries=library.store.records(); assert len(entries)==2
+        assert {e['path'] for e in entries}=={str(path), str(native)}
+        assert all(e['updated']==Path(e['path']).stat().st_mtime_ns/1e9 for e in entries)
         wait_for(app,lambda:library.store.current_cover(library.store.records()[0]))
     finally: library.close()

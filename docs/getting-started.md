@@ -14,7 +14,7 @@
    ready span while preparation continues. This does not reduce export quality.
    See [preview controls](monitor-and-export.md#prepare-frames). Drag a clip's
    right edge to change its duration.
-5. Press **Save** (Command-S on macOS) to keep the editable JSON project.
+5. Press **Save** (Command-S on macOS) to keep an editable `.nebula` project.
 6. Check **Details** beside **Export MP4**, then export the movie. Export uses
    the output canvas and does not save your project.
 
@@ -26,9 +26,15 @@ Ordinary saves reference imported video and audio files, so keep them with the
 project. **Save ▾ → Save as study…** copies those media into a library snapshot.
 System fonts remain external; bundled fonts are easier to share.
 
+On macOS, `.nebula` files have their own icon and open in Nebula with a double
+click. Existing `.json` projects still open normally and **Save** keeps their
+original filename. Use **Save ▾ → Save as** to make a `.nebula` copy, or choose
+**Legacy JSON** in the save dialog. Both contain the same editable project data;
+`.nebula` does not package media or change the artwork.
+
 **Open** shows recent projects with a preview of their last saved version.
 Search by name or filename, then double-click a card. **Browse files** opens a
-project outside the list; **Add folder** includes existing Nebula JSON files.
+project outside the list; **Add folder** includes `.nebula` and Nebula JSON files.
 Previews are stored on this computer and updated after saving, so reopening the
 gallery does not render them again. A first preview may prepare in the background.
 If a file moved, select its card and choose **Locate file**. **Remove from

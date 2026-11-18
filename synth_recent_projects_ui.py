@@ -142,7 +142,8 @@ class RecentProjectsDialog(QDialog):
         self.location.setText(entry['path'] if entry else f'{self.grid.count()} projects · most recently used first')
 
     def browse_files(self):
-        path, _ = QFileDialog.getOpenFileName(self, 'Open Nebula project', '', 'Nebula document (*.json)')
+        from synth_project_files import OPEN_FILTER
+        path, _ = QFileDialog.getOpenFileName(self, 'Open Nebula project', '', OPEN_FILTER)
         if path: self.selected_path = path; self.accept()
 
     def open_selected(self, *_):
@@ -150,7 +151,8 @@ class RecentProjectsDialog(QDialog):
         if not entry: return
         path = entry['path']
         if not Path(path).is_file():
-            path, _ = QFileDialog.getOpenFileName(self, 'Locate '+entry['name'], str(Path(path).parent), 'Nebula document (*.json)')
+            from synth_project_files import OPEN_FILTER
+            path, _ = QFileDialog.getOpenFileName(self, 'Locate '+entry['name'], str(Path(path).parent), OPEN_FILTER)
             if not path: return
             self.relocated_from = entry['path']
         self.selected_path = path; self.accept()
