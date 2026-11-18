@@ -106,10 +106,13 @@ class WorkspaceNavigation(QObject):
     def show_montage(self, document, path=None):
         from synth_montage_ui import MontageWindow
         montage = MontageWindow(document, path=path, parent=self.stack, embedded=True)
+        montage.recent_projects = getattr(self.host, 'recent_projects', None)
         self.montage = montage
         self.add_view(montage)
         if hasattr(self.host, 'quality'): montage.detail.setCurrentIndex(self.host.quality.currentIndex())
         self.activate(montage)
+        if path and montage.recent_projects is not None:
+            montage.recent_projects.remember(path)
         return montage
 
     def edit_clip(self, montage, key):

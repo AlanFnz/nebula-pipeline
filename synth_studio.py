@@ -237,12 +237,14 @@ class ExportJob(QRunnable):
 
 
 class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QMainWindow):
-    def __init__(self, preset=None, sequence=None, composition=None, settings=None, *, parent=None, embedded=False):
+    def __init__(self, preset=None, sequence=None, composition=None, settings=None, *, parent=None, embedded=False, recent_projects=None):
         super().__init__(parent, Qt.WindowType.Widget if embedded else Qt.WindowType.Window)
         if embedded:
             self.setWindowFlags(Qt.WindowType.Widget)
             self.menuBar().setNativeMenuBar(False)
         self.workspace_navigation = None
+        self.recent_projects = recent_projects
+        self.cover_frame = None
         self.preview_suspended = False
         self.workspace_settings = settings
         self.export_settings = settings
@@ -601,7 +603,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         montage_button.setToolTip('Arrange this study with footage, source ranges and a soundtrack. Keeps the study editable.')
         self.cancel_import = QPushButton('Cancel import'); self.cancel_import.clicked.connect(self.cancel_video_import); self.cancel_import.hide()
         self.open_button = open_button = QPushButton('Open'); open_button.clicked.connect(self.load_sequence_dialog)
-        open_button.setToolTip('Open a saved composition, sequence or Montage.')
+        open_button.setToolTip('Browse recent projects with saved previews, or choose a file.')
         for button in (self.new_piece_button, self.import_video_button, montage_button, open_button):
             button.setProperty('secondaryAction', True)
         self.save_button = QToolButton(); self.save_button.setText('Save'); self.save_button.setAccessibleName('Save composition')
@@ -1851,6 +1853,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
                 except OSError: pass
         self.document_path = target
         self.mark_document_clean()
+        self.remember_recent_project(saved=True)
         return True
 
     def save_as_dialog(self, checked=False):
@@ -1872,16 +1875,37 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         navigation = self.workspace_navigation
         if navigation and navigation.editor is self and hasattr(navigation.host, 'load_sequence_dialog'):
             return navigation.host.load_sequence_dialog()
-        path, _ = QFileDialog.getOpenFileName(self, "Open composition, sequence or preset", "", "Nebula document (*.json)")
+        relocated_from = None
+        if self.recent_projects is not None:
+            from synth_recent_projects_ui import RecentProjectsDialog
+            dialog = RecentProjectsDialog(self.recent_projects, self)
+            dialog.exec(); path = dialog.selected_path
+            relocated_from = dialog.relocated_from
+            dialog.deleteLater()
+        else:
+            path, _ = QFileDialog.getOpenFileName(self, "Open composition, sequence or preset", "", "Nebula document (*.json)")
         if not path: return False
+        opened = self.open_document_path(path)
+        if opened and relocated_from: self.recent_projects.remove(relocated_from)
+        return opened
+
+    def project_cover_work_busy(self):
+        navigation = self.workspace_navigation
+        view = navigation.active if navigation else self
+        if isinstance(view, SynthStudio):
+            return bool(view.closing or view.export_job or view.render_running or view.render_queued
+                        or view.preparation_explicit or view.play.isChecked() or view.preview_debounce.isActive())
+        return bool(view.closed or view.export_task or view.prepare_task or view.preview_task or view.timer.isActive())
+
+    def open_document_path(self, path):
         try:
             with open(path) as document: raw = json.load(document)
             if raw.get('format') == 'nebula-montage':
                 from synth_montage import load_montage
                 return self.open_montage(document=load_montage(path), path=path) is not None
             if raw.get('format') == FORMAT:
-                return self.set_composition(load_composition(path), path=path)
-            if 'states' in raw:
+                if not self.set_composition(load_composition(path), path=path): return False
+            elif 'states' in raw:
                 loaded = load_sequence(path)
                 if not self.confirm_replacement(): return False
                 self.install_sequence(loaded, path=path)
@@ -1889,9 +1913,18 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
                 loaded = load_synth(path)
                 if not self.confirm_replacement(): return False
                 self.install_preset(loaded, path=path)
+            self.remember_recent_project()
             return True
         except Exception as exc:
             QMessageBox.critical(self, "Document error", str(exc)); return False
+
+    def remember_recent_project(self, *, saved=False):
+        if self.recent_projects is None or self.document_path is None: return
+        packet = None
+        if (saved and self.cover_frame == (self.settings_generation, self.current_time)
+                and not self.preview_image_stale and not self.comparison and not self.preview_bypass()):
+            packet = self.viewer.packet
+        self.recent_projects.remember(self.document_path, self.current_time if saved else None, packet)
 
     def open_montage(self, checked=False, *, document=None, path=None):
         from synth_montage import new_montage, add_asset, insert_clip
@@ -2370,6 +2403,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.display_frame(output_time, (size, raw))
 
     def display_frame(self, time_seconds, packet, cached=False):
+        self.cover_frame = (self.settings_generation, time_seconds)
         self.preview_image_stale = False
         self.refresh_effect_explanations(time_seconds)
         if self.discovery_session: self.discovery_session.accept_packet()
@@ -2697,7 +2731,11 @@ def run_synth_app(preset=None):
     apply_theme(app)
     state_dir = os.environ.get('NEBULA_STATE_DIR')
     settings = QSettings(str(Path(state_dir) / 'settings.ini'), QSettings.Format.IniFormat) if state_dir else QSettings('AlanFnz', 'Nebula Studio')
-    window = SynthStudio(preset, settings=settings); window.show_workspace()
+    from synth_recent_projects import RecentProjects
+    recent_projects = RecentProjects(parent=app)
+    app.aboutToQuit.connect(recent_projects.close)
+    window = SynthStudio(preset, settings=settings, recent_projects=recent_projects); window.show_workspace()
+    recent_projects.busy = window.project_cover_work_busy
     return app.exec()
 
 

@@ -26,6 +26,14 @@ Ordinary saves reference imported video and audio files, so keep them with the
 project. **Save ▾ → Save as study…** copies those media into a library snapshot.
 System fonts remain external; bundled fonts are easier to share.
 
+**Open** shows recent projects with a preview of their last saved version.
+Search by name or filename, then double-click a card. **Browse files** opens a
+project outside the list; **Add folder** includes existing Nebula JSON files.
+Previews are stored on this computer and updated after saving, so reopening the
+gallery does not render them again. A first preview may prepare in the background.
+If a file moved, select its card and choose **Locate file**. **Remove from
+recents** removes only the card, keeping the project on disk.
+
 For generated sound, **Listen** can play a draft. **Apply sound** puts it in the
 project; **Save composition** writes it to disk. See [Sound](sound.md) before exporting,
 or [Live MIDI](../LIVE_MIDI.md) to hear DAW instruments.

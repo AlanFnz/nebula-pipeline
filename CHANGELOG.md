@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.118.0 — 2026-11-18
+
+- Open now shows recent projects with saved previews, searchable names and
+  filenames, and a file browser. Add a folder to include older projects; locate
+  moved files or remove cards without deleting the originals.
+- Covers persist between sessions and update after saving. The gallery reads
+  cached images without rendering; missing covers prepare in the background
+  when the editor is idle. Compositions, sequences, presets and Montage share
+  the library. Existing project settings and rendering remain unchanged.
+
 ## 0.117.0 — 2026-11-17
 
 - Replace the current **Text / phosphor scroll** study's background deformation
