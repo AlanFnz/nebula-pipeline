@@ -156,3 +156,33 @@ Keep dependencies, caches, generated media, personal study files and local QA
 outputs out of commits. [VERSIONING.md](../VERSIONING.md) defines milestone
 preparation. Historical design decisions and validation records are indexed in
 [History and plans](history.md).
+
+## Commit messages
+
+Use a lowercase conventional subject, for example:
+
+```text
+feat(projects): add native file opening
+fix(preview): preserve the prepared loop
+refactor: organize application packages
+```
+
+The optional scope describes the area. Types are `feat`, `fix`, `refactor`,
+`perf`, `docs`, `test`, `build`, `ci`, `chore`, `revert` and `merge`.
+The entire subject is lowercase; bodies may preserve filenames, class names
+and other case-sensitive identifiers. Use a custom conventional subject for a
+merge or revert too. Keep independent changes in separate commits.
+
+Enable the local check once per clone:
+
+```sh
+git config core.hooksPath .githooks
+```
+
+The same checker runs on commits introduced by pull requests and pushes to
+`main`. It checks new history only; existing published commits and release tags
+are preserved. To check a branch manually:
+
+```sh
+python3 scripts/check_commit_message.py --range origin/main..HEAD
+```
