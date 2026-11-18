@@ -5,12 +5,12 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from synth import _seed, default_synth_preset, render_synth_frame
-from synth_broadcast import render_broadcast, render_broadcast_exposure
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_effects import effect_preset
-from synth_sequence import render_sequence_frame, resolve_sequence_frame
-from synth_starters import starter_composition
+from nebula.render.synth import _seed, default_synth_preset, render_synth_frame
+from nebula.effects.synth_broadcast import render_broadcast, render_broadcast_exposure
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.effects.synth_effects import effect_preset
+from nebula.documents.synth_sequence import render_sequence_frame, resolve_sequence_frame
+from nebula.documents.synth_starters import starter_composition
 
 
 @pytest.mark.parametrize('early', [0, 1])
@@ -44,7 +44,7 @@ def test_project_broadcast_treats_complete_optical_image(early, strength, tmp_pa
 
 @pytest.mark.parametrize('source_kind', ['text', 'video'])
 def test_screen_noise_is_added_after_optical_layers(source_kind, monkeypatch):
-    import synth
+    import nebula.render.synth as synth
     preset = default_synth_preset()
     for module in preset['modules']:
         module['enabled'] = module['id'] in ('optical_print', 'broadcast', 'text')

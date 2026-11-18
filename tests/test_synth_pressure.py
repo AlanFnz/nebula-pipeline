@@ -7,13 +7,13 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from synth import MODULE_BY_ID, default_synth_preset, render_synth_frame
-from synth_broadcast import render_polarity
-from synth_canvas import resize_canvas
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_sequence import render_sequence_frame
-from synth_starters import starter_composition
-from synth_text import text_pose
+from nebula.render.synth import MODULE_BY_ID, default_synth_preset, render_synth_frame
+from nebula.effects.synth_broadcast import render_polarity
+from nebula.core.synth_canvas import resize_canvas
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.documents.synth_starters import starter_composition
+from nebula.sources.synth_text import text_pose
 from test_synth_text import source, extent
 
 

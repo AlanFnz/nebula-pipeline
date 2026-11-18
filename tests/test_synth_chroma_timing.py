@@ -5,11 +5,11 @@ import hashlib
 import numpy as np
 import pytest
 
-import synth_chroma
-from synth import MODULE_BY_ID
-from synth_chroma import fragment_mask, render_slice_echo, slice_clock, slice_envelope, slice_events
-from synth_portrait_recipes import CRT_BARS_EFFECTS, UNSTABLE_CRT_EFFECTS, crt_bars_composition, unstable_crt_composition
-from synth_video import TREATMENTS, apply_treatment, video_composition
+import nebula.effects.synth_chroma as synth_chroma
+from nebula.render.synth import MODULE_BY_ID
+from nebula.effects.synth_chroma import fragment_mask, render_slice_echo, slice_clock, slice_envelope, slice_events
+from nebula.documents.synth_portrait_recipes import CRT_BARS_EFFECTS, UNSTABLE_CRT_EFFECTS, crt_bars_composition, unstable_crt_composition
+from nebula.sources.synth_video import TREATMENTS, apply_treatment, video_composition
 from test_synth_video import clip
 from test_synth_video_ui import window
 

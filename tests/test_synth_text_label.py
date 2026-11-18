@@ -3,11 +3,11 @@ import numpy as np
 import pytest
 from PIL import Image, ImageDraw
 
-from synth import MODULE_BY_ID
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_sequence import render_sequence_frame
-from synth_starters import starter_composition
-from synth_text import badge_mask, glyph_mask
+from nebula.render.synth import MODULE_BY_ID
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.documents.synth_starters import starter_composition
+from nebula.sources.synth_text import badge_mask, glyph_mask
 
 
 @pytest.mark.parametrize('subtitle', ['', 'THE HAÇIENDA'])

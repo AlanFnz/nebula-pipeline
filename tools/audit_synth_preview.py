@@ -36,8 +36,8 @@ def command(*args):
 
 def freeze():
     os.environ['NEBULA_STATE_DIR'] = str(OUT / 'freeze-state')
-    from synth_starters import starter_composition
-    from synth_composition import load_composition, compile_composition
+    from nebula.documents.synth_starters import starter_composition
+    from nebula.documents.synth_composition import load_composition, compile_composition
     source = ROOT / 'output/guerrilla-radio-soft-red/Guerrilla-Radio-soft-red.nebula.json'
     cases = {'guerrilla': load_composition(source)}
     cases.update({name: starter_composition(name) for name in CASES[1:-1]})
@@ -50,14 +50,14 @@ def freeze():
                 'guide_audio': {'path': str(ROOT/'output/guerrilla-radio-v2/media/Guerrilla-Radio-guide.wav'), 'sha256': digest(ROOT/'output/guerrilla-radio-v2/media/Guerrilla-Radio-guide.wav')},
                 'video': {'path': str(video), 'sha256': digest(video), 'generation_s': time.monotonic()-began, 'generator': 'ffmpeg testsrc2 1920x1080 30fps 3s FFV1 level3 threads1 bitexact', 'ffmpeg': command('ffmpeg', '-version').splitlines()[0]},
                 'protocol':{'edit_paths':EDIT_PATHS,'single_edit_values':[.90,.91],'rapid_committed_values':[.90+i*.01 for i in range(8)],'rapid_repeat_offset':[0,.01],'nominal_input_interval_ms':15,'navigation':'frames[i % len] when i % 4 < 2, else frames[-(i % len)-1]','cache_budget_bytes':192*1024**2},'cases': {}, 'assets': []}
-    from synth_section_sources import resolve_media_paths
+    from nebula.documents.synth_section_sources import resolve_media_paths
     for name, doc in cases.items():
         doc = copy.deepcopy(doc)
         resolve_media_paths(doc, source.parent if name == 'guerrilla' else ROOT)
         path = fixtures / f'{name}.nebula.json'; dump(path, doc)
         seq = compile_composition(doc)
         count = round(seq['duration']*seq['fps'])
-        from synth_composition import section_ranges
+        from nebula.documents.synth_composition import section_ranges
         cuts = [round(a*seq['fps']) for a,b in section_ranges(doc)]
         frames = list(dict.fromkeys([0, 1, count//3, count//2, count-1] + [max(0,c-1) for c in cuts[:4]] + cuts[:4]))
         manifest['cases'][name] = {'path': str(path), 'sha256': digest(path), 'canvas': doc['canvas'], 'fps': seq['fps'], 'duration':seq['duration'], 'sections':len(doc['sections']), 'effects':doc.get('effects'), 'frames':frames, 'prepare_frames':frames[:4]}
@@ -88,9 +88,9 @@ class Audit:
         with self.log_lock:
             self.log.write(json.dumps({'t':time.monotonic(), 'kind':kind, **fields})+'\n')
     def instrument(self):
-        import synth_video
+        import nebula.sources.synth_video as synth_video
         synth_video.proxy_directory=lambda:Path(os.environ['NEBULA_STATE_DIR'])/'proxies'
-        import synth_studio as studio
+        import nebula.ui.synth_studio as studio
         original_proxy=synth_video.prepare_proxy
         def proxy(*args,**kwargs):
             start=time.monotonic();result=original_proxy(*args,**kwargs)
@@ -104,7 +104,7 @@ class Audit:
             self.emit('video_frame',elapsed_s=time.monotonic()-start,seconds=seconds,edge=edge,decoded=provider.decode_count-before,provider=id(provider),cache_bytes=provider.bytes)
             return result
         synth_video.VideoFrameProvider.frame=decode
-        from synth_viewer import SynthViewer
+        from nebula.ui.synth_viewer import SynthViewer
         original=SynthViewer.paintEvent
         def paint(view,event,original=original):
             began=time.monotonic(); result=original(view,event)
@@ -148,7 +148,7 @@ class Audit:
                 setattr(studio.SynthStudio,method,cancel)
         if self.args.detail:
             targets=[(studio.RenderJob,'__init__'),(studio.PreparePreviewJob,'__init__')] + [(studio.SynthStudio,n) for n in ('capture_preview_validity','invalidate','request_frame','refresh_effect_explanations','refresh_soundtrack','refresh_composition','rebuild_modules')]
-            from synth_composer_ui import CompositionPanel
+            from nebula.ui.synth_composer_ui import CompositionPanel
             targets += [(CompositionPanel,n) for n in ('refresh','commit')]
             for cls,name in targets:
                 original=getattr(cls,name)
@@ -291,8 +291,8 @@ class Audit:
     async def execute(self):
         from PySide6.QtCore import QTimer, QSettings, Qt
         from PySide6.QtWidgets import QApplication
-        import synth_studio as studio
-        from studio_theme import apply_theme
+        import nebula.ui.synth_studio as studio
+        from nebula.ui.studio_theme import apply_theme
         manifest=json.loads((OUT/'manifest.json').read_text())
         app=self.app; apply_theme(app)
         self.instrument()

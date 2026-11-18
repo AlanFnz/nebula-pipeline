@@ -2,7 +2,7 @@ import os
 os.environ.setdefault('QT_QPA_PLATFORM','offscreen')
 from PySide6.QtWidgets import QApplication
 from test_synth_effects_editor_integration import make_window
-from synth_starters import starter_composition
+from nebula.documents.synth_starters import starter_composition
 
 
 def test_band_mode_exposes_only_relevant_controls_and_undo(make_window):

@@ -6,15 +6,15 @@ import subprocess
 import numpy as np
 import pytest
 
-from synth import default_synth_preset
-from synth_composition import (compile_composition, composition_from_sequence,
+from nebula.render.synth import default_synth_preset
+from nebula.documents.synth_composition import (compile_composition, composition_from_sequence,
     load_composition, normalize_composition, save_composition, stretch_section)
-from synth_media import export_synth_video
-from synth_preview import preview_context
-from synth_section_sources import video_source_at
-from synth_sequence import normalize_sequence, render_sequence_frame
-from synth_studies import save_study, study_composition
-from synth_video import inspect_video, video_composition, VideoFrameProvider
+from nebula.documents.synth_media import export_synth_video
+from nebula.render.synth_preview import preview_context
+from nebula.documents.synth_section_sources import video_source_at
+from nebula.documents.synth_sequence import normalize_sequence, render_sequence_frame
+from nebula.documents.synth_studies import save_study, study_composition
+from nebula.sources.synth_video import inspect_video, video_composition, VideoFrameProvider
 from test_synth_video import clip, audio_samples
 from test_synth_video_audio_retiming import frequency, rms
 
@@ -77,12 +77,12 @@ def test_personal_study_copies_every_video_and_snapshot_and_resolves_relative_pa
     p = two_sources(clip,other_clip)
     # Reuse the shared asset independently: copies should still deduplicate.
     p['sections'][0]['footage']=copy.deepcopy(clip)
-    from synth_exploration import capture_snapshot
+    from nebula.documents.synth_exploration import capture_snapshot
     p, _identifier = capture_snapshot(p,'Two sources')
     original = copy.deepcopy(p)
     identifier = save_study(p,'Multi source',directory=tmp_path)
     loaded = study_composition(identifier,directory=tmp_path)
-    from synth_section_sources import footage_references
+    from nebula.documents.synth_section_sources import footage_references
     references = list(footage_references(loaded))
     assert all(Path(f['path']).is_absolute() and Path(f['path']).is_file() for f in references)
     assert len(set(f['path'] for f in references)) == 2
@@ -117,7 +117,7 @@ def test_mp4_export_switches_images_and_audio_and_preserves_pitch(clip,other_cli
         assert frequency(samples,.6,.9) == pytest.approx(880,abs=20)
     else: assert frequency(samples,.1,.4) == pytest.approx(880,abs=20)
     assert rms(samples,.1,.4) > .04
-    from media import decode_frames
+    from nebula.core.media import decode_frames
     info=inspect_video(output); frames=dict(decode_frames(info,12,0,count))
     blue=np.asarray(frames[count-1],float).mean(axis=(0,1))
     assert blue[2] > blue[0]+150 and blue[2] > blue[1]+150

@@ -9,12 +9,12 @@ import numpy as np
 from PIL import Image, ImageDraw
 import pytest
 
-from media import Cancellation, Cancelled, decode_frames
-from synth import default_synth_preset
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_media import export_synth_video
-from synth_sequence import render_sequence_frame
-from synth_video import (VideoFrameProvider, apply_treatment, check_source, frame_on_canvas,
+from nebula.core.media import Cancellation, Cancelled, decode_frames
+from nebula.render.synth import default_synth_preset
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.documents.synth_media import export_synth_video
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.sources.synth_video import (VideoFrameProvider, apply_treatment, check_source, frame_on_canvas,
                          inspect_video, normalize_footage, prepare_proxy, relink_footage,
                          source_index, video_composition)
 
@@ -183,7 +183,7 @@ def test_cancelled_proxy_is_not_published(clip, tmp_path):
 
 
 def test_fractional_rate_proxy_scrubs_keep_sequential_frame_identity(tmp_path):
-    from synth_video import _proxy_frames
+    from nebula.sources.synth_video import _proxy_frames
     path = tmp_path / 'ntsc.mp4'
     subprocess.run(['ffmpeg', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=128x96:rate=30000/1001:duration=1',
                     '-c:v', 'libx264', str(path)], check=True)

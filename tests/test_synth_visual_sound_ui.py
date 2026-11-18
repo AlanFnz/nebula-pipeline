@@ -9,14 +9,14 @@ from PySide6.QtCore import QObject, Signal, QThreadPool, Qt, QPoint
 from PySide6.QtTest import QSignalSpy,QTest
 from PySide6.QtWidgets import QApplication
 
-from synth_composition import compile_composition
-from synth_exploration import capture_snapshot, restore_snapshot
-from synth_pleated_recipes import pleated_composition
-from synth_preview import _visual_document
-from synth_visual_sound import default_sound, acid_sound, instrument_sound, sound_key
-from synth_visual_sound_ui import VisualSoundDialog
-from synth_visual_sound_studio import VisualSoundJob
-from synth_studio import SynthStudio
+from nebula.documents.synth_composition import compile_composition
+from nebula.documents.synth_exploration import capture_snapshot, restore_snapshot
+from nebula.documents.synth_pleated_recipes import pleated_composition
+from nebula.render.synth_preview import _visual_document
+from nebula.audio.synth_visual_sound import default_sound, acid_sound, instrument_sound, sound_key
+from nebula.ui.synth_visual_sound_ui import VisualSoundDialog
+from nebula.ui.synth_visual_sound_studio import VisualSoundJob
+from nebula.ui.synth_studio import SynthStudio
 
 
 @pytest.fixture(scope='module')
@@ -38,8 +38,8 @@ class Monitor(QObject):
 
 @pytest.fixture
 def studio(app,monkeypatch):
-    monkeypatch.setattr('synth_visual_sound_studio.SoundtrackPreview',Monitor)
-    monkeypatch.setattr('synth_soundtrack_studio.SoundtrackPreview',Monitor)
+    monkeypatch.setattr('nebula.ui.synth_visual_sound_studio.SoundtrackPreview',Monitor)
+    monkeypatch.setattr('nebula.ui.synth_soundtrack_studio.SoundtrackPreview',Monitor)
     monkeypatch.setattr(SynthStudio,'request_frame',lambda self:None)
     w=SynthStudio(composition=pleated_composition());w.auto_prepare.setChecked(False)
     # Lifecycle tests explicitly deliver job results, without racing the pool.

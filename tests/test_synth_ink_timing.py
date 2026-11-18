@@ -3,12 +3,12 @@ import copy
 import numpy as np
 import pytest
 
-from synth import MODULE_BY_ID, default_synth_preset
-from synth_composition import compile_composition, mixed_media_composition
-from synth_effects import describe_effects
-from synth_ink_timing import DURATION_KEYS, gesture_phase, stage_durations
-from synth_print import bloom_phase, render_ink_bloom
-from synth_sequence import _interpolate_presets, render_sequence_frame
+from nebula.render.synth import MODULE_BY_ID, default_synth_preset
+from nebula.documents.synth_composition import compile_composition, mixed_media_composition
+from nebula.effects.synth_effects import describe_effects
+from nebula.core.synth_ink_timing import DURATION_KEYS, gesture_phase, stage_durations
+from nebula.effects.synth_print import bloom_phase, render_ink_bloom
+from nebula.documents.synth_sequence import _interpolate_presets, render_sequence_frame
 
 
 def params(**changes):

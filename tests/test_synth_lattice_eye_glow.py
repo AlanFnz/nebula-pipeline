@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from synth_lattice_eye_ripple import ripple_triggers
+from nebula.sources.synth_lattice_eye_ripple import ripple_triggers
 from test_synth_lattice_eye_ripple import params
 from test_synth_lattice_eye_mix import frame
 

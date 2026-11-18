@@ -8,8 +8,8 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from scripts.capture_synth_baseline import cases
-from synth_starters import starter_composition
-from synth_sequence import render_sequence_frame
+from nebula.documents.synth_starters import starter_composition
+from nebula.documents.synth_sequence import render_sequence_frame
 
 
 def main():

@@ -3,10 +3,10 @@ import copy
 import numpy as np
 import pytest
 
-from synth_live_midi import MidiPlan, midi_pitch
-from synth_visual_sound import instrument_sound
-from synth_visual_sound_acid import gesture_notes
-from synth_visual_sound_instrument import InstrumentVoice
+from nebula.audio.synth_live_midi import MidiPlan, midi_pitch
+from nebula.audio.synth_visual_sound import instrument_sound
+from nebula.audio.synth_visual_sound_acid import gesture_notes
+from nebula.audio.synth_visual_sound_instrument import InstrumentVoice
 
 
 def source():
@@ -82,7 +82,7 @@ def test_filter_and_presence_controls_match_internal_voice():
 def test_layered_synth_ui_offers_midi_without_changing_the_recipe():
     from PySide6.QtWidgets import QApplication
     app = QApplication.instance() or QApplication([])
-    from synth_visual_sound_ui import VisualSoundDialog
+    from nebula.ui.synth_visual_sound_ui import VisualSoundDialog
     _, _, c = source()
     before = copy.deepcopy(c)
     dialog = VisualSoundDialog()

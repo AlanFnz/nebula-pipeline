@@ -4,17 +4,17 @@ import copy
 import pytest
 from PySide6.QtWidgets import QApplication
 
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_effect_discovery import effect_candidate
-from synth_effects import effect_preset, state_values
-from synth_sequence import render_sequence_frame
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.effects.synth_effect_discovery import effect_candidate
+from nebula.effects.synth_effects import effect_preset, state_values
+from nebula.documents.synth_sequence import render_sequence_frame
 from test_synth_effects_editor_integration import make_window
 
 
 def test_whole_clip_remove_clears_section_overrides_is_one_undo_and_round_trips(make_window, tmp_path):
     window = make_window()
     document = copy.deepcopy(window.composition)
-    from synth_creative import CREATIVE_CONTROLS
+    from nebula.documents.synth_creative import CREATIVE_CONTROLS
     key = CREATIVE_CONTROLS['ghosts'][0].key
     document['effects']['ghosts'] = dict(effect_preset('ghosts'), bypassed=True,
                                        creative={'version': 1, 'values': {key: CREATIVE_CONTROLS['ghosts'][0].neutral}})
@@ -115,9 +115,9 @@ def test_remove_header_remains_visible_in_narrow_inspector(make_window, width):
 
 
 def test_long_effect_names_leave_room_for_removal_in_narrow_applied_list():
-    from studio_theme import apply_theme
-    from synth_effects import EFFECTS
-    from synth_effects_ui import EffectChoice, SOURCE_EFFECTS
+    from nebula.ui.studio_theme import apply_theme
+    from nebula.effects.synth_effects import EFFECTS
+    from nebula.ui.synth_effects_ui import EffectChoice, SOURCE_EFFECTS
     app = QApplication.instance() or QApplication([])
     apply_theme(app)
     for effect in EFFECTS:

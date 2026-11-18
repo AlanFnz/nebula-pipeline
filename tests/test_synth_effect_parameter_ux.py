@@ -8,8 +8,8 @@ from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QLabel, QWidget, QVBoxLayout
 from PIL import Image
 
-from synth_artwork import encode_artwork
-from synth_effect_parameter_ui import EffectParameter, format_value
+from nebula.sources.synth_artwork import encode_artwork
+from nebula.ui.synth_effect_parameter_ui import EffectParameter, format_value
 from test_synth_effects_editor_integration import make_window
 
 
@@ -201,9 +201,9 @@ def test_equal_wording_scopes_keep_separate_drafts_and_save_acknowledgement(app)
 
 def test_themed_inactive_broadcast_inputs_keep_text_and_slider_geometry(app):
     import copy
-    from studio_theme import apply_theme
-    from synth_composition import reference_composition
-    from synth_composer_ui import CompositionPanel
+    from nebula.ui.studio_theme import apply_theme
+    from nebula.documents.synth_composition import reference_composition
+    from nebula.ui.synth_composer_ui import CompositionPanel
 
     old_style, old_sheet = app.style().objectName(), app.styleSheet()
     old_font, old_palette = app.font(), app.palette()
@@ -234,7 +234,7 @@ def test_themed_inactive_broadcast_inputs_keep_text_and_slider_geometry(app):
                                   'text.motion', 'text.font', 'particles.orbit_handoff',
                                   'text.content', 'ink_bloom.artwork'])
 def test_responsive_rows_keep_fields_actions_and_long_choices_inside_inspector(app, width, path):
-    from studio_theme import apply_theme
+    from nebula.ui.studio_theme import apply_theme
     old_style, old_sheet = app.style().objectName(), app.styleSheet()
     old_font, old_palette = app.font(), app.palette()
     host = QWidget()
@@ -327,7 +327,7 @@ def test_responsive_slider_drag_commits_once_on_release_and_automation_stays_rea
 
 def test_integrated_inspector_resizes_rows_before_placing_neighbors(make_window):
     import copy
-    from synth_composition import blank_composition
+    from nebula.documents.synth_composition import blank_composition
 
     composition = blank_composition()
     composition['effects']['scan_modulation'] = {
@@ -376,7 +376,7 @@ def test_integrated_inspector_resizes_rows_before_placing_neighbors(make_window)
 def test_height_queries_never_reflow_or_invalidate_parameter_rows(app):
     """Ancestor width probes must not alternate the actual grid arrangement."""
     from PySide6.QtCore import QEvent, QObject
-    from studio_theme import apply_theme
+    from nebula.ui.studio_theme import apply_theme
 
     class LayoutRequests(QObject):
         def __init__(self):

@@ -3,14 +3,14 @@ import copy
 import numpy as np
 import pytest
 
-from synth import MODULE_BY_ID, normalize_synth, render_synth_frame, default_synth_preset
-from synth_composition import compile_composition, save_composition, load_composition
-from synth_effects import effect_preset
-from synth_film_print import render_print_collage
-from synth_reading_montage import reading_beat, reading_schedule, film_reading_params, letters
-from synth_sequence import render_sequence_frame
-from synth_starters import starter_composition
-from synth_text import text_layout, render_text
+from nebula.render.synth import MODULE_BY_ID, normalize_synth, render_synth_frame, default_synth_preset
+from nebula.documents.synth_composition import compile_composition, save_composition, load_composition
+from nebula.effects.synth_effects import effect_preset
+from nebula.effects.synth_film_print import render_print_collage
+from nebula.sources.synth_reading_montage import reading_beat, reading_schedule, film_reading_params, letters
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.documents.synth_starters import starter_composition
+from nebula.sources.synth_text import text_layout, render_text
 
 
 def defaults(module):
@@ -109,8 +109,8 @@ def test_optical_motion_follows_word_and_finale_progress_without_mutation():
 
 
 def test_motion_controls_zero_preserve_old_print_and_support_automation():
-    from synth_automation import target_parameter
-    from synth_reading_montage import collage_reading_params, reading_reframe
+    from nebula.documents.synth_automation import target_parameter
+    from nebula.sources.synth_reading_montage import collage_reading_params, reading_reframe
     beat=reading_beat(text_params(),1.)
     optical=dict(defaults('film_burn'),reading_clarity=1.)
     missing=dict(optical);missing.pop('reading_motion')

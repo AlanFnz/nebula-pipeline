@@ -4,10 +4,10 @@ import hashlib
 import numpy as np
 from PIL import Image, ImageFilter
 
-from synth import MODULE_BY_ID
-from synth_composition import compile_composition, ink_bloom_composition
-from synth_print import frame_noise_background, render_print_surface
-from synth_sequence import render_sequence_frame
+from nebula.render.synth import MODULE_BY_ID
+from nebula.documents.synth_composition import compile_composition, ink_bloom_composition
+from nebula.effects.synth_print import frame_noise_background, render_print_surface
+from nebula.documents.synth_sequence import render_sequence_frame
 
 
 def params(**changes):

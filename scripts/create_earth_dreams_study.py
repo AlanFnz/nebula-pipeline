@@ -4,9 +4,9 @@ from pathlib import Path
 import argparse, copy, json, sys
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
-from synth import MODULE_BY_ID
-from synth_composition import composition_from_sequence, normalize_composition, save_composition
-from synth_sequence import normalize_sequence
+from nebula.render.synth import MODULE_BY_ID
+from nebula.documents.synth_composition import composition_from_sequence, normalize_composition, save_composition
+from nebula.documents.synth_sequence import normalize_sequence
 FPS=30
 FRAMES=228
 

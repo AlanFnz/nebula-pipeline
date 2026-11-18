@@ -10,10 +10,10 @@ import numpy as np
 import pytest
 from PIL import Image
 from PySide6.QtWidgets import QApplication
-from synth_composition import blank_composition, compile_composition
-from synth_sequence import render_sequence_frame
-from synth_video import inspect_video
-from synth_montage import *
+from nebula.documents.synth_composition import blank_composition, compile_composition
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.sources.synth_video import inspect_video
+from nebula.documents.synth_montage import *
 
 
 @pytest.fixture
@@ -98,7 +98,7 @@ def test_export_counts_and_original_protection(montage,footage,tmp_path):
 
 
 def test_export_cancel_is_atomic(montage,tmp_path):
-    from media import Cancellation,Cancelled
+    from nebula.core.media import Cancellation,Cancelled
     out=tmp_path/'render.mp4'; out.write_bytes(b'previous export')
     cancel=Cancellation()
     def progress(done,total): cancel.cancel()
@@ -108,7 +108,7 @@ def test_export_cancel_is_atomic(montage,tmp_path):
 
 
 def test_native_editor_undo_and_treatment_selection(montage,monkeypatch):
-    from synth_montage_ui import MontageWindow
+    from nebula.ui.synth_montage_ui import MontageWindow
     app=QApplication.instance() or QApplication([])
     monkeypatch.setattr(MontageWindow,'request_frame',lambda *args:None)
     monkeypatch.setattr(MontageWindow,'initialize_media',lambda *args:None)
@@ -129,8 +129,8 @@ def test_native_editor_undo_and_treatment_selection(montage,monkeypatch):
 
 
 def test_original_studio_opens_native_montage(project,monkeypatch):
-    from synth_montage_ui import MontageWindow
-    from synth_studio import SynthStudio
+    from nebula.ui.synth_montage_ui import MontageWindow
+    from nebula.ui.synth_studio import SynthStudio
     app=QApplication.instance() or QApplication([])
     monkeypatch.setattr(MontageWindow,'request_frame',lambda *args:None)
     monkeypatch.setattr(MontageWindow,'initialize_media',lambda *args:None)
@@ -143,8 +143,8 @@ def test_original_studio_opens_native_montage(project,monkeypatch):
 
 
 def test_apply_native_clip_edit_is_isolated_and_undoable(montage,monkeypatch):
-    from synth_montage_ui import MontageWindow
-    from synth_studio import SynthStudio
+    from nebula.ui.synth_montage_ui import MontageWindow
+    from nebula.ui.synth_studio import SynthStudio
     app=QApplication.instance() or QApplication([])
     monkeypatch.setattr(MontageWindow,'request_frame',lambda *args:None)
     monkeypatch.setattr(MontageWindow,'initialize_media',lambda *args:None)
@@ -165,7 +165,7 @@ def test_apply_native_clip_edit_is_isolated_and_undoable(montage,monkeypatch):
 def test_timeline_drag_trim_snaps_to_absolute_marker(montage,monkeypatch):
     from PySide6.QtCore import QPoint,Qt
     from PySide6.QtTest import QTest
-    from synth_montage_ui import MontageWindow
+    from nebula.ui.synth_montage_ui import MontageWindow
     app=QApplication.instance() or QApplication([])
     monkeypatch.setattr(MontageWindow,'request_frame',lambda *args:None)
     monkeypatch.setattr(MontageWindow,'initialize_media',lambda *args:None)

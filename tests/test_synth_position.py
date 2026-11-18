@@ -3,12 +3,12 @@ import copy
 import numpy as np
 import pytest
 
-from synth import default_synth_preset, render_synth_frame
-from synth_canvas import resize_canvas
-from synth_composition import (compile_composition, composition_from_sequence, load_composition,
+from nebula.render.synth import default_synth_preset, render_synth_frame
+from nebula.core.synth_canvas import resize_canvas
+from nebula.documents.synth_composition import (compile_composition, composition_from_sequence, load_composition,
                                mixed_media_composition, normalize_composition, save_composition)
-from synth_sequence import _interpolate_presets, load_sequence, render_sequence_frame, save_sequence
-from synth_subject import select_subject
+from nebula.documents.synth_sequence import _interpolate_presets, load_sequence, render_sequence_frame, save_sequence
+from nebula.sources.synth_subject import select_subject
 
 
 def isolated_source(kind):
@@ -118,7 +118,7 @@ def test_invalid_object_position_is_rejected(value):
 
 def test_export_uses_the_same_object_position_as_the_preview(tmp_path):
     import subprocess
-    from synth_media import export_synth_video
+    from nebula.documents.synth_media import export_synth_video
     project = mixed_media_composition(); project['canvas'].update(width=240, height=192)
     project['geometry'].update(position_x=24., position_y=-12.)
     sequence = compile_composition(project); path = tmp_path / 'position.mp4'

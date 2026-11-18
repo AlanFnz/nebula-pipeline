@@ -4,18 +4,18 @@ import subprocess
 import numpy as np
 import pytest
 
-from synth import MODULE_BY_ID, curated_presets, default_synth_preset, render_synth_frame
-from synth_canvas import resize_canvas
-from synth_composition import compile_composition, save_composition, load_composition
-from synth_effect_catalog import effect_catalog
-from synth_effects import describe_effects
-from synth_memory import render_image_memory, memory_pose, memory_frame, MAX_TRACES
-from synth_memory_recipes import memory_composition
-from synth_sequence import render_sequence_frame, resolve_sequence_frame
-from synth_source_adapters import source_frame
-from synth_starters import starter_composition
-from synth_studies import composition_category
-from synth_subject import active_subjects, scope_states, select_subject
+from nebula.render.synth import MODULE_BY_ID, curated_presets, default_synth_preset, render_synth_frame
+from nebula.core.synth_canvas import resize_canvas
+from nebula.documents.synth_composition import compile_composition, save_composition, load_composition
+from nebula.effects.synth_effect_catalog import effect_catalog
+from nebula.effects.synth_effects import describe_effects
+from nebula.sources.synth_memory import render_image_memory, memory_pose, memory_frame, MAX_TRACES
+from nebula.documents.synth_memory_recipes import memory_composition
+from nebula.documents.synth_sequence import render_sequence_frame, resolve_sequence_frame
+from nebula.render.synth_source_adapters import source_frame
+from nebula.documents.synth_starters import starter_composition
+from nebula.documents.synth_studies import composition_category
+from nebula.sources.synth_subject import active_subjects, scope_states, select_subject
 
 
 def defaults():
@@ -119,7 +119,7 @@ def test_motion_amplitudes_scale_only_the_requested_axis(path):
 
 
 def test_amplitudes_reposition_history_without_scaling_shapes_or_drift(monkeypatch):
-    import synth_memory
+    import nebula.sources.synth_memory as synth_memory
     calls = []
     monkeypatch.setattr(synth_memory, '_stamp', lambda canvas, center, radius, *args: calls.append((center, radius)))
     p = dict(defaults(), drift=0.)
@@ -136,7 +136,7 @@ def test_amplitudes_reposition_history_without_scaling_shapes_or_drift(monkeypat
 
 
 def test_sample_work_is_bounded_and_neutral_history_skips_it(monkeypatch):
-    import synth_memory
+    import nebula.sources.synth_memory as synth_memory
     calls=[]
     monkeypatch.setattr(synth_memory,'_stamp',lambda *args: calls.append(1))
     render(t=3600.)
@@ -183,7 +183,7 @@ def test_existing_presets_leave_the_new_source_disabled():
 
 
 def test_short_export_agrees_with_preview(tmp_path):
-    from synth_media import export_synth_video
+    from nebula.documents.synth_media import export_synth_video
     seq=compile_composition(memory_composition());seq['duration']=1.;seq['fps']=12
     output=export_synth_video(default_synth_preset(),tmp_path/'memory.mp4',sequence=seq,size=(96,128))
     data=subprocess.run(['ffmpeg','-v','error','-i',str(output),'-f','rawvideo','-pix_fmt','rgb24','pipe:1'],capture_output=True,check=True).stdout

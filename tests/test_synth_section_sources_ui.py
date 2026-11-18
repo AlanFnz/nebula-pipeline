@@ -4,10 +4,10 @@ from types import SimpleNamespace
 
 os.environ.setdefault('QT_QPA_PLATFORM','offscreen')
 from PySide6.QtWidgets import QApplication
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_effects import effect_preset
-from synth_section_sources import video_source_at
-from synth_video import video_composition
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.effects.synth_effects import effect_preset
+from nebula.documents.synth_section_sources import video_source_at
+from nebula.sources.synth_video import video_composition
 from test_synth_effects_editor_integration import make_window
 from test_synth_section_sources import clip, other_clip, two_sources
 

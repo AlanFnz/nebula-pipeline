@@ -7,14 +7,14 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from synth import MODULE_BY_ID, default_synth_preset, render_synth_frame
-from synth_canvas import resize_canvas
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_contour import render_contour_melt
-from synth_sequence import render_sequence_frame
-from synth_starters import starter_composition
-from synth_text import text_layout
-from synth_word_morph import word_state, word_field, morph_progress
+from nebula.render.synth import MODULE_BY_ID, default_synth_preset, render_synth_frame
+from nebula.core.synth_canvas import resize_canvas
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.effects.synth_contour import render_contour_melt
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.documents.synth_starters import starter_composition
+from nebula.sources.synth_text import text_layout
+from nebula.sources.synth_word_morph import word_state, word_field, morph_progress
 
 
 def params(**changes):

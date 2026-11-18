@@ -1,5 +1,5 @@
 from scripts.create_earth_dreams_study import composition
-from synth_starters import starter_composition
+from nebula.documents.synth_starters import starter_composition
 from test_synth_effects_editor_integration import make_window
 
 

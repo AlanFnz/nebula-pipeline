@@ -9,8 +9,8 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QDialog, QFileDialog
 
-from synth_montage import add_asset, insert_clip, load_montage, normalize_montage, replace_clip
-from synth_montage_ui import MontageWindow, SourceRangeDialog
+from nebula.documents.synth_montage import add_asset, insert_clip, load_montage, normalize_montage, replace_clip
+from nebula.ui.synth_montage_ui import MontageWindow, SourceRangeDialog
 from test_synth_montage import project, montage
 
 
@@ -215,7 +215,7 @@ def test_replace_keeps_duration_speed_treatment_then_undo_restores(window, monke
 
 @pytest.mark.parametrize('offset', [.2, -.2])
 def test_soundtrack_lane_placement_undo_preserves_trim_and_source(window, tmp_path, offset):
-    from synth_montage import load_montage, save_montage
+    from nebula.documents.synth_montage import load_montage, save_montage
     track = dict(id='music', name='Music', path='/missing.wav', duration=10.,
                  sample_rate=48000, channels=2, **{'in': 2., 'out': 8.},
                  offset=0., end_mode='silence', gain=.8, export_audio='soundtrack')

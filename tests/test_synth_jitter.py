@@ -3,11 +3,11 @@ import copy
 import numpy as np
 import pytest
 
-from synth import MODULE_BY_ID
-from synth_composition import compile_composition, ink_bloom_composition, mixed_media_composition, reference_composition
-from synth_effects import effect_preset
-from synth_jitter import frame_pose, render_frame_jitter
-from synth_sequence import render_sequence_frame
+from nebula.render.synth import MODULE_BY_ID
+from nebula.documents.synth_composition import compile_composition, ink_bloom_composition, mixed_media_composition, reference_composition
+from nebula.effects.synth_effects import effect_preset
+from nebula.effects.synth_jitter import frame_pose, render_frame_jitter
+from nebula.documents.synth_sequence import render_sequence_frame
 
 
 def params(**changes):

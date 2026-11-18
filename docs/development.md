@@ -116,16 +116,28 @@ of their recorded build and machine, not current throughput guarantees.
 
 ## Code map and compatibility
 
-| Area | Main files |
+| Directory | Responsibility |
 | --- | --- |
-| Desktop entry points and theme | `studio.py`, `mac_app.py`, `studio_theme.py` |
-| Composer and inspector | `synth_studio.py`, `synth_composer_ui.py`, `synth_subject_ui.py`, `synth_object_groups.py` |
-| Recipes, compilation and rendering | `synth_starters.py`, `synth_composition.py`, `synth_sequence.py`, `synth.py` |
-| Effect metadata, ordering and automation | `synth_effects.py`, `synth_effect_order.py`, `synth_automation.py` |
-| Video and audio assembly | `synth_video.py`, `synth_section_sources.py`, `synth_video_audio.py`, `synth_media.py` |
-| Sound drafts, instruments and MIDI | `synth_sound_session_ui.py`, `synth_visual_sound_studio.py`, `synth_visual_sound_instrument.py`, `synth_lattice_sound.py`, `synth_live_midi.py` |
-| Montage and navigation | `synth_montage.py`, `synth_montage_ui.py`, `synth_navigation.py` |
-| Studies and thumbnails | `synth_studies.py`, `synth_study_thumbnails.py` |
+| `nebula/ui/` | Windows, inspector, timeline, preview controls and workspace navigation |
+| `nebula/documents/` | Projects, sequences, recipes, study library, recent projects and automation |
+| `nebula/sources/` | Text, shapes, meshes, Blender scenes and other source generators |
+| `nebula/effects/` | Reusable image treatments and their metadata |
+| `nebula/render/` | Render composition, source adapters and preview caches |
+| `nebula/audio/` | Synthesis, soundtracks, audio response and live MIDI |
+| `nebula/core/` | Shared media, timing, canvas, parameters and diagnostics |
+| `nebula/legacy/` | Earlier terminal pipeline and its processing tools |
+
+The root `studio.py`, `mac_app.py` and earlier command-line scripts remain
+launchers. Application imports use explicit package paths, such as
+`from nebula.ui.synth_studio import SynthStudio`. Existing `synth_*` filenames
+remain recognizable inside their areas. New modules belong in the appropriate
+package rather than the repository root.
+
+`nebula/resources.py` locates bundled `assets/`, `presets/` and the native mask
+helper consistently in a checkout and a frozen app. Never locate these relative
+to an individual component's `__file__`. The folders remain at the bundle/root
+level; project paths, saved parameter IDs and historical rendering contracts
+are unchanged. See the [organization review](repository-organization.md).
 
 Check actual source filenames before extending an area. Render algorithms have
 compatibility versions independent of document schemas and the app version.

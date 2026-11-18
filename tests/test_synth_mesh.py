@@ -8,13 +8,13 @@ import numpy as np
 import pytest
 import trimesh
 
-from synth import MODULE_BY_ID,default_synth_preset,normalize_synth
-from synth_composition import compile_composition,load_composition,save_composition
-from synth_effects import normalize_effects
-from synth_mesh import PREFIX,decode_mesh,encode_mesh,import_mesh,validate_mesh
-from synth_solids import render_solid
-from synth_starters import starter_composition
-from synth_sequence import render_sequence_frame,_interpolate_presets
+from nebula.render.synth import MODULE_BY_ID,default_synth_preset,normalize_synth
+from nebula.documents.synth_composition import compile_composition,load_composition,save_composition
+from nebula.effects.synth_effects import normalize_effects
+from nebula.sources.synth_mesh import PREFIX,decode_mesh,encode_mesh,import_mesh,validate_mesh
+from nebula.sources.synth_solids import render_solid
+from nebula.documents.synth_starters import starter_composition
+from nebula.documents.synth_sequence import render_sequence_frame,_interpolate_presets
 
 
 def fixture_mesh():

@@ -4,11 +4,11 @@ import copy
 import numpy as np
 import pytest
 
-from synth import MODULE_BY_ID, default_synth_preset, render_synth_frame
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_dye_transfer import render_dye_transfer
-from synth_sequence import render_sequence_frame
-from synth_text import badge_mask, glyph_mask, letterpress_settings
+from nebula.render.synth import MODULE_BY_ID, default_synth_preset, render_synth_frame
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.effects.synth_dye_transfer import render_dye_transfer
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.sources.synth_text import badge_mask, glyph_mask, letterpress_settings
 from scripts.create_earth_dreams_study import composition
 
 

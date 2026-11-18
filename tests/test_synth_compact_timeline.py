@@ -5,7 +5,7 @@ from PySide6.QtCore import QPoint, QPointF, Qt
 from PySide6.QtGui import QColor
 from PySide6.QtTest import QTest
 
-from studio_theme import COLORS
+from nebula.ui.studio_theme import COLORS
 from test_synth_timeline_resize import app, document, timeline
 
 

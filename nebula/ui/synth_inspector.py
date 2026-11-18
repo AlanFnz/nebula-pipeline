@@ -1,0 +1,208 @@
+"""Presentation-only grouping. Parameter names and saved values stay unchanged."""
+
+
+def control_group(path):
+    from nebula.render.synth_instances import base_path
+    path = base_path(path)
+    module, key = path.split('.')
+    if module == 'curved_screen':
+        if key in ('angle','curve','center_x','center_y','scale'): return 'Projection'
+        if key in ('grid_surface','spacing','line_width','grid','grid_fade','wear'): return 'Wire grid'
+        if key.startswith('sphere_'): return 'Sphere rotation'
+        if key in ('rate','drift','vibration','flutter','breathing','boil'): return 'Motion & timing'
+        if key == 'effect_intensity': return 'Output & blending'
+        return 'Surface'
+    if module == 'signal_etch' and key.startswith('organic'): return 'Organic edges'
+    if module == 'signal_etch' and key.startswith('glint'): return 'Traveling highlights'
+    if module == 'print_surface':
+        if key == 'surface': return 'Surface'
+        if key in ('paint_drift', 'paint_registration', 'registration', 'rotation_jitter', 'cadence', 'boil', 'paper_motion', 'paint_period'): return 'Motion & timing'
+        if key in ('paint_outline', 'paint_outline_width', 'paint_rim'): return 'Drawing & edges'
+        if key in ('mix', 'effect_intensity'): return 'Output & blending'
+        if key.startswith('paint_') or key in ('ink_grain', 'ink_wear', 'grain_size'): return 'Pigment'
+        return 'Paper & scan'
+    if module == 'blender_scene':
+        from nebula.sources.synth_blender_parts import part_controls, PARTS
+        part = part_controls(key)
+        if part:
+            identifier, field = part
+            label = next(label for name,label,_ in PARTS if name == identifier)
+            group = ('Material' if field in ('inherit','hue','saturation','metallic','roughness') else
+                     'Independent motion' if field in ('period','phase','ease','turns_x','turns_y','turns_z') else 'Transform')
+            return label+' / '+group
+        if key in ('period','phase','direction','ease'): return 'Loop & motion'
+        if key.startswith('orbit_shape_'): return 'Ring '+key.rsplit('_',1)[1]+' / Geometry'
+        if key.startswith('orbit_') and key.rsplit('_',1)[1].isdigit(): return 'Ring '+key.rsplit('_',1)[1]+' / Authored orbit'
+        if key in ('yin_dot','yin_darkness'): return 'Material'
+        if key == 'orbital_finish': return 'Stage & lighting'
+        if key in ('size','camera_yaw','camera_elevation'): return 'Camera'
+        if key in ('metal_hue','metal_saturation','metallic','roughness','reflection_contrast'): return 'Material'
+        if key in ('background_hue','background_saturation','light_angle','light_size','light_power','environment','exposure'): return 'Stage & lighting'
+        if key == 'scene_version': return 'Scene'
+        return 'Sculpture'
+    if module == 'optical_diffusion':
+        if key in ('grain','period'): return 'Grain & timing'
+        if key in ('mix','effect_intensity'): return 'Output & blending'
+        return 'Lens & light'
+    if module == 'pleated_field':
+        if key in ('profile','density','depth','curl','stagger','irregularity'): return 'Fold geometry'
+        if key in ('size','angle','perspective','shear','tilt_x','tilt_y','symmetry','pan_x','pan_y',
+                   'projection','yaw','pitch','distance','mirror_x','mirror_y'): return 'Camera & mirrors'
+        if key in ('aperture','taper','boundary','edge'): return 'Field outline'
+        if key in ('phase','flow','cadence'): return 'Motion & timing'
+        if key in ('palette','hue_shift','saturation','light','highlight','light_angle','background_motion'): return 'Color & light'
+        return 'Optical finish'
+    if module == 'text' and key.startswith('press_'): return 'Letterpress'
+    if module == 'dye_transfer':
+        if key.startswith('ink_veil'): return 'Light through ink'
+        if key in ('paper_hue', 'paper_saturation', 'paper_light', 'ink_hue', 'ink_saturation', 'ink_light'): return 'Color channels'
+        if key.startswith('mask_'): return 'Optical silhouette'
+        if key in ('scale', 'x', 'y', 'angle'): return 'Shape & layout'
+        if key in ('weave', 'cadence', 'registration', 'focus_flutter', 'shutter'): return 'Motion & timing'
+        if key in ('opening', 'gate_x', 'gate_softness'): return 'Film gate'
+        if key in ('warp', 'drag', 'drag_mix', 'softness', 'erosion', 'choke', 'grain', 'dust', 'emulsion', 'streaks', 'edge_bloom', 'tooth'): return 'Optical finish'
+        if key == 'effect_intensity': return 'Output & blending'
+        return 'Color & light'
+    if module == 'contact_print':
+        if key in ('cadence', 'weave'): return 'Motion & timing'
+        if key.startswith(('gate_', 'shutter')) or key in ('opening', 'neighbor', 'roughness'): return 'Film gate'
+        if key in ('scale', 'x', 'y'): return 'Shape & layout'
+        if key in ('grain', 'grain_size', 'dust', 'softness', 'melt', 'erosion', 'halation'): return 'Optical finish'
+        if key == 'effect_intensity': return 'Output & blending'
+        return 'Color & light'
+    if module == 'text' and key.startswith('badge'): return 'Framed label'
+    if module == 'optical_print':
+        if key in ('reading_clarity', 'reading_hold', 'cuts', 'motion', 'cadence', 'registration'): return 'Motion & timing'
+        if key in ('red_hue', 'second_hue', 'light_hue', 'brightness', 'pale_ink', 'stock'): return 'Color & light'
+        if key in ('width', 'position_x', 'position_y', 'enlargement', 'overprint', 'primary', 'fragment_mix', 'fragment_typeface'): return 'Shape & layout'
+        if key == 'effect_intensity': return 'Output & blending'
+        return 'Optical finish'
+    if module == 'signal_tension':
+        if key in ('tension', 'cohesion', 'persistence', 'instability', 'texture'): return 'Gesture'
+        if key in ('period', 'timing', 'phase', 'variation', 'flutter', 'drift', 'contour', 'registration', 'registration_fps'): return 'Motion & timing'
+        if key in ('direction', 'spacing', 'bend'): return 'Filaments'
+        if key in ('palette', 'color', 'glow'): return 'Color & light'
+        if key in ('region', 'threshold', 'softness'): return 'Signal selection'
+        return 'Output & blending'
+    if module == 'image_memory':
+        if key in ('persistence', 'drift', 'dissolve', 'trail_opacity', 'drift_angle', 'expansion'): return 'Memory'
+        if key in ('shape', 'size', 'sides', 'rotation'): return 'Shape & layout'
+        if key in ('path', 'travel', 'amplitude_x', 'amplitude_y', 'period', 'variation', 'phase', 'spin'): return 'Motion & timing'
+        if key in ('palette', 'color_speed', 'color_shift', 'light', 'background'): return 'Color & light'
+        if key == 'mix': return 'Output & blending'
+        return 'Optical finish'
+    if module == 'spectral_tunnel':
+        if key in ('shape','sides','size','aspect','rows','spacing','rail'): return 'Shape & layout'
+        if key in ('vanishing_x','cross_x','horizon','depth','gap'): return 'Perspective'
+        if key in ('period','motion','amplitude','phase','direction','cadence'): return 'Motion & timing'
+        if key in ('warm_hue','cool_hue','saturation','light'): return 'Color & light'
+        if key == 'mix': return 'Output & blending'
+        return 'Optical finish'
+    if module == 'chromatic_lattice':
+        if key.startswith('eye_ripple'): return 'Eye ripple'
+        if key.startswith('eye_reveal'): return 'Eye reveal'
+        if key.startswith('eye_blink_') or key == 'eye_double_blink': return 'Eye blinking'
+        if key.startswith('eye_'): return 'Center eye'
+        if key in ('surface','morph','corner','grid_x','grid_y'): return 'Shape & layout'
+        if key in ('sweep_direction','color_direction','hollow','cadence'): return 'Motion & timing'
+        if key.startswith(('face_a_','face_b_','paper_')): return 'Color & light'
+        if key in ('shape','sides','spacing','size','minimum','rotation'): return 'Shape & layout'
+        if key in ('wave_shape','wavelength','period','phase','direction','angle','pulse','color_rhythm','bpm','phrase_bars'): return 'Motion & timing'
+        if key in ('palette','color_period','color_phase','color_spread','gradient','saturation','light','background'): return 'Color & light'
+        if key=='mix': return 'Output & blending'
+        return 'Optical finish'
+    if module == 'solid':
+        if key in ('model_data','height_stretch'): return 'Shape & layout'
+        if key in ('shape', 'scale', 'yaw', 'pitch', 'roll', 'perspective', 'corner_radius'): return 'Shape & layout'
+        if key in ('turn_speed', 'tumble_speed', 'roll_speed', 'variation', 'color_speed'): return 'Motion & timing'
+        if key in ('pip_size', 'pip_light', 'pip_depth'): return 'Texture & detail'
+        if key == 'mix': return 'Output & blending'
+        return 'Color & light'
+    if module == 'color_field':
+        if key in ('flow', 'color_speed'): return 'Motion & timing'
+        if key in ('scale', 'wash'): return 'Texture & detail'
+        if key == 'mix': return 'Output & blending'
+        return 'Color & light'
+    if module == 'prismatic_field':
+        if key in ('size', 'shape', 'sides', 'center_shape', 'gather', 'opening', 'rotation', 'ribbon'): return 'Shape & layout'
+        if key in ('fold_depth', 'fold_period', 'fold_phase', 'rotation_speed', 'turn_variation', 'transition_ease', 'turn_settle', 'drift'): return 'Motion & timing'
+        return 'Color & light'
+    if module == 'film_burn':
+        if key in ('reading_clarity', 'reading_motion'): return 'Motion & timing'
+        if key in ('print_mix', 'paper_hue', 'paper_light', 'ink_hue', 'ink_light', 'color_spread', 'exposure', 'leak_x', 'leak_y', 'leak_height', 'leak_hue', 'leak_width', 'reversal'): return 'Color & light'
+        if key in ('drift', 'rate', 'opening', 'gate_x', 'roughness', 'cadence'): return 'Motion & timing'
+        return 'Optical finish'
+    if module == 'print_collage':
+        if key in ('reading_layout', 'reading_reframe'): return 'Motion & timing'
+        if key in ('weave', 'cadence'): return 'Motion & timing'
+        if key in ('poster', 'poster_scale', 'poster_y', 'poster_start', 'poster_end', 'echo', 'echo_x', 'echo_y', 'bars', 'bar_angle', 'bar_count'): return 'Repetitions'
+        return 'Shape & layout'
+    if module == 'film_emulsion':
+        if key in ('softness', 'bleed', 'registration', 'edge_ink'): return 'Optical finish'
+        if key == 'mix': return 'Output & blending'
+        return 'Film texture'
+    if module == 'text' and key in ('morph_balance', 'morph_roundness'): return 'Shape & layout'
+    if module == 'text' and key.startswith('morph_'): return 'Motion & timing'
+    if module == 'text' and key.startswith('reading_'): return 'Motion & timing'
+    if module == 'contour_melt':
+        if key in ('fill', 'hollow', 'drift', 'period', 'phase'): return 'Moving exposure'
+        if key in ('style', 'width', 'separation', 'groove'): return 'Contours'
+        return 'Texture & light'
+    if module == 'radial_bloom':
+        if key.startswith('vibration'): return 'Ray vibration'
+        if key in ('expansion', 'petals'): return 'Shape & layout'
+        if key in ('flow', 'variation', 'rotation', 'phase', 'center_drift', 'drift_speed'): return 'Motion & timing'
+        if key in ('palette', 'color_phase', 'color_speed', 'light'): return 'Color & light'
+        return 'Texture & detail'
+    if module == 'particles' and key in ('assembly', 'breathing', 'motion', 'release', 'turn_scope', 'orbit_start', 'orbit_handoff'):
+        return 'Motion & timing'
+    if module == 'signal_repetition':
+        if key in ('input', 'region', 'show_key') or key.startswith('key_'): return 'Signal selection'
+        if key in ('spacing', 'sample_width', 'sample_center', 'contour', 'row_height', 'row_breakup', 'row_lines', 'edge_echo', 'edge_distance'): return 'Repetitions'
+        if key in ('wave', 'drift', 'instability', 'rate', 'cadence', 'outline_warp', 'band_flow', 'sync_loss', 'slip_frequency', 'line_flutter'): return 'Motion & timing'
+        if key.startswith('outside_'): return 'Outside selection'
+        if key in ('relief', 'detail', 'fringe', 'edge_width', 'exposure'): return 'Color & light'
+    if module == 'scan_modulation':
+        if key in ('input', 'region', 'show_key') or key.startswith('key_'): return 'Signal selection'
+        if key.startswith('fade'): return 'Selection fade'
+        if key.startswith('spark') or key == 'sparks': return 'Bright points'
+        if key in ('row_pitch', 'irregularity', 'wave', 'tear', 'streak', 'depth', 'dropout'): return 'Scan structure'
+        if key in ('black', 'white', 'exposure', 'fragment_width'): return 'Color & light'
+    if module == 'crt_capture':
+        if key in ('pitch', 'phosphor', 'moire', 'moire_pitch', 'angle', 'curvature', 'weave', 'field', 'bend', 'drift'): return 'Screen interference'
+        if key in ('softness', 'focus_drift', 'halation', 'threshold', 'radius'): return 'Lens & light spill'
+        if key in ('exposure', 'flicker'): return 'Color & light'
+    if module == 'chroma_print':
+        if key in ('detail', 'detail_radius', 'softness'): return 'Texture & detail'
+        if key != 'mix': return 'Color & light'
+    if module == 'slice_echo':
+        if key.startswith('flash_'): return 'Fragment flashes'
+        if key in ('shift_x', 'shift_y', 'travel', 'activity', 'timing_scatter', 'motion_chaos'): return 'Motion & timing'
+        if key in ('exposure', 'highlight_protect', 'negative'): return 'Color & light'
+        if key in ('angle','width','edge_breakup'): return 'Shape & layout'
+        if key == 'envelope': return 'Motion & timing'
+        if key == 'luma_mask': return 'Output & blending'
+        if key == 'screen': return 'Output & blending'
+    if module == 'screen_mesh':
+        if key == 'exposure': return 'Color & light'
+        if key == 'angle': return 'Shape & layout'
+    if module == 'broadcast' and key in ('screen','screen_shape','screen_radius','screen_inset','screen_wear','curve','vignette'): return 'Frame & glass'
+    if module == 'broadcast' and key in ('timing', 'period', 'duration', 'duration_variation', 'phase', 'outages', 'rate', 'roll', 'band_motion', 'band_interval', 'band_travel', 'band_variation'): return 'Motion & timing'
+    if module == 'tape' and key in ('pull', 'pull_edges'): return 'Motion & timing'
+    if module == 'tape' and key == 'tracking': return 'Texture & detail'
+    if key in ('content', 'font', 'artwork'): return 'Wording & source' if module == 'text' else 'Source'
+    if key in ('copies', 'copy_gap', 'copy_floor'): return 'Repetitions'
+    if any(word in key for word in ('hue', 'saturation', 'brightness', 'tint', 'magenta', 'cyan', 'palette', 'color', 'black', 'white')):
+        return 'Color & light'
+    if any(word in key for word in ('seconds', 'period', 'phase', 'speed', 'rate', 'cadence', 'reveal', 'motion', 'ease', 'zoom_', 'cycle', 'revolutions')):
+        return 'Motion & timing'
+    if any(word in key for word in ('shape', 'width', 'height', 'size', 'scale', 'stretch', 'spacing', 'tracking', 'leading', 'align', 'fit', 'wrap', 'rotation', 'position', 'yaw', 'pitch', 'roll', 'diameter', 'sides', 'aperture', 'count', 'attractor', 'model')):
+        return 'Shape & layout'
+    if key in ('mix', 'opacity', 'sampling', 'resolution', 'canvas_coverage', 'strength'): return 'Output & blending'
+    return 'Texture & detail'
+
+
+def grouped_paths(paths):
+    groups = {}
+    for path in paths: groups.setdefault(control_group(path), []).append(path)
+    return groups.items()

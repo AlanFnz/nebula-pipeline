@@ -4,8 +4,8 @@ import time
 import numpy as np
 import pytest
 
-from synth_lattice_sound import color_wave_sound, color_notes
-from synth_live_midi import MidiPlan, MidiEngine, LiveMidiMonitor, midi_pitch
+from nebula.audio.synth_lattice_sound import color_wave_sound, color_notes
+from nebula.audio.synth_live_midi import MidiPlan, MidiEngine, LiveMidiMonitor, midi_pitch
 
 
 def source():
@@ -58,7 +58,7 @@ def test_final_step_releases_before_long_gap(monkeypatch, looping):
     c['voices']['steps'].update(decay=.2, polyphony=2)
     authored = [dict(time=t, voice='steps', level=i, semitones=i, velocity=.8)
                 for i, t in enumerate((.1, .2, 3.1, 3.2))]
-    monkeypatch.setattr('synth_lattice_sound.color_notes', lambda *_: authored)
+    monkeypatch.setattr('nebula.audio.synth_lattice_sound.color_notes', lambda *_: authored)
     p = MidiPlan(seq, sig, c)
     assert [n.start for n in p.notes] == [.1, .2, 3.1, 3.2]
     assert all(n.end - n.start == pytest.approx(.2) for n in p.notes)

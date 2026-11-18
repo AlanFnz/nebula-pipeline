@@ -4,10 +4,10 @@ import copy
 import pytest
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
-from synth_composition import load_composition, blank_composition
-from synth_live_set import LIVE_SET
-from synth_live_mode import is_live
-from synth_live_set_ui import QDesktopServices
+from nebula.documents.synth_composition import load_composition, blank_composition
+from nebula.documents.synth_live_set import LIVE_SET
+from nebula.documents.synth_live_mode import is_live
+from nebula.ui.synth_live_set_ui import QDesktopServices
 from test_synth_sound_session import editor
 
 

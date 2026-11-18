@@ -3,9 +3,9 @@ import subprocess
 from PIL import Image
 import pytest
 
-from _pipeline import extract_frames
-from media import probe, decode_frames, export_video, Cancellation, Cancelled
-from parameters import DEFAULTS
+from nebula.legacy._pipeline import extract_frames
+from nebula.core.media import probe, decode_frames, export_video, Cancellation, Cancelled
+from nebula.core.parameters import DEFAULTS
 
 
 @pytest.fixture
@@ -25,8 +25,8 @@ def test_decode_grid_matches_legacy_extraction(clip, tmp_path):
 
 
 def test_export_uses_absolute_frame_and_shared_renderer(clip, tmp_path, monkeypatch):
-    import media
-    from engine import render_frame
+    import nebula.core.media as media
+    from nebula.core.engine import render_frame
     rendered = []
     def observed(source, params, frame):
         image = render_frame(source, params, frame)

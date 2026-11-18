@@ -1,11 +1,11 @@
 """Irregular rolling noise stays independent, bounded and seekable."""
 import copy
 import numpy as np
-from synth import MODULE_BY_ID
-from synth_broadcast import _band_events, band_passes, irregular_band, render_broadcast
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_sequence import render_sequence_frame
-from synth_starters import starter_composition
+from nebula.render.synth import MODULE_BY_ID
+from nebula.effects.synth_broadcast import _band_events, band_passes, irregular_band, render_broadcast
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.documents.synth_starters import starter_composition
 
 
 def params(**changes):
@@ -30,7 +30,7 @@ def test_passes_have_irregular_gaps_and_independent_varied_traits():
 
 
 def test_pass_enters_and_leaves_outside_screen_and_zero_variation_is_uniform(monkeypatch):
-    monkeypatch.setattr('synth_broadcast._band_events',lambda seed,cell: ((.5,.8,.9,.2,.1,.6),) if cell==0 else ())
+    monkeypatch.setattr('nebula.effects.synth_broadcast._band_events',lambda seed,cell: ((.5,.8,.9,.2,.1,.6),) if cell==0 else ())
     rows=np.linspace(-1,1,501,dtype=np.float32)[:,None]
     p=params(phase=0.,band_interval=2.,band_travel=1.,band_variation=0.)
     assert not irregular_band(rows,p,1.,17).any()
@@ -64,7 +64,7 @@ def test_long_time_work_is_bounded_and_output_finite(monkeypatch):
     calls=[]
     def events(seed,cell):
         calls.append(cell);return ((.5,.9,.9,.5,.8,.1),)
-    monkeypatch.setattr('synth_broadcast._band_events',events)
+    monkeypatch.setattr('nebula.effects.synth_broadcast._band_events',events)
     p=params(band_interval=.25,band_travel=12.,band_variation=1.,band=1.)
     rows=np.linspace(-1,1,50,dtype=np.float32)[:,None]
     for clock in (0.,1e6):

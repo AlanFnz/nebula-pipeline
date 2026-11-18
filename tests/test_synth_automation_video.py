@@ -3,13 +3,13 @@ import copy
 import json
 import subprocess
 import numpy as np
-from synth import default_synth_preset
-from synth_automation import absolute_event
-from synth_composition import compile_composition, stretch_section
-from synth_effects import effect_preset
-from synth_media import export_synth_video
-from synth_sequence import render_sequence_frame, resolve_sequence_frame
-from synth_video import video_composition, inspect_video, VideoFrameProvider
+from nebula.render.synth import default_synth_preset
+from nebula.documents.synth_automation import absolute_event
+from nebula.documents.synth_composition import compile_composition, stretch_section
+from nebula.effects.synth_effects import effect_preset
+from nebula.documents.synth_media import export_synth_video
+from nebula.documents.synth_sequence import render_sequence_frame, resolve_sequence_frame
+from nebula.sources.synth_video import video_composition, inspect_video, VideoFrameProvider
 from test_synth_video import clip
 from test_synth_automation import gesture, project
 

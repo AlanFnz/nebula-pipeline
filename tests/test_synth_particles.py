@@ -5,11 +5,11 @@ import hashlib
 import numpy as np
 import pytest
 
-from synth import default_synth_preset, normalize_synth, render_synth_frame
-from synth_composition import compile_composition, load_composition, particle_composition, particle_orbit_composition, save_composition
-from synth_effects import describe_effects
-from synth_particles import _assembled_turn_time, _neck_visibility, _orbit_cloud, _population, _surface_visibility, particle_field, render_particles
-from synth_sequence import render_sequence_frame
+from nebula.render.synth import default_synth_preset, normalize_synth, render_synth_frame
+from nebula.documents.synth_composition import compile_composition, load_composition, particle_composition, particle_orbit_composition, save_composition
+from nebula.effects.synth_effects import describe_effects
+from nebula.sources.synth_particles import _assembled_turn_time, _neck_visibility, _orbit_cloud, _population, _surface_visibility, particle_field, render_particles
+from nebula.documents.synth_sequence import render_sequence_frame
 
 
 def particle_only():
@@ -277,7 +277,7 @@ def test_impulse_seeking_and_orbit_are_continuous_including_cycle_wraps(period):
 
 
 def test_impulse_study_uses_tape_faults_without_added_bars_or_changed_timing():
-    from synth_sequence import _state_preset
+    from nebula.documents.synth_sequence import _state_preset
     seq = compile_composition(particle_orbit_composition())
     summary = describe_effects(seq["states"].values())
     assert summary["tape"]["active"]

@@ -1,12 +1,12 @@
 import copy
 import numpy as np
-from synth_solids import render_solid,hidden_controls
-from synth_mesh import decode_mesh
+from nebula.sources.synth_solids import render_solid,hidden_controls
+from nebula.sources.synth_mesh import decode_mesh
 from test_synth_mesh import params
-from synth import default_synth_preset
-from synth_starters import starter_composition
-from synth_composition import compile_composition
-from synth_sequence import render_sequence_frame
+from nebula.render.synth import default_synth_preset
+from nebula.documents.synth_starters import starter_composition
+from nebula.documents.synth_composition import compile_composition
+from nebula.documents.synth_sequence import render_sequence_frame
 
 
 def test_height_keeps_width_and_depth_and_does_not_modify_asset():
@@ -50,7 +50,7 @@ def test_glass_controls_follow_material_and_shape():
 
 
 def test_saved_crystal_preserves_background_and_rotation(tmp_path):
-    from synth_composition import save_composition,load_composition
+    from nebula.documents.synth_composition import save_composition,load_composition
     project=starter_composition('color-film-die');before=copy.deepcopy(project)
     project['effects']['solid']={'mode':'on','params':{'solid.shape':2,'solid.model_data':params()['model_data'],
         'solid.material':2,'solid.height_stretch':1.75,'solid.glass_transmission':.08,'solid.glass_refraction':.24}}

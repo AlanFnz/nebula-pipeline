@@ -4,14 +4,14 @@ import json
 import numpy as np
 import pytest
 
-from synth import MODULE_BY_ID, render_synth_frame
-from synth_automation import target_parameter
-from synth_composition import (blank_composition, compile_composition,
+from nebula.render.synth import MODULE_BY_ID, render_synth_frame
+from nebula.documents.synth_automation import target_parameter
+from nebula.documents.synth_composition import (blank_composition, compile_composition,
                                composition_from_sequence, normalize_composition)
-from synth_effects import effect_preset, describe_effects
-from synth_effect_discovery import effect_candidate
-from synth_sequence import resolve_sequence_frame, render_sequence_frame
-from synth_instances import instance_base, document_instance_ids
+from nebula.effects.synth_effects import effect_preset, describe_effects
+from nebula.effects.synth_effect_discovery import effect_candidate
+from nebula.documents.synth_sequence import resolve_sequence_frame, render_sequence_frame
+from nebula.render.synth_instances import instance_base, document_instance_ids
 from test_synth_video import clip
 
 
@@ -90,7 +90,7 @@ def test_section_scope_disabled_slots_and_stable_order_across_morph():
     summary = describe_effects(list(seq['states'].values()))
     assert summary['tape@2']['intermittent']
     assert summary['tape@3']['intermittent']
-    from synth_sequence import _interpolate_presets
+    from nebula.documents.synth_sequence import _interpolate_presets
     first = resolve_sequence_frame(seq, 1.)[-1]
     second = resolve_sequence_frame(seq, 11.)[-1]
     mid = _interpolate_presets(first, second, .75)
@@ -111,7 +111,7 @@ def test_video_pixels_support_extra_pass_without_requiring_generator():
     p = piece(); p['effects']['tape@2'] = effect_preset('tape@2', 3)
     p['sections'][0]['automations'] = [gesture()]
     preset = resolve_sequence_frame(compile_composition(p), 4.2)[-1]
-    from synth_video import VIDEO_MODULES
+    from nebula.sources.synth_video import VIDEO_MODULES
     for m in preset['modules']:
         if m['id'] not in VIDEO_MODULES and not instance_base(m['id']): m['enabled'] = False
     from PIL import Image
@@ -134,9 +134,9 @@ def test_registry_is_bounded_and_does_not_mutate_the_legacy_catalog():
 
 def test_imported_video_export_renders_both_passes_and_preserves_frames_outside_gesture(clip, tmp_path):
     import subprocess
-    from synth import default_synth_preset
-    from synth_video import video_composition, VideoFrameProvider, inspect_video
-    from synth_media import export_synth_video
+    from nebula.render.synth import default_synth_preset
+    from nebula.sources.synth_video import video_composition, VideoFrameProvider, inspect_video
+    from nebula.documents.synth_media import export_synth_video
     p = video_composition(clip)
     p['fps'] = 15; p['sections'][0]['duration'] = 2.
     p['effects']['tape'] = effect_preset('tape', 1)

@@ -3,9 +3,9 @@ import copy
 
 import pytest
 
-from synth_composition import compile_composition, load_composition, mixed_media_composition, normalize_composition, save_composition
-from synth_sequence import render_sequence_frame
-from synth_shared_timing import edit_shared_timing
+from nebula.documents.synth_composition import compile_composition, load_composition, mixed_media_composition, normalize_composition, save_composition
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.core.synth_shared_timing import edit_shared_timing
 
 
 def bypass(project, location, enabled):

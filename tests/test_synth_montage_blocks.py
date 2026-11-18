@@ -6,8 +6,8 @@ from PySide6.QtCore import Qt, QItemSelectionModel
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 
-from synth_montage import normalize_montage, save_montage, load_montage
-from synth_montage_blocks import block_details, clip_label
+from nebula.documents.synth_montage import normalize_montage, save_montage, load_montage
+from nebula.ui.synth_montage_blocks import block_details, clip_label
 from test_synth_montage_selection import window
 from test_synth_montage import project, montage
 from test_synth_navigation import workspace

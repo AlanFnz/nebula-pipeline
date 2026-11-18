@@ -9,12 +9,12 @@ from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QDialog
 
-from studio_widgets import ComboBox
-from synth_effect_browser import EffectBrowserDialog
-from synth_effect_catalog import CATEGORIES, EFFECT_CATEGORIES, SOURCE_EFFECT_IDS, effect_catalog
-from synth_effects import EFFECTS, EFFECT_BY_ID, effect_preset
-from synth_subject import SOURCE_EFFECTS
-from synth_video import VIDEO_EFFECTS
+from nebula.ui.studio_widgets import ComboBox
+from nebula.ui.synth_effect_browser import EffectBrowserDialog
+from nebula.effects.synth_effect_catalog import CATEGORIES, EFFECT_CATEGORIES, SOURCE_EFFECT_IDS, effect_catalog
+from nebula.effects.synth_effects import EFFECTS, EFFECT_BY_ID, effect_preset
+from nebula.sources.synth_subject import SOURCE_EFFECTS
+from nebula.sources.synth_video import VIDEO_EFFECTS
 
 
 @pytest.fixture(scope='module')

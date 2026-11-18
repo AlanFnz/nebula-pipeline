@@ -2,8 +2,8 @@ import copy
 
 import pytest
 
-from synth_composition import compile_composition, composition_from_sequence, load_composition, normalize_composition, reference_composition, save_composition, section_ranges, vary_composition
-from synth_sequence import reference_sequence, render_sequence_frame
+from nebula.documents.synth_composition import compile_composition, composition_from_sequence, load_composition, normalize_composition, reference_composition, save_composition, section_ranges, vary_composition
+from nebula.documents.synth_sequence import reference_sequence, render_sequence_frame
 
 
 def pixels(sequence, time):

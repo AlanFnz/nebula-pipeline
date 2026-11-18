@@ -5,8 +5,8 @@ import pytest
 from PySide6.QtCore import Qt, QPoint
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QDialogButtonBox
-from synth_composition import blank_composition, compile_composition, save_composition, load_composition
-from synth_effects import effect_preset
+from nebula.documents.synth_composition import blank_composition, compile_composition, save_composition, load_composition
+from nebula.effects.synth_effects import effect_preset
 from test_synth_effects_editor_integration import make_window
 
 
@@ -34,7 +34,7 @@ def test_draft_cancel_apply_dirty_one_undo_save_reopen_and_base_restore(make_win
     QApplication.processEvents()
     assert control.animate_button.parent() is control and control.animate_button.isVisible()
     assert control_panel.controls['tape.rate'].animate_button is None
-    from synth_inspector import control_group
+    from nebula.ui.synth_inspector import control_group
     assert control_group('tape.pull') == 'Motion & timing'
     dialog = panel.open_automation('tape.pull')
     assert dialog.times['start'].value() == 4

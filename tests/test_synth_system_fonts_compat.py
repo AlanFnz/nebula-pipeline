@@ -2,9 +2,9 @@
 import hashlib
 import json
 from pathlib import Path
-from synth_starters import starter_composition
-from synth_composition import compile_composition
-from synth_sequence import render_sequence_frame
+from nebula.documents.synth_starters import starter_composition
+from nebula.documents.synth_composition import compile_composition
+from nebula.documents.synth_sequence import render_sequence_frame
 
 
 def test_all_text_study_snapshots_match_0363_pixels():

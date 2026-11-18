@@ -11,9 +11,9 @@ from PySide6.QtGui import QKeySequence
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QFileDialog, QTableWidget, QPushButton
 
-from synth_studio import SynthStudio
-from synth_composition import compile_composition, load_composition
-from synth_sequence import render_sequence_frame, reference_sequence
+from nebula.ui.synth_studio import SynthStudio
+from nebula.documents.synth_composition import compile_composition, load_composition
+from nebula.documents.synth_sequence import render_sequence_frame, reference_sequence
 
 
 def wait_until(predicate, seconds=10):
@@ -31,8 +31,8 @@ def choose_starter(window, identifier):
 
 
 def test_region_controls_preserve_profile_then_edit_save_and_undo(window, tmp_path):
-    from synth_compat import starter_snapshot
-    from synth_composition import save_composition
+    from nebula.documents.synth_compat import starter_snapshot
+    from nebula.documents.synth_composition import save_composition
     window.set_composition(starter_snapshot('profile-echoes'))
     panel = window.composer.effects_panel
     panel.inspect_effect('edge_phosphor')
@@ -249,7 +249,7 @@ def test_effect_inspector_shows_animation_and_local_absolute_edits(window):
 
 
 def test_new_clip_supports_combining_effects_and_local_bypass(window):
-    from synth_effects import effect_preset
+    from nebula.effects.synth_effects import effect_preset
     window.new_composition()
     panel = window.composer; effects = panel.effects_panel
     # Author the shared stack directly; preset audition is tested separately.
@@ -301,8 +301,8 @@ def test_timeline_click_shows_effects_used_by_blocks_and_ghosts(window):
 
 
 def test_effect_groups_show_effective_use_and_navigation_does_not_edit(window):
-    from synth_effects import EFFECT_BY_ID
-    from synth_subject import SOURCE_EFFECTS
+    from nebula.effects.synth_effects import EFFECT_BY_ID
+    from nebula.sources.synth_subject import SOURCE_EFFECTS
     effects = window.composer.effects_panel
     original = copy.deepcopy(window.composition)
     before = render_sequence_frame(window.sequence, 3.6, (120, 96)).tobytes()
@@ -412,7 +412,7 @@ def test_object_selector_replaces_sources_and_undo_restores_the_starter(window, 
 
 def test_object_artwork_import_edits_the_same_stamp_and_survives_family_switch(window, tmp_path, monkeypatch):
     from PIL import Image
-    from synth_artwork import decode_artwork
+    from nebula.sources.synth_artwork import decode_artwork
     choose_starter(window, 'mixed-media'); obj = window.composer.object_panel
     obj.controls['ink_bloom.shape'].input.setCurrentIndex(5)
     path = tmp_path / 'stamp.png'; artwork = Image.new('RGBA', (40, 60))
@@ -602,14 +602,14 @@ def test_starter_menu_loads_saved_canvas_and_cancel_keeps_current_canvas(window,
     window.canvas_combo.setCurrentIndex(window.canvas_combo.findData("stories"))
     window.load_starter_button.click()
     assert len(window.composition["sections"]) == 2
-    from synth_studies import study_composition
+    from nebula.documents.synth_studies import study_composition
     saved_canvas = study_composition("particle-orbit")["canvas"]
     assert window.current_canvas() == saved_canvas
     assert window.canvas_combo.currentData() == "original"
 
     # Personal snapshots retain their own custom canvas framing metadata too.
-    import synth_studies
-    from synth_canvas import resize_canvas
+    import nebula.documents.synth_studies as synth_studies
+    from nebula.core.synth_canvas import resize_canvas
     personal = copy.deepcopy(study_composition("approved"))
     personal["canvas"] = resize_canvas(personal["canvas"], {"width": 777, "height": 999})
     monkeypatch.setattr(synth_studies, "studies_directory", lambda: tmp_path)
@@ -620,7 +620,7 @@ def test_starter_menu_loads_saved_canvas_and_cancel_keeps_current_canvas(window,
     assert window.current_canvas()["reference"] == personal["canvas"]["reference"]
 
     # Older documents without canvas data continue through normal defaults.
-    import synth_studio
+    import nebula.ui.synth_studio as synth_studio
     legacy = copy.deepcopy(personal)
     legacy.pop("canvas")
     legacy["source"].pop("canvas", None)
@@ -632,7 +632,7 @@ def test_starter_menu_loads_saved_canvas_and_cancel_keeps_current_canvas(window,
     # A canceled replacement must leave the active canvas and document intact.
     window.canvas_combo.setCurrentIndex(window.canvas_combo.findData("stories"))
     active = copy.deepcopy(window.composition)
-    from synth_studio import QMessageBox
+    from nebula.ui.synth_studio import QMessageBox
     with monkeypatch.context() as cancel_patch:
         cancel_patch.setattr(QMessageBox, "warning", lambda *args: QMessageBox.StandardButton.Cancel)
         assert window.load_starter_id("particle-orbit") is False
@@ -642,7 +642,7 @@ def test_starter_menu_loads_saved_canvas_and_cancel_keeps_current_canvas(window,
 
 def test_opened_composition_does_not_display_an_unrelated_starter(window):
     choose_starter(window, 'refined')
-    from synth_starters import starter_composition
+    from nebula.documents.synth_starters import starter_composition
     window.set_composition(starter_composition('profile-clear'))
     assert window.starter_combo.currentData() is None
     assert not window.load_starter_button.isEnabled()
@@ -722,7 +722,7 @@ def test_frame_noise_controls_are_editable_and_undoable(window, tmp_path, monkey
 
 def test_imported_stamp_is_undoable_portable_and_available_in_detailed_editor(window, tmp_path, monkeypatch):
     from PIL import Image, ImageDraw
-    from synth_artwork import decode_artwork
+    from nebula.sources.synth_artwork import decode_artwork
     choose_starter(window, 'ink-bloom')
     panel = window.composer.effects_panel
     panel.inspect_effect('ink_bloom')
@@ -762,7 +762,7 @@ def test_imported_stamp_is_undoable_portable_and_available_in_detailed_editor(wi
 
 
 def test_cancelled_or_bad_artwork_import_does_not_change_document(window, tmp_path, monkeypatch):
-    from synth_artwork_ui import QMessageBox, QInputDialog
+    from nebula.ui.synth_artwork_ui import QMessageBox, QInputDialog
     from PIL import Image
     choose_starter(window, 'ink-bloom')
     panel = window.composer.effects_panel
@@ -907,7 +907,7 @@ def test_ink_timing_tabs_seconds_scope_reset_undo_and_save(window, tmp_path, mon
 
 
 def test_master_tab_is_global_reversible_and_preserved_in_detailed_copies(window, tmp_path, monkeypatch):
-    from synth_master import DEFAULT_MASTER
+    from nebula.effects.synth_master import DEFAULT_MASTER
     choose_starter(window, 'mixed-media')
     panel = window.composer; master = panel.master_panel
     panel.select_section(1); panel.look_tabs.setCurrentWidget(master)
@@ -959,7 +959,7 @@ def test_master_tab_is_global_reversible_and_preserved_in_detailed_copies(window
 
 def test_all_native_parameter_controls_are_protected_from_wheel_edits(window):
     from PySide6.QtWidgets import QComboBox, QAbstractSpinBox, QSlider
-    from studio_widgets import ScrollThrough
+    from nebula.ui.studio_widgets import ScrollThrough
     for key in ('refined', 'mixed-media', 'particle-orbit'):
         choose_starter(window, key)
         for kind in (QComboBox, QAbstractSpinBox, QSlider):

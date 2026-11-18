@@ -7,11 +7,11 @@ import pytest
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication, QFileDialog
 
-from synth_add_section_ui import AddVideoSectionDialog
-from synth_composition import MAX_SECTIONS, load_composition, save_composition
-from synth_effects import effect_preset
-from synth_section_sources import video_source_at
-from synth_video import video_composition
+from nebula.ui.synth_add_section_ui import AddVideoSectionDialog
+from nebula.documents.synth_composition import MAX_SECTIONS, load_composition, save_composition
+from nebula.effects.synth_effects import effect_preset
+from nebula.documents.synth_section_sources import video_source_at
+from nebula.sources.synth_video import video_composition
 from test_synth_effects_editor_integration import make_window
 from test_synth_section_sources import clip, other_clip, two_sources
 from test_synth_automation import gesture

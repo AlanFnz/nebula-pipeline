@@ -8,12 +8,12 @@ import pytest
 from PySide6.QtCore import QSettings, QThreadPool, QTimer
 from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
 
-from studio_theme import apply_theme
-from synth_composition import load_composition
-from synth_new_piece_ui import NewPieceDialog
-from synth_starters import starter_composition
-from synth_studies import save_study, study_composition
-from synth_studio import SynthStudio
+from nebula.ui.studio_theme import apply_theme
+from nebula.documents.synth_composition import load_composition
+from nebula.ui.synth_new_piece_ui import NewPieceDialog
+from nebula.documents.synth_starters import starter_composition
+from nebula.documents.synth_studies import save_study, study_composition
+from nebula.ui.synth_studio import SynthStudio
 from test_synth_video import clip
 from test_synth_video_ui import wait_until
 

@@ -9,15 +9,15 @@ from PySide6.QtCore import QSettings, QThreadPool
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
 
-from studio_theme import apply_theme
-from synth_exploration import capture_snapshot, restore_snapshot
-from synth_exploration_ui import SnapshotsDialog, VaryEffectDialog
-from synth_sequence import render_sequence_frame
-from synth_studio import SynthStudio
+from nebula.ui.studio_theme import apply_theme
+from nebula.documents.synth_exploration import capture_snapshot, restore_snapshot
+from nebula.ui.synth_exploration_ui import SnapshotsDialog, VaryEffectDialog
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.ui.synth_studio import SynthStudio
 from test_synth_creative import animated
 from test_synth_video import clip
-from synth_video import video_composition
-from synth_starting_points import new_piece
+from nebula.sources.synth_video import video_composition
+from nebula.documents.synth_starting_points import new_piece
 
 
 def wait_for(predicate, seconds=8):
@@ -206,7 +206,7 @@ def test_selected_preview_keeps_absolute_clock_when_switching_during_play(window
     window.compare_snapshot(identifier); settle(window)
     scope = window.active_preview_scope(); start = scope.intervals[0][0]
     original_clock = time.monotonic
-    clock = [100.]; monkeypatch.setattr('synth_studio.time.monotonic', lambda: clock[0])
+    clock = [100.]; monkeypatch.setattr('nebula.ui.synth_studio.time.monotonic', lambda: clock[0])
     window.play.setChecked(True); window.play_timer.stop()
     clock[0] += .4; window.advance()
     assert window.timeline.value() == start + 10
@@ -214,5 +214,5 @@ def test_selected_preview_keeps_absolute_clock_when_switching_during_play(window
     clock[0] += .2; window.advance()
     assert window.timeline.value() == start + 15
     window.play.setChecked(False)
-    monkeypatch.setattr('synth_studio.time.monotonic', original_clock); settle(window)
+    monkeypatch.setattr('nebula.ui.synth_studio.time.monotonic', original_clock); settle(window)
     assert window.viewer.packet[1] == render_sequence_frame(window.sequence, (start+15)/25, window.preview_size()).tobytes()

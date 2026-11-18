@@ -7,11 +7,11 @@ import pytest
 from PySide6.QtCore import QPoint
 from PySide6.QtWidgets import QApplication
 
-from synth_composition import blank_composition, compile_composition, load_composition, reference_composition, save_composition
-from synth_composer_ui import CompositionPanel
-from synth_effects import effect_preset, merge_effects, normalize_effects, state_values
-from synth_sequence import render_sequence_frame
-from synth_subject import restore_subject
+from nebula.documents.synth_composition import blank_composition, compile_composition, load_composition, reference_composition, save_composition
+from nebula.ui.synth_composer_ui import CompositionPanel
+from nebula.effects.synth_effects import effect_preset, merge_effects, normalize_effects, state_values
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.sources.synth_subject import restore_subject
 
 
 def pixels(document, time=.4):
@@ -21,7 +21,7 @@ def pixels(document, time=.4):
 @pytest.fixture
 def panel():
     app = QApplication.instance() or QApplication([])
-    from studio_theme import apply_theme
+    from nebula.ui.studio_theme import apply_theme
     apply_theme(app)
     widget = CompositionPanel(reference_composition(True))
     widget.resize(380, 750); widget.show(); app.processEvents()
@@ -204,7 +204,7 @@ def test_hidden_text_draft_after_source_switch_stays_off(panel):
 
 
 def test_bypass_undo_redo_and_reopen_resume_preserve_pixels(panel, tmp_path):
-    from synth_studio import SynthStudio
+    from nebula.ui.synth_studio import SynthStudio
     from PySide6.QtCore import QThreadPool
     window = SynthStudio(); window.auto_prepare.setChecked(False)
     try:
@@ -259,7 +259,7 @@ def test_removed_section_draft_is_inactive_until_undo_restores_its_scope(panel):
 
 @pytest.mark.parametrize('height', [720, 800])
 def test_arrange_has_bounded_real_window_page_and_returns_same_scope(panel, height):
-    from synth_studio import SynthStudio
+    from nebula.ui.synth_studio import SynthStudio
     from PySide6.QtCore import QThreadPool
     window = SynthStudio(); window.auto_prepare.setChecked(False)
     window.resize(1280, height); window.show(); QApplication.processEvents()

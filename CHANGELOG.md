@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.119.1 — 2026-11-18
+
+- Organize application modules under `nebula/` by responsibility, keeping the
+  existing launch commands. Shared resource lookup supports both source runs and
+  frozen builds. Project schemas, studies and rendering algorithms are unchanged.
+
 ## 0.119.0 — 2026-11-18
 
 - New projects and **Save as** default to `.nebula`, with a dedicated document

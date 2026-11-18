@@ -1,0 +1,107 @@
+"""Inspector navigation only. Source parameters and their owners stay unchanged."""
+from nebula.effects.synth_effects import EFFECT_BY_ID
+from nebula.sources.synth_subject import SUBJECTS
+from nebula.core.synth_ink_timing import TIMING_KEYS
+from nebula.ui.synth_inspector import grouped_paths
+
+
+PARAMETER_OWNER = {p: effect for _, effects in SUBJECTS.values()
+                   for effect in effects for p in EFFECT_BY_ID[effect].paths}
+OBJECT_PATHS = {
+    kind: tuple(p for effect in effects for p in EFFECT_BY_ID[effect].paths
+                if not (effect == 'ink_bloom' and p.split('.')[1] in TIMING_KEYS))
+    for kind, (_, effects) in SUBJECTS.items() if effects
+}
+
+# Primary controls are first; the remaining groups stay folded until requested.
+# A registry fallback keeps future controls reachable without changing a study.
+FAMILY_GROUPS = {
+    'blender': (
+        ('Sculpture', 'scene ring_width tube_radius hoop_bow hoop_twist body_height base_width crown_size axle_length band_width band_depth ring_gap edge_radius core_size'),
+        ('Loop & motion', 'period phase direction ease pose_steps orbit_tumble orbit_pattern motion_exposure exposure_delay'),
+        ('Camera', 'size camera_yaw camera_elevation'),
+        ('Material', 'yin_dot yin_darkness metal_hue metal_saturation metal_light metallic roughness reflection_contrast paint_light accent_hue accent_saturation accent_light surface_grain'),
+        ('Stage & lighting', 'orbital_finish background_hue background_saturation background_light sky_light ground_hue ground_saturation ground_light stage_bands stage_motion horizon_depth light_angle light_size light_power environment exposure'),
+        ('Scene', 'scene_version')),
+    'tunnel': (
+        ('Light geometry', 'shape sides size aspect rows spacing rail'),
+        ('Perspective', 'orientation vanishing_x cross_x horizon depth gap'),
+        ('Loop & motion', 'period motion amplitude phase direction cadence'),
+        ('Color & light', 'warm_hue cool_hue saturation light'),
+        ('Optical finish', 'glow spread softness grain mix')),
+    'memory': (
+        ('Memory', 'persistence drift dissolve trail_opacity drift_angle expansion'),
+        ('Shape & scale', 'shape size sides rotation'),
+        ('Path & travel', 'path travel amplitude_x amplitude_y period variation phase spin'),
+        ('Color & background', 'palette color_speed color_shift light background'),
+        ('Optical finish', 'softness glow mix')),
+    'lattice': (
+        ('Shape & layout', 'surface shape sides spacing size minimum rotation morph corner grid_x grid_y'),
+        ('Center eye', 'eye_enabled eye_size eye_placement eye_clearance eye_separation eye_opening eye_iris eye_pupil eye_line eye_hue eye_saturation eye_light eye_ink_hue eye_ink_saturation eye_ink_light'),
+        ('Eye blinking', 'eye_blink_fps eye_blink_count eye_blink_period eye_blink_duration eye_blink_variation eye_double_blink eye_blink_phase'),
+        ('Background reveal', 'eye_reveal eye_reveal_duration eye_reveal_grain'),
+        ('Eye ripple', 'eye_ripple eye_ripple_response eye_ripple_size eye_ripple_rotation eye_ripple_position eye_ripple_fluid eye_ripple_glow eye_ripple_glow_radius eye_ripple_speed eye_ripple_reach eye_ripple_width'),
+        ('Wave motion', 'wave_shape wavelength direction sweep_direction angle pulse phase'),
+        ('Rhythm & timing', 'color_rhythm bpm phrase_bars period color_period color_spread color_phase color_direction hollow cadence'),
+        ('Color & background', 'palette gradient saturation light background face_a_hue face_a_saturation face_a_light face_b_hue face_b_saturation face_b_light paper_hue paper_saturation paper_light'),
+        ('Optical finish', 'bevel edge_width rim softness glow glow_radius grain mix')),
+    'solid': (
+        ('Model & scale', 'shape model_data height_stretch scale corner_radius'),
+        ('Pose & camera', 'yaw pitch roll perspective'),
+        ('Rotation & motion', 'turn_speed tumble_speed roll_speed variation'),
+        ('Material & reflections', 'material roughness specular glass_transmission glass_refraction'),
+        ('Die markings', 'pip_size pip_light pip_depth'),
+        ('Color & light', 'palette color_phase color_speed wash shading saturation light mix')),
+    'prismatic': (
+        ('Shape & layout', 'shape sides center_shape size gather opening rotation ribbon'),
+        ('Folds & motion', 'fold_depth fold_period fold_phase rotation_speed turn_variation transition_ease turn_settle drift'),
+        ('Color & light', 'palette color_phase color_speed wash shading saturation light')),
+    'radial': (
+        ('Shape & detail', 'expansion petals detail branching'),
+        ('Motion & drift', 'flow variation rotation phase center_drift drift_speed'),
+        ('Ray vibration', 'vibration vibration_speed vibration_wavelength vibration_irregularity'),
+        ('Color & light', 'palette color_phase color_speed light'),
+        ('Optical finish', 'softness grain')),
+    'silhouette': (
+        ('Model & scale', 'model scale definition'),
+        ('Pose & framing', 'yaw pitch roll center_x center_y'),
+        ('Neck & edges', 'neck_fullness neck_length softness opacity')),
+    'ink': (
+        ('Stamp & scale', 'shape artwork size shape_width shape_height sides shape_rotation'),
+        ('Copies & outline', 'count spread points point_depth irregularity'),
+        ('Gesture & pose', 'opening revolutions turn rotation tumble tilt fan center_fold disorder'),
+        ('Depth & framing', 'cluster_depth stack_spacing perspective position_x position_y'),
+        ('Color & ink', 'palette split_ink back_ink saturation opacity')),
+    'particles': (
+        ('Model & particles', 'attractor scale count dot_size neck_fade'),
+        ('Pose & camera', 'yaw pitch rotation_speed turn_scope axis_mode position_x position_y perspective'),
+        ('Assembly & motion', 'motion release assembly breathing period expand_seconds gather_seconds motion_peak'),
+        ('Orbit & turbulence', 'orbit_speed orbit_start orbit_handoff acceleration chaos overshoot dispersion turbulence collapse flow phase jitter'),
+        ('Depth & visibility', 'xray occlusion relief intensity released_brightness'),
+        ('Color & light', 'hue saturation color_spread color_drift shimmer')),
+}
+
+
+def family_groups(kind):
+    """Return (page, title, initially open, full parameter paths)."""
+    available = OBJECT_PATHS[kind]
+    if kind == 'signal':
+        return tuple((0, f'{label} · {title}', False, tuple(members))
+                     for effect, label in (('forms', 'Form base'), ('rays', 'Ray base'))
+                     for title, members in grouped_paths(EFFECT_BY_ID[effect].paths))
+    prefix = available[0].split('.')[0]
+    groups = [(0, title, index == 0, tuple(f'{prefix}.{key}' for key in keys.split()))
+              for index, (title, keys) in enumerate(FAMILY_GROUPS[kind])]
+    if kind == 'blender':
+        from nebula.sources.synth_blender_parts import groups as part_groups
+        groups.extend(part_groups())
+        from nebula.sources.synth_blender_parts import PARTS
+        for i in range(1,6):
+            page = next(j for j,p in enumerate(PARTS,1) if p[0] == f'ring{i}')
+            groups.append((page, f'Ring {i} / Geometry', False, (f'blender_scene.orbit_shape_{i}',)))
+            fields=('turns','phase','tilt','pace','drift') + (('smooth',) if i>1 else ())
+            groups.append((page, f'Ring {i} / Authored orbit', False, tuple('blender_scene.orbit_'+key+'_'+str(i) for key in fields)))
+    assigned = {p for _, _, _, members in groups for p in members}
+    groups.extend((0, title, False, tuple(members)) for title, members
+                  in grouped_paths(p for p in available if p not in assigned))
+    return tuple(groups)

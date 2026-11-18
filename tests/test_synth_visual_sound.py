@@ -6,12 +6,12 @@ import wave
 import numpy as np
 import pytest
 
-from media import Cancellation, Cancelled
-from synth import default_synth_preset
-from synth_composition import compile_composition, composition_from_sequence, load_composition, save_composition
-from synth_pleated_recipes import pleated_composition, pleated_sound_composition
-from synth_sequence import normalize_sequence, render_sequence_frame
-from synth_visual_sound import (RATE, audio_output, default_sound, acid_sound, instrument_sound, normalize_sound,
+from nebula.core.media import Cancellation, Cancelled
+from nebula.render.synth import default_synth_preset
+from nebula.documents.synth_composition import compile_composition, composition_from_sequence, load_composition, save_composition
+from nebula.documents.synth_pleated_recipes import pleated_composition, pleated_sound_composition
+from nebula.documents.synth_sequence import normalize_sequence, render_sequence_frame
+from nebula.audio.synth_visual_sound import (RATE, audio_output, default_sound, acid_sound, instrument_sound, normalize_sound,
     pcm_blocks, visual_signals, write_sound, sound_key)
 
 
@@ -135,7 +135,7 @@ def test_wav_full_timeline_is_exact_seek_source(tmp_path,study):
 
 
 def test_export_has_sound_silence_choice_and_partial_project_clock(tmp_path,study):
-    from synth_media import export_synth_video
+    from nebula.documents.synth_media import export_synth_video
     seq=short_study(study,1.)
     full=tmp_path/'full.mp4';part=tmp_path/'part.mp4'
     export_synth_video(default_synth_preset(),full,sequence=seq,size=(64,48))

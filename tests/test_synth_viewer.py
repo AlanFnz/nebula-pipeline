@@ -8,8 +8,8 @@ from PySide6.QtGui import QWheelEvent
 from PySide6.QtTest import QSignalSpy, QTest
 from PySide6.QtWidgets import QApplication
 
-from synth_studio import SynthStudio
-from synth_viewer import SynthViewer
+from nebula.ui.synth_studio import SynthStudio
+from nebula.ui.synth_viewer import SynthViewer
 
 
 @pytest.fixture

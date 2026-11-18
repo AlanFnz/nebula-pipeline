@@ -6,8 +6,8 @@ import numpy as np
 from PIL import Image, ImageDraw
 import pytest
 
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_video import (PROXY_EDGE, VideoFrameProvider, frame_on_canvas,
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.sources.synth_video import (PROXY_EDGE, VideoFrameProvider, frame_on_canvas,
                          normalize_footage, relink_footage, video_composition)
 from test_synth_video import clip
 from test_synth_video_ui import window, wait_until
@@ -115,7 +115,7 @@ def test_rotation_reuses_decoder_but_invalidates_framed_mask_cache(clip,tmp_path
 
 
 def test_mask_detection_and_retention_receive_the_same_rotated_framing(clip,tmp_path,monkeypatch):
-    import synth_cutout
+    import nebula.effects.synth_cutout as synth_cutout
     seen = []
     class Source:
         def frame(self,*args,**kwargs): return markers()

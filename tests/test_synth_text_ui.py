@@ -1,7 +1,7 @@
-from synth_composition import load_composition, save_composition
-from synth_starters import starter_composition
-from synth_studio import SynthControl
-from synth import MODULE_BY_ID
+from nebula.documents.synth_composition import load_composition, save_composition
+from nebula.documents.synth_starters import starter_composition
+from nebula.ui.synth_studio import SynthControl
+from nebula.render.synth import MODULE_BY_ID
 from test_synth_composer_ui import window, wait_until
 
 

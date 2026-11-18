@@ -5,13 +5,13 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from synth import MODULE_BY_ID, render_synth_frame
-from synth_canvas import resize_canvas
-from synth_composition import compile_composition, save_composition, load_composition
-from synth_echo import echo_scale, render_signal_etch, render_stretch_echo
-from synth_sequence import render_sequence_frame
-from synth_starters import starter_composition
-from synth_text_recipes import opium_composition
+from nebula.render.synth import MODULE_BY_ID, render_synth_frame
+from nebula.core.synth_canvas import resize_canvas
+from nebula.documents.synth_composition import compile_composition, save_composition, load_composition
+from nebula.effects.synth_echo import echo_scale, render_signal_etch, render_stretch_echo
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.documents.synth_starters import starter_composition
+from nebula.documents.synth_text_recipes import opium_composition
 from test_synth_text import source, extent
 
 

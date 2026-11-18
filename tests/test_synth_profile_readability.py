@@ -1,11 +1,11 @@
 import numpy as np
 
-from synth import MODULE_BY_ID, default_synth_preset
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_particle_mesh import _head_mesh
-from synth_profile import render_silhouette
-from synth_sequence import render_sequence_frame
-from synth_starters import starter_composition
+from nebula.render.synth import MODULE_BY_ID, default_synth_preset
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.sources.synth_particle_mesh import _head_mesh
+from nebula.effects.synth_profile import render_silhouette
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.documents.synth_starters import starter_composition
 
 
 def test_facial_definition_improves_profile_without_altering_skull_or_cached_mesh():

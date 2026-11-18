@@ -166,9 +166,9 @@ sections instead of repeating their instructions. The README remains brief.
 
 | Guide | Implementation checked |
 | --- | --- |
-| [Monitor and export](monitor-and-export.md) | [Preparation and gaps](../synth_preview_range.py), [continuous-span selection](../synth_preview.py), [workspace/transport](../synth_studio.py), [activity indicator](../synth_monitor_status.py). |
-| [Watching eye](sources-and-studies.md#lattice--watching-eye) | [Eye, blinks, reveal and margin](../synth_lattice_eye.py), [radial timing/responses](../synth_lattice_eye_ripple.py), [glow/render order](../synth_lattice_relief.py), [palette values](../synth_lattice_palettes.py), [Object groups](../synth_object_catalog.py). |
-| [Soundtrack placement](sound.md#move-or-trim-the-audio) | [Lane and dialog](../synth_soundtrack_ui.py), [composition edits](../synth_soundtrack_studio.py), [source clock and export](../synth_soundtrack.py), [Montage edits](../synth_montage_ui.py), [audio reactions](../synth_audio_reactivity.py), [export routing](../synth_visual_sound.py). |
+| [Monitor and export](monitor-and-export.md) | [Preparation and gaps](../nebula/ui/synth_preview_range.py), [continuous-span selection](../nebula/render/synth_preview.py), [workspace/transport](../nebula/ui/synth_studio.py), [activity indicator](../nebula/ui/synth_monitor_status.py). |
+| [Watching eye](sources-and-studies.md#lattice--watching-eye) | [Eye, blinks, reveal and margin](../nebula/sources/synth_lattice_eye.py), [radial timing/responses](../nebula/sources/synth_lattice_eye_ripple.py), [glow/render order](../nebula/sources/synth_lattice_relief.py), [palette values](../nebula/sources/synth_lattice_palettes.py), [Object groups](../nebula/ui/synth_object_catalog.py). |
+| [Soundtrack placement](sound.md#move-or-trim-the-audio) | [Lane and dialog](../nebula/ui/synth_soundtrack_ui.py), [composition edits](../nebula/ui/synth_soundtrack_studio.py), [source clock and export](../nebula/audio/synth_soundtrack.py), [Montage edits](../nebula/ui/synth_montage_ui.py), [audio reactions](../nebula/audio/synth_audio_reactivity.py), [export routing](../nebula/audio/synth_visual_sound.py). |
 
 Bounded checks used the existing Python environment and Qt `offscreen`; no
 application installation, native playback or DAW session was used. Audio export

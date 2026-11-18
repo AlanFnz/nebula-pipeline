@@ -7,10 +7,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from PySide6.QtWidgets import QApplication
-from engine import render_frame
-from media import decode_frames
-from parameters import save
-from studio import Studio, STYLE
+from nebula.core.engine import render_frame
+from nebula.core.media import decode_frames
+from nebula.core.parameters import save
+from nebula.ui.studio import Studio, STYLE
 
 
 def wait(predicate, limit=40):

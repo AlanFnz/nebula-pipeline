@@ -3,12 +3,12 @@ import json
 
 import pytest
 
-from synth import render_synth_frame
-from synth_composition import compile_composition, load_composition, mixed_media_composition, normalize_composition, save_composition
-from synth_effects import effect_preset
-from synth_print import bloom_phase
-from synth_sequence import _state_preset, render_sequence_frame
-from synth_shared_timing import PROFILE_PATHS, edit_shared_timing, restore_shared_timing, without_timing
+from nebula.render.synth import render_synth_frame
+from nebula.documents.synth_composition import compile_composition, load_composition, mixed_media_composition, normalize_composition, save_composition
+from nebula.effects.synth_effects import effect_preset
+from nebula.effects.synth_print import bloom_phase
+from nebula.documents.synth_sequence import _state_preset, render_sequence_frame
+from nebula.core.synth_shared_timing import PROFILE_PATHS, edit_shared_timing, restore_shared_timing, without_timing
 
 
 def presets(project):

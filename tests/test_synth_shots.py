@@ -7,10 +7,10 @@ from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 
-from synth_composition import compile_composition, load_composition, save_composition, section_ranges
-from synth_retime import mapped_time
-from synth_sequence import render_sequence_frame
-from synth_starters import starter_composition
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition, section_ranges
+from nebula.documents.synth_retime import mapped_time
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.documents.synth_starters import starter_composition
 from test_synth_effects_editor_integration import make_window
 
 

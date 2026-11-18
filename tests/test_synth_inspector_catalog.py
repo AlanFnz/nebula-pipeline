@@ -6,11 +6,11 @@ import pytest
 from PySide6.QtTest import QSignalSpy, QTest
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication
-from synth_object_catalog import OBJECT_PATHS, PARAMETER_OWNER
-from synth_effects import describe_effects
-from synth_subject import scope_states
-from synth_starters import starter_composition
-from synth_subject_ui import SubjectPanel
+from nebula.ui.synth_object_catalog import OBJECT_PATHS, PARAMETER_OWNER
+from nebula.effects.synth_effects import describe_effects
+from nebula.sources.synth_subject import scope_states
+from nebula.documents.synth_starters import starter_composition
+from nebula.ui.synth_subject_ui import SubjectPanel
 from test_synth_effects_editor_integration import make_window
 
 STUDIES = ('pleated-signal', 'image-memory', 'chromatic-lattice', 'color-film-die',

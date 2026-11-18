@@ -1,5 +1,5 @@
 from test_synth_composer_ui import window, wait_until
-from synth_starters import starter_composition
+from nebula.documents.synth_starters import starter_composition
 
 
 def test_reading_wording_timing_and_clarity_are_editable_and_undoable(window):

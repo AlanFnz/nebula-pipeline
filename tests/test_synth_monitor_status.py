@@ -4,7 +4,7 @@ import copy
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QFileDialog
 
-from synth_studio import ExportJob
+from nebula.ui.synth_studio import ExportJob
 from test_synth_composer_ui import window, wait_until
 from test_synth_preview_range import setup
 from test_synth_preview_scope import prepared

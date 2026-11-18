@@ -3,9 +3,9 @@ import subprocess
 
 import pytest
 
-from synth import curated_presets
-from synth_media import export_synth_video
-from synth_sequence import load_sequence, normalize_sequence, reference_sequence, render_sequence_frame, save_sequence
+from nebula.render.synth import curated_presets
+from nebula.documents.synth_media import export_synth_video
+from nebula.documents.synth_sequence import load_sequence, normalize_sequence, reference_sequence, render_sequence_frame, save_sequence
 
 
 def test_reference_sequence_has_ordered_cues_and_deterministic_scrub():
@@ -67,8 +67,8 @@ def test_event_geometry_starts_on_onset_and_flash_has_finite_duration():
 
 
 def test_morph_at_parameter_limits_stays_in_range_at_every_frame():
-    from synth_sequence import _interpolate_presets
-    from synth import MODULE_BY_ID
+    from nebula.documents.synth_sequence import _interpolate_presets
+    from nebula.render.synth import MODULE_BY_ID
     first=curated_presets()['Reference blinds']
     second=copy.deepcopy(first)
     # Keep minimum/maximum values constant on alternating float controls.

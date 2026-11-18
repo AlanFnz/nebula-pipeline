@@ -7,13 +7,13 @@ import pytest
 from PySide6.QtCore import QPoint, Qt
 from PySide6.QtTest import QSignalSpy, QTest
 from PySide6.QtWidgets import QApplication
-from synth_effects import EFFECT_BY_ID, describe_effects
-from synth_object_groups import TEXT_GROUPS, PLEATED_GROUPS, paths
-from synth_starters import starter_composition
-from synth_subject import scope_states
-from synth_subject_ui import SubjectPanel
-from synth_sequence import render_sequence_frame
-from synth_composition import compile_composition
+from nebula.effects.synth_effects import EFFECT_BY_ID, describe_effects
+from nebula.ui.synth_object_groups import TEXT_GROUPS, PLEATED_GROUPS, paths
+from nebula.documents.synth_starters import starter_composition
+from nebula.sources.synth_subject import scope_states
+from nebula.ui.synth_subject_ui import SubjectPanel
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.documents.synth_composition import compile_composition
 from test_synth_effects_editor_integration import make_window
 
 

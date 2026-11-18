@@ -3,11 +3,11 @@ import copy
 import numpy as np
 import pytest
 from PySide6.QtTest import QSignalSpy
-from synth_sound_mixer import mixer_defaults, MixerChannel, eq_coefficients
-from synth_visual_sound import RATE, instrument_sound, normalize_sound
-from synth_visual_sound_instrument import InstrumentVoice
-from synth_visual_sound_live import LiveInstrument, BLOCK
-from synth_visual_sound_ui import VisualSoundDialog
+from nebula.audio.synth_sound_mixer import mixer_defaults, MixerChannel, eq_coefficients
+from nebula.audio.synth_visual_sound import RATE, instrument_sound, normalize_sound
+from nebula.audio.synth_visual_sound_instrument import InstrumentVoice
+from nebula.audio.synth_visual_sound_live import LiveInstrument, BLOCK
+from nebula.ui.synth_visual_sound_ui import VisualSoundDialog
 from test_synth_visual_sound_instrument import signals
 from test_synth_visual_sound_ui import app, studio
 from test_synth_arpeggio import render
@@ -130,7 +130,7 @@ def test_live_mixer_edits_crossfade_and_preserve_unchanged_eq_history():
 
 
 def test_mixer_history_apply_and_save_preserve_all_channels(studio, tmp_path):
-    from synth_composition import save_composition, load_composition
+    from nebula.documents.synth_composition import save_composition, load_composition
     d = VisualSoundDialog(); d.set_config(instrument_sound())
     baseline = d.read_config(); states = [baseline]; spy = QSignalSpy(d.configEdited)
     for key in ('body', 'arpeggio'):

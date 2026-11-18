@@ -1,10 +1,10 @@
 import copy
 import numpy as np
 import pytest
-from media import Cancellation
-from synth_visual_sound import RATE,instrument_sound,normalize_sound
-from synth_visual_sound_instrument import InstrumentVoice,instrument_blocks
-from synth_visual_sound_live import LiveInstrument
+from nebula.core.media import Cancellation
+from nebula.audio.synth_visual_sound import RATE,instrument_sound,normalize_sound
+from nebula.audio.synth_visual_sound_instrument import InstrumentVoice,instrument_blocks
+from nebula.audio.synth_visual_sound_live import LiveInstrument
 from test_synth_visual_sound_instrument import signals
 
 
@@ -44,8 +44,8 @@ def test_loop_off_preserves_existing_pcm_and_validation():
 
 
 def test_surface_clock_is_periodic_with_flow_and_both_projection_models():
-    from synth import MODULE_BY_ID,normalize_synth
-    from synth_pleated import render_pleated_field
+    from nebula.render.synth import MODULE_BY_ID,normalize_synth
+    from nebula.sources.synth_pleated import render_pleated_field
     p={s.key:s.default for s in MODULE_BY_ID['pleated_field'].params}
     p.update(loop_seconds=20.,flow=.16)
     preset=normalize_synth();preset.update(width=160,height=120,speed=1.)
@@ -59,11 +59,11 @@ def test_surface_clock_is_periodic_with_flow_and_both_projection_models():
 
 
 def test_study_closes_camera_and_preserves_user_settings():
-    from synth_pleated_recipes import pleated_acid_composition
-    from synth_pleated_loop import close_pleated_study
-    from synth_performance import defaults,source_time
-    from synth_composition import compile_composition
-    from synth_sequence import resolve_sequence_frame
+    from nebula.documents.synth_pleated_recipes import pleated_acid_composition
+    from nebula.sources.synth_pleated_loop import close_pleated_study
+    from nebula.documents.synth_performance import defaults,source_time
+    from nebula.documents.synth_composition import compile_composition
+    from nebula.documents.synth_sequence import resolve_sequence_frame
     project=pleated_acid_composition();project['visual_performance']=defaults()
     project['visual_performance']['values'].update(pace=78.62,relief=174.28,opening=63.64,texture=51.47)
     project['generated_sound'].update(unison=2,pitch=80.63)
@@ -83,7 +83,7 @@ def test_study_closes_camera_and_preserves_user_settings():
 
 
 def test_sound_loop_checkbox_roundtrips_and_undoes(app):
-    from synth_visual_sound_ui import VisualSoundDialog
+    from nebula.ui.synth_visual_sound_ui import VisualSoundDialog
     d=VisualSoundDialog();d.set_config(instrument_sound())
     d.seamless_loop.setChecked(True)
     assert d.read_config()['seamless_loop']

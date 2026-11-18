@@ -9,13 +9,13 @@ from PySide6.QtCore import QPoint, QSettings, QThreadPool, Qt
 from PySide6.QtGui import QWheelEvent
 from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
 
-from studio_theme import apply_theme
-from synth_composition import load_composition
-from synth_composer_ui import CompositionPanel
-from synth_creative import CREATIVE_CONTROLS
-from synth_effects import state_values
-from synth_starting_points import new_piece
-from synth_studio import SynthStudio
+from nebula.ui.studio_theme import apply_theme
+from nebula.documents.synth_composition import load_composition
+from nebula.ui.synth_composer_ui import CompositionPanel
+from nebula.documents.synth_creative import CREATIVE_CONTROLS
+from nebula.effects.synth_effects import state_values
+from nebula.documents.synth_starting_points import new_piece
+from nebula.ui.synth_studio import SynthStudio
 from test_synth_creative import animated
 
 

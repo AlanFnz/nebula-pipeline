@@ -6,7 +6,7 @@ from PySide6.QtCore import QPoint, Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QScrollArea, QVBoxLayout, QWidget
 
-from studio_widgets import ComboBox, DoubleSpinBox, Slider, SpinBox
+from nebula.ui.studio_widgets import ComboBox, DoubleSpinBox, Slider, SpinBox
 
 
 @pytest.mark.parametrize('kind', [ComboBox, SpinBox, DoubleSpinBox, Slider])

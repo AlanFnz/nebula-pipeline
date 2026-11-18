@@ -2,11 +2,11 @@ import copy
 import numpy as np
 import pytest
 
-from synth_lattice_sound import color_wave_sound,ColorWaveVoice
-from synth_lattice_wave_sound import WaveSine,wave_defaults,wave_position
-from synth_visual_sound import normalize_sound,visual_signals,RATE
-from synth_visual_sound_live import LiveInstrument
-from synth_sequence import resolve_sequence_frame
+from nebula.audio.synth_lattice_sound import color_wave_sound,ColorWaveVoice
+from nebula.audio.synth_lattice_wave_sound import WaveSine,wave_defaults,wave_position
+from nebula.audio.synth_visual_sound import normalize_sound,visual_signals,RATE
+from nebula.audio.synth_visual_sound_live import LiveInstrument
+from nebula.documents.synth_sequence import resolve_sequence_frame
 from test_synth_lattice_sound import rhythmic_study
 from test_synth_visual_sound_ui import app
 
@@ -86,7 +86,7 @@ def test_wave_settings_validation(field,value):
 
 
 def test_wave_controls_preserve_notes_and_pad_and_support_undo(app):
-    from synth_visual_sound_ui import VisualSoundDialog
+    from nebula.ui.synth_visual_sound_ui import VisualSoundDialog
     c=normalize_sound(color_wave_sound());d=VisualSoundDialog();d.set_config(c)
     assert d.read_config()==c
     d.wave_sine.enabled.setChecked(True)

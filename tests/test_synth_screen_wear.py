@@ -2,8 +2,8 @@ import hashlib
 
 import numpy as np
 
-from synth import MODULE_BY_ID
-from synth_chroma import render_screen_mesh
+from nebula.render.synth import MODULE_BY_ID
+from nebula.effects.synth_chroma import render_screen_mesh
 
 
 def params(**changes):

@@ -3,12 +3,12 @@ import copy
 import numpy as np
 import pytest
 
-from synth import default_synth_preset
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_lattice import lattice_frame, render_chromatic_lattice
-from synth_lattice_eye import blink_opening, render_eye
-from synth_lattice_recipes import watching_eye_composition
-from synth_sequence import render_sequence_frame, resolve_sequence_frame
+from nebula.render.synth import default_synth_preset
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.sources.synth_lattice import lattice_frame, render_chromatic_lattice
+from nebula.sources.synth_lattice_eye import blink_opening, render_eye
+from nebula.documents.synth_lattice_recipes import watching_eye_composition
+from nebula.documents.synth_sequence import render_sequence_frame, resolve_sequence_frame
 
 
 def params(**changes):

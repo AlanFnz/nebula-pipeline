@@ -3,14 +3,14 @@ import copy
 import numpy as np
 import pytest
 
-from synth import curated_presets, render_synth_frame
-from synth_canvas import resize_canvas
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_effects import describe_effects
-from synth_radial_recipes import radial_composition
-from synth_sequence import render_sequence_frame, resolve_sequence_frame
-from synth_starters import starter_composition
-from synth_subject import active_subjects, scope_states, select_subject
+from nebula.render.synth import curated_presets, render_synth_frame
+from nebula.core.synth_canvas import resize_canvas
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.effects.synth_effects import describe_effects
+from nebula.documents.synth_radial_recipes import radial_composition
+from nebula.documents.synth_sequence import render_sequence_frame, resolve_sequence_frame
+from nebula.documents.synth_starters import starter_composition
+from nebula.sources.synth_subject import active_subjects, scope_states, select_subject
 
 
 def test_radial_study_is_editable_seek_deterministic_and_roundtrips(tmp_path):
@@ -55,7 +55,7 @@ def test_old_presets_never_enable_radial_and_source_switch_retains_treatments():
 
 
 def test_ray_wave_moves_outward_without_moving_its_origin_or_radial_distances():
-    from synth_radial import vibrating_angle, radial_frame
+    from nebula.sources.synth_radial import vibrating_angle, radial_frame
     preset = resolve_sequence_frame(compile_composition(radial_composition()), .7)[-1]
     p = next(m['params'] for m in preset['modules'] if m['id']=='radial_bloom')
     p.update(vibration=1.2, vibration_speed=7., vibration_wavelength=.26, vibration_irregularity=0.)
@@ -73,7 +73,7 @@ def test_ray_wave_moves_outward_without_moving_its_origin_or_radial_distances():
 
 
 def test_ray_vibration_is_seamless_seekable_and_has_exact_neutral_and_hold():
-    from synth_radial import vibrating_angle
+    from nebula.sources.synth_radial import vibrating_angle
     angles = np.linspace(-np.pi,np.pi,81)
     radii = np.full_like(angles,.3)
     p = dict(vibration=1.2,petals=18,vibration_irregularity=.8,vibration_speed=7.,vibration_wavelength=.26)

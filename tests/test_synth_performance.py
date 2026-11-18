@@ -3,11 +3,11 @@ import json
 import numpy as np
 import pytest
 from PIL import Image, ImageDraw
-from synth_performance import (defaults, normalize_performance, values_at, source_time,
+from nebula.documents.synth_performance import (defaults, normalize_performance, values_at, source_time,
     base_document, apply_frame, apply_surface, apply_signals, available_controls)
-from synth_composition import compile_composition, normalize_composition, composition_from_sequence
-from synth_sequence import render_sequence_frame, resolve_sequence_frame
-from synth_pleated_recipes import pleated_composition
+from nebula.documents.synth_composition import compile_composition, normalize_composition, composition_from_sequence
+from nebula.documents.synth_sequence import render_sequence_frame, resolve_sequence_frame
+from nebula.documents.synth_pleated_recipes import pleated_composition
 
 
 @pytest.fixture(scope='module')
@@ -115,7 +115,7 @@ def test_audio_neutral_identity_and_shared_visual_clock():
 
 
 def test_sound_cache_includes_frame_rate_for_performed_timing(sequence):
-    from synth_visual_sound import sound_key
+    from nebula.audio.synth_visual_sound import sound_key
     performed=dict(sequence,visual_performance=defaults())
     performed['visual_performance']['values']['pace']=123
     assert sound_key(performed)!=sound_key(dict(performed,fps=24))

@@ -2,13 +2,13 @@ import copy
 import numpy as np
 import pytest
 
-from media import Cancellation
-from synth_composition import compile_composition,load_composition,save_composition
-from synth_lattice_recipes import lattice_composition
-from synth_lattice_sound import color_wave_sound,color_notes,ColorWaveVoice,color_blocks
-from synth_visual_sound import normalize_sound,visual_signals,RATE,sound_for_sequence
-from synth_visual_sound_live import LiveInstrument
-from synth_sequence import render_sequence_frame
+from nebula.core.media import Cancellation
+from nebula.documents.synth_composition import compile_composition,load_composition,save_composition
+from nebula.documents.synth_lattice_recipes import lattice_composition
+from nebula.audio.synth_lattice_sound import color_wave_sound,color_notes,ColorWaveVoice,color_blocks
+from nebula.audio.synth_visual_sound import normalize_sound,visual_signals,RATE,sound_for_sequence
+from nebula.audio.synth_visual_sound_live import LiveInstrument
+from nebula.documents.synth_sequence import render_sequence_frame
 
 
 def study(duration=10.):
@@ -18,7 +18,7 @@ def study(duration=10.):
 
 
 def test_color_events_share_the_renderer_phase_and_ascend():
-    from synth_lattice import color_wave_phase
+    from nebula.sources.synth_lattice import color_wave_phase
     seq=study();signals=visual_signals(seq);notes=color_notes(signals,seq['generated_sound'])
     for voice,threshold in (('strum',.06),('steps',.35)):
         first=[n for n in notes if n['voice']==voice and n['time']<4]
@@ -91,10 +91,10 @@ def test_live_edits_keep_the_clock_and_crossfade_the_previous_voice():
 
 
 def test_studio_discovers_lattice_and_applies_an_undoable_sound(studio,monkeypatch):
-    from synth_visual_sound_live import LiveSoundMonitor
+    from nebula.audio.synth_visual_sound_live import LiveSoundMonitor
     from test_synth_visual_sound_live import Output
     from test_synth_composer_ui import wait_until
-    import synth_visual_sound_live
+    import nebula.audio.synth_visual_sound_live as synth_visual_sound_live
     class Monitor(LiveSoundMonitor):
         def __init__(self,parent):super().__init__(parent,backend_factory=Output)
     monkeypatch.setattr(synth_visual_sound_live,'LiveSoundMonitor',Monitor)
@@ -124,7 +124,7 @@ from test_synth_visual_sound_ui import app,studio
 
 
 def test_color_panel_controls_undo_and_mixer_roundtrip(app):
-    from synth_visual_sound_ui import VisualSoundDialog
+    from nebula.ui.synth_visual_sound_ui import VisualSoundDialog
     d=VisualSoundDialog();c=normalize_sound(color_wave_sound());d.set_config(c)
     assert d.read_config()==c
     assert not d.tabs.isTabVisible(1) and not d.tabs.isTabVisible(2)
@@ -147,8 +147,8 @@ def rhythmic_study():
 
 
 def test_musical_phrase_repeats_on_a_grid_and_follows_tempo():
-    from synth_lattice import color_wave_phase,phrase_levels
-    from synth_sequence import resolve_sequence_frame
+    from nebula.sources.synth_lattice import color_wave_phase,phrase_levels
+    from nebula.documents.synth_sequence import resolve_sequence_frame
     seq=rhythmic_study();config=seq['generated_sound']
     notes=color_notes(visual_signals(seq),config)
     base=resolve_sequence_frame(seq,0)[-1]
@@ -182,7 +182,7 @@ def test_old_v4_settings_retain_unlimited_original_timbre():
 
 
 def test_note_clarity_keeps_an_audible_fundamental():
-    from synth_lattice_sound import struck_tone
+    from nebula.audio.synth_lattice_sound import struck_tone
     age=np.arange(RATE)/RATE
     for voice in ('strum','steps'):
         settings=dict(color_wave_sound()['voices'][voice],decay=.5,clarity=1.)
@@ -195,7 +195,7 @@ def test_note_clarity_keeps_an_audible_fundamental():
 
 
 def test_sustain_limit_releases_old_notes_without_moving_attacks():
-    from synth_lattice_sound import articulate_notes
+    from nebula.audio.synth_lattice_sound import articulate_notes
     seq=rhythmic_study();config=seq['generated_sound'];notes=color_notes(visual_signals(seq),config)
     limited=articulate_notes(notes,config,20.,True)
     assert [n['time'] for n in notes]==[n['time'] for n in limited]

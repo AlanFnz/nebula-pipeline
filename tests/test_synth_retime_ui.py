@@ -7,7 +7,7 @@ import pytest
 from PySide6.QtCore import QPoint, Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
-from synth_composition import compile_composition, load_composition, normalize_composition, save_composition
+from nebula.documents.synth_composition import compile_composition, load_composition, normalize_composition, save_composition
 from test_synth_video import clip
 from test_synth_video_ui import window
 
@@ -131,8 +131,8 @@ def test_cancel_does_not_change_composition_or_undo_stack(window):
 
 
 def test_detailed_copy_duration_preserves_stretched_clocks_and_one_frame_minimum(window):
-    from synth_composition import blank_composition, stretch_section
-    from synth_retime import mapped_time
+    from nebula.documents.synth_composition import blank_composition, stretch_section
+    from nebula.documents.synth_retime import mapped_time
     project = stretch_section(blank_composition(), 'section-1', 2.)
     window.set_composition(project)
     window.open_detailed_copy()

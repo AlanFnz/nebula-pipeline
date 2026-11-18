@@ -8,18 +8,18 @@ import numpy as np
 from PIL import Image
 import pytest
 
-import synth
-from synth import MODULE_BY_ID, default_synth_preset, render_synth_frame
-from synth_composition import compile_composition, save_composition, load_composition
-from synth_effect_catalog import effect_catalog
-from synth_effect_order import movable
-from synth_effects import effect_preset
-from synth_sequence import render_sequence_frame
-from synth_starters import starter_composition
-from synth_subject import select_subject
-from synth_tension import render_signal_tension, gesture, MAX_ECHOES
-from synth_tension_recipes import tension_composition
-from synth_video import VIDEO_EFFECTS, VIDEO_MODULES
+import nebula.render.synth as synth
+from nebula.render.synth import MODULE_BY_ID, default_synth_preset, render_synth_frame
+from nebula.documents.synth_composition import compile_composition, save_composition, load_composition
+from nebula.effects.synth_effect_catalog import effect_catalog
+from nebula.effects.synth_effect_order import movable
+from nebula.effects.synth_effects import effect_preset
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.documents.synth_starters import starter_composition
+from nebula.sources.synth_subject import select_subject
+from nebula.sources.synth_tension import render_signal_tension, gesture, MAX_ECHOES
+from nebula.documents.synth_tension_recipes import tension_composition
+from nebula.sources.synth_video import VIDEO_EFFECTS, VIDEO_MODULES
 
 
 def defaults(**changes):
@@ -123,7 +123,7 @@ def test_exploration_controls_visibly_change_the_result(change):
 
 
 def test_clock_seed_and_echo_sampling_are_bounded(monkeypatch):
-    import synth_tension
+    import nebula.sources.synth_tension as synth_tension
     p=defaults(variation=1.,flutter=.8)
     assert np.array_equal(render(p,2.),render(p,1.,speed=2.))
     assert np.array_equal(render(p,0.),render(p,5.,speed=0.))
@@ -141,11 +141,11 @@ def test_clock_seed_and_echo_sampling_are_bounded(monkeypatch):
 
 @pytest.mark.parametrize('variation',[.25,.65,1.])
 def test_organic_motion_has_no_jumps_when_gesture_geometry_changes(variation):
-    from synth_tension import _gesture_cell
+    from nebula.sources.synth_tension import _gesture_cell
     p=defaults(variation=variation,flutter=.8,texture=0.,persistence=.9)
     for seed in (90,91,11457814282385738528):
         for index in range(1,5):
-            from synth_tension import _random
+            from nebula.sources.synth_tension import _random
             boundary=(index+(.20+.16*variation)*(2*_random(seed,index,1)-1)*p['timing'])*p['period']
             before=render(p,boundary-.00001,seed=seed)
             after=render(p,boundary+.00001,seed=seed)
@@ -154,9 +154,9 @@ def test_organic_motion_has_no_jumps_when_gesture_geometry_changes(variation):
 
 
 def test_study_gestures_differ_in_motion_and_direction_and_expose_controls():
-    from synth_sequence import resolve_sequence_frame
-    from synth_tension import _gesture_cell
-    from synth_inspector import control_group
+    from nebula.documents.synth_sequence import resolve_sequence_frame
+    from nebula.sources.synth_tension import _gesture_cell
+    from nebula.ui.synth_inspector import control_group
     preset=resolve_sequence_frame(compile_composition(tension_composition()),0)[-1]
     p=next(m['params'] for m in preset['modules'] if m['id']=='signal_tension')
     seed=synth._seed(preset['seed'],'signal-tension')
@@ -275,7 +275,7 @@ def test_pass_order_and_next_finish_receive_the_complete_treated_image(monkeypat
 
 
 def test_short_export_matches_preview(tmp_path):
-    from synth_media import export_synth_video
+    from nebula.documents.synth_media import export_synth_video
     seq=compile_composition(tension_composition());seq['duration']=3.;seq['fps']=6
     out=export_synth_video(default_synth_preset(),tmp_path/'tension.mp4',sequence=seq,size=(128,96))
     raw=subprocess.run(['ffmpeg','-v','error','-i',str(out),'-f','rawvideo','-pix_fmt','rgb24','pipe:1'],capture_output=True,check=True).stdout

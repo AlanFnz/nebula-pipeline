@@ -2,14 +2,14 @@ import copy
 
 import numpy as np
 
-from synth import MODULE_BY_ID, default_synth_preset
-from synth_canvas import resize_canvas, format_canvas
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_particle_mesh import head_mesh
-from synth_particles import _population, render_particles
-from synth_profile import render_silhouette
-from synth_sequence import render_sequence_frame
-from synth_starters import starter_composition
+from nebula.render.synth import MODULE_BY_ID, default_synth_preset
+from nebula.core.synth_canvas import resize_canvas, format_canvas
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.sources.synth_particle_mesh import head_mesh
+from nebula.sources.synth_particles import _population, render_particles
+from nebula.effects.synth_profile import render_silhouette
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.documents.synth_starters import starter_composition
 
 
 def test_scan_is_finite_oriented_and_has_usable_surface_normals():

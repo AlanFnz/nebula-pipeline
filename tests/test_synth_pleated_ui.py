@@ -4,10 +4,10 @@ os.environ.setdefault('QT_QPA_PLATFORM','offscreen')
 from PySide6.QtTest import QSignalSpy
 from PySide6.QtWidgets import QApplication
 
-from synth_effects import EFFECT_BY_ID, describe_effects
-from synth_starters import starter_composition
-from synth_subject import scope_states
-from synth_subject_ui import SubjectPanel
+from nebula.effects.synth_effects import EFFECT_BY_ID, describe_effects
+from nebula.documents.synth_starters import starter_composition
+from nebula.sources.synth_subject import scope_states
+from nebula.ui.synth_subject_ui import SubjectPanel
 
 
 def test_new_source_opens_its_editable_inspector_and_details():

@@ -7,11 +7,11 @@ import pytest
 from PySide6.QtCore import QPoint
 from PySide6.QtWidgets import QApplication, QPushButton, QScrollArea
 
-from studio_theme import apply_theme
-from synth_composer_ui import CompositionPanel
-from synth_composition import compile_composition, reference_composition, save_composition, load_composition
-from synth_effects import EFFECTS, effect_preset, describe_effects
-from synth_sequence import render_sequence_frame
+from nebula.ui.studio_theme import apply_theme
+from nebula.ui.synth_composer_ui import CompositionPanel
+from nebula.documents.synth_composition import compile_composition, reference_composition, save_composition, load_composition
+from nebula.effects.synth_effects import EFFECTS, effect_preset, describe_effects
+from nebula.documents.synth_sequence import render_sequence_frame
 
 
 def document():
@@ -127,7 +127,7 @@ def test_project_bypass_summary_retains_authored_values(composer):
     assert panel.authored_summary['raster']['active']
 
 
-from synth_starters import STARTERS, starter_composition
+from nebula.documents.synth_starters import STARTERS, starter_composition
 
 @pytest.mark.parametrize('identifier', [key for key, _label, _factory in STARTERS])
 def test_every_built_in_study_keeps_its_compiled_sequence_with_project_inspection(identifier):

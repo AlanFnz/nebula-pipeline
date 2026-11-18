@@ -6,9 +6,9 @@ import time
 import numpy as np
 import pytest
 
-from synth_visual_sound import RATE, _smooth, instrument_sound
-from synth_visual_sound_instrument import InstrumentVoice, instrument_controls, instrument_note_duration, note_envelope
-from synth_visual_sound_live import BLOCK, LiveInstrument
+from nebula.audio.synth_visual_sound import RATE, _smooth, instrument_sound
+from nebula.audio.synth_visual_sound_instrument import InstrumentVoice, instrument_controls, instrument_note_duration, note_envelope
+from nebula.audio.synth_visual_sound_live import BLOCK, LiveInstrument
 from test_synth_visual_sound_instrument import signals
 from test_synth_visual_sound_live import Output, monitors
 from test_synth_visual_sound_ui import app, studio
@@ -29,7 +29,7 @@ def test_windowed_envelopes_preserve_complete_controls(mode,attack,release):
 
 
 def test_envelope_work_is_limited_to_note_lifetimes(monkeypatch):
-    import synth_visual_sound_instrument as instrument
+    import nebula.audio.synth_visual_sound_instrument as instrument
     config=instrument_sound();config.update(arp_mode='sequence',sequence_trigger='loop',bpm=160.,subdivision='1/16')
     s=signals(20.);sizes=[];original=instrument.note_envelope
     def measured(age,*args): sizes.append(len(age));return original(age,*args)
@@ -121,9 +121,9 @@ def test_audio_device_failure_stops_safely_and_new_source_can_retry(monitors):
 
 
 def test_sound_edits_reuse_visual_hash_but_document_revisions_invalidate_it(studio,monkeypatch):
-    import synth_visual_sound_live
-    import synth_preview
-    from synth_visual_sound_live import LiveSoundMonitor
+    import nebula.audio.synth_visual_sound_live as synth_visual_sound_live
+    import nebula.render.synth_preview as synth_preview
+    from nebula.audio.synth_visual_sound_live import LiveSoundMonitor
     class Monitor(LiveSoundMonitor):
         def __init__(self,parent):super().__init__(parent,backend_factory=Output)
     monkeypatch.setattr(synth_visual_sound_live,'LiveSoundMonitor',Monitor)

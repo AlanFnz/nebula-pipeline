@@ -5,12 +5,12 @@ import pytest
 from PySide6.QtCore import QEvent, QThreadPool, Qt
 from PySide6.QtWidgets import QApplication
 from PySide6.QtTest import QTest
-from synth_starting_points import new_piece
-from synth_studio import SynthStudio
-from synth_effect_discovery_ui import EffectAuditionDialog
-from synth_effect_preview import EffectPreviewSession
-from synth_exploration import capture_snapshot
-from synth_video import inspect_video, video_composition
+from nebula.documents.synth_starting_points import new_piece
+from nebula.ui.synth_studio import SynthStudio
+from nebula.ui.synth_effect_discovery_ui import EffectAuditionDialog
+from nebula.render.synth_effect_preview import EffectPreviewSession
+from nebula.documents.synth_exploration import capture_snapshot
+from nebula.sources.synth_video import inspect_video, video_composition
 from test_synth_video import clip
 
 REAL_REQUEST_FRAME = SynthStudio.request_frame
@@ -37,7 +37,7 @@ def select(dialog,identifier):
 
 @pytest.mark.parametrize('quality,size', [(0, (202, 360)), (1, (405, 720)), (2, (1080, 1920))])
 def test_audition_respects_monitor_quality_before_after_apply_and_cancel(window, quality, size):
-    from synth_canvas import resize_canvas
+    from nebula.core.synth_canvas import resize_canvas
     doc = copy.deepcopy(window.composition)
     doc['canvas'] = resize_canvas(doc['canvas'], {'width': 1080, 'height': 1920})
     window.set_composition(doc, clean=True)
@@ -79,7 +79,7 @@ def test_cancel_preserves_snapshot_comparison_quality_history_and_keyboard(windo
 
 
 def test_full_canvas_sampled_loop_fits_both_comparison_banks(window):
-    from synth_canvas import resize_canvas
+    from nebula.core.synth_canvas import resize_canvas
     doc = copy.deepcopy(window.composition)
     doc['canvas'] = resize_canvas(doc['canvas'], {'width': 4096, 'height': 4096})
     window.set_composition(doc, clean=True)

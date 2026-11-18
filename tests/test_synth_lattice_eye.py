@@ -3,13 +3,13 @@ import copy
 import numpy as np
 import pytest
 
-from synth import default_synth_preset
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_lattice import render_chromatic_lattice
-from synth_lattice_eye import EYE_KEYS, blink_opening
-from synth_lattice_recipes import watching_eye_composition, printed_orbit_composition, lattice_composition
-from synth_sequence import render_sequence_frame, resolve_sequence_frame
-from synth_starters import starter_composition
+from nebula.render.synth import default_synth_preset
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.sources.synth_lattice import render_chromatic_lattice
+from nebula.sources.synth_lattice_eye import EYE_KEYS, blink_opening
+from nebula.documents.synth_lattice_recipes import watching_eye_composition, printed_orbit_composition, lattice_composition
+from nebula.documents.synth_sequence import render_sequence_frame, resolve_sequence_frame
+from nebula.documents.synth_starters import starter_composition
 
 
 def params():
@@ -75,7 +75,7 @@ def test_cadence_changes_only_the_eye_not_cells_or_texture():
 
 
 def test_overlay_preserves_cells_outside_eye_even_when_closed_and_clearance_is_ignored():
-    from synth_lattice import lattice_frame
+    from nebula.sources.synth_lattice import lattice_frame
     p = dict(params(), eye_placement=1, grain=0., softness=0., glow=0.)
     arr = np.zeros((256,144,3),np.float32)
     preset = dict(default_synth_preset(),width=144,height=256,seed=141126,speed=1.)
@@ -124,7 +124,7 @@ def test_eye_placement_ui_hides_unused_spacing_and_round_trips_with_undo(make_wi
 
 
 def test_blink_cadence_ui_save_and_undo(make_window,tmp_path):
-    from synth_effect_parameter_ui import format_value
+    from nebula.ui.synth_effect_parameter_ui import format_value
     w=make_window(composition=watching_eye_composition());c=w.composer
     control=c.object_panel.controls['chromatic_lattice.eye_blink_fps']
     original=copy.deepcopy(c.document)

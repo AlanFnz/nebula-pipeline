@@ -1,0 +1,135 @@
+"""Presentation-only discovery metadata for image treatments."""
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from nebula.effects.synth_effects import EFFECTS, EFFECT_BY_ID, effects_for
+from nebula.render.synth_instances import instance_ids, base_id
+
+
+SOURCE_EFFECT_IDS = frozenset(('blender_scene', 'spectral_tunnel', 'pleated_field', 'image_memory', 'chromatic_lattice', 'radial_bloom', 'forms', 'rays', 'ink_bloom', 'particles', 'silhouette', 'text', 'prismatic_field', 'solid'))
+CATEGORIES = ('Distortion', 'Texture', 'Light & color', 'Motion & echoes', 'Cutout', 'Finishing', 'Other')
+EFFECT_CATEGORIES = {
+    'dye_transfer': 'Texture',
+    'signal_tension': 'Distortion',
+    'contact_print': 'Texture',
+    'optical_print': 'Texture',
+    'color_field': 'Light & color',
+    'film_emulsion': 'Texture',
+    'optical_diffusion': 'Texture',
+    'film_burn': 'Texture',
+    'print_collage': 'Motion & echoes',
+    'contour_melt': 'Light & color',
+    'signal_repetition': 'Motion & echoes',
+    'scan_modulation': 'Distortion',
+    'crt_capture': 'Texture',
+    'stretch_echo': 'Motion & echoes',
+    'signal_etch': 'Texture',
+    'chroma_print': 'Light & color',
+    'slice_echo': 'Motion & echoes',
+    'screen_mesh': 'Texture',
+    'broadcast': 'Distortion',
+    'subject_cutout': 'Cutout',
+    'photocopy': 'Texture',
+    'signal_background': 'Texture',
+    'edge_phosphor': 'Light & color',
+    'scan_drag': 'Motion & echoes',
+    'ghosts': 'Motion & echoes',
+    'breakup': 'Distortion',
+    'tape': 'Distortion',
+    'drift': 'Distortion',
+    'cloud': 'Light & color',
+    'flare': 'Light & color',
+    'separation': 'Light & color',
+    'interference': 'Distortion',
+    'frame_jitter': 'Motion & echoes',
+    'bloom': 'Light & color',
+    'raster': 'Texture',
+    'print_surface': 'Texture',
+    'low_res': 'Finishing',
+}
+
+
+@dataclass(frozen=True)
+class CatalogEffect:
+    id: str
+    label: str
+    category: str
+    description: str
+    presets: tuple[str, ...]
+
+
+EFFECT_CATALOG = tuple(sorted((
+    CatalogEffect(effect.id, effect.label, EFFECT_CATEGORIES.get(effect.id, 'Other'), effect.description,
+                  tuple(label for label, _values in effect.looks) or ('Default settings',))
+    for effect in EFFECTS if effect.id not in SOURCE_EFFECT_IDS
+), key=lambda effect: effect.label.casefold()))
+
+
+def effect_catalog(allowed_effects=None, *, query='', category=''):
+    """Search names, descriptions, categories and existing preset labels.
+
+    The caller supplies compatibility for the current document. None leaves
+    compatibility unrestricted; an empty collection permits no treatments.
+    Returned metadata contains no mutable renderer settings.
+    """
+    allowed = None if allowed_effects is None else frozenset(allowed_effects)
+    words = query.casefold().split()
+    result = []
+    extra = []
+    for identifier in instance_ids(allowed or ()):
+        effect = EFFECT_BY_ID[identifier]
+        extra.append(CatalogEffect(effect.id, effect.label, EFFECT_CATEGORIES[base_id(identifier)], effect.description,
+                                   tuple(label for label, _ in effect.looks)))
+    for effect in (*EFFECT_CATALOG, *extra):
+        if allowed is not None and effect.id not in allowed:
+            continue
+        if category and effect.category != category:
+            continue
+        searchable = ' '.join((effect.id.replace('_', ' '), effect.label, effect.category,
+                               effect.description, *effect.presets)).casefold()
+        if all(word in searchable for word in words):
+            result.append(effect)
+    return tuple(result)
+
+# Capability sentences, separate from frozen recipes and measured visibility.
+CONTRIBUTIONS = {
+    'signal_tension': 'Signal tension pulls the source into elastic filaments with uneven releases and fading impressions.',
+    'contact_print': 'Contact print exposes the source on colored film with grain, gate travel and polarity changes.',
+    'optical_print': 'Optical overprint layers enlarged, distressed impressions on dark stock with irregular exposure cuts.',
+    'image_memory': 'Image memory deposits colored traces of its moving object; older traces drift and dissolve.',
+    'spectral_tunnel': 'Spectral tunnel creates two luminous perspective planes with a looping optical ripple.',
+    'chromatic_lattice': 'Chromatic lattice creates luminous cells with traveling size and color waves.',
+    'solid': '3D solid provides a rotating die or cube.',
+    'color_field': 'Color field provides moving optical clouds behind the object.',
+    'prismatic_field': 'Prismatic field creates turning color planes and a closed polygon.',
+    'film_burn': 'Film burn exposes the print with moving leaks, luminous edges and rough film gates.',
+    'print_collage': 'Print collage crops, repeats and overprints impressions of the source.',
+    'film_emulsion': 'Color emulsion adds optical fringes, softness and moving grain.',
+    'radial_bloom': 'Radial bloom creates expanding crowns and branching rays.',
+    'forms': 'Luminous forms provide the geometric source.',
+    'rays': 'Rays provide a striped light source.',
+    'text': 'Text provides the lettering.',
+    'silhouette': 'Model silhouette provides the head.',
+    'ink_bloom': 'Ink bloom provides overlapping stamps.',
+    'particles': 'Particles provide the moving point source.',
+    'edge_phosphor': 'Edge phosphor creates a colored contour.',
+    'scan_drag': 'Scan drag pulls highlights into streaks.',
+    'signal_background': 'Signal background textures dark areas.',
+    'ghosts': 'Ghosts add shifted copies and a luminous companion.',
+    'cloud': 'Granular halo surrounds luminous forms with noise.',
+    'tape': 'Tape damage resamples the picture with horizontal pull, tracking faults and color bleed.',
+    'frame_jitter': 'Frame jitter varies the source registration.',
+    'bloom': 'Bloom spreads light from bright source areas.',
+}
+
+
+def contribution_sentence(effect_id):
+    from nebula.effects.synth_effects import EFFECT_BY_ID
+    return CONTRIBUTIONS.get(effect_id, EFFECT_BY_ID[effect_id].description.split('. ')[0].rstrip('.') + '.')
+
+
+def composition_contributions(summary, entries, parent_entries, video=False):
+    """Follow the current scope, including authored off and bypassed entries."""
+    ids = [effect.id for effect in effects_for(summary) if summary[effect.id]['active'] or effect.id in entries or effect.id in parent_entries]
+    return tuple((identifier, contribution_sentence(identifier), identifier in SOURCE_EFFECT_IDS) for identifier in ids)

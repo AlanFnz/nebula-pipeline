@@ -3,11 +3,11 @@ import copy
 import numpy as np
 import pytest
 
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_pleated_recipes import pleated_acid_composition, pleated_composition
-from synth_preview import _visual_document
-from synth_visual_sound import RATE, acid_sound, normalize_sound, pcm_blocks
-from synth_visual_sound_acid import gesture_notes, resonant_lowpass
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.documents.synth_pleated_recipes import pleated_acid_composition, pleated_composition
+from nebula.render.synth_preview import _visual_document
+from nebula.audio.synth_visual_sound import RATE, acid_sound, normalize_sound, pcm_blocks
+from nebula.audio.synth_visual_sound_acid import gesture_notes, resonant_lowpass
 
 
 def controls(duration=3.):

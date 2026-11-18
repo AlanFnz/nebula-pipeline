@@ -6,8 +6,8 @@ from PySide6.QtCore import QPoint, Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QScrollArea
 
-from synth_composer_ui import SectionTimeline
-from synth_composition import section_placements
+from nebula.ui.synth_composer_ui import SectionTimeline
+from nebula.documents.synth_composition import section_placements
 from test_synth_timeline_resize import app, document, edge_point, timeline
 
 
@@ -149,7 +149,7 @@ def test_reorder_autoscroll_tracks_pointer_without_changing_document(app, monkey
         point = press_body(widget, 0)
         QTest.mouseMove(widget, point + QPoint(30, 0))
         pointer = scroll.viewport().mapToGlobal(QPoint(scroll.viewport().width() + 20, 40))
-        monkeypatch.setattr('synth_composer_ui.QCursor.pos', lambda: pointer)
+        monkeypatch.setattr('nebula.ui.synth_composer_ui.QCursor.pos', lambda: pointer)
         before = scroll.horizontalScrollBar().value()
         widget._auto_scroll_reorder()
         assert scroll.horizontalScrollBar().value() > before

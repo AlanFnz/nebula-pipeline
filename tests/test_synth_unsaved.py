@@ -8,11 +8,11 @@ import pytest
 from PySide6.QtCore import QThreadPool
 from PySide6.QtWidgets import QApplication, QFileDialog, QInputDialog, QMessageBox
 
-import synth_studio
-from synth import curated_presets, load_synth, save_synth
-from synth_composition import load_composition, save_composition
-from synth_sequence import load_sequence, reference_sequence, save_sequence
-from synth_studio import SynthStudio
+import nebula.ui.synth_studio as synth_studio
+from nebula.render.synth import curated_presets, load_synth, save_synth
+from nebula.documents.synth_composition import load_composition, save_composition
+from nebula.documents.synth_sequence import load_sequence, reference_sequence, save_sequence
+from nebula.ui.synth_studio import SynthStudio
 
 
 @pytest.fixture
@@ -362,7 +362,7 @@ def test_save_as_rejects_source_media_including_symlink_alias(make_window, monke
 def test_save_rejects_bundled_resources_and_open_does_not_bind_them(make_window, monkeypatch):
     from pathlib import Path
     window = make_window()
-    resource = Path(synth_studio.__file__).parent / 'presets/composite-study-15s.json'
+    resource = synth_studio.RESOURCE_ROOT / 'presets/composite-study-15s.json'
     before = resource.read_bytes()
     monkeypatch.setattr(QFileDialog, 'getOpenFileName', lambda *args: (str(resource), ''))
     assert window.load_sequence_dialog() and window.document_path is None

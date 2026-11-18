@@ -1,7 +1,7 @@
 import os
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 from test_synth_composer_ui import window, wait_until
-from synth_starters import starter_composition
+from nebula.documents.synth_starters import starter_composition
 
 
 def test_tunnel_object_controls_and_undo(window):
@@ -21,7 +21,7 @@ def test_tunnel_object_controls_and_undo(window):
     assert orientation.currentIndex() == 0
     orientation.setCurrentIndex(1)
     assert window.composition['effects']['spectral_tunnel']['params']['spectral_tunnel.orientation'] == 1
-    from synth_composition import normalize_composition
+    from nebula.documents.synth_composition import normalize_composition
     assert normalize_composition(window.composition)['effects']['spectral_tunnel']['params']['spectral_tunnel.orientation'] == 1
     window.undo_composition()
     assert orientation.currentIndex() == 0

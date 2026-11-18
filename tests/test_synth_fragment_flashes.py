@@ -4,13 +4,13 @@ import copy
 import numpy as np
 import pytest
 
-import synth_chroma
-from synth import MODULE_BY_ID
-from synth_chroma import render_slice_echo
-from synth_composition import compile_composition,load_composition,save_composition
-from synth_portrait_recipes import crt_bars_composition,exposure_composition,fractured_composition
-from synth_sequence import render_sequence_frame
-from synth_video import apply_treatment
+import nebula.effects.synth_chroma as synth_chroma
+from nebula.render.synth import MODULE_BY_ID
+from nebula.effects.synth_chroma import render_slice_echo
+from nebula.documents.synth_composition import compile_composition,load_composition,save_composition
+from nebula.documents.synth_portrait_recipes import crt_bars_composition,exposure_composition,fractured_composition
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.sources.synth_video import apply_treatment
 from test_synth_video import clip
 from test_synth_video_ui import window
 

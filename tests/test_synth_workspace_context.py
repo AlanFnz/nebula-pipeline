@@ -8,11 +8,11 @@ import pytest
 from PySide6.QtCore import QEvent, QThreadPool
 from PySide6.QtWidgets import QApplication, QMessageBox
 
-from synth_composition import compile_composition
-from synth_montage import add_asset, insert_clip, load_montage, new_montage
-from synth_montage_ui import MontageWindow
-from synth_studio import SynthStudio
-from synth_starting_points import new_piece
+from nebula.documents.synth_composition import compile_composition
+from nebula.documents.synth_montage import add_asset, insert_clip, load_montage, new_montage
+from nebula.ui.synth_montage_ui import MontageWindow
+from nebula.ui.synth_studio import SynthStudio
+from nebula.documents.synth_starting_points import new_piece
 
 
 @pytest.fixture
@@ -125,7 +125,7 @@ def test_material_playhead_and_empty_selection_do_not_claim_an_edit_target(works
 
 
 def test_sound_and_visuals_use_the_same_nested_owner(workspace, tmp_path, monkeypatch):
-    from synth_visual_sound import instrument_sound
+    from nebula.audio.synth_visual_sound import instrument_sound
     montage = open_montage(workspace, tmp_path)
     editor = montage.edit_clip(montage.document['clips'][0]['id'])
     monkeypatch.setattr(editor, 'audition_visual_sound', lambda *_: None)
@@ -150,10 +150,10 @@ def test_detailed_copy_remains_an_independent_document(workspace):
 
 
 def test_auxiliary_editors_retain_nested_document_identity(workspace, tmp_path):
-    from synth_automation_ui import AutomationList
-    from synth_exploration_ui import SnapshotsDialog
-    from synth_soundtrack_ui import SoundtrackDialog
-    from synth_color_ui import ColorPicker, COLORS
+    from nebula.ui.synth_automation_ui import AutomationList
+    from nebula.ui.synth_exploration_ui import SnapshotsDialog
+    from nebula.ui.synth_soundtrack_ui import SoundtrackDialog
+    from nebula.ui.synth_color_ui import ColorPicker, COLORS
     montage = open_montage(workspace, tmp_path)
     editor = montage.edit_clip(montage.document['clips'][1]['id'])
     original = copy.deepcopy(editor.composition)

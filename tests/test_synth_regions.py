@@ -5,17 +5,17 @@ import numpy as np
 import pytest
 from PIL import Image, ImageDraw
 
-from synth import MODULE_BY_ID, curated_presets, default_synth_preset, normalize_synth, render_synth_frame
-from synth_artwork import encode_artwork
-from synth_canvas import resize_canvas
-from synth_compat import starter_snapshot
-from synth_composition import compile_composition, load_composition, normalize_composition, save_composition
-from synth_profile import render_edge_phosphor, render_silhouette
-from synth_profile_v1 import render_edge_phosphor as legacy_phosphor
-from synth_regions import DirectionalRegion, LocalFrame
-from synth_sequence import _state_preset, normalize_sequence, render_sequence_frame
-from synth_source_adapters import phosphor_inputs, source_frame
-from synth_starters import starter_composition
+from nebula.render.synth import MODULE_BY_ID, curated_presets, default_synth_preset, normalize_synth, render_synth_frame
+from nebula.sources.synth_artwork import encode_artwork
+from nebula.core.synth_canvas import resize_canvas
+from nebula.documents.synth_compat import starter_snapshot
+from nebula.documents.synth_composition import compile_composition, load_composition, normalize_composition, save_composition
+from nebula.effects.synth_profile import render_edge_phosphor, render_silhouette
+from nebula.effects.synth_profile_v1 import render_edge_phosphor as legacy_phosphor
+from nebula.effects.synth_regions import DirectionalRegion, LocalFrame
+from nebula.documents.synth_sequence import _state_preset, normalize_sequence, render_sequence_frame
+from nebula.render.synth_source_adapters import phosphor_inputs, source_frame
+from nebula.documents.synth_starters import starter_composition
 
 
 def params(module, **changes):

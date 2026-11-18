@@ -5,13 +5,13 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from synth import MODULE_BY_ID, default_synth_preset
-from synth_blender import render_blender_scene, stepped_orbit, orbital_steps
-from synth_blender_parts import part_poses, parts_for
-from synth_blender_recipes import orbital_rings_composition, optical_relic_composition
-from synth_composition import compile_composition, save_composition, load_composition
-from synth_sequence import render_sequence_frame
-from synth_starters import starter_composition
+from nebula.render.synth import MODULE_BY_ID, default_synth_preset
+from nebula.sources.synth_blender import render_blender_scene, stepped_orbit, orbital_steps
+from nebula.sources.synth_blender_parts import part_poses, parts_for
+from nebula.documents.synth_blender_recipes import orbital_rings_composition, optical_relic_composition
+from nebula.documents.synth_composition import compile_composition, save_composition, load_composition
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.documents.synth_starters import starter_composition
 
 
 def defaults(name):return {p.key:p.default for p in MODULE_BY_ID[name].params}
@@ -31,7 +31,7 @@ def test_reference_timing_held_poses_and_repeat():
 
 
 def test_legacy_source_request_is_unchanged_and_new_parts_are_scoped(monkeypatch):
-    import synth_blender_bridge as bridge
+    import nebula.sources.synth_blender_bridge as bridge
     calls=[]
     def render(p,a,size,**kw):calls.append((p,a,size,kw));return Image.new('RGB',size)
     monkeypatch.setattr(bridge,'render_frame',render)
@@ -51,7 +51,7 @@ def test_legacy_source_request_is_unchanged_and_new_parts_are_scoped(monkeypatch
 
 
 def test_new_study_roundtrip_and_exposures_use_shared_renderer(monkeypatch,tmp_path):
-    import synth_blender_bridge as bridge
+    import nebula.sources.synth_blender_bridge as bridge
     calls=[]
     def render(p,a,size,**kw):
         calls.append((p,a,kw));return Image.new('RGB',size,(int(a*20)%255,130,70))
@@ -70,7 +70,7 @@ def test_new_study_roundtrip_and_exposures_use_shared_renderer(monkeypatch,tmp_p
 
 
 def test_film_gate_is_opt_in_and_resolution_independent():
-    from synth_broadcast_detail import glass_optics
+    from nebula.effects.synth_broadcast_detail import glass_optics
     p=dict(defaults('broadcast'),screen=1.,screen_wear=0.,screen_inset=.02,screen_radius=.06,halo=0.)
     def render(size,settings):
         w,h=size

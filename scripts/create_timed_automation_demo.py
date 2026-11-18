@@ -11,12 +11,12 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from synth import default_synth_preset
-from synth_composition import blank_composition, compile_composition, save_composition
-from synth_effects import effect_preset
-from synth_media import export_synth_video
-from synth_sequence import render_sequence_frame, save_sequence
-from synth_subject import select_subject
+from nebula.render.synth import default_synth_preset
+from nebula.documents.synth_composition import blank_composition, compile_composition, save_composition
+from nebula.effects.synth_effects import effect_preset
+from nebula.documents.synth_media import export_synth_video
+from nebula.documents.synth_sequence import render_sequence_frame, save_sequence
+from nebula.sources.synth_subject import select_subject
 
 
 def demo_composition():

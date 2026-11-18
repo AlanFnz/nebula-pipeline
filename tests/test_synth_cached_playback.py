@@ -5,15 +5,15 @@ from pathlib import Path
 import pytest
 from PySide6.QtCore import QSignalBlocker
 
-from synth_composition import load_composition
-from synth_effect_diagnostics import explain_effect
-from synth_sequence import resolve_sequence_frame
+from nebula.documents.synth_composition import load_composition
+from nebula.effects.synth_effect_diagnostics import explain_effect
+from nebula.documents.synth_sequence import resolve_sequence_frame
 from test_synth_composer_ui import window
 from test_synth_preview_scope import settle
 
 
 def test_cached_study_updates_inspector_without_renormalizing(window, monkeypatch):
-    import synth_sequence
+    import nebula.documents.synth_sequence as synth_sequence
     window.auto_prepare.setChecked(False)
     monkeypatch.setattr(window, 'prepare_visual_sound', lambda: None)
     window.set_composition(load_composition(Path(__file__).parents[1]/'presets/pleated-signal-acid-v4.json'))
@@ -38,7 +38,7 @@ def test_cached_study_updates_inspector_without_renormalizing(window, monkeypatc
 
 @pytest.mark.parametrize('elapsed', [.082, .0834, .1665, 1.002, 19.999, 20.001])
 def test_playback_timer_targets_next_frame_boundary(window, monkeypatch, elapsed):
-    import synth_studio
+    import nebula.ui.synth_studio as synth_studio
     monkeypatch.setattr(window, 'preview_fps', lambda: 12)
     with QSignalBlocker(window.play): window.play.setChecked(True)
     window.play_started = 100.

@@ -9,12 +9,12 @@ from PySide6.QtCore import QPoint, Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 
-from studio_theme import apply_theme
-from synth_composition import compile_composition, reference_composition
-from synth_effect_diagnostics import EffectExplanation
-from synth_effects import EFFECTS, effect_preset
-from synth_effects_ui import EffectsPanel
-from synth_inspector import control_group
+from nebula.ui.studio_theme import apply_theme
+from nebula.documents.synth_composition import compile_composition, reference_composition
+from nebula.effects.synth_effect_diagnostics import EffectExplanation
+from nebula.effects.synth_effects import EFFECTS, effect_preset
+from nebula.ui.synth_effects_ui import EffectsPanel
+from nebula.ui.synth_inspector import control_group
 
 
 @pytest.fixture

@@ -4,14 +4,14 @@ import copy
 import numpy as np
 import pytest
 
-from synth import _smear
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_creative import CREATIVE_CONTROLS
-from synth_effects import normalize_effects, state_values
-from synth_jitter import frame_pose
-from synth_sequence import load_sequence, render_sequence_frame, save_sequence
-from synth_starting_points import new_piece
-from synth_subject import select_subject
+from nebula.render.synth import _smear
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.documents.synth_creative import CREATIVE_CONTROLS
+from nebula.effects.synth_effects import normalize_effects, state_values
+from nebula.effects.synth_jitter import frame_pose
+from nebula.documents.synth_sequence import load_sequence, render_sequence_frame, save_sequence
+from nebula.documents.synth_starting_points import new_piece
+from nebula.sources.synth_subject import select_subject
 
 
 def adjustment(**values):
@@ -141,7 +141,7 @@ def test_particle_durations_and_disorder_do_not_change_cycle_or_model():
 def test_old_trail_math_is_unchanged_and_brightness_scales_all_copies():
     image = np.linspace(0, 1, 20 * 40 * 3, dtype=np.float32).reshape((20, 40, 3))
     p = dict(amount=.3, direction=1., ghosts=3)
-    from synth import _zero_roll
+    from nebula.render.synth import _zero_roll
     expected = image.copy()
     for i in range(1, 4): expected += _zero_roll(image, int(.3 * 40 * i / 3), 1) * (.22 / i)
     assert np.array_equal(_smear(image, p), expected)

@@ -9,12 +9,12 @@ from PySide6.QtCore import QPoint, QThreadPool, Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
 
-from studio_theme import apply_theme
-from synth_composition import load_composition
-from synth_effects import effect_preset
-from synth_sequence import reference_sequence
-from synth_starters import starter_composition
-from synth_studio import SynthStudio
+from nebula.ui.studio_theme import apply_theme
+from nebula.documents.synth_composition import load_composition
+from nebula.effects.synth_effects import effect_preset
+from nebula.documents.synth_sequence import reference_sequence
+from nebula.documents.synth_starters import starter_composition
+from nebula.ui.synth_studio import SynthStudio
 
 
 @pytest.fixture
@@ -97,8 +97,8 @@ def test_hidden_text_draft_marks_document_and_saves_original_scope(make_window, 
 
 
 def test_subtitle_visibility_keeps_recipe_and_wording_and_can_be_undone(make_window):
-    from synth_composition import compile_composition
-    from synth_sequence import render_sequence_frame
+    from nebula.documents.synth_composition import compile_composition
+    from nebula.documents.synth_sequence import render_sequence_frame
     window = make_window(composition=starter_composition('text-contact-film'))
     before = copy.deepcopy(window.composition)
     panel = window.composer.object_panel

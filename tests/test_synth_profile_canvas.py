@@ -4,11 +4,11 @@ import hashlib
 import numpy as np
 import pytest
 
-from synth import MODULE_BY_ID, default_synth_preset
-from synth_canvas import format_canvas, preview_size, resize_canvas
-from synth_composition import compile_composition, profile_echoes_composition, profile_signal_composition
-from synth_profile import render_edge_phosphor, render_scan_drag
-from synth_sequence import render_sequence_frame
+from nebula.render.synth import MODULE_BY_ID, default_synth_preset
+from nebula.core.synth_canvas import format_canvas, preview_size, resize_canvas
+from nebula.documents.synth_composition import compile_composition, profile_echoes_composition, profile_signal_composition
+from nebula.effects.synth_profile import render_edge_phosphor, render_scan_drag
+from nebula.documents.synth_sequence import render_sequence_frame
 
 
 def params(module, **changes):

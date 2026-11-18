@@ -5,16 +5,16 @@ import numpy as np
 import pytest
 from PIL import Image
 
-import synth
-from synth_composition import (compile_composition, composition_from_sequence,
+import nebula.render.synth as synth
+from nebula.documents.synth_composition import (compile_composition, composition_from_sequence,
                                load_composition, normalize_composition, save_composition)
-from synth_effect_order import normalize_order, order_for_states, resolved_order
-from synth_effects import effect_preset
-from synth_exploration import capture_snapshot, restore_snapshot
-from synth_intensity import PATHS, intensity_path
-from synth_sequence import (load_sequence, render_sequence_frame, resolve_sequence_frame,
+from nebula.effects.synth_effect_order import normalize_order, order_for_states, resolved_order
+from nebula.effects.synth_effects import effect_preset
+from nebula.documents.synth_exploration import capture_snapshot, restore_snapshot
+from nebula.effects.synth_intensity import PATHS, intensity_path
+from nebula.documents.synth_sequence import (load_sequence, render_sequence_frame, resolve_sequence_frame,
                             save_sequence)
-from synth_starters import STARTERS, starter_composition
+from nebula.documents.synth_starters import STARTERS, starter_composition
 
 
 def preset(*enabled, order=None):
@@ -124,7 +124,7 @@ def test_all_studies_can_opt_into_ordering_without_mutating_recipe(identifier, m
     if identifier == 'optical-relic':
         # Ordering tests do not require the optional external render engine.
         # Its actual cache/protocol and scene rendering are checked separately.
-        import synth_blender_bridge
+        import nebula.sources.synth_blender_bridge as synth_blender_bridge
         monkeypatch.setattr(synth_blender_bridge, 'render_frame',
                             lambda params, angle, size: Image.new('RGB', size, 'seagreen'))
     project = starter_composition(identifier)
@@ -149,7 +149,7 @@ def test_builtin_optical_order_precedes_finishing_by_default():
 
 @pytest.mark.parametrize('effect', [key for key in PATHS if key != 'subject_cutout'])
 def test_custom_order_zero_intensity_matches_removal(effect):
-    from synth_effect_order import movable
+    from nebula.effects.synth_effect_order import movable
     project = starter_composition('refined')
     project['effects'][effect] = effect_preset(effect)
     project['effect_order'] = [effect] if movable(effect) else ['bloom']

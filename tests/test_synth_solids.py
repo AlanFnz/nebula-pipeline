@@ -4,17 +4,17 @@ import hashlib
 import numpy as np
 import pytest
 
-from synth import MODULE_BY_ID, curated_presets, default_synth_preset, render_synth_frame
-from synth_canvas import resize_canvas
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_effects import describe_effects
-from synth_effect_catalog import effect_catalog
-from synth_sequence import render_sequence_frame, resolve_sequence_frame
-from synth_solid_recipes import rotating_die_composition
-from synth_solids import render_color_field, render_solid, _rounded_hits
-from synth_source_adapters import ANCHORS, source_frame
-from synth_starters import starter_composition
-from synth_subject import active_subjects, scope_states, select_subject
+from nebula.render.synth import MODULE_BY_ID, curated_presets, default_synth_preset, render_synth_frame
+from nebula.core.synth_canvas import resize_canvas
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.effects.synth_effects import describe_effects
+from nebula.effects.synth_effect_catalog import effect_catalog
+from nebula.documents.synth_sequence import render_sequence_frame, resolve_sequence_frame
+from nebula.documents.synth_solid_recipes import rotating_die_composition
+from nebula.sources.synth_solids import render_color_field, render_solid, _rounded_hits
+from nebula.render.synth_source_adapters import ANCHORS, source_frame
+from nebula.documents.synth_starters import starter_composition
+from nebula.sources.synth_subject import active_subjects, scope_states, select_subject
 
 
 def defaults(module):

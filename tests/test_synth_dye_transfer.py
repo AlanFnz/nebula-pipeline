@@ -5,17 +5,17 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from synth import MODULE_BY_ID, default_synth_preset, render_synth_frame
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_dye_transfer import render_dye_transfer
-from synth_dye_recipes import dye_transfer_composition
-from synth_effect_catalog import effect_catalog
-from synth_effect_order import movable, resolved_order
-from synth_effects import effect_preset
-from synth_sequence import render_sequence_frame, resolve_sequence_frame
-from synth_starters import starter_composition
-from synth_video import VIDEO_EFFECTS, VIDEO_MODULES
-from synth_automation import target_parameter
+from nebula.render.synth import MODULE_BY_ID, default_synth_preset, render_synth_frame
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.effects.synth_dye_transfer import render_dye_transfer
+from nebula.documents.synth_dye_recipes import dye_transfer_composition
+from nebula.effects.synth_effect_catalog import effect_catalog
+from nebula.effects.synth_effect_order import movable, resolved_order
+from nebula.effects.synth_effects import effect_preset
+from nebula.documents.synth_sequence import render_sequence_frame, resolve_sequence_frame
+from nebula.documents.synth_starters import starter_composition
+from nebula.sources.synth_video import VIDEO_EFFECTS, VIDEO_MODULES
+from nebula.documents.synth_automation import target_parameter
 
 
 def defaults():
@@ -175,7 +175,7 @@ def test_second_study_revision_keeps_its_saved_appearance():
 
 
 def test_study_keeps_complete_glyphs_before_and_after_optical_placement():
-    from synth_text import render_text
+    from nebula.sources.synth_text import render_text
     seq=compile_composition(starter_composition('text-dye-transfer'))
     w,h,pad=720,406,96
     for cue in seq['cues']:
@@ -203,7 +203,7 @@ def test_study_keeps_complete_glyphs_before_and_after_optical_placement():
 
 
 def test_pale_lettering_keeps_subtle_texture_instead_of_dark_pits():
-    from synth_text import render_text
+    from nebula.sources.synth_text import render_text
     from PIL import ImageFilter
     seq=compile_composition(starter_composition('text-dye-transfer'))
     t=next(c['time'] for c in seq['cues'] if c['state'].endswith(':impression-242'));base=resolve_sequence_frame(seq,t)[-1]

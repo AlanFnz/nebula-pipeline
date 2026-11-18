@@ -4,9 +4,9 @@ import copy
 import pytest
 from PySide6.QtWidgets import QApplication
 
-from synth_composition import compile_composition, load_composition, normalize_composition, save_composition, section_ranges
-from synth_effects import effect_preset
-from synth_video import video_composition
+from nebula.documents.synth_composition import compile_composition, load_composition, normalize_composition, save_composition, section_ranges
+from nebula.effects.synth_effects import effect_preset
+from nebula.sources.synth_video import video_composition
 from test_synth_timeline_loops import window
 from test_synth_video import clip
 

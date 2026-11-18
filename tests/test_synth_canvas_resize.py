@@ -3,10 +3,10 @@ import copy
 import numpy as np
 import pytest
 
-from synth import default_synth_preset, render_synth_frame
-from synth_canvas import normalize_canvas, resize_canvas
-from synth_composition import compile_composition, load_composition, mixed_media_composition, save_composition
-from synth_sequence import render_sequence_frame
+from nebula.render.synth import default_synth_preset, render_synth_frame
+from nebula.core.synth_canvas import normalize_canvas, resize_canvas
+from nebula.documents.synth_composition import compile_composition, load_composition, mixed_media_composition, save_composition
+from nebula.documents.synth_sequence import render_sequence_frame
 
 
 def source(kind):

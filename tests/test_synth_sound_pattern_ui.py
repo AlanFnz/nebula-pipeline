@@ -4,13 +4,13 @@ import pytest
 from PySide6.QtCore import Qt, QPoint, QEvent
 from PySide6.QtTest import QTest, QSignalSpy
 from PySide6.QtWidgets import QWidget
-from synth_sound_sequencer_ui import StepSequencer
-from synth_visual_sound_ui import VisualSoundDialog
-from synth_visual_sound import instrument_sound
+from nebula.ui.synth_sound_sequencer_ui import StepSequencer
+from nebula.ui.synth_visual_sound_ui import VisualSoundDialog
+from nebula.audio.synth_visual_sound import instrument_sound
 from test_synth_visual_sound_ui import app
 from test_synth_visual_sound_instrument import signals
 from test_synth_arpeggio import render
-from studio_theme import apply_theme
+from nebula.ui.studio_theme import apply_theme
 
 
 def config():

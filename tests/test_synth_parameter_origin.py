@@ -5,10 +5,10 @@ from pathlib import Path
 import pytest
 from PySide6.QtWidgets import QApplication
 
-from synth_composition import compile_composition, load_composition
-from synth_parameter_origin import FrameOrigins, performance_summary
-from synth_performance import defaults, source_time
-from synth_sequence import resolve_sequence_frame
+from nebula.documents.synth_composition import compile_composition, load_composition
+from nebula.ui.synth_parameter_origin import FrameOrigins, performance_summary
+from nebula.documents.synth_performance import defaults, source_time
+from nebula.documents.synth_sequence import resolve_sequence_frame
 from test_synth_automation import project
 from test_synth_effects_editor_integration import make_window
 

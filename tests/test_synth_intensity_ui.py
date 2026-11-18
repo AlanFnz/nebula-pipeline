@@ -4,8 +4,8 @@ os.environ.setdefault('QT_QPA_PLATFORM','offscreen')
 
 import pytest
 from PySide6.QtWidgets import QApplication
-from synth_composition import blank_composition
-from synth_effects import effect_preset
+from nebula.documents.synth_composition import blank_composition
+from nebula.effects.synth_effects import effect_preset
 from test_synth_effects_editor_integration import make_window
 
 

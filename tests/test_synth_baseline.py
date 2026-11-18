@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from scripts.capture_synth_baseline import cases
-from synth_starters import starter_composition
+from nebula.documents.synth_starters import starter_composition
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = json.loads((ROOT / 'tests/fixtures/synth-baseline-v1.json').read_text())
@@ -17,7 +17,7 @@ MANIFEST['assets'].update(PROFILES['assets'])
 
 @pytest.mark.parametrize('identifier', tuple(dict.fromkeys(c['starter'] for c in MANIFEST['cases'])))
 def test_starter_keeps_baseline_pixels(identifier):
-    from synth_sequence import render_sequence_frame
+    from nebula.documents.synth_sequence import render_sequence_frame
     expected = {c['case']: c for c in MANIFEST['cases'] if c['starter'] == identifier}
     for name, sequence, size, frames in cases(starter_composition(identifier)):
         contract = expected[name]

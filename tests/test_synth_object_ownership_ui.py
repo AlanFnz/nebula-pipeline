@@ -3,10 +3,10 @@ import copy
 from PySide6.QtCore import QPoint
 from PySide6.QtWidgets import QApplication
 from test_synth_effects_editor_integration import make_window
-from synth_starters import starter_composition
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_sequence import render_sequence_frame
-from synth_subject import SOURCE_EFFECTS
+from nebula.documents.synth_starters import starter_composition
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.sources.synth_subject import SOURCE_EFFECTS
 
 
 def test_text_and_subtitle_share_object_and_navigation_does_not_author_changes(make_window):
@@ -129,8 +129,8 @@ def test_layout_parameter_keeps_scroll_on_edit(make_window):
 
 
 def test_object_creative_variations_use_the_object_editor(make_window, monkeypatch):
-    from synth_exploration_ui import VaryEffectDialog
-    from synth_studio import SynthStudio
+    from nebula.ui.synth_exploration_ui import VaryEffectDialog
+    from nebula.ui.synth_studio import SynthStudio
     calls=[]
     monkeypatch.setattr(SynthStudio,'open_effect_variation',lambda self,key:calls.append(key))
     window=make_window(composition=starter_composition('particle-orbit'))

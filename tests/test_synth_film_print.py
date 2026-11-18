@@ -5,16 +5,16 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from synth import MODULE_BY_ID, curated_presets, default_synth_preset, render_synth_frame
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_effect_catalog import effect_catalog
-from synth_effects import effect_preset, describe_effects
-from synth_film_print import render_print_collage, render_film_burn
-from synth_film_recipes import film_print_composition
-from synth_sequence import render_sequence_frame
-from synth_starters import starter_composition
-from synth_studies import composition_category
-from synth_video import VIDEO_EFFECTS, VIDEO_MODULES
+from nebula.render.synth import MODULE_BY_ID, curated_presets, default_synth_preset, render_synth_frame
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.effects.synth_effect_catalog import effect_catalog
+from nebula.effects.synth_effects import effect_preset, describe_effects
+from nebula.effects.synth_film_print import render_print_collage, render_film_burn
+from nebula.documents.synth_film_recipes import film_print_composition
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.documents.synth_starters import starter_composition
+from nebula.documents.synth_studies import composition_category
+from nebula.sources.synth_video import VIDEO_EFFECTS, VIDEO_MODULES
 
 
 def defaults(module):

@@ -5,7 +5,7 @@ import pytest
 from PySide6.QtCore import QPoint, Qt
 from PySide6.QtTest import QTest, QSignalSpy
 from PySide6.QtWidgets import QApplication
-from synth_soundtrack_ui import SoundtrackDialog, SoundtrackLane
+from nebula.ui.synth_soundtrack_ui import SoundtrackDialog, SoundtrackLane
 
 
 @pytest.fixture(scope='module')

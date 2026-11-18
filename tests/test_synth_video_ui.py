@@ -7,9 +7,9 @@ os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 import pytest
 from PySide6.QtCore import QThreadPool
 from PySide6.QtWidgets import QApplication
-from synth_studio import SynthStudio
-from synth_composition import load_composition, save_composition
-from synth_video import VIDEO_EFFECTS, video_composition
+from nebula.ui.synth_studio import SynthStudio
+from nebula.documents.synth_composition import load_composition, save_composition
+from nebula.sources.synth_video import VIDEO_EFFECTS, video_composition
 from test_synth_video import clip
 
 
@@ -117,7 +117,7 @@ def test_cyan_treatment_effect_controls_edit_and_undo(window):
 
 def test_save_as_study_is_independent_and_loads_from_the_renamed_library(window, monkeypatch):
     from PySide6.QtWidgets import QInputDialog
-    from synth_studies import study_catalogue
+    from nebula.documents.synth_studies import study_catalogue
     before = copy.deepcopy(window.composition)
     assert window.starter_combo.accessibleName() == 'Studies'
     assert window.starter_combo.placeholderText() == 'Choose a study'
@@ -143,7 +143,7 @@ def test_save_as_study_is_independent_and_loads_from_the_renamed_library(window,
 
 def test_study_manager_updates_picker_without_changing_open_video(window):
     from PySide6.QtCore import QItemSelectionModel, Qt
-    from synth_studies import save_study, study_records
+    from nebula.documents.synth_studies import save_study, study_records
     key = save_study(window.composition, 'My open source')
     window.refresh_studies()
     window.load_starter_id(key)

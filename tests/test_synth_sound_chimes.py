@@ -3,12 +3,12 @@ import copy
 import numpy as np
 import pytest
 
-from synth_composition import load_composition,save_composition,compile_composition
-from synth_lattice_recipes import lattice_composition
-from synth_lattice_sound import ColorWaveVoice,color_notes,color_wave_sound
-from synth_sound_chimes import chime_note
-from synth_visual_sound import normalize_sound,visual_signals,RATE
-from synth_visual_sound_live import LiveInstrument
+from nebula.documents.synth_composition import load_composition,save_composition,compile_composition
+from nebula.documents.synth_lattice_recipes import lattice_composition
+from nebula.audio.synth_lattice_sound import ColorWaveVoice,color_notes,color_wave_sound
+from nebula.audio.synth_sound_chimes import chime_note
+from nebula.audio.synth_visual_sound import normalize_sound,visual_signals,RATE
+from nebula.audio.synth_visual_sound_live import LiveInstrument
 from test_synth_visual_sound_ui import app
 
 
@@ -83,7 +83,7 @@ def test_cascade_timing_live_audio_and_loop_are_consistent():
 
 
 def test_chimes_save_reopen_and_ui_history_preserve_other_voices(app,tmp_path):
-    from synth_visual_sound_ui import VisualSoundDialog
+    from nebula.ui.synth_visual_sound_ui import VisualSoundDialog
     doc=lattice_composition();doc['generated_sound']=patch()
     save_composition(tmp_path/'chimes.json',doc)
     saved=load_composition(tmp_path/'chimes.json')
@@ -123,7 +123,7 @@ def test_harmonic_resonances_keep_the_note_clear_and_legacy_metal_is_unchanged()
 
 
 def test_tuning_switch_changes_timbre_not_events_and_supports_live_playback(app,tmp_path):
-    from synth_visual_sound_ui import VisualSoundDialog
+    from nebula.ui.synth_visual_sound_ui import VisualSoundDialog
     seq=study();c=seq['generated_sound'];c['chime_layer']['enabled']=True
     d=VisualSoundDialog();d.set_config(c);before=d.read_config()
     d.chime_layer.tuning.setCurrentIndex(d.chime_layer.tuning.findData('harmonic'))

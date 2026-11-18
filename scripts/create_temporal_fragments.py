@@ -10,12 +10,12 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from synth import default_synth_preset
-from synth_composition import compile_composition, save_composition
-from synth_media import export_synth_video
-from synth_repetition_recipes import temporal_fragments_composition, living_fragments_composition
-from synth_studies import save_study, study_composition
-from synth_video import inspect_video, normalize_footage
+from nebula.render.synth import default_synth_preset
+from nebula.documents.synth_composition import compile_composition, save_composition
+from nebula.documents.synth_media import export_synth_video
+from nebula.documents.synth_repetition_recipes import temporal_fragments_composition, living_fragments_composition
+from nebula.documents.synth_studies import save_study, study_composition
+from nebula.sources.synth_video import inspect_video, normalize_footage
 
 
 def main():
