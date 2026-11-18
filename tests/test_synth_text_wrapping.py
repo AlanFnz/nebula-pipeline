@@ -6,12 +6,12 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from synth import MODULE_BY_ID, render_synth_frame
-from synth_canvas import resize_canvas
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_sequence import _state_preset, render_sequence_frame
-from synth_starters import starter_composition
-from synth_text import text_layout, wrapped_text
+from nebula.render.synth import MODULE_BY_ID, render_synth_frame
+from nebula.core.synth_canvas import resize_canvas
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.documents.synth_sequence import _state_preset, render_sequence_frame
+from nebula.documents.synth_starters import starter_composition
+from nebula.sources.synth_text import text_layout, wrapped_text
 from test_synth_text import extent
 
 

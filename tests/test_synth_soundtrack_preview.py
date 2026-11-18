@@ -9,7 +9,7 @@ import pytest
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import QApplication
 
-from synth_soundtrack_preview import AudioPreviewUnavailable, SoundtrackPreview, _QtAudioBackend
+from nebula.audio.synth_soundtrack_preview import AudioPreviewUnavailable, SoundtrackPreview, _QtAudioBackend
 
 
 class Clock:
@@ -412,7 +412,7 @@ def test_sync_does_no_media_file_io(monitor, monkeypatch):
     preview, _, backend, clock = loaded(monitor)
     def forbidden(*args, **kwargs):
         raise AssertionError('file identity checks must not run on timeline ticks')
-    monkeypatch.setattr('synth_soundtrack.check_soundtrack', forbidden)
+    monkeypatch.setattr('nebula.audio.synth_soundtrack.check_soundtrack', forbidden)
     preview.sync(1.0, True)
     clock.advance(.1)
     preview._tick()
@@ -603,7 +603,7 @@ def test_native_backend_muted_tone_load_pause_seek_and_loop(tmp_path):
 
 
 def test_negative_start_uses_real_source_clock_in_preview(monitor):
-    from synth_soundtrack import soundtrack_source_time
+    from nebula.audio.synth_soundtrack import soundtrack_source_time
     preview, track, backends, clock = monitor
     preview._source_time = soundtrack_source_time
     track['offset'] = -1.

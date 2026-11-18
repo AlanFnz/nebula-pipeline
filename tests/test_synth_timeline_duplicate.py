@@ -7,9 +7,9 @@ from PySide6.QtGui import QKeySequence
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 
-from synth_automation import duplicate_automation
-from synth_composition import MAX_SECTIONS, blank_composition, normalize_composition, compile_composition, save_composition, load_composition
-from synth_effects import effect_preset
+from nebula.documents.synth_automation import duplicate_automation
+from nebula.documents.synth_composition import MAX_SECTIONS, blank_composition, normalize_composition, compile_composition, save_composition, load_composition
+from nebula.effects.synth_effects import effect_preset
 from test_synth_effects_editor_integration import make_window
 
 

@@ -4,12 +4,12 @@ import subprocess
 
 import numpy as np
 
-from synth_composition import compile_composition, load_composition
-from synth_pleated_recipes import pleated_acid_composition, pleated_composition
-from synth_sequence import render_sequence_frame, resolve_sequence_frame
-from synth_starters import starter_composition
-from synth_preview import _visual_document
-from synth_visual_sound import pcm_blocks, visual_signals, RATE
+from nebula.documents.synth_composition import compile_composition, load_composition
+from nebula.documents.synth_pleated_recipes import pleated_acid_composition, pleated_composition
+from nebula.documents.synth_sequence import render_sequence_frame, resolve_sequence_frame
+from nebula.documents.synth_starters import starter_composition
+from nebula.render.synth_preview import _visual_document
+from nebula.audio.synth_visual_sound import pcm_blocks, visual_signals, RATE
 
 
 def test_latest_starter_retains_earlier_studies_and_unedited_frames():
@@ -49,7 +49,7 @@ def test_contraction_stays_visible_and_audible_in_pcm_and_export(tmp_path):
         chunk = audio[round(start * RATE):round((start + .1) * RATE)]
         assert 20 * np.log10(np.sqrt(np.mean(chunk ** 2))) > -38
     assert np.isfinite(audio).all()
-    from synth_media import export_synth_video
+    from nebula.documents.synth_media import export_synth_video
     output = tmp_path / 'contraction.mp4'
     export_synth_video(resolve_sequence_frame(seq, 0)[-1], output,
                        start=108, count=12, size=(96, 72), sequence=seq)

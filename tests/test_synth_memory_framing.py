@@ -3,11 +3,11 @@ import copy
 import numpy as np
 import pytest
 
-from synth_composition import compile_composition, load_composition, save_composition, stretch_section
-from synth_memory import memory_frame
-from synth_memory_framing import AMPLITUDES, center_path, edit_amplitude, motion_bounds
-from synth_sequence import resolve_sequence_frame
-from synth_starters import starter_composition
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition, stretch_section
+from nebula.sources.synth_memory import memory_frame
+from nebula.sources.synth_memory_framing import AMPLITUDES, center_path, edit_amplitude, motion_bounds
+from nebula.documents.synth_sequence import resolve_sequence_frame
+from nebula.documents.synth_starters import starter_composition
 
 
 def project(**params):

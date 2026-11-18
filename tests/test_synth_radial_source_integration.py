@@ -6,14 +6,14 @@ import numpy as np
 import pytest
 from PySide6.QtWidgets import QApplication
 
-from synth import MODULE_BY_ID, default_synth_preset
-from synth_composition import compile_composition
-from synth_effects import effect_preset
-from synth_effects_ui import EffectsPanel
-from synth_inspector import control_group
-from synth_radial_recipes import radial_composition
-from synth_regions import LocalFrame
-from synth_source_adapters import ANCHORS, phosphor_inputs, source_frame
+from nebula.render.synth import MODULE_BY_ID, default_synth_preset
+from nebula.documents.synth_composition import compile_composition
+from nebula.effects.synth_effects import effect_preset
+from nebula.ui.synth_effects_ui import EffectsPanel
+from nebula.ui.synth_inspector import control_group
+from nebula.documents.synth_radial_recipes import radial_composition
+from nebula.effects.synth_regions import LocalFrame
+from nebula.render.synth_source_adapters import ANCHORS, phosphor_inputs, source_frame
 
 
 def radial_preset():

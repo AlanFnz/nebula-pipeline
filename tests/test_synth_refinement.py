@@ -5,9 +5,9 @@ import hashlib
 import numpy as np
 import pytest
 
-from synth import render_synth_frame
-from synth_composition import compile_composition, reference_composition, save_composition, load_composition
-from synth_sequence import _state_preset, reference_sequence, render_sequence_frame
+from nebula.render.synth import render_synth_frame
+from nebula.documents.synth_composition import compile_composition, reference_composition, save_composition, load_composition
+from nebula.documents.synth_sequence import _state_preset, reference_sequence, render_sequence_frame
 
 
 @pytest.mark.parametrize("refined,expected", [

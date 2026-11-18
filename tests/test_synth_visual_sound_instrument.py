@@ -1,9 +1,9 @@
 import copy
 import numpy as np
 import pytest
-from media import Cancellation
-from synth_visual_sound import RATE,instrument_sound,normalize_sound,pcm_blocks
-from synth_visual_sound_instrument import note_envelope,oscillator_bank,instrument_blocks,instrument_controls
+from nebula.core.media import Cancellation
+from nebula.audio.synth_visual_sound import RATE,instrument_sound,normalize_sound,pcm_blocks
+from nebula.audio.synth_visual_sound_instrument import note_envelope,oscillator_bank,instrument_blocks,instrument_controls
 
 
 def signals(duration=2.):
@@ -27,7 +27,7 @@ def test_note_edges_and_filter_accents_are_soft():
 
 @pytest.mark.parametrize('continuity', [0., 1.])
 def test_pcm_has_no_block_seams_even_when_a_note_crosses_a_boundary(monkeypatch, continuity):
-    import synth_visual_sound_instrument as instrument
+    import nebula.audio.synth_visual_sound_instrument as instrument
     monkeypatch.setattr(instrument,'gesture_notes',lambda *_:[dict(time=.97,semitones=19,duration=.32,velocity=.8,pan=.2)])
     c=instrument_sound();c['continuity']=continuity;s=signals();s['presence']=np.linspace(.02, 1., len(s['time']));seq=dict(duration=2.,seed=56)
     regular=np.concatenate(list(instrument_blocks(seq,c,s,Cancellation())))

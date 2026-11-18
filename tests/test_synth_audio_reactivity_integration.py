@@ -6,11 +6,11 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from synth_audio_reactivity_studio import AudioReactivityJob
-from synth_composition import compile_composition, normalize_composition
-from synth_preview import RenderValidity, retained_frame_predicate, preview_context
-from synth_studio import RenderJob, PreparePreviewJob
-from synth_starting_points import new_piece
+from nebula.ui.synth_audio_reactivity_studio import AudioReactivityJob
+from nebula.documents.synth_composition import compile_composition, normalize_composition
+from nebula.render.synth_preview import RenderValidity, retained_frame_predicate, preview_context
+from nebula.ui.synth_studio import RenderJob, PreparePreviewJob
+from nebula.documents.synth_starting_points import new_piece
 from test_synth_soundtrack_integration import studio, soundtrack
 
 
@@ -112,7 +112,7 @@ def test_worker_cancellation_reaches_decoder_and_suppresses_done(soundtrack, mon
         seen.append(cancel)
         cancel.cancel()
         return object()
-    monkeypatch.setattr('synth_audio_reactivity_studio.prepare_reactivity', prepare)
+    monkeypatch.setattr('nebula.ui.synth_audio_reactivity_studio.prepare_reactivity', prepare)
     done, errors = [], []
     job.signals.done.connect(done.append)
     job.signals.failed.connect(errors.append)
@@ -126,9 +126,9 @@ def test_meters_only_read_cached_responses(editor, monkeypatch):
     editor.open_audio_reactivity()
     def forbidden(*args, **kwargs):
         raise AssertionError('UI meter must not start analysis or read media identity')
-    monkeypatch.setattr('synth_audio_reactivity_studio.prepare_reactivity', forbidden)
-    monkeypatch.setattr('synth_audio_reactivity_studio._file_fingerprint', forbidden)
-    monkeypatch.setattr('synth_audio_reactivity_studio.cached_responses', lambda sequence, seconds: {'response-one': .625})
+    monkeypatch.setattr('nebula.ui.synth_audio_reactivity_studio.prepare_reactivity', forbidden)
+    monkeypatch.setattr('nebula.ui.synth_audio_reactivity_studio._file_fingerprint', forbidden)
+    monkeypatch.setattr('nebula.ui.synth_audio_reactivity_studio.cached_responses', lambda sequence, seconds: {'response-one': .625})
     editor.audio_reactivity_available = True
     editor.sync_audio_reactivity(1.3)
     assert editor.audio_reactivity_dialog.response_meter.value() == 625
@@ -142,7 +142,7 @@ def test_failed_analysis_never_shows_stale_cached_meter(editor, monkeypatch):
     editor.open_audio_reactivity()
     job = editor.audio_reactivity_job
     editor.audio_reactivity_prepared(job, error='Media identity changed')
-    monkeypatch.setattr('synth_audio_reactivity_studio.cached_responses', lambda *args: {'response-one': 1.})
+    monkeypatch.setattr('nebula.ui.synth_audio_reactivity_studio.cached_responses', lambda *args: {'response-one': 1.})
     editor.sync_audio_reactivity(.8)
     assert editor.audio_reactivity_dialog.response_meter.value() == 0
     assert 'Media identity changed' in editor.audio_reactivity_dialog.status_label.text()
@@ -153,8 +153,8 @@ def test_hidden_dialog_does_not_resolve_or_sample_responses(editor, monkeypatch)
     editor.audio_reactivity_dialog.close()
     def forbidden(*args, **kwargs):
         raise AssertionError('Closed response editor must not perform meter work')
-    monkeypatch.setattr('synth_audio_reactivity_studio.cached_responses', forbidden)
-    monkeypatch.setattr('synth_sequence.resolve_sequence_frame', forbidden)
+    monkeypatch.setattr('nebula.ui.synth_audio_reactivity_studio.cached_responses', forbidden)
+    monkeypatch.setattr('nebula.documents.synth_sequence.resolve_sequence_frame', forbidden)
     editor.sync_audio_reactivity(.8)
 
 
@@ -163,7 +163,7 @@ def test_open_editor_checks_changed_audio_before_accepting_cached_meter(editor, 
     old = editor.audio_reactivity_job
     editor.audio_reactivity_prepared(old, result=object())
     assert editor.audio_reactivity_available
-    monkeypatch.setattr('synth_audio_reactivity_studio.cached_responses', lambda *args: {'response-one': 1.})
+    monkeypatch.setattr('nebula.ui.synth_audio_reactivity_studio.cached_responses', lambda *args: {'response-one': 1.})
     path = Path(editor.authored_soundtrack()['path'])
     path.write_bytes(b'different media')
     editor.open_audio_reactivity()
@@ -242,7 +242,7 @@ def test_render_worker_threads_cancellation_through_audio(job_type, soundtrack, 
         seen.append(cancel)
         cancel.cancel()
         return Image.new('RGB', size)
-    monkeypatch.setattr('synth_studio.render_sequence_frame', render)
+    monkeypatch.setattr('nebula.ui.synth_studio.render_sequence_frame', render)
     if job_type == 'foreground':
         job = RenderJob({}, 0., (2, 2), 1, 1, sequence=sequence)
     else:

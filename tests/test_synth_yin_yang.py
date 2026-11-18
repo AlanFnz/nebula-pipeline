@@ -5,18 +5,18 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from synth import MODULE_BY_ID, default_synth_preset
-from synth_blender import ORBITAL_VARIANT_KEYS, render_blender_scene
-from synth_blender_recipes import (yin_yang_composition, yin_yang_flowing_composition,
+from nebula.render.synth import MODULE_BY_ID, default_synth_preset
+from nebula.sources.synth_blender import ORBITAL_VARIANT_KEYS, render_blender_scene
+from nebula.documents.synth_blender_recipes import (yin_yang_composition, yin_yang_flowing_composition,
     yin_yang_drifting_composition, yin_yang_continuous_composition, orbital_clean_painted_composition,
     orbital_smooth_painted_composition, optical_relic_composition)
-from synth_composition import compile_composition, save_composition, load_composition
-from synth_sequence import render_sequence_frame
-from synth_starters import starter_composition
+from nebula.documents.synth_composition import compile_composition, save_composition, load_composition
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.documents.synth_starters import starter_composition
 
 
 def test_yin_yang_roundtrip_retains_only_two_moving_pieces(monkeypatch,tmp_path):
-    import synth_blender_bridge as bridge
+    import nebula.sources.synth_blender_bridge as bridge
     calls=[]
     def render(params,angle,size,**kwargs):
         calls.append((params,angle,kwargs));return Image.new('RGB',size,'seagreen')
@@ -48,7 +48,7 @@ def test_yin_yang_roundtrip_retains_only_two_moving_pieces(monkeypatch,tmp_path)
 
 
 def test_neutral_variants_preserve_original_requests_and_frozen_recipes(monkeypatch):
-    import synth_blender_bridge as bridge
+    import nebula.sources.synth_blender_bridge as bridge
     requests=[]
     monkeypatch.setattr(bridge,'render_frame',lambda p,a,size,**kw:requests.append(p) or Image.new('RGB',size))
     p={p.key:p.default for p in MODULE_BY_ID['blender_scene'].params}

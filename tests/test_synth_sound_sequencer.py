@@ -5,11 +5,11 @@ import pytest
 from PySide6.QtCore import Qt, QPoint
 from PySide6.QtGui import QKeySequence
 from PySide6.QtTest import QTest, QSignalSpy
-from synth_visual_sound import instrument_sound, normalize_sound
-from synth_visual_sound_acid import gesture_notes
-from synth_visual_sound_live import LiveInstrument
-from synth_sound_sequence import sequence_defaults, note_frequency, frequency_note, step_seconds
-from synth_visual_sound_ui import VisualSoundDialog
+from nebula.audio.synth_visual_sound import instrument_sound, normalize_sound
+from nebula.audio.synth_visual_sound_acid import gesture_notes
+from nebula.audio.synth_visual_sound_live import LiveInstrument
+from nebula.audio.synth_sound_sequence import sequence_defaults, note_frequency, frequency_note, step_seconds
+from nebula.ui.synth_visual_sound_ui import VisualSoundDialog
 from test_synth_visual_sound_instrument import signals
 from test_synth_visual_sound_ui import app, studio
 from test_synth_arpeggio import render
@@ -160,7 +160,7 @@ def test_one_drag_one_undo_and_cmd_z_with_numeric_focus(app):
 
 
 def test_note_mode_keyboard_and_save_round_trip(app,studio,tmp_path):
-    from synth_composition import save_composition,load_composition
+    from nebula.documents.synth_composition import save_composition,load_composition
     d=VisualSoundDialog();d.set_config(instrument_sound());d.pitch.mode.setCurrentIndex(1)
     before=frequency_note(d.pitch.value());QTest.keyClick(d.pitch.dial,Qt.Key.Key_Right)
     assert frequency_note(d.pitch.value())==before+1

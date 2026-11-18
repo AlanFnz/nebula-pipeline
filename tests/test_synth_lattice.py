@@ -3,18 +3,18 @@ import copy
 import numpy as np
 import pytest
 
-from synth import MODULE_BY_ID, curated_presets, default_synth_preset, render_synth_frame
-from synth_canvas import resize_canvas
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_effect_catalog import effect_catalog
-from synth_effects import describe_effects
-from synth_lattice import render_chromatic_lattice, pulse_size
-from synth_lattice_recipes import lattice_composition
-from synth_sequence import render_sequence_frame, resolve_sequence_frame
-from synth_source_adapters import source_frame
-from synth_starters import starter_composition
-from synth_studies import composition_category
-from synth_subject import active_subjects, scope_states, select_subject
+from nebula.render.synth import MODULE_BY_ID, curated_presets, default_synth_preset, render_synth_frame
+from nebula.core.synth_canvas import resize_canvas
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.effects.synth_effect_catalog import effect_catalog
+from nebula.effects.synth_effects import describe_effects
+from nebula.sources.synth_lattice import render_chromatic_lattice, pulse_size
+from nebula.documents.synth_lattice_recipes import lattice_composition
+from nebula.documents.synth_sequence import render_sequence_frame, resolve_sequence_frame
+from nebula.render.synth_source_adapters import source_frame
+from nebula.documents.synth_starters import starter_composition
+from nebula.documents.synth_studies import composition_category
+from nebula.sources.synth_subject import active_subjects, scope_states, select_subject
 
 
 def defaults():
@@ -102,7 +102,7 @@ def test_new_source_is_disabled_in_all_existing_curated_presets():
 
 @pytest.mark.parametrize('wave',[0,1,2])
 def test_musical_color_and_size_phrase_close_together(wave):
-    from synth_lattice import phrase_period
+    from nebula.sources.synth_lattice import phrase_period
     arr=np.zeros((128,72,3),np.float32)
     preset=dict(default_synth_preset(),width=72,height=128,speed=1.)
     p=dict(defaults(),color_rhythm=1,bpm=96.,phrase_bars=2,wave_shape=wave,grain=0)

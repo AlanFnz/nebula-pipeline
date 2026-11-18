@@ -1,5 +1,5 @@
 from integrations.ableton.Nebula_Visuals.watch import InstrumentWatcher, REFRESH_PREFIX, channel_for
-from synth_live_midi import REFRESH_PREFIX as ENGINE_PREFIX
+from nebula.audio.synth_live_midi import REFRESH_PREFIX as ENGINE_PREFIX
 
 
 class Device:

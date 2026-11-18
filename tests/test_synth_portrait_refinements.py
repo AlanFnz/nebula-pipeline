@@ -1,10 +1,10 @@
 """The refined portrait is an independent, editable video recipe."""
 import copy
 
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_portrait_recipes import exposure_composition, portrait_composition
-from synth_sequence import render_sequence_frame
-from synth_video import apply_treatment, video_composition
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.documents.synth_portrait_recipes import exposure_composition, portrait_composition
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.sources.synth_video import apply_treatment, video_composition
 from test_synth_video import clip
 from test_synth_video_ui import window
 

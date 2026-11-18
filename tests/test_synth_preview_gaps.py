@@ -5,7 +5,7 @@ from PySide6.QtCore import QPoint, Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 
-from synth_preview import PreviewScope, cached_gap
+from nebula.render.synth_preview import PreviewScope, cached_gap
 from test_synth_composer_ui import window
 from test_synth_preview_range import setup
 from test_synth_preview_scope import prepared, settle
@@ -77,7 +77,7 @@ def test_playing_loop_grows_through_gap_and_joins_without_audio_seek(window, mon
     window.prepared_range_mode = 'joined'  # Keep the existing four-frame loop.
     window.loop_preview_range.setChecked(True)
     clock = [100.]
-    monkeypatch.setattr('synth_studio.time.monotonic', lambda: clock[0])
+    monkeypatch.setattr('nebula.ui.synth_studio.time.monotonic', lambda: clock[0])
     audio = []
     monkeypatch.setattr(window, 'sync_soundtrack', lambda **kw: audio.append(kw))
     window.play.setChecked(True)
@@ -122,7 +122,7 @@ def test_old_request_cannot_limit_loop_enabled_mid_job_and_single_frame_hole_joi
     assert window.prepare_job is job and not job.cancel.event.is_set()
     assert window.active_preview_scope().intervals == ((0, 10),)
     clock = [100.]
-    monkeypatch.setattr('synth_studio.time.monotonic', lambda: clock[0])
+    monkeypatch.setattr('nebula.ui.synth_studio.time.monotonic', lambda: clock[0])
     audio = []
     monkeypatch.setattr(window, 'sync_soundtrack', lambda **kw: audio.append(kw))
     window.play.setChecked(True)
@@ -149,7 +149,7 @@ def test_longer_ready_island_takes_over_and_updates_audio_time(window, monkeypat
     packet = seed(window, ((0, 4), (8, 11)))
     window.loop_preview_range.setChecked(True)
     clock = [100.]
-    monkeypatch.setattr('synth_studio.time.monotonic', lambda: clock[0])
+    monkeypatch.setattr('nebula.ui.synth_studio.time.monotonic', lambda: clock[0])
     audio = []
     monkeypatch.setattr(window, 'sync_soundtrack', lambda **kw: audio.append(kw))
     window.play.setChecked(True)
@@ -170,7 +170,7 @@ def test_left_growth_preserves_playhead_and_fractional_audio_position(window, mo
     packet = seed(window, ((8, 14),))
     window.loop_preview_range.setChecked(True)
     clock = [100.]
-    monkeypatch.setattr('synth_studio.time.monotonic', lambda: clock[0])
+    monkeypatch.setattr('nebula.ui.synth_studio.time.monotonic', lambda: clock[0])
     audio = []
     monkeypatch.setattr(window, 'sync_soundtrack', lambda **kw: audio.append(kw))
     window.play.setChecked(True)
@@ -251,7 +251,7 @@ def test_gap_prioritizes_missing_span_over_full_preparation_and_rejects_old_job(
 
 def test_gap_uses_output_coverage_and_deduplicated_perform_source_frames(window, monkeypatch):
     setup(window, monkeypatch)
-    from synth_performance import defaults
+    from nebula.documents.synth_performance import defaults
     project = copy.deepcopy(window.composition)
     project['visual_performance'] = defaults()
     project['visual_performance']['values']['pace'] = 50

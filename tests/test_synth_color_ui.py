@@ -6,9 +6,9 @@ os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 import pytest
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QApplication, QDialog
-from synth_color_ui import COLORS, ColorPicker, display_color
-from synth_composition import composition_from_sequence, normalize_composition, compile_composition
-from synth_sequence import normalize_sequence, resolve_sequence_frame
+from nebula.ui.synth_color_ui import COLORS, ColorPicker, display_color
+from nebula.documents.synth_composition import composition_from_sequence, normalize_composition, compile_composition
+from nebula.documents.synth_sequence import normalize_sequence, resolve_sequence_frame
 from test_synth_effects_editor_integration import make_window
 
 

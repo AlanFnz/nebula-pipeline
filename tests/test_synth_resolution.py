@@ -5,12 +5,12 @@ import subprocess
 import pytest
 from PIL import Image
 
-from synth import default_synth_preset, render_synth_frame
-from synth_canvas import format_canvas, preview_size
-from synth_composition import compile_composition, mixed_media_composition
-from synth_effects import effect_preset
-from synth_media import export_synth_video
-from synth_sequence import render_sequence_frame
+from nebula.render.synth import default_synth_preset, render_synth_frame
+from nebula.core.synth_canvas import format_canvas, preview_size
+from nebula.documents.synth_composition import compile_composition, mixed_media_composition
+from nebula.effects.synth_effects import effect_preset
+from nebula.documents.synth_media import export_synth_video
+from nebula.documents.synth_sequence import render_sequence_frame
 
 
 def test_standalone_matches_the_actual_preview_raster_and_bypasses_exactly():

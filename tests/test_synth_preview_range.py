@@ -2,10 +2,10 @@ import copy
 import pytest
 
 from PySide6.QtCore import Qt
-from synth_preview import PreviewScope, preview_window, longest_cached_scope
-from synth_preview_range import frames_in
-from synth_sequence import render_sequence_frame
-from synth_visual_sound import instrument_sound
+from nebula.render.synth_preview import PreviewScope, preview_window, longest_cached_scope
+from nebula.ui.synth_preview_range import frames_in
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.audio.synth_visual_sound import instrument_sound
 from test_synth_composer_ui import window, wait_until
 from test_synth_preview_scope import short_document, settle, prepared
 
@@ -84,7 +84,7 @@ def test_auto_prepare_remembers_current_request_after_scrubbing(window, monkeypa
 
 def test_preview_events_capture_loop_and_preparation_decisions(window, monkeypatch, tmp_path):
     import json
-    from studio_diagnostics import configure, close
+    from nebula.core.studio_diagnostics import configure, close
     setup(window, monkeypatch)
     path = configure(tmp_path)
     try:
@@ -109,7 +109,7 @@ def test_chosen_range_survives_eviction_and_loops_audio_at_absolute_time(window,
         assert cache.get(frame) == ((64,48), render_sequence_frame(window.sequence, frame/25, (64,48)).tobytes())
     assert cache.bytes <= cache.budget
     clock = [100.]
-    monkeypatch.setattr('synth_studio.time.monotonic', lambda: clock[0])
+    monkeypatch.setattr('nebula.ui.synth_studio.time.monotonic', lambda: clock[0])
     audio = []
     monkeypatch.setattr(window, 'sync_soundtrack', lambda **kw: audio.append(kw))
     window.loop_preview_range.setChecked(True)
@@ -200,7 +200,7 @@ def test_full_preparation_then_enable_loop_uses_every_frame_even_after_cancel(wi
     assert window.active_preview_scope().intervals == ((0, total),)
     assert window.preview_range_summary.text().startswith('Entire timeline:')
     clock = [100.]
-    monkeypatch.setattr('synth_studio.time.monotonic', lambda: clock[0])
+    monkeypatch.setattr('nebula.ui.synth_studio.time.monotonic', lambda: clock[0])
     window.play.setChecked(True)
     for i in range(1, total * 2 + 1):
         clock[0] = 100 + i/25
@@ -271,7 +271,7 @@ def test_range_count_and_duration_edits_keep_loop_and_new_document_resets_it(win
 
 def test_count_is_a_workspace_preference_and_loop_is_never_saved(window, monkeypatch, tmp_path):
     from PySide6.QtCore import QSettings
-    from synth_studio import SynthStudio
+    from nebula.ui.synth_studio import SynthStudio
     before = setup(window, monkeypatch)
     settings = QSettings(str(tmp_path / 'workspace.ini'), QSettings.Format.IniFormat)
     window.workspace_settings = settings
@@ -300,7 +300,7 @@ def test_armed_loop_waits_then_grows_without_cancelling_worker_or_seeking_audio(
     window.prepare_playback()
     job = started[-1]
     clock = [100.]
-    monkeypatch.setattr('synth_studio.time.monotonic', lambda: clock[0])
+    monkeypatch.setattr('nebula.ui.synth_studio.time.monotonic', lambda: clock[0])
     audio = []
     monkeypatch.setattr(window.soundtrack_playback, 'sync', lambda seconds, playing, **kw: audio.append((seconds, playing, kw)))
     monkeypatch.setattr(window, 'sync_visual_sound', lambda *args: None)
@@ -360,7 +360,7 @@ def test_playback_does_not_interrupt_real_preparation_and_cancel_keeps_loop(wind
 
 def test_partial_loop_uses_longest_continuous_output_span_with_perform_mapping(window, monkeypatch):
     setup(window, monkeypatch)
-    from synth_performance import defaults
+    from nebula.documents.synth_performance import defaults
     project = copy.deepcopy(window.composition)
     project['visual_performance'] = defaults()
     project['visual_performance']['values']['pace'] = 50
@@ -374,7 +374,7 @@ def test_partial_loop_uses_longest_continuous_output_span_with_perform_mapping(w
     assert list(frames_in(window.active_preview_scope())) == [8, 9, 10, 11]
     assert '4/4 frames' in window.cache_status.text()
     clock = [100.]
-    monkeypatch.setattr('synth_studio.time.monotonic', lambda: clock[0])
+    monkeypatch.setattr('nebula.ui.synth_studio.time.monotonic', lambda: clock[0])
     audio = []
     monkeypatch.setattr(window, 'sync_soundtrack', lambda **kw: audio.append(kw))
     window.play.setChecked(True)

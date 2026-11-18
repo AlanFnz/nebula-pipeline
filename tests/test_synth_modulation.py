@@ -5,12 +5,12 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from synth import MODULES, MODULE_BY_ID, curated_presets, default_synth_preset, normalize_synth, render_synth_frame
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_modulation import _row_sample, render_crt_capture, render_scan_modulation, signal_region
-from synth_modulation_recipes import MODULATED_CRT_EFFECTS, modulated_crt_composition
-from synth_sequence import render_sequence_frame
-from synth_video import TREATMENTS, apply_treatment, video_composition
+from nebula.render.synth import MODULES, MODULE_BY_ID, curated_presets, default_synth_preset, normalize_synth, render_synth_frame
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.core.synth_modulation import _row_sample, render_crt_capture, render_scan_modulation, signal_region
+from nebula.documents.synth_modulation_recipes import MODULATED_CRT_EFFECTS, modulated_crt_composition
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.sources.synth_video import TREATMENTS, apply_treatment, video_composition
 from test_synth_video import clip
 from test_synth_video_ui import window
 
@@ -202,7 +202,7 @@ def test_video_recipe_roundtrip_and_treatment_preserve_media_clock(clip,tmp_path
 
 
 def test_native_effect_controls_edit_and_undo(window):
-    from synth_effects import effect_preset
+    from nebula.effects.synth_effects import effect_preset
     project = copy.deepcopy(window.composition)
     for module in NEW_MODULES:
         project['effects'][module] = effect_preset(module)

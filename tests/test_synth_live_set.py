@@ -4,11 +4,11 @@ import json
 
 import pytest
 
-from synth_composition import blank_composition, compile_composition, load_composition, normalize_composition, save_composition
-from synth_live_set import LIVE_SET
-from synth_montage import new_montage, add_asset, insert_clip, load_montage, protect_destination, save_montage
-from synth_preview import _visual_document
-from synth_studies import save_study, study_composition
+from nebula.documents.synth_composition import blank_composition, compile_composition, load_composition, normalize_composition, save_composition
+from nebula.documents.synth_live_set import LIVE_SET
+from nebula.documents.synth_montage import new_montage, add_asset, insert_clip, load_montage, protect_destination, save_montage
+from nebula.render.synth_preview import _visual_document
+from nebula.documents.synth_studies import save_study, study_composition
 
 
 def test_link_survives_save_study_and_independent_variants_without_copying_set(tmp_path):
@@ -55,7 +55,7 @@ def test_old_documents_keep_no_link():
 
 
 def test_snapshot_links_resolve_without_changing_the_working_link(tmp_path):
-    from synth_exploration import capture_snapshot, restore_snapshot
+    from nebula.documents.synth_exploration import capture_snapshot, restore_snapshot
     project = blank_composition();project[LIVE_SET] = 'First.als'
     project, snapshot = capture_snapshot(project, 'First version')
     project[LIVE_SET] = 'Second.als'

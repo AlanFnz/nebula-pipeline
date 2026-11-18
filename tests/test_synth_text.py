@@ -7,16 +7,16 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from synth import MODULE_BY_ID, default_synth_preset, normalize_synth, render_synth_frame
-from synth_broadcast import render_broadcast
-from synth_canvas import resize_canvas
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_effects import normalize_effects
-from synth_sequence import render_sequence_frame
-from synth_source_adapters import source_frame
-from synth_starters import starter_composition
-from synth_subject import select_subject, restore_subject
-from synth_text import FONTS, glyph_mask, validate_text, text_pose
+from nebula.render.synth import MODULE_BY_ID, default_synth_preset, normalize_synth, render_synth_frame
+from nebula.effects.synth_broadcast import render_broadcast
+from nebula.core.synth_canvas import resize_canvas
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.effects.synth_effects import normalize_effects
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.render.synth_source_adapters import source_frame
+from nebula.documents.synth_starters import starter_composition
+from nebula.sources.synth_subject import select_subject, restore_subject
+from nebula.sources.synth_text import FONTS, glyph_mask, validate_text, text_pose
 
 
 def source(**changes):

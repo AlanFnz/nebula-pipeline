@@ -2,10 +2,10 @@ import copy
 import numpy as np
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
-from synth_performance import defaults, values_at, source_time
-from synth_sequence import render_sequence_frame
-from synth_visual_sound import instrument_sound, RATE
-from synth_visual_sound_live import LiveInstrument, BLOCK
+from nebula.documents.synth_performance import defaults, values_at, source_time
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.audio.synth_visual_sound import instrument_sound, RATE
+from nebula.audio.synth_visual_sound_live import LiveInstrument, BLOCK
 from test_synth_full_preview import window, setup_full, settle, prepared
 from test_synth_visual_sound_ui import app, studio
 from test_synth_visual_sound_instrument import signals
@@ -117,9 +117,9 @@ def test_surface_changes_invalidate_pixels_but_preserve_playback_clock(studio):
 
 
 def test_fast_edits_keep_the_analyzed_source(studio,monkeypatch):
-    import synth_visual_sound_live
-    import synth_preview
-    from synth_visual_sound_live import LiveSoundMonitor
+    import nebula.audio.synth_visual_sound_live as synth_visual_sound_live
+    import nebula.render.synth_preview as synth_preview
+    from nebula.audio.synth_visual_sound_live import LiveSoundMonitor
     from test_synth_visual_sound_live import Output
     from test_synth_composer_ui import wait_until
     class Monitor(LiveSoundMonitor):

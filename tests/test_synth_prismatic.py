@@ -5,17 +5,17 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from synth import MODULE_BY_ID, curated_presets, default_synth_preset, render_synth_frame
-from synth_canvas import resize_canvas
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_effects import describe_effects
-from synth_prismatic import render_film_emulsion
-from synth_prismatic_recipes import prismatic_composition
-from synth_sequence import render_sequence_frame, resolve_sequence_frame
-from synth_source_adapters import ANCHORS, source_frame
-from synth_starters import starter_composition
-from synth_subject import active_subjects, scope_states, select_subject
-from synth_video import VIDEO_EFFECTS
+from nebula.render.synth import MODULE_BY_ID, curated_presets, default_synth_preset, render_synth_frame
+from nebula.core.synth_canvas import resize_canvas
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.effects.synth_effects import describe_effects
+from nebula.sources.synth_prismatic import render_film_emulsion
+from nebula.documents.synth_prismatic_recipes import prismatic_composition
+from nebula.documents.synth_sequence import render_sequence_frame, resolve_sequence_frame
+from nebula.render.synth_source_adapters import ANCHORS, source_frame
+from nebula.documents.synth_starters import starter_composition
+from nebula.sources.synth_subject import active_subjects, scope_states, select_subject
+from nebula.sources.synth_video import VIDEO_EFFECTS
 
 
 def defaults(module):
@@ -104,7 +104,7 @@ def test_emulsion_applies_to_imported_pixels_without_a_generated_source():
 @pytest.mark.parametrize('sides', [3,4,8])
 @pytest.mark.parametrize('gather', [0.,.5,1.])
 def test_shape_variants_render_finite_filled_frames(sides,gather):
-    from synth_prismatic import render_prismatic_field
+    from nebula.sources.synth_prismatic import render_prismatic_field
     p=default_synth_preset();p.update(width=80,height=128)
     params=dict(defaults('prismatic_field'),sides=sides,gather=gather)
     result=render_prismatic_field(np.zeros((128,80,3),np.float32),params,3.6,p)
@@ -127,7 +127,7 @@ def test_original_prismatic_study_regression_pixels():
 @pytest.mark.parametrize('shape', range(7))
 @pytest.mark.parametrize('scale', [.15,.7,1.,3.])
 def test_ribbon_stays_inside_gathering_silhouette_at_every_shape_and_scale(monkeypatch,shape,scale):
-    import synth_prismatic
+    import nebula.sources.synth_prismatic as synth_prismatic
     # Flat colors isolate the actual rendered coverage, independently of the
     # polygon-distance math: black background, white fold, red edge ribbon.
     def render(params):
@@ -151,7 +151,7 @@ def test_ribbon_stays_inside_gathering_silhouette_at_every_shape_and_scale(monke
 
 
 def test_ribbon_remains_visible_inside_fold_and_disappears_at_closed_shape():
-    import synth_prismatic
+    import nebula.sources.synth_prismatic as synth_prismatic
     preset=default_synth_preset();preset.update(width=240,height=320)
     arr=np.zeros((320,240,3),np.float32)
     params=dict(defaults('prismatic_field'),size=.7,shape=1,gather=.65,
@@ -165,7 +165,7 @@ def test_ribbon_remains_visible_inside_fold_and_disappears_at_closed_shape():
 @pytest.mark.parametrize('shape', range(7))
 @pytest.mark.parametrize('scale', [.15,.7,3.])
 def test_gathered_shapes_have_no_central_crease_but_keep_outer_seam(monkeypatch,shape,scale):
-    import synth_prismatic
+    import nebula.sources.synth_prismatic as synth_prismatic
     # A flat white source makes unintended shading measurable without palette,
     # grain or exposure disguising it. The boundary is measured separately.
     monkeypatch.setattr(synth_prismatic,'_colors',
@@ -189,7 +189,7 @@ def test_gathered_shapes_have_no_central_crease_but_keep_outer_seam(monkeypatch,
 
 
 def test_hinge_shadow_recedes_smoothly_during_gather(monkeypatch):
-    import synth_prismatic
+    import nebula.sources.synth_prismatic as synth_prismatic
     monkeypatch.setattr(synth_prismatic,'_colors',
                         lambda coordinate,palette: np.ones(coordinate.shape+(3,),np.float32))
     preset=default_synth_preset();preset.update(width=240,height=320)
@@ -212,7 +212,7 @@ def test_hinge_shadow_recedes_smoothly_during_gather(monkeypatch):
 @pytest.mark.parametrize('shape', range(7))
 @pytest.mark.parametrize('angle', [0.,37.,360.])
 def test_final_shapes_center_visible_bounds_and_follow_object_offsets(shape,angle):
-    from synth_prismatic import prismatic_frame,closed_shape_field
+    from nebula.sources.synth_prismatic import prismatic_frame,closed_shape_field
     p=default_synth_preset();p.update(width=360,height=640,object_x=13,object_y=-7)
     params=dict(defaults('prismatic_field'),shape=shape,sides=7,gather=1.,center_shape=1,
                 rotation=angle,rotation_speed=0.,drift=.8)
@@ -230,7 +230,7 @@ def test_final_shapes_center_visible_bounds_and_follow_object_offsets(shape,angl
 
 
 def test_square_and_diamond_have_distinct_readable_orientations():
-    from synth_prismatic import closed_shape_field
+    from nebula.sources.synth_prismatic import closed_shape_field
     square=dict(defaults('prismatic_field'),shape=2)
     diamond=dict(square,shape=3)
     assert closed_shape_field(np.array(.27),np.array(.27),square)>0
@@ -240,8 +240,8 @@ def test_square_and_diamond_have_distinct_readable_orientations():
 
 
 def test_transition_curve_has_fast_middle_soft_endpoints_and_restrained_settle():
-    from synth_prismatic import transition_progress
-    from synth_sequence import _ease
+    from nebula.sources.synth_prismatic import transition_progress
+    from nebula.documents.synth_sequence import _ease
     values=np.linspace(0.,1.,501)
     old=np.array([_ease(t) for t in values])
     neutral=np.array([transition_progress(t,_ease(t),{},rotation=True) for t in values])

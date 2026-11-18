@@ -12,12 +12,12 @@ import pytest
 from PIL import Image
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
-from media import Cancellation
-from synth_composition import blank_composition, save_composition
-from synth_recent_projects import RecentProjects, RecentProjectStore, packet_png, render_project_cover
-from synth_recent_projects_ui import RecentProjectsDialog, ENTRY, STATE
-from synth_studio import SynthStudio
-from synth_montage_ui import MontageWindow
+from nebula.core.media import Cancellation
+from nebula.documents.synth_composition import blank_composition, save_composition
+from nebula.documents.synth_recent_projects import RecentProjects, RecentProjectStore, packet_png, render_project_cover
+from nebula.ui.synth_recent_projects_ui import RecentProjectsDialog, ENTRY, STATE
+from nebula.ui.synth_studio import SynthStudio
+from nebula.ui.synth_montage_ui import MontageWindow
 
 
 @pytest.fixture
@@ -131,10 +131,10 @@ def test_background_save_render_uses_saved_snapshot_and_survives_restart(app,tmp
 
 @pytest.mark.parametrize('kind',['Composition','Sequence','Preset','Montage'])
 def test_actual_cover_render_supports_each_document_type(tmp_path,kind):
-    from synth import default_synth_preset, save_synth
-    from synth_sequence import save_sequence
-    from synth_composition import compile_composition
-    from synth_montage import add_asset,insert_clip,new_montage,save_montage
+    from nebula.render.synth import default_synth_preset, save_synth
+    from nebula.documents.synth_sequence import save_sequence
+    from nebula.documents.synth_composition import compile_composition
+    from nebula.documents.synth_montage import add_asset,insert_clip,new_montage,save_montage
     path,project=project_file(tmp_path)
     before=copy.deepcopy(project)
     if kind=='Sequence': save_sequence(path,compile_composition(project))
@@ -182,7 +182,7 @@ def test_open_save_and_stale_or_bypassed_monitor_covers(window,tmp_path,monkeypa
     assert win.save_sequence_dialog() and spy.calls[-1][0][2] is None
     count=len(spy.calls)
     def fail(*_): raise OSError('No space')
-    monkeypatch.setattr('synth_studio.save_composition',fail)
+    monkeypatch.setattr('nebula.ui.synth_studio.save_composition',fail)
     monkeypatch.setattr(QMessageBox,'critical',lambda *_:None)
     assert not win.save_sequence_dialog() and len(spy.calls)==count
     assert project['name']==json.loads(path.read_text())['name']
@@ -197,7 +197,7 @@ def test_cancel_replacement_does_not_register_an_unopened_project(window,tmp_pat
 
 
 def test_montage_open_and_save_registers_outer_document(window,tmp_path):
-    from synth_montage import new_montage,add_asset,insert_clip,save_montage
+    from nebula.documents.synth_montage import new_montage,add_asset,insert_clip,save_montage
     win,spy=window; _,project=project_file(tmp_path)
     doc,key=add_asset(new_montage(project['canvas'],30),'Study',study=project)
     doc,_=insert_clip(doc,key); path=tmp_path/'montage.json'; save_montage(path,doc)

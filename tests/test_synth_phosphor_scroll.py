@@ -5,15 +5,15 @@ import hashlib
 import numpy as np
 import pytest
 
-from synth import MODULE_BY_ID, default_synth_preset, render_synth_frame
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_curved_screen import render_curved_screen
-from synth_echo import render_signal_etch
-from synth_phosphor_recipes import PAGES, phosphor_scroll_composition
-from synth_sequence import render_sequence_frame, resolve_sequence_frame
-from synth_starters import starter_composition
-from synth_text import validate_text, wrapped_text, glyph_mask
-from synth_text_scroll import scroll_mask
+from nebula.render.synth import MODULE_BY_ID, default_synth_preset, render_synth_frame
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.sources.synth_curved_screen import render_curved_screen
+from nebula.effects.synth_echo import render_signal_etch
+from nebula.documents.synth_phosphor_recipes import PAGES, phosphor_scroll_composition
+from nebula.documents.synth_sequence import render_sequence_frame, resolve_sequence_frame
+from nebula.documents.synth_starters import starter_composition
+from nebula.sources.synth_text import validate_text, wrapped_text, glyph_mask
+from nebula.sources.synth_text_scroll import scroll_mask
 
 
 def params(module, **values):

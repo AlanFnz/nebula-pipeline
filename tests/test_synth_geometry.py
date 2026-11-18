@@ -5,9 +5,9 @@ import numpy as np
 import pytest
 from PIL import ImageFilter
 
-from synth import default_synth_preset, render_synth_frame
-from synth_composition import compile_composition, load_composition, normalize_composition, reference_composition, save_composition, vary_composition
-from synth_sequence import _interpolate_presets, render_sequence_frame
+from nebula.render.synth import default_synth_preset, render_synth_frame
+from nebula.documents.synth_composition import compile_composition, load_composition, normalize_composition, reference_composition, save_composition, vary_composition
+from nebula.documents.synth_sequence import _interpolate_presets, render_sequence_frame
 
 
 def clean_source(shape=0):

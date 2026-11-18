@@ -8,11 +8,11 @@ import numpy as np
 from PIL import Image
 import pytest
 
-from synth import MODULE_BY_ID, curated_presets, default_synth_preset, render_synth_frame
-from synth_blender import render_optical_diffusion, rotation
-from synth_blender_recipes import optical_relic_composition
-from synth_composition import compile_composition, save_composition, load_composition
-from synth_sequence import render_sequence_frame
+from nebula.render.synth import MODULE_BY_ID, curated_presets, default_synth_preset, render_synth_frame
+from nebula.sources.synth_blender import render_optical_diffusion, rotation
+from nebula.documents.synth_blender_recipes import optical_relic_composition
+from nebula.documents.synth_composition import compile_composition, save_composition, load_composition
+from nebula.documents.synth_sequence import render_sequence_frame
 
 
 def defaults(name):
@@ -21,7 +21,7 @@ def defaults(name):
 
 @pytest.fixture
 def bridge(monkeypatch,tmp_path):
-    import synth_blender_bridge as b
+    import nebula.sources.synth_blender_bridge as b
     executable = tmp_path/'blender'; executable.write_text('fake executable')
     monkeypatch.setattr(b,'blender_executable',lambda:executable)
     monkeypatch.setattr(b,'CACHE',tmp_path/'frames')
@@ -100,7 +100,7 @@ def test_optical_finish_loop_bypass_and_intensity():
 
 
 def test_existing_studies_never_start_blender(monkeypatch):
-    import synth_blender_bridge as b
+    import nebula.sources.synth_blender_bridge as b
     def fail(): raise AssertionError('Legacy source requested Blender')
     monkeypatch.setattr(b,'blender_executable',fail)
     for preset in curated_presets().values():
@@ -110,7 +110,7 @@ def test_existing_studies_never_start_blender(monkeypatch):
 
 
 def test_missing_blender_has_actionable_error(monkeypatch):
-    import synth_blender_bridge as b
+    import nebula.sources.synth_blender_bridge as b
     monkeypatch.setattr(b.shutil,'which',lambda _:None)
     monkeypatch.setattr(Path,'is_file',lambda _:False)
     with pytest.raises(ValueError,match='Install Blender in Applications'):
@@ -118,10 +118,10 @@ def test_missing_blender_has_actionable_error(monkeypatch):
 
 
 def test_saved_study_is_frozen_and_new_sources_are_not_effects():
-    from synth_starters import starter_composition
-    from synth_effect_catalog import effect_catalog
-    from synth_subject import active_subjects,scope_states,select_subject
-    from synth_effects import describe_effects
+    from nebula.documents.synth_starters import starter_composition
+    from nebula.effects.synth_effect_catalog import effect_catalog
+    from nebula.sources.synth_subject import active_subjects,scope_states,select_subject
+    from nebula.effects.synth_effects import describe_effects
     project=starter_composition('optical-relic')
     assert project==optical_relic_composition()
     assert active_subjects(describe_effects(scope_states(project)))==('blender',)
@@ -131,7 +131,7 @@ def test_saved_study_is_frozen_and_new_sources_are_not_effects():
 
 
 def test_part_identity_cycles_and_symmetry_when_an_edit_breaks_the_half_turn():
-    from synth_blender_parts import part_poses
+    from nebula.sources.synth_blender_parts import part_poses
     p=defaults('blender_scene')
     assert part_poses(p,4.)=={}
     # Inherited material and idle clock changes must preserve legacy renders.
@@ -149,7 +149,7 @@ def test_part_identity_cycles_and_symmetry_when_an_edit_breaks_the_half_turn():
 
 
 def test_part_cache_keeps_neutral_and_different_parts_separate(bridge):
-    from synth_blender_parts import part_poses
+    from nebula.sources.synth_blender_parts import part_poses
     b,calls,exe=bridge
     p=defaults('blender_scene'); physical={k:v for k,v in p.items() if not k.startswith('part_')}
     b.render_frame(physical,0.,(24,32))
@@ -163,8 +163,8 @@ def test_part_cache_keeps_neutral_and_different_parts_separate(bridge):
 
 
 def test_part_animation_survives_save_and_only_changes_its_target(tmp_path):
-    from synth_sequence import resolve_sequence_frame
-    from synth_blender_parts import part_poses
+    from nebula.documents.synth_sequence import resolve_sequence_frame
+    from nebula.sources.synth_blender_parts import part_poses
     project=optical_relic_composition()
     project['sections'][0]['automations']=[dict(id='lift-hoop',path='blender_scene.part_upper_position_z',
         amount=.7,enabled=True,easing='smooth',start_fraction=0.,attack_fraction=.25,

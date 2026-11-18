@@ -8,10 +8,10 @@ os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 import pytest
 from PySide6.QtCore import QThreadPool
 from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
-from synth_pleated_recipes import pleated_composition
-from synth_studio import SynthStudio
-from synth_visual_sound import instrument_sound
-from synth_visual_sound_ui import VisualSoundDialog
+from nebula.documents.synth_pleated_recipes import pleated_composition
+from nebula.ui.synth_studio import SynthStudio
+from nebula.audio.synth_visual_sound import instrument_sound
+from nebula.ui.synth_visual_sound_ui import VisualSoundDialog
 
 
 @pytest.fixture
@@ -73,9 +73,9 @@ def test_output_label_matches_actual_applied_route_when_not_live(editor):
 
 @pytest.mark.parametrize("version", [3, 4])
 def test_midi_is_a_session_route_without_changing_saved_study(editor, version):
-    from synth_lattice_sound import color_wave_sound
+    from nebula.audio.synth_lattice_sound import color_wave_sound
     window, dialog, _ = editor
-    from synth_visual_sound import instrument_sound
+    from nebula.audio.synth_visual_sound import instrument_sound
     config = color_wave_sound() if version == 4 else instrument_sound(); config['enabled'] = True
     window.composition['generated_sound'] = config
     dialog.set_config(config)
@@ -126,7 +126,7 @@ def test_failed_save_never_claims_file_is_saved(editor, monkeypatch):
     original = window.document_path.read_bytes()
     dialog.opening.setValue(77);dialog.apply()
     def fail(*_): raise OSError('Disk full')
-    monkeypatch.setattr('synth_studio.save_composition', fail)
+    monkeypatch.setattr('nebula.ui.synth_studio.save_composition', fail)
     monkeypatch.setattr(QMessageBox, 'critical', lambda *_: None)
     assert not window.save_sequence_dialog()
     assert dialog.file_state.text() == 'File: Unsaved changes'

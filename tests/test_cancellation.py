@@ -3,7 +3,7 @@ import time
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
 
-from media import Cancellation, Cancelled, decode_frames, probe
+from nebula.core.media import Cancellation, Cancelled, decode_frames, probe
 
 
 def test_stop_decoder_mid_stream_does_not_deadlock(tmp_path):

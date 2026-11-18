@@ -6,13 +6,13 @@ import pytest
 from PySide6.QtCore import QCoreApplication, QEvent, QThreadPool, QSettings
 from PySide6.QtWidgets import QApplication
 
-from synth_composition import load_composition, save_composition
-from synth_lattice_sound import color_wave_sound
-from synth_live_midi import LiveMidiMonitor
-from synth_live_mode import LIVE_OUTPUT, is_live
-from synth_pleated_recipes import pleated_composition
-from synth_studio import SynthStudio
-from synth_visual_sound import instrument_sound
+from nebula.documents.synth_composition import load_composition, save_composition
+from nebula.audio.synth_lattice_sound import color_wave_sound
+from nebula.audio.synth_live_midi import LiveMidiMonitor
+from nebula.documents.synth_live_mode import LIVE_OUTPUT, is_live
+from nebula.documents.synth_pleated_recipes import pleated_composition
+from nebula.ui.synth_studio import SynthStudio
+from nebula.audio.synth_visual_sound import instrument_sound
 from test_synth_live_midi import Port
 
 
@@ -31,7 +31,7 @@ def live_editor(monkeypatch, tmp_path):
         def __init__(self, parent=None):
             port = Port();ports.append(port)
             super().__init__(parent, output_factory=lambda: port)
-    monkeypatch.setattr('synth_live_midi.LiveMidiMonitor', RecordingMonitor)
+    monkeypatch.setattr('nebula.audio.synth_live_midi.LiveMidiMonitor', RecordingMonitor)
     monkeypatch.setattr(SynthStudio, 'request_frame', lambda *_: None)
     monkeypatch.setattr(SynthStudio, 'schedule_auto_preparation', lambda *_: None)
     project = pleated_composition()

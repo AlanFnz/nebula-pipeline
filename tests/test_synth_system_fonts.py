@@ -6,14 +6,14 @@ import shutil
 import sys
 
 import pytest
-from synth_fonts import (FONT_ROOT, FontUnavailable, clear_font_catalog, load_font,
+from nebula.sources.synth_fonts import (FONT_ROOT, FontUnavailable, clear_font_catalog, load_font,
                          reference_for_face, system_catalog, validate_font)
-from synth_text import glyph_mask
-from synth_starters import STARTERS, starter_composition
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_sequence import render_sequence_frame, _interpolate_presets
-from synth_effects import normalize_effects, describe_effects
-from synth import default_synth_preset, normalize_synth
+from nebula.sources.synth_text import glyph_mask
+from nebula.documents.synth_starters import STARTERS, starter_composition
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.documents.synth_sequence import render_sequence_frame, _interpolate_presets
+from nebula.effects.synth_effects import normalize_effects, describe_effects
+from nebula.render.synth import default_synth_preset, normalize_synth
 
 TEXT_STUDIES = [key for key, _, _ in STARTERS if key.startswith('text-')]
 
@@ -37,7 +37,7 @@ def test_bad_font_references_rejected(value):
 
 
 def test_missing_or_changed_file_never_uses_cached_pixels_or_substitution(external_font, monkeypatch):
-    monkeypatch.setattr('synth_fonts.system_catalog', lambda: ())
+    monkeypatch.setattr('nebula.sources.synth_fonts.system_catalog', lambda: ())
     path = Path(json.loads(external_font)['path']); original = path.read_bytes()
     glyph_mask('NOW',external_font,0.,1.,1)  # Prime both glyph and file caches.
     path.write_bytes((FONT_ROOT/'Anton-Regular.ttf').read_bytes())
@@ -48,7 +48,7 @@ def test_missing_or_changed_file_never_uses_cached_pixels_or_substitution(extern
 
 def test_identical_file_can_relocate_but_different_version_cannot(external_font, tmp_path, monkeypatch):
     data=json.loads(external_font); moved=tmp_path/'Moved.ttf'; Path(data['path']).rename(moved)
-    monkeypatch.setattr('synth_fonts.system_catalog', lambda: (dict(path=str(moved),postscript=data['postscript']),))
+    monkeypatch.setattr('nebula.sources.synth_fonts.system_catalog', lambda: (dict(path=str(moved),postscript=data['postscript']),))
     clear_font_catalog()
     assert load_font(external_font,64).getname()==('Space Mono','Bold')
     moved.write_bytes((FONT_ROOT/'Anton-Regular.ttf').read_bytes())

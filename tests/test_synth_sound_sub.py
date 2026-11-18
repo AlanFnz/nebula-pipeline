@@ -2,12 +2,12 @@ import copy
 import numpy as np
 import pytest
 
-from synth_sound_sub import SubVoice,sub_defaults,sub_frequency
-from synth_lattice_sound import ColorWaveVoice,color_wave_sound,color_notes
-from synth_visual_sound import normalize_sound,visual_signals,RATE
-from synth_visual_sound_live import LiveInstrument
-from synth_composition import save_composition,load_composition
-from synth_lattice_recipes import lattice_composition
+from nebula.audio.synth_sound_sub import SubVoice,sub_defaults,sub_frequency
+from nebula.audio.synth_lattice_sound import ColorWaveVoice,color_wave_sound,color_notes
+from nebula.audio.synth_visual_sound import normalize_sound,visual_signals,RATE
+from nebula.audio.synth_visual_sound_live import LiveInstrument
+from nebula.documents.synth_composition import save_composition,load_composition
+from nebula.documents.synth_lattice_recipes import lattice_composition
 from test_synth_lattice_sound import rhythmic_study
 from test_synth_visual_sound_ui import app
 
@@ -92,7 +92,7 @@ def test_live_export_and_changes_remain_continuous():
 
 
 def test_controls_pitch_readout_undo_and_saved_roundtrip(app,tmp_path):
-    from synth_visual_sound_ui import VisualSoundDialog
+    from nebula.ui.synth_visual_sound_ui import VisualSoundDialog
     c=config();d=VisualSoundDialog();d.set_config(c)
     assert d.read_config()==c and d.tabs.isTabVisible(d.sub_tab)
     assert 'E1' in d.sub.pitch_label.text() and '41.20 Hz' in d.sub.pitch_label.text()

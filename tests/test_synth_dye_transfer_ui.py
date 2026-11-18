@@ -3,8 +3,8 @@ import os
 os.environ.setdefault('QT_QPA_PLATFORM','offscreen')
 from PySide6.QtWidgets import QApplication
 from test_synth_effects_editor_integration import make_window
-from synth_composition import load_composition, save_composition
-from synth_starters import starter_composition
+from nebula.documents.synth_composition import load_composition, save_composition
+from nebula.documents.synth_starters import starter_composition
 
 
 def test_dye_controls_scope_undo_and_separate_wording(make_window,tmp_path):

@@ -9,9 +9,9 @@ from PySide6.QtCore import QUrl
 from PySide6.QtGui import QFileOpenEvent
 from PySide6.QtWidgets import QApplication, QDialog, QFileDialog, QMessageBox
 
-from synth_composition import blank_composition, load_composition, save_composition
-from synth_project_files import ProjectFileOpener, choose_save_path
-from synth_montage import load_montage
+from nebula.documents.synth_composition import blank_composition, load_composition, save_composition
+from nebula.ui.synth_project_files import ProjectFileOpener, choose_save_path
+from nebula.documents.synth_montage import load_montage
 from test_synth_unsaved import make_window, edit
 from test_synth_navigation import workspace
 from test_synth_recent_projects import app, wait_for

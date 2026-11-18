@@ -1,8 +1,8 @@
 import copy
 import subprocess
 
-from synth import curated_presets, default_synth_preset, load_synth, normalize_synth, render_synth_frame, save_synth
-from synth_media import export_synth_video
+from nebula.render.synth import curated_presets, default_synth_preset, load_synth, normalize_synth, render_synth_frame, save_synth
+from nebula.documents.synth_media import export_synth_video
 
 
 def only_module(preset, module_id):
@@ -44,7 +44,7 @@ def test_curated_presets_render():
 def test_synth_export_is_atomic_and_has_expected_duration(tmp_path):
     preset = only_module(default_synth_preset(), "blinds")
     preset.update({"width": 96, "height": 72, "loop_seconds": .2, "export_fps": 10})
-    target = tmp_path / "synth.mp4"
+    target = tmp_path / 'synth.mp4'
     export_synth_video(preset, target)
     probe = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "stream=nb_frames,width,height", "-of", "default=noprint_wrappers=1", str(target)], capture_output=True, text=True, check=True).stdout
     assert "width=96" in probe and "height=72" in probe and "nb_frames=2" in probe

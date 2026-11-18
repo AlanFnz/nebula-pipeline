@@ -13,14 +13,14 @@ from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 import pytest
 
-from media import Cancellation
-from synth_composition import compile_composition
-from synth_sequence import render_sequence_frame
-from synth_starters import STARTERS, starter_composition
-from synth_studies import save_study, set_studies_removed
-from synth_studies_ui import PREVIEW_BOUNDS, ROW_BOUNDS, StudiesDialog
-from synth_study_thumbnails import MAX_PENDING, StudyThumbnailService, ThumbnailCache, fitted_size, render_thumbnail, thumbnail_key
-from synth_video import video_composition
+from nebula.core.media import Cancellation
+from nebula.documents.synth_composition import compile_composition
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.documents.synth_starters import STARTERS, starter_composition
+from nebula.documents.synth_studies import save_study, set_studies_removed
+from nebula.ui.synth_studies_ui import PREVIEW_BOUNDS, ROW_BOUNDS, StudiesDialog
+from nebula.documents.synth_study_thumbnails import MAX_PENDING, StudyThumbnailService, ThumbnailCache, fitted_size, render_thumbnail, thumbnail_key
+from nebula.sources.synth_video import video_composition
 from test_synth_video import clip
 
 
@@ -131,8 +131,8 @@ def test_browser_laziness_stale_delivery_errors_pause_and_hide(app, tmp_path):
 
 
 def test_live_filter_search_and_details_preserve_study_files(app, tmp_path):
-    from synth_live_set import LIVE_SET
-    from synth_studies import study_records
+    from nebula.documents.synth_live_set import LIVE_SET
+    from nebula.documents.synth_studies import study_records
     project = starter_composition('profile-doryphoros')
     unlinked = save_study(project, 'Same name', tmp_path)
     live = tmp_path / 'Nebula concert.als'; live.touch()
@@ -245,7 +245,7 @@ def test_real_video_thumbnail_and_missing_source_placeholder(app, clip, tmp_path
     sequence = compile_composition(project)
     assert image.tobytes() == render_sequence_frame(sequence, sequence['duration'] / 3, image.size).tobytes()
     key = save_study(project, 'Missing clip', tmp_path)
-    loaded = __import__('synth_studies').study_composition(key, tmp_path)
+    loaded = __import__('nebula.documents.synth_studies', fromlist=['study_composition']).study_composition(key, tmp_path)
     Path(loaded['footage']['path']).unlink()
     service = StudyThumbnailService(tmp_path, cache_directory=tmp_path / 'cache')
     dialog = StudiesDialog(directory=tmp_path, thumbnail_service=service)
@@ -258,7 +258,7 @@ def test_real_video_thumbnail_and_missing_source_placeholder(app, clip, tmp_path
 
 
 def test_blank_thumbnail_uses_only_one_deterministic_fallback(tmp_path, monkeypatch):
-    import synth_study_thumbnails
+    import nebula.documents.synth_study_thumbnails as synth_study_thumbnails
     project = starter_composition('profile-doryphoros'); samples = []
     sequence = compile_composition(project)
     def blank(sequence, time_seconds, size, provider):
@@ -270,7 +270,7 @@ def test_blank_thumbnail_uses_only_one_deterministic_fallback(tmp_path, monkeypa
 
 
 def test_frozen_renderer_build_identity_invalidates_cache(tmp_path, monkeypatch):
-    import synth_study_thumbnails
+    import nebula.documents.synth_study_thumbnails as synth_study_thumbnails
     executable = tmp_path / 'Nebula Studio'; executable.write_bytes(b'build-one')
     monkeypatch.setattr(synth_study_thumbnails.sys, 'frozen', True, raising=False)
     monkeypatch.setattr(synth_study_thumbnails.sys, 'executable', str(executable))
@@ -301,7 +301,7 @@ def test_favorite_cells_support_keyboard_sorting_and_deferred_cleanup(app, tmp_p
         dialog.table.sortItems(4, Qt.SortOrder.DescendingOrder)
         assert dialog.table.item(0, 4).checkState() == Qt.CheckState.Checked
         assert 'profile-doryphoros' in dialog.selected_identifiers()
-        from synth_studies import study_records
+        from nebula.documents.synth_studies import study_records
         for turn in range(30):
             dialog.search.setText('profile')
             row = select(dialog, 'profile-doryphoros'); favorite_click(dialog, row)

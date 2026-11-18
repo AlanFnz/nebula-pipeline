@@ -4,13 +4,13 @@ import json
 from pathlib import Path
 
 import numpy as np
-from synth import MODULE_BY_ID
-from synth_broadcast import interruption_gate, render_broadcast
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_effect_discovery import effect_candidate
-from synth_effects import effect_preset
-from synth_sequence import render_sequence_frame
-from synth_starters import starter_composition
+from nebula.render.synth import MODULE_BY_ID
+from nebula.effects.synth_broadcast import interruption_gate, render_broadcast
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.effects.synth_effect_discovery import effect_candidate
+from nebula.effects.synth_effects import effect_preset
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.documents.synth_starters import starter_composition
 from test_synth_video import clip
 
 
@@ -43,7 +43,7 @@ def test_random_intervals_have_clusters_and_long_gaps_without_a_repeating_beat()
 
 
 def test_random_gate_keeps_events_across_boundaries_and_handles_overlaps(monkeypatch):
-    monkeypatch.setattr('synth_broadcast._interruption_events',
+    monkeypatch.setattr('nebula.effects.synth_broadcast._interruption_events',
                         lambda seed, cell: ((.9, 1.),) if cell in (-1, 2) else ())
     p = params(timing=1, period=1., phase=0., duration=.2, duration_variation=0.)
     assert interruption_gate(p, 0., 17) == 1  # Event began before time zero.
@@ -98,8 +98,8 @@ def test_new_effect_uses_random_but_keeps_study_and_survives_save_reload(tmp_pat
 
 
 def test_existing_video_treatment_recipes_keep_regular_interruptions(clip):
-    from synth_modulation_recipes import modulated_crt_composition
-    from synth_video import TREATMENTS, apply_treatment, video_composition
+    from nebula.documents.synth_modulation_recipes import modulated_crt_composition
+    from nebula.sources.synth_video import TREATMENTS, apply_treatment, video_composition
     projects = [modulated_crt_composition(clip)]
     projects.extend(apply_treatment(video_composition(clip), i) for i in range(len(TREATMENTS)))
     for project in projects:

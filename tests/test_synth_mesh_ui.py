@@ -3,8 +3,8 @@ import os
 os.environ.setdefault('QT_QPA_PLATFORM','offscreen')
 from test_synth_composer_ui import window,wait_until
 from test_synth_mesh import fixture_mesh
-from synth_starters import starter_composition
-from synth_mesh_ui import MeshControl
+from nebula.documents.synth_starters import starter_composition
+from nebula.ui.synth_mesh_ui import MeshControl
 
 
 def test_import_replace_clear_and_undo_preserve_the_look(window,tmp_path,monkeypatch):
@@ -19,7 +19,7 @@ def test_import_replace_clear_and_undo_preserve_the_look(window,tmp_path,monkeyp
     assert obj.controls['solid.corner_radius'].isHidden()
     assert obj.controls['solid.pip_size'].isHidden()
     importer=obj.controls['solid.model_data'].input
-    monkeypatch.setattr('synth_mesh_ui.QFileDialog.getOpenFileName',lambda *a: (str(path),''))
+    monkeypatch.setattr('nebula.ui.synth_mesh_ui.QFileDialog.getOpenFileName',lambda *a: (str(path),''))
     importer.import_button.click()
     initial=importer.value()
     assert 'embedded' in importer.status.text()

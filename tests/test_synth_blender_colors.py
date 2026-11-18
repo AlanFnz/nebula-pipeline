@@ -3,11 +3,11 @@ import copy
 import pytest
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QDialog, QApplication
-from synth_blender_colors import color_spec, scene_colors
-from synth_color_ui import ColorPicker, display_color
-from synth_blender_recipes import optical_relic_composition, orbital_smooth_painted_composition, yin_yang_continuous_composition
-from synth_composition import compile_composition, normalize_composition
-from synth_sequence import resolve_sequence_frame
+from nebula.sources.synth_blender_colors import color_spec, scene_colors
+from nebula.ui.synth_color_ui import ColorPicker, display_color
+from nebula.documents.synth_blender_recipes import optical_relic_composition, orbital_smooth_painted_composition, yin_yang_continuous_composition
+from nebula.documents.synth_composition import compile_composition, normalize_composition
+from nebula.documents.synth_sequence import resolve_sequence_frame
 from test_synth_effects_editor_integration import make_window
 
 
@@ -80,7 +80,7 @@ def test_part_color_is_independent_and_respects_material_inheritance(make_window
         d.picker.setCurrentColor(QColor('#8b194a')); return QDialog.DialogCode.Accepted
     monkeypatch.setattr(ColorPicker, 'exec', choose)
     p.color_panel.open_picker('blender_part_ring2')
-    from synth_blender_parts import part_poses
+    from nebula.sources.synth_blender_parts import part_poses
     pose = part_poses(params(c.document), 0)['ring2']['material']
     assert display_color((pose['hue'], pose['saturation'], pose['light'])).name() == '#8b194a'
     assert params(c.document)['metal_hue'] == params(before)['metal_hue']
@@ -91,9 +91,9 @@ def test_part_color_is_independent_and_respects_material_inheritance(make_window
 def test_neutral_brightness_keeps_legacy_requests(monkeypatch):
     import numpy as np
     from PIL import Image
-    import synth_blender_bridge as bridge
-    from synth_blender import render_blender_scene
-    from synth_blender_parts import part_poses
+    import nebula.sources.synth_blender_bridge as bridge
+    from nebula.sources.synth_blender import render_blender_scene
+    from nebula.sources.synth_blender_parts import part_poses
     calls = []
     monkeypatch.setattr(bridge, 'render_frame', lambda p, a, size, **kw: calls.append((p, kw)) or Image.new('RGB', size))
     p = params(optical_relic_composition())

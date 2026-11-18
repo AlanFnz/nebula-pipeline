@@ -6,12 +6,12 @@ from PySide6.QtCore import QLocale, QPoint
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 
-from studio_widgets import DoubleSpinBox
-from synth_effects_ui import EffectParameter
-from synth_preview import PreviewFrames
-from synth_starters import starter_composition
-from synth_sequence import render_sequence_frame
-from synth_video import VideoFrameProvider
+from nebula.ui.studio_widgets import DoubleSpinBox
+from nebula.ui.synth_effects_ui import EffectParameter
+from nebula.render.synth_preview import PreviewFrames
+from nebula.documents.synth_starters import starter_composition
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.sources.synth_video import VideoFrameProvider
 from test_synth_composer_ui import window, wait_until
 from test_synth_video import clip
 
@@ -124,7 +124,7 @@ def test_stale_preparation_and_render_cannot_replace_newer_settings(window):
 
 def test_playback_clock_skips_to_wall_time_instead_of_slowing_clip(window,monkeypatch):
     clock=[100.]
-    monkeypatch.setattr('synth_studio.time.monotonic',lambda:clock[0])
+    monkeypatch.setattr('nebula.ui.synth_studio.time.monotonic',lambda:clock[0])
     window.play.setChecked(True)
     clock[0]+=.8
     window.advance()
@@ -160,7 +160,7 @@ def test_held_mask_cache_reuses_results_but_tracks_framing_and_retention(clip,tm
 
 
 def test_uncached_slow_renderer_keeps_displaying_during_wall_clock_playback(window, monkeypatch):
-    import synth_studio
+    import nebula.ui.synth_studio as synth_studio
     window.auto_prepare.setChecked(False)
     window.composer.duration.setValue(2.)
     wait_until(lambda: not window.render_running and not window.render_queued)

@@ -9,15 +9,15 @@ import pytest
 from PySide6.QtCore import QObject, Signal, QThreadPool
 from PySide6.QtWidgets import QApplication
 
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_exploration import capture_snapshot
-from synth_preview import RenderValidity, retained_frame_predicate
-from synth_section_sources import soundtrack_references
-from synth_soundtrack import probe_soundtrack, check_soundtrack
-from synth_soundtrack_studio import SoundtrackJob
-from synth_starting_points import new_piece
-from synth_studies import save_study, study_composition
-from synth_studio import SynthStudio
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.documents.synth_exploration import capture_snapshot
+from nebula.render.synth_preview import RenderValidity, retained_frame_predicate
+from nebula.documents.synth_section_sources import soundtrack_references
+from nebula.audio.synth_soundtrack import probe_soundtrack, check_soundtrack
+from nebula.ui.synth_soundtrack_studio import SoundtrackJob
+from nebula.documents.synth_starting_points import new_piece
+from nebula.documents.synth_studies import save_study, study_composition
+from nebula.ui.synth_studio import SynthStudio
 
 
 @pytest.fixture
@@ -50,8 +50,8 @@ class FakeMonitor(QObject):
 @pytest.fixture
 def studio(monkeypatch):
     app = QApplication.instance() or QApplication([])
-    monkeypatch.setattr('synth_soundtrack_studio.SoundtrackPreview', FakeMonitor)
-    monkeypatch.setattr('synth_soundtrack_studio.waveform_peaks', lambda *args: [.3] * 10)
+    monkeypatch.setattr('nebula.ui.synth_soundtrack_studio.SoundtrackPreview', FakeMonitor)
+    monkeypatch.setattr('nebula.ui.synth_soundtrack_studio.waveform_peaks', lambda *args: [.3] * 10)
     monkeypatch.setattr(SynthStudio, 'request_frame', lambda self: None)
     window = SynthStudio(composition=new_piece('text'))
     window.auto_prepare.setChecked(False)
@@ -178,7 +178,7 @@ def test_relink_too_short_keeps_track_and_settings(studio, soundtrack):
 
 def test_low_fps_preserves_fractional_clock_and_same_frame_wrap(studio, soundtrack, monkeypatch):
     clock = [100.]
-    monkeypatch.setattr('synth_studio.time.monotonic', lambda: clock[0])
+    monkeypatch.setattr('nebula.ui.synth_studio.time.monotonic', lambda: clock[0])
     project = copy.deepcopy(studio.composition)
     project['fps'] = 1
     project['sections'][0]['duration'] = 2
@@ -200,9 +200,9 @@ def test_low_fps_preserves_fractional_clock_and_same_frame_wrap(studio, soundtra
 
 
 def test_selected_short_gap_forces_audio_seek(studio, soundtrack, monkeypatch):
-    from synth_preview import PreviewScope
+    from nebula.render.synth_preview import PreviewScope
     clock = [100.]
-    monkeypatch.setattr('synth_studio.time.monotonic', lambda: clock[0])
+    monkeypatch.setattr('nebula.ui.synth_studio.time.monotonic', lambda: clock[0])
     studio.apply_soundtrack(soundtrack)
     monkeypatch.setattr(studio, 'active_preview_scope', lambda: PreviewScope(((0, 1), (2, 5)), 2))
     studio.play.setChecked(True)
@@ -250,7 +250,7 @@ def test_rejected_lower_sample_rate_import_preserves_project_monitor_and_error(s
 
 @pytest.mark.parametrize('offset', [2., -2.])
 def test_lane_placement_is_one_undo_and_saved_on_project_clock(studio, soundtrack, tmp_path, offset):
-    from synth_soundtrack import soundtrack_source_time
+    from nebula.audio.synth_soundtrack import soundtrack_source_time
     studio.apply_soundtrack(dict(soundtrack, **{'in': 1., 'out': 5.}))
     original = copy.deepcopy(studio.composition)
     history = len(studio.undo_compositions)

@@ -5,16 +5,16 @@ from pathlib import Path
 
 import pytest
 
-from synth_composition import compile_composition, load_composition, normalize_composition, save_composition
-from synth_creative import CREATIVE_CONTROLS
-from synth_exploration import capture_snapshot, comparison_problem, content, remove_snapshot, restore_snapshot, vary_effect
-from synth_sequence import render_sequence_frame
-from synth_starting_points import new_piece
-from synth_studies import save_study, study_composition
-from synth_video import video_composition, check_source
+from nebula.documents.synth_composition import compile_composition, load_composition, normalize_composition, save_composition
+from nebula.documents.synth_creative import CREATIVE_CONTROLS
+from nebula.documents.synth_exploration import capture_snapshot, comparison_problem, content, remove_snapshot, restore_snapshot, vary_effect
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.documents.synth_starting_points import new_piece
+from nebula.documents.synth_studies import save_study, study_composition
+from nebula.sources.synth_video import video_composition, check_source
 from test_synth_creative import animated
 from test_synth_video import clip
-from synth_comparison_preview import ComparisonFrames
+from nebula.render.synth_comparison_preview import ComparisonFrames
 
 
 def pixels(project, t=.2):

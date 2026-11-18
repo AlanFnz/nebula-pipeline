@@ -4,7 +4,7 @@ from pathlib import Path
 from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import QFileDialog
 
-from synth_composition import blank_composition
+from nebula.documents.synth_composition import blank_composition
 from test_synth_effects_editor_integration import make_window
 
 

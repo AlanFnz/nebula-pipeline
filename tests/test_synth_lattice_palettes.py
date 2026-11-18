@@ -3,10 +3,10 @@ import copy
 import pytest
 from PySide6.QtWidgets import QApplication
 
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_lattice_palettes import PALETTES, palette_values
-from synth_lattice_recipes import watching_eye_composition, printed_orbit_composition
-from synth_sequence import render_sequence_frame, resolve_sequence_frame
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.sources.synth_lattice_palettes import PALETTES, palette_values
+from nebula.documents.synth_lattice_recipes import watching_eye_composition, printed_orbit_composition
+from nebula.documents.synth_sequence import render_sequence_frame, resolve_sequence_frame
 from test_synth_effects_editor_integration import make_window
 
 
@@ -74,7 +74,7 @@ def test_palette_scope_preserves_other_clips_and_automation(make_window):
     c.change_scope(0);choose(c,'saffron')
     assert resolved(c.document,9)['chromatic_lattice.face_a_hue']==palette_values('indigo')['chromatic_lattice.face_a_hue']
     # Palette selection leaves authored clip gestures intact.
-    from synth_automation import normalize_automations
+    from nebula.documents.synth_automation import normalize_automations
     events=normalize_automations([dict(id='wash',path='print_surface.paint_wash',amount=.1,
         start_fraction=0.,attack_fraction=.1,hold_fraction=.2,recovery_fraction=.1)])
     modified=copy.deepcopy(c.document);modified['sections'][1]['automations']=events

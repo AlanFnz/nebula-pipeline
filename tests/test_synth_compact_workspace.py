@@ -5,9 +5,9 @@ os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 import pytest
 from PySide6.QtCore import QEvent, QPoint, QThreadPool
 from PySide6.QtWidgets import QApplication, QMessageBox
-from studio_theme import apply_theme
-from synth_studio import SynthStudio
-from synth_starting_points import new_piece
+from nebula.ui.studio_theme import apply_theme
+from nebula.ui.synth_studio import SynthStudio
+from nebula.documents.synth_starting_points import new_piece
 
 
 @pytest.fixture
@@ -179,7 +179,7 @@ def test_narrow_monitor_wraps_controls_without_editing_the_piece(window):
 
 
 def test_video_toolbar_wraps_with_all_actions_and_help_at_the_right(window, tmp_path):
-    from synth_video import normalize_footage, video_composition
+    from nebula.sources.synth_video import normalize_footage, video_composition
     project = video_composition(normalize_footage(dict(version=1, kind='video', path=str(tmp_path / 'footage.mkv'),
                                     width=320, height=180, duration=1., fps=12.,
                                     identity={'size': 0, 'mtime_ns': 0})))
@@ -200,10 +200,10 @@ def test_video_toolbar_wraps_with_all_actions_and_help_at_the_right(window, tmp_
 
 def test_live_set_access_without_opening_synthesizer(window, monkeypatch, tmp_path):
     from PySide6.QtWidgets import QFileDialog
-    from synth_live_set import LIVE_SET
-    from synth_live_set_ui import QDesktopServices
-    from synth_studies import save_study
-    import synth_studies
+    from nebula.documents.synth_live_set import LIVE_SET
+    from nebula.ui.synth_live_set_ui import QDesktopServices
+    from nebula.documents.synth_studies import save_study
+    import nebula.documents.synth_studies as synth_studies
     live = tmp_path / 'My music.als'; live.touch()
     parents = []; launches = []
     def choose(parent, *_args):

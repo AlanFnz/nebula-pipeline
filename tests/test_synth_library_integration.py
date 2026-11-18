@@ -2,9 +2,9 @@
 import copy
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import QMessageBox
-import synth_studio
-import synth_studies
-from synth_studies_ui import StudiesDialog
+import nebula.ui.synth_studio as synth_studio
+import nebula.documents.synth_studies as synth_studies
+from nebula.ui.synth_studies_ui import StudiesDialog
 from test_synth_unsaved import make_window, edit
 
 

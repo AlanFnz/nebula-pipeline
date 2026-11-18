@@ -4,9 +4,9 @@ import pytest
 os.environ.setdefault('QT_QPA_PLATFORM','offscreen')
 
 from test_synth_effects_editor_integration import make_window
-from synth_starters import starter_composition
-from synth_composition import load_composition, save_composition
-from synth_memory_framing import motion_bounds
+from nebula.documents.synth_starters import starter_composition
+from nebula.documents.synth_composition import load_composition, save_composition
+from nebula.sources.synth_memory_framing import motion_bounds
 
 
 def test_old_oversized_amplitude_is_preserved_and_stationary_controls_recover(make_window):

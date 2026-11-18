@@ -6,12 +6,12 @@ import shutil
 
 import pytest
 
-from media import Cancellation, Cancelled
-from synth_composition import compile_composition
-from synth_sequence import render_sequence_frame
-from synth_starters import STARTERS, STARTER_DATES, starter_composition
-from synth_studies import LIBRARY_FILE, save_study, set_studies_removed, study_catalogue, study_composition, study_records
-from synth_video import apply_treatment, video_composition
+from nebula.core.media import Cancellation, Cancelled
+from nebula.documents.synth_composition import compile_composition
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.documents.synth_starters import STARTERS, STARTER_DATES, starter_composition
+from nebula.documents.synth_studies import LIBRARY_FILE, save_study, set_studies_removed, study_catalogue, study_composition, study_records
+from nebula.sources.synth_video import apply_treatment, video_composition
 from test_synth_video import clip
 
 
@@ -72,7 +72,7 @@ def test_library_ignores_incomplete_files_and_rejects_path_traversal(tmp_path):
 
 
 def test_dates_survive_library_moves_and_bad_legacy_metadata_has_a_fallback(tmp_path, monkeypatch):
-    import synth_studies
+    import nebula.documents.synth_studies as synth_studies
     class Clock(datetime):
         @classmethod
         def now(cls): return cls(2021, 11, 4, 12)
@@ -111,7 +111,7 @@ def test_removing_and_restoring_multiple_studies_is_persistent_and_preserves_med
 
 
 def test_bad_ids_or_failed_atomic_write_cannot_remove_other_entries(tmp_path, monkeypatch):
-    import synth_studies
+    import nebula.documents.synth_studies as synth_studies
     set_studies_removed(['approved'], directory=tmp_path)
     before = (tmp_path / LIBRARY_FILE).read_bytes()
     with pytest.raises(ValueError, match='Unknown'):
@@ -135,7 +135,7 @@ def test_corrupt_index_does_not_block_loading_or_get_overwritten(tmp_path):
 
 
 def test_favorites_preserve_removal_dates_documents_and_duplicate_identity(tmp_path):
-    from synth_studies import set_studies_favorite
+    from nebula.documents.synth_studies import set_studies_favorite
     project = starter_composition('profile-doryphoros')
     first = save_study(project, 'Duplicate', tmp_path)
     second = save_study(project, 'Duplicate', tmp_path)
@@ -157,7 +157,7 @@ def test_favorites_preserve_removal_dates_documents_and_duplicate_identity(tmp_p
 
 
 def test_legacy_preferences_unknown_fields_and_corruption_are_preserved(tmp_path):
-    from synth_studies import set_studies_favorite
+    from nebula.documents.synth_studies import set_studies_favorite
     index = tmp_path / LIBRARY_FILE
     index.write_text(json.dumps({'schema_version': 1, 'removed': ['approved'], 'future': {'color': 'green'}}))
     assert not any(entry.favorite for entry in study_records(tmp_path, include_removed=True))
@@ -176,7 +176,7 @@ def test_legacy_preferences_unknown_fields_and_corruption_are_preserved(tmp_path
 @pytest.mark.parametrize('identifier,category', [('refined', 'Signals'), ('profile-doryphoros', 'Profiles'),
     ('particle-head', 'Particles'), ('text-phosphor', 'Text'), ('ink-bloom', 'Mixed media'), ('color-film-die', 'Signals')])
 def test_saved_categories_follow_source_capabilities(identifier, category, tmp_path):
-    from synth_studies import composition_category
+    from nebula.documents.synth_studies import composition_category
     project = starter_composition(identifier)
     assert composition_category(project) == category
     key = save_study(project, 'Name does not imply its category', tmp_path)
@@ -184,7 +184,7 @@ def test_saved_categories_follow_source_capabilities(identifier, category, tmp_p
 
 
 def test_categories_respect_source_replacement_and_ignore_treatment_rays(tmp_path):
-    from synth_studies import composition_category
+    from nebula.documents.synth_studies import composition_category
     project = starter_composition('profile-doryphoros')
     project['effects']['rays'] = {'mode': 'on', 'params': {}}
     assert composition_category(project) == 'Profiles'

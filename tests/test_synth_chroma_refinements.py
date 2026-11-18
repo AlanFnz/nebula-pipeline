@@ -6,9 +6,9 @@ import numpy as np
 import pytest
 from PIL import Image
 
-import synth_chroma
-from synth import MODULE_BY_ID, default_synth_preset, render_synth_frame
-from synth_chroma import render_slice_echo, slice_envelope, slice_events
+import nebula.effects.synth_chroma as synth_chroma
+from nebula.render.synth import MODULE_BY_ID, default_synth_preset, render_synth_frame
+from nebula.effects.synth_chroma import render_slice_echo, slice_envelope, slice_events
 
 
 NEW_CONTROLS = ('angle', 'highlight_protect', 'luma_mask', 'envelope')

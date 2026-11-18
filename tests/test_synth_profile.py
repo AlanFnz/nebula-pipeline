@@ -6,14 +6,14 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from synth import MODULE_BY_ID, default_synth_preset, render_synth_frame
-from synth_canvas import resize_canvas
-from synth_composition import compile_composition, load_composition, profile_signal_composition, save_composition
-from synth_effects import describe_effects
-from synth_media import export_synth_video
-from synth_profile import _neck_dissolve, render_edge_phosphor, render_scan_drag, render_silhouette
-from synth_sequence import _state_preset, load_sequence, render_sequence_frame, save_sequence
-from synth_subject import active_subjects, restore_subject, scope_states, select_subject
+from nebula.render.synth import MODULE_BY_ID, default_synth_preset, render_synth_frame
+from nebula.core.synth_canvas import resize_canvas
+from nebula.documents.synth_composition import compile_composition, load_composition, profile_signal_composition, save_composition
+from nebula.effects.synth_effects import describe_effects
+from nebula.documents.synth_media import export_synth_video
+from nebula.effects.synth_profile import _neck_dissolve, render_edge_phosphor, render_scan_drag, render_silhouette
+from nebula.documents.synth_sequence import _state_preset, load_sequence, render_sequence_frame, save_sequence
+from nebula.sources.synth_subject import active_subjects, restore_subject, scope_states, select_subject
 
 
 def settings(module, **changes):

@@ -9,9 +9,9 @@ from PySide6.QtGui import QContextMenuEvent
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 
-from synth_composition import (compile_composition, load_composition, normalize_composition,
+from nebula.documents.synth_composition import (compile_composition, load_composition, normalize_composition,
                                reference_composition, save_composition, section_placements, section_ranges)
-from synth_studio import SynthStudio
+from nebula.ui.synth_studio import SynthStudio
 
 
 @pytest.fixture

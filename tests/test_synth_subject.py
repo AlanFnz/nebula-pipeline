@@ -2,11 +2,11 @@ import copy
 
 import pytest
 
-from synth_composition import (compile_composition, load_composition, mixed_media_composition,
+from nebula.documents.synth_composition import (compile_composition, load_composition, mixed_media_composition,
                                reference_composition, save_composition, section_ranges)
-from synth_effects import describe_effects
-from synth_sequence import render_sequence_frame
-from synth_subject import active_subjects, restore_subject, scope_states, select_subject
+from nebula.effects.synth_effects import describe_effects
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.sources.synth_subject import active_subjects, restore_subject, scope_states, select_subject
 
 
 @pytest.mark.parametrize('kind,expected', [('ink', 'ink_bloom'), ('particles', 'particles'), ('signal', 'forms'), ('none', None)])

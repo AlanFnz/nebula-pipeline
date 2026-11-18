@@ -6,10 +6,10 @@ import numpy as np
 import pytest
 from PIL import Image
 
-import analog_wobble as fx
-from engine import render_frame, frame_values
-from grade import process as grade_process
-from parameters import DEFAULTS, normalize, load, save
+import nebula.legacy.analog_wobble as fx
+from nebula.core.engine import render_frame, frame_values
+from nebula.legacy.grade import process as grade_process
+from nebula.core.parameters import DEFAULTS, normalize, load, save
 
 
 def source():

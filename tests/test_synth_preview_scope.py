@@ -6,10 +6,10 @@ import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QFileDialog
-from synth_composition import reference_composition, section_placements
-from synth_preview import PreviewFrames, PreviewScope, PreviewScheduler, resolve_scope
-from synth_sequence import render_sequence_frame
-from synth_studio import PreparePreviewJob
+from nebula.documents.synth_composition import reference_composition, section_placements
+from nebula.render.synth_preview import PreviewFrames, PreviewScope, PreviewScheduler, resolve_scope
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.ui.synth_studio import PreparePreviewJob
 from test_synth_composer_ui import window, wait_until
 
 
@@ -97,7 +97,7 @@ def test_scope_clock_skips_gaps_and_retains_repeated_seek(window, monkeypatch):
     window.section_timeline.select_at(2, Qt.KeyboardModifier.MetaModifier)
     window.preview_scope.setCurrentIndex(1)
     window.timeline.setValue(10)
-    clock = [100.]; monkeypatch.setattr('synth_studio.time.monotonic', lambda: clock[0])
+    clock = [100.]; monkeypatch.setattr('nebula.ui.synth_studio.time.monotonic', lambda: clock[0])
     window.play.setChecked(True); clock[0] += .08; window.advance()
     assert window.timeline.value() == 15  # Original absolute frame in the repeated third section.
     window.play.setChecked(False)
@@ -164,7 +164,7 @@ def test_cancelled_delivery_and_export_cannot_repopulate_cache(window, monkeypat
 
 @pytest.mark.parametrize('capacity', [1, 2, 3, 4])
 def test_small_budget_seek_waits_for_cancelled_warm_delivery(window, monkeypatch, capacity):
-    from synth_studio import RenderJob
+    from nebula.ui.synth_studio import RenderJob
     window.auto_prepare.setChecked(False)
     window.set_composition(short_document()); settle(window)
     size = window.preview_size(); frame_bytes = size[0]*size[1]*3
@@ -191,7 +191,7 @@ from test_synth_video import clip
 @pytest.mark.parametrize('bypass', [False, True])
 def test_selected_video_preview_keeps_absolute_source_and_effect_clocks(window, clip, tmp_path, monkeypatch, bypass):
     from pathlib import Path
-    from synth_video import video_composition, VideoFrameProvider, apply_treatment
+    from nebula.sources.synth_video import video_composition, VideoFrameProvider, apply_treatment
     monkeypatch.setattr(Path, 'home', classmethod(lambda cls: tmp_path))
     window.auto_prepare.setChecked(False)
     project = apply_treatment(video_composition(clip), 1)

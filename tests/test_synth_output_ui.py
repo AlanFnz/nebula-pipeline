@@ -10,15 +10,15 @@ os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 import pytest
 from PySide6.QtCore import QEvent, Qt, QThreadPool
 from PySide6.QtWidgets import QApplication
-from synth import default_synth_preset
-from synth_canvas import preview_size
-from synth_composition import blank_composition
-from synth_media import export_synth_video
-from synth_montage import new_montage, add_asset, insert_clip
-from synth_montage_ui import MontageWindow
-from synth_output_ui import export_rows, export_audio_label, cache_caption
-from synth_studio import SynthStudio
-from synth_visual_sound import instrument_sound
+from nebula.render.synth import default_synth_preset
+from nebula.core.synth_canvas import preview_size
+from nebula.documents.synth_composition import blank_composition
+from nebula.documents.synth_media import export_synth_video
+from nebula.documents.synth_montage import new_montage, add_asset, insert_clip
+from nebula.ui.synth_montage_ui import MontageWindow
+from nebula.ui.synth_output_ui import export_rows, export_audio_label, cache_caption
+from nebula.ui.synth_studio import SynthStudio
+from nebula.audio.synth_visual_sound import instrument_sound
 
 
 @pytest.fixture
@@ -197,7 +197,7 @@ def test_block_preview_and_montage_export_have_different_scopes(montage):
 
 @pytest.mark.parametrize('size',[(1280,800),(1440,900),(1024,768)])
 def test_monitor_controls_and_summary_fit_workspace(editor,size):
-    from studio_theme import apply_theme
+    from nebula.ui.studio_theme import apply_theme
     apply_theme(QApplication.instance())
     editor.resize(*size); QApplication.processEvents()
     assert editor.width() == size[0]

@@ -5,13 +5,13 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from synth import MODULE_BY_ID, curated_presets, default_synth_preset, render_synth_frame
-from synth_chroma import render_chroma_print, render_slice_echo, render_screen_mesh, slice_events
-from synth_composition import compile_composition
-from synth_portrait_recipes import PORTRAIT_EFFECTS, portrait_composition
-from synth_sequence import render_sequence_frame
-from synth_studies import save_study, study_composition
-from synth_video import TREATMENTS, apply_treatment, source_index, video_composition
+from nebula.render.synth import MODULE_BY_ID, curated_presets, default_synth_preset, render_synth_frame
+from nebula.effects.synth_chroma import render_chroma_print, render_slice_echo, render_screen_mesh, slice_events
+from nebula.documents.synth_composition import compile_composition
+from nebula.documents.synth_portrait_recipes import PORTRAIT_EFFECTS, portrait_composition
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.documents.synth_studies import save_study, study_composition
+from nebula.sources.synth_video import TREATMENTS, apply_treatment, source_index, video_composition
 from test_synth_video import clip
 
 

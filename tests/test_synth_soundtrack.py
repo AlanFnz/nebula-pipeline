@@ -9,15 +9,15 @@ import numpy as np
 from PIL import Image
 import pytest
 
-from media import Cancellation, Cancelled
-from synth import default_synth_preset
-from synth_composition import (blank_composition, compile_composition, composition_from_sequence,
+from nebula.core.media import Cancellation, Cancelled
+from nebula.render.synth import default_synth_preset
+from nebula.documents.synth_composition import (blank_composition, compile_composition, composition_from_sequence,
                                load_composition, normalize_composition, save_composition)
-from synth_media import export_synth_video
-from synth_sequence import load_sequence, normalize_sequence, render_sequence_frame, save_sequence
-from synth_soundtrack import (check_soundtrack, mux_soundtrack_audio, normalize_soundtrack,
+from nebula.documents.synth_media import export_synth_video
+from nebula.documents.synth_sequence import load_sequence, normalize_sequence, render_sequence_frame, save_sequence
+from nebula.audio.synth_soundtrack import (check_soundtrack, mux_soundtrack_audio, normalize_soundtrack,
                               probe_soundtrack, soundtrack_source_time, waveform_peaks)
-from synth_video import inspect_video, video_composition
+from nebula.sources.synth_video import inspect_video, video_composition
 
 
 def ffmpeg(*args):
@@ -190,7 +190,7 @@ def test_mux_trim_offset_end_and_partial_exports(tones, tmp_path, mode, start, d
 
 @pytest.mark.parametrize('cancel_phase', ['trim.wav', 'mux.mp4'])
 def test_gain_and_atomic_cancellation_protect_existing_destination(tones, tmp_path, monkeypatch, cancel_phase):
-    import synth_soundtrack
+    import nebula.audio.synth_soundtrack as synth_soundtrack
     video = silent_video(tmp_path / 'video.mp4', .6)
     full = tmp_path / 'full.mp4'; half = tmp_path / 'half.mp4'
     mux_soundtrack_audio(video, full, tones, 0., .6)
@@ -219,7 +219,7 @@ def test_mux_refuses_source_and_hardlink_overwrite(tones, tmp_path):
 
 @pytest.mark.parametrize('choice,expected', [('soundtrack', 880), ('footage', 440), ('silent', None)])
 def test_export_audio_selection_overrides_footage_and_preserves_video(tones, tmp_path, monkeypatch, choice, expected):
-    import synth_media
+    import nebula.documents.synth_media as synth_media
     clip = tmp_path / 'footage.mkv'
     ffmpeg('-f', 'lavfi', '-i', 'color=size=96x64:rate=20:duration=1',
            '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000:duration=1',
@@ -227,7 +227,7 @@ def test_export_audio_selection_overrides_footage_and_preserves_video(tones, tmp
     project = video_composition(inspect_video(clip))
     project['soundtrack'] = dict(tones, **{'in': 1., 'out': 2., 'export_audio': choice})
     sequence = compile_composition(project)
-    monkeypatch.setattr('synth_sequence.render_sequence_frame', lambda *a, **k: Image.new('RGB', (96, 64)))
+    monkeypatch.setattr('nebula.documents.synth_sequence.render_sequence_frame', lambda *a, **k: Image.new('RGB', (96, 64)))
     destination = tmp_path / f'{choice}.mp4'
     export_synth_video(default_synth_preset(), destination, count=10, size=(96, 64), sequence=sequence)
     if expected is None:
@@ -240,7 +240,7 @@ def test_export_audio_selection_overrides_footage_and_preserves_video(tones, tmp
 
 
 def test_legacy_export_and_missing_soundtrack_with_silent_choice(tones, tmp_path, monkeypatch):
-    monkeypatch.setattr('synth_sequence.render_sequence_frame', lambda *a, **k: Image.new('RGB', (96, 64)))
+    monkeypatch.setattr('nebula.documents.synth_sequence.render_sequence_frame', lambda *a, **k: Image.new('RGB', (96, 64)))
     sequence = compile_composition(blank_composition())
     output = tmp_path / 'legacy.mp4'
     export_synth_video(default_synth_preset(), output, count=3, size=(96, 64), sequence=sequence)
@@ -256,7 +256,7 @@ def test_legacy_export_and_missing_soundtrack_with_silent_choice(tones, tmp_path
 
 
 def test_partial_video_export_uses_absolute_audio_clock(tones, tmp_path, monkeypatch):
-    monkeypatch.setattr('synth_sequence.render_sequence_frame', lambda *a, **k: Image.new('RGB', (96, 64)))
+    monkeypatch.setattr('nebula.documents.synth_sequence.render_sequence_frame', lambda *a, **k: Image.new('RGB', (96, 64)))
     project = blank_composition()
     project['soundtrack'] = dict(tones, **{'in': .25, 'out': 1.75, 'offset': .4, 'end_mode': 'loop'})
     sequence = compile_composition(project)

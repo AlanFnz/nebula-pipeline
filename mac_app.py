@@ -25,7 +25,7 @@ def main():
         args = ["--synth"]
     sys.argv = [sys.argv[0], *args]
     try:
-        from studio import main as run_studio
+        from nebula.ui.studio import main as run_studio
         run_studio()
     except Exception:
         traceback.print_exc()

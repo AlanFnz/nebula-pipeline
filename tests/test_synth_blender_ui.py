@@ -2,7 +2,7 @@ import os
 os.environ.setdefault('QT_QPA_PLATFORM','offscreen')
 from PIL import Image
 from test_synth_composer_ui import window, wait_until
-from synth_starters import starter_composition
+from nebula.documents.synth_starters import starter_composition
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
@@ -10,7 +10,7 @@ import copy
 
 
 def test_scene_controls_history_and_groups(window,monkeypatch):
-    import synth_blender_bridge as bridge
+    import nebula.sources.synth_blender_bridge as bridge
     monkeypatch.setattr(bridge,'render_frame',lambda p,a,size:Image.new('RGB',size,'seagreen'))
     project=starter_composition('optical-relic')
     window.set_composition(project)
@@ -29,7 +29,7 @@ def test_scene_controls_history_and_groups(window,monkeypatch):
 
 
 def test_independent_part_selection_edit_material_animation_and_undo(window,monkeypatch):
-    import synth_blender_bridge as bridge
+    import nebula.sources.synth_blender_bridge as bridge
     monkeypatch.setattr(bridge,'render_frame',lambda p,a,size,**kw:Image.new('RGB',size,'seagreen'))
     window.set_composition(starter_composition('optical-relic'))
     panel=window.composer.object_panel
@@ -81,7 +81,7 @@ def test_independent_part_selection_edit_material_animation_and_undo(window,monk
 
 
 def test_orbital_navigation_is_scoped_without_rewriting_other_studies(window,monkeypatch):
-    import synth_blender_bridge as bridge
+    import nebula.sources.synth_blender_bridge as bridge
     monkeypatch.setattr(bridge,'render_frame',lambda p,a,size,**kw:Image.new('RGB',size,'seagreen'))
     project=starter_composition('orbital-rings');window.set_composition(project)
     panel=window.composer.object_panel;window.composer.look_tabs.setCurrentWidget(panel)
@@ -108,7 +108,7 @@ def test_orbital_navigation_is_scoped_without_rewriting_other_studies(window,mon
 
 
 def test_yin_yang_shape_material_and_finish_are_editable_with_undo(window,monkeypatch):
-    import synth_blender_bridge as bridge
+    import nebula.sources.synth_blender_bridge as bridge
     monkeypatch.setattr(bridge,'render_frame',lambda p,a,size,**kw:Image.new('RGB',size,'seagreen'))
     window.set_composition(starter_composition('yin-yang'))
     panel=window.composer.object_panel;window.composer.look_tabs.setCurrentWidget(panel)

@@ -2,8 +2,8 @@
 import numpy as np
 import pytest
 
-from synth import MODULE_BY_ID
-from synth_tape import render_tape_damage
+from nebula.render.synth import MODULE_BY_ID
+from nebula.effects.synth_tape import render_tape_damage
 
 
 def settings(**overrides):
@@ -84,7 +84,7 @@ def test_pull_clock_is_independent_of_existing_fault_clock():
 
 @pytest.mark.parametrize('width', [64, 121, 720])
 def test_anchored_pull_coordinates_stay_monotonic_and_inside_canvas(width):
-    from synth_tape import _anchored_pull_shifts
+    from nebula.effects.synth_tape import _anchored_pull_shifts
     shifts = _anchored_pull_shifts(width, np.linspace(-.42, .42, 31))
     source = np.arange(width)[None, :] - shifts
     assert np.all(source >= 0) and np.all(source <= width-1)

@@ -1,7 +1,7 @@
 import os
 os.environ.setdefault('QT_QPA_PLATFORM','offscreen')
 from test_synth_composer_ui import window, wait_until
-from synth_starters import starter_composition
+from nebula.documents.synth_starters import starter_composition
 
 
 def test_lattice_shapes_palettes_timing_and_undo_are_editable(window):

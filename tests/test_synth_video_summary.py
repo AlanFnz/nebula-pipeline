@@ -3,8 +3,8 @@ import copy
 
 import pytest
 
-from synth_section_sources import video_source_at
-from synth_video_summary import section_playback_summary
+from nebula.documents.synth_section_sources import video_source_at
+from nebula.documents.synth_video_summary import section_playback_summary
 
 
 def sequence(end_mode='hold', rate=1.):

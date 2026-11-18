@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-import studio_diagnostics as diagnostics
+import nebula.core.studio_diagnostics as diagnostics
 
 
 def test_local_logs_rotate_and_failed_setup_does_not_break_editor(tmp_path):

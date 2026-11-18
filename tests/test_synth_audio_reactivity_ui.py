@@ -6,8 +6,8 @@ import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QSignalSpy, QTest
 from PySide6.QtWidgets import QApplication
-from synth_audio_reactivity_ui import AudioReactivityDialog
-from synth_soundtrack_ui import SoundtrackDialog
+from nebula.ui.synth_audio_reactivity_ui import AudioReactivityDialog
+from nebula.ui.synth_soundtrack_ui import SoundtrackDialog
 
 
 @pytest.fixture(scope='module')

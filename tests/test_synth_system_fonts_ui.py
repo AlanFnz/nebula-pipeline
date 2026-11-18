@@ -3,10 +3,10 @@ import pytest
 from PySide6.QtWidgets import QApplication
 from test_synth_effects_editor_integration import make_window
 from test_synth_system_fonts import external_font, TEXT_STUDIES
-from synth_font_ui import FontControl, FontPicker
-from synth_starters import starter_composition
-from synth_composition import compile_composition, save_composition, load_composition
-from synth_sequence import render_sequence_frame
+from nebula.ui.synth_font_ui import FontControl, FontPicker
+from nebula.documents.synth_starters import starter_composition
+from nebula.documents.synth_composition import compile_composition, save_composition, load_composition
+from nebula.documents.synth_sequence import render_sequence_frame
 
 
 @pytest.mark.parametrize('key',TEXT_STUDIES)
@@ -39,7 +39,7 @@ def test_system_font_clip_scope_undo_draft_and_save(make_window,external_font,tm
 def test_picker_search_preview_cancel_and_select(make_window,external_font,monkeypatch):
     import json
     row=json.loads(external_font)
-    monkeypatch.setattr('synth_font_ui.system_catalog',lambda:(row,))
+    monkeypatch.setattr('nebula.ui.synth_font_ui.system_catalog',lambda:(row,))
     window=make_window(composition=starter_composition('text-contact-film'));original=copy.deepcopy(window.composition)
     dialog=FontPicker(5,parent=window);dialog.show();QApplication.processEvents()
     dialog.library.setCurrentIndex(2);dialog.search.setText('space mono')

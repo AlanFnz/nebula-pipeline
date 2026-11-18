@@ -5,13 +5,13 @@ import subprocess
 import numpy as np
 import pytest
 
-from synth import MODULE_BY_ID, default_synth_preset, render_synth_frame
-from synth_canvas import format_canvas
-from synth_composition import compile_composition, ink_bloom_composition, load_composition, save_composition
-from synth_effects import effect_preset
-from synth_print import bloom_phase, render_ink_bloom, render_print_surface
-from synth_media import export_synth_video
-from synth_sequence import _state_preset, render_sequence_frame
+from nebula.render.synth import MODULE_BY_ID, default_synth_preset, render_synth_frame
+from nebula.core.synth_canvas import format_canvas
+from nebula.documents.synth_composition import compile_composition, ink_bloom_composition, load_composition, save_composition
+from nebula.effects.synth_effects import effect_preset
+from nebula.effects.synth_print import bloom_phase, render_ink_bloom, render_print_surface
+from nebula.documents.synth_media import export_synth_video
+from nebula.documents.synth_sequence import _state_preset, render_sequence_frame
 
 
 def settings(module, **overrides):
@@ -116,7 +116,7 @@ def test_middle_fold_crosses_the_outer_planes_and_reverse_ink_preserves_front_co
 
 def test_saved_ink_recipe_retains_its_look_if_module_defaults_change(monkeypatch):
     from dataclasses import replace
-    import synth
+    import nebula.render.synth as synth
     project = ink_bloom_composition()
     before = render_sequence_frame(compile_composition(project), 1.6, (180, 180)).tobytes()
     changed = []

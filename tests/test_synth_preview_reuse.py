@@ -4,10 +4,10 @@ import os
 from pathlib import Path
 import pytest
 from PySide6.QtCore import Qt
-from synth_composition import reference_composition, normalize_composition, compile_composition
-from synth_sequence import reference_sequence, normalize_sequence, render_sequence_frame
-from synth_effects import effect_preset
-from synth_preview import RenderValidity, retained_frame_predicate, _file_fingerprint
+from nebula.documents.synth_composition import reference_composition, normalize_composition, compile_composition
+from nebula.documents.synth_sequence import reference_sequence, normalize_sequence, render_sequence_frame
+from nebula.effects.synth_effects import effect_preset
+from nebula.render.synth_preview import RenderValidity, retained_frame_predicate, _file_fingerprint
 from test_synth_composer_ui import window, wait_until
 
 

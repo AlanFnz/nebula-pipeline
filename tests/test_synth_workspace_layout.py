@@ -9,8 +9,8 @@ from PySide6.QtCore import QPoint, QSettings, QThreadPool, Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 
-from studio_theme import apply_theme
-from synth_studio import SynthStudio
+from nebula.ui.studio_theme import apply_theme
+from nebula.ui.synth_studio import SynthStudio
 
 
 @pytest.fixture

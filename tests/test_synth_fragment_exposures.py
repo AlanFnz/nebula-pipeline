@@ -6,13 +6,13 @@ import numpy as np
 import pytest
 from PIL import Image
 
-import synth_chroma
-from synth import MODULE_BY_ID, default_synth_preset, render_synth_frame
-from synth_chroma import render_chroma_print, render_slice_echo
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_portrait_recipes import fractured_composition, exposure_composition, portrait_composition
-from synth_sequence import render_sequence_frame
-from synth_video import apply_treatment, video_composition
+import nebula.effects.synth_chroma as synth_chroma
+from nebula.render.synth import MODULE_BY_ID, default_synth_preset, render_synth_frame
+from nebula.effects.synth_chroma import render_chroma_print, render_slice_echo
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.documents.synth_portrait_recipes import fractured_composition, exposure_composition, portrait_composition
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.sources.synth_video import apply_treatment, video_composition
 from test_synth_video import clip
 from test_synth_video_ui import window
 

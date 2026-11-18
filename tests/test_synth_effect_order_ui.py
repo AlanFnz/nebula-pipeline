@@ -8,11 +8,11 @@ from PySide6.QtCore import QPoint, QThreadPool, Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QMenu, QMessageBox, QScrollArea
 
-from studio_theme import apply_theme
-from synth_composition import blank_composition, compile_composition, save_composition, load_composition
-from synth_composer_ui import CompositionPanel
-from synth_effects import effect_preset
-from synth_studio import SynthStudio
+from nebula.ui.studio_theme import apply_theme
+from nebula.documents.synth_composition import blank_composition, compile_composition, save_composition, load_composition
+from nebula.ui.synth_composer_ui import CompositionPanel
+from nebula.effects.synth_effects import effect_preset
+from nebula.ui.synth_studio import SynthStudio
 
 
 def document():

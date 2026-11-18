@@ -1,10 +1,10 @@
 import copy
 import pytest
-from synth_starting_points import new_piece
-from synth_effect_discovery import effect_candidate, preset_entry
-from synth_composition import compile_composition
-from synth_sequence import render_sequence_frame
-from synth_exploration import capture_snapshot
+from nebula.documents.synth_starting_points import new_piece
+from nebula.effects.synth_effect_discovery import effect_candidate, preset_entry
+from nebula.documents.synth_composition import compile_composition
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.documents.synth_exploration import capture_snapshot
 
 
 def test_candidates_preserve_complete_document_and_exact_committed_pixels():
@@ -40,8 +40,8 @@ def test_invalid_candidates_are_rejected(effect, operation, preset, sid):
 
 
 def test_sampled_window_uses_absolute_frames_and_discontinuous_scope():
-    from synth_preview import PreviewScope
-    from synth_effect_preview import sampled_window
+    from nebula.render.synth_preview import PreviewScope
+    from nebula.render.synth_effect_preview import sampled_window
     scope = PreviewScope(((30, 45), (100, 180)), 2)
     frames = sampled_window(scope, 40, 30)
     assert len(frames) <= 24 and len(set(frames)) == len(frames)
@@ -53,8 +53,8 @@ def test_sampled_window_uses_absolute_frames_and_discontinuous_scope():
 def test_preview_session_cancel_and_exact_apply_in_real_studio(monkeypatch):
     from PySide6.QtWidgets import QApplication
     from PySide6.QtCore import QThreadPool
-    from synth_studio import SynthStudio
-    from synth_effect_preview import EffectPreviewSession
+    from nebula.ui.synth_studio import SynthStudio
+    from nebula.render.synth_effect_preview import EffectPreviewSession
     app = QApplication.instance() or QApplication([])
     monkeypatch.setattr(SynthStudio, 'request_frame', lambda self: None)
     studio = SynthStudio(composition=new_piece('shape'))
@@ -83,8 +83,8 @@ def test_preview_session_cancel_and_exact_apply_in_real_studio(monkeypatch):
 
 
 def test_contributions_include_authored_off_personal_sources_and_scope():
-    from synth_effects import describe_effects
-    from synth_effect_catalog import composition_contributions
+    from nebula.effects.synth_effects import describe_effects
+    from nebula.effects.synth_effect_catalog import composition_contributions
     doc = new_piece('shape')
     sequence = compile_composition(doc)
     rows = composition_contributions(describe_effects(list(sequence['states'].values())), {'tape':{'mode':'off','params':{}}}, {})

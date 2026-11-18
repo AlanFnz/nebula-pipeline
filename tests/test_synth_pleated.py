@@ -6,18 +6,18 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from synth import MODULE_BY_ID, curated_presets, default_synth_preset
-from synth_canvas import resize_canvas
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_effect_catalog import effect_catalog
-from synth_effects import describe_effects
-from synth_pleated import render_pleated_field
-from synth_pleated_recipes import pleated_composition
-from synth_sequence import render_sequence_frame, resolve_sequence_frame
-from synth_source_adapters import source_frame
-from synth_starters import starter_composition
-from synth_studies import composition_category
-from synth_subject import active_subjects, scope_states, select_subject
+from nebula.render.synth import MODULE_BY_ID, curated_presets, default_synth_preset
+from nebula.core.synth_canvas import resize_canvas
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.effects.synth_effect_catalog import effect_catalog
+from nebula.effects.synth_effects import describe_effects
+from nebula.sources.synth_pleated import render_pleated_field
+from nebula.documents.synth_pleated_recipes import pleated_composition
+from nebula.documents.synth_sequence import render_sequence_frame, resolve_sequence_frame
+from nebula.render.synth_source_adapters import source_frame
+from nebula.documents.synth_starters import starter_composition
+from nebula.documents.synth_studies import composition_category
+from nebula.sources.synth_subject import active_subjects, scope_states, select_subject
 
 
 def defaults():
@@ -30,7 +30,7 @@ def test_study_is_portable_and_seek_order_independent(tmp_path):
     assert composition_category(project)=='Signals'
     assert active_subjects(describe_effects(scope_states(project)))==('pleated',)
     assert 'pleated_field' not in {e.id for e in effect_catalog()}
-    from synth_effect_order import movable
+    from nebula.effects.synth_effect_order import movable
     assert not movable('pleated_field')
     sequence=compile_composition(project)
     assert sequence['duration']==20 and sequence['fps']==12
@@ -92,7 +92,7 @@ def test_new_camera_does_not_change_original_projection():
 
 
 def test_reference_motion_has_quick_push_hold_and_late_collapse():
-    from synth_pleated_recipes import _track
+    from nebula.documents.synth_pleated_recipes import _track
     seq=compile_composition(pleated_composition())
     def value(frame,key):
         preset=resolve_sequence_frame(seq,frame/12)[-1]
@@ -160,7 +160,7 @@ def test_new_source_is_disabled_in_existing_presets():
 
 
 def test_native_export_is_exactly_twenty_seconds(tmp_path):
-    from synth_media import export_synth_video
+    from nebula.documents.synth_media import export_synth_video
     seq=compile_composition(pleated_composition())
     output=tmp_path/'folds.mp4'
     export_synth_video(default_synth_preset(),output,size=(96,72),sequence=seq)

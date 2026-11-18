@@ -7,9 +7,9 @@ import subprocess
 import numpy as np
 import pytest
 
-from media import Cancellation, Cancelled
-from synth_video import inspect_video
-from synth_video_audio import _tempo_filters, mux_source_audio
+from nebula.core.media import Cancellation, Cancelled
+from nebula.sources.synth_video import inspect_video
+from nebula.audio.synth_video_audio import _tempo_filters, mux_source_audio
 from test_synth_video import audio_samples, clip
 
 
@@ -140,7 +140,7 @@ def test_mapped_audio_refuses_source_overwrite(tones,tmp_path):
 
 
 def test_cancel_between_pieces_removes_all_intermediates(tones,tmp_path,monkeypatch):
-    import synth_video_audio
+    import nebula.audio.synth_video_audio as synth_video_audio
     original_run = synth_video_audio.run_ffmpeg
     cancel = Cancellation()
     source_video = video(tmp_path/'silent.mp4',.6)
@@ -158,7 +158,7 @@ def test_cancel_between_pieces_removes_all_intermediates(tones,tmp_path,monkeypa
 
 
 def test_effects_only_clock_map_uses_exact_legacy_ffmpeg_commands(tones,tmp_path,monkeypatch):
-    import synth_video_audio
+    import nebula.audio.synth_video_audio as synth_video_audio
     calls = []
     monkeypatch.setattr(synth_video_audio,'run_ffmpeg',lambda args,cancel:calls.append(args))
     source_video = tmp_path/'silent.mp4'
@@ -175,7 +175,7 @@ def test_effects_only_clock_map_uses_exact_legacy_ffmpeg_commands(tones,tmp_path
 
 
 def test_continuous_same_rate_sections_share_one_audio_piece(tones,tmp_path,monkeypatch):
-    import synth_video_audio
+    import nebula.audio.synth_video_audio as synth_video_audio
     calls = []
     monkeypatch.setattr(synth_video_audio,'run_ffmpeg',lambda args,cancel:calls.append(args))
     mapping = [segment(i*.01,(i+1)*.01,i*.02,2.) for i in range(100)]
@@ -188,7 +188,7 @@ def test_continuous_same_rate_sections_share_one_audio_piece(tones,tmp_path,monk
 
 
 def test_audio_coalescence_retains_source_jumps_and_rate_changes():
-    from synth_video_audio import _coalesce_video_segments
+    from nebula.audio.synth_video_audio import _coalesce_video_segments
     mapping = [segment(0.,1.,0.,2.),segment(1.,2.,2.,2.),
                segment(2.,3.,0.,2.),segment(3.,4.,2.,.5)]
     joined = _coalesce_video_segments(mapping)

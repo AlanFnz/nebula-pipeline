@@ -2,12 +2,12 @@ import copy
 import numpy as np
 import pytest
 
-from synth_lattice_sound import ColorWaveVoice,color_notes,color_wave_sound
-from synth_sound_mixer import MixerChannel,highpass_coefficients
-from synth_visual_sound import normalize_sound,visual_signals,RATE
-from synth_visual_sound_live import LiveInstrument
-from synth_composition import save_composition,load_composition
-from synth_lattice_recipes import lattice_composition
+from nebula.audio.synth_lattice_sound import ColorWaveVoice,color_notes,color_wave_sound
+from nebula.audio.synth_sound_mixer import MixerChannel,highpass_coefficients
+from nebula.audio.synth_visual_sound import normalize_sound,visual_signals,RATE
+from nebula.audio.synth_visual_sound_live import LiveInstrument
+from nebula.documents.synth_composition import save_composition,load_composition
+from nebula.documents.synth_lattice_recipes import lattice_composition
 from test_synth_lattice_sound import rhythmic_study
 from test_synth_visual_sound_ui import app
 
@@ -108,7 +108,7 @@ def test_shared_oscillators_keep_both_crossfade_mixes_exact():
 
 
 def test_layer_ui_history_and_saved_file_preserve_original_parts(app,tmp_path):
-    from synth_visual_sound_ui import VisualSoundDialog
+    from nebula.ui.synth_visual_sound_ui import VisualSoundDialog
     c=normalize_sound(config());d=VisualSoundDialog();d.set_config(c)
     assert d.read_config()==c and d.tabs.isTabVisible(d.chimes_tab)
     states=[c]

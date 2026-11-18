@@ -8,9 +8,9 @@ import pytest
 from PySide6.QtCore import QThreadPool
 from PySide6.QtWidgets import QApplication
 
-from synth_studio import SynthStudio
-from synth import curated_presets
-from synth_sequence import load_sequence, reference_sequence, render_sequence_frame, save_sequence
+from nebula.ui.synth_studio import SynthStudio
+from nebula.render.synth import curated_presets
+from nebula.documents.synth_sequence import load_sequence, reference_sequence, render_sequence_frame, save_sequence
 
 
 @pytest.fixture

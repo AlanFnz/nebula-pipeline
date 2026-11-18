@@ -3,13 +3,13 @@ import copy
 import numpy as np
 import pytest
 from PIL import Image
-from synth import MODULE_BY_ID, default_synth_preset, render_synth_frame
-from synth_composition import compile_composition, save_composition, load_composition
-from synth_effects import effect_preset
-from synth_repetition import render_signal_repetition
-from synth_repetition_recipes import temporal_fragments_composition
-from synth_sequence import render_sequence_frame, resolve_sequence_frame
-from synth_video import TREATMENTS, apply_treatment, video_composition
+from nebula.render.synth import MODULE_BY_ID, default_synth_preset, render_synth_frame
+from nebula.documents.synth_composition import compile_composition, save_composition, load_composition
+from nebula.effects.synth_effects import effect_preset
+from nebula.documents.synth_repetition import render_signal_repetition
+from nebula.documents.synth_repetition_recipes import temporal_fragments_composition
+from nebula.documents.synth_sequence import render_sequence_frame, resolve_sequence_frame
+from nebula.sources.synth_video import TREATMENTS, apply_treatment, video_composition
 from test_synth_video import clip
 from test_synth_video_ui import window
 
@@ -154,7 +154,7 @@ def test_inspector_only_shows_relevant_selection_and_background_controls(window)
     panel.controls['signal_repetition.region'].input.setCurrentIndex(3)
     assert panel.controls['signal_repetition.key_hue'].isHidden()
     assert not panel.controls['signal_repetition.key_invert'].isHidden()
-    from synth_inspector import control_group
+    from nebula.ui.synth_inspector import control_group
     panel.group.setCurrentText(control_group('signal_repetition.outside_mix'))
     panel.controls['signal_repetition.outside_mix'].input.setValue(1.)
     assert not panel.controls['signal_repetition.outside_level'].isHidden()
@@ -184,7 +184,7 @@ def test_living_motion_seeks_holds_and_freezes_as_one_signal():
 
 
 def test_unlock_events_are_irregular_bounded_and_continuous_at_windows():
-    from synth_repetition import _sync_envelope
+    from nebula.documents.synth_repetition import _sync_envelope
     times=np.arange(0,5,.005)
     values=np.array([_sync_envelope(t,1.4,23) for t in times])
     assert np.isfinite(values).all() and values.min()==0 and .7<values.max()<=1
@@ -205,7 +205,7 @@ def test_living_motion_does_not_pull_black_edges_into_the_canvas():
 
 
 def test_living_recipe_and_treatment_are_separate_from_original(clip,tmp_path):
-    from synth_repetition_recipes import living_fragments_composition
+    from nebula.documents.synth_repetition_recipes import living_fragments_composition
     original=temporal_fragments_composition(clip)
     p=living_fragments_composition(clip)
     assert temporal_fragments_composition(clip)==original
@@ -224,8 +224,8 @@ def test_living_recipe_and_treatment_are_separate_from_original(clip,tmp_path):
 
 
 def test_living_controls_can_be_automated_and_undone(window):
-    from synth_automation import target_parameter
-    from synth_inspector import control_group
+    from nebula.documents.synth_automation import target_parameter
+    from nebula.ui.synth_inspector import control_group
     p=copy.deepcopy(window.composition);p['effects']['signal_repetition']=effect_preset('signal_repetition')
     window.set_composition(p)
     panel=window.composer.effects_panel;panel.inspect_effect('signal_repetition')

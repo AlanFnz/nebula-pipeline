@@ -1,10 +1,10 @@
 import copy
 import numpy as np
 import pytest
-from synth_automation import normalize_automations, envelope, absolute_event, apply_automations
-from synth_composition import (blank_composition, normalize_composition, compile_composition,
+from nebula.documents.synth_automation import normalize_automations, envelope, absolute_event, apply_automations
+from nebula.documents.synth_composition import (blank_composition, normalize_composition, compile_composition,
                                composition_from_sequence, stretch_section, save_composition, load_composition)
-from synth_sequence import normalize_sequence, resolve_sequence_frame, render_sequence_frame, save_sequence, load_sequence
+from nebula.documents.synth_sequence import normalize_sequence, resolve_sequence_frame, render_sequence_frame, save_sequence, load_sequence
 
 
 def gesture(**values):
@@ -126,7 +126,7 @@ def test_many_exported_events_and_repeated_conversion_keep_bounded_ids():
 
 
 def test_generated_v2_detailed_copy_keeps_render_version_and_pixels():
-    from synth_composition import mixed_media_composition
+    from nebula.documents.synth_composition import mixed_media_composition
     p = mixed_media_composition(); p['render_version'] = 2
     p['sections'][0]['automations'] = [gesture()]
     seq = compile_composition(p); rebuilt = compile_composition(composition_from_sequence(seq))
@@ -136,8 +136,8 @@ def test_generated_v2_detailed_copy_keeps_render_version_and_pixels():
 
 
 def test_snapshots_and_study_retain_events_and_resolved_frames(tmp_path):
-    from synth_exploration import capture_snapshot, restore_snapshot
-    from synth_studies import save_study, study_composition
+    from nebula.documents.synth_exploration import capture_snapshot, restore_snapshot
+    from nebula.documents.synth_studies import save_study, study_composition
     p = project(); snap, sid = capture_snapshot(p, 'Automated base')
     snap['sections'][0]['automations'][0]['enabled'] = False
     restored = restore_snapshot(snap, sid)

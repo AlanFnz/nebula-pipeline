@@ -3,15 +3,15 @@ import copy
 
 import pytest
 
-from synth_composition import compile_composition, load_composition, save_composition, normalize_composition
-from synth_exploration import capture_snapshot, restore_snapshot
-from synth_lattice_sound import color_wave_sound
-from synth_live_mode import LIVE_OUTPUT, is_live
-from synth_output_ui import export_audio_label
-from synth_pleated_recipes import pleated_composition
-from synth_preview import _visual_document
-from synth_studies import save_study, study_composition
-from synth_visual_sound import audio_output, default_sound, acid_sound, instrument_sound, normalize_sound
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition, normalize_composition
+from nebula.documents.synth_exploration import capture_snapshot, restore_snapshot
+from nebula.audio.synth_lattice_sound import color_wave_sound
+from nebula.documents.synth_live_mode import LIVE_OUTPUT, is_live
+from nebula.ui.synth_output_ui import export_audio_label
+from nebula.documents.synth_pleated_recipes import pleated_composition
+from nebula.render.synth_preview import _visual_document
+from nebula.documents.synth_studies import save_study, study_composition
+from nebula.audio.synth_visual_sound import audio_output, default_sound, acid_sound, instrument_sound, normalize_sound
 
 
 @pytest.mark.parametrize('factory', [instrument_sound, color_wave_sound])

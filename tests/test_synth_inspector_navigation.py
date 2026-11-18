@@ -6,9 +6,9 @@ import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QSignalSpy, QTest
 from PySide6.QtWidgets import QApplication
-from synth_video_ui import VideoSourcePanel
-from synth_video import video_composition
-from synth_intensity import intensity_path
+from nebula.ui.synth_video_ui import VideoSourcePanel
+from nebula.sources.synth_video import video_composition
+from nebula.effects.synth_intensity import intensity_path
 from test_synth_video import clip
 from test_synth_compact_effects import make_panel
 

@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
     QToolButton, QVBoxLayout, QWidget,
 )
 
-from studio_theme import COLORS, apply_theme, terminal_font, ui_font
+from nebula.ui.studio_theme import COLORS, apply_theme, terminal_font, ui_font
 
 
 @pytest.fixture

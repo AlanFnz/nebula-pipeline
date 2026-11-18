@@ -10,9 +10,9 @@ from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 
-from engine import render_frame
-from media import decode_frames
-from studio import Studio, STYLE
+from nebula.core.engine import render_frame
+from nebula.core.media import decode_frames
+from nebula.ui.studio import Studio, STYLE
 
 
 @pytest.fixture(scope="module")
@@ -84,7 +84,7 @@ def test_rapid_changes_scrub_bypass_ab_and_stale_job(window):
 
 
 def test_loop_playback_preset_and_full_size(window, tmp_path):
-    from parameters import load, save
+    from nebula.core.parameters import load, save
     w = window
     w.loop_start.setValue(.5)
     w.loop_length.setCurrentIndex(0)

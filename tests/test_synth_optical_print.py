@@ -7,17 +7,17 @@ import numpy as np
 import pytest
 from PIL import Image, ImageFilter
 
-from synth import MODULE_BY_ID, curated_presets, default_synth_preset, render_synth_frame
-from synth_automation import TARGETS, target_parameter
-from synth_composition import compile_composition, save_composition, load_composition
-from synth_effect_catalog import effect_catalog
-from synth_effects import effect_preset
-from synth_optical_print import render_optical_print, exposure_at
-from synth_optical_recipes import dark_print_composition
-from synth_reading_montage import ReadingBeat, reading_schedule
-from synth_sequence import render_sequence_frame
-from synth_starters import starter_composition
-from synth_video import VIDEO_EFFECTS, VIDEO_MODULES
+from nebula.render.synth import MODULE_BY_ID, curated_presets, default_synth_preset, render_synth_frame
+from nebula.documents.synth_automation import TARGETS, target_parameter
+from nebula.documents.synth_composition import compile_composition, save_composition, load_composition
+from nebula.effects.synth_effect_catalog import effect_catalog
+from nebula.effects.synth_effects import effect_preset
+from nebula.effects.synth_optical_print import render_optical_print, exposure_at
+from nebula.documents.synth_optical_recipes import dark_print_composition
+from nebula.sources.synth_reading_montage import ReadingBeat, reading_schedule
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.documents.synth_starters import starter_composition
+from nebula.sources.synth_video import VIDEO_EFFECTS, VIDEO_MODULES
 
 
 def defaults():

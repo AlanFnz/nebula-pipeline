@@ -5,12 +5,12 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from synth import default_synth_preset
-from synth_composition import compile_composition, composition_from_sequence, load_composition, mixed_media_composition, normalize_composition, save_composition
-from synth_effects import effect_preset
-from synth_master import DEFAULT_MASTER, apply_master, normalize_master
-from synth_media import export_synth_video
-from synth_sequence import load_sequence, normalize_sequence, render_sequence_frame, save_sequence
+from nebula.render.synth import default_synth_preset
+from nebula.documents.synth_composition import compile_composition, composition_from_sequence, load_composition, mixed_media_composition, normalize_composition, save_composition
+from nebula.effects.synth_effects import effect_preset
+from nebula.effects.synth_master import DEFAULT_MASTER, apply_master, normalize_master
+from nebula.documents.synth_media import export_synth_video
+from nebula.documents.synth_sequence import load_sequence, normalize_sequence, render_sequence_frame, save_sequence
 
 
 def test_master_neutral_and_bypass_are_exact_and_do_not_mutate_pixels():

@@ -2,10 +2,10 @@
 import copy
 from pathlib import Path
 import pytest
-from synth_comparison_preview import ComparisonFrames
-from synth_preview import PreviewScheduler
-from synth_sequence import render_sequence_frame
-from synth_visual_sound import instrument_sound
+from nebula.render.synth_comparison_preview import ComparisonFrames
+from nebula.render.synth_preview import PreviewScheduler
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.audio.synth_visual_sound import instrument_sound
 from test_synth_composer_ui import window,wait_until
 from test_synth_preview_scope import short_document,settle,prepared
 

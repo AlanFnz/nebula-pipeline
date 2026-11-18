@@ -16,10 +16,10 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from synth_composition import (compile_composition, composition_from_sequence,
+from nebula.documents.synth_composition import (compile_composition, composition_from_sequence,
                                load_composition, normalize_composition, save_composition)
-from synth_sequence import normalize_sequence, render_sequence_frame
-from synth_soundtrack import probe_soundtrack
+from nebula.documents.synth_sequence import normalize_sequence, render_sequence_frame
+from nebula.audio.synth_soundtrack import probe_soundtrack
 
 FPS = 30
 # First full-band transient: ~9.36 s in the supplied bounce. Frame 281 is
@@ -284,8 +284,8 @@ def main():
         sheet.paste(frame,(x,y)); draw.text((x,y+390), f"{i+1:02}  {s['frame']/FPS:.2f}s",font=font,fill='white')
     sheet.save(args.output/'contact-sheet.jpg', quality=90)
     if args.render:
-        from synth import default_synth_preset
-        from synth_media import export_synth_video
+        from nebula.render.synth import default_synth_preset
+        from nebula.documents.synth_media import export_synth_video
         def progress(done, total):
             if done % 30 == 0 or done == total: print(f'{done}/{total} frames', flush=True)
         export_synth_video(default_synth_preset(), args.output/'Guerrilla-Radio-audio-guide.mp4',
@@ -295,7 +295,7 @@ def main():
                         '-map','0:v:0','-c:v','copy','-an','-movflags','+faststart',
                         str(args.output/'Guerrilla-Radio-silent.mp4')],check=True)
     if args.save_study:
-        from synth_studies import save_study
+        from nebula.documents.synth_studies import save_study
         identifier = save_study(project, project['name'])
         (args.output/'library-id.txt').write_text(identifier+'\n')
         print('Saved study:',identifier,flush=True)

@@ -14,5 +14,5 @@ def discard_unsaved_fixture_windows(monkeypatch):
         return warning(parent, title, *args, **kwargs)
 
     monkeypatch.setattr(QMessageBox, 'warning', answer)
-    from synth_sound_session_ui import SoundSession
+    from nebula.ui.synth_sound_session_ui import SoundSession
     monkeypatch.setattr(SoundSession, 'choose_pending_sound', lambda *_, **__: 'discard')

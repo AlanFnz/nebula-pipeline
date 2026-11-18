@@ -1,5 +1,5 @@
 from test_synth_composer_ui import window, wait_until
-from synth_starters import starter_composition
+from nebula.documents.synth_starters import starter_composition
 
 
 def test_dark_print_wording_and_reading_protection_are_editable(window):

@@ -6,11 +6,11 @@ import numpy as np
 from PIL import Image
 from PySide6.QtWidgets import QApplication
 from test_synth_effects_editor_integration import make_window
-from synth import MODULE_BY_ID
-from synth_print import render_print_surface
-from synth_print_paint import paint_tick
-from synth_blender_recipes import orbital_rings_composition, orbital_painted_composition, orbital_clean_painted_composition
-from synth_composition import save_composition, load_composition
+from nebula.render.synth import MODULE_BY_ID
+from nebula.effects.synth_print import render_print_surface
+from nebula.effects.synth_print_paint import paint_tick
+from nebula.documents.synth_blender_recipes import orbital_rings_composition, orbital_painted_composition, orbital_clean_painted_composition
+from nebula.documents.synth_composition import save_composition, load_composition
 
 
 def settings(**values):
@@ -75,7 +75,7 @@ def test_painted_recipes_retain_first_scene_and_roundtrip(tmp_path):
 
 
 def test_paint_controls_show_only_applicable_fields_and_support_undo(make_window,monkeypatch):
-    import synth_blender_bridge as bridge
+    import nebula.sources.synth_blender_bridge as bridge
     monkeypatch.setattr(bridge,'render_frame',lambda p,a,size,**kw:Image.new('RGB',size))
     window=make_window(composition=orbital_painted_composition())
     before=copy.deepcopy(window.composition)

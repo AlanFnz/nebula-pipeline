@@ -1,10 +1,10 @@
 import copy
 import pytest
-from synth_starting_points import new_piece
-from synth_composition import compile_composition
-from synth_effect_discovery import effect_candidate
-from synth_effect_diagnostics import explain_effect
-from synth_sequence import resolve_sequence_frame, render_sequence_frame
+from nebula.documents.synth_starting_points import new_piece
+from nebula.documents.synth_composition import compile_composition
+from nebula.effects.synth_effect_discovery import effect_candidate
+from nebula.effects.synth_effect_diagnostics import explain_effect
+from nebula.documents.synth_sequence import resolve_sequence_frame, render_sequence_frame
 
 
 def facts(effect, params=None):
@@ -31,9 +31,9 @@ def test_bypass_scope_and_missing_dependency_are_distinct():
 
 @pytest.mark.parametrize('transition', ['cut','morph','flash','sweep'])
 def test_resolution_matches_renderer_at_transition_boundaries(monkeypatch, transition):
-    import synth_sequence
-    from synth_composition import composition_from_sequence
-    from synth_sequence import reference_sequence
+    import nebula.documents.synth_sequence as synth_sequence
+    from nebula.documents.synth_composition import composition_from_sequence
+    from nebula.documents.synth_sequence import reference_sequence
     sequence = reference_sequence()
     sequence['cues'][1].update(transition=transition, duration=.5)
     captured=[]

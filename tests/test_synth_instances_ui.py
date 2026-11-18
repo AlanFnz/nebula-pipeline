@@ -3,9 +3,9 @@ import os
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 
 from PySide6.QtWidgets import QApplication
-from synth_composition import load_composition, save_composition, compile_composition
-from synth_effects import effect_preset
-from synth_effect_browser import EffectBrowserDialog
+from nebula.documents.synth_composition import load_composition, save_composition, compile_composition
+from nebula.effects.synth_effects import effect_preset
+from nebula.ui.synth_effect_browser import EffectBrowserDialog
 from test_synth_effects_editor_integration import make_window
 from test_synth_instances import piece
 

@@ -10,10 +10,10 @@ from PySide6.QtGui import QKeySequence
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QFileDialog, QMainWindow, QMessageBox
 
-from synth_composition import blank_composition, save_composition
-from synth_montage import add_asset, insert_clip, load_montage, new_montage
-from synth_montage_ui import MontageWindow
-from synth_studio import SynthStudio
+from nebula.documents.synth_composition import blank_composition, save_composition
+from nebula.documents.synth_montage import add_asset, insert_clip, load_montage, new_montage
+from nebula.ui.synth_montage_ui import MontageWindow
+from nebula.ui.synth_studio import SynthStudio
 
 
 @pytest.fixture
@@ -155,7 +155,7 @@ def test_export_from_block_commits_and_exports_whole_project(workspace, monkeypa
 
 
 def test_sound_file_state_tracks_outer_montage_and_save_failure(workspace, monkeypatch):
-    from synth_visual_sound import instrument_sound
+    from nebula.audio.synth_visual_sound import instrument_sound
     root, montage, app = workspace
     editor = montage.edit_clip(montage.document['clips'][0]['id'])
     monkeypatch.setattr(editor, 'audition_visual_sound', lambda *_: None)
@@ -169,7 +169,7 @@ def test_sound_file_state_tracks_outer_montage_and_save_failure(workspace, monke
     dialog.opening.setValue(86)
     monkeypatch.setattr(dialog, 'choose_pending_sound', lambda *args: 'apply')
     def fail(*_): raise OSError('Disk full')
-    monkeypatch.setattr('synth_montage_ui.save_montage', fail)
+    monkeypatch.setattr('nebula.ui.synth_montage_ui.save_montage', fail)
     assert not root.workspace_navigation.save()
     assert dialog.sound_state.text() == 'Sound: Applied'
     assert dialog.file_state.text() == 'File: Unsaved changes'
@@ -178,7 +178,7 @@ def test_sound_file_state_tracks_outer_montage_and_save_failure(workspace, monke
 
 
 def test_return_from_block_can_cancel_pending_sound(workspace, monkeypatch):
-    from synth_visual_sound import instrument_sound
+    from nebula.audio.synth_visual_sound import instrument_sound
     root, montage, app = workspace
     editor = montage.edit_clip(montage.document['clips'][0]['id'])
     monkeypatch.setattr(editor, 'audition_visual_sound', lambda *_: None)

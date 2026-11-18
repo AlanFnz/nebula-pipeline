@@ -8,8 +8,8 @@ from PySide6.QtCore import QPoint, QPointF, Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QScrollArea
 
-from synth_composer_ui import SectionTimeline
-from synth_composition import proportional_section_durations, section_placements
+from nebula.ui.synth_composer_ui import SectionTimeline
+from nebula.documents.synth_composition import proportional_section_durations, section_placements
 
 
 @pytest.fixture
@@ -306,7 +306,7 @@ def test_last_edge_gutter_and_autoscroll_preserve_the_frozen_scale(app,monkeypat
     assert scroll.horizontalScrollBar().maximum() > 0
     QTest.mouseMove(timeline,point+QPoint(5,0))
     pointer = scroll.viewport().mapToGlobal(QPoint(scroll.viewport().width()+10,40))
-    monkeypatch.setattr('synth_composer_ui.QCursor.pos',lambda: pointer)
+    monkeypatch.setattr('nebula.ui.synth_composer_ui.QCursor.pos',lambda: pointer)
     before = scroll.horizontalScrollBar().value()
     timeline._auto_scroll_resize()
     assert scroll.horizontalScrollBar().value() > before

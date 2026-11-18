@@ -3,12 +3,12 @@ import copy
 
 import pytest
 
-from synth_composition import (compile_composition, load_composition, normalize_composition,
+from nebula.documents.synth_composition import (compile_composition, load_composition, normalize_composition,
                                proportional_section_durations, reference_composition,
                                save_composition, section_placements, stretch_sections)
-from synth_retime import mapped_time
-from synth_sequence import render_sequence_frame
-from synth_video import video_composition
+from nebula.documents.synth_retime import mapped_time
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.sources.synth_video import video_composition
 from test_synth_video import clip
 
 

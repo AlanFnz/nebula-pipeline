@@ -7,15 +7,15 @@ import numpy as np
 from PIL import Image, ImageDraw
 import pytest
 
-from media import Cancellation, Cancelled
-from synth import MODULE_BY_ID, curated_presets, render_synth_frame
-from synth_compat import frozen_data
-from synth_composition import blank_composition, compile_composition, load_composition, save_composition
-from synth_cutout import render_cutout, subject_mask, retain_mask
-from synth_effects import effect_preset
-from synth_photocopy import render_photocopy
-from synth_sequence import render_sequence_frame
-from synth_video import VideoFrameProvider, source_index, video_composition
+from nebula.core.media import Cancellation, Cancelled
+from nebula.render.synth import MODULE_BY_ID, curated_presets, render_synth_frame
+from nebula.documents.synth_compat import frozen_data
+from nebula.documents.synth_composition import blank_composition, compile_composition, load_composition, save_composition
+from nebula.effects.synth_cutout import render_cutout, subject_mask, retain_mask
+from nebula.effects.synth_effects import effect_preset
+from nebula.effects.synth_photocopy import render_photocopy
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.sources.synth_video import VideoFrameProvider, source_index, video_composition
 from test_synth_video import clip
 
 
@@ -88,7 +88,7 @@ def test_video_hold_clock_and_effect_toggle_round_trip(clip, tmp_path, monkeypat
 
 
 def test_canonical_masks_ignore_preview_resolution_and_reuse_cache(clip, tmp_path, monkeypatch):
-    import synth_cutout
+    import nebula.effects.synth_cutout as synth_cutout
     seen = []
     def acquire(image, mode, cancel, directory):
         seen.append(image.tobytes())
@@ -103,7 +103,7 @@ def test_canonical_masks_ignore_preview_resolution_and_reuse_cache(clip, tmp_pat
 
 
 def test_mask_cache_cancellation_and_modes(tmp_path, monkeypatch):
-    import synth_cutout
+    import nebula.effects.synth_cutout as synth_cutout
     calls = []
     png = io.BytesIO(); Image.new('L', (8, 8), 200).save(png, format='PNG')
     class Process:
@@ -156,7 +156,7 @@ def test_continuity_recovers_missing_subject_without_borrowing_changed_pixels():
 
 
 def test_continuity_uses_held_source_frames_and_is_seek_order_independent(clip, tmp_path, monkeypatch):
-    import synth_cutout
+    import nebula.effects.synth_cutout as synth_cutout
     calls = []
     def acquire(image, mode, cancel, directory):
         calls.append(mode)

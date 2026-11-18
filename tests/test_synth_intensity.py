@@ -5,11 +5,11 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from synth import default_synth_preset, render_synth_frame
-from synth_composition import blank_composition, compile_composition, save_composition, load_composition
-from synth_effects import EFFECT_BY_ID, effect_preset, describe_effects
-from synth_intensity import PATHS, SignalBranches, blend_pass, intensity_path
-from synth_sequence import render_sequence_frame, resolve_sequence_frame
+from nebula.render.synth import default_synth_preset, render_synth_frame
+from nebula.documents.synth_composition import blank_composition, compile_composition, save_composition, load_composition
+from nebula.effects.synth_effects import EFFECT_BY_ID, effect_preset, describe_effects
+from nebula.effects.synth_intensity import PATHS, SignalBranches, blend_pass, intensity_path
+from nebula.documents.synth_sequence import render_sequence_frame, resolve_sequence_frame
 
 
 def project(effect, intensity=100):
@@ -49,7 +49,7 @@ def test_partial_intensity_is_deterministic_and_keeps_effect_settings(effect):
 
 
 def test_stage_mix_precedes_the_next_effect_and_handles_in_place_renderers(monkeypatch):
-    from synth import RENDERERS
+    from nebula.render.synth import RENDERERS
     p = default_synth_preset()
     for m in p['modules']: m['enabled'] = m['id'] in ('flare', 'bloom')
     def in_place(image, *args): image[:] = .8
@@ -64,7 +64,7 @@ def test_stage_mix_precedes_the_next_effect_and_handles_in_place_renderers(monke
 
 
 def test_compound_ghosts_blend_both_passes_once(monkeypatch):
-    from synth import RENDERERS
+    from nebula.render.synth import RENDERERS
     p = default_synth_preset()
     for m in p['modules']: m['enabled'] = m['id'] in ('slab','warp','smear')
     monkeypatch.setitem(RENDERERS,'slab', lambda im,p,*_: im + .2 + p['ghost_opacity']*.2)
@@ -159,7 +159,7 @@ def test_invalid_intensity_is_rejected(value):
 
 
 def test_ghost_companion_intensity_automates_when_smear_module_is_disabled():
-    from synth_automation import apply_automations
+    from nebula.documents.synth_automation import apply_automations
     p=default_synth_preset()
     for m in p['modules']: m['enabled']=m['id']=='slab'
     event=dict(id='fade',path='smear.effect_intensity',amount=-70,enabled=True,
@@ -171,7 +171,7 @@ def test_ghost_companion_intensity_automates_when_smear_module_is_disabled():
 
 
 def test_zero_diagnostic_points_to_intensity():
-    from synth_effect_diagnostics import explain_effect
+    from nebula.effects.synth_effect_diagnostics import explain_effect
     p=project('broadcast',0)
     facts=explain_effect(p,compile_composition(p),'broadcast',0)
     assert any(f.code=='zero' and f.target=='broadcast.effect_intensity' for f in facts)

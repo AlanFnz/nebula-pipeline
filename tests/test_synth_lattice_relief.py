@@ -2,13 +2,13 @@ import copy
 import numpy as np
 import pytest
 
-from synth import MODULE_BY_ID, default_synth_preset
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_lattice import render_chromatic_lattice
-from synth_lattice_recipes import lattice_composition, printed_orbit_composition
-from synth_lattice_relief import sweep_size, color_phase
-from synth_sequence import render_sequence_frame, resolve_sequence_frame
-from synth_starters import starter_composition
+from nebula.render.synth import MODULE_BY_ID, default_synth_preset
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.sources.synth_lattice import render_chromatic_lattice
+from nebula.documents.synth_lattice_recipes import lattice_composition, printed_orbit_composition
+from nebula.sources.synth_lattice_relief import sweep_size, color_phase
+from nebula.documents.synth_sequence import render_sequence_frame, resolve_sequence_frame
+from nebula.documents.synth_starters import starter_composition
 
 
 def params():
@@ -64,7 +64,7 @@ def test_shapes_and_extreme_controls_stay_bounded(shape,sides):
 
 
 def test_new_surface_defaults_do_not_change_optical_rendering():
-    from synth_lattice_relief import RELIEF_KEYS
+    from nebula.sources.synth_lattice_relief import RELIEF_KEYS
     arr=np.full((96,128,3),.1,np.float32);preset=dict(default_synth_preset(),width=128,height=96)
     p={param.key:param.default for param in MODULE_BY_ID['chromatic_lattice'].params}
     for wave in (0,1,2):
@@ -75,7 +75,7 @@ def test_new_surface_defaults_do_not_change_optical_rendering():
 
 def test_printed_palette_and_directions_are_editable_and_undoable(make_window):
     from PySide6.QtWidgets import QApplication
-    from synth_blender_colors import color_spec
+    from nebula.sources.synth_blender_colors import color_spec
     w=make_window(composition=printed_orbit_composition());c=w.composer;p=c.object_panel
     c.look_tabs.setCurrentWidget(p);QApplication.processEvents()
     original=copy.deepcopy(c.document)

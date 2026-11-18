@@ -1,0 +1,465 @@
+"""Shared parameter widgets for effect and object inspectors."""
+from __future__ import annotations
+
+from PySide6.QtCore import QSignalBlocker, Signal, Qt
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+                               QPushButton, QStackedWidget, QSizePolicy, QGridLayout, QCheckBox)
+from nebula.ui.studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBox, SpinBox as QSpinBox
+from nebula.ui.studio_widgets import Slider, configure_parameter_spin, parameter_number
+from nebula.effects.synth_effects import parameter
+from nebula.ui.synth_artwork_ui import ArtworkControl
+from nebula.ui.synth_mesh_ui import MeshControl
+from nebula.ui.synth_text_ui import TextControl
+from nebula.ui.synth_font_ui import FontControl
+from nebula.sources.synth_fonts import font_label
+from nebula.core.synth_ink_timing import DURATION_KEYS
+from nebula.ui.synth_parameter_presentation import presentation
+
+INK_DURATIONS = {f'ink_bloom.{key}' for key in DURATION_KEYS}
+
+
+class ParameterRowLayout(QGridLayout):
+    def __init__(self, control):
+        super().__init__()
+        self.control = control
+
+    def heightForWidth(self, width):
+        # Qt probes several candidate widths while activating ancestor layouts.
+        # Rebuilding this grid during a probe invalidates those same ancestors;
+        # widths on opposite sides of the wrapping threshold never settle.
+        # Actual geometry changes reflow the row through resizeEvent instead.
+        return self.control._row_height(width)
+
+    def minimumSize(self):
+        # The wide arrangement must allow its host to shrink far enough to
+        # trigger wrapping; its current columns are not the narrow minimum.
+        size = super().minimumSize()
+        size.setWidth(min(size.width(), 240))
+        return size
+
+
+def format_value(path, value):
+    spec = parameter(path)
+    if spec.kind == 'font': return font_label(value, spec.choices)
+    if spec.kind == 'text': return value.replace('\n', ' / ')[:60] or 'Empty text'
+    if spec.kind == 'mesh': return 'Embedded 3D model' if value else 'No model'
+    if spec.kind == 'artwork': return 'Embedded artwork' if value else 'No artwork'
+    if spec.choices:
+        return spec.choices[int(value)]
+    display = presentation(path)
+    if display.minimum_text and value == spec.minimum: return display.minimum_text
+    # Respect the shared percentage convention, including its saved precision.
+    unit = '' if spec.kind == 'float' and spec.step < .01 else presentation(path).unit
+    return parameter_number(spec, value) + unit
+
+
+class EffectParameter(QWidget):
+    changed = Signal(object)
+    reset = Signal()
+    animate = Signal(str)
+
+    def __init__(self, path, *, editable_text=False):
+        super().__init__()
+        self.editable_text = editable_text
+        self.path = path
+        self.spec = spec = parameter(path)
+        self.presentation = presentation(path)
+        self._context_key = None
+        self._text_drafts = {}
+        self.fixed_start = spec.default
+        self.study_animated = False
+        self.automation_count = 0
+        self.numeric_maximum = None
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
+        layout = QVBoxLayout(self); layout.setContentsMargins(0, 0, 0, 6); layout.setSpacing(4)
+        self.slider = None
+        self._row = ParameterRowLayout(self); self._row.setSpacing(6)
+        self._row_mode = None
+        self._label_container = QWidget()
+        label_row = QHBoxLayout(self._label_container)
+        label_row.setContentsMargins(0, 0, 0, 0); label_row.setSpacing(5)
+        self.label = QLabel(spec.label); self.label.setWordWrap(True)
+        self.label.setMinimumWidth(0); self.label.setToolTip(spec.hint)
+        label_row.addWidget(self.label, 1)
+        self.hue_swatch = None
+        if self.presentation.hue:
+            self.hue_swatch = QLabel(); self.hue_swatch.setFixedSize(14, 14)
+            self.hue_swatch.setAccessibleName(spec.label + ' hue indication')
+            label_row.addWidget(self.hue_swatch)
+        if spec.kind == 'font':
+            self.input = FontControl(spec.choices); self.input.changed.connect(self.emit_change)
+        elif spec.kind in ('artwork', 'text', 'mesh'):
+            self.input = {'artwork': ArtworkControl, 'text': TextControl, 'mesh': MeshControl}[spec.kind]()
+            self.input.changed.connect(self.emit_change)
+        elif self.presentation.checkbox:
+            self.input = QCheckBox()
+            self.input.toggled.connect(self.toggle_checkbox)
+        elif spec.choices:
+            self.input = QComboBox(); self.input.addItems(spec.choices)
+            self.input.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+            self.input.setMinimumContentsLength(12)
+            self.input.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            self.input.currentIndexChanged.connect(self.emit_change)
+        else:
+            self.input = QSpinBox() if spec.kind == 'int' else QDoubleSpinBox()
+            configure_parameter_spin(self.input, spec)
+            if self.presentation.minimum_text: self.input.setSpecialValueText(self.presentation.minimum_text)
+            if spec.kind != 'float' or spec.step >= .01:
+                self.input.setSuffix(self.presentation.unit)
+            if path in INK_DURATIONS: self.input.setMinimum(0)
+            self.input.valueChanged.connect(self.emit_change)
+            self.slider = Slider(Qt.Orientation.Horizontal)
+            self.slider.setRange(0, 1000); self.slider.setTracking(False)
+            self.slider.setAccessibleName(spec.label + ' slider')
+            self.slider.setToolTip('Drag to adjust. Release to update the preview. You can also type a value.')
+            self.slider.sliderMoved.connect(self.preview_slider)
+            self.slider.valueChanged.connect(self.commit_slider)
+            self.input.valueChanged.connect(self.sync_slider)
+        block_input = spec.kind in ('artwork', 'text', 'mesh', 'font')
+        self._block_input = block_input
+        self.input.setMinimumWidth(0 if block_input or spec.choices else 110)
+        if not block_input and not spec.choices: self.input.setMaximumWidth(145)
+        self.input.setToolTip(spec.hint); self.input.setAccessibleName(spec.label)
+        if spec.kind == 'float' and spec.step < .01:
+            self.input.setToolTip(spec.hint + ' Displayed as a percentage; 100% = 1 in the saved recipe. Saved precision is preserved.')
+        self._input_hint = self.input.toolTip()
+        self.value_stack = QStackedWidget()
+        self.value_stack.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.value_stack.addWidget(self.input)
+        if not block_input:
+            # The read-only label gives this stack height-for-width behavior.
+            # Qt may otherwise shrink a fixed spin/combo page to label height,
+            # clipping its themed padding and text inside a short inspector.
+            self.input.ensurePolished()
+            self.value_stack.setMinimumHeight(self.input.minimumSizeHint().height())
+        self.animated_value = QLabel()
+        self.animated_value.setObjectName('animatedRange')
+        self.animated_value.setWordWrap(True); self.animated_value.setMinimumWidth(0)
+        self.animated_value.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.animated_value.setAccessibleName(spec.label + ' animated range')
+        self.value_stack.addWidget(self.animated_value)
+        self.animate_button = None
+        from nebula.documents.synth_automation import TARGETS
+        from nebula.render.synth_instances import base_path
+        if base_path(path) in TARGETS:
+            self.animate_button = QPushButton("Animate…"); self.animate_button.setProperty("compact", True)
+            self.animate_button.setMinimumHeight(28)
+            self.animate_button.setAccessibleName("Animate " + spec.label)
+            self.animate_button.setToolTip("Add a temporary clip gesture; the displayed value remains the base. Existing events are edited separately.")
+            self.animate_button.clicked.connect(lambda: self.animate.emit(self.path))
+        self.reset_button = QPushButton('↶'); self.reset_button.setFixedSize(30, 28)
+        self.reset_button.setAccessibleName(f'Restore {spec.label}')
+        self.reset_button.clicked.connect(self.reset.emit)
+        self.presets = None
+        if self.presentation.presets:
+            preset_row = QHBoxLayout(); preset_row.setContentsMargins(0, 0, 0, 0)
+            preset_row.addWidget(QLabel('Resolution preset'))
+            self.presets = QComboBox(); self.presets.setAccessibleName('Resolution preset')
+            self.presets.addItem('Custom…', None)
+            for value in self.presentation.presets:
+                self.presets.addItem(format_value(path, value), value)
+            self.presets.setToolTip('Pixels on the longest edge, limited to the canvas size. Changes only Working resolution; other effect settings and export dimensions stay the same. Custom keeps the manual value.')
+            self.presets.currentIndexChanged.connect(self.apply_numeric_preset)
+            preset_row.addWidget(self.presets, 1); layout.addLayout(preset_row)
+        layout.addLayout(self._row)
+        if block_input: layout.addWidget(self.value_stack)
+        self.fixed_choice = QWidget(); choice = QHBoxLayout(self.fixed_choice)
+        choice.setContentsMargins(0, 0, 0, 0); choice.setSpacing(5)
+        self.proposed_value = QLabel(); self.proposed_value.setWordWrap(True)
+        self.proposed_value.setMinimumWidth(0); self.proposed_value.setObjectName('muted')
+        choice.addWidget(self.proposed_value, 1)
+        self.use_fixed = QPushButton('Use fixed value')
+        self.use_fixed.setAccessibleName(f'Use fixed value for {spec.label}')
+        self.use_fixed.clicked.connect(lambda: self.changed.emit(self.fixed_start))
+        choice.addWidget(self.use_fixed); layout.addWidget(self.fixed_choice)
+        self.fixed_choice.hide()
+        self.origin = QLabel(); self.origin.setWordWrap(True)
+        self.origin.setObjectName('muted'); layout.addWidget(self.origin)
+        self.frame_value = QLabel(); self.frame_value.setWordWrap(True)
+        self.frame_value.setTextFormat(Qt.TextFormat.PlainText)
+        self.frame_value.setObjectName('muted')
+        self.frame_value.setAccessibleName(spec.label + ' value at monitor time')
+        self.frame_value.hide(); layout.addWidget(self.frame_value)
+        self._arrange_row()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._arrange_row()
+
+    def _row_metrics(self, width):
+        """Read-only measurements shared by layout probes and actual reflow."""
+        animated = self.value_stack.currentWidget() is self.animated_value
+        # A shared label column keeps adjacent rows aligned, including hue
+        # indicators and labels of different lengths.
+        label_width = 160
+        action_width = self.reset_button.width()
+        if self.animate_button: action_width += self.animate_button.sizeHint().width() + 6
+        if self.spec.choices:
+            value_width = max(self.input.fontMetrics().horizontalAdvance(choice)
+                              for choice in self.spec.choices) + 40
+        else:
+            value_width = max(110, self.input.minimumSizeHint().width())
+        needed = label_width + action_width + value_width + 18
+        if self.slider and not animated: needed += 106
+        wrapped = self._block_input or width < needed
+        return wrapped, animated, label_width, action_width, value_width
+
+    def _row_height(self, width):
+        wrapped, animated, label_width, action_width, value_width = self._row_metrics(width)
+        left, top, right, bottom = self._row.getContentsMargins()
+        available = max(1, width-left-right)
+
+        def height(widget, space):
+            requested = widget.heightForWidth(max(1, int(space))) if widget.hasHeightForWidth() else -1
+            return max(widget.minimumSizeHint().height(), widget.sizeHint().height() if requested < 0 else requested)
+
+        label_space = available-action_width-6 if wrapped else label_width
+        first = max(height(self._label_container, label_space), self.reset_button.sizeHint().height(),
+                    self.animate_button.sizeHint().height() if self.animate_button else 0)
+        if self._block_input:
+            return first+top+bottom
+        value_space = available if wrapped and (not self.slider or animated) else value_width
+        value = height(self.value_stack, value_space) if animated else self.input.sizeHint().height()
+        second = max(value, self.slider.sizeHint().height() if self.slider and not animated else 0)
+        return (first+self._row.verticalSpacing()+second if wrapped else max(first, second))+top+bottom
+
+    def _arrange_row(self, width=None):
+        """Wrap controls before their useful editing widths become cramped."""
+        wrapped, animated, label_width, _action_width, _value_width = self._row_metrics(self.width() if width is None else width)
+        if not self._block_input:
+            maximum_height = 16777215 if animated else self.input.sizeHint().height()
+            if self.value_stack.maximumHeight() != maximum_height:
+                self.value_stack.setMaximumHeight(maximum_height)
+        mode = (wrapped, animated)
+        if mode == self._row_mode: return
+        self._row_mode = mode
+        while self._row.count(): self._row.takeAt(0)
+        for column in range(5):
+            self._row.setColumnStretch(column, 0)
+            self._row.setColumnMinimumWidth(column, 0)
+        if wrapped:
+            self._row.addWidget(self._label_container, 0, 0, 1, 2)
+            if self.animate_button:
+                self._row.addWidget(self.reset_button, 0, 2)
+                self._row.addWidget(self.animate_button, 0, 3)
+            else:
+                self._row.addWidget(self.reset_button, 0, 2, 1, 2, Qt.AlignmentFlag.AlignRight)
+            self._row.setColumnStretch(0, 1)
+            if not self._block_input:
+                if self.slider and not animated:
+                    self._row.addWidget(self.slider, 1, 0, 1, 2)
+                    self._row.addWidget(self.value_stack, 1, 2, 1, 2)
+                else:
+                    self._row.addWidget(self.value_stack, 1, 0, 1, 4)
+        else:
+            self._row.addWidget(self._label_container, 0, 0)
+            self._row.setColumnMinimumWidth(0, label_width)
+            self._row.setColumnStretch(0, 0)
+            if self.slider and not animated:
+                self._row.addWidget(self.slider, 0, 1)
+                self._row.setColumnStretch(1, 2)
+            self._row.addWidget(self.value_stack, 0, 2)
+            if self.spec.choices or animated: self._row.setColumnStretch(2, 2)
+            self._row.addWidget(self.reset_button, 0, 3)
+            if self.animate_button: self._row.addWidget(self.animate_button, 0, 4)
+        self._row.invalidate()
+        self.updateGeometry()
+
+    def set_automation_count(self, count):
+        self.automation_count = count
+        if self.animate_button:
+            text = f"Automations ({count})…" if count else "Animate…"
+            label = self.spec.label + (" · Base" if count else "")
+            if self.animate_button.text() == text and self.label.text() == label: return
+            self.animate_button.setText(text)
+            self.animate_button.setAccessibleName(f"{self.spec.label}: {count} automation events" if count else "Animate " + self.spec.label)
+            self.label.setText(label)
+            self._row_mode = None
+            self._arrange_row()
+
+    def set_frame_origin(self, info):
+        """Read-only monitor annotation; never write back into the base editor."""
+        text, detail = info if info else ('', '')
+        if self.frame_value.text() != text: self.frame_value.setText(text)
+        self.frame_value.setVisible(bool(text))
+        self.frame_value.setToolTip(detail)
+        self.frame_value.setAccessibleDescription(detail)
+
+    def emit_change(self, value):
+        if self.numeric_maximum is not None:
+            value = min(value, self.numeric_maximum)
+            with QSignalBlocker(self.input): self.input.setValue(value)
+        self.update_swatch(value)
+        self.sync_numeric_preset(value)
+        self.changed.emit(value)
+
+    def apply_numeric_preset(self, index):
+        value = self.presets.itemData(index)
+        if value is None:
+            self.input.setFocus(); self.input.selectAll()
+        else:
+            self.input.setValue(value)
+
+    def sync_numeric_preset(self, value):
+        if self.presets is None: return
+        index = self.presets.findData(value)
+        with QSignalBlocker(self.presets):
+            self.presets.setItemText(0, f'Custom · {format_value(self.path, value)}' if index < 0 else 'Custom…')
+            self.presets.setCurrentIndex(max(0, index))
+
+    def toggle_checkbox(self, checked):
+        self.input.setText(self.spec.choices[int(checked)])
+        self.emit_change(int(checked))
+
+    def set_numeric_maximum(self, maximum):
+        """Constrain new edits without silently clamping an existing document."""
+        self.numeric_maximum = maximum
+        if self.slider is None: return
+        with QSignalBlocker(self.input):
+            self.input.setMaximum(max(self.input.value(), maximum) if maximum is not None else self.spec.maximum)
+        self.sync_slider(self.input.value())
+
+    def update_swatch(self, value, *, animated=False):
+        if self.hue_swatch is None: return
+        if animated:
+            self.hue_swatch.setStyleSheet('border: 1px solid #777; background: transparent;')
+            self.hue_swatch.setToolTip('Hue varies across the animated range. A fixed hue shows a hue indication here.')
+            self.hue_swatch.setAccessibleDescription('Animated hue; no single hue is selected.')
+        else:
+            color = QColor.fromHsvF(float(value) % 1., 1., 1.)
+            self.hue_swatch.setStyleSheet(f'border: 1px solid #777; background: {color.name()};')
+            tip = 'Hue indication only. Saturation, brightness and compositing determine the final color.'
+            self.hue_swatch.setToolTip(tip); self.hue_swatch.setAccessibleDescription(tip)
+
+    def slider_value(self, position):
+        spec = self.spec
+        low, high = self.input.minimum(), self.input.maximum()
+        if self.numeric_maximum is not None: high = min(high, self.numeric_maximum)
+        if self.numeric_maximum is not None and position == 1000: return high
+        raw = low + position / 1000 * (high - low)
+        value = max(low, min(high, round(raw / spec.step) * spec.step))
+        return round(value) if spec.kind == 'int' else value
+
+    def preview_slider(self, position):
+        value = self.slider_value(position)
+        with QSignalBlocker(self.input): self.input.setValue(value)
+        self.update_swatch(value)
+        self.sync_numeric_preset(value)
+
+    def commit_slider(self, position):
+        value = self.slider_value(position)
+        with QSignalBlocker(self.input): self.input.setValue(value)
+        self.emit_change(value)
+
+    def sync_slider(self, value):
+        if self.slider:
+            high = self.input.maximum() if self.numeric_maximum is None else self.numeric_maximum
+            with QSignalBlocker(self.slider):
+                self.slider.setValue(round(1000 * (value-self.input.minimum()) / max(1e-12, high-self.input.minimum())))
+
+    def draft_state(self):
+        """Presentation draft for panels that recreate controls while navigating."""
+        if self.spec.kind != 'text': return None
+        return {'value': self.input.value(), 'text': self.input.editor.toPlainText()}
+
+    def restore_draft(self, draft):
+        """Restore wording only when its authored baseline still matches."""
+        if self.spec.kind == 'text' and draft and draft['value'] == self.input.value():
+            self.input.editor.setPlainText(draft['text'])
+
+    def pending_text_drafts(self):
+        """Return unapplied wording in retained scopes, including the current one."""
+        if self.spec.kind != 'text': return ()
+        drafts = dict(self._text_drafts)
+        drafts[self._context_key] = self.draft_state()
+        return tuple((context, draft) for context, draft in drafts.items()
+                     if draft and draft['value'] != draft['text'])
+
+    def acknowledge_text_draft(self, context_key, value):
+        """Forget a draft only after its owning panel has authored that wording."""
+        draft = self._text_drafts.get(context_key)
+        if draft and draft['text'] == value: self._text_drafts.pop(context_key)
+        if context_key == self._context_key and self.spec.kind == 'text' and self.input.editor.toPlainText() == value:
+            with QSignalBlocker(self.input): self.input.setValue(value)
+
+    def refresh(self, bounds, fixed, inherited, available, *, scope_label=None,
+                parent_value=None, origin_label=None, context_key=None):
+        low, high = bounds
+        if self.path in INK_DURATIONS and fixed is not None and fixed < 0:
+            fixed = None; inherited = False
+        if context_key != self._context_key and self.spec.kind == 'text':
+            self._text_drafts[self._context_key] = self.draft_state()
+        context_changed = context_key != self._context_key
+        self._context_key = context_key
+        inherited_fixed = fixed is None and inherited and parent_value is not None
+        value = fixed if fixed is not None else parent_value if inherited_fixed else low
+        direct_text = self.editable_text and self.spec.kind == 'text'
+        if direct_text and fixed is None and not inherited_fixed: value = low or high
+        self.fixed_start = low
+        if self.path in INK_DURATIONS: self.fixed_start = max(0, low)
+        animated = fixed is None and not inherited_fixed and low != high
+        self.study_animated = animated
+        self.set_frame_origin(None)
+        self.value_stack.setCurrentIndex(1 if animated and not direct_text else 0)
+        range_text = f'{format_value(self.path, low)} … {format_value(self.path, high)}'
+        self.animated_value.setText('Study range · ' + range_text)
+        self.animated_value.setToolTip('Read-only range of study values in this scope, before clip automation and Perform. It is not the value at the monitor time.')
+        self.proposed_value.setText(f'Fixed base: {format_value(self.path, self.fixed_start)}')
+        proposal = 'Proposed initial fixed value from the displayed range; this is not a sampled playhead value.'
+        self.proposed_value.setToolTip(proposal)
+        self.use_fixed.setToolTip(proposal + ' Replaces only this parameter’s study animation in the selected scope. Clip automation and Perform remain active; other parameters keep following the study.')
+        self.fixed_choice.setVisible(animated and not direct_text); self.use_fixed.setEnabled(available)
+        with QSignalBlocker(self.input):
+            if self.presentation.checkbox:
+                self.input.setChecked(bool(value))
+                self.input.setText(self.spec.choices[int(value)])
+            elif self.spec.kind == 'font': self.input.setValue(value)
+            elif self.spec.choices: self.input.setCurrentIndex(int(value))
+            else:
+                if self.numeric_maximum is not None: self.input.setMaximum(max(value,self.numeric_maximum))
+                self.input.setValue(value)
+        if context_changed and self.spec.kind == 'text':
+            # TextControl skips identical setValue calls to preserve edits on a
+            # mere refresh. A different scope must start from its own baseline.
+            self.input.editor.setPlainText(value)
+            self.restore_draft(self._text_drafts.get(context_key))
+        self.input.setEnabled(available)
+        self.sync_numeric_preset(value)
+        if self.presets:
+            self.presets.setEnabled(available and not animated)
+        self.update_swatch(value, animated=animated)
+        if self.slider:
+            self.sync_slider(value); self.slider.setVisible(not animated); self.slider.setEnabled(available)
+        self.reset_button.setEnabled(fixed is not None)
+        provenance = 'Composition' if inherited else 'Study'
+        if fixed is not None:
+            provenance = 'Composition' if scope_label in ('Composition', 'Entire project') else 'Clip' if scope_label and scope_label.startswith('Clip') else 'Local'
+        state = 'Animated' if animated else 'Fixed' if fixed is not None or inherited_fixed else 'Following'
+        self.origin.setText(origin_label or f'Base · {state.lower()} · {provenance}' + ('' if available else ' · Unavailable'))
+        explanation = f'{state} value from {scope_label or "this scope" if fixed is not None else provenance.lower()}. ' + \
+                      ('Enable or add this effect to edit its values.' if not available else 'Editing authors a fixed base value in the selected scope. Clip overrides take priority over composition values. Clip automation and Perform remain active.')
+        if animated:
+            self.origin.setText('Base · Study animation' + ('' if available else ' · Unavailable'))
+            explanation += ' Use fixed value replaces the study animation here, not the later modifiers.'
+        if direct_text and animated:
+            explanation = 'The study varies this wording. Apply replaces it in the selected scope; Restore follows the study again.'
+            self.origin.setText('Study wording varies · Apply to replace')
+        self.origin.setToolTip(explanation)
+        self.origin.setAccessibleDescription(explanation)
+        ordinary_project = available and not animated and not inherited and not origin_label and scope_label in ('Composition', 'Entire project')
+        self.origin.setVisible(not ordinary_project)
+        self.setAccessibleDescription(self.origin.text() + '. ' + explanation)
+        self.label.setAccessibleDescription(explanation)
+        self.input.setAccessibleDescription(explanation)
+        self.input.setToolTip(self._input_hint + ' ' + explanation)
+        if self.spec.choices and self.spec.kind != 'font':
+            self.input.setToolTip(self.spec.choices[int(value)] + '. ' + self.input.toolTip())
+            if not self.presentation.checkbox:
+                self.input.view().setMinimumWidth(max(self.input.fontMetrics().horizontalAdvance(choice) for choice in self.spec.choices) + 40)
+        self.animated_value.setAccessibleDescription(explanation + ' ' + self.animated_value.toolTip())
+        if self.slider: self.slider.setAccessibleDescription(explanation)
+        self._arrange_row()
+        restore_target = 'composition' if inherited else 'study'
+        self.reset_button.setToolTip(f'Remove only this parameter’s local override and follow the {restore_target} again. Clip automation and Perform are kept.')
+        self.setToolTip('Editing sets the base in this scope. Clip automation and Perform still act on it.')

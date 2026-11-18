@@ -4,12 +4,12 @@ import copy
 import pytest
 from PIL import Image
 
-from synth_composition import (blank_composition, compile_composition, composition_from_sequence,
+from nebula.documents.synth_composition import (blank_composition, compile_composition, composition_from_sequence,
                                load_composition, normalize_composition, reference_composition,
                                save_composition, section_placements, stretch_section)
-from synth_retime import mapped_time
-from synth_sequence import normalize_sequence, render_sequence_frame
-from synth_video import video_composition
+from nebula.documents.synth_retime import mapped_time
+from nebula.documents.synth_sequence import normalize_sequence, render_sequence_frame
+from nebula.sources.synth_video import video_composition
 from test_synth_video import clip
 
 
@@ -87,7 +87,7 @@ def test_separate_video_and_effect_clocks_feed_frames_masks_and_bypass(clip, mon
     project = video_composition(clip)
     project['effects']['subject_cutout'] = {'mode': 'on', 'params': {'subject_cutout.mix': 1.}}
     effect_times = []
-    monkeypatch.setattr('synth_sequence.render_synth_frame', lambda base, time_seconds, size, **kw:
+    monkeypatch.setattr('nebula.documents.synth_sequence.render_synth_frame', lambda base, time_seconds, size, **kw:
                         effect_times.append(time_seconds) or Image.new('RGB', size))
     class Provider:
         def __init__(self): self.frames = []; self.masks = []
@@ -152,9 +152,9 @@ def test_end_to_end_export_keeps_video_and_audio_clock_in_sync(clip, tmp_path, m
     import json
     import subprocess
     import numpy as np
-    from synth import default_synth_preset
-    from synth_media import export_synth_video
-    from synth_video import VideoFrameProvider
+    from nebula.render.synth import default_synth_preset
+    from nebula.documents.synth_media import export_synth_video
+    from nebula.sources.synth_video import VideoFrameProvider
     project = video_composition(clip)
     project['footage'].update(audio='keep', end_mode='hold')
     project = stretch_section(project, project['sections'][0]['id'], 2., mode)

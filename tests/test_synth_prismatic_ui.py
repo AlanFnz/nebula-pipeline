@@ -1,8 +1,8 @@
 import os
 os.environ.setdefault('QT_QPA_PLATFORM','offscreen')
 from test_synth_composer_ui import window, wait_until
-from synth_starters import starter_composition
-from synth_parameter_presentation import presentation
+from nebula.documents.synth_starters import starter_composition
+from nebula.ui.synth_parameter_presentation import presentation
 
 
 def test_prismatic_controls_edit_and_undo_independent_geometry_and_finish(window):

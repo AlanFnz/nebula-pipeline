@@ -3,10 +3,10 @@ import hashlib
 
 import numpy as np
 
-from synth import _signal_background
-from synth_canvas import resize_canvas
-from synth_composition import compile_composition, profile_signal_composition
-from synth_sequence import render_sequence_frame
+from nebula.render.synth import _signal_background
+from nebula.core.synth_canvas import resize_canvas
+from nebula.documents.synth_composition import compile_composition, profile_signal_composition
+from nebula.documents.synth_sequence import render_sequence_frame
 from test_synth_profile import head_preset, settings
 
 

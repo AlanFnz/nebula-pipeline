@@ -3,13 +3,13 @@ import copy
 import numpy as np
 import pytest
 
-from synth import _breakup, _interference
-from synth_composition import (
+from nebula.render.synth import _breakup, _interference
+from nebula.documents.synth_composition import (
     blank_composition, compile_composition, load_composition, normalize_composition,
     reference_composition, save_composition,
 )
-from synth_effects import EFFECTS, describe_effects, effect_preset, state_values
-from synth_sequence import render_sequence_frame
+from nebula.effects.synth_effects import EFFECTS, describe_effects, effect_preset, state_values
+from nebula.documents.synth_sequence import render_sequence_frame
 
 
 def pixels(project, time=.4):

@@ -4,13 +4,13 @@ import time
 import numpy as np
 import pytest
 from PySide6.QtTest import QSignalSpy,QTest
-from synth_visual_sound import RATE,instrument_sound
-from synth_visual_sound_instrument import InstrumentVoice
-from synth_visual_sound_live import BLOCK,FADE,LiveInstrument,LiveSoundMonitor,AudioProducer
+from nebula.audio.synth_visual_sound import RATE,instrument_sound
+from nebula.audio.synth_visual_sound_instrument import InstrumentVoice
+from nebula.audio.synth_visual_sound_live import BLOCK,FADE,LiveInstrument,LiveSoundMonitor,AudioProducer
 from test_synth_visual_sound_instrument import signals
 from test_synth_visual_sound_ui import app,studio
 from test_synth_composer_ui import wait_until
-from synth_visual_sound_ui import VisualSoundDialog
+from nebula.ui.synth_visual_sound_ui import VisualSoundDialog
 
 
 def test_live_static_blocks_are_identical_to_export():
@@ -87,7 +87,7 @@ def test_live_dialog_emits_drafts_without_applying_or_changing_monitor(app):
 
 
 def test_studio_live_knobs_keep_transport_and_pixels_and_apply_is_undoable(studio,monkeypatch):
-    import synth_visual_sound_live
+    import nebula.audio.synth_visual_sound_live as synth_visual_sound_live
     class Monitor(LiveSoundMonitor):
         def __init__(self,parent): super().__init__(parent,backend_factory=Output)
     monkeypatch.setattr(synth_visual_sound_live,'LiveSoundMonitor',Monitor)
@@ -106,7 +106,7 @@ def test_studio_live_knobs_keep_transport_and_pixels_and_apply_is_undoable(studi
     assert studio.composition==original and studio.settings_generation==generation
     assert monitor.config['opening']==.95 and monitor.producer.thread is worker
     assert monitor.config['arp_pitch']==220 and monitor.config['arp_notes']==5 and monitor.config['arp_pattern']=='down'
-    from synth_visual_sound_instrument import instrument_controls
+    from nebula.audio.synth_visual_sound_instrument import instrument_controls
     assert np.array_equal(studio.visual_sound_signals['arpeggio'],instrument_controls(studio.live_signals,monitor.config)[1])
     d=studio.visual_sound_dialog
     d.arp_mode.setCurrentIndex(1);d.sequencer.bpm.setValue(147)
@@ -141,7 +141,7 @@ def test_qt_audio_error_aliases_are_compared_by_value(app):
     # Some PySide versions expose distinct Error enum classes for QtAudio and QAudio.
     # They have identical values but compare unequal, even for NoError.
     from enum import Enum
-    from synth_visual_sound_live import QtLiveOutput
+    from nebula.audio.synth_visual_sound_live import QtLiveOutput
     ForeignError=Enum('ForeignError',{'NoError':0})
     class Sink:
         def error(self): return ForeignError.NoError

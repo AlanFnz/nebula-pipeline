@@ -3,14 +3,14 @@ import copy
 import numpy as np
 import pytest
 from PIL import Image
-from synth import MODULE_BY_ID, _seed, default_synth_preset, render_synth_frame
-from synth_contact_print import render_contact_print
-from synth_contact_recipes import contact_print_composition
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_broadcast import render_broadcast
-from synth_effects import effect_preset
-from synth_sequence import render_sequence_frame, resolve_sequence_frame
-from synth_starters import starter_composition
+from nebula.render.synth import MODULE_BY_ID, _seed, default_synth_preset, render_synth_frame
+from nebula.effects.synth_contact_print import render_contact_print
+from nebula.documents.synth_contact_recipes import contact_print_composition
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.effects.synth_broadcast import render_broadcast
+from nebula.effects.synth_effects import effect_preset
+from nebula.documents.synth_sequence import render_sequence_frame, resolve_sequence_frame
+from nebula.documents.synth_starters import starter_composition
 
 
 def test_study_roundtrip_authored_frames_and_seek_order(tmp_path):

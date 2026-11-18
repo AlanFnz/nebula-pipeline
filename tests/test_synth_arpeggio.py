@@ -3,12 +3,12 @@ import copy
 import numpy as np
 import pytest
 from PySide6.QtTest import QSignalSpy
-from media import Cancellation
-from synth_visual_sound import instrument_sound, normalize_sound, pcm_blocks
-from synth_visual_sound_acid import gesture_notes, phrase_pattern
-from synth_visual_sound_instrument import instrument_blocks
-from synth_visual_sound_live import LiveInstrument
-from synth_visual_sound_ui import VisualSoundDialog
+from nebula.core.media import Cancellation
+from nebula.audio.synth_visual_sound import instrument_sound, normalize_sound, pcm_blocks
+from nebula.audio.synth_visual_sound_acid import gesture_notes, phrase_pattern
+from nebula.audio.synth_visual_sound_instrument import instrument_blocks
+from nebula.audio.synth_visual_sound_live import LiveInstrument
+from nebula.ui.synth_visual_sound_ui import VisualSoundDialog
 from test_synth_visual_sound_instrument import signals
 from test_synth_visual_sound_ui import app, studio
 from test_synth_composer_ui import wait_until
@@ -117,7 +117,7 @@ def test_dialog_controls_roundtrip_and_do_not_move_the_other_pitch(app):
 
 
 def test_controls_save_and_undo(studio,tmp_path):
-    from synth_composition import save_composition,load_composition
+    from nebula.documents.synth_composition import save_composition,load_composition
     original=copy.deepcopy(studio.composition)
     c=instrument_sound();c.update(arp_pitch=220.,arp_steps=12,arp_notes=5,arp_pattern='up_down')
     studio.apply_visual_sound(c)

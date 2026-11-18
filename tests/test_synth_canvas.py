@@ -5,12 +5,12 @@ import subprocess
 import numpy as np
 import pytest
 
-from synth import default_synth_preset, normalize_synth, render_synth_frame
-from synth_canvas import CANVAS_FORMATS, format_canvas, normalize_canvas, preview_size
-from synth_composition import compile_composition, composition_from_sequence, load_composition, particle_orbit_composition, save_composition
-from synth_media import export_synth_video
-from synth_sequence import _state_preset, load_sequence, render_sequence_frame, save_sequence
-from synth_starters import STARTERS, starter_composition
+from nebula.render.synth import default_synth_preset, normalize_synth, render_synth_frame
+from nebula.core.synth_canvas import CANVAS_FORMATS, format_canvas, normalize_canvas, preview_size
+from nebula.documents.synth_composition import compile_composition, composition_from_sequence, load_composition, particle_orbit_composition, save_composition
+from nebula.documents.synth_media import export_synth_video
+from nebula.documents.synth_sequence import _state_preset, load_sequence, render_sequence_frame, save_sequence
+from nebula.documents.synth_starters import STARTERS, starter_composition
 
 
 @pytest.mark.parametrize("raw", [{"width": 0}, {"height": float("nan")}, {"width": 100.5}, {"width": True}, {"framing": "stretch"}, []])

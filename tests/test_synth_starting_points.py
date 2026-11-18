@@ -4,11 +4,11 @@ import copy
 import numpy as np
 import pytest
 
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_effects import describe_effects
-from synth_sequence import render_sequence_frame
-from synth_starting_points import new_piece
-from synth_subject import active_subjects, scope_states
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.effects.synth_effects import describe_effects
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.documents.synth_starting_points import new_piece
+from nebula.sources.synth_subject import active_subjects, scope_states
 
 
 @pytest.mark.parametrize('kind,options,subject', [

@@ -7,12 +7,12 @@ import numpy as np
 import pytest
 from PIL import Image, ImageDraw
 
-from synth import MODULE_BY_ID, normalize_synth
-from synth_artwork import ARTWORK_PREFIX, decode_artwork, encode_artwork, project_artwork, validate_artwork
-from synth_composition import compile_composition, ink_bloom_composition, load_composition, save_composition
-from synth_effects import normalize_effects
-from synth_print import render_ink_bloom, stamp_outline
-from synth_sequence import _interpolate_presets, _state_preset, render_sequence_frame
+from nebula.render.synth import MODULE_BY_ID, normalize_synth
+from nebula.sources.synth_artwork import ARTWORK_PREFIX, decode_artwork, encode_artwork, project_artwork, validate_artwork
+from nebula.documents.synth_composition import compile_composition, ink_bloom_composition, load_composition, save_composition
+from nebula.effects.synth_effects import normalize_effects
+from nebula.effects.synth_print import render_ink_bloom, stamp_outline
+from nebula.documents.synth_sequence import _interpolate_presets, _state_preset, render_sequence_frame
 
 
 def cutout():

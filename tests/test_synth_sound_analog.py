@@ -2,13 +2,13 @@
 import copy
 import numpy as np
 import pytest
-from media import Cancellation
-from synth_composition import compile_composition
-from synth_lattice_recipes import lattice_composition
-from synth_lattice_sound import color_wave_sound,ColorWaveVoice,color_notes,color_blocks
-from synth_sound_analog import StereoSpace,StereoEcho,space_defaults,echo_defaults,analog_note,root_pad,PAD_HARMONIES
-from synth_visual_sound import normalize_sound,visual_signals,RATE
-from synth_visual_sound_live import LiveInstrument
+from nebula.core.media import Cancellation
+from nebula.documents.synth_composition import compile_composition
+from nebula.documents.synth_lattice_recipes import lattice_composition
+from nebula.audio.synth_lattice_sound import color_wave_sound,ColorWaveVoice,color_notes,color_blocks
+from nebula.audio.synth_sound_analog import StereoSpace,StereoEcho,space_defaults,echo_defaults,analog_note,root_pad,PAD_HARMONIES
+from nebula.audio.synth_visual_sound import normalize_sound,visual_signals,RATE
+from nebula.audio.synth_visual_sound_live import LiveInstrument
 from test_synth_visual_sound_ui import app
 
 
@@ -138,7 +138,7 @@ def test_pad_mute_solo_and_live_edits_preserve_room_history():
 
 
 def test_pad_analog_and_space_controls_round_trip_and_undo(app):
-    from synth_visual_sound_ui import VisualSoundDialog
+    from nebula.ui.synth_visual_sound_ui import VisualSoundDialog
     d=VisualSoundDialog();c=patch();d.set_config(c)
     assert d.read_config()==c and d.tabs.isTabVisible(5)
     d.color_wave.voices['strum']['analog']['cutoff'].setValue(2400.)
@@ -164,7 +164,7 @@ def test_pad_analog_and_space_controls_round_trip_and_undo(app):
 
 
 def test_live_start_does_not_run_a_long_room_preroll(monkeypatch):
-    from synth_lattice_sound import _ROOM_CACHE
+    from nebula.audio.synth_lattice_sound import _ROOM_CACHE
     _ROOM_CACHE.clear();s=sequence();sig=visual_signals(s)
     def unexpected(*args,**kwargs):raise AssertionError('Live startup must not synthesize a room preroll')
     monkeypatch.setattr(ColorWaveVoice,'render',unexpected)

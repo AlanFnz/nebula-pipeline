@@ -26,7 +26,7 @@ change inside the same plug-in may need manual **Refresh MIDI notes**.
 `watch.py` detects device changes; `surface.py` sends a private SysEx request
 through Nebula Control once the replacement settles. The prefix is
 `F0 7D 4E 42 4C 01 01`, followed by the zero-based channel and `F7`.
-[synth_live_midi.py](../../synth_live_midi.py) restores held notes and tuning while
+[synth_live_midi.py](../../nebula/audio/synth_live_midi.py) restores held notes and tuning while
 playing. Requests while paused do nothing.
 
 [Companion tests](../../tests/test_ableton_midi_recovery.py) use fake tracks and

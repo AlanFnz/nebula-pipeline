@@ -14,11 +14,11 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from synth import curated_presets, default_synth_preset
-from synth_canvas import CANVAS_FORMATS, format_canvas, preview_size, resize_canvas
-from synth_composition import compile_composition, section_ranges
-from synth_sequence import render_sequence_frame
-from synth_starters import STARTERS
+from nebula.render.synth import curated_presets, default_synth_preset
+from nebula.core.synth_canvas import CANVAS_FORMATS, format_canvas, preview_size, resize_canvas
+from nebula.documents.synth_composition import compile_composition, section_ranges
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.documents.synth_starters import STARTERS
 
 
 def cases(project):

@@ -12,3 +12,8 @@ appearance with the reference, not only isolated stills.
 
 Keep generated media, local project files and render caches out of commits.
 See docs/development.md and VERSIONING.md for build and validation guidance.
+
+Application code belongs in the relevant `nebula/` package; keep the root launchers
+thin. Use explicit package imports and `nebula.resources` for bundled assets.
+Preserve legacy entry points and rendering compatibility modules unless their
+removal has been separately justified. See the code map in docs/development.md.

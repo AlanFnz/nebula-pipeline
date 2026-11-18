@@ -1,0 +1,122 @@
+"""Independent editable copies of the built-in studies."""
+from nebula.documents.synth_composition import ink_bloom_composition, mixed_media_composition, particle_composition, particle_orbit_composition, reference_composition, profile_signal_composition, profile_echoes_composition
+from nebula.documents.synth_composition import normalize_composition
+from nebula.documents.synth_compat import starter_snapshot
+from nebula.documents.synth_profile_recipes import clear_profile_composition, doryphoros_composition
+from nebula.documents.synth_text_recipes import text_composition, opium_composition, word_morph_composition
+from nebula.documents.synth_phosphor_recipes import phosphor_scroll_composition
+from nebula.documents.synth_radial_recipes import radial_composition
+from nebula.documents.synth_prismatic_recipes import prismatic_composition
+from nebula.documents.synth_solid_recipes import rotating_die_composition
+from nebula.documents.synth_lattice_recipes import lattice_composition, printed_orbit_composition, watching_eye_composition
+from nebula.documents.synth_spectral_tunnel_recipes import spectral_tunnel_composition
+from nebula.documents.synth_blender_recipes import optical_relic_composition, orbital_smooth_painted_composition, yin_yang_continuous_composition
+from nebula.documents.synth_memory_recipes import memory_composition
+from nebula.documents.synth_tension_recipes import tension_composition
+from nebula.documents.synth_dye_recipes import dye_transfer_composition
+from nebula.documents.synth_film_recipes import film_print_composition, reading_print_composition
+from nebula.documents.synth_optical_recipes import dark_print_composition
+from nebula.documents.synth_contact_recipes import contact_print_composition
+from nebula.documents.synth_pleated_recipes import pleated_composition, pleated_sound_composition, pleated_acid_composition
+
+
+STARTERS = (
+    ('text-phosphor-scroll', 'Text / phosphor scroll · 16.46s', phosphor_scroll_composition),
+    ('watching-eye', 'Lattice / watching eye · 8s', watching_eye_composition),
+    ('printed-orbit', 'Lattice / printed orbit · 8s', printed_orbit_composition),
+    ('yin-yang', 'Yin yang / orbital balance · 15s', yin_yang_continuous_composition),
+    ('orbital-rings', 'Orbital rings / painted motion · 11.3s', orbital_smooth_painted_composition),
+    ('optical-relic', 'Optical relic / green reverie · 8.75s', optical_relic_composition),
+    ('spectral-tunnel', 'Spectral tunnel / luminous ripple · 6s', spectral_tunnel_composition),
+    ('pleated-signal-acid', 'Pleated signal / acid motion · 20s', pleated_acid_composition),
+    ('pleated-signal-sound', 'Pleated signal / electric motion · 20s', pleated_sound_composition),
+    ('pleated-signal', 'Pleated signal / violet transmission · 20s', pleated_composition),
+    ('text-dye-transfer', 'Text / one more try · 15s', dye_transfer_composition),
+    ('tension', 'Tension / elastic signal · 15s', tension_composition),
+    ('text-contact-film', 'Text / FAC51 contact film · 8s', contact_print_composition),
+    ('text-contact-film-original', 'Text / FAC51 contact film (reference cut) · 3.25s', lambda: contact_print_composition(extended=False)),
+    ('text-dark-print', 'Text / dark optical print · 7.5s', dark_print_composition),
+    ('text-reading-print', 'Text / reading print · 7s', reading_print_composition),
+    ('text-film-burn', 'Text / burning print · 10.25s', film_print_composition),
+    ('image-memory', 'Memory / afterimage garden · 15s', memory_composition),
+    ('chromatic-lattice', 'Lattice / chromatic pulse · 20s', lattice_composition),
+    ('color-film-die', 'Color film / rotating die · 15s', rotating_die_composition),
+    ('color-film-die-original', 'Color film / rotating die (optical color) · 15s', lambda: starter_snapshot('color-film-die-original')),
+    ('prismatic-film', 'Prismatic / color film · 15s', prismatic_composition),
+    ('prismatic-film-original', 'Prismatic / color film (first version) · 15s', lambda: starter_snapshot('prismatic-film-original')),
+    ('text-liquid-words', 'Text / liquid words · 6s', word_morph_composition),
+    ('text-liquid-words-soft', 'Text / liquid words (soft motion) · 7.2s', lambda: starter_snapshot('text-liquid-words-soft')),
+    ('text-liquid-words-original', 'Text / liquid words (first version) · 7.2s', lambda: starter_snapshot('text-liquid-words-original')),
+    ("radial-bloom", "Radial / chromatic bloom · 12s", radial_composition),
+    ("refined", "Refined signal · 15s", lambda: reference_composition(refined=True)),
+    ("approved", "Approved signal · 15s", reference_composition),
+    ("particle-head", "Particle head · 15s", lambda: particle_composition(refined=True)),
+    ("particle-orbit", "Expand / orbit · 15s", particle_orbit_composition),
+    ("original-particles", "Original particles · 15s", particle_composition),
+    ("ink-bloom", "Ink bloom · 3.5s", ink_bloom_composition),
+    ("profile-signal", "Profile / phosphor scan · 4s", profile_signal_composition),
+    ("profile-echoes", "Profile / signal echoes · 8s", profile_echoes_composition),
+    ("profile-clear", "Profile / clear silhouette · 8s", clear_profile_composition),
+    ("profile-doryphoros", "Profile / Doryphoros · 8s", doryphoros_composition),
+    ("mixed-media", "Mixed media / two bursts · 7s", mixed_media_composition),
+    ('text-opium', 'Text / opium · 4.5s', opium_composition),
+    ('text-phosphor', 'Text / phosphor drift · 6s', lambda: text_composition('phosphor')),
+    ('text-phosphor-original', 'Text / phosphor drift (first version) · 6s', lambda: starter_snapshot('text-phosphor-original')),
+    ('text-pressure', 'Text / pressure · 6s', lambda: text_composition('pressure')),
+    ('text-pressure-original', 'Text / pressure (first version) · 6s', lambda: starter_snapshot('text-pressure-original')),
+    ('text-transmission', 'Text / lost transmission · 6s', lambda: text_composition('transmission')),
+    ('text-transmission-original', 'Text / lost transmission (first version) · 6s', lambda: starter_snapshot('text-transmission-original')),
+    ('text-night', 'Text / night monitor · 6s', lambda: text_composition('night')),
+    ('text-night-original', 'Text / night monitor (first version) · 6s', lambda: starter_snapshot('text-night-original')),
+)
+
+
+# First appearance in the repository, retained independently of app builds.
+STARTER_DATES = {
+    'text-phosphor-scroll': '2026-11-17',
+    'watching-eye': '2026-11-14',
+    'printed-orbit': '2026-11-14',
+    'yin-yang': '2026-11-11',
+    'orbital-rings': '2026-11-11',
+    'optical-relic': '2026-11-11',
+    'spectral-tunnel': '2026-11-10',
+    'pleated-signal-sound': '2026-11-05',
+    'pleated-signal-acid': '2026-11-05',
+    'pleated-signal': '2026-11-05',
+    'text-dye-transfer': '2026-10-26',
+    'tension': '2026-10-26',
+    'text-contact-film': '2026-10-25',
+    'text-contact-film-original': '2026-10-25',
+    'text-dark-print': '2026-10-25',
+    'text-reading-print': '2026-10-23',
+    'text-film-burn': '2026-10-23',
+    'image-memory': '2026-10-17',
+    'chromatic-lattice': '2026-10-17',
+    'color-film-die': '2026-10-14',
+    'color-film-die-original': '2026-10-14',
+    'prismatic-film': '2026-10-13', 'prismatic-film-original': '2026-10-13',
+    'text-liquid-words': '2026-10-12', 'text-liquid-words-original': '2026-10-11',
+    'text-liquid-words-soft': '2026-10-12',
+    'radial-bloom': '2026-10-11',
+    'refined': '2026-09-26', 'approved': '2026-09-26',
+    'particle-head': '2026-09-26', 'particle-orbit': '2026-09-26',
+    'original-particles': '2026-09-26',
+    'ink-bloom': '2026-09-27', 'mixed-media': '2026-09-27',
+    'profile-signal': '2026-09-27', 'profile-echoes': '2026-09-27',
+    'profile-clear': '2026-09-27', 'profile-doryphoros': '2026-09-27',
+    'text-phosphor': '2026-09-28', 'text-phosphor-original': '2026-09-28',
+    'text-pressure': '2026-09-28', 'text-pressure-original': '2026-09-28',
+    'text-transmission': '2026-09-28', 'text-transmission-original': '2026-09-28',
+    'text-night': '2026-09-28', 'text-night-original': '2026-09-28',
+    'text-opium': '2026-09-29',
+}
+
+
+def starter_composition(identifier):
+    for key, _label, factory in STARTERS:
+        if key == identifier:
+            project = factory() if identifier == 'radial-bloom' else starter_snapshot(identifier)
+            project['render_version'] = 2
+            project['source']['render_version'] = 2
+            return normalize_composition(project)
+    raise ValueError(f"Unknown starter: {identifier}")

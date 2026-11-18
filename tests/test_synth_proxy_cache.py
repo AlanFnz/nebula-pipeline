@@ -1,8 +1,8 @@
 """Proxy LRU bookkeeping leaves published media stat identities immutable."""
 import os
 from pathlib import Path
-from synth_preview import _file_fingerprint
-from synth_video import prepare_proxy, _proxy_use_path, _proxy_last_used, _prune_proxies
+from nebula.render.synth_preview import _file_fingerprint
+from nebula.sources.synth_video import prepare_proxy, _proxy_use_path, _proxy_last_used, _prune_proxies
 from test_synth_video import clip
 
 

@@ -4,16 +4,16 @@ import hashlib
 import numpy as np
 import pytest
 
-from synth import MODULE_BY_ID, curated_presets, default_synth_preset
-from synth_composition import compile_composition, load_composition, save_composition
-from synth_effect_catalog import effect_catalog
-from synth_effects import describe_effects
-from synth_sequence import render_sequence_frame
-from synth_spectral_tunnel import loop_phase, render_spectral_tunnel
-from synth_spectral_tunnel_recipes import spectral_tunnel_composition
-from synth_starters import starter_composition
-from synth_studies import composition_category
-from synth_subject import active_subjects, scope_states, select_subject
+from nebula.render.synth import MODULE_BY_ID, curated_presets, default_synth_preset
+from nebula.documents.synth_composition import compile_composition, load_composition, save_composition
+from nebula.effects.synth_effect_catalog import effect_catalog
+from nebula.effects.synth_effects import describe_effects
+from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.sources.synth_spectral_tunnel import loop_phase, render_spectral_tunnel
+from nebula.documents.synth_spectral_tunnel_recipes import spectral_tunnel_composition
+from nebula.documents.synth_starters import starter_composition
+from nebula.documents.synth_studies import composition_category
+from nebula.sources.synth_subject import active_subjects, scope_states, select_subject
 
 
 def defaults():
@@ -112,7 +112,7 @@ def test_left_orientation_reprojects_geometry_and_keeps_background(shape):
 
 
 def test_a_light_moves_continuously_toward_the_foreground():
-    from synth_sequence import resolve_sequence_frame
+    from nebula.documents.synth_sequence import resolve_sequence_frame
     seq = compile_composition(spectral_tunnel_composition())
     preset = resolve_sequence_frame(seq, 0.)[-1]
     p = next(m['params'] for m in preset['modules'] if m['id']=='spectral_tunnel')

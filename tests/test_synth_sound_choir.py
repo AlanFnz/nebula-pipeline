@@ -2,13 +2,13 @@ import copy
 import numpy as np
 import pytest
 
-from synth_sound_choir import ChoirVoice,choir_defaults,vowel_tables
-from synth_sound_analog import pad_defaults
-from synth_lattice_sound import ColorWaveVoice,color_wave_sound,color_notes
-from synth_visual_sound import normalize_sound,visual_signals,RATE
-from synth_visual_sound_live import LiveInstrument
-from synth_composition import save_composition,load_composition
-from synth_lattice_recipes import lattice_composition
+from nebula.audio.synth_sound_choir import ChoirVoice,choir_defaults,vowel_tables
+from nebula.audio.synth_sound_analog import pad_defaults
+from nebula.audio.synth_lattice_sound import ColorWaveVoice,color_wave_sound,color_notes
+from nebula.audio.synth_visual_sound import normalize_sound,visual_signals,RATE
+from nebula.audio.synth_visual_sound_live import LiveInstrument
+from nebula.documents.synth_composition import save_composition,load_composition
+from nebula.documents.synth_lattice_recipes import lattice_composition
 from test_synth_lattice_sound import rhythmic_study
 from test_synth_visual_sound_ui import app
 
@@ -99,7 +99,7 @@ def test_live_export_loop_and_edit_crossfades():
 
 
 def test_choir_ui_undo_and_save_preserve_rest_of_sound(app,tmp_path):
-    from synth_visual_sound_ui import VisualSoundDialog
+    from nebula.ui.synth_visual_sound_ui import VisualSoundDialog
     c=config();d=VisualSoundDialog();d.set_config(c)
     assert d.read_config()==c and d.tabs.isTabVisible(d.choir_tab)
     states=[c]

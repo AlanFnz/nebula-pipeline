@@ -7,15 +7,15 @@ import subprocess
 import numpy as np
 import pytest
 
-from media import Cancellation, Cancelled
-from synth import default_synth_preset
-from synth_audio_reactivity import (apply_reactivity, cached_responses, normalize_reactivity,
+from nebula.core.media import Cancellation, Cancelled
+from nebula.render.synth import default_synth_preset
+from nebula.audio.synth_audio_reactivity import (apply_reactivity, cached_responses, normalize_reactivity,
     prepare_reactivity, target_parameter)
-from synth_composition import (blank_composition, compile_composition, composition_from_sequence,
+from nebula.documents.synth_composition import (blank_composition, compile_composition, composition_from_sequence,
     load_composition, normalize_composition, save_composition)
-from synth_media import export_synth_video
-from synth_sequence import normalize_sequence, render_sequence_frame, resolve_sequence_frame
-from synth_soundtrack import probe_soundtrack
+from nebula.documents.synth_media import export_synth_video
+from nebula.documents.synth_sequence import normalize_sequence, render_sequence_frame, resolve_sequence_frame
+from nebula.audio.synth_soundtrack import probe_soundtrack
 
 
 def mapping(track, identifier='low', path='bloom.strength', **settings):
@@ -163,7 +163,7 @@ def test_same_target_adds_before_clamping_and_preserves_animated_base(tones):
 
 @pytest.mark.parametrize('kind', ['global', 'individual', 'zero', 'module'])
 def test_bypass_missing_media_restores_exact_pixels_without_io(tones, kind, monkeypatch):
-    import synth_audio_reactivity
+    import nebula.audio.synth_audio_reactivity as synth_audio_reactivity
     sequence = document(tones)
     neutral = copy.deepcopy(sequence); neutral.pop('audio_reactivity')
     if kind == 'global': sequence['audio_reactivity']['enabled'] = False
@@ -216,7 +216,7 @@ def test_schema_compile_detailed_roundtrip_and_removal_do_not_resurrect(tones, t
 
 
 def test_export_preflight_fails_before_video_encode_and_preserves_destination(tones, tmp_path, monkeypatch):
-    import synth_media
+    import nebula.documents.synth_media as synth_media
     sequence = document(dict(tones, path=str(tmp_path / 'missing.wav'), export_audio='silent'))
     output = tmp_path / 'existing.mp4'; output.write_bytes(b'previous')
     monkeypatch.setattr(synth_media.subprocess, 'Popen', lambda *_args, **_kwargs: pytest.fail('encoded before analysis'))
@@ -227,7 +227,7 @@ def test_export_preflight_fails_before_video_encode_and_preserves_destination(to
 
 
 def test_cached_meter_does_no_io_and_bounded_cache_evicts(tones, monkeypatch):
-    import synth_audio_reactivity as audio
+    import nebula.audio.synth_audio_reactivity as audio
     first = document(tones); prepare_reactivity(first)
     expected = response(first, .5)
     with monkeypatch.context() as patch:
@@ -263,7 +263,7 @@ def test_cached_render_rejects_changed_source_and_rebuilds_untracked_identity(to
 
 
 def test_instance_targets_are_independent_and_do_not_enable_slot(tones):
-    from synth import normalize_synth
+    from nebula.render.synth import normalize_synth
     item = mapping(tones, path='tape@2.pull'); item['amount'] = .1
     sequence = document(tones, [item])
     for state in sequence['states'].values():
@@ -280,7 +280,7 @@ def test_instance_targets_are_independent_and_do_not_enable_slot(tones):
 
 
 def test_partial_export_matches_full_project_clock(tones, tmp_path, monkeypatch):
-    import synth_sequence
+    import nebula.documents.synth_sequence as synth_sequence
     sequence = document(tones)
     sequence['soundtrack']['export_audio'] = 'silent'
     full = []; partial = []
@@ -336,7 +336,7 @@ def test_disruption_targets_recover_in_silence_and_respect_bypass(tones, path):
 
 
 def test_portable_study_preserves_mapping_and_track_ids_after_library_move(tones, tmp_path):
-    from synth_studies import save_study, study_composition
+    from nebula.documents.synth_studies import save_study, study_composition
     copied = tmp_path / 'original.wav'; copied.write_bytes(Path(tones['path']).read_bytes())
     track = probe_soundtrack(copied)
     item = mapping(track, path='radial_bloom.expansion')
@@ -365,7 +365,7 @@ def test_portable_study_preserves_mapping_and_track_ids_after_library_move(tones
 def test_concurrent_preparation_derives_once_and_waiting_cancellation_returns(tones, monkeypatch):
     from concurrent.futures import ThreadPoolExecutor
     import threading
-    import synth_audio_reactivity as audio
+    import nebula.audio.synth_audio_reactivity as audio
     sequence = document(tones)
     sequence['audio_reactivity']['mappings'][0]['sensitivity'] = 1.6789
     entered = threading.Event(); proceed = threading.Event(); cancelled_waiting = threading.Event()
