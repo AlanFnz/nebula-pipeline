@@ -5,6 +5,7 @@
 - Organize application modules under `nebula/` by responsibility, keeping the
   existing launch commands. Shared resource lookup supports both source runs and
   frozen builds. Project schemas, studies and rendering algorithms are unchanged.
+- Add lowercase conventional commit checks for local commits and new history in CI.
 
 ## 0.119.0 — 2026-11-18
 
