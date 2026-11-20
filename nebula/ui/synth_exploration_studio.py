@@ -8,21 +8,21 @@ from nebula.documents.synth_exploration import comparison_problem, content, rest
 
 
 class ExplorationStudio:
-    def build_exploration_controls(self, view_row, monitor_row):
+    def build_exploration_controls(self, actions, monitor_flow):
         self.snapshots_button = QPushButton('Snapshots'); self.snapshots_button.clicked.connect(self.open_snapshots)
         self.snapshots_button.setToolTip('Capture complete named variations, compare A/B and restore them. Saved in this composition.')
-        view_row.addWidget(self.snapshots_button); self.composition_widgets.append(self.snapshots_button)
+        actions.addWidget(self.snapshots_button); self.composition_widgets.append(self.snapshots_button)
         self.compare_a = QPushButton('A'); self.compare_b = QPushButton('B'); self.compare_exit = QPushButton('×')
         for button, side in ((self.compare_a, 'a'), (self.compare_b, 'b')):
             button.setAccessibleName('Preview ' + side.upper())
             button.setCheckable(True); button.setFixedWidth(30); button.hide()
             button.clicked.connect(lambda _checked=False, side=side: self.set_comparison_side(side))
-            view_row.addWidget(button)
+            actions.addWidget(button)
         self.compare_exit.setFixedWidth(28); self.compare_exit.hide(); self.compare_exit.clicked.connect(self.end_comparison)
-        self.compare_exit.setAccessibleName('End A/B comparison'); view_row.addWidget(self.compare_exit)
+        self.compare_exit.setAccessibleName('End A/B comparison'); actions.addWidget(self.compare_exit)
         self.compare_label = QLabel(); self.compare_label.setObjectName('monitorMeta'); self.compare_label.hide()
         self.compare_label.setTextFormat(Qt.TextFormat.PlainText)
-        monitor_row.insertWidget(1, self.compare_label)
+        monitor_flow.addWidget(self.compare_label)
 
     def preview_sequence(self):
         if self.comparison:

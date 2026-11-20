@@ -129,7 +129,7 @@ def test_export_does_not_hide_a_foreground_update_that_can_run(window, monkeypat
     monkeypatch.setattr(window.jobs, 'start', jobs.append)
     window.export_job = ExportJob(window.preset, '/tmp/unused.mp4', (64, 48), window.sequence)
     window.invalidate(force_clear=True)
-    QTest.qWait(150)
+    wait_until(lambda: bool(jobs))
     assert window.preview_status.mode == 'loading'
     jobs[-1].run()
     assert not window.preview_image_stale

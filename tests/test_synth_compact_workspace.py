@@ -4,7 +4,7 @@ import os
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 import pytest
 from PySide6.QtCore import QEvent, QPoint, QThreadPool
-from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtWidgets import QApplication, QMessageBox, QPushButton, QWidget
 from nebula.ui.studio_theme import apply_theme
 from nebula.ui.synth_studio import SynthStudio
 from nebula.documents.synth_starting_points import new_piece
@@ -161,11 +161,28 @@ def test_prepared_count_means_actual_cached_frames_in_playback_scope(window):
     assert window.cache_status.text() == f'Selected clips: 0/{window.active_preview_scope().count} frames · not prepared'
 
 
+def test_monitor_toolbar_centers_controls_and_keeps_status_width_stable(window):
+    header = window.findChild(QWidget, 'monitorHeader')
+    window.resize(1728, 920)
+    window.splitter.setSizes([920, 700])
+    QApplication.processEvents()
+    controls = [window.view_zoom, *(button for button in header.findChildren(QPushButton) if button.isVisible())]
+    assert len({widget.height() for widget in controls}) == 1
+    center = window.view_zoom.mapTo(header, window.view_zoom.rect().center()).y()
+    for widget in [window.frame_status, *controls]:
+        assert abs(widget.mapTo(header, widget.rect().center()).y() - center) <= 1
+    original_zoom_position = window.view_zoom.mapTo(header, QPoint())
+    for state in window.frame_status.states:
+        window.frame_status.set_state(state)
+        QApplication.processEvents()
+        assert window.view_zoom.mapTo(header, QPoint()) == original_zoom_position
+
+
 def test_narrow_monitor_wraps_controls_without_editing_the_piece(window):
     before = copy.deepcopy(window.composition)
     window.begin_comparison(before, 'A long snapshot title to check the monitor layout')
     window.splitter.setSizes([490, 760]); QApplication.processEvents()
-    monitor = window.viewer.parentWidget()
+    monitor = window.findChild(QWidget, 'monitorHeader')
     for control in (window.frame_status, window.view_zoom, window.snapshots_button, window.compare_a,
                     window.compare_b, window.compare_exit, window.fullscreen_button):
         assert inside(control, monitor)

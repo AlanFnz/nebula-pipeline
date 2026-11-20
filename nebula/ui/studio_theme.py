@@ -177,6 +177,11 @@ QWidget[chrome="true"] QPushButton, QPushButton[compact="true"] { padding: 3px 7
 QWidget[chrome="true"] QComboBox { padding-top: 3px; padding-bottom: 3px; }
 QWidget[chrome="true"] QSpinBox, QWidget[chrome="true"] QDoubleSpinBox { padding: 3px 5px; }
 QWidget[chrome="true"] QLabel#timecode { padding: 3px 5px; }
+QWidget#monitorHeader .QWidget { background: transparent; }
+QWidget#monitorHeader QPushButton, QWidget#monitorHeader QDoubleSpinBox {
+    min-height: 18px; max-height: 18px; padding: 2px 6px;
+}
+QWidget#monitorHeader QDoubleSpinBox { background: @raised@; }
 QToolButton { padding: 3px 20px 3px 7px; }
 QToolButton::menu-button { width: 16px; border-left: 1px solid @border@; }
 QToolButton::menu-arrow { image: url("@CHEVRON@"); width: 8px; height: 6px; }
