@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
 )
 from nebula.ui.studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBox, SpinBox as QSpinBox
 from nebula.ui.studio_widgets import Slider, configure_parameter_spin, parameter_number
-from nebula.ui.synth_inspector import grouped_paths, control_group
+from nebula.ui.synth_inspector import grouped_paths, control_group, matches_control
 from nebula.sources.synth_solids import hidden_controls as hidden_solid_controls
 
 from nebula.effects.synth_effects import EFFECTS, EFFECT_BY_ID, describe_effects, is_removed_effect, parameter, effects_for
@@ -794,7 +794,7 @@ class EffectsPanel(QWidget):
         self.color_panel.setVisible(effect.id == 'dye_transfer' and
                                     self.color_panel.context_provider is not None and
                                     not query and selected_group in (None, 'Color & light', 'Color channels'))
-        shown = {p for p in visible_paths if not query or query in parameter(p).label.casefold() or query in p.casefold() or query in control_group(p).casefold()}
+        shown = {p for p in visible_paths if not query or matches_control(query, p, parameter(p), control_group(p))}
         # Keep unchanged rows visible during value refreshes. Hiding a focused
         # editor makes Qt transfer focus and scroll to a different control.
         visible_controls = set()
@@ -833,7 +833,7 @@ class EffectsPanel(QWidget):
         self.search_results = ([mix_path] if intensity_match else []) + [p for p in visible_paths if p in visible_controls]
         self.no_matches.setVisible(not creative and not shown and not intensity_match)
         other_tabs = {self.control_tab(p) for p in searchable_paths if query and p != mix_path and
-                      (query in parameter(p).label.casefold() or query in p.casefold() or query in control_group(p).casefold())}
+                      matches_control(query, p, parameter(p), control_group(p))}
         other_tabs.discard(self.parameter_tabs.currentIndex())
         for index, button in enumerate(self.other_match_buttons):
             button.setVisible(not creative and index in other_tabs)

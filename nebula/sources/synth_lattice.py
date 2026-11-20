@@ -32,7 +32,7 @@ def modules(Module, P):
         P('palette', 'Palette', 0, 0, 3, 1, choices=('Neon spectrum', 'Ember / rose', 'Lagoon / violet', 'Pearl / silver')),
         P('color_rhythm', 'Color timing', 0, 0, 1, 1, 'Musical phrase locks color changes and size pulses to one repeating beat cycle.', choices=('Free optical', 'Musical phrase')),
         P('bpm', 'Tempo (BPM)', 96., 30, 240, 1, 'Tempo at global speed 1. Applies in Musical phrase mode; generated notes follow the same clock.'),
-        P('phrase_bars', 'Phrase length (4/4 bars)', 2, 1, 4, 1, 'At 96 BPM, two bars take five seconds. Opening, color steps and return repeat together.'),
+        P('phrase_bars', 'Phrase length (4/4 bars)', 2, 1, 4, 1, 'Number of four-beat bars per visual phrase. Opening, color steps and return repeat together.'),
         P('color_period', 'Color cycle', 10., 1, 60, .1),
         P('color_phase', 'Color phase', 0., 0, 1, .01),
         P('color_spread', 'Color wave depth', .8, 0, 2, .01, 'Spread color changes from the center through neighboring cells. In Printed relief, controls the curvature of the color spiral.'),

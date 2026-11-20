@@ -38,7 +38,7 @@ of it. Circle/square/diamond enclose the padded text. Explicit width/height stre
 still affects the entire label afterward.
 
 The layout is supported by Whole phrase, One word and Type on, not Morph words or
-Reading montage. Defaults retain existing FAC51 pixels; other text studies have
+Reading sequence. Defaults retain existing FAC51 pixels; other text studies have
 the label disabled and retain their previous layout.
 
 Contact print is a separate image effect available for generated sources and

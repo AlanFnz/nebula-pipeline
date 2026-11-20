@@ -324,8 +324,8 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
         paths = OBJECT_PATHS.get(self.kind, ())
         reading = self.kind == 'text' and summary['text']['ranges']['text.reveal'] == (4, 4)
         if reading:
-            self.note.setToolTip(f'Edit Wording and apply it: the montage adapts to complete words and letters. '
-                             f'Montage duration includes the final phrase; match the clip duration for one full pass. '
+            self.note.setToolTip(f'Reading sequence (formerly Reading montage) follows the words you enter in Main text. '
+                             f'Reading duration includes the final phrase. Match the clip duration for one full pass. '
                              f'Print collage and Film burn follow these reading beats. Changes apply to {scope}.')
             self.timing.setText('Reading & interruptions…')
         if set(self.controls) != set(paths):

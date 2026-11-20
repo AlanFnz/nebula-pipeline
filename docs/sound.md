@@ -52,7 +52,7 @@ In Arpeggio, choose **Arpeggio mode → Step sequencer**. Length selects up to 1
 steps. Select a step to edit Note, Velocity and Gate; Space toggles its rest.
 Gate sets note length; Attack and Release shape the envelope.
 
-Tempo and Division set rhythm. **Start → Visual gestures** triggers a pattern
+**Audio tempo** and **Division** set the rhythm of the arpeggio. **Start → Visual gestures** triggers a pattern
 from movement; **Loop with timeline** repeats from time zero. These controls do
 not change video speed. Visual presence and filter connections can still make
 a running pattern quiet or silent.
@@ -64,8 +64,10 @@ synth** maps color transitions to Opening and Color steps notes. Each has its ow
 root, scale and engine. Enable Pad, Chimes, Choir, Sub bass or Wave sine for
 additional layers, then balance them in Mixer.
 
-**Object → Motion & timing → Color timing → Musical phrase** ties the visual
-cycle to Tempo and Phrase length. Free optical keeps independent visual clocks.
+**Object → Rhythm & timing → Color timing → Musical phrase** ties the visual
+cycle to Tempo and Phrase length. At 96 BPM, two bars of 4/4 take 5 seconds at
+1× before retiming. Opening and Color steps follow the color changes. In
+**Free optical**, size and color use their own periods.
 
 ## Looping and live changes
 

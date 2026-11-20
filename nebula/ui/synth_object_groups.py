@@ -1,6 +1,8 @@
 """Task-oriented object inspector navigation; never writes document values."""
 from PySide6.QtCore import Qt, QSignalBlocker, QTimer
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLabel
+from nebula.sources.synth_lattice import phrase_period
+from nebula.ui.synth_inspector import matches_control
 from nebula.ui.synth_object_catalog import family_groups, PARAMETER_OWNER
 
 
@@ -33,6 +35,29 @@ PLEATED_GROUPS = (
     (0, 'Motion & timing', False, 'phase flow cadence loop_seconds'),
     (0, 'Optical finish', False, 'softness mix'),
 )
+
+
+def lattice_timing_note(ranges, automations):
+    keys = ('surface', 'color_rhythm', 'bpm', 'phrase_bars')
+    surface, mode, bpm, bars = (ranges['chromatic_lattice.' + key] for key in keys)
+
+    def varies(key, bounds):
+        return bounds[0] != bounds[1] or bool(automations.get('chromatic_lattice.' + key))
+
+    if varies('surface', surface):
+        return ''
+    if surface == (1, 1):
+        return 'Printed cells use separate periods for the size and color sweeps.'
+    if varies('color_rhythm', mode):
+        return 'Color timing selects independent optical cycles or a shared musical phrase.'
+    if mode == (0, 0):
+        return 'Free optical uses separate periods for size and color.'
+    timing = 'Generated notes follow the color changes.'
+    if varies('bpm', bpm) or varies('phrase_bars', bars):
+        return 'Phrase length follows the current tempo and number of bars. ' + timing
+    period = phrase_period({'color_rhythm': 1, 'bpm': bpm[0], 'phrase_bars': bars[0]})
+    unit = 'bar' if bars[0] == 1 else 'bars'
+    return f'{bpm[0]:g} BPM · {bars[0]:g} {unit} of 4/4 · {period:.3g} s at 1× before retiming. ' + timing
 
 
 class ControlGroup(QWidget):
@@ -141,8 +166,10 @@ class ObjectGroupsMixin:
         self.wording_host.setVisible(any(p in self.search_results for p in text_primary))
         for group_page, title, opened, members in self.object_definitions:
             group = self.object_groups[title]
+            alias = 'center path' if self.kind == 'memory' and title == 'Path & travel' else ''
             matching = [p for p in members if p in eligible and
-                        (not query or query in (self.controls[p].spec.label + ' ' + self.controls[p].label.text() + ' ' + p + ' ' + title + (' center path' if self.kind == 'memory' and title == 'Path & travel' else '')).casefold())]
+                        (not query or matches_control(query, p, self.controls[p].spec,
+                                                      self.controls[p].label.text(), title, alias))]
             shared_geometry = self.kind == 'signal' and title == 'Shared geometry'
             geometry_match = shared_geometry and (not query or any(query in term for term in ('shared geometry', 'shape', 'width', 'height', 'diameter', 'sides', 'rotation')))
             position_group = title == 'Canvas position'
@@ -166,6 +193,9 @@ class ObjectGroupsMixin:
                     summary += '\nEnable Framed label in Text / Subtitle to use these controls.'
             if self.kind == 'text' and title == 'Reading':
                 summary += '\nReading timing does not change the clip or project duration.'
+            if self.kind == 'lattice' and title == 'Rhythm & timing':
+                note = lattice_timing_note(self.object_ranges['chromatic_lattice']['ranges'], self.object_counts)
+                summary = '\n'.join(filter(None, (summary if summary != 'No local overrides' else '', note)))
             if self.kind == 'lattice' and title == 'Background reveal':
                 summary = '\n'.join(part for part in (
                     summary if summary != 'No local overrides' else '',

@@ -14,7 +14,7 @@ def modules(Module, P):
     return (Module('optical_print', 'Optical overprint',
         'Dark stock, enlarged exposures and distressed colored impressions.', (
         P('reading_clarity', 'Protect reading moments', 0., 0, 1, .05,
-          'With Text → Reading montage, keep whole words in frame and move flashes away while reading. Other sources use the manual composition.'),
+          'With Text → Reading sequence, keep whole words in frame and move flashes away while reading. Other sources use the manual composition.'),
         P('reading_hold', 'Readable hold', .7, .25, 1, .05,
           'Fraction of each word hold kept clear before optical excursions. One protects the full hold. The final phrase stays protected throughout.'),
         P('primary', 'Main impression', 1., 0, 1, .01),
@@ -26,7 +26,7 @@ def modules(Module, P):
         P('fragment_mix', 'Fragment montage', 0., 0, 1, .05,
           'Replace the repeated background with varied closeups, dark exposures and a second ink impression. The main word keeps its size, timing and focus. Zero retains the original background.'),
         P('fragment_typeface', 'Fragment typeface', 0, 0, 2, 1,
-          'Optional alternate typeface for background fragments in Reading montage. The main text stays unchanged. Other sources use their own pixels.',
+          'Optional alternate typeface for background fragments in Reading sequence. The main text stays unchanged. Other sources use their own pixels.',
           choices=('Source pixels', 'Bodoni / serif', 'Fraunces / soft serif'), kind='font'),
         P('halation', 'Exposure halation', 0., 0, 1, .05,
           'Red light diffusion around secondary exposures and a brighter pale flash core. Does not blur the main word.'),

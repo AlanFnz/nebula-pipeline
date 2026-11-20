@@ -21,14 +21,15 @@ class StepSequencer(QWidget):
         layout = QVBoxLayout(self); layout.setContentsMargins(0, 0, 0, 0); layout.setSpacing(6)
         row = QHBoxLayout()
         self.bpm = QDoubleSpinBox(); self.bpm.setRange(30, 240); self.bpm.setDecimals(3)
-        self.bpm.setSuffix(' BPM'); self.bpm.setKeyboardTracking(False); self.bpm.setAccessibleName('Sequencer tempo')
-        self.bpm.setToolTip('Tempo of the sound only. Does not change video speed.')
+        self.bpm.setSuffix(' BPM'); self.bpm.setKeyboardTracking(False); self.bpm.setAccessibleName('Sequencer audio tempo')
+        self.bpm.setToolTip('Sets the rhythm of the arpeggio in beats per minute. The visuals keep their own timing.')
+        self.bpm.setAccessibleDescription(self.bpm.toolTip())
         self.division = QComboBox(); self.division.setAccessibleName('Step division')
         for key in DIVISIONS: self.division.addItem(key, key)
         self.length = QSpinBox(); self.length.setRange(1, 16); self.length.setSuffix(' steps')
         self.length.setAccessibleName('Sequence length'); self.length.setKeyboardTracking(False)
         self.length.setToolTip('Steps outside this length are retained. Extend the pattern to hear them again.')
-        for label, widget in (('Tempo', self.bpm), ('Division', self.division), ('Length', self.length)):
+        for label, widget in (('Audio tempo', self.bpm), ('Division', self.division), ('Length', self.length)):
             row.addWidget(QLabel(label)); row.addWidget(widget)
         row.addStretch(); layout.addLayout(row)
         row = QHBoxLayout(); row.addWidget(QLabel('Start'))

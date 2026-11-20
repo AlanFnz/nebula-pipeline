@@ -6,7 +6,7 @@ the choice in the current project or clip scope; Cancel leaves the document alon
 Refresh reads newly enabled fonts. The six bundled families remain available.
 
 All text objects share this picker: whole phrases, individual words, type-on,
-reading montage, liquid word morphs and framed labels with optional subtitles.
+reading sequence, liquid word morphs and framed labels with optional subtitles.
 The label's main wording and subtitle share the chosen font. Stretch echo and
 Optical print's alternate fragment typography also use the picker. Source pixels
 retains its previous meaning in these two effects.

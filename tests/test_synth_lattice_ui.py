@@ -32,3 +32,28 @@ def test_lattice_shapes_palettes_timing_and_undo_are_editable(window):
     panel.controls['chromatic_lattice.shape'].input.setCurrentIndex(0)
     assert panel.controls['chromatic_lattice.sides'].isHidden()
     wait_until(lambda:not window.render_running and not window.render_queued)
+
+
+def test_timing_note_follows_the_visual_clock_and_preserves_free_periods(window):
+    window.set_composition(starter_composition('chromatic-lattice'))
+    obj = window.composer.object_panel
+    controls = obj.controls
+    group = obj.object_groups['Rhythm & timing']
+    mode = controls['chromatic_lattice.color_rhythm'].input
+    mode.setCurrentIndex(0)
+    controls['chromatic_lattice.period'].input.setValue(7.5)
+    assert 'separate periods' in group.summary.text()
+    mode.setCurrentIndex(1)
+    controls['chromatic_lattice.bpm'].input.setValue(96)
+    controls['chromatic_lattice.phrase_bars'].input.setValue(2)
+    assert '96 BPM · 2 bars of 4/4 · 5 s at 1× before retiming' in group.summary.text()
+    controls['chromatic_lattice.bpm'].input.setValue(120)
+    controls['chromatic_lattice.phrase_bars'].input.setValue(1)
+    assert '120 BPM · 1 bar of 4/4 · 2 s' in group.summary.text()
+    obj.set_automation_counts({'chromatic_lattice.bpm': 1})
+    assert 'current tempo' in group.summary.text()
+    assert '2 s' not in group.summary.text()
+    mode.setCurrentIndex(0)
+    assert 'separate periods' in group.summary.text()
+    assert controls['chromatic_lattice.period'].input.value() == 7.5
+    wait_until(lambda: not window.render_running and not window.render_queued)

@@ -7,6 +7,13 @@ def test_reading_wording_timing_and_clarity_are_editable_and_undoable(window):
     composer=window.composer; obj=composer.object_panel
     composer.look_tabs.setCurrentWidget(obj)
     control=obj.controls['text.content'].input
+    for query, path in (('Reading montage', 'text.reveal'), ('Reading sequence', 'text.reveal'),
+                        ('Montage duration', 'text.reading_duration'), ('Repeat montage', 'text.reading_loop')):
+        obj.object_filter.setText(query)
+        assert path in obj.search_results
+    obj.object_filter.clear()
+    assert obj.controls['text.reveal'].input.currentText() == 'Reading sequence'
+    assert obj.controls['text.reveal'].input.currentIndex() == 4
     assert control.value()=='REVOLUTION IS NOW'
     control.editor.setPlainText('OTRA FRASE')
     control.apply.click()

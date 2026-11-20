@@ -13,8 +13,8 @@ from PIL import Image, ImageDraw, ImageFilter
 def modules(Module, P):
     return (
         Module('print_collage', 'Print collage', 'Crop, enlarge and overprint impressions of any image source.', (
-            P('reading_layout', 'Follow reading montage', 0., 0, 1, .05, 'With Text → Show → Reading montage, keep complete centered words while reading and overprints during interruptions. Zero retains manual collage controls. Other sources are unchanged.'),
-            P('reading_reframe', 'Reading reframe', 0., 0, 1, .05, 'Gentle scale and registration changes within complete word bounds. Requires Follow reading montage; zero keeps its original steady framing.'),
+            P('reading_layout', 'Follow reading sequence', 0., 0, 1, .05, 'With Text → Show → Reading sequence, keep complete centered words while reading and overprints during interruptions. Zero retains manual collage controls. Other sources are unchanged.'),
+            P('reading_reframe', 'Reading reframe', 0., 0, 1, .05, 'Gentle scale and registration changes within complete word bounds. Requires Follow reading sequence; zero keeps its original steady framing.'),
             P('start', 'Source window start', 0., 0, .99, .01, 'Horizontal position within the non-black source bounds.'),
             P('end', 'Source window end', 1., .01, 1, .01, 'Reversed or very narrow windows keep at least one source pixel.'),
             P('width', 'Impression width', .9, .02, 4, .01, 'Relative to the authored canvas width. Values above one crop at the canvas edge.'),
@@ -38,7 +38,7 @@ def modules(Module, P):
             P('cadence', 'Print cadence', 12., 1, 60, 1),
         )),
         Module('film_burn', 'Film burn', 'Drifting light leaks, ink reversals and rough film gates. Color print remaps bright source details into ink.', (
-            P('reading_clarity', 'Reading clarity', 0., 0, 1, .05, 'With Text → Show → Reading montage, soften occlusion during reading and intensify exposure during interruptions. Grain and palette remain. Zero retains the manual exposure.'),
+            P('reading_clarity', 'Reading clarity', 0., 0, 1, .05, 'With Text → Show → Reading sequence, soften occlusion during reading and intensify exposure during interruptions. Grain and palette remain. Zero retains the manual exposure.'),
             P('reading_motion', 'Reading print motion', 0., 0, 1, .05, 'Develop light leaks, ink reversals and halos within each readable word. Requires Reading clarity. Zero retains the quieter original reading holds. Palette and optical controls still apply.'),
             P('print_mix', 'Color print', 0., 0, 1, .01, 'One turns bright details into ink on colored film. Zero preserves the source colors.'),
             P('paper_hue', 'Film hue', .98, 0, 1, .01),

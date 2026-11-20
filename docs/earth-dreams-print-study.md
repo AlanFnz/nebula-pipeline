@@ -20,7 +20,7 @@ editable in the shot strip. The final two-line poster uses main text and
 subtitle, both on the Text page. Object → Layout contains the new Letterpress
 group: letter height, width, angle and baseline variation, seed, and reprint
 rate. Rate zero keeps the impression static; other rates deterministically
-reprint it. Whole phrase, one word, type-on and reading montage support these
+reprint it. Whole phrase, one word, type-on and reading sequence support these
 controls. Morph words retains its existing geometry and hides them.
 
 Dye transfer supplies the stock and ink colors, gate, shutter drag, optical

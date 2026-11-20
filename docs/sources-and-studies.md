@@ -72,18 +72,19 @@ that follow the authored cuts.
 
 ## Text / reading print
 
-A seven-second word sequence ending on the full phrase. **Object → Motion →
-Reading montage** controls duration, final hold and interruptions. Longer words
+A seven-second word sequence ending on the full phrase. In **Object → Motion → Reading**, set **Show** to **Reading sequence** (formerly **Reading montage**).
+**Reading duration** sets the time for all words and the final phrase. Under
+**Interruptions & ending**, choose whether to hold the phrase or repeat the sequence. Longer words
 can receive more time. Match the clip duration to the reading cycle for a full pass.
 
-**Print collage → Follow reading montage** and **Film burn → Reading clarity**
+**Print collage → Follow reading sequence** and **Film burn → Reading clarity**
 coordinate those treatments with the word holds. They do not protect text from
 other effects added later.
 
 ## Text / dark optical print
 
 A 7.5-second word sequence with dark stock, enlarged ink impressions and exposure
-flashes. Edit the text and Reading montage timing as above. **Optical overprint →
+flashes. Edit the text and Reading sequence timing as above. **Optical overprint →
 Timing → Protect reading moments** keeps words visible during holds; **Readable
 hold** sets how much of each hold is protected. Stock/ink colors, fragment layers
 and flashes remain editable.

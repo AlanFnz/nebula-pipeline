@@ -40,9 +40,11 @@ pages retain their behavior.
 The 0.89.0 D01 pass unifies document/block identity, file ownership, selection,
 editing scope and playback range across the workspace and auxiliary editors.
 Global panels keep the remembered local target visible without changing it.
-Return from a block distinguishes unchanged, updated and saved states. D09
-reading terminology/time explanations and a final end-to-end UX review remain;
-this is not a completion claim for the whole external proposal or its user study.
+Return from a block distinguishes unchanged, updated and saved states.
+
+D09 introduces Reading sequence in Object → Motion and explains the clocks for
+footage, effects, output and sound. Lattice shows its musical phrase length at
+1× before retiming. The final end-to-end UX review and user validation remain.
 
 Status was checked against the source registrations and UI/transport paths,
 with focused tests listed in the [documentation review record](documentation-audit.md).

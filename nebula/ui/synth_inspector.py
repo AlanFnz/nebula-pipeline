@@ -1,6 +1,20 @@
 """Presentation-only grouping. Parameter names and saved values stay unchanged."""
 
 
+_FORMER_LABELS = {
+    'text.reveal': 'Reading montage',
+    'text.reading_duration': 'Montage duration',
+    'text.reading_loop': 'Montage ending Repeat montage',
+    'print_collage.reading_layout': 'Follow reading montage',
+}
+
+
+def matches_control(query, path, spec, *labels):
+    choices = spec.choices if path in ('text.reveal', 'text.reading_loop') else ()
+    terms = (spec.label, path, *labels, *choices, _FORMER_LABELS.get(path, ''))
+    return any(query in term.casefold() for term in terms)
+
+
 def control_group(path):
     from nebula.render.synth_instances import base_path
     path = base_path(path)
