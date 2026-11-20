@@ -8,6 +8,7 @@ from nebula.ui.studio_theme import COLORS, terminal_font
 
 class SynthViewer(QWidget):
     zoomChanged = Signal(float)
+    frameCleared = Signal()
 
     def __init__(self):
         super().__init__()
@@ -22,8 +23,11 @@ class SynthViewer(QWidget):
                         'Drag or Shift-scroll to pan. Double-click to fit. Zoom changes only this view.')
 
     def set_packet(self, packet):
+        cleared = packet is None and self.packet is not None
         self.packet = packet
         self.update()
+        if cleared:
+            self.frameCleared.emit()
 
     def set_canvas_size(self, size):
         if tuple(size) != self.canvas_size:

@@ -28,7 +28,7 @@ from nebula.ui.studio_widgets import configure_parameter_spin, PlaybackButton
 from nebula.ui.synth_workspace_widgets import FlowLayout, PairedControlsLayout, ElidingLabel, WorkspaceSplitter, inline
 from nebula.ui.synth_workspace_context import ContextHeader, ContextSummary, studio_context
 from nebula.ui.synth_preview_range import PreviewRangeStudio, scope_from_frames
-from nebula.ui.synth_monitor_status import MonitorStatus
+from nebula.ui.synth_monitor_status import MonitorFrameStatus, MonitorStatus
 
 from nebula.core.media import Cancellation
 from nebula.ui.studio_theme import COLORS, apply_theme, terminal_font, ui_font
@@ -246,6 +246,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.workspace_navigation = None
         self.recent_projects = recent_projects
         self.cover_frame = None
+        self.failed_monitor_frame = None
         self.preview_suspended = False
         self.workspace_settings = settings
         self.export_settings = settings
@@ -703,6 +704,8 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         monitor_flow = FlowLayout(monitor_header, spacing=4)
         title_group = QWidget(); monitor_row = QHBoxLayout(title_group); monitor_row.setContentsMargins(6, 2, 3, 2); monitor_row.setSpacing(5)
         monitor_title = QLabel('MONITOR'); monitor_title.setObjectName('sectionTitle'); monitor_row.addWidget(monitor_title)
+        self.frame_status = MonitorFrameStatus()
+        monitor_row.addWidget(self.frame_status)
         monitor_flow.addWidget(title_group)
         self.monitor_meta = QLabel(root); self.monitor_meta.hide()
         self.monitor_state = QLabel(root); self.monitor_state.hide()
@@ -724,6 +727,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         fullscreen.clicked.connect(self.toggle_fullscreen); monitor_flow.addWidget(fullscreen); self.fullscreen_button = fullscreen
         monitor_layout.addWidget(monitor_header)
         self.viewer = SynthViewer(); monitor_layout.addWidget(self.viewer, 1)
+        self.viewer.frameCleared.connect(self.refresh_monitor_frame)
         left_layout.addWidget(monitor, 1)
         self.viewer.zoomChanged.connect(self.refresh_view_zoom)
         self.fit_view_button.setChecked(self.viewer.zoom == 0)
@@ -2020,7 +2024,9 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         if not force_clear and not comparison_switch and current == self.preview_validity:
             # Fast visual/sound edits keep prepared pixels and the transport.
             self.refresh_soundtrack()
-            if performance_changed: self.request_frame()
+            if performance_changed:
+                self.cover_frame = None
+                self.request_frame()
             return
         self.cancel_foreground_render()
         self.preview_image_stale = True
@@ -2067,7 +2073,40 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         return 'idle', ''
 
     def refresh_preview_activity(self):
-        if hasattr(self, 'preview_status'): self.preview_status.refresh()
+        if hasattr(self, 'preview_status'):
+            self.preview_status.refresh()
+            self.refresh_monitor_frame()
+
+    def batch_includes_playhead(self, batch):
+        fps = self.preview_fps()
+        source_time = self.performance_source_time(self.timeline.value() / fps)
+        return round(source_time * fps) in batch.frames
+
+    def refresh_monitor_frame(self):
+        fps = self.preview_fps()
+        seconds = self.timeline.value() / fps
+        target = (self.settings_generation, seconds)
+        if self.performance_needs_render:
+            state = 'updating'
+        elif self.viewer.packet is not None and self.cover_frame == target:
+            state = 'current'
+        elif self.failed_monitor_frame == target:
+            state = 'error'
+        else:
+            job = self.render_job
+            foreground = (job is not None and job.settings_generation == self.settings_generation
+                          and job.output_time == seconds and not job.cancel.event.is_set())
+            queued = (self.render_queued and not self.loop_preview_range.isChecked()
+                      and self.preparing_gap is None)
+            batch = self.prepare_job
+            preparing = (batch is not None and batch.generation == self.settings_generation
+                         and not batch.cancel.event.is_set()
+                         and self.batch_includes_playhead(batch))
+            if foreground or queued or preparing or self.performance_timer.isActive():
+                state = 'updating'
+            else:
+                state = 'waiting' if self.viewer.packet is not None else 'empty'
+        self.frame_status.set_state(state)
 
     def preview_fps(self):
         return self.sequence['fps'] if self.sequence is not None else self.preset['export_fps']
@@ -2276,9 +2315,12 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.preview_frames.reserve(job.reserved_bytes, self.preparation_target)
         self.refresh_cached_ranges()
         self.prepare_job = self.warming_job = job; self.pending_jobs.append(job)
+        if self.failed_monitor_frame is not None and self.batch_includes_playhead(job):
+            self.failed_monitor_frame = None
         self.prepare_preview.setText('Cancel range' if self.preparation_explicit and not self.preparation_full else 'Prepare range')
         self.refresh_gap_feedback()
         self.preview_status.setText(self.preparation_feedback())
+        self.refresh_monitor_frame()
         job.signals.done.connect(lambda result, j=job: self.preparation_finished(j, result=result))
         job.signals.failed.connect(lambda error, j=job: self.preparation_finished(j, error))
         self.jobs.start(job)
@@ -2309,6 +2351,8 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         if self.closing: return
         if valid and error:
             self.trace_preview('prepare_failed', error=str(error)[:300])
+            if self.batch_includes_playhead(job):
+                self.failed_monitor_frame = (self.settings_generation, self.timeline.value() / self.preview_fps())
             if self.discovery_session: self.discovery_session.fail(error)
             if self.preparing_gap is not None: self.cancel_preview_gap()
             else: self.cancel_preparation()
@@ -2344,6 +2388,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
             try: check_source(source)
             except (ValueError, OSError) as exc:
                 self.settings_generation += 1
+                self.failed_monitor_frame = (self.settings_generation, self.timeline.value() / self.preview_fps())
                 self.preview_frames.clear(); self.cached_ranges.set_ranges([]); self.cancel_preparation(); self.render_queued = False
                 self.preview_status.setText(f'Preview unavailable: {exc}')
                 if self.discovery_session: self.discovery_session.fail(exc)
@@ -2354,7 +2399,9 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         if self.composition is not None:
             self.section_timeline.set_time(self.current_time)
         if self.preview_debounce.isActive():
-            self.render_queued = True; return
+            self.render_queued = True
+            self.refresh_monitor_frame()
+            return
         source_frame = round(sample_time * fps)
         self.preview_frames.anchor(source_frame)
         packet = self.preview_frames.get(source_frame)
@@ -2372,15 +2419,19 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self._obsolete_preparation()
         if self.render_running or (self.discovery_session and self.warming_job):
             self.render_queued = True
+            self.refresh_monitor_frame()
             return
         self.render_queued = False
         size = self.preview_size()
         if self.warming_job and self.preview_frames.reserved + size[0]*size[1]*3 > self.preview_frames.budget:
-            self.render_queued = True; return
+            self.render_queued = True
+            self.refresh_monitor_frame()
+            return
         self.render_running = True
         job = RenderJob(self.preset, sample_time, size, self.settings_generation, self.request_serial, sequence, self.video_frames, self.preview_bypass())
         job.output_time = self.current_time
         self.render_job = job
+        self.failed_monitor_frame = None
         self.refresh_preview_activity()
         job.reserved_bytes = size[0]*size[1]*3 if size[0]*size[1]*3 <= self.preview_frames.budget else 0
         self.preview_frames.reserve(job.reserved_bytes, (source_frame,))
@@ -2388,7 +2439,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.pending_jobs.append(job)
         job.signals.done.connect(lambda result, j=job: self._receive_foreground_frame(j, result))
         job.signals.done.connect(lambda _result, j=job: self._release_job(j))
-        job.signals.failed.connect(lambda error, j=job: self.render_failed(error) if j.settings_generation == self.settings_generation and not self.closing and not j.cancel.event.is_set() else None)
+        job.signals.failed.connect(lambda error, j=job: self.render_failed(error, j.output_time) if j.settings_generation == self.settings_generation and not self.closing and not j.cancel.event.is_set() else None)
         job.signals.failed.connect(lambda _error, j=job: self._release_job(j))
         self.jobs.start(job)
 
@@ -2431,8 +2482,6 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.display_frame(output_time, (size, raw))
 
     def display_frame(self, time_seconds, packet, cached=False):
-        self.cover_frame = (self.settings_generation, time_seconds)
-        self.preview_image_stale = False
         self.refresh_effect_explanations(time_seconds)
         if self.discovery_session: self.discovery_session.accept_packet()
         if self.comparison:
@@ -2444,6 +2493,9 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         if self.visual_sound_dialog and self.visual_sound_dialog.isVisible():
             self.visual_sound_dialog.set_video_frame(packet,time_seconds)
         self.viewer.set_packet((size, raw)); self.time_label.setText(f"{int(time_seconds) // 60:02d}:{time_seconds % 60:05.2f}")
+        self.cover_frame = (self.settings_generation, time_seconds)
+        self.preview_image_stale = False
+        self.failed_monitor_frame = None
         self.monitor_meta.setText(f"{size[0]}×{size[1]} / RGB")
         fps = self.preview_fps()
         if self.play.isChecked():
@@ -2458,10 +2510,12 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         if self.play.isChecked() and not self.warm_debounce.isActive() and not self.preparation_explicit:
             self.schedule_auto_preparation()
         self.refresh_preview_activity()
-    def render_failed(self, message):
+    def render_failed(self, message, output_time):
+        self.failed_monitor_frame = (self.settings_generation, output_time)
         if self.discovery_session: self.discovery_session.fail(message)
         self.status.setText(f"Render error: {message}")
         self.preview_status.setText('Preview unavailable · see the operation status for details.')
+        self.refresh_monitor_frame()
     def scrub(self, value):
         if not self.advancing:
             loop_scope = self.prepared_playback_scope if self.prepared_playback_scope.count else self.prepared_range_scope

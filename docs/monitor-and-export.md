@@ -25,6 +25,12 @@ Below the monitor, **Preview resolution** sits with the actual pixel dimensions
 and the prepared-frame counter. The counter describes the current playback
 scope at that resolution; the strip below the playhead marks which frames are ready.
 
+The dot beside **Monitor** describes the frame you see. Green **Up to date**
+means it shows the latest visual edits at the playhead. Amber **Updating**
+means that frame is queued or rendering. **Waiting** means the previous image
+is still on screen while the requested frame awaits preparation. Montage shows
+the same indicator beside its preview resolution.
+
 A spinner indicates an image update or preparation, even while playback is
 paused. During export, a stationary pause symbol means preview preparation is
 waiting. **Changes pending** means the displayed image has not caught up with

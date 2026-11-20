@@ -39,12 +39,14 @@ def test_foreground_loading_stops_on_completion_error_and_hide(window, monkeypat
 
 def test_preparation_and_cancel_report_work_even_when_paused(window, monkeypatch):
     before = setup(window, monkeypatch)
+    assert window.frame_status.text() == 'Up to date'
     jobs = []
     monkeypatch.setattr(window.jobs, 'start', jobs.append)
     window.prepare_playback()
     assert not window.play.isChecked()
     assert window.preview_status.mode == 'loading'
     assert 'Preparing playback range' in window.preview_status.text()
+    assert window.frame_status.text() == 'Up to date'
     window.prepare_playback()  # Cancel while the batch is pending.
     assert window.preview_status.mode == 'idle'
     assert not window.preview_status.animation.isActive()
@@ -74,6 +76,7 @@ def test_export_wait_does_not_spin_and_resumes_loop_preview_after_edit(window, m
     assert window.preview_image_stale
     assert status.mode == 'waiting' and not status.animation.isActive()
     assert status.text() == 'Preview waiting for export · changes pending'
+    assert window.frame_status.text() == 'Waiting'
     assert 'changes pending' in status.accessibleDescription()
     assert export.sequence == exported_sequence and export.sequence != window.sequence
     monkeypatch.setattr(window.jobs, 'start', start)
@@ -82,6 +85,42 @@ def test_export_wait_does_not_spin_and_resumes_loop_preview_after_edit(window, m
     wait_until(lambda: not window.preview_image_stale and status.mode == 'idle')
     assert not status.animation.isActive()
     assert window.loop_preview_range.isChecked()
+    assert window.frame_status.text() == 'Up to date'
+
+
+def test_edit_and_seek_only_mark_current_after_the_matching_frame_is_shown(window, monkeypatch):
+    setup(window, monkeypatch)
+    jobs = []
+    monkeypatch.setattr(window.jobs, 'start', jobs.append)
+    light = window.frame_status
+    assert light.isVisible() and light.text() == 'Up to date'
+    old_packet = window.viewer.packet
+    window.invalidate(force_clear=True)
+    assert light.text() == 'Updating' and window.viewer.packet is old_packet
+    wait_until(lambda: len(jobs) == 1)
+    window.invalidate(force_clear=True)
+    jobs[0].run()
+    assert light.text() == 'Updating' and window.viewer.packet is old_packet
+    wait_until(lambda: len(jobs) == 2)
+    window.timeline.setValue(6)
+    jobs[1].run()
+    assert light.text() != 'Up to date' and window.viewer.packet is old_packet
+    wait_until(lambda: len(jobs) == 3)
+    jobs[2].run()
+    assert light.text() == 'Up to date'
+    assert window.cover_frame == (window.settings_generation, 6 / window.preview_fps())
+    window.timeline.setValue(8)
+    assert light.text() == 'Updating'
+    jobs[-1].signals.failed.emit('Missing frame')
+    assert light.text() == 'Unavailable'
+    window.request_frame()
+    assert light.text() == 'Updating'
+    jobs[-1].run()
+    assert light.text() == 'Up to date'
+    # Returning to the previously shown frame needs no new render.
+    count = len(jobs)
+    window.timeline.setValue(6)
+    assert light.text() == 'Up to date' and len(jobs) == count
 
 
 def test_export_does_not_hide_a_foreground_update_that_can_run(window, monkeypatch):
@@ -98,3 +137,29 @@ def test_export_does_not_hide_a_foreground_update_that_can_run(window, monkeypat
     assert 'changes pending' not in window.preview_status.text()
     window._finish_export(window.export_job)
     assert window.preview_status.mode == 'idle'
+
+
+def test_loop_waits_for_its_own_frame_while_other_batches_finish(window, monkeypatch):
+    setup(window, monkeypatch)
+    jobs = []
+    monkeypatch.setattr(window.jobs, 'start', jobs.append)
+    window.loop_preview_range.setChecked(True)
+    window.invalidate(force_clear=True)
+    wait_until(lambda: not window.preview_debounce.isActive())
+    assert window.frame_status.text() == 'Waiting'
+    window.prepare_full_playback()
+    frame = window.timeline.value()
+    assert frame not in jobs[0].frames
+    assert window.preview_status.mode == 'loading' and window.frame_status.text() == 'Waiting'
+    while frame not in jobs[-1].frames:
+        job = jobs[-1]
+        job.run()
+        wait_until(lambda: jobs[-1] is not job)
+    assert window.frame_status.text() == 'Updating'
+    jobs[-1].signals.failed.emit('Could not prepare this batch')
+    assert window.frame_status.text() == 'Unavailable'
+    window.prepare_full_playback()
+    assert frame in jobs[-1].frames and window.frame_status.text() == 'Updating'
+    jobs[-1].run()
+    assert window.frame_status.text() == 'Up to date'
+    window.cancel_preparation()

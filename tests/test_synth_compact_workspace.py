@@ -166,7 +166,7 @@ def test_narrow_monitor_wraps_controls_without_editing_the_piece(window):
     window.begin_comparison(before, 'A long snapshot title to check the monitor layout')
     window.splitter.setSizes([490, 760]); QApplication.processEvents()
     monitor = window.viewer.parentWidget()
-    for control in (window.view_zoom, window.snapshots_button, window.compare_a,
+    for control in (window.frame_status, window.view_zoom, window.snapshots_button, window.compare_a,
                     window.compare_b, window.compare_exit, window.fullscreen_button):
         assert inside(control, monitor)
     for control in (window.new_piece_button, window.open_button, window.save_button,

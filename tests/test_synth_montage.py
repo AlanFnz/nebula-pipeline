@@ -60,6 +60,42 @@ def test_save_reopen_embeds_study_and_markers(montage,tmp_path):
     assert len(load_montage(path)['clips'])==2
 
 
+def test_monitor_tracks_displayed_revision_and_retargets_after_a_stale_failure(montage, monkeypatch):
+    from nebula.ui.synth_montage_ui import MontageWindow, Task
+    app = QApplication.instance() or QApplication([])
+    jobs = []
+    def capture_task(self, render, done, failed, priority=0):
+        jobs.append((done, failed))
+        return Task(render)
+    monkeypatch.setattr(MontageWindow, 'initialize_media', lambda *_: None)
+    monkeypatch.setattr(MontageWindow, 'task', capture_task)
+    window = MontageWindow(montage)
+    packet = ((2, 2), bytes(12))
+    try:
+        assert window.frame_status.text() == 'Updating'
+        jobs[0][0](packet)
+        assert window.frame_status.text() == 'Up to date'
+        window.seek(1)
+        window.seek(2)
+        jobs[1][1]('Error for frame 1')
+        assert window.frame_status.text() == 'Updating' and len(jobs) == 3
+        jobs[2][0](packet)
+        assert window.frame_status.text() == 'Up to date'
+        window.seek(0)
+        assert window.frame_status.text() == 'Up to date' and len(jobs) == 3
+        window.invalidate()
+        window.request_frame()
+        assert window.frame_status.text() == 'Updating'
+        jobs[-1][1]('Source unavailable')
+        assert window.frame_status.text() == 'Unavailable'
+        window.commit(dict(window.document, clips=[]))
+        assert window.frame_status.text() == 'No frame' and window.monitor.original is None
+    finally:
+        window.clean = copy.deepcopy(window.document)
+        window.close()
+        app.processEvents()
+
+
 def test_split_keeps_fractional_source_clock(montage):
     montage['clips'][0]['speed']=.5
     split=split_clip(montage,5)

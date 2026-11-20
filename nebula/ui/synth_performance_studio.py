@@ -174,6 +174,8 @@ class PerformanceStudio:
             self.performance_base_cache = None
         self.update_composition_history(); self.update_document_title()
         if not self.performance_timer.isActive(): self.performance_timer.start()
+        self.cover_frame = None
+        self.refresh_monitor_frame()
 
     def flush_performance(self):
         if self.closing: return

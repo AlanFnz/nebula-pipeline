@@ -1,10 +1,54 @@
 """Small monitor activity feedback; animation never requests a rendered frame."""
 import time
 
-from PySide6.QtCore import QRect, QRectF, Qt, QTimer
-from PySide6.QtGui import QPainter, QPen
+from PySide6.QtCore import QRect, QRectF, QSize, Qt, QTimer
+from PySide6.QtGui import QColor, QPainter, QPen
+from PySide6.QtWidgets import QLabel
 
+from nebula.ui.studio_theme import COLORS
 from nebula.ui.synth_workspace_widgets import ElidingLabel
+
+
+class MonitorFrameStatus(QLabel):
+    """Describe the displayed image independently of background preparation."""
+
+    states = {
+        'current': ('Up to date', 'accent', 'The displayed frame matches the playhead and the latest visual settings for this view.'),
+        'updating': ('Updating', 'warning', 'The frame for this position and these settings is being prepared.'),
+        'waiting': ('Waiting', 'warning', 'The previous image is still on screen. The requested frame is waiting to be prepared.'),
+        'empty': ('No frame', 'muted', 'There is no frame on the monitor.'),
+        'error': ('Unavailable', 'destructive', 'The requested frame could not be displayed. See the preview status for details.'),
+    }
+
+    def __init__(self):
+        super().__init__()
+        self.setObjectName('monitorMeta')
+        self.setContentsMargins(12, 0, 0, 0)
+        self.state = None
+        self.set_state('empty')
+
+    def sizeHint(self):
+        # Keep the surrounding controls in place when the wording changes.
+        width = max(self.fontMetrics().horizontalAdvance(label) for label, _, _ in self.states.values())
+        return QSize(width + self.contentsMargins().left() + 2, super().sizeHint().height())
+
+    def set_state(self, state):
+        if state == self.state: return
+        self.state = state
+        label, _, detail = self.states[state]
+        self.setText(label)
+        self.setAccessibleName(f'Monitor frame · {label}')
+        self.setAccessibleDescription(detail)
+        self.setToolTip(detail)
+        self.update()
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(COLORS[self.states[self.state][1]]))
+        painter.drawEllipse(QRectF(1, self.height()/2 - 3.5, 7, 7))
 
 
 class MonitorStatus(ElidingLabel):

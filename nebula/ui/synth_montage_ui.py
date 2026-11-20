@@ -24,6 +24,7 @@ from nebula.ui.synth_soundtrack_ui import SoundtrackLane, SoundtrackDialog
 from nebula.audio.synth_soundtrack_preview import SoundtrackPreview
 from nebula.ui.synth_output_ui import ExportSummaryButton, export_rows, PREVIEW_HINT, cache_caption
 from nebula.ui.synth_workspace_widgets import FlowLayout, inline
+from nebula.ui.synth_monitor_status import MonitorFrameStatus
 from nebula.ui.synth_montage_selection import MontageSelection
 from nebula.ui.synth_montage_blocks import BlockBrowser, MontageBlockNavigation, block_details, clip_label, time_label
 
@@ -377,7 +378,10 @@ class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
         middle.addLayout(transport); self.scrub.valueChanged.connect(self.seek)
         detail_host=QWidget(); detail_flow=FlowLayout(detail_host,spacing=6)
         self.preview_dimensions=QLabel(); self.preview_dimensions.setObjectName('monitorMeta')
-        detail_flow.addWidget(inline(QLabel('Preview resolution'),self.detail,self.preview_dimensions)); middle.addWidget(detail_host)
+        self.frame_status = MonitorFrameStatus()
+        self.displayed_frame_key = None
+        detail_flow.addWidget(inline(QLabel('Preview resolution'),self.detail,self.preview_dimensions))
+        detail_flow.addWidget(self.frame_status); middle.addWidget(detail_host)
         self.cache_status=QLabel(); self.cache_status.setWordWrap(True); self.cache_status.setObjectName('monitorMeta'); self.cache_status.setAccessibleName('Montage prepared frames'); middle.addWidget(self.cache_status)
         self.prepare_button=self.button('Prepare range',self.prepare,middle)
         self.prepare_button.setToolTip('Prepare a bounded playback range near the playhead at the selected resolution. Export renders every frame of the montage.')
@@ -573,23 +577,40 @@ class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
         if refresh: self.refresh_preview_details()
 
     def request_frame(self,*_):
-        if self.preview_suspended: return
-        if not self.document['clips'] or self.closed: return
+        if self.preview_suspended or self.closed: return
+        if not self.document['clips']:
+            self.displayed_frame_key = None
+            self.monitor.original = None
+            self.monitor.setText('Import videos or a study to begin')
+            self.frame_status.set_state('empty')
+            return
         size=self.preview_size(); key=(self.revision,size,self.frame)
-        if key in self.cache: self.monitor.show_packet(self.cache[key]); return
+        def show(packet):
+            self.monitor.show_packet(packet)
+            self.displayed_frame_key = key
+            self.frame_status.set_state('current')
+        if key in self.cache:
+            show(self.cache[key])
+            return
+        self.frame_status.set_state('current' if self.displayed_frame_key == key else 'updating')
         if self.preview_task: return
         doc=copy.deepcopy(self.document); frame=self.frame; revision=self.revision
         def render(cancel,progress):
             with MontageRenderer(doc,cancel,preview=True) as renderer: return image_packet(renderer.frame(frame,size))
         def done(packet):
-            if self.preview_task is task: self.preview_task=None
-            if revision!=self.revision: self.request_frame(); return
+            if self.preview_task is not task or revision!=self.revision: return
+            self.preview_task=None
             self.cache_packet(key,packet)
-            if frame==self.frame and size==self.preview_size(): self.monitor.show_packet(packet)
+            if frame==self.frame and size==self.preview_size(): show(packet)
             else: self.request_frame()
         def failed(error):
-            if self.preview_task is task: self.preview_task=None
-            if revision==self.revision: self.status.setText(error)
+            if self.preview_task is not task: return
+            self.preview_task=None
+            if key != (self.revision, self.preview_size(), self.frame):
+                self.request_frame()
+            elif self.displayed_frame_key != key:
+                self.status.setText(error)
+                self.frame_status.set_state('error')
         task=self.task(render,done,failed,priority=1); self.preview_task=task
 
     def prepare(self):
