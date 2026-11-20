@@ -5,7 +5,7 @@ import pytest
 
 from nebula.render.synth import curated_presets
 from nebula.documents.synth_media import export_synth_video
-from nebula.documents.synth_sequence import load_sequence, normalize_sequence, reference_sequence, render_sequence_frame, save_sequence
+from nebula.documents.synth_sequence import load_sequence, normalize_sequence, reference_sequence, render_sequence_frame, resolve_sequence_frame, save_sequence
 
 
 def test_reference_sequence_has_ordered_cues_and_deterministic_scrub():
@@ -25,6 +25,19 @@ def test_sequence_round_trip_and_editable_cue(tmp_path):
     loaded = load_sequence(path)
     assert loaded["cues"][1]["duration"] == .04
     assert "fullflash" in loaded["states"]
+
+
+def test_state_override_cannot_change_another_projects_preset():
+    original = {
+        "schema_version": 1,
+        "states": {"scene": {"preset": "Reference blinds"}},
+        "cues": [{"time": 0, "state": "scene"}],
+    }
+    edited = copy.deepcopy(original)
+    edited["states"]["scene"]["overrides"] = {"speed": 2.5}
+    before = resolve_sequence_frame(original, 0)[-1]
+    assert resolve_sequence_frame(edited, 0)[-1]["speed"] == 2.5
+    assert resolve_sequence_frame(original, 0)[-1] == before
 
 
 def test_sequence_export_is_one_continuous_fps_grid(tmp_path):

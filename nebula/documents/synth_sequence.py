@@ -48,6 +48,12 @@ def reference_sequence(refined=False):
     return result
 
 
+@lru_cache(maxsize=1)
+def _preset_templates():
+    # Shared only for name lookup and copying. Each resolved state owns its settings.
+    return curated_presets()
+
+
 def normalize_sequence(raw=None):
     if raw is None:
         return reference_sequence()
@@ -97,7 +103,7 @@ def normalize_sequence(raw=None):
         raise ValueError("states must be an object")
     result["states"] = {}
     for name, state in states.items():
-        if not isinstance(name, str) or not isinstance(state, dict) or state.get("preset") not in curated_presets():
+        if not isinstance(name, str) or not isinstance(state, dict) or state.get("preset") not in _preset_templates():
             raise ValueError(f"Unknown sequence state: {name}")
         overrides = state.get("overrides", {})
         if not isinstance(overrides, dict):
@@ -193,7 +199,7 @@ def _apply_override(preset, path, value):
 
 def _state_preset(sequence, state_name):
     state = sequence["states"][state_name]
-    preset = copy.deepcopy(curated_presets()[state["preset"]])
+    preset = copy.deepcopy(_preset_templates()[state["preset"]])
     # Every state uses the same instance identities, including disabled slots.
     # Appending preserves all historical module indices and random seeds.
     for identifier in instance_ids(key for item in sequence['states'].values() for key in state_instance_ids(item)):
@@ -420,6 +426,19 @@ def _render_resolved_frame(seq, t, effect_time, video_time, cue, transition, amo
     # Keep transition overlays and sequence noise on the same working raster.
     # The synth receives that exact size, so it performs no intermediate resize.
     current = render_synth_frame(base, time_seconds=effect_time, size=working, source_image=source_image, source_mask=source_mask, repetition_mask=repetition_mask) if source_image is not None else render_synth_frame(base, time_seconds=effect_time, size=working)
+    image = _apply_sequence_overlays(current, seq, effect_time, cue, transition, amount, base)
+    image = apply_master(image, seq.get('master'))
+    return finish_resolution(image, output, sampling)
+
+
+def _apply_sequence_overlays(current, seq, t, cue, transition, amount, base):
+    field = seq.get("field", NEUTRAL_FIELD)
+    valley = (field["valley_start"] < field["valley_end"] and
+              field["valley_start"] <= t <= field["valley_end"] and field["valley_gain"] != 1)
+    cloud_active = t >= field["cloud_start"] and field["cloud_strength"] > 0
+    transition_active = transition in ("sweep", "flash") and amount < 1
+    if not (transition_active or valley or cloud_active):
+        return current
     result = np.asarray(current, dtype=np.float32) / 255
     if transition == "sweep" and amount < 1:
         direction = float(cue.get("direction", 1))
@@ -436,11 +455,9 @@ def _render_resolved_frame(seq, t, effect_time, video_time, cue, transition, amo
         flash_color = np.array((1.0, .985, .98), dtype=np.float32)[None, None, :]
         result = result * (1 - .90 * intensity) + flash_color * (.90 * intensity)
         result += intensity * .12 * sweep[..., None] * flash_color
-    t = effect_time
-    field = seq.get("field", NEUTRAL_FIELD)
-    if field["valley_start"] <= t <= field["valley_end"] and field["valley_end"] > field["valley_start"]:
+    if valley:
         result *= field["valley_gain"]
-    if t >= field["cloud_start"] and field["cloud_strength"] > 0:
+    if cloud_active:
         cloud_strength = field["cloud_strength"] if t < field["cloud_late_start"] else min(.2, field["cloud_strength"] + (t - field["cloud_late_start"]) * field["cloud_late_rate"])
         rng = np.random.default_rng(_seed(seq["seed"], "sequence-cloud", round(t * seq["fps"])))
         cloud = rng.normal(0, cloud_strength, result.shape[:2]).astype(np.float32)
@@ -450,6 +467,4 @@ def _render_resolved_frame(seq, t, effect_time, video_time, cue, transition, amo
         if dy: y = y - dy
         cloud_mask = np.exp(-((((x / max(1, result.shape[1] - 1) - .62) / .42) ** 2) + (((y / max(1, result.shape[0] - 1) - .5) / .65) ** 2)))
         result += cloud[..., None] * cloud_mask[..., None] * np.array((.72, .82, .78), dtype=np.float32)[None, None, :]
-    image = Image.fromarray(np.clip(result * 255, 0, 255).astype(np.uint8), "RGB")
-    image = apply_master(image, seq.get('master'))
-    return finish_resolution(image, output, sampling)
+    return Image.fromarray(np.clip(result * 255, 0, 255).astype(np.uint8), "RGB")
