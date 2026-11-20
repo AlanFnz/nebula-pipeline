@@ -10,6 +10,10 @@ Preserve existing studies, their saved values and rendering contracts. New
 behavior must be opt-in or versioned. Compare the actual rendered motion and
 appearance with the reference, not only isolated stills.
 
+For new procedural sources, design for Smart extend. Keep the original timing
+as a clip grows and let the source continue from its current state. A static
+hold can stay still. Check the join in preview, on seek and in export.
+
 Keep generated media, local project files and render caches out of commits.
 See docs/development.md and VERSIONING.md for build and validation guidance.
 
