@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.121.0 — 2026-11-20
+
+- Text motion calls its word animation **Reading sequence**. Search for the
+  former name, **Reading montage**, to find it in the inspector.
+- Timing controls explain what they affect. Lattice shows how its tempo and
+  bar count translate into seconds before retiming.
+
 ## 0.120.1 — 2026-11-20
 
 - Speed up preview and export by reusing built-in preset definitions and skipping
