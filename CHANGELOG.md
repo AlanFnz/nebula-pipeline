@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.120.1 — 2026-11-20
+
+- Speed up preview and export by reusing built-in preset definitions and skipping
+  an image conversion on frames without sequence overlays. Imported 3D models
+  also reuse pixel coordinates when drawing triangles.
+
 ## 0.120.0 — 2026-11-20
 
 - Add **Smart extend** to clip resizing. Procedural motion continues at its own
