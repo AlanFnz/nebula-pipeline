@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.122.0 — 2026-11-20
+
+- A light on the monitor shows when the displayed frame includes the latest
+  visual edits at the playhead, even while other frames are being prepared.
+  The same signal is available in Montage.
+
 ## 0.121.0 — 2026-11-20
 
 - Text motion calls its word animation **Reading sequence**. Search for the
