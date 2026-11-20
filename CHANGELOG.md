@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.122.1 — 2026-11-20
+
+- Align the monitor status, zoom and view controls on a single dark toolbar.
+  Related controls stay together when the monitor is narrow.
+
 ## 0.122.0 — 2026-11-20
 
 - A light on the monitor shows when the displayed frame includes the latest
