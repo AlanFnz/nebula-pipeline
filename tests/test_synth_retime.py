@@ -173,3 +173,79 @@ def test_end_to_end_export_keeps_video_and_audio_clock_in_sync(clip, tmp_path, m
         expected = provider.frame(sequence['footage'], .75 if mode == 'video' else 1.5)
         actual = render_sequence_frame(sequence, 1.5, (128, 96), provider, bypass=True)
         assert actual.tobytes() == expected.tobytes()
+
+
+def test_smart_extension_preserves_authored_frames_and_recovers_optical_pace(tmp_path):
+    from nebula.documents.synth_prismatic_recipes import prismatic_composition
+    from nebula.documents.synth_sequence import resolve_sequence_frame
+
+    project = prismatic_composition()
+    identifier = project['sections'][0]['id']
+    before = compile_composition(project)
+    extended = stretch_section(project, identifier, 20., 'smart')
+    after = compile_composition(extended)
+    assert after['cues'][:-1] == before['cues']
+    assert 'time_map' not in after
+    assert after['cues'][-1]['time'] == 15.
+    for t in (0., 5.2, 11.16, 11.6, 14.96, 15.):
+        assert pixels(before, t) == pixels(after, t)
+
+    def phase(t):
+        base = resolve_sequence_frame(after, t, normalized=True)[-1]
+        p = next(m['params'] for m in base['modules'] if m['id'] == 'prismatic_field')
+        return (p['color_phase'] + t * base['speed'] * p['color_speed']) % 1.
+
+    assert (phase(15.04) - phase(15.)) % 1 == pytest.approx(.025 * .04, abs=.00001)
+    assert (phase(19.) - phase(18.)) % 1 == pytest.approx(.16)
+    assert pixels(after, 19.) != pixels(before, 4.)
+    path = tmp_path / 'longer.nebula'
+    save_composition(path, extended)
+    assert compile_composition(load_composition(path)) == after
+    detailed = compile_composition(composition_from_sequence(after))
+    for t in (15., 15.4, 19.6):
+        assert pixels(after, t) == pixels(detailed, t)
+    longer = compile_composition(stretch_section(extended, identifier, 26., 'smart'))
+    assert longer['cues'] == after['cues']
+    assert pixels(after, 19.6) == pixels(longer, 19.6)
+    assert stretch_section(extended, identifier, 15., 'smart') == project
+
+
+def test_smart_extension_retains_cues_and_gesture_seconds_in_each_play():
+    from nebula.documents.synth_composition import stretch_sections
+
+    project = reference_composition()
+    section = project['sections'][0]
+    section['loops'] = 2
+    section['automations'] = [dict(id='accent', path='dye_transfer.scale', amount=.1, enabled=True,
+                                   easing='smooth', start_fraction=.25, attack_fraction=.25,
+                                   hold_fraction=.25, recovery_fraction=.25)]
+    original = compile_composition(project)
+    extended = stretch_sections(project, [section['id']], 2., 'smart')
+    seq = compile_composition(extended)
+    old = section['duration']
+    for play, (a, b) in enumerate(zip(original['automations'], seq['automations'], strict=True)):
+        assert b['start'] == pytest.approx(a['start'] + play * old)
+        for stage in ('attack', 'hold', 'recovery'):
+            assert a[stage] == pytest.approx(b[stage])
+    per_play = [c['time'] for c in original['cues'] if c['time'] < old]
+    assert [c['time'] for c in seq['cues'] if c['time'] < 4*old] == pytest.approx(
+        per_play + [2*old+t for t in per_play])
+    assert 'effects_rate' not in extended['sections'][0]
+
+
+def test_smart_extension_preserves_global_performance_times_and_fixed_palette():
+    from nebula.documents.synth_composition import resize_total_duration
+    from nebula.documents.synth_performance import defaults, values_at
+    from nebula.documents.synth_prismatic_recipes import prismatic_composition
+
+    project = prismatic_composition()
+    perf = defaults()
+    perf['tracks'] = {'pace': [[0., 80.], [.5, 90.], [1., 100.]]}
+    project['visual_performance'] = perf
+    # A user-chosen fixed drift takes precedence over the study's earlier cue.
+    for state in project['source']['states'].values():
+        state['overrides']['prismatic_field.color_speed'] = .025
+    extended = resize_total_duration(project, 20., 'smart')
+    assert compile_composition(extended)['cues'] == compile_composition(project)['cues']
+    for t in (2., 8., 11., 15.):
+        assert values_at(extended['visual_performance'], t, 20.) == pytest.approx(values_at(perf, t, 15.))

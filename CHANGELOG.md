@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.120.0 — 2026-11-20
+
+- Add **Smart extend** to clip resizing. Procedural motion continues at its own
+  pace, timed cues and automation retain their positions, and optical color
+  fields can ease back into their earlier palette movement after a quiet ending.
+  Generated clips use this mode by default. **Stretch to fit** remains available.
+
 ## 0.119.1 — 2026-11-18
 
 - Organize application modules under `nebula/` by responsibility, keeping the

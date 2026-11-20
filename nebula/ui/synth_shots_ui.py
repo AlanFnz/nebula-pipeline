@@ -121,7 +121,7 @@ class ClipStoryboard(QWidget):
         self.caption = QLabel(); row.addWidget(self.caption)
         self.duration = DoubleSpinBox(); self.duration.setDecimals(3); self.duration.setSuffix(' s')
         self.duration.setKeyboardTracking(False); self.duration.setAccessibleName('Selected clip duration per play')
-        self.duration.setToolTip('Duration of this clip per play, rounded to a whole frame. Its movement and effects stretch with it. Undo restores the previous timing.')
+        self.duration.setToolTip('Duration of this clip per play, rounded to a whole frame. The timeline Resize menu controls how its movement changes. Undo restores the previous timing.')
         self.duration.setFixedWidth(112); self.duration.valueChanged.connect(self._resize)
         duration_label = QLabel('Duration'); duration_label.setBuddy(self.duration)
         row.addWidget(inline(duration_label, self.duration))

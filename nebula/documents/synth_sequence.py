@@ -23,6 +23,7 @@ from nebula.documents.synth_automation import normalize_automations, apply_autom
 from nebula.render.synth_instances import instance_ids, state_instance_ids
 
 SEQUENCE_SCHEMA_VERSION = 1
+COLOR_MOTION_SOURCES = ('color_field', 'prismatic_field')
 NEUTRAL_FIELD = {
     "valley_start": 0.0,
     "valley_end": 0.0,
@@ -129,6 +130,15 @@ def normalize_sequence(raw=None):
                 if not isinstance(value, (int, float)) or not math.isfinite(value) or not lo <= value <= hi:
                     raise ValueError(f"Cue {key} is outside the supported range")
                 item[key] = float(value)
+        if 'color_continuation' in cue:
+            rates = cue['color_continuation']
+            if not isinstance(rates, dict) or any(
+                key not in COLOR_MOTION_SOURCES or type(value) not in (int, float) or not 0 < value <= 1
+                for key, value in rates.items()
+            ):
+                raise ValueError('Invalid color continuation rates')
+            if rates:
+                item['color_continuation'] = dict(rates)
         if item["transition"] not in {"cut", "morph", "sweep", "flash"}:
             raise ValueError("transition must be cut, morph, sweep or flash")
         normalized.append(item)
@@ -207,6 +217,45 @@ def _state_preset(sequence, state_name):
     return normalize_synth(preset)
 
 
+def color_continuation_cue(sequence, cues, start):
+    """Recover a field's earlier palette pace only when its ending slowed down."""
+    if len(cues) < 2 or cues[-1].get('color_continuation'):
+        return None
+    def active_rates(cue):
+        return {module['id']: module['params']['color_speed']
+                for module in _state_preset(sequence, cue['state'])['modules']
+                if module['enabled'] and module['id'] in COLOR_MOTION_SOURCES}
+
+    ending = active_rates(cues[-1])
+    deltas = {}
+    for earlier in reversed(cues[:-1]):
+        if len(deltas) == len(ending):
+            break
+        for key, rate in active_rates(earlier).items():
+            if key in ending and key not in deltas and rate > ending[key]:
+                deltas[key] = rate - ending[key]
+    if deltas:
+        return dict(time=start, state=cues[-1]['state'], transition='cut', duration=0.,
+                    color_continuation=deltas)
+    return None
+
+
+def _continue_colors(base, deltas, elapsed):
+    # Integral of a smoothstep speed ramp. Both phase and velocity match at
+    # the join. Absolute time keeps export, preview and seeking identical.
+    ramp = 1.4
+    u = min(1., elapsed / ramp)
+    distance = ramp * u**3 * (1. - .5*u) + max(0., elapsed - ramp)
+    modules = []
+    for module in base['modules']:
+        if module['enabled'] and module['id'] in deltas:
+            params = module['params']
+            phase = (params['color_phase'] + distance * base['speed'] * deltas[module['id']]) % 1.
+            module = dict(module, params=dict(params, color_phase=phase))
+        modules.append(module)
+    return dict(base, modules=modules)
+
+
 def _ease(value):
     value = max(0.0, min(1.0, value))
     return value * value * (3 - 2 * value)
@@ -266,15 +315,25 @@ def resolve_sequence_frame(sequence, time_seconds, *, normalized=False, state_ca
     sampler uses it to avoid rebuilding held presets on every control tick.
     """
     seq = sequence if normalized else normalize_sequence(sequence)
-    def preset(name):
-        if state_cache is None: return _state_preset(seq, name)
-        if name not in state_cache:
-            if len(state_cache)>=64: state_cache.clear()
-            state_cache[name] = _state_preset(seq, name)
-        return state_cache[name]
     t = max(0.0, min(float(seq["duration"]), float(time_seconds)))
     effect_time = mapped_time(seq.get('time_map'), t, 'effects')
     video_time = mapped_time(seq.get('time_map'), t, 'video')
+
+    def preset(cue):
+        name = cue['state']
+        if state_cache is None:
+            base = _state_preset(seq, name)
+        else:
+            if name not in state_cache:
+                if len(state_cache) >= 64:
+                    state_cache.clear()
+                state_cache[name] = _state_preset(seq, name)
+            base = state_cache[name]
+        if cue.get('color_continuation') and t > cue['time']:
+            elapsed = effect_time - mapped_time(seq.get('time_map'), cue['time'], 'effects')
+            return _continue_colors(base, cue['color_continuation'], max(0., elapsed))
+        return base
+
     cue_index = 0
     for index, cue in enumerate(seq["cues"]):
         if cue["time"] <= t:
@@ -290,15 +349,15 @@ def resolve_sequence_frame(sequence, time_seconds, *, normalized=False, state_ca
             amount = 1.0
     if cue_index > 0 and transition != "cut" and amount < 1:
         previous = seq["cues"][cue_index - 1]
-        first = preset(previous["state"])
-        second = preset(cue["state"])
+        first = preset(previous)
+        second = preset(cue)
         # Sweeps and flashes are authored as event overlays: their target
         # geometry is visible on the first frame of the event. Only morphs
         # spend their onset frame on the previous geometry.
         base = second if transition in {"sweep", "flash"} else _interpolate_presets(
             first, second, amount, progress=(t-cue['time'])/cue['duration'])
     else:
-        base = preset(cue["state"])
+        base = preset(cue)
     base = apply_automations(base, seq.get("automations", ()), t)
     if seq.get('visual_performance'):
         from nebula.documents.synth_performance import apply_surface

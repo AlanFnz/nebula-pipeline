@@ -12,13 +12,13 @@ import random
 from pathlib import Path
 
 from nebula.render.synth import MODULE_BY_ID, SHAPES, _seed, curated_presets
-from nebula.documents.synth_sequence import normalize_sequence, reference_sequence
+from nebula.documents.synth_sequence import normalize_sequence, reference_sequence, color_continuation_cue
 from nebula.effects.synth_effects import apply_effects, merge_effects, normalize_effects
 from nebula.core.synth_canvas import normalize_canvas
 from nebula.core.synth_shared_timing import apply_shared_timing, normalize_shared_timing
 from nebula.effects.synth_master import normalize_master
 from nebula.documents.synth_compat import render_version
-from nebula.documents.synth_automation import normalize_automations, absolute_event, section_event, compiled_id, MAX_SEQUENCE_EVENTS
+from nebula.documents.synth_automation import normalize_automations, absolute_event, section_event, compiled_id, MAX_SEQUENCE_EVENTS, STAGES
 
 MAX_SECTIONS = 256
 FORMAT = "nebula-composition"
@@ -604,6 +604,13 @@ def normalize_composition(raw):
         ids.add(identifier)
         duration = _number(section.get("duration"), "Clip duration", 1 / result["fps"], 300)
         section["duration"] = max(1, round(duration * result["fps"])) / result["fps"]
+        if 'authored_duration' in section:
+            authored = _number(section['authored_duration'], 'Authored duration', 0., 300.)
+            authored_frames = max(1, round(authored * result['fps']))
+            if authored_frames < round(section['duration'] * result['fps']):
+                section['authored_duration'] = authored_frames / result['fps']
+            else:
+                section.pop('authored_duration')
         for key in ('effects_rate', 'video_rate'):
             if key in section:
                 if isinstance(section[key], bool): raise ValueError(f'Invalid {key}')
@@ -769,32 +776,87 @@ def proportional_section_durations(composition, identifiers, factor):
     return {key: frames[key] / fps for key in frames}
 
 
-def _retime_section(section, frames, fps, keys):
+def _resize_section_frames(section, frames, fps, mode, *, footage=False):
+    """Resize one normalized clip. Smart growth preserves its authored frame times."""
     old_frames = round(section['duration'] * fps)
-    if frames == old_frames: return
+    if frames == old_frames:
+        return
+    duration = frames / fps
     factor = old_frames / frames
-    for key in keys:
-        section[key] = section.get(key, 1.) * factor
-    section['duration'] = frames / fps
+    authored = section.get('authored_duration', section['duration'])
+    events = section.get('automations', ())
+    # Removing an extension can restore the original exactly. If the user has
+    # since written gestures in the tail, retime them instead of losing them.
+    keep_timing = mode == 'smart' and duration >= authored and (
+        frames > old_frames or all(sum(event[key + '_fraction'] for key in STAGES) * factor <= 1 + 1e-12
+                                  for event in events))
+    if keep_timing:
+        section['authored_duration'] = authored
+        for event in events:
+            for key in STAGES:
+                event[key + '_fraction'] *= factor
+    else:
+        section['effects_rate'] = section.get('effects_rate', 1.) * factor
+        if mode == 'video' and footage:
+            section['video_rate'] = section.get('video_rate', 1.) * factor
+        if 'authored_duration' in section:
+            section['authored_duration'] = authored / factor
+    section['duration'] = duration
+
+
+def _finish_resize(project, previous_duration, mode):
+    # Perform is recorded on the composition timeline. Preserve those absolute
+    # times on extension (and when removing a tail with no recording in it).
+    tracks = project.get('visual_performance', {}).get('tracks', {})
+    if mode == 'smart' and tracks:
+        ratio = previous_duration / section_placements(project)[-1][2]
+        for points in tracks.values():
+            if points and points[-1][0] * ratio <= 1 + 1e-12:
+                for point in points:
+                    point[0] = min(1., point[0] * ratio)
+    return normalize_composition(project)
+
+
+def resize_total_duration(raw, duration, mode):
+    """Distribute a total edit across clips on the output frame grid."""
+    project = normalize_composition(raw)
+    placements = section_placements(project)
+    previous_duration = placements[-1][2]
+    if project.get('timeline_loops'):
+        return stretch_sections(project, [s['id'] for s in project['sections']],
+                                duration / previous_duration, mode)
+    fps = project['fps']
+    plays = [s['loops'] for s in project['sections']]
+    frames = max(sum(plays), round(duration * fps))
+    cursor = 0
+    for index, section in enumerate(project['sections']):
+        remaining = sum(plays[index + 1:])
+        boundary = round(placements[index][2] / previous_duration * frames)
+        boundary = min(frames - remaining, max(cursor + plays[index], boundary))
+        clip_frames = max(1, round((boundary - cursor) / plays[index]))
+        _resize_section_frames(section, clip_frames, fps, mode, footage='footage' in project)
+        cursor += clip_frames * plays[index]
+    return _finish_resize(project, previous_duration, mode)
 
 
 def stretch_sections(raw, identifiers, factor, mode='effects'):
     """One proportional ripple edit, with each selected section's own clocks."""
-    if mode not in ('effects', 'video'):
-        raise ValueError('Resize mode must be effects or video')
+    if mode not in ('smart', 'effects', 'video'):
+        raise ValueError('Unknown clip resize mode')
     result = normalize_composition(raw)
+    previous_duration = section_placements(result)[-1][2]
     durations = proportional_section_durations(result, identifiers, factor)
-    keys = ('effects_rate', 'video_rate') if mode == 'video' and 'footage' in result else ('effects_rate',)
     for section in result['sections']:
         if section['id'] in durations:
-            _retime_section(section, round(durations[section['id']] * result['fps']), result['fps'], keys)
-    return normalize_composition(result)
+            _resize_section_frames(section, round(durations[section['id']] * result['fps']), result['fps'],
+                                  mode, footage='footage' in result)
+    return _finish_resize(result, previous_duration, mode)
 
 
 def stretch_section(raw, identifier, duration, mode='effects'):
     """Frame-snapped ripple stretch; untouched section clocks retain their phase."""
-    if mode not in ('effects', 'video'):
-        raise ValueError('Resize mode must be effects or video')
+    if mode not in ('smart', 'effects', 'video'):
+        raise ValueError('Unknown clip resize mode')
     if isinstance(duration, bool) or not isinstance(duration, (int, float)) or not math.isfinite(duration):
         raise ValueError('Clip duration must be finite')
     result = normalize_composition(raw)
@@ -809,9 +871,8 @@ def stretch_section(raw, identifier, duration, mode='effects'):
     maximum = min(300 * fps, (3600 * fps - other_frames) // plays)
     frames = max(1, min(maximum, round(duration * fps)))
     if frames == old_frames: return result
-    keys = ('effects_rate', 'video_rate') if mode == 'video' and 'footage' in result else ('effects_rate',)
-    _retime_section(section, frames, fps, keys)
-    return normalize_composition(result)
+    _resize_section_frames(section, frames, fps, mode, footage='footage' in result)
+    return _finish_resize(result, placements[-1][2], mode)
 
 
 def section_ranges(composition):
@@ -931,7 +992,8 @@ def compile_composition(raw, *, base_states=None, project_states=None, project_b
         variant = (project["variation"], section["variation"])
         offset = _seed(project["seed"], section["id"], *variant) % (2**31 - 1) if any(variant) else 0
         loop_frames = max(1, round(section["duration"] * fps))
-        loop_end = (round(start * fps) + loop_frames) / fps
+        authored_frames = round(section.get("authored_duration", section["duration"]) * fps)
+        loop_end = (round(start * fps) + authored_frames) / fps
         if len(compiled_automations) + section["loops"] * len(section.get("automations", ())) > MAX_SEQUENCE_EVENTS:
             raise ValueError("Arrangement contains too many automation occurrences")
         for loop in range(section["loops"]):
@@ -969,6 +1031,10 @@ def compile_composition(raw, *, base_states=None, project_states=None, project_b
                 if cue.get("transition") in {"flash", "sweep"}:
                     item["intensity"] = min(3., cue.get("intensity", .6) * macros["flashes"])
                 cues_by_frame[frame] = item
+        if authored_frames < loop_frames:
+            continuation = color_continuation_cue(result, list(cues_by_frame.values()), loop_end)
+            if continuation:
+                cues_by_frame[round(loop_end * fps)] = continuation
         for loop in range(section["loops"]):
             result["cues"].extend(
                 dict(cues_by_frame[frame], time=(frame + loop * loop_frames) / fps)

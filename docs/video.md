@@ -21,6 +21,7 @@ When footage ends, choose Hold last frame or Loop trimmed range.
 | Control | Result |
 | --- | --- |
 | Resize: Keep footage speed | Dragging the edge changes duration and stretches effects, while retaining video speed. |
+| Resize: Smart extend | Keeps footage speed and cue timing when adding time. At the source Out point, the clip follows its hold or loop setting. |
 | Resize: Stretch footage | Retimes footage, retained audio and effects together. |
 | Source → Playback speed | Changes speed. Match clip duration to speed also resizes the clip and its effects. |
 | Timeline FPS | Changes frame cadence without slowing the action. |

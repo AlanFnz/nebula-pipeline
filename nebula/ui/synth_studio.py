@@ -783,12 +783,8 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.build_soundtrack_action(section_tools)
         self.build_visual_sound_action(section_tools)
         self.section_resize_mode = QComboBox()
-        self.section_resize_mode.addItem('Resize: Keep footage speed', 'effects')
-        self.section_resize_mode.addItem('Resize: Stretch footage', 'video')
         self.section_resize_mode.setAccessibleName('Clip resize mode')
-        self.section_resize_mode.setToolTip('Keep footage speed reveals more or less of the source, up to Source → Out. At Out, footage holds or loops according to its source settings. Stretch footage changes video speed and retimes its audio to keep the same source interval. Both modes stretch effects and automation. Applies to the next resize; switching modes does not undo earlier speed changes.')
-        self.section_resize_mode.setItemData(0, 'Keep video speed while changing clip length. Source → Out limits the available footage; effects and automation stretch to fit.', Qt.ItemDataRole.ToolTipRole)
-        self.section_resize_mode.setItemData(1, 'Keep the same source interval by changing video speed. Footage, audio, effects and automation stretch together.', Qt.ItemDataRole.ToolTipRole)
+        self.section_resize_mode.setToolTip('Choose how Duration and edge drags resize clips. Smart extend keeps existing timing when adding time. Shortening past the authored end stretches the clip to fit.')
         self.section_resize_mode.currentIndexChanged.connect(lambda _index: self.composer and setattr(self.composer, 'resize_mode', self.section_resize_mode.currentData()))
         section_tools.addWidget(self.section_resize_mode)
         self.timeline_navigation = QWidget()
@@ -941,6 +937,25 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
             section = panel.document['sections'][panel.index]['id']
         self.section_timeline.set_editing_section(section)
         self.refresh_workspace_context()
+
+    def refresh_resize_modes(self, footage):
+        menu = self.section_resize_mode
+        if menu.count() and (menu.findData('video') >= 0) == footage:
+            return
+        menu.clear()
+        if footage:
+            menu.addItem('Resize: Keep footage speed', 'effects')
+            menu.addItem('Resize: Stretch footage', 'video')
+        menu.addItem('Resize: Smart extend', 'smart')
+        if not footage:
+            menu.addItem('Resize: Stretch to fit', 'effects')
+        descriptions = {
+            'smart': 'Keep the timing of existing cues and continue procedural motion. Video follows its source limits.',
+            'effects': 'Scale animation and automation to the new duration. Imported video keeps its speed.',
+            'video': 'Retime footage, its audio and effects together to keep the same source interval.',
+        }
+        for index in range(menu.count()):
+            menu.setItemData(index, descriptions[menu.itemData(index)], Qt.ItemDataRole.ToolTipRole)
 
     def refresh_timeline_view(self, *_args):
         shots = self.composition is not None and self.timeline_view.currentIndex() == 1
@@ -1140,7 +1155,8 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.section_scroll.setVisible(self.composition is not None)
         self.refresh_timeline_view()
         self.section_tools.setVisible(self.composition is not None)
-        self.section_resize_mode.setVisible(self.composition is not None and 'footage' in self.composition)
+        if self.composition is not None:
+            self.refresh_resize_modes('footage' in self.composition)
         self.add_footage_section.setVisible(self.composition is not None and 'footage' in self.composition)
         if self.composition is not None:
             self.composer = CompositionPanel(self.composition, self.composition_index, self.composition_scope)

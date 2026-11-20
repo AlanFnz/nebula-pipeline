@@ -111,7 +111,9 @@ def test_video_resize_modes_drag_undo_redo_and_reload(window, tmp_path):
     assert window.sequence == expected
     assert window.composer.resize_mode == 'video'
     window.load_starter_id('approved')
-    assert mode.isHidden()
+    assert mode.isVisible() and mode.currentData() == 'smart'
+    assert mode.findData('video') == -1
+    mode.setCurrentIndex(mode.findData('effects'))
     window.composer.section_duration.setValue(6.)
     assert 'video_rate' not in window.composition['sections'][0]
     assert 'effects_rate' in window.composition['sections'][0]
@@ -160,3 +162,19 @@ def test_detailed_copy_duration_preserves_stretched_clocks_and_one_frame_minimum
         assert detail.sequence_field_controls['duration'].value() == .04
     finally:
         detail.close()
+
+
+def test_generated_duration_extends_by_default_and_undo_restores_project(window):
+    from nebula.documents.synth_prismatic_recipes import prismatic_composition
+
+    project = prismatic_composition()
+    window.set_composition(project)
+    assert window.section_resize_mode.currentData() == 'smart'
+    window.shot_strip.duration.setValue(20.)
+    assert window.composition['sections'][0]['authored_duration'] == 15.
+    assert window.sequence['duration'] == 20.
+    assert window.sequence['cues'][-1].get('color_continuation')
+    window.undo_composition()
+    assert window.composition == project
+    window.composer.duration.setValue(20.)
+    assert window.composition['sections'][0]['authored_duration'] == 15.

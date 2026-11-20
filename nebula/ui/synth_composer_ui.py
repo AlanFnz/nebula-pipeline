@@ -14,7 +14,7 @@ from nebula.ui.studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDo
 
 from nebula.render.synth import SHAPES
 from nebula.ui.studio_theme import COLORS, terminal_font
-from nebula.documents.synth_composition import MAX_SECTIONS, MACROS, compile_composition, default_geometry, effective_geometry, neutral_macros, normalize_composition, proportional_section_durations, section_placements, section_ranges, vary_composition
+from nebula.documents.synth_composition import MAX_SECTIONS, MACROS, compile_composition, default_geometry, effective_geometry, neutral_macros, normalize_composition, proportional_section_durations, resize_total_duration, section_placements, section_ranges, vary_composition
 from nebula.ui.synth_effects_ui import EffectsPanel
 from nebula.core.synth_shared_timing import edit_shared_timing, restore_shared_timing, without_timing
 from nebula.effects.synth_master import normalize_master
@@ -773,9 +773,9 @@ class CompositionPanel(QWidget):
         clip = QGroupBox("ENTIRE TIMELINE")
         grid = QGridLayout(clip)
         self.duration = QDoubleSpinBox(); self.duration.setRange(.24, 3600); self.duration.setDecimals(2); self.duration.setSuffix(" s"); self.duration.setKeyboardTracking(False)
-        grid.addWidget(QLabel("Retime total duration"), 0, 0)
-        self.duration.setAccessibleName('Retime total duration')
-        self.duration.setToolTip('Stretch all clips and their effects to this total duration. To repeat without retiming, use Repeat below the timeline.')
+        grid.addWidget(QLabel("Total duration"), 0, 0)
+        self.duration.setAccessibleName('Total duration')
+        self.duration.setToolTip('Resize all clips proportionally using the timeline Resize mode. Repeat adds another play.')
         grid.addWidget(self.duration, 1, 0)
         self.duration.valueChanged.connect(self.resize_clip)
         self.fps.valueChanged.connect(self.change_fps)
@@ -791,8 +791,8 @@ class CompositionPanel(QWidget):
             self.phrase.addItem(phrase["name"], key)
         self.phrase.currentIndexChanged.connect(self.change_phrase); row.addWidget(self.phrase, 1)
         self.section_duration = QDoubleSpinBox(); self.section_duration.setRange(1 / self.document["fps"], 300); self.section_duration.setDecimals(2); self.section_duration.setSuffix(" s"); self.section_duration.setFixedWidth(95); self.section_duration.setKeyboardTracking(False)
-        self.resize_mode = 'effects'
-        self.section_duration.setToolTip('Stretch this clip and all its effects. The Resize menu below the timeline chooses whether imported video also changes speed.')
+        self.resize_mode = 'effects' if 'footage' in self.document else 'smart'
+        self.section_duration.setToolTip('Change the length of one play using the Resize mode in the timeline.')
         self.section_duration.valueChanged.connect(self.resize_section); row.addWidget(self.section_duration)
         row.addWidget(QLabel('Repeat'))
         self.section_loops = QSpinBox(); self.section_loops.setRange(1, 32); self.section_loops.setSuffix(" ×"); self.section_loops.setFixedWidth(68); self.section_loops.setKeyboardTracking(False)
@@ -1505,21 +1505,12 @@ class CompositionPanel(QWidget):
 
     def resize_clip(self, duration):
         if self.updating: return
-        document = copy.deepcopy(self.document); fps = document["fps"]
-        if document.get('timeline_loops'):
-            placements = section_placements(document)
-            factor = duration / placements[-1][2]
-            for section in document['sections']:
-                section['duration'] = max(1, round(section['duration'] * fps * factor)) / fps
-            self.commit(document, 'duration'); return
-        loops = [int(section.get("loops", 1)) for section in document["sections"]]
-        frames = max(sum(loops), round(duration * fps))
-        # Proportional boundaries retain an exact total on the output frame grid.
-        original = section_ranges(document); total = original[-1][1]; cursor = 0
-        for index, section in enumerate(document["sections"]):
-            remaining = sum(loops[index + 1:])
-            boundary = min(frames - remaining, max(cursor + loops[index], round(original[index][1] / total * frames)))
-            section["duration"] = max(1, round((boundary - cursor) / loops[index])) / fps; cursor += round(section["duration"] * fps) * loops[index]
+        try:
+            document = resize_total_duration(self.document, duration, self.resize_mode)
+        except ValueError as exc:
+            self.refresh()
+            self.failed.emit(str(exc))
+            return
         self.commit(document, "duration")
 
     def change_fps(self, fps):

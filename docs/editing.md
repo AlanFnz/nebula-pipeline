@@ -46,16 +46,21 @@ the length of one play and **Repeat** sets how many times it plays: 1× = once,
 2× = twice. The calculation shows the resulting clip duration; for example,
 **6 s × 2 = 12 s**. Repeat keeps the timing of each play. Command-Z undoes either edit.
 
-Drag a clip to reorder it or its right edge to resize it. Resizing stretches
-animation and timed effects. Shift-click selects a range; Command-click adds
+Drag a clip to reorder it or its right edge to resize it. For generated clips,
+**Resize: Smart extend** keeps existing cues and automation at their times
+and continues procedural movement into the extra seconds. A
+Prismatic field that slowed for the ending eases back toward its earlier color
+pace. A static title holds. Choose **Stretch to fit** to spread the same action
+over the new duration. Shift-click selects a range; Command-click adds
 individual clips. To stretch a selection, drag the last selected clip's right edge.
 Command-D duplicates the selection; Escape cancels a drag.
 
 Right-click **Loop** repeats a clip or selected sequence. Repeats share edits;
 duplicates can be edited independently. **Duration & loops** opens the inspector's
 timing and arrangement panel; its name stays the same while open. **Done** returns
-to the object/effects inspector. **Retime total duration** stretches the whole
-arrangement, while Timeline FPS changes frame cadence without changing speed.
+to the object/effects inspector. **Total duration** resizes the clips
+proportionally using the selected mode, while Timeline FPS changes frame
+cadence without changing speed.
 [Video](video.md#duration-speed-and-fps) has separate speed and resize choices.
 
 ### Shots and detailed sequences
