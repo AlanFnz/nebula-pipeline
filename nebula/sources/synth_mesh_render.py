@@ -3,21 +3,24 @@ import numpy as np
 from nebula.sources.synth_mesh import decode_mesh
 
 
-def _raster_tile(points, world, denominator, vertices, normals, faces, bounds, width, start, stop):
+def _raster_tile(triangles, world, denominator, vertices, normals, faces, bounds, width, start, stop):
     depth=np.full((stop-start,width),-np.inf,np.float32)
     normal_buffer=np.zeros((stop-start,width,3),np.float32)
     position_buffer=np.zeros_like(normal_buffer)
+    columns = np.arange(width)
+    rows = np.arange(start, stop)
     candidates=np.flatnonzero((bounds[:,1]<stop)&(bounds[:,3]>=start)&(bounds[:,0]<width)&(bounds[:,2]>=0))
     for index in candidates:
-        indices=faces[index];a,b,c=points[indices]
+        indices=faces[index];a,b,c=triangles[index]
         x0=max(0,int(bounds[index,0]));x1=min(width-1,int(bounds[index,2]))
         y0=max(start,int(bounds[index,1]));y1=min(stop-1,int(bounds[index,3]))
         if x0>x1 or y0>y1:continue
         det=(b[1]-c[1])*(a[0]-c[0])+(c[0]-b[0])*(a[1]-c[1])
         if abs(det)<1e-10:continue
-        yy,xx=np.mgrid[y0:y1+1,x0:x1+1]
-        wa=((b[1]-c[1])*(xx-c[0])+(c[0]-b[0])*(yy-c[1]))/det
-        wb=((c[1]-a[1])*(xx-c[0])+(a[0]-c[0])*(yy-c[1]))/det
+        dx = columns[None, x0:x1+1] - c[0]
+        dy = rows[y0-start:y1-start+1, None] - c[1]
+        wa=((b[1]-c[1])*dx+(c[0]-b[0])*dy)/det
+        wb=((c[1]-a[1])*dx+(a[0]-c[0])*dy)/det
         wc=1-wa-wb;inside=(wa>=-1e-6)&(wb>=-1e-6)&(wc>=-1e-6)
         weights=np.stack((wa,wb,wc),axis=-1)/denominator[indices]
         weights/=weights.sum(axis=-1,keepdims=True)
@@ -57,7 +60,7 @@ def render_mesh(arr,p,seconds,preset):
     result=arr.copy()
     for start in range(0,height,64):
         stop=min(height,start+64)
-        hit,positions,normal_buffer=_raster_tile(points,world,denominator,vertices,normals,faces,bounds,width,start,stop)
+        hit,positions,normal_buffer=_raster_tile(triangles,world,denominator,vertices,normals,faces,bounds,width,start,stop)
         if not hit.any():continue
         local=positions[hit];normal=normal_buffer[hit]
         normal/=np.maximum(np.linalg.norm(normal,axis=1,keepdims=True),1e-8)
