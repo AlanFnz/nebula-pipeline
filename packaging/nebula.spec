@@ -1,0 +1,28 @@
+# Run through scripts/build_macos.py so the .icns is generated first.
+from pathlib import Path
+import plistlib
+from PyInstaller.utils.hooks import collect_submodules
+
+root = Path(SPECPATH).parent
+metadata = plistlib.loads((root / "packaging" / "Info.plist").read_bytes())
+assets = [(str(path), str(path.parent.relative_to(root)))
+          for path in sorted((root / "assets").rglob('*'))
+          if path.is_file() and '__pycache__' not in path.parts and path.suffix != '.pyc']
+analysis = Analysis(
+    [str(root / "mac_app.py")], pathex=[str(root)],
+    datas=assets + [(str(root / 'build/icons/nebula-document.icns'), '.')],
+    binaries=[(str(root / "build/native/nebula-mask"), "native")],
+    hiddenimports=["PySide6.QtSvg"] + collect_submodules('fontTools.ttLib.tables'),
+    excludes=["tkinter", "pytest", "PySide6.QtWebEngineCore", "PySide6.QtWebEngineWidgets"],
+)
+archive = PYZ(analysis.pure)
+executable = EXE(
+    archive, analysis.scripts, [], exclude_binaries=True,
+    name="nebula-studio", console=False, argv_emulation=False,
+)
+collection = COLLECT(executable, analysis.binaries, analysis.datas, name="Nebula Studio")
+app = BUNDLE(
+    collection, name="Nebula Studio.app",
+    icon=str(root / "build" / "icons" / "nebula.icns"),
+    bundle_identifier=metadata["CFBundleIdentifier"], info_plist=metadata,
+)

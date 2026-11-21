@@ -1,0 +1,210 @@
+"""Bounded section gestures, evaluated against the resolved moving base.
+
+Section IDs scope authored event IDs. Compiled IDs are unique per occurrence.
+Automation uses output timeline time, never the procedural/media time maps.
+"""
+from __future__ import annotations
+
+import copy
+import math
+import hashlib
+import uuid
+from nebula.render.synth import MODULE_BY_ID
+from nebula.render.synth_instances import base_path
+from nebula.effects.synth_intensity import PATHS
+
+TARGETS = frozenset({
+    'text.scroll_position', 'text.scroll_rate', 'text.scroll_bottom',
+    'curved_screen.angle', 'curved_screen.curve', 'curved_screen.scale', 'curved_screen.grid',
+    'curved_screen.vibration', 'curved_screen.flutter', 'curved_screen.breathing', 'curved_screen.boil',
+    'curved_screen.sphere_spin', 'curved_screen.sphere_axis', 'curved_screen.sphere_phase', 'curved_screen.sphere_radius',
+    'signal_etch.organic', 'signal_etch.glints',
+    'dye_transfer.scale', 'dye_transfer.x', 'dye_transfer.y', 'dye_transfer.angle',
+    'dye_transfer.paper_hue', 'dye_transfer.paper_saturation', 'dye_transfer.paper_light',
+    'dye_transfer.ink_hue', 'dye_transfer.ink_light', 'dye_transfer.wash',
+    'dye_transfer.ink_veil', 'dye_transfer.ink_veil_x', 'dye_transfer.ink_veil_width',
+    'dye_transfer.drag', 'dye_transfer.drag_mix', 'dye_transfer.softness',
+    'dye_transfer.warp', 'dye_transfer.erosion', 'dye_transfer.halo',
+    'dye_transfer.opening', 'dye_transfer.gate_x', 'dye_transfer.level',
+    'dye_transfer.grain',
+    'dye_transfer.emulsion', 'dye_transfer.streaks', 'dye_transfer.edge_bloom',
+    'dye_transfer.registration', 'dye_transfer.focus_flutter', 'dye_transfer.shutter',
+    'dye_transfer.mask_size', 'dye_transfer.mask_aspect', 'dye_transfer.mask_x',
+    'dye_transfer.mask_y', 'dye_transfer.mask_angle', 'dye_transfer.mask_softness',
+    'dye_transfer.mask_opacity',
+    'contact_print.exposure', 'contact_print.leak_x', 'contact_print.leak_y',
+    'contact_print.leak_width', 'contact_print.leak_height', 'contact_print.positive',
+    'contact_print.ink_density', 'contact_print.ink_lift', 'contact_print.density',
+    'contact_print.opening', 'contact_print.gate_x', 'contact_print.gate_y',
+    'contact_print.gate_angle', 'contact_print.shutter', 'contact_print.shutter_x',
+    'contact_print.scale', 'contact_print.x', 'contact_print.y',
+    'contact_print.melt', 'contact_print.erosion', 'contact_print.grain',
+    'optical_print.primary', 'optical_print.width', 'optical_print.position_x',
+    'optical_print.position_y', 'optical_print.enlargement', 'optical_print.overprint',
+    'optical_print.brightness', 'optical_print.pale_ink', 'optical_print.focus',
+    'optical_print.fragment_mix', 'optical_print.halation',
+    'optical_print.softness', 'optical_print.damage', 'optical_print.grain',
+    'optical_print.stripes', 'optical_print.spot', 'optical_print.spot_size',
+    'film_burn.exposure', 'film_burn.leak_x', 'film_burn.leak_y',
+    'film_burn.leak_width', 'film_burn.leak_height', 'film_burn.reversal',
+    'film_burn.halo', 'film_burn.melt', 'film_burn.opening', 'film_burn.grain',
+    'film_burn.reading_motion', 'print_collage.reading_reframe',
+    'print_collage.width', 'print_collage.height', 'print_collage.x',
+    'print_collage.y', 'print_collage.poster', 'print_collage.echo',
+    'signal_repetition.spacing', 'signal_repetition.wave', 'signal_repetition.mix',
+    'signal_repetition.fringe', 'signal_repetition.exposure',
+    'signal_repetition.band_flow', 'signal_repetition.sync_loss', 'signal_repetition.line_flutter',
+    'tape.pull', 'tape.tracking', 'tape.jitter', 'warp.amount',
+    'breakup.amount', 'separation.amount', 'smear.amount', 'smear.opacity',
+    'bloom.strength', 'crt_capture.bend', 'raster.grain', 'raster.lines',
+    'raster.chroma', 'raster.line_noise', 'chroma_print.exposure',
+    'chroma_print.mid_saturation', 'chroma_print.warm_color', 'chroma_print.mix',
+})
+TARGETS |= frozenset(PATHS.values())
+from nebula.sources.synth_blender_parts import AUTOMATION_TARGETS as BLENDER_PART_TARGETS
+TARGETS |= BLENDER_PART_TARGETS
+from nebula.effects.synth_print_paint import PAINT_KEYS
+TARGETS |= frozenset('print_surface.'+key for key in PAINT_KEYS)
+STAGES = ('start', 'attack', 'hold', 'recovery')
+MAX_SECTION_EVENTS = 131072
+MAX_SEQUENCE_EVENTS = 131072
+
+
+def target_parameter(path):
+    if base_path(path) not in TARGETS:
+        raise ValueError(f'Unsupported automation target: {path}')
+    module, key = path.split('.')
+    return next(p for p in MODULE_BY_ID[module].params if p.key == key)
+
+
+def _number(value, label):
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        raise ValueError(f'{label} must be a finite number')
+    return float(value)
+
+
+def normalize_automations(raw, *, duration=1., fractions=True):
+    """Validate half-open, nonoverlapping enabled intervals on each target."""
+    if not isinstance(raw, list) or len(raw) > (MAX_SECTION_EVENTS if fractions else MAX_SEQUENCE_EVENTS):
+        raise ValueError('Automation must be a bounded list of events')
+    suffix = '_fraction' if fractions else ''
+    limit = 1. if fractions else duration
+    ids = set(); result = []
+    for event in raw:
+        if not isinstance(event, dict): raise ValueError('Automation event must be an object')
+        identifier = event.get('id')
+        if not isinstance(identifier, str) or not identifier or len(identifier) > 256 or identifier in ids:
+            raise ValueError('Automation identifiers must be unique within their clip/sequence')
+        ids.add(identifier)
+        path = event.get('path')
+        if not isinstance(path, str): raise ValueError('Automation needs a parameter path')
+        spec = target_parameter(path)
+        amount = _number(event.get('amount'), 'Change amount')
+        if abs(amount) > spec.maximum - spec.minimum:
+            raise ValueError(f'{path} change amount exceeds its parameter range')
+        enabled = event.get('enabled', True)
+        if not isinstance(enabled, bool): raise ValueError('Automation enabled must be a boolean')
+        easing = event.get('easing', 'smooth')
+        if easing not in ('smooth', 'linear'): raise ValueError('Automation easing must be smooth or linear')
+        stages = {key + suffix: _number(event.get(key + suffix), key.title()) for key in STAGES}
+        if any(value < 0 or value > limit for value in stages.values()):
+            raise ValueError('Automation start and stages must be within the clip')
+        total = sum(stages[key + suffix] for key in STAGES[1:])
+        if total <= 0 or stages['start' + suffix] + total > limit + 1e-12:
+            raise ValueError('Automation needs a positive duration and must end inside its clip')
+        result.append(dict(id=identifier, path=path, amount=amount, enabled=enabled, easing=easing, **stages))
+    intervals = {}
+    for event in result:
+        if event['enabled']:
+            start = event['start' + suffix]
+            end = start + sum(event[key + suffix] for key in STAGES[1:])
+            intervals.setdefault(event['path'], []).append((start, end, event['id']))
+    for path, events in intervals.items():
+        events.sort()
+        for previous, current in zip(events, events[1:]):
+            if current[0] < previous[1] - 1e-12:
+                raise ValueError(f'Overlapping automation on {path}: {previous[2]} and {current[2]}')
+    return result
+
+
+def duplicate_automation(events, event_id):
+    """Copy a gesture into the first free interval after it, within its section."""
+    original = next((event for event in events if event['id'] == event_id), None)
+    if original is None: raise ValueError('Select an automation to duplicate.')
+    length = sum(original[key + '_fraction'] for key in STAGES[1:])
+    start = original['start_fraction'] + length
+    # Reserve disabled gestures too: their copies should still be safe to enable.
+    intervals = sorted((event['start_fraction'], event['start_fraction'] +
+                        sum(event[key + '_fraction'] for key in STAGES[1:]))
+                       for event in events if event['path'] == original['path'])
+    for left, right in intervals:
+        if right <= start + 1e-12: continue
+        if start + length <= left + 1e-12: break
+        start = right
+    if start + length > 1 + 1e-12:
+        raise ValueError('No room after this automation. Lengthen the clip or move its gestures to make space, then duplicate again.')
+    duplicate = copy.deepcopy(original)
+    duplicate.update(id='gesture-' + uuid.uuid4().hex, start_fraction=min(start, 1-length))
+    return duplicate
+
+
+def envelope(event, seconds):
+    """Continuous rise/hold/recover. Zero stages are explicit steps."""
+    if not event.get('enabled', True): return 0.
+    local = seconds - event['start']
+    attack, hold, recovery = (event[key] for key in STAGES[1:])
+    # Fractions and frame times may reach the same endpoint by different
+    # floating-point operations. A few ULPs suppress only arithmetic residue,
+    # preventing a nearly-zero pull from resampling an otherwise neutral frame.
+    end = event['start'] + attack + hold + recovery
+    tolerance = 8 * math.ulp(max(abs(end), abs(event['start'])))
+    if seconds < event['start'] - tolerance or seconds >= end - tolerance: return 0.
+    if abs(local) <= tolerance: local = 0.
+    def ease(x):
+        x = max(0., min(1., x))
+        return x * x * (3 - 2 * x) if event.get('easing', 'smooth') == 'smooth' else x
+    if attack > 0 and local < attack: return ease(local / attack)
+    if local < attack + hold: return 1.
+    return 1. - ease((local - attack - hold) / recovery) if recovery > 0 else 1.
+
+
+def absolute_event(event, duration, start=0., identifier=None):
+    result = {key: event[key] for key in ('id', 'path', 'amount', 'enabled', 'easing')}
+    result.update({key: event[key + '_fraction'] * duration for key in STAGES})
+    result['start'] += start
+    if identifier is not None: result['id'] = identifier
+    return result
+
+
+def section_event(event, duration):
+    result = {key: event[key] for key in ('id', 'path', 'amount', 'enabled', 'easing')}
+    result.update({key + '_fraction': event[key] / duration for key in STAGES})
+    return result
+
+
+def apply_automations(preset, events, seconds):
+    """Copy only for nonzero contributions; never normalize or enable effects."""
+    result = preset
+    modules = None
+    for event in events:
+        delta = event['amount'] * envelope(event, seconds)
+        if delta == 0: continue
+        module, key = event['path'].split('.')
+        original = next((m for m in preset['modules'] if m['id'] == module), None)
+        if original is None: continue
+        companion_ghost = (event['path'] == 'smear.effect_intensity' and any(
+            m['id']=='slab' and m.get('enabled', True) and m['params'].get('ghost_opacity', 0)
+            for m in preset['modules']))
+        if not original.get('enabled', True) and not companion_ghost: continue
+        if result is preset:
+            result = copy.deepcopy(preset)
+            modules = {m['id']: m for m in result['modules']}
+        spec = target_parameter(event['path'])
+        modules[module]['params'][key] = max(spec.minimum, min(spec.maximum, original['params'][key] + delta))
+    return result
+
+
+def compiled_id(section_id, event_id, occurrence, loop):
+    """Bounded identities survive repeated detailed/composition conversions."""
+    payload = repr((section_id, event_id, occurrence, loop)).encode()
+    return "event-" + hashlib.sha256(payload).hexdigest()[:32]

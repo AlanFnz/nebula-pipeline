@@ -1,0 +1,1797 @@
+{
+  "revision": 1,
+  "default": {
+    "schema_version": 1,
+    "name": "Irregular blinds",
+    "width": 720,
+    "height": 576,
+    "framing": "native",
+    "object_x": 0.0,
+    "object_y": 0.0,
+    "treatment_fps": 25,
+    "export_fps": 25,
+    "loop_seconds": 4.0,
+    "seed": 2409,
+    "speed": 0.55,
+    "depth": 0.75,
+    "variation_mode": "smooth",
+    "animation": {
+      "targets": {
+        "blinds.aperture": {
+          "depth": 0.18,
+          "rate": 0.22
+        },
+        "blinds.aperture_position": {
+          "depth": 0.16,
+          "rate": 0.17
+        },
+        "blinds.curvature": {
+          "depth": 0.22,
+          "rate": 0.14
+        },
+        "slab.width": {
+          "depth": 0.12,
+          "rate": 0.12
+        },
+        "slab.spacing": {
+          "depth": 0.08,
+          "rate": 0.11
+        }
+      }
+    },
+    "modules": [
+      {
+        "id": "slab",
+        "enabled": true,
+        "params": {
+          "shape": 0,
+          "diameter": 0.6,
+          "sides": 6,
+          "rotation": 0.0,
+          "count": 1,
+          "width": 0.18,
+          "spacing": 0.22,
+          "height": 0.62,
+          "position_x": 0.2,
+          "position_y": 0,
+          "edge_hardness": 0.82,
+          "hollow": 0,
+          "notch": 0.08,
+          "intensity": 1.0,
+          "fill_magenta": 0.0,
+          "fill_gradient": 0.0,
+          "vertical_tint": 0.0,
+          "ghost_width": 0.32,
+          "ghost_offset": 0.24,
+          "ghost_opacity": 0.34,
+          "edge_softness": 0.08,
+          "magenta": 0.85,
+          "cyan": 0.42,
+          "jitter": 0.12,
+          "frame_jitter": 0.0,
+          "edge_ripple": 0.0,
+          "ghost_grain": 0.0,
+          "cloud_strength": 0.0,
+          "cloud_tint": 0.8,
+          "cloud_position": 0.0,
+          "cloud_detail": 0.0
+        }
+      },
+      {
+        "id": "blinds",
+        "enabled": true,
+        "params": {
+          "shape": 0,
+          "diameter": 0.6,
+          "sides": 6,
+          "rotation": 0.0,
+          "rows": 9,
+          "thickness": 0.012,
+          "aperture": 0.34,
+          "aperture_height": 0.64,
+          "aperture_vertical": 0.0,
+          "swelling": 0.9,
+          "taper": 0.8,
+          "asymmetry": 0.22,
+          "orientation": 0.0,
+          "phase": 0.0,
+          "offset": 0.0,
+          "aperture_position": 0.0,
+          "edge_softness": 0.06,
+          "curvature": 0.16,
+          "row_drift": 0.08,
+          "irregularity": 0.16,
+          "magenta": 0.9,
+          "intensity": 1.0,
+          "tail_spread": 0.0,
+          "edge_bias": 0.0
+        }
+      },
+      {
+        "id": "particles",
+        "enabled": false,
+        "params": {
+          "attractor": 0,
+          "motion": 0,
+          "release": 0,
+          "assembly": 1.0,
+          "breathing": 1.0,
+          "period": 12.0,
+          "expand_seconds": 0.75,
+          "gather_seconds": 1.0,
+          "motion_peak": 0.8,
+          "orbit_speed": 20.0,
+          "orbit_start": 0.7,
+          "orbit_handoff": 0,
+          "acceleration": 0.8,
+          "chaos": 0.7,
+          "overshoot": 0.45,
+          "count": 22000,
+          "dot_size": 1.2,
+          "dispersion": 1.0,
+          "turbulence": 0.18,
+          "collapse": 0.0,
+          "flow": 0.7,
+          "phase": 0.0,
+          "yaw": -20.0,
+          "pitch": 0.0,
+          "rotation_speed": 4.0,
+          "turn_scope": 0,
+          "axis_mode": 0,
+          "scale": 1.0,
+          "position_x": 0.0,
+          "position_y": 0.0,
+          "perspective": 0.65,
+          "xray": 0.08,
+          "occlusion": 0.0,
+          "neck_fade": 0.0,
+          "relief": 0.85,
+          "intensity": 1.35,
+          "released_brightness": 1.0,
+          "hue": 0.76,
+          "saturation": 0.65,
+          "color_spread": 0.85,
+          "color_drift": 0.025,
+          "shimmer": 0.45,
+          "jitter": 0.0015
+        }
+      },
+      {
+        "id": "silhouette",
+        "enabled": false,
+        "params": {
+          "model": 0,
+          "scale": 0.4,
+          "yaw": -90.0,
+          "pitch": 0.0,
+          "roll": 0.0,
+          "center_x": 0.6,
+          "center_y": 0.4,
+          "neck_fullness": 0.4,
+          "neck_length": 0.7,
+          "softness": 0.5,
+          "opacity": 1.0
+        }
+      },
+      {
+        "id": "ink_bloom",
+        "enabled": false,
+        "params": {
+          "shape": 0,
+          "artwork": "",
+          "count": 7,
+          "size": 0.15,
+          "spread": 0.255,
+          "period": 3.533333333333333,
+          "opening": 1.0,
+          "cadence": 15,
+          "shape_width": 1.0,
+          "shape_height": 1.0,
+          "sides": 6,
+          "shape_rotation": 0.0,
+          "points": 12,
+          "point_depth": 0.4,
+          "irregularity": 0.72,
+          "palette": 0,
+          "split_ink": 1.0,
+          "back_ink": 0.9,
+          "saturation": 1.0,
+          "cycle": 1.0,
+          "phase": 0.0,
+          "open_start": 12.0,
+          "open_duration": 28.0,
+          "close_start": 56.0,
+          "close_duration": 27.0,
+          "revolutions": 1.0,
+          "turn": 0.0,
+          "rotation": 0.0,
+          "tumble": 0.9,
+          "tilt": 12.0,
+          "fan": 8.0,
+          "center_fold": 1.0,
+          "disorder": 0.5,
+          "cluster_depth": 0.6,
+          "stack_spacing": 0.045,
+          "perspective": 0.25,
+          "position_x": 0.0,
+          "position_y": 0.0,
+          "opacity": 1.0,
+          "motion_speed": 1.0,
+          "clock_mode": 0,
+          "clock_scale": 1.0,
+          "unfold_seconds": -1.0,
+          "unfolded_seconds": -1.0,
+          "fold_seconds": -1.0,
+          "folded_seconds": -1.0
+        }
+      },
+      {
+        "id": "edge_phosphor",
+        "enabled": false,
+        "params": {
+          "hue": 0.295,
+          "backlight": 0.7,
+          "saturation": 1.0,
+          "edge": 1.1,
+          "fringe_hue": 0.83,
+          "fringe": 1.0,
+          "grain": 0.75,
+          "spread": 0.36,
+          "rim_width": 0.006,
+          "separation": 0.012,
+          "glow": 0.009,
+          "echo": 0.2,
+          "echo_distance": 0.035,
+          "lower_fade": 0.8,
+          "neck_dissolve": 0.0,
+          "body": 0.0,
+          "side": 0,
+          "threshold": 0.2,
+          "rate": 15.0,
+          "canvas_coverage": 1,
+          "mix": 1.0
+        }
+      },
+      {
+        "id": "scan_drag",
+        "enabled": false,
+        "params": {
+          "amount": 0.55,
+          "density": 0.025,
+          "length": 0.7,
+          "overload": 0.0,
+          "center": 0.68,
+          "height": 0.12,
+          "gain": 1.2,
+          "blocks": 3,
+          "block_height": 0.018,
+          "band_size": 7.0,
+          "tearing": 0.12,
+          "jitter": 0.001,
+          "chroma": 0.012,
+          "grain": 0.12,
+          "glow": 0.25,
+          "tint": 0.8,
+          "softness": 0.45,
+          "wander": 0.7,
+          "dropout": 0.2,
+          "direction": 1,
+          "window": 0.75,
+          "rate": 15.0,
+          "canvas_coverage": 1,
+          "mix": 1.0
+        }
+      },
+      {
+        "id": "flare",
+        "enabled": false,
+        "params": {
+          "strength": 0.0,
+          "position_y": 0.5,
+          "position_x": 0.62,
+          "spread": 0.25,
+          "reach": 0.4,
+          "fringe": 0.2,
+          "asymmetry": 0.0,
+          "bend": 0.0
+        }
+      },
+      {
+        "id": "warp",
+        "enabled": true,
+        "params": {
+          "amount": 0.035,
+          "frequency": 3.2,
+          "direction": 0.35,
+          "speed": 0.7
+        }
+      },
+      {
+        "id": "separation",
+        "enabled": true,
+        "params": {
+          "amount": 0.018,
+          "angle": 0.15,
+          "green": 0.35
+        }
+      },
+      {
+        "id": "smear",
+        "enabled": true,
+        "params": {
+          "amount": 0.12,
+          "direction": 0.2,
+          "ghosts": 4
+        }
+      },
+      {
+        "id": "interference",
+        "enabled": false,
+        "params": {
+          "chroma": 0.65,
+          "bands": 7.0,
+          "depth": 0.45,
+          "bend": 0.3,
+          "comb": 0.35,
+          "speed": 1.0,
+          "columns": 130,
+          "mix": 1.0
+        }
+      },
+      {
+        "id": "frame_jitter",
+        "enabled": false,
+        "params": {
+          "x": 5.0,
+          "y": 4.0,
+          "rotation": 0.18,
+          "scale": 0.12,
+          "rate": 15,
+          "strength": 1.0,
+          "seed": 0
+        }
+      },
+      {
+        "id": "bloom",
+        "enabled": true,
+        "params": {
+          "threshold": 0.42,
+          "radius": 9.0,
+          "strength": 0.55
+        }
+      },
+      {
+        "id": "raster",
+        "enabled": true,
+        "params": {
+          "softness": 0.0,
+          "lines": 0.18,
+          "grain": 0.08,
+          "chroma": 0.035,
+          "line_noise": 0.0
+        }
+      },
+      {
+        "id": "breakup",
+        "enabled": false,
+        "params": {
+          "amount": 0.08,
+          "bands": 18,
+          "dropout": 0.12,
+          "rate": 8.0,
+          "mix": 0.75
+        }
+      },
+      {
+        "id": "tape",
+        "enabled": false,
+        "params": {
+          "tracking": 0.04,
+          "jitter": 0.001,
+          "dropouts": 0.3,
+          "chroma_delay": 0.006,
+          "bleed": 0.008,
+          "head_switch": 0.25,
+          "rate": 16.0,
+          "mix": 0.8
+        }
+      },
+      {
+        "id": "print_surface",
+        "enabled": false,
+        "params": {
+          "background_mode": 0,
+          "noise_amount": 1.0,
+          "noise_size": 1.3,
+          "noise_clumps": 0.8,
+          "noise_floor": 0.09,
+          "cadence": 15,
+          "black_level": 0.077,
+          "paper_grain": 0.85,
+          "ink_grain": 0.35,
+          "ink_wear": 0.2,
+          "edge_wear": 0.65,
+          "registration": 0.002,
+          "grain_size": 1.3,
+          "fibers": 0.75,
+          "mottle": 0.45,
+          "boil": 0.25,
+          "paper_motion": 0.06,
+          "rotation_jitter": 0.45,
+          "dust": 0.12,
+          "softness": 0.8,
+          "mix": 1.0
+        }
+      },
+      {
+        "id": "signal_background",
+        "enabled": false,
+        "params": {
+          "level": 0.06,
+          "grain": 0.08,
+          "line_noise": 0.028,
+          "chroma": 0.004,
+          "tint": 1.0,
+          "lines": 0.09,
+          "threshold": 0.18,
+          "rate": 15.0,
+          "mix": 1.0
+        }
+      },
+      {
+        "id": "low_res",
+        "enabled": false,
+        "params": {
+          "resolution": 360,
+          "sampling": 0
+        }
+      }
+    ]
+  },
+  "presets": {
+    "Luminous slab": {
+      "schema_version": 1,
+      "name": "Luminous slab",
+      "width": 720,
+      "height": 576,
+      "framing": "native",
+      "object_x": 0.0,
+      "object_y": 0.0,
+      "treatment_fps": 25,
+      "export_fps": 25,
+      "loop_seconds": 4.0,
+      "seed": 1101,
+      "speed": 0.28,
+      "depth": 0.75,
+      "variation_mode": "smooth",
+      "animation": {
+        "targets": {
+          "blinds.aperture": {
+            "depth": 0.18,
+            "rate": 0.22
+          },
+          "blinds.aperture_position": {
+            "depth": 0.16,
+            "rate": 0.17
+          },
+          "blinds.curvature": {
+            "depth": 0.22,
+            "rate": 0.14
+          },
+          "slab.width": {
+            "depth": 0.12,
+            "rate": 0.12
+          },
+          "slab.spacing": {
+            "depth": 0.08,
+            "rate": 0.11
+          }
+        }
+      },
+      "modules": [
+        {
+          "id": "slab",
+          "enabled": true,
+          "params": {
+            "shape": 0,
+            "diameter": 0.6,
+            "sides": 6,
+            "rotation": 0.0,
+            "count": 1,
+            "width": 0.24,
+            "spacing": 0.22,
+            "height": 0.62,
+            "position_x": 0.18,
+            "position_y": 0.04,
+            "edge_hardness": 0.88,
+            "hollow": 0.0,
+            "notch": 0.12,
+            "intensity": 0.92,
+            "fill_magenta": 0.0,
+            "fill_gradient": 0.0,
+            "vertical_tint": 0.0,
+            "ghost_width": 0.56,
+            "ghost_offset": 0.3,
+            "ghost_opacity": 0.38,
+            "edge_softness": 0.08,
+            "magenta": 0.85,
+            "cyan": 0.42,
+            "jitter": 0.12,
+            "frame_jitter": 0.0,
+            "edge_ripple": 0.0,
+            "ghost_grain": 0.0,
+            "cloud_strength": 0.0,
+            "cloud_tint": 0.8,
+            "cloud_position": 0.0,
+            "cloud_detail": 0.0
+          }
+        },
+        {
+          "id": "blinds",
+          "enabled": false,
+          "params": {
+            "shape": 0,
+            "diameter": 0.6,
+            "sides": 6,
+            "rotation": 0.0,
+            "rows": 9,
+            "thickness": 0.012,
+            "aperture": 0.34,
+            "aperture_height": 0.64,
+            "aperture_vertical": 0.0,
+            "swelling": 0.9,
+            "taper": 0.8,
+            "asymmetry": 0.22,
+            "orientation": 0.0,
+            "phase": 0.0,
+            "offset": 0.0,
+            "aperture_position": 0.0,
+            "edge_softness": 0.06,
+            "curvature": 0.16,
+            "row_drift": 0.08,
+            "irregularity": 0.16,
+            "magenta": 0.9,
+            "intensity": 1.0,
+            "tail_spread": 0.0,
+            "edge_bias": 0.0
+          }
+        },
+        {
+          "id": "particles",
+          "enabled": false,
+          "params": {
+            "attractor": 0,
+            "motion": 0,
+            "release": 0,
+            "assembly": 1.0,
+            "breathing": 1.0,
+            "period": 12.0,
+            "expand_seconds": 0.75,
+            "gather_seconds": 1.0,
+            "motion_peak": 0.8,
+            "orbit_speed": 20.0,
+            "orbit_start": 0.7,
+            "orbit_handoff": 0,
+            "acceleration": 0.8,
+            "chaos": 0.7,
+            "overshoot": 0.45,
+            "count": 22000,
+            "dot_size": 1.2,
+            "dispersion": 1.0,
+            "turbulence": 0.18,
+            "collapse": 0.0,
+            "flow": 0.7,
+            "phase": 0.0,
+            "yaw": -20.0,
+            "pitch": 0.0,
+            "rotation_speed": 4.0,
+            "turn_scope": 0,
+            "axis_mode": 0,
+            "scale": 1.0,
+            "position_x": 0.0,
+            "position_y": 0.0,
+            "perspective": 0.65,
+            "xray": 0.08,
+            "occlusion": 0.0,
+            "neck_fade": 0.0,
+            "relief": 0.85,
+            "intensity": 1.35,
+            "released_brightness": 1.0,
+            "hue": 0.76,
+            "saturation": 0.65,
+            "color_spread": 0.85,
+            "color_drift": 0.025,
+            "shimmer": 0.45,
+            "jitter": 0.0015
+          }
+        },
+        {
+          "id": "silhouette",
+          "enabled": false,
+          "params": {
+            "model": 0,
+            "scale": 0.4,
+            "yaw": -90.0,
+            "pitch": 0.0,
+            "roll": 0.0,
+            "center_x": 0.6,
+            "center_y": 0.4,
+            "neck_fullness": 0.4,
+            "neck_length": 0.7,
+            "softness": 0.5,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "ink_bloom",
+          "enabled": false,
+          "params": {
+            "shape": 0,
+            "artwork": "",
+            "count": 7,
+            "size": 0.15,
+            "spread": 0.255,
+            "period": 3.533333333333333,
+            "opening": 1.0,
+            "cadence": 15,
+            "shape_width": 1.0,
+            "shape_height": 1.0,
+            "sides": 6,
+            "shape_rotation": 0.0,
+            "points": 12,
+            "point_depth": 0.4,
+            "irregularity": 0.72,
+            "palette": 0,
+            "split_ink": 1.0,
+            "back_ink": 0.9,
+            "saturation": 1.0,
+            "cycle": 1.0,
+            "phase": 0.0,
+            "open_start": 12.0,
+            "open_duration": 28.0,
+            "close_start": 56.0,
+            "close_duration": 27.0,
+            "revolutions": 1.0,
+            "turn": 0.0,
+            "rotation": 0.0,
+            "tumble": 0.9,
+            "tilt": 12.0,
+            "fan": 8.0,
+            "center_fold": 1.0,
+            "disorder": 0.5,
+            "cluster_depth": 0.6,
+            "stack_spacing": 0.045,
+            "perspective": 0.25,
+            "position_x": 0.0,
+            "position_y": 0.0,
+            "opacity": 1.0,
+            "motion_speed": 1.0,
+            "clock_mode": 0,
+            "clock_scale": 1.0,
+            "unfold_seconds": -1.0,
+            "unfolded_seconds": -1.0,
+            "fold_seconds": -1.0,
+            "folded_seconds": -1.0
+          }
+        },
+        {
+          "id": "edge_phosphor",
+          "enabled": false,
+          "params": {
+            "hue": 0.295,
+            "backlight": 0.7,
+            "saturation": 1.0,
+            "edge": 1.1,
+            "fringe_hue": 0.83,
+            "fringe": 1.0,
+            "grain": 0.75,
+            "spread": 0.36,
+            "rim_width": 0.006,
+            "separation": 0.012,
+            "glow": 0.009,
+            "echo": 0.2,
+            "echo_distance": 0.035,
+            "lower_fade": 0.8,
+            "neck_dissolve": 0.0,
+            "body": 0.0,
+            "side": 0,
+            "threshold": 0.2,
+            "rate": 15.0,
+            "canvas_coverage": 1,
+            "mix": 1.0
+          }
+        },
+        {
+          "id": "scan_drag",
+          "enabled": false,
+          "params": {
+            "amount": 0.55,
+            "density": 0.025,
+            "length": 0.7,
+            "overload": 0.0,
+            "center": 0.68,
+            "height": 0.12,
+            "gain": 1.2,
+            "blocks": 3,
+            "block_height": 0.018,
+            "band_size": 7.0,
+            "tearing": 0.12,
+            "jitter": 0.001,
+            "chroma": 0.012,
+            "grain": 0.12,
+            "glow": 0.25,
+            "tint": 0.8,
+            "softness": 0.45,
+            "wander": 0.7,
+            "dropout": 0.2,
+            "direction": 1,
+            "window": 0.75,
+            "rate": 15.0,
+            "canvas_coverage": 1,
+            "mix": 1.0
+          }
+        },
+        {
+          "id": "flare",
+          "enabled": false,
+          "params": {
+            "strength": 0.0,
+            "position_y": 0.5,
+            "position_x": 0.62,
+            "spread": 0.25,
+            "reach": 0.4,
+            "fringe": 0.2,
+            "asymmetry": 0.0,
+            "bend": 0.0
+          }
+        },
+        {
+          "id": "warp",
+          "enabled": false,
+          "params": {
+            "amount": 0.035,
+            "frequency": 3.2,
+            "direction": 0.35,
+            "speed": 0.7
+          }
+        },
+        {
+          "id": "separation",
+          "enabled": true,
+          "params": {
+            "amount": 0.018,
+            "angle": 0.15,
+            "green": 0.35
+          }
+        },
+        {
+          "id": "smear",
+          "enabled": true,
+          "params": {
+            "amount": 0.12,
+            "direction": 0.2,
+            "ghosts": 4
+          }
+        },
+        {
+          "id": "interference",
+          "enabled": false,
+          "params": {
+            "chroma": 0.65,
+            "bands": 7.0,
+            "depth": 0.45,
+            "bend": 0.3,
+            "comb": 0.35,
+            "speed": 1.0,
+            "columns": 130,
+            "mix": 1.0
+          }
+        },
+        {
+          "id": "frame_jitter",
+          "enabled": false,
+          "params": {
+            "x": 5.0,
+            "y": 4.0,
+            "rotation": 0.18,
+            "scale": 0.12,
+            "rate": 15,
+            "strength": 1.0,
+            "seed": 0
+          }
+        },
+        {
+          "id": "bloom",
+          "enabled": true,
+          "params": {
+            "threshold": 0.42,
+            "radius": 9.0,
+            "strength": 0.55
+          }
+        },
+        {
+          "id": "raster",
+          "enabled": true,
+          "params": {
+            "softness": 0.0,
+            "lines": 0.18,
+            "grain": 0.08,
+            "chroma": 0.035,
+            "line_noise": 0.0
+          }
+        },
+        {
+          "id": "breakup",
+          "enabled": false,
+          "params": {
+            "amount": 0.08,
+            "bands": 18,
+            "dropout": 0.12,
+            "rate": 8.0,
+            "mix": 0.75
+          }
+        },
+        {
+          "id": "tape",
+          "enabled": false,
+          "params": {
+            "tracking": 0.04,
+            "jitter": 0.001,
+            "dropouts": 0.3,
+            "chroma_delay": 0.006,
+            "bleed": 0.008,
+            "head_switch": 0.25,
+            "rate": 16.0,
+            "mix": 0.8
+          }
+        },
+        {
+          "id": "print_surface",
+          "enabled": false,
+          "params": {
+            "background_mode": 0,
+            "noise_amount": 1.0,
+            "noise_size": 1.3,
+            "noise_clumps": 0.8,
+            "noise_floor": 0.09,
+            "cadence": 15,
+            "black_level": 0.077,
+            "paper_grain": 0.85,
+            "ink_grain": 0.35,
+            "ink_wear": 0.2,
+            "edge_wear": 0.65,
+            "registration": 0.002,
+            "grain_size": 1.3,
+            "fibers": 0.75,
+            "mottle": 0.45,
+            "boil": 0.25,
+            "paper_motion": 0.06,
+            "rotation_jitter": 0.45,
+            "dust": 0.12,
+            "softness": 0.8,
+            "mix": 1.0
+          }
+        },
+        {
+          "id": "signal_background",
+          "enabled": false,
+          "params": {
+            "level": 0.06,
+            "grain": 0.08,
+            "line_noise": 0.028,
+            "chroma": 0.004,
+            "tint": 1.0,
+            "lines": 0.09,
+            "threshold": 0.18,
+            "rate": 15.0,
+            "mix": 1.0
+          }
+        },
+        {
+          "id": "low_res",
+          "enabled": false,
+          "params": {
+            "resolution": 360,
+            "sampling": 0
+          }
+        }
+      ]
+    },
+    "Reference blinds": {
+      "schema_version": 1,
+      "name": "Reference blinds",
+      "width": 720,
+      "height": 576,
+      "framing": "native",
+      "object_x": 0.0,
+      "object_y": 0.0,
+      "treatment_fps": 25,
+      "export_fps": 25,
+      "loop_seconds": 4.0,
+      "seed": 2409,
+      "speed": 0.55,
+      "depth": 0.75,
+      "variation_mode": "smooth",
+      "animation": {
+        "targets": {
+          "blinds.aperture": {
+            "depth": 0.18,
+            "rate": 0.22
+          },
+          "blinds.aperture_position": {
+            "depth": 0.16,
+            "rate": 0.17
+          },
+          "blinds.curvature": {
+            "depth": 0.22,
+            "rate": 0.14
+          },
+          "slab.width": {
+            "depth": 0.12,
+            "rate": 0.12
+          },
+          "slab.spacing": {
+            "depth": 0.08,
+            "rate": 0.11
+          }
+        }
+      },
+      "modules": [
+        {
+          "id": "slab",
+          "enabled": false,
+          "params": {
+            "shape": 0,
+            "diameter": 0.6,
+            "sides": 6,
+            "rotation": 0.0,
+            "count": 1,
+            "width": 0.18,
+            "spacing": 0.22,
+            "height": 0.62,
+            "position_x": 0.2,
+            "position_y": 0.0,
+            "edge_hardness": 0.82,
+            "hollow": 0.0,
+            "notch": 0.08,
+            "intensity": 1.0,
+            "fill_magenta": 0.0,
+            "fill_gradient": 0.0,
+            "vertical_tint": 0.0,
+            "ghost_width": 0.32,
+            "ghost_offset": 0.24,
+            "ghost_opacity": 0.34,
+            "edge_softness": 0.08,
+            "magenta": 0.85,
+            "cyan": 0.42,
+            "jitter": 0.12,
+            "frame_jitter": 0.0,
+            "edge_ripple": 0.0,
+            "ghost_grain": 0.0,
+            "cloud_strength": 0.0,
+            "cloud_tint": 0.8,
+            "cloud_position": 0.0,
+            "cloud_detail": 0.0
+          }
+        },
+        {
+          "id": "blinds",
+          "enabled": true,
+          "params": {
+            "shape": 0,
+            "diameter": 0.6,
+            "sides": 6,
+            "rotation": 0.0,
+            "rows": 9,
+            "thickness": 0.012,
+            "aperture": 0.34,
+            "aperture_height": 0.64,
+            "aperture_vertical": 0.0,
+            "swelling": 0.9,
+            "taper": 0.8,
+            "asymmetry": 0.22,
+            "orientation": 0.0,
+            "phase": 0.0,
+            "offset": 0.0,
+            "aperture_position": 0.0,
+            "edge_softness": 0.06,
+            "curvature": 0.16,
+            "row_drift": 0.08,
+            "irregularity": 0.16,
+            "magenta": 0.9,
+            "intensity": 1.0,
+            "tail_spread": 0.0,
+            "edge_bias": 0.0
+          }
+        },
+        {
+          "id": "particles",
+          "enabled": false,
+          "params": {
+            "attractor": 0,
+            "motion": 0,
+            "release": 0,
+            "assembly": 1.0,
+            "breathing": 1.0,
+            "period": 12.0,
+            "expand_seconds": 0.75,
+            "gather_seconds": 1.0,
+            "motion_peak": 0.8,
+            "orbit_speed": 20.0,
+            "orbit_start": 0.7,
+            "orbit_handoff": 0,
+            "acceleration": 0.8,
+            "chaos": 0.7,
+            "overshoot": 0.45,
+            "count": 22000,
+            "dot_size": 1.2,
+            "dispersion": 1.0,
+            "turbulence": 0.18,
+            "collapse": 0.0,
+            "flow": 0.7,
+            "phase": 0.0,
+            "yaw": -20.0,
+            "pitch": 0.0,
+            "rotation_speed": 4.0,
+            "turn_scope": 0,
+            "axis_mode": 0,
+            "scale": 1.0,
+            "position_x": 0.0,
+            "position_y": 0.0,
+            "perspective": 0.65,
+            "xray": 0.08,
+            "occlusion": 0.0,
+            "neck_fade": 0.0,
+            "relief": 0.85,
+            "intensity": 1.35,
+            "released_brightness": 1.0,
+            "hue": 0.76,
+            "saturation": 0.65,
+            "color_spread": 0.85,
+            "color_drift": 0.025,
+            "shimmer": 0.45,
+            "jitter": 0.0015
+          }
+        },
+        {
+          "id": "silhouette",
+          "enabled": false,
+          "params": {
+            "model": 0,
+            "scale": 0.4,
+            "yaw": -90.0,
+            "pitch": 0.0,
+            "roll": 0.0,
+            "center_x": 0.6,
+            "center_y": 0.4,
+            "neck_fullness": 0.4,
+            "neck_length": 0.7,
+            "softness": 0.5,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "ink_bloom",
+          "enabled": false,
+          "params": {
+            "shape": 0,
+            "artwork": "",
+            "count": 7,
+            "size": 0.15,
+            "spread": 0.255,
+            "period": 3.533333333333333,
+            "opening": 1.0,
+            "cadence": 15,
+            "shape_width": 1.0,
+            "shape_height": 1.0,
+            "sides": 6,
+            "shape_rotation": 0.0,
+            "points": 12,
+            "point_depth": 0.4,
+            "irregularity": 0.72,
+            "palette": 0,
+            "split_ink": 1.0,
+            "back_ink": 0.9,
+            "saturation": 1.0,
+            "cycle": 1.0,
+            "phase": 0.0,
+            "open_start": 12.0,
+            "open_duration": 28.0,
+            "close_start": 56.0,
+            "close_duration": 27.0,
+            "revolutions": 1.0,
+            "turn": 0.0,
+            "rotation": 0.0,
+            "tumble": 0.9,
+            "tilt": 12.0,
+            "fan": 8.0,
+            "center_fold": 1.0,
+            "disorder": 0.5,
+            "cluster_depth": 0.6,
+            "stack_spacing": 0.045,
+            "perspective": 0.25,
+            "position_x": 0.0,
+            "position_y": 0.0,
+            "opacity": 1.0,
+            "motion_speed": 1.0,
+            "clock_mode": 0,
+            "clock_scale": 1.0,
+            "unfold_seconds": -1.0,
+            "unfolded_seconds": -1.0,
+            "fold_seconds": -1.0,
+            "folded_seconds": -1.0
+          }
+        },
+        {
+          "id": "edge_phosphor",
+          "enabled": false,
+          "params": {
+            "hue": 0.295,
+            "backlight": 0.7,
+            "saturation": 1.0,
+            "edge": 1.1,
+            "fringe_hue": 0.83,
+            "fringe": 1.0,
+            "grain": 0.75,
+            "spread": 0.36,
+            "rim_width": 0.006,
+            "separation": 0.012,
+            "glow": 0.009,
+            "echo": 0.2,
+            "echo_distance": 0.035,
+            "lower_fade": 0.8,
+            "neck_dissolve": 0.0,
+            "body": 0.0,
+            "side": 0,
+            "threshold": 0.2,
+            "rate": 15.0,
+            "canvas_coverage": 1,
+            "mix": 1.0
+          }
+        },
+        {
+          "id": "scan_drag",
+          "enabled": false,
+          "params": {
+            "amount": 0.55,
+            "density": 0.025,
+            "length": 0.7,
+            "overload": 0.0,
+            "center": 0.68,
+            "height": 0.12,
+            "gain": 1.2,
+            "blocks": 3,
+            "block_height": 0.018,
+            "band_size": 7.0,
+            "tearing": 0.12,
+            "jitter": 0.001,
+            "chroma": 0.012,
+            "grain": 0.12,
+            "glow": 0.25,
+            "tint": 0.8,
+            "softness": 0.45,
+            "wander": 0.7,
+            "dropout": 0.2,
+            "direction": 1,
+            "window": 0.75,
+            "rate": 15.0,
+            "canvas_coverage": 1,
+            "mix": 1.0
+          }
+        },
+        {
+          "id": "flare",
+          "enabled": false,
+          "params": {
+            "strength": 0.0,
+            "position_y": 0.5,
+            "position_x": 0.62,
+            "spread": 0.25,
+            "reach": 0.4,
+            "fringe": 0.2,
+            "asymmetry": 0.0,
+            "bend": 0.0
+          }
+        },
+        {
+          "id": "warp",
+          "enabled": true,
+          "params": {
+            "amount": 0.018,
+            "frequency": 2.4,
+            "direction": 0.35,
+            "speed": 0.7
+          }
+        },
+        {
+          "id": "separation",
+          "enabled": true,
+          "params": {
+            "amount": 0.009,
+            "angle": 0.15,
+            "green": 0.7
+          }
+        },
+        {
+          "id": "smear",
+          "enabled": true,
+          "params": {
+            "amount": 0.06,
+            "direction": 0.2,
+            "ghosts": 3
+          }
+        },
+        {
+          "id": "interference",
+          "enabled": false,
+          "params": {
+            "chroma": 0.65,
+            "bands": 7.0,
+            "depth": 0.45,
+            "bend": 0.3,
+            "comb": 0.35,
+            "speed": 1.0,
+            "columns": 130,
+            "mix": 1.0
+          }
+        },
+        {
+          "id": "frame_jitter",
+          "enabled": false,
+          "params": {
+            "x": 5.0,
+            "y": 4.0,
+            "rotation": 0.18,
+            "scale": 0.12,
+            "rate": 15,
+            "strength": 1.0,
+            "seed": 0
+          }
+        },
+        {
+          "id": "bloom",
+          "enabled": true,
+          "params": {
+            "threshold": 0.42,
+            "radius": 9.0,
+            "strength": 0.55
+          }
+        },
+        {
+          "id": "raster",
+          "enabled": true,
+          "params": {
+            "softness": 0.0,
+            "lines": 0.18,
+            "grain": 0.08,
+            "chroma": 0.035,
+            "line_noise": 0.0
+          }
+        },
+        {
+          "id": "breakup",
+          "enabled": false,
+          "params": {
+            "amount": 0.08,
+            "bands": 18,
+            "dropout": 0.12,
+            "rate": 8.0,
+            "mix": 0.75
+          }
+        },
+        {
+          "id": "tape",
+          "enabled": false,
+          "params": {
+            "tracking": 0.04,
+            "jitter": 0.001,
+            "dropouts": 0.3,
+            "chroma_delay": 0.006,
+            "bleed": 0.008,
+            "head_switch": 0.25,
+            "rate": 16.0,
+            "mix": 0.8
+          }
+        },
+        {
+          "id": "print_surface",
+          "enabled": false,
+          "params": {
+            "background_mode": 0,
+            "noise_amount": 1.0,
+            "noise_size": 1.3,
+            "noise_clumps": 0.8,
+            "noise_floor": 0.09,
+            "cadence": 15,
+            "black_level": 0.077,
+            "paper_grain": 0.85,
+            "ink_grain": 0.35,
+            "ink_wear": 0.2,
+            "edge_wear": 0.65,
+            "registration": 0.002,
+            "grain_size": 1.3,
+            "fibers": 0.75,
+            "mottle": 0.45,
+            "boil": 0.25,
+            "paper_motion": 0.06,
+            "rotation_jitter": 0.45,
+            "dust": 0.12,
+            "softness": 0.8,
+            "mix": 1.0
+          }
+        },
+        {
+          "id": "signal_background",
+          "enabled": false,
+          "params": {
+            "level": 0.06,
+            "grain": 0.08,
+            "line_noise": 0.028,
+            "chroma": 0.004,
+            "tint": 1.0,
+            "lines": 0.09,
+            "threshold": 0.18,
+            "rate": 15.0,
+            "mix": 1.0
+          }
+        },
+        {
+          "id": "low_res",
+          "enabled": false,
+          "params": {
+            "resolution": 360,
+            "sampling": 0
+          }
+        }
+      ]
+    },
+    "Unstable aperture": {
+      "schema_version": 1,
+      "name": "Unstable aperture",
+      "width": 720,
+      "height": 576,
+      "framing": "native",
+      "object_x": 0.0,
+      "object_y": 0.0,
+      "treatment_fps": 25,
+      "export_fps": 25,
+      "loop_seconds": 4.0,
+      "seed": 7117,
+      "speed": 1.3,
+      "depth": 1.0,
+      "variation_mode": "smooth",
+      "animation": {
+        "targets": {
+          "blinds.aperture": {
+            "depth": 0.18,
+            "rate": 0.22
+          },
+          "blinds.aperture_position": {
+            "depth": 0.16,
+            "rate": 0.17
+          },
+          "blinds.curvature": {
+            "depth": 0.22,
+            "rate": 0.14
+          },
+          "slab.width": {
+            "depth": 0.12,
+            "rate": 0.12
+          },
+          "slab.spacing": {
+            "depth": 0.08,
+            "rate": 0.11
+          }
+        }
+      },
+      "modules": [
+        {
+          "id": "slab",
+          "enabled": false,
+          "params": {
+            "shape": 0,
+            "diameter": 0.6,
+            "sides": 6,
+            "rotation": 0.0,
+            "count": 1,
+            "width": 0.18,
+            "spacing": 0.22,
+            "height": 0.62,
+            "position_x": 0.2,
+            "position_y": 0.0,
+            "edge_hardness": 0.82,
+            "hollow": 0.0,
+            "notch": 0.08,
+            "intensity": 1.0,
+            "fill_magenta": 0.0,
+            "fill_gradient": 0.0,
+            "vertical_tint": 0.0,
+            "ghost_width": 0.32,
+            "ghost_offset": 0.24,
+            "ghost_opacity": 0.34,
+            "edge_softness": 0.08,
+            "magenta": 0.85,
+            "cyan": 0.42,
+            "jitter": 0.12,
+            "frame_jitter": 0.0,
+            "edge_ripple": 0.0,
+            "ghost_grain": 0.0,
+            "cloud_strength": 0.0,
+            "cloud_tint": 0.8,
+            "cloud_position": 0.0,
+            "cloud_detail": 0.0
+          }
+        },
+        {
+          "id": "blinds",
+          "enabled": true,
+          "params": {
+            "shape": 0,
+            "diameter": 0.6,
+            "sides": 6,
+            "rotation": 0.0,
+            "rows": 9,
+            "thickness": 0.012,
+            "aperture": 0.34,
+            "aperture_height": 0.64,
+            "aperture_vertical": 0.0,
+            "swelling": 1.0,
+            "taper": 0.94,
+            "asymmetry": 0.22,
+            "orientation": 0.0,
+            "phase": 0.0,
+            "offset": 0.0,
+            "aperture_position": 0.0,
+            "edge_softness": 0.06,
+            "curvature": 0.48,
+            "row_drift": 0.22,
+            "irregularity": 0.55,
+            "magenta": 0.9,
+            "intensity": 1.0,
+            "tail_spread": 0.0,
+            "edge_bias": 0.0
+          }
+        },
+        {
+          "id": "particles",
+          "enabled": false,
+          "params": {
+            "attractor": 0,
+            "motion": 0,
+            "release": 0,
+            "assembly": 1.0,
+            "breathing": 1.0,
+            "period": 12.0,
+            "expand_seconds": 0.75,
+            "gather_seconds": 1.0,
+            "motion_peak": 0.8,
+            "orbit_speed": 20.0,
+            "orbit_start": 0.7,
+            "orbit_handoff": 0,
+            "acceleration": 0.8,
+            "chaos": 0.7,
+            "overshoot": 0.45,
+            "count": 22000,
+            "dot_size": 1.2,
+            "dispersion": 1.0,
+            "turbulence": 0.18,
+            "collapse": 0.0,
+            "flow": 0.7,
+            "phase": 0.0,
+            "yaw": -20.0,
+            "pitch": 0.0,
+            "rotation_speed": 4.0,
+            "turn_scope": 0,
+            "axis_mode": 0,
+            "scale": 1.0,
+            "position_x": 0.0,
+            "position_y": 0.0,
+            "perspective": 0.65,
+            "xray": 0.08,
+            "occlusion": 0.0,
+            "neck_fade": 0.0,
+            "relief": 0.85,
+            "intensity": 1.35,
+            "released_brightness": 1.0,
+            "hue": 0.76,
+            "saturation": 0.65,
+            "color_spread": 0.85,
+            "color_drift": 0.025,
+            "shimmer": 0.45,
+            "jitter": 0.0015
+          }
+        },
+        {
+          "id": "silhouette",
+          "enabled": false,
+          "params": {
+            "model": 0,
+            "scale": 0.4,
+            "yaw": -90.0,
+            "pitch": 0.0,
+            "roll": 0.0,
+            "center_x": 0.6,
+            "center_y": 0.4,
+            "neck_fullness": 0.4,
+            "neck_length": 0.7,
+            "softness": 0.5,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "ink_bloom",
+          "enabled": false,
+          "params": {
+            "shape": 0,
+            "artwork": "",
+            "count": 7,
+            "size": 0.15,
+            "spread": 0.255,
+            "period": 3.533333333333333,
+            "opening": 1.0,
+            "cadence": 15,
+            "shape_width": 1.0,
+            "shape_height": 1.0,
+            "sides": 6,
+            "shape_rotation": 0.0,
+            "points": 12,
+            "point_depth": 0.4,
+            "irregularity": 0.72,
+            "palette": 0,
+            "split_ink": 1.0,
+            "back_ink": 0.9,
+            "saturation": 1.0,
+            "cycle": 1.0,
+            "phase": 0.0,
+            "open_start": 12.0,
+            "open_duration": 28.0,
+            "close_start": 56.0,
+            "close_duration": 27.0,
+            "revolutions": 1.0,
+            "turn": 0.0,
+            "rotation": 0.0,
+            "tumble": 0.9,
+            "tilt": 12.0,
+            "fan": 8.0,
+            "center_fold": 1.0,
+            "disorder": 0.5,
+            "cluster_depth": 0.6,
+            "stack_spacing": 0.045,
+            "perspective": 0.25,
+            "position_x": 0.0,
+            "position_y": 0.0,
+            "opacity": 1.0,
+            "motion_speed": 1.0,
+            "clock_mode": 0,
+            "clock_scale": 1.0,
+            "unfold_seconds": -1.0,
+            "unfolded_seconds": -1.0,
+            "fold_seconds": -1.0,
+            "folded_seconds": -1.0
+          }
+        },
+        {
+          "id": "edge_phosphor",
+          "enabled": false,
+          "params": {
+            "hue": 0.295,
+            "backlight": 0.7,
+            "saturation": 1.0,
+            "edge": 1.1,
+            "fringe_hue": 0.83,
+            "fringe": 1.0,
+            "grain": 0.75,
+            "spread": 0.36,
+            "rim_width": 0.006,
+            "separation": 0.012,
+            "glow": 0.009,
+            "echo": 0.2,
+            "echo_distance": 0.035,
+            "lower_fade": 0.8,
+            "neck_dissolve": 0.0,
+            "body": 0.0,
+            "side": 0,
+            "threshold": 0.2,
+            "rate": 15.0,
+            "canvas_coverage": 1,
+            "mix": 1.0
+          }
+        },
+        {
+          "id": "scan_drag",
+          "enabled": false,
+          "params": {
+            "amount": 0.55,
+            "density": 0.025,
+            "length": 0.7,
+            "overload": 0.0,
+            "center": 0.68,
+            "height": 0.12,
+            "gain": 1.2,
+            "blocks": 3,
+            "block_height": 0.018,
+            "band_size": 7.0,
+            "tearing": 0.12,
+            "jitter": 0.001,
+            "chroma": 0.012,
+            "grain": 0.12,
+            "glow": 0.25,
+            "tint": 0.8,
+            "softness": 0.45,
+            "wander": 0.7,
+            "dropout": 0.2,
+            "direction": 1,
+            "window": 0.75,
+            "rate": 15.0,
+            "canvas_coverage": 1,
+            "mix": 1.0
+          }
+        },
+        {
+          "id": "flare",
+          "enabled": false,
+          "params": {
+            "strength": 0.0,
+            "position_y": 0.5,
+            "position_x": 0.62,
+            "spread": 0.25,
+            "reach": 0.4,
+            "fringe": 0.2,
+            "asymmetry": 0.0,
+            "bend": 0.0
+          }
+        },
+        {
+          "id": "warp",
+          "enabled": true,
+          "params": {
+            "amount": 0.1,
+            "frequency": 5.5,
+            "direction": 0.35,
+            "speed": 1.8
+          }
+        },
+        {
+          "id": "separation",
+          "enabled": true,
+          "params": {
+            "amount": 0.05,
+            "angle": 0.15,
+            "green": 0.7
+          }
+        },
+        {
+          "id": "smear",
+          "enabled": true,
+          "params": {
+            "amount": 0.06,
+            "direction": 0.2,
+            "ghosts": 3
+          }
+        },
+        {
+          "id": "interference",
+          "enabled": false,
+          "params": {
+            "chroma": 0.65,
+            "bands": 7.0,
+            "depth": 0.45,
+            "bend": 0.3,
+            "comb": 0.35,
+            "speed": 1.0,
+            "columns": 130,
+            "mix": 1.0
+          }
+        },
+        {
+          "id": "frame_jitter",
+          "enabled": false,
+          "params": {
+            "x": 5.0,
+            "y": 4.0,
+            "rotation": 0.18,
+            "scale": 0.12,
+            "rate": 15,
+            "strength": 1.0,
+            "seed": 0
+          }
+        },
+        {
+          "id": "bloom",
+          "enabled": true,
+          "params": {
+            "threshold": 0.42,
+            "radius": 9.0,
+            "strength": 0.55
+          }
+        },
+        {
+          "id": "raster",
+          "enabled": true,
+          "params": {
+            "softness": 0.0,
+            "lines": 0.18,
+            "grain": 0.08,
+            "chroma": 0.035,
+            "line_noise": 0.0
+          }
+        },
+        {
+          "id": "breakup",
+          "enabled": false,
+          "params": {
+            "amount": 0.08,
+            "bands": 18,
+            "dropout": 0.12,
+            "rate": 8.0,
+            "mix": 0.75
+          }
+        },
+        {
+          "id": "tape",
+          "enabled": false,
+          "params": {
+            "tracking": 0.04,
+            "jitter": 0.001,
+            "dropouts": 0.3,
+            "chroma_delay": 0.006,
+            "bleed": 0.008,
+            "head_switch": 0.25,
+            "rate": 16.0,
+            "mix": 0.8
+          }
+        },
+        {
+          "id": "print_surface",
+          "enabled": false,
+          "params": {
+            "background_mode": 0,
+            "noise_amount": 1.0,
+            "noise_size": 1.3,
+            "noise_clumps": 0.8,
+            "noise_floor": 0.09,
+            "cadence": 15,
+            "black_level": 0.077,
+            "paper_grain": 0.85,
+            "ink_grain": 0.35,
+            "ink_wear": 0.2,
+            "edge_wear": 0.65,
+            "registration": 0.002,
+            "grain_size": 1.3,
+            "fibers": 0.75,
+            "mottle": 0.45,
+            "boil": 0.25,
+            "paper_motion": 0.06,
+            "rotation_jitter": 0.45,
+            "dust": 0.12,
+            "softness": 0.8,
+            "mix": 1.0
+          }
+        },
+        {
+          "id": "signal_background",
+          "enabled": false,
+          "params": {
+            "level": 0.06,
+            "grain": 0.08,
+            "line_noise": 0.028,
+            "chroma": 0.004,
+            "tint": 1.0,
+            "lines": 0.09,
+            "threshold": 0.18,
+            "rate": 15.0,
+            "mix": 1.0
+          }
+        },
+        {
+          "id": "low_res",
+          "enabled": false,
+          "params": {
+            "resolution": 360,
+            "sampling": 0
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,378 @@
+"""Compact chrome must preserve document actions, scope and playback meaning."""
+import copy
+import os
+os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
+import pytest
+from PySide6.QtCore import QEvent, QPoint, QThreadPool
+from PySide6.QtWidgets import QApplication, QMessageBox, QPushButton, QWidget
+from nebula.ui.studio_theme import apply_theme
+from nebula.ui.synth_studio import SynthStudio
+from nebula.documents.synth_starting_points import new_piece
+
+
+@pytest.fixture
+def window(monkeypatch):
+    app = QApplication.instance() or QApplication([]); apply_theme(app)
+    monkeypatch.setattr(SynthStudio, 'request_frame', lambda self: None)
+    monkeypatch.setattr(SynthStudio, 'schedule_auto_preparation', lambda self: None)
+    monkeypatch.setattr(QMessageBox, 'warning', lambda *args: QMessageBox.StandardButton.Discard)
+    document = new_piece('shape')
+    second = copy.deepcopy(document['sections'][0]); second['id'] = 'second'; second['duration'] = 2.
+    document['sections'].append(second)
+    window = SynthStudio(composition=document); window.auto_prepare.setChecked(False)
+    window.resize(1280, 800); window.show(); app.processEvents()
+    yield window
+    window.close(); QThreadPool.globalInstance().waitForDone(10000)
+    window.deleteLater(); app.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+
+
+def inside(widget, host):
+    top = widget.mapTo(host, QPoint())
+    return host.rect().contains(top) and host.rect().contains(top + widget.rect().bottomRight())
+
+
+def test_global_fps_and_save_actions_survive_composer_replacement(window, monkeypatch, tmp_path):
+    from PySide6.QtWidgets import QFileDialog
+    destination = tmp_path / 'composition.json'
+    monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *args: (str(destination), ''))
+    window.save_button.menu().actions()[0].trigger()
+    assert destination.exists() and not window.has_unsaved_changes()
+    for _ in range(3):
+        window.set_composition(copy.deepcopy(window.composition), clean=True)
+        QApplication.processEvents()
+        assert window.workspace_fps_layout.count() == 2
+        assert window.timeline_navigation_layout.count() == 2
+        assert window.composer.arrangement_button.parentWidget() is window.timeline_navigation
+        assert window.composer.automations_button.parentWidget() is window.timeline_navigation
+        assert inside(window.composer.fps, window.header_host)
+        assert inside(window.section_hint, window.section_tools)
+        assert window.section_hint.geometry().right() == window.section_tools.rect().right()
+        assert window.save_study_button.isEnabled()
+    window.composer.fps.setValue(12)
+    assert window.composition['fps'] == window.preview_fps() == 12
+    assert window.has_unsaved_changes()
+    window.save_button.click()
+    assert not window.has_unsaved_changes()
+
+
+def test_studio_navigation_keeps_timeline_actions_and_quality_with_their_context(window):
+    before = copy.deepcopy(window.composition)
+    panel = window.composer
+    assert inside(window.quality, window.preview_splitter.widget(0))
+    assert inside(panel.arrangement_button, window.section_tools)
+    assert inside(panel.automations_button, window.section_tools)
+    panel.arrangement_button.click(); QApplication.processEvents()
+    assert panel.content_stack.currentWidget() is panel.arrangement_scroll
+    assert panel.arrangement_button.text() == 'Duration && loops'
+    panel.arrangement_done.click(); QApplication.processEvents()
+    assert panel.content_stack.currentWidget() is panel.parameters_group
+    assert not panel.arrangement_button.isChecked()
+    assert panel.arrangement_button.text() == 'Duration && loops'
+    panel.look_tabs.setCurrentWidget(panel.master_panel)
+    assert window.reset_controls_button.isVisible()
+    panel.look_tabs.setCurrentWidget(panel.effects_panel)
+    assert not window.reset_controls_button.isVisible()
+    assert window.composition == before and not window.has_unsaved_changes()
+
+
+def test_repeat_is_direct_and_preserves_timing_effects_and_edit_scope(window):
+    before = copy.deepcopy(window.composition)
+    states = copy.deepcopy(window.sequence['states'])
+    duration = window.sequence['duration']
+    window.section_timeline.select_at(1)
+    assert window.composer.scope == 0
+    assert window.clip_controls.isVisible() and window.shot_strip.isHidden()
+    assert window.shot_strip.caption.text() == 'Clip 2 / 2'
+    window.shot_strip.loops.setValue(2)
+    expected = copy.deepcopy(before); expected['sections'][1]['loops'] = 2
+    assert window.composition == expected
+    assert window.sequence['states'] == states
+    assert window.sequence['duration'] == duration + 2.
+    assert window.shot_strip.timing_summary.text() == '2 s × 2 = 4 s'
+    assert window.composer.section_loops.value() == 2 and window.composer.scope == 0
+    window.undo_composition()
+    assert window.composition == before
+    assert window.shot_strip.loops.value() == 1
+    assert window.shot_strip.timing_summary.text() == '2 s × 1 = 2 s'
+    window.redo_composition()
+    assert window.shot_strip.loops.value() == 2
+
+
+def test_timing_footer_survives_view_and_document_changes_without_edits(window):
+    before = copy.deepcopy(window.composition)
+    for width in (920, 730, 480):
+        window.resize(1280 if width < 900 else 1728, 800)
+        window.splitter.setSizes([width, 700])
+        for view in (1, 0):
+            window.timeline_view.setCurrentIndex(view)
+            QApplication.processEvents()
+            assert window.clip_controls.isVisible()
+            for control in (window.shot_strip.caption, window.shot_strip.duration,
+                            window.shot_strip.loops, window.shot_strip.timing_summary):
+                assert control.isVisible() and inside(control, window.clip_controls)
+            assert window.shot_strip.edit.isVisible() == bool(view)
+            assert window.composition == before and not window.has_unsaved_changes()
+    # Another study must refresh the shared controls rather than retaining repeats.
+    window.shot_strip.loops.setValue(3)
+    window.set_composition(before, guard=False, clean=True)
+    assert window.shot_strip.loops.value() == 1
+    assert window.composition == before and not window.has_unsaved_changes()
+
+
+def test_clip_repeat_keeps_existing_sequence_groups_and_syncs_both_editors(window):
+    members = [s['id'] for s in window.composition['sections']]
+    window.composer.loop_sections(members, 2)
+    groups = copy.deepcopy(window.composition['timeline_loops'])
+    window.section_timeline.select_at(1)
+    window.composer.section_loops.setValue(3)
+    assert window.shot_strip.loops.value() == 3
+    window.shot_strip.loops.setValue(2)
+    assert window.composer.section_loops.value() == 2
+    assert window.composition['timeline_loops'] == groups
+    assert window.shot_strip.timing_summary.text() == '2 s × 2 = 4 s'
+
+
+def test_editing_scope_is_independent_of_arrangement_selection(window):
+    panel = window.composer; timeline = window.section_timeline
+    panel.select_section(1)
+    selected = set(timeline.selected_ids)
+    assert timeline.editing_section_id == 'second'
+    panel.change_scope(0)
+    assert timeline.editing_section_id is None and timeline.selected_ids == selected
+    panel.change_scope(1)
+    panel.look_tabs.setCurrentWidget(panel.master_panel)
+    assert timeline.editing_section_id is None and timeline.selected_ids == selected
+    panel.look_tabs.setCurrentWidget(panel.effects_panel)
+    assert timeline.editing_section_id == 'second'
+    assert not window.has_unsaved_changes()
+
+
+def test_prepared_count_means_actual_cached_frames_in_playback_scope(window):
+    window.preview_frames.clear()
+    second_start = round(window.composition['sections'][0]['duration'] * window.preview_fps())
+    for frame in (0, 2, second_start):
+        window.preview_frames.put(frame, ((1, 1), b'abc'))
+    window.cached_ranges.set_ranges(window.preview_frames.ranges())
+    assert window.cache_status.text() == f'Timeline: 3/{window.timeline.maximum()+1} frames · partial'
+    window.composer.select_section(1)
+    window.preview_scope.setCurrentIndex(1)
+    assert window.cache_status.text() == f'Selected clips: 1/{window.active_preview_scope().count} frames · partial'
+    window.preview_frames.clear(); window.cached_ranges.set_ranges([])
+    assert window.cache_status.text() == f'Selected clips: 0/{window.active_preview_scope().count} frames · not prepared'
+
+
+def test_monitor_toolbar_centers_controls_and_keeps_status_width_stable(window):
+    header = window.findChild(QWidget, 'monitorHeader')
+    window.resize(1728, 920)
+    window.splitter.setSizes([920, 700])
+    QApplication.processEvents()
+    controls = [window.view_zoom, *(button for button in header.findChildren(QPushButton) if button.isVisible())]
+    assert len({widget.height() for widget in controls}) == 1
+    center = window.view_zoom.mapTo(header, window.view_zoom.rect().center()).y()
+    for widget in [window.frame_status, *controls]:
+        assert abs(widget.mapTo(header, widget.rect().center()).y() - center) <= 1
+    original_zoom_position = window.view_zoom.mapTo(header, QPoint())
+    for state in window.frame_status.states:
+        window.frame_status.set_state(state)
+        QApplication.processEvents()
+        assert window.view_zoom.mapTo(header, QPoint()) == original_zoom_position
+
+
+def test_narrow_monitor_wraps_controls_without_editing_the_piece(window):
+    before = copy.deepcopy(window.composition)
+    window.begin_comparison(before, 'A long snapshot title to check the monitor layout')
+    window.splitter.setSizes([490, 760]); QApplication.processEvents()
+    monitor = window.findChild(QWidget, 'monitorHeader')
+    for control in (window.frame_status, window.view_zoom, window.snapshots_button, window.compare_a,
+                    window.compare_b, window.compare_exit, window.fullscreen_button):
+        assert inside(control, monitor)
+    for control in (window.new_piece_button, window.open_button, window.save_button,
+                    window.import_video_button, window.montage_button, window.export_button):
+        assert inside(control, window.header_host)
+    assert inside(window.section_hint, window.section_tools)
+    assert window.section_hint.geometry().right() == window.section_tools.rect().right()
+    assert window.composition == before
+    window.end_comparison()
+
+
+def test_video_toolbar_wraps_with_all_actions_and_help_at_the_right(window, tmp_path):
+    from nebula.sources.synth_video import normalize_footage, video_composition
+    project = video_composition(normalize_footage(dict(version=1, kind='video', path=str(tmp_path / 'footage.mkv'),
+                                    width=320, height=180, duration=1., fps=12.,
+                                    identity={'size': 0, 'mtime_ns': 0})))
+    window.set_composition(project, clean=True)
+    before = copy.deepcopy(window.composition)
+    for width in (920, 730, 480):
+        window.resize(1280 if width < 900 else 1728, 800)
+        window.splitter.setSizes([width, 700])
+        QApplication.processEvents()
+        for control in (window.timeline_view, window.add_footage_section, window.soundtrack_button,
+                        window.visual_sound_button, window.workspace_live_set_button, window.section_resize_mode,
+                        window.composer.arrangement_button, window.composer.automations_button,
+                        window.section_hint):
+            assert control.isVisible() and inside(control, window.section_tools)
+        assert window.section_hint.geometry().right() == window.section_tools.rect().right()
+        assert window.composition == before and not window.has_unsaved_changes()
+
+
+def test_live_set_access_without_opening_synthesizer(window, monkeypatch, tmp_path):
+    from PySide6.QtWidgets import QFileDialog
+    from nebula.documents.synth_live_set import LIVE_SET
+    from nebula.ui.synth_live_set_ui import QDesktopServices
+    from nebula.documents.synth_studies import save_study
+    import nebula.documents.synth_studies as synth_studies
+    live = tmp_path / 'My music.als'; live.touch()
+    parents = []; launches = []
+    def choose(parent, *_args):
+        parents.append(parent)
+        return str(live), ''
+    monkeypatch.setattr(QFileDialog, 'getOpenFileName', choose)
+    monkeypatch.setattr(QDesktopServices, 'openUrl', lambda url: launches.append(url.toLocalFile()) or True)
+    button = window.workspace_live_set_button
+    assert window.visual_sound_dialog is None and button.text() == 'Link Live Set'
+    before = copy.deepcopy(window.composition)
+    button.click()
+    assert parents == [window] and not launches
+    assert window.composition == dict(before, **{LIVE_SET: str(live)})
+    assert button.text() == 'Open in Live' and str(live) in button.toolTip()
+    assert window.visual_sound_dialog is None and not window.midi_monitor_enabled
+    button.click()
+    assert launches == [str(live)]
+    button.unlink_action.trigger()
+    assert button.text() == 'Link Live Set' and window.composition == before
+    window.undo_composition()
+    assert button.path == str(live)
+    library = tmp_path / 'Studies'
+    identifier = save_study(window.composition, 'My linked study', library)
+    monkeypatch.setattr(synth_studies, 'studies_directory', lambda: library)
+    window.refresh_studies()
+    window.starter_combo.setCurrentIndex(window.starter_combo.findData(identifier))
+    window.refresh_studies()
+    assert window.starter_combo.currentData() == identifier
+    assert 'Ableton Live' in window.starter_combo.currentText()
+    window.set_composition(before, guard=False)
+    assert button.path is None and window.visual_sound_dialog is None
+
+
+def test_fit_remains_a_mode_and_transport_strip_tracks_the_scrubber(window):
+    window.fit_view_button.click(); window.resize(1440, 900); QApplication.processEvents()
+    assert window.viewer.zoom == 0 and window.fit_view_button.isChecked()
+    window.view_zoom.setValue(75); window.resize(1280, 800); QApplication.processEvents()
+    assert window.viewer.zoom == .75 and not window.fit_view_button.isChecked()
+    strip, slider = window.cached_ranges, window.timeline
+    assert abs(strip.mapTo(window, QPoint()).x() - slider.mapTo(window, QPoint()).x()) <= 1
+    assert strip.mapTo(window, QPoint()).y() - slider.mapTo(window, QPoint()).y() == slider.height()
+    assert not window.cancel_export.isVisible()
+    assert not window.has_unsaved_changes()
+
+
+def test_export_feedback_is_reachable_and_only_occupies_space_during_export(window, monkeypatch, tmp_path):
+    from PySide6.QtWidgets import QFileDialog
+    monkeypatch.setattr(window.jobs, 'start', lambda job: None)
+    monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *args: (str(tmp_path / 'test.mp4'), ''))
+    window.preview_splitter.moveSplitter(window.height(), 1)
+    window.export_dialog(); job = window.export_job; QApplication.processEvents()
+    assert window.export_progress.isVisible() and window.cancel_export.isVisible()
+    assert inside(window.export_progress, window.preview_controls_scroll.viewport())
+    window.export_progressed(job, 3, 10)
+    assert window.export_progress.value() == 30
+    window.export_failed(job, 'Export cancelled'); window._finish_export(job)
+    assert not window.export_progress.isVisible() and not window.cancel_export.isVisible()
+    assert 'cancelled' in window.status.text() and window.status.isVisible()
+
+
+def test_tall_restored_footer_keeps_controls_packed_at_the_top(window):
+    window.resize(1728, 1017); window.preview_splitter.setSizes([660, 280])
+    QApplication.processEvents()
+    pane = window.preview_controls_scroll.widget()
+    tools = window.section_tools
+    assert tools.y() <= 6
+    assert tools.height() <= tools.sizeHint().height() + 2
+    context = window.timeline_context
+    assert context.y() <= tools.y() + tools.height() + 6
+    assert window.section_scroll.y() <= context.y() + context.height() + 6
+    footer = window.clip_controls
+    footer_top = footer.mapTo(pane, QPoint()).y()
+    assert footer_top <= window.section_scroll.y() + window.section_scroll.height() + 6
+    assert window.preview_scope.mapTo(pane, QPoint()).y() <= footer_top + footer.height() + 6
+
+
+def test_preparation_controls_align_and_wrap_without_overlaps(window):
+    before = copy.deepcopy(window.composition)
+    controls = (window.preview_scope, window.loop_preview_range, window.auto_prepare,
+                window.preview_range_frames, window.prepare_preview, window.prepare_full_preview)
+    host = window.preparation_host
+    for width in (1000, 730, 480):
+        window.resize(1800, 1000)
+        window.splitter.setSizes([width, 1800-width])
+        window.preview_splitter.setSizes([400, 550])
+        for _ in range(3): QApplication.processEvents()
+        rects = [control.rect().translated(control.mapTo(host, QPoint())) for control in controls]
+        assert all(control.isVisible() and inside(control, host) for control in controls)
+        for i, first in enumerate(rects):
+            for second in rects[i+1:]: assert not first.intersects(second)
+        # The loop checkbox is centered with the playback selector, rather than
+        # top-aligned; the preparation checkbox follows the same row alignment.
+        assert abs(rects[0].center().y() - rects[1].center().y()) <= 1
+        assert abs(rects[2].center().y() - rects[3].center().y()) <= 1
+        assert rects[2].top() > rects[0].bottom()
+    assert window.composition == before and not window.has_unsaved_changes()
+
+
+def test_wide_footer_pairs_controls_and_returns_unused_height_to_monitor(window):
+    before = copy.deepcopy(window.composition)
+    generation = window.settings_generation
+    window.resize(1800, 1000); window.splitter.setSizes([1050, 700])
+    window.preview_splitter.setSizes([450, 430])
+    window.scope_summary.setText('4.00s loop')
+    window.preview_range_summary.setText(
+        'Range: 0.00–4.00s · 96 frames · prepared · Loop: 0.00–4.00s · 96 frames')
+    for _ in range(3): QApplication.processEvents()
+    height = window.viewer.height()
+    window.compact_preview_footer()
+    for _ in range(3): QApplication.processEvents()
+    host = window.preparation_host
+    timing = window.shot_strip.duration.rect().translated(window.shot_strip.duration.mapTo(host, QPoint()))
+    playback = window.preview_scope.rect().translated(window.preview_scope.mapTo(host, QPoint()))
+    prepare = window.prepare_full_preview.rect().translated(window.prepare_full_preview.mapTo(host, QPoint()))
+    summary = window.preview_range_summary.rect().translated(window.preview_range_summary.mapTo(host, QPoint()))
+    assert abs(timing.center().y() - playback.center().y()) <= 1
+    assert playback.left() > timing.right()
+    assert summary.left() > prepare.right()
+    assert window.viewer.height() > height + 100
+    assert window.preview_controls_scroll.verticalScrollBar().maximum() == 0
+    assert inside(window.preview_range_summary, window.preview_controls_scroll.viewport())
+    assert window.composition == before and window.settings_generation == generation
+    assert not window.has_unsaved_changes()
+
+
+def test_footer_compaction_does_not_expand_a_deliberately_collapsed_pane(window):
+    window.preview_splitter.moveSplitter(window.height(), 1)
+    QApplication.processEvents()
+    sizes = window.preview_splitter.sizes()
+    window.compact_preview_footer(); QApplication.processEvents()
+    assert window.preview_splitter.sizes() == sizes
+
+
+def test_timeline_reserves_space_only_for_visible_lanes_and_scrollbar(window):
+    window.resize(1728, 1000); window.splitter.setSizes([1000, 700])
+    for _ in range(3): QApplication.processEvents()
+    timeline = window.section_timeline
+    bar = window.section_scroll.horizontalScrollBar()
+    assert bar.maximum() == 0
+    assert window.section_scroll.height() == timeline.LANE_HEIGHT
+    document = copy.deepcopy(window.composition)
+    document['sections'] = [dict(document['sections'][0], id=f'clip-{i}') for i in range(20)]
+    timeline.set_document(document)
+    for _ in range(3): QApplication.processEvents()
+    assert bar.maximum() > 0
+    assert window.section_scroll.height() == timeline.LANE_HEIGHT + bar.sizeHint().height()
+    # Showing the automation lane must preserve both its height and scrollbar.
+    timeline.setFixedHeight(timeline.LANE_HEIGHT + 30)
+    timeline.automationVisibilityChanged.emit(True)
+    QApplication.processEvents()
+    assert window.section_scroll.height() == timeline.LANE_HEIGHT + 30 + bar.sizeHint().height()
+    timeline.set_document(window.composition)
+    for _ in range(3): QApplication.processEvents()
+    assert bar.maximum() == 0
+    assert window.section_scroll.height() == timeline.LANE_HEIGHT

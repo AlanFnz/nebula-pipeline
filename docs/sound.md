@@ -1,0 +1,124 @@
+# Sound
+
+[Documentation](README.md) · [Live MIDI](../LIVE_MIDI.md)
+
+A composition can export generated sound, existing soundtrack/footage audio, or
+silence. These routes do not mix together. Choose **Audio output** in the sound
+editor and apply it. Montage uses its own soundtrack or silence.
+
+## Listen, apply, save and export
+
+Open **Synthesizer** beside Soundtrack. It is available for Pleated field and
+Chromatic lattice.
+
+For Ableton instruments, select **Audio output → Ableton Live (MIDI)**, then
+**Apply MIDI** and **Save composition**. The toolbar becomes **Live controls** and
+Play uses MIDI even with that editor closed. Internal settings remain available
+when switching back. See [Live MIDI](../LIVE_MIDI.md) for routing and export.
+
+| Action | Result |
+| --- | --- |
+| Listen, with Live audition on | Hear the current Layered synth or Color waves draft. |
+| Apply sound | Put the draft in the project as an undoable edit. |
+| Save composition / Save montage | Write the complete owning document to disk. |
+| Export MP4 | Render the applied settings, after resolving pending drafts. |
+
+**File: Saved** can coexist with an unapplied sound draft. On save or export,
+**Use applied sound** uses the project's settings and keeps the draft for later.
+On leaving, **Discard sound changes** drops it. Visuals edits already belong to
+the project and survive discarding sound.
+
+Read **Preview:** or **Listening:** to check what you hear. With Live audition
+off or another output selected, playback uses the applied route. The original
+Electric / tape and Acid triangle instruments prepare audio after Apply sound.
+The header names the same document or Montage block as the visual inspector.
+Inside a block, sound and Visuals affect its internal composition; Save montage
+writes the complete Montage. This does not change Montage's audio export route.
+
+**Listen level** and **Mute monitor** affect listening only. Instrument and Mixer
+levels, EQ, Mute and Solo affect generated export when applied. Mute wins over
+Solo. Live MIDI sends notes to DAW instruments; their audio must be recorded or
+exported separately.
+
+## Pleated field: drone and melody
+
+Load **Pleated signal / acid motion** for **Layered resonant synth**. Sound and
+Oscillators shape the drone; Arpeggio has its own root. Motion connects visual
+movement to the sound, and Mixer balances Drone and Arpeggio.
+
+### Edit a step sequence
+
+In Arpeggio, choose **Arpeggio mode → Step sequencer**. Length selects up to 16
+steps. Select a step to edit Note, Velocity and Gate; Space toggles its rest.
+Gate sets note length; Attack and Release shape the envelope.
+
+**Audio tempo** and **Division** set the rhythm of the arpeggio. **Start → Visual gestures** triggers a pattern
+from movement; **Loop with timeline** repeats from time zero. These controls do
+not change video speed. Visual presence and filter connections can still make
+a running pattern quiet or silent.
+
+## Chromatic lattice: color-wave voices
+
+Load **Lattice / chromatic pulse** and open Synthesizer. **Color waves / dual
+synth** maps color transitions to Opening and Color steps notes. Each has its own
+root, scale and engine. Enable Pad, Chimes, Choir, Sub bass or Wave sine for
+additional layers, then balance them in Mixer.
+
+**Object → Rhythm & timing → Color timing → Musical phrase** ties the visual
+cycle to Tempo and Phrase length. At 96 BPM, two bars of 4/4 take 5 seconds at
+1× before retiming. Opening and Color steps follow the color changes. In
+**Free optical**, size and color use their own periods.
+
+## Looping and live changes
+
+**Seamless audio loop** carries sound across the timeline boundary; it does not
+make the visuals loop. Apply sound stores settings, not a knob performance.
+Use [Perform / Visuals](visual-performance.md) to record visual gestures.
+
+## Import a soundtrack and make visuals react
+
+Choose **+ Soundtrack → Import…**. Set In/Out, Start and the end behavior, then
+Apply. **In / Out** select the source audio; **Start** places that trimmed segment
+on the video timeline. These edits leave the source file intact. The visual
+timeline determines the piece's duration. **Relink…** repairs moved media while
+keeping trim; ordinary Save does not copy the audio file.
+
+### Move or trim the audio
+
+To move the start, drag the waveform in the composition or Montage timeline.
+The displayed start snaps to video frames; the sound placement changes only on
+release, as one Undo step. Esc cancels. With the lane focused, Shift + left/right
+moves it one frame; arrows alone seek one second. Moving keeps In/Out and the end
+behavior unchanged. Click to seek or double-click for precise settings, then
+Apply to keep dialog edits. Apply pending Soundtrack edits before dragging;
+closing the dialog lets you move the applied track without applying its draft.
+
+Drag left past video zero to begin later in the trimmed audio. With **In 10 s**,
+**Out 16 s** and **Start −2 s**, video zero uses source second 12. Moving right restores the
+earlier material. For negative Start, **Audio at 0** shows this source position.
+**Silence at end** becomes silent at Out; if the whole trim ends before video
+zero, the lane says **Ends before video**. **Loop trimmed audio** wraps within
+In/Out, including at video zero. Positive Start leaves silence before the track.
+Drag the label to recover a waveform moved out of view. Start is saved with the
+project; Undo restores moves and applied trim edits.
+
+Playback and export use the same placement and end at the visual timeline's end.
+To export the track, choose **Export audio → Soundtrack**. An applied Synthesizer
+route must allow imported audio: **Existing soundtrack / footage** or **Ableton
+Live (MIDI)**. **Output volume** affects the saved audio level; monitor volume
+and mute affect listening. Check Details for the final export route.
+
+### React to audio
+
+**React to audio… → Add response** maps a frequency band to an active visual
+control. Responses follow the same trim, signed Start and loop as the soundtrack.
+Set Amount, Sensitivity, Rise and Fall, then Apply. Up to 16 responses
+can follow band energy; this does not isolate instruments or detect beats.
+Monitor mute and the chosen export route do not disable these responses.
+
+## Audio in Montage
+
+You can hear a supported block's sound while editing it. Export from that editor
+still exports the parent Montage, using its soundtrack or silence. It does not
+mix generated sound or original footage audio from blocks. Check Details before
+exporting. See [Montage](native-montage.md).

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleName</key>
+	<string>Nebula Studio</string>
+	<key>CFBundleDisplayName</key>
+	<string>Nebula Studio</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.alanfnz.nebula-studio</string>
+	<key>CFBundleExecutable</key>
+	<string>nebula-studio</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleVersion</key>
+	<string>0.124.0</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.graphics-design</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.124.0</string>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Nebula project</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.alanfnz.nebula-studio.project</string>
+			</array>
+			<key>CFBundleTypeIconFile</key>
+			<string>nebula-document.icns</string>
+		</dict>
+	</array>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.alanfnz.nebula-studio.project</string>
+			<key>UTTypeDescription</key>
+			<string>Nebula project</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.json</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>nebula</string>
+				</array>
+			</dict>
+			<key>UTTypeIconFile</key>
+			<string>nebula-document.icns</string>
+		</dict>
+	</array>
+</dict>
+</plist>

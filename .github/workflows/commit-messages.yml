@@ -1,0 +1,25 @@
+name: commit messages
+on:
+  pull_request:
+  push:
+    branches: ["**"]
+permissions:
+  contents: read
+jobs:
+  subjects:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: check new commit subjects
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          range="$HEAD_SHA"
+          if [ -n "$BASE_SHA" ] && [ "$BASE_SHA" != "0000000000000000000000000000000000000000" ]; then
+            range="$BASE_SHA..$HEAD_SHA"
+          fi
+          python3 scripts/check_commit_message.py --range "$range"
+          git rev-list "$range" | python3 scripts/check_public_tree.py --commits

@@ -1,0 +1,2847 @@
+#!/usr/bin/env python3
+"""Native source-free Nebula Synth editor."""
+from __future__ import annotations
+from nebula.resources import RESOURCE_ROOT
+
+import copy
+import json
+import random
+import os
+import tempfile
+import sys
+import time
+import math
+from collections import deque
+from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
+
+from PySide6.QtCore import QEvent, QObject, QRunnable, QSettings, QSignalBlocker, QSize, Qt, QThreadPool, QTimer, Signal
+from PySide6.QtGui import QAction, QIcon, QKeySequence
+from PySide6.QtWidgets import (
+    QApplication, QCheckBox, QFileDialog, QGroupBox,
+    QHBoxLayout, QGridLayout, QLabel, QMainWindow, QPushButton, QScrollArea,
+    QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QMessageBox, QSizePolicy, QFrame, QInputDialog,
+    QProgressBar, QMenu, QToolButton, QLineEdit, QPlainTextEdit, QTextEdit, QAbstractSpinBox, QAbstractSlider, QAbstractButton, QStackedWidget, QComboBox as NativeComboBox,
+)
+from nebula.ui.studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBox, SpinBox as QSpinBox, Slider as QSlider
+from nebula.ui.studio_widgets import configure_parameter_spin, PlaybackButton
+from nebula.ui.synth_workspace_widgets import FlowLayout, PairedControlsLayout, ElidingLabel, WorkspaceSplitter, inline
+from nebula.ui.synth_workspace_context import ContextHeader, ContextSummary, studio_context
+from nebula.ui.synth_preview_range import PreviewRangeStudio, scope_from_frames
+from nebula.ui.synth_monitor_status import MonitorFrameStatus, MonitorStatus
+
+from nebula.core.media import Cancellation
+from nebula.ui.studio_theme import COLORS, apply_theme, terminal_font, ui_font
+from nebula.render.synth import MODULE_BY_ID, curated_presets, default_synth_preset, load_synth, normalize_synth, render_synth_frame, save_synth
+from nebula.documents.synth_media import export_synth_video
+from nebula.documents.synth_sequence import load_sequence, normalize_sequence, reference_sequence, render_sequence_frame, save_sequence
+from nebula.documents.synth_composition import MAX_SECTIONS, FORMAT, compile_composition, composition_from_sequence, load_composition, normalize_composition, reference_composition, save_composition, section_ranges
+from nebula.ui.synth_composer_ui import CompositionPanel, SectionTimeline, CachedRangeStrip
+from nebula.ui.synth_shots_ui import ClipStoryboard
+from nebula.core.synth_canvas import CANVAS_FORMATS, format_canvas, normalize_canvas, preview_size, resize_canvas
+from nebula.documents.synth_studies import study_records, study_composition, save_study
+from nebula.ui.synth_studies_ui import StudiesDialog
+from nebula.ui.synth_new_piece_ui import NewPieceDialog
+from nebula.ui.synth_add_section_ui import AddVideoSectionDialog
+from nebula.documents.synth_starting_points import new_piece
+from nebula.ui.synth_font_ui import FontControl
+from nebula.ui.synth_artwork_ui import ArtworkControl
+from nebula.ui.synth_mesh_ui import MeshControl
+from nebula.ui.synth_text_ui import TextControl
+from nebula.sources.synth_text import validate_text
+from nebula.effects.synth_master import normalize_master
+from nebula.ui.synth_master_ui import MasterPanel
+from nebula.ui.synth_viewer import SynthViewer
+from nebula.sources.synth_video import VideoFrameProvider, inspect_video, prepare_proxy, video_composition, relink_footage, check_source
+from nebula.render.synth_preview import PreviewScheduler, resolve_scope, RenderValidity, preview_context, retained_frame_predicate
+from nebula.render.synth_comparison_preview import ComparisonFrames
+from nebula.ui.synth_exploration_studio import ExplorationStudio
+from nebula.ui.synth_soundtrack_studio import SoundtrackStudio
+from nebula.ui.synth_visual_sound_studio import VisualSoundStudio
+from nebula.ui.synth_performance_studio import PerformanceStudio
+from nebula.documents.synth_performance import base_document
+from nebula.ui.synth_audio_reactivity_studio import AudioReactivityStudio
+from nebula.ui.synth_output_ui import ExportSummaryButton, export_rows, PREVIEW_HINT, cache_caption, preparation_caption
+
+
+class SynthControl(QWidget):
+    changed = Signal()
+
+    def __init__(self, spec, value):
+        super().__init__()
+        self.spec = spec
+        self.lock = QCheckBox("lock")
+        self.lock.setToolTip("Keep this parameter fixed when Generate variation is pressed.")
+        if spec.kind in ('artwork', 'text', 'mesh', 'font'):
+            self.spin = FontControl(spec.choices) if spec.kind == 'font' else {'artwork': ArtworkControl, 'text': TextControl, 'mesh': MeshControl}[spec.kind]()
+            self.spin.setValue(value)
+            self.spin.changed.connect(lambda _value: self.changed.emit())
+            layout = QVBoxLayout(self); layout.addWidget(QLabel(spec.label)); layout.addWidget(self.spin)
+            self.lock.setChecked(True); self.lock.hide()
+            return
+        if spec.choices:
+            self.spin = QComboBox(); self.spin.addItems(spec.choices); self.spin.setCurrentIndex(int(value))
+            self.spin.currentIndexChanged.connect(lambda _value: self.changed.emit())
+            layout = QVBoxLayout(self); layout.setContentsMargins(0, 3, 0, 4)
+            label = QLabel(spec.label); label.setToolTip(spec.hint); layout.addWidget(label)
+            row = QHBoxLayout(); row.addWidget(self.spin, 1); row.addWidget(self.lock); layout.addLayout(row)
+            return
+        self.spin = QSpinBox() if spec.kind == "int" else QDoubleSpinBox()
+        configure_parameter_spin(self.spin, spec)
+        if spec.key in {'unfold_seconds', 'unfolded_seconds', 'fold_seconds', 'folded_seconds'}:
+            self.spin.setSpecialValueText('Recipe')
+        self.spin.setSingleStep(spec.step)
+        self.spin.setKeyboardTracking(False)
+        self.spin.setValue(value)
+        self.slider = QSlider(Qt.Orientation.Horizontal)
+        self.slider.setTracking(False)
+        scale = 1 if spec.kind == "int" else 1 / spec.step
+        self.slider.setRange(round(spec.minimum * scale), round(spec.maximum * scale))
+        self.slider.setValue(round(float(value) * scale))
+        self.slider.valueChanged.connect(lambda v: self.spin.setValue(v / scale))
+        def sync_value(value):
+            with QSignalBlocker(self.slider): self.slider.setValue(round(float(value) * scale))
+            self.changed.emit()
+        self.spin.valueChanged.connect(sync_value)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 3, 0, 4)
+        label = QLabel(spec.label)
+        label.setToolTip(spec.hint)
+        layout.addWidget(label)
+        row = QHBoxLayout()
+        row.setContentsMargins(0, 0, 0, 0)
+        row.addWidget(self.slider, 1)
+        self.spin.setFixedWidth(105)
+        row.addWidget(self.spin)
+        self.lock.setFixedWidth(48)
+        row.addWidget(self.lock)
+        layout.addLayout(row)
+        layout.addWidget(self.lock)
+
+    def value(self):
+        return self.spin.currentIndex() if self.spec.choices and self.spec.kind != 'font' else self.spin.value()
+
+    def set_value(self, value):
+        if self.spec.choices and self.spec.kind != 'font':
+            self.spin.setCurrentIndex(int(value))
+        else:
+            self.spin.setValue(value)
+
+
+class JobSignals(QObject):
+    done = Signal(object)
+    failed = Signal(str)
+    progress = Signal(int, int)
+    frame = Signal(object)
+
+
+class ImportVideoJob(QRunnable):
+    def __init__(self, path):
+        super().__init__()
+        self.path = path
+        self.cancel = Cancellation()
+        self.signals = JobSignals()
+
+    def run(self):
+        try:
+            self.cancel.check()
+            footage = inspect_video(self.path)
+            prepare_proxy(footage, self.cancel)
+            self.cancel.check()
+            self.signals.done.emit(footage)
+        except Exception as exc:
+            self.signals.failed.emit(str(exc) or 'Import cancelled')
+
+
+class SaveStudyJob(QRunnable):
+    def __init__(self, project, name):
+        super().__init__()
+        self.project, self.name = copy.deepcopy(project), name
+        self.cancel = Cancellation()
+        self.signals = JobSignals()
+
+    def run(self):
+        try:
+            self.signals.done.emit(save_study(self.project, self.name, cancel=self.cancel))
+        except Exception as exc:
+            self.signals.failed.emit(str(exc) or 'Saving study cancelled')
+
+
+class RenderJob(QRunnable):
+    def __init__(self, preset, time_seconds, size, settings_generation, request_serial, sequence=None, frame_provider=None, bypass=False):
+        super().__init__()
+        self.preset, self.time_seconds, self.size = copy.deepcopy(preset), time_seconds, size
+        self.settings_generation, self.request_serial = settings_generation, request_serial
+        self.sequence = copy.deepcopy(sequence)
+        self.signals = JobSignals()
+        self.cancel = Cancellation()
+        self.frame_provider, self.bypass = frame_provider, bypass
+
+    def run(self):
+        try:
+            self.cancel.check()
+            began = time.monotonic()
+            if self.sequence is not None:
+                image = render_sequence_frame(self.sequence, self.time_seconds, self.size, self.frame_provider, self.bypass, cancel=self.cancel)
+            else:
+                treatment_frame = round(self.time_seconds * self.preset["treatment_fps"])
+                image = render_synth_frame(self.preset, treatment_frame, self.time_seconds, self.size)
+            self.cancel.check()
+            self.signals.done.emit((self.settings_generation, self.request_serial, self.time_seconds, image.size, image.tobytes(), time.monotonic()-began))
+        except Exception as exc:
+            self.signals.failed.emit(str(exc))
+        finally:
+            if self.frame_provider and self.frame_provider.cancel.event.is_set():
+                self.frame_provider.close()
+
+
+class PreparePreviewJob(QRunnable):
+    def __init__(self, preset, sequence, size, frames, fps, generation, bypass):
+        super().__init__()
+        self.preset, self.sequence = copy.deepcopy(preset), copy.deepcopy(sequence)
+        self.size, self.frames, self.fps = size, frames, fps
+        self.generation, self.bypass = generation, bypass
+        self.cancel = Cancellation(); self.signals = JobSignals()
+
+    def run(self):
+        try:
+            packets = []
+            with VideoFrameProvider(preview=True, cancel=self.cancel) as provider:
+                for done, frame in enumerate(self.frames, 1):
+                    self.cancel.check(); seconds = frame / self.fps
+                    if self.sequence is not None:
+                        image = render_sequence_frame(self.sequence, seconds, self.size, provider, self.bypass, cancel=self.cancel)
+                    else:
+                        image = render_synth_frame(self.preset, round(seconds*self.preset['treatment_fps']), seconds, self.size)
+                    self.cancel.check()
+                    packets.append((frame, (image.size, image.tobytes())))
+            self.cancel.check()
+            self.signals.done.emit((self.generation, packets))
+        except Exception as exc:
+            self.signals.failed.emit(str(exc) or 'Preview preparation cancelled')
+
+
+class ExportJob(QRunnable):
+    def __init__(self, preset, path, size, sequence=None):
+        super().__init__()
+        self.preset, self.path, self.size = copy.deepcopy(preset), path, size
+        self.sequence = copy.deepcopy(sequence)
+        self.cancel = Cancellation()
+        self.signals = JobSignals()
+
+    def run(self):
+        try:
+            export_synth_video(self.preset, self.path, cancel=self.cancel, size=self.size, sequence=self.sequence, progress=lambda a, b: self.signals.progress.emit(a, b))
+            self.signals.done.emit(self.path)
+        except Exception as exc:
+            self.signals.failed.emit(str(exc))
+
+
+class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, AudioReactivityStudio, SoundtrackStudio, ExplorationStudio, QMainWindow):
+    def __init__(self, preset=None, sequence=None, composition=None, settings=None, *, parent=None, embedded=False, recent_projects=None):
+        super().__init__(parent, Qt.WindowType.Widget if embedded else Qt.WindowType.Window)
+        if embedded:
+            self.setWindowFlags(Qt.WindowType.Widget)
+            self.menuBar().setNativeMenuBar(False)
+        self.workspace_navigation = None
+        self.recent_projects = recent_projects
+        self.cover_frame = None
+        self.failed_monitor_frame = None
+        self.preview_suspended = False
+        self.workspace_settings = settings
+        self.export_settings = settings
+        self.last_export_directory = ''
+        self.comparison = None
+        self.discovery_session = None
+        self.setWindowTitle("Nebula Synth")
+        self.setFont(ui_font())
+        self.resize(1280, 800)
+        if preset is None and sequence is None and composition is None:
+            composition = reference_composition(refined=True)
+        if preset is None:
+            preset = curated_presets()["Reference blinds"]
+        self.preset = normalize_synth(preset)
+        self.composition = normalize_composition(composition) if composition is not None else None
+        self.sequence = compile_composition(self.composition) if self.composition is not None else (normalize_sequence(sequence) if sequence is not None else None)
+        self.composer = None
+        self.composition_index = 0
+        self.composition_scope = 0
+        self.undo_compositions = []
+        self.redo_compositions = []
+        self.edit_key = None
+        self.edit_timer = QTimer(self); self.edit_timer.setSingleShot(True); self.edit_timer.timeout.connect(lambda: setattr(self, "edit_key", None))
+        self.detail_windows = []
+        self.closing = False
+        self.document_identity = object()
+        self.document_path = None
+        self.detailed_copy = False
+        self.clean_revision = 0
+        self.sequence_table = None
+        self.sequence_updating = False
+        self.sequence_state_updating = False
+        self.sequence_state_name = None
+        self.sequence_state_controls = {}
+        self.sequence_enabled_controls = {}
+        self.sequence_field_controls = {}
+        self.settings_generation = 0
+        self.request_serial = 0
+        self.last_displayed_request = 0
+        self.current_time = 0.0
+        self.jobs = QThreadPool.globalInstance()
+        self.pending_jobs = []
+        self.render_running = False
+        self.render_job = None
+        self.render_queued = False
+        self.preview_image_stale = True
+        self.preview_frames = ComparisonFrames()
+        self.preview_validity = None
+        self.prepare_job = None
+        self.warming_job = None
+        self.preview_scheduler = PreviewScheduler()
+        self.preparation_target = ()
+        self.preparation_explicit = False
+        self.preparation_limited = False
+        self.preparation_full = False
+        self.warm_debounce = QTimer(self); self.warm_debounce.setSingleShot(True)
+        self.warm_debounce.timeout.connect(self._automatic_preparation)
+        self.preview_debounce = QTimer(self); self.preview_debounce.setSingleShot(True)
+        self.preview_debounce.timeout.connect(self.request_frame)
+        self.display_times = deque(maxlen=60)
+        self.play_origin = 0.; self.play_started = 0.; self.advancing = False
+        self.last_render_seconds = 0.
+        self.export_job = None
+        self.import_job = None
+        self.study_job = None
+        self.studies_dialog = None
+        self.study_browser_priority_timer = QTimer(self)
+        self.study_browser_priority_timer.setInterval(100)
+        self.study_browser_priority_timer.timeout.connect(self.update_study_browser_priority)
+        self.video_frames = VideoFrameProvider(preview=True)
+        self.controls = {}
+        self.module_groups = []
+        self.play_timer = QTimer(self)
+        self.play_timer.setTimerType(Qt.TimerType.PreciseTimer)
+        self.play_timer.timeout.connect(self.advance)
+        self.init_soundtrack()
+        self.init_audio_reactivity()
+        self.init_visual_sound()
+        self.init_performance()
+        self.build_ui()
+        self.build_actions()
+        QApplication.instance().installEventFilter(self)
+        self.rebuild_modules()
+        self.update_timeline_max()
+        self.mark_document_clean()
+        self.request_frame()
+
+    def build_actions(self):
+        file_menu = self.menuBar().addMenu('File')
+        edit_menu = self.menuBar().addMenu('Edit')
+        transport_menu = self.menuBar().addMenu('Preview')
+        def action(menu, label, shortcut, callback):
+            item = QAction(label, self)
+            item.setShortcut(shortcut)
+            item.setShortcutContext(Qt.ShortcutContext.WindowShortcut)
+            item.triggered.connect(callback)
+            menu.addAction(item)
+            item.setToolTip(f'{label} ({item.shortcut().toString(QKeySequence.SequenceFormat.NativeText)})')
+            return item
+        self.new_piece_action = action(file_menu, 'New piece…', QKeySequence.StandardKey.New, self.new_piece_dialog)
+        self.montage_action = action(file_menu, 'Open in Montage…', QKeySequence(), self.open_montage)
+        self.save_action = action(file_menu, 'Save', QKeySequence.StandardKey.Save, self.save_sequence_dialog)
+        self.save_as_action = action(file_menu, 'Save As…', QKeySequence.StandardKey.SaveAs, self.save_as_dialog)
+        self.open_action = action(file_menu, 'Open…', QKeySequence.StandardKey.Open, self.load_sequence_dialog)
+        action(file_menu, 'Close window', QKeySequence.StandardKey.Close, lambda: self.window().close())
+        self.soundtrack_action = action(file_menu, 'Soundtrack…', QKeySequence(), self.open_soundtrack)
+        self.undo_action = action(edit_menu, 'Undo composition', QKeySequence.StandardKey.Undo, self.undo_composition)
+        self.redo_action = action(edit_menu, 'Redo composition', QKeySequence.StandardKey.Redo, self.redo_composition)
+        action(transport_menu, 'Play / pause', QKeySequence('Space'), lambda: self.play.setChecked(not self.play.isChecked()))
+        for label, key, delta in (('Previous frame', 'Left', -1), ('Next frame', 'Right', 1),
+                                  ('Back ten frames', 'Shift+Left', -10), ('Forward ten frames', 'Shift+Right', 10)):
+            action(transport_menu, label, QKeySequence(key), lambda _checked=False, d=delta: self.step_frame(d))
+        self.composition_undo_button.setToolTip(self.undo_action.toolTip())
+        self.composition_redo_button.setToolTip(self.redo_action.toolTip())
+        self.viewer.setToolTip(self.viewer.toolTip() + ' Space: play/pause. Arrows: step frames; Shift: ten frames.')
+        self.timeline.setToolTip('Scrub preview. Space: play/pause. Arrows: one frame; Shift + arrows: ten frames.')
+
+    def eventFilter(self, watched, event):
+        if (event.type() == QEvent.Type.ShortcutOverride and isinstance(watched, QWidget)
+                and watched.window() is self.window() and not self.preview_suspended):
+            focus = self.focusWidget()
+            transport = event.key() in (Qt.Key.Key_Space, Qt.Key.Key_Left, Qt.Key.Key_Right)
+            undo = event.matches(QKeySequence.StandardKey.Undo) or event.matches(QKeySequence.StandardKey.Redo)
+            panel = getattr(self, 'performance_panel', None)
+            if undo and panel and focus and (focus is panel or panel.isAncestorOf(focus)):
+                widget = focus
+                while widget and widget is not panel:
+                    if isinstance(widget, QAbstractSpinBox):
+                        widget.interpretText(); break
+                    widget = widget.parentWidget()
+                event.ignore(); return True
+            local_editor = False
+            widget = focus
+            while widget and widget is not self:
+                if isinstance(widget, (QLineEdit, QPlainTextEdit, QTextEdit, QAbstractSpinBox)):
+                    if widget is not self.timeline: local_editor = True
+                if transport and isinstance(widget, (NativeComboBox, QAbstractSlider)) and widget is not self.timeline:
+                    local_editor = True
+                if undo and isinstance(widget, NativeComboBox) and widget.isEditable(): local_editor = True
+                if transport and widget is self.soundtrack_lane: local_editor = True
+                if transport and isinstance(widget, QAbstractButton): local_editor = True
+                widget = widget.parentWidget()
+            if (transport or undo) and (local_editor or QApplication.activePopupWidget() or QApplication.activeModalWidget()):
+                event.accept(); return True
+            if undo:
+                # Non-editable combo boxes claim Undo's letter key even though
+                # they have no text history. Let the window action handle it.
+                event.ignore(); return True
+        return super().eventFilter(watched, event)
+
+    def step_frame(self, delta):
+        self.play.setChecked(False)
+        scope = self.active_preview_scope()
+        self.timeline.setValue(scope.step(self.timeline.value(), delta))
+
+    def document_state(self):
+        if self.composition is not None:
+            return 'composition', self.composition
+        if self.sequence is not None:
+            return 'sequence', self.sequence
+        return 'preset', self.collect()
+
+    def mark_document_clean(self):
+        self.clean_document = copy.deepcopy(self.document_state())
+        self.clean_revision += 1
+        self.update_document_title()
+
+    def update_document_title(self):
+        if not hasattr(self, "clean_document"): return
+        name = self.document_state()[1].get("name", "Untitled")
+        title = f"{name}{' *' if self.has_unsaved_changes() else ''}"
+        if self.detailed_copy: title += " · detailed copy"
+        navigation = self.workspace_navigation
+        if navigation and navigation.montage:
+            if navigation.editor is self: self.setWindowTitle(f"Nebula · {title}")
+            navigation.update_title()
+        else: self.setWindowTitle(f"Nebula · {title}")
+        self.document_title.setText(('* ' if self.has_unsaved_changes() else '') + self.document_title.fontMetrics().elidedText(name + (' · detailed copy' if self.detailed_copy else ''), Qt.TextElideMode.ElideRight, 200))
+        self.document_title.setToolTip(title)
+        self.document_title.setAccessibleDescription(title)
+        self.refresh_workspace_context()
+        self.refresh_sound_context()
+
+    def refresh_workspace_context(self):
+        """Identity and selection only; never touch authored data or prepare frames."""
+        if not hasattr(self, 'context_header'): return
+        context = studio_context(self)
+        self.context_header.refresh(context)
+        if getattr(self, 'performance_panel', None): self.performance_panel.set_scope(context.all_clips)
+        self.save_button.setText('Save montage' if context.block else 'Save')
+        self.save_button.setAccessibleName('Save ' + context.owner)
+        self.save_button.setToolTip(context.save_hint)
+        self.export_button.setToolTip('Export the complete montage, including this block.' if context.block
+                                      else 'Export the complete ' + context.owner + ' at the output canvas size.')
+        if self.composition is not None and self.composer is not None:
+            panel = self.composer
+            panel.block_context = context.block
+            panel.refresh_scope_context()
+            selected = [f'Clip {i + 1}' for i, s in enumerate(self.composition['sections'])
+                        if s['id'] in self.section_timeline.selected_ids]
+            selection = ', '.join(selected) if len(selected) <= 3 else f'{len(selected)} clips'
+            selection = selection or 'None'
+            editing = panel.editing_scope_name()
+            playback = ('Selected clips' if self.preview_scope.currentIndex() else
+                        'Block composition' if context.block else 'Entire timeline')
+            if hasattr(self, 'loop_preview_range') and self.loop_preview_range.isChecked(): playback = 'Prepared range loop'
+            self.timeline_context.setText(f'Selected: {selection}  ·  Editing: {editing}  ·  Playback: {playback}')
+            self.timeline_context.setToolTip(self.timeline_context.text() + '\n' +
+                'Selection chooses timing and arrangement actions. Editing chooses the inspector target. '
+                'Playback sets the range to play. Selecting or playing does not change shared settings.')
+            self.legacy_scope.hide()
+        else:
+            self.timeline_context.setText('Playback: Entire sequence' if self.sequence is not None else 'Playback: Entire preset')
+            text = (f'Editing: State {self.sequence_state_name or "—"} · Master affects the entire sequence'
+                    if self.sequence is not None else 'Editing: Entire preset')
+            if self.detailed_copy: text += ' · Independent document; edits do not return to the original'
+            self.legacy_scope.setText(text); self.legacy_scope.show()
+
+    def pending_text_edits(self):
+        if self.composer is not None:
+            return self.composer.pending_text_edits()
+        controls = [control.spin for control in (self.sequence_state_controls if self.sequence is not None else self.controls).values()]
+        return [(control, control.editor.toPlainText()) for control in controls
+                if isinstance(control, TextControl) and control.editor.toPlainText() != control.value()]
+
+    def has_unsaved_changes(self):
+        return self.audition_pending() or bool(self.pending_text_edits()) or self.document_state() != self.clean_document
+
+    def finish_focused_edit(self):
+        focus = self.focusWidget()
+        if focus is not None:
+            focus.clearFocus()
+
+    def prepare_document_save(self):
+        if self.discovery_session: self.dismiss_effect_discovery()
+        try:
+            if self.composer is not None:
+                return self.composer.prepare_text_save()
+            drafts = self.pending_text_edits()
+            for _control, value in drafts:
+                validate_text(value)
+            for control, value in drafts:
+                control.editor.setPlainText(value)
+                control.commit()
+        except ValueError as exc:
+            QMessageBox.critical(self, 'Could not save text', str(exc))
+            return False
+        return True
+
+    def confirm_replacement(self, purpose="replacing this document"):
+        navigation = self.workspace_navigation
+        if navigation and navigation.host is self and navigation.montage:
+            if not navigation.can_leave(): return False
+            navigation.leave_montage()
+            return True
+        return self.confirm_close(purpose)
+
+    def confirm_close(self, purpose="closing"):
+        if not self.resolve_sound_draft(purpose, leaving=True): return False
+        if self.discovery_session: self.dismiss_effect_discovery()
+        if self.audition_pending():
+            choice = QMessageBox.question(self, 'Temporary variation', f'Keep this audition before {purpose}?',
+                QMessageBox.StandardButton.Apply | QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Cancel)
+            if choice == QMessageBox.StandardButton.Cancel: return False
+            if choice == QMessageBox.StandardButton.Apply: self.keep_audition()
+            else: self.end_comparison()
+        self.finish_focused_edit()
+        if not self.has_unsaved_changes():
+            return True
+        choice = QMessageBox.warning(self, 'Unsaved changes',
+            f'Save your changes before {purpose}?\nIf you discard them, your changes will be lost.',
+            QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Cancel)
+        if choice == QMessageBox.StandardButton.Discard:
+            return True
+        if choice == QMessageBox.StandardButton.Save:
+            return self.save_sequence_dialog()
+        return False
+
+    def show_workspace(self):
+        settings = self.workspace_settings
+        if settings is None:
+            self.show(); return
+        if settings.contains('window/geometry'):
+            self.restoreGeometry(settings.value('window/geometry'))
+        mode = settings.value('window/mode', 'fullscreen')
+        if mode == 'fullscreen': self.showFullScreen()
+        elif mode == 'maximized': self.showMaximized()
+        else: self.showNormal()
+        if settings.contains('window/splitter'):
+            self.splitter.restoreState(settings.value('window/splitter'))
+        if settings.contains('window/preview_splitter'):
+            self.preview_splitter.restoreState(settings.value('window/preview_splitter'))
+        if not settings.value('window/compact_preview_footer', False, type=bool):
+            QTimer.singleShot(0, self.compact_preview_footer)
+        self.viewer.set_zoom(float(settings.value('viewer/zoom', 0.)))
+
+    def compact_preview_footer(self):
+        """Return space freed by the new footer to the monitor, once per workspace."""
+        pane = self.preview_controls_scroll.widget()
+        height = pane.layout().totalHeightForWidth(self.preview_controls_scroll.viewport().width())
+        sizes = self.preview_splitter.sizes()
+        target = max(self.preview_controls_scroll.minimumHeight(), height + 4)
+        if sizes[-1] > target:
+            self.preview_splitter.setSizes([sum(sizes)-target, target])
+
+    def refresh_timeline_height(self, *_args):
+        bar = self.section_scroll.horizontalScrollBar()
+        extra = bar.sizeHint().height() if bar.maximum() > 0 else 0
+        self.section_scroll.setFixedHeight(self.section_timeline.height() + extra)
+
+    def save_workspace(self):
+        if self.workspace_settings is None: return
+        settings = self.workspace_settings
+        settings.setValue('window/geometry', self.saveGeometry())
+        settings.setValue('window/mode', 'fullscreen' if self.isFullScreen() else 'maximized' if self.isMaximized() else 'normal')
+        settings.setValue('window/splitter', self.splitter.saveState())
+        settings.setValue('window/preview_splitter', self.preview_splitter.saveState())
+        settings.setValue('window/compact_preview_footer', True)
+        settings.setValue('viewer/zoom', self.viewer.zoom)
+        settings.setValue('preview/auto_prepare', self.auto_prepare.isChecked())
+        settings.setValue('preview/scope', self.preview_scope.currentIndex())
+        settings.setValue('preview/quality', self.quality.currentIndex())
+        settings.setValue('preview/range_frames', self.preview_range_frames.value())
+        settings.sync()
+
+    def toggle_fullscreen(self):
+        window = self.window()
+        window.showNormal() if window.isFullScreen() else window.showFullScreen()
+
+    def changeEvent(self, event):
+        if event.type() == QEvent.Type.WindowStateChange and hasattr(self, 'fullscreen_button'):
+            label = 'Exit full screen' if self.isFullScreen() else 'Full screen'
+            self.fullscreen_button.setAccessibleName(label); self.fullscreen_button.setToolTip(label)
+        super().changeEvent(event)
+
+    def build_ui(self):
+        root = QWidget()
+        outer = QVBoxLayout(root)
+        outer.setContentsMargins(12, 8, 12, 10); outer.setSpacing(7)
+        self.header_host = QWidget(); self.header_host.setProperty('chrome', True)
+        self.header_host.setObjectName('workspaceHeader')
+        header_layout = QVBoxLayout(self.header_host); header_layout.setContentsMargins(0, 0, 0, 0); header_layout.setSpacing(5)
+        header = FlowLayout(spacing=12, right_last=True); header_layout.addLayout(header)
+        brand = QLabel("nebula_"); brand.setObjectName("brand")
+        self.document_title = QLabel(); self.document_title.setAccessibleName("Document name and unsaved status")
+        self.document_title.setMinimumWidth(100); self.document_title.setMaximumWidth(200)
+        header.addWidget(inline(brand, self.document_title, spacing=12))
+        self.composition_widgets = []; self.preset_widgets = []
+        self.new_piece_button = QPushButton('New piece'); self.new_piece_button.clicked.connect(self.new_piece_dialog)
+        self.new_piece_button.setToolTip('Start with Text, Shape, Model, Video, or remix an existing study.')
+        self.import_video_button = QPushButton('Import video'); self.import_video_button.clicked.connect(self.import_video_dialog)
+        self.import_video_button.setToolTip('Start a new composition from a video file.')
+        self.montage_button = montage_button = QPushButton('Montage'); montage_button.clicked.connect(self.open_montage)
+        montage_button.setToolTip('Arrange this study with footage, source ranges and a soundtrack. Keeps the study editable.')
+        self.cancel_import = QPushButton('Cancel import'); self.cancel_import.clicked.connect(self.cancel_video_import); self.cancel_import.hide()
+        self.open_button = open_button = QPushButton('Open'); open_button.clicked.connect(self.load_sequence_dialog)
+        open_button.setToolTip('Browse recent projects with saved previews, or choose a file.')
+        for button in (self.new_piece_button, self.import_video_button, montage_button, open_button):
+            button.setProperty('secondaryAction', True)
+        self.save_button = QToolButton(); self.save_button.setText('Save'); self.save_button.setAccessibleName('Save composition')
+        self.save_button.setMinimumWidth(68)
+        self.save_button.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
+        self.save_button.clicked.connect(self.save_sequence_dialog)
+        save_menu = QMenu(self.save_button)
+        save_menu.addAction('Save As…', self.save_as_dialog)
+        self.save_study_button = save_menu.addAction('Save as study…', self.save_study_dialog)
+        self.save_study_button.setToolTip('Keep an independent copy in Studies, including a local copy of imported video.')
+        self.save_button.setMenu(save_menu)
+        header.addWidget(inline(self.new_piece_button, open_button, self.save_button))
+        header.addWidget(inline(self.import_video_button, self.cancel_import, montage_button, separated=True))
+        commands = QWidget(); command_row = QHBoxLayout(commands); command_row.setContentsMargins(0, 0, 0, 0); command_row.setSpacing(5)
+        for text, callback in (("New variation", self.generate_variation), ("Undo", self.undo_composition), ("Redo", self.redo_composition)):
+            button = QPushButton(text); button.clicked.connect(callback)
+            button.setProperty('secondaryAction', True)
+            if text == 'New variation': button.setToolTip('Generate another take of this composition using its unlocked controls.')
+            if text == 'Undo': self.composition_undo_button = button
+            if text == 'Redo': self.composition_redo_button = button
+            command_row.addWidget(button); self.composition_widgets.append(button)
+        self.export_button = QPushButton('Export MP4'); self.export_button.setObjectName('primary')
+        self.export_button.clicked.connect(self.export_dialog)
+        self.export_summary = ExportSummaryButton(self, self.export_summary_rows, self.export_button)
+        command_row.addWidget(inline(self.export_button, self.export_summary, separated=True))
+        header.addWidget(commands)
+        # This action is attached to the current inspector when it is built.
+        self.reset_controls_button = QPushButton('Restore effect', root)
+        self.reset_controls_button.setProperty('compact', True); self.reset_controls_button.setProperty('secondaryAction', True)
+        self.reset_controls_button.clicked.connect(lambda: self.composer and self.composer.reset_controls())
+        self.reset_controls_button.hide()
+        settings_row = FlowLayout(right_last=True); header_layout.addLayout(settings_row)
+        self.starter_combo = QComboBox(); self.starter_combo.setAccessibleName('Studies')
+        self.starter_combo.setPlaceholderText('Choose a study')
+        self.starter_combo.setToolTip('Choose a study, then Load to open an editable copy with its saved canvas.')
+        self.starter_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.starter_combo.setMinimumContentsLength(20); self.starter_combo.setMinimumWidth(180); self.starter_combo.setMaximumWidth(250)
+        self.load_starter_button = QPushButton('Load'); self.load_starter_button.setAccessibleName('Load study')
+        self.load_starter_button.clicked.connect(self.load_starter); self.load_starter_button.setEnabled(False)
+        self.starter_combo.currentIndexChanged.connect(lambda index: self.load_starter_button.setEnabled(index >= 0))
+        self.manage_studies_button = QPushButton('Browse'); self.manage_studies_button.setAccessibleName('Browse studies')
+        self.manage_studies_button.setToolTip('Browse previews, search, favorite, remove or restore Studies.')
+        self.manage_studies_button.clicked.connect(self.manage_studies)
+        self.study_controls = inline(QLabel('Studies'), self.starter_combo, self.load_starter_button, self.manage_studies_button)
+        settings_row.addWidget(self.study_controls)
+        self.refresh_studies()
+        self.canvas_combo = QComboBox(); self.canvas_combo.setAccessibleName('Canvas aspect ratio')
+        for identifier, label, _width, _height in CANVAS_FORMATS: self.canvas_combo.addItem(label, identifier)
+        self.canvas_combo.currentIndexChanged.connect(self.canvas_selected)
+        self.canvas_combo.setToolTip('Canvas dimensions. Reframe without stretching the subject or rewriting its effects.')
+        self.canvas_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.canvas_combo.setMinimumContentsLength(18); self.canvas_combo.setFixedWidth(238)
+        self.fit_subject = QCheckBox('Fit content'); self.fit_subject.setAccessibleName('Fit content to canvas')
+        self.fit_subject.setToolTip('Uniformly fit the artwork reference. Off keeps its pixel size and centers/crops it. Never stretches proportions.')
+        self.fit_subject.toggled.connect(self.framing_changed)
+        self.canvas_label = QLabel(); self.canvas_label.setObjectName('monitorMeta')
+        settings_row.addWidget(inline(QLabel('Output canvas'), self.canvas_combo, self.fit_subject, self.canvas_label))
+        self.workspace_fps_host = QWidget(); self.workspace_fps_host.setProperty('chrome', True)
+        self.workspace_fps_layout = QHBoxLayout(self.workspace_fps_host); self.workspace_fps_layout.setContentsMargins(0, 0, 0, 0); self.workspace_fps_layout.setSpacing(5)
+        settings_row.addWidget(self.workspace_fps_host)
+        legacy = QWidget(); legacy_row = FlowLayout(legacy)
+        preset_label = QLabel('Preset'); legacy_row.addWidget(preset_label)
+        self.preset_combo = QComboBox(); self.preset_combo.addItems([*curated_presets().keys(), 'Custom'])
+        preset_name = self.preset.get('name', 'Custom')
+        self.preset_combo.setCurrentText(preset_name if preset_name in curated_presets() else 'Custom')
+        self.preset_combo.currentTextChanged.connect(self.select_curated); legacy_row.addWidget(self.preset_combo)
+        for text, slot in (('Save preset', self.save_preset_dialog), ('Load preset', self.load_preset_dialog), ('Generate variation', self.generate_variation)):
+            button = QPushButton(text); button.clicked.connect(slot); legacy_row.addWidget(button)
+        self.preset_widgets.append(legacy); header_layout.addWidget(legacy)
+        outer.addWidget(self.header_host)
+        self.splitter = split = WorkspaceSplitter(Qt.Orientation.Horizontal)
+        split.setHandleWidth(9); split.setChildrenCollapsible(False)
+        left = QWidget(); left_column = QVBoxLayout(left)
+        left_column.setContentsMargins(0, 0, 5, 0); left_column.setSpacing(0)
+        self.preview_splitter = WorkspaceSplitter(Qt.Orientation.Vertical)
+        self.preview_splitter.setAccessibleName('Monitor and timeline layout')
+        self.preview_splitter.setHandleWidth(9); self.preview_splitter.setChildrenCollapsible(False)
+        left_column.addWidget(self.preview_splitter)
+        monitor_pane = QWidget(); left_layout = QVBoxLayout(monitor_pane)
+        left_layout.setContentsMargins(0, 0, 0, 0); left_layout.setSpacing(4)
+        self.preview_splitter.addWidget(monitor_pane)
+        self.preview_controls_scroll = QScrollArea()
+        self.preview_controls_scroll.setAccessibleName('Timeline and preview controls')
+        self.preview_controls_scroll.setWidgetResizable(True)
+        self.preview_controls_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.preview_controls_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.preview_controls_scroll.setMinimumHeight(112)
+        controls_pane = QWidget(); controls_layout = QVBoxLayout(controls_pane)
+        controls_layout.setContentsMargins(0, 5, 4, 0); controls_layout.setSpacing(4)
+        controls_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.preview_controls_scroll.setWidget(controls_pane)
+        self.preview_splitter.addWidget(self.preview_controls_scroll)
+        monitor = QFrame(); monitor.setObjectName("monitorFrame")
+        monitor_layout = QVBoxLayout(monitor); monitor_layout.setContentsMargins(1, 1, 1, 1); monitor_layout.setSpacing(0)
+        monitor_header = QWidget(); monitor_header.setObjectName('monitorHeader'); monitor_header.setProperty('chrome', True)
+        header_inset = QVBoxLayout(monitor_header)
+        header_inset.setContentsMargins(8, 3, 8, 3)
+        monitor_flow = FlowLayout(spacing=8, right_last=True, center_vertical=True)
+        header_inset.addLayout(monitor_flow)
+        monitor_title = QLabel('MONITOR'); monitor_title.setObjectName('sectionTitle')
+        self.frame_status = MonitorFrameStatus()
+        title_group = inline(monitor_title, self.frame_status, spacing=7)
+        monitor_flow.addWidget(title_group)
+        self.monitor_meta = QLabel(root); self.monitor_meta.hide()
+        self.monitor_state = QLabel(root); self.monitor_state.hide()
+        minus = QPushButton('−'); minus.setAccessibleName('Zoom out'); minus.setFixedWidth(24); minus.clicked.connect(lambda: self.viewer.zoom_by(.8))
+        self.view_zoom = QDoubleSpinBox(); self.view_zoom.setRange(0, 800); self.view_zoom.setDecimals(1); self.view_zoom.setSpecialValueText('Fit'); self.view_zoom.setSuffix(' %'); self.view_zoom.setKeyboardTracking(False)
+        self.view_zoom.setFixedWidth(88)
+        self.view_zoom.setAccessibleName('Viewer zoom'); self.view_zoom.setToolTip('Viewer zoom only. Fit follows the available monitor size; numeric zoom stays fixed.')
+        self.view_zoom.valueChanged.connect(lambda value: self.viewer.set_zoom(value / 100))
+        plus = QPushButton('+'); plus.setAccessibleName('Zoom in'); plus.setFixedWidth(24); plus.clicked.connect(lambda: self.viewer.zoom_by(1.25))
+        self.fit_view_button = fit = QPushButton('Fit view'); fit.setCheckable(True); fit.setAccessibleName('Fit canvas in viewer'); fit.setToolTip('Fit the canvas in the monitor. Does not change content framing or export.'); fit.clicked.connect(lambda: self.viewer.set_zoom(0))
+        actual = QPushButton('100%'); actual.setAccessibleName('View at 100 percent'); actual.clicked.connect(lambda: self.viewer.set_zoom(1))
+        zoom_label = QLabel('View zoom'); zoom_label.setObjectName('monitorMeta'); zoom_label.setBuddy(self.view_zoom)
+        monitor_flow.addWidget(inline(zoom_label, minus, self.view_zoom, plus, spacing=4))
+        monitor_flow.addWidget(inline(fit, actual, spacing=4))
+        self.source_preview = QCheckBox('Before / source'); self.source_preview.setAccessibleName('Before / source')
+        self.source_preview.setToolTip('Compare this footage frame before treatments. Export includes treatments.')
+        self.source_preview.toggled.connect(lambda _checked: self.invalidate()); monitor_flow.addWidget(self.source_preview)
+        monitor_actions = inline(spacing=4)
+        self.build_exploration_controls(monitor_actions.layout(), monitor_flow)
+        fullscreen = QPushButton()
+        fullscreen.setIcon(QIcon(str(RESOURCE_ROOT / 'assets' / 'fullscreen.svg')))
+        fullscreen.setIconSize(QSize(14, 14)); fullscreen.setFixedWidth(28)
+        fullscreen.setAccessibleName('Full screen'); fullscreen.setToolTip('Full screen')
+        fullscreen.clicked.connect(self.toggle_fullscreen); monitor_actions.layout().addWidget(fullscreen); self.fullscreen_button = fullscreen
+        monitor_flow.addWidget(monitor_actions)
+        monitor_layout.addWidget(monitor_header)
+        self.viewer = SynthViewer(); monitor_layout.addWidget(self.viewer, 1)
+        self.viewer.frameCleared.connect(self.refresh_monitor_frame)
+        left_layout.addWidget(monitor, 1)
+        self.viewer.zoomChanged.connect(self.refresh_view_zoom)
+        self.fit_view_button.setChecked(self.viewer.zoom == 0)
+        self.section_timeline = SectionTimeline()
+        self.section_timeline.selected.connect(lambda index: self.composer and self.composer.select_section(index, preserve_scope=True))
+        self.section_timeline.editRequested.connect(lambda index: self.composer and self.composer.select_section(index))
+        self.section_timeline.selectionChanged.connect(self.preview_scope_changed)
+        self.section_timeline.durationRequested.connect(lambda identifier, duration: self.composer and self.composer.stretch_section(identifier, duration))
+        self.section_timeline.stretchRequested.connect(lambda identifiers, factor: self.composer and self.composer.stretch_sections(identifiers, factor))
+        self.section_timeline.reorderRequested.connect(lambda identifiers, before: self.composer and self.composer.reorder_sections(identifiers, before))
+        self.section_timeline.duplicateRequested.connect(self.duplicate_timeline_sections)
+        self.section_timeline.loopRequested.connect(lambda identifiers, count: self.composer and self.composer.loop_sections(identifiers, count))
+        self.section_timeline.automationRequested.connect(self.timeline_automation)
+        self.section_timeline.automationMoveRequested.connect(lambda sid, eid, start: self.composer and self.composer.timeline_automation(sid, eid, "move", start))
+        self.section_timeline.seekRequested.connect(lambda time: self.composition and self.timeline.setValue(round(time * self.composition['fps'])))
+        self.section_scroll = QScrollArea()
+        self.section_scroll.setWidgetResizable(True); self.section_scroll.setWidget(self.section_timeline)
+        self.section_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.section_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.section_scroll.setFixedHeight(self.section_timeline.height())
+        self.section_scroll.horizontalScrollBar().rangeChanged.connect(self.refresh_timeline_height)
+        self.section_timeline.automationVisibilityChanged.connect(self.refresh_timeline_height)
+        controls_layout.addWidget(self.section_scroll)
+        self.shot_strip = ClipStoryboard()
+        self.shot_strip.selected.connect(self.section_timeline.select_at)
+        self.shot_strip.editRequested.connect(self.edit_shot)
+        self.shot_strip.durationRequested.connect(lambda identifier, duration: self.composer and self.composer.stretch_section(identifier, duration))
+        self.shot_strip.loopsRequested.connect(lambda identifier, count: self.composer and self.composer.set_section_loops(identifier, count))
+        controls_layout.addWidget(self.shot_strip)
+        self.clip_controls = self.shot_strip.footer
+        self.build_soundtrack_lane(controls_layout)
+        self.section_tools = QWidget()
+        tools_policy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        tools_policy.setHeightForWidth(True); self.section_tools.setSizePolicy(tools_policy)
+        section_tools = FlowLayout(self.section_tools, spacing=5, right_last=True)
+        self.section_hint = QPushButton()
+        self.section_hint.setIcon(QIcon(str(RESOURCE_ROOT / 'assets' / 'help.svg')))
+        self.section_hint.setIconSize(QSize(18, 18)); self.section_hint.setFixedSize(34, 28)
+        self.section_hint.setProperty('compact', True); self.section_hint.setProperty('secondaryAction', True)
+        self.section_hint.setAccessibleName('Timeline help')
+        self.section_hint.setToolTip('Timeline help — click for shortcuts and gestures.')
+        gesture_help = 'Click to select a clip while keeping the editing scope. Double-click to edit that clip. Drag a clip to reorder. Drag its right edge to resize. Shift-click to select several; drag the last selected edge to scale them together. Select clips or an automation curve, then press Command-D to duplicate. Right-click for duplication and loops. Escape cancels a drag.'
+        self.section_hint.clicked.connect(lambda: QMessageBox.information(self, 'Timeline gestures', gesture_help))
+        self.timeline_view = QComboBox()
+        self.timeline_view.addItems(['Timeline', 'Shots'])
+        self.timeline_view.setAccessibleName('Timeline view')
+        self.timeline_view.setToolTip('Shots shows equal-sized previews with text and duration. Timeline shows proportional clip lengths and automation.')
+        self.timeline_view.setCurrentIndex(1 if self.composition and self.composition.get('timeline_view') == 'shots' else 0)
+        self.timeline_view.currentIndexChanged.connect(self.refresh_timeline_view)
+        section_tools.addWidget(self.timeline_view)
+        self.add_footage_section = QPushButton('+ Add clip')
+        self.add_footage_section.setProperty('compact', True)
+        self.add_footage_section.setAccessibleName('Add footage clip')
+        self.add_footage_section.setToolTip('Choose new footage and optionally copy another clip’s look. Adds an independent clip after the active clip; Undo removes it.')
+        self.add_footage_section.clicked.connect(self.add_footage_section_dialog)
+        section_tools.addWidget(self.add_footage_section)
+        self.build_soundtrack_action(section_tools)
+        self.build_visual_sound_action(section_tools)
+        self.section_resize_mode = QComboBox()
+        self.section_resize_mode.setAccessibleName('Clip resize mode')
+        self.section_resize_mode.setToolTip('Choose how Duration and edge drags resize clips. Smart extend keeps existing timing when adding time. Shortening past the authored end stretches the clip to fit.')
+        self.section_resize_mode.currentIndexChanged.connect(lambda _index: self.composer and setattr(self.composer, 'resize_mode', self.section_resize_mode.currentData()))
+        section_tools.addWidget(self.section_resize_mode)
+        self.timeline_navigation = QWidget()
+        self.timeline_navigation_layout = QHBoxLayout(self.timeline_navigation)
+        self.timeline_navigation_layout.setContentsMargins(0, 0, 0, 0)
+        self.timeline_navigation_layout.setSpacing(4)
+        section_tools.addWidget(self.timeline_navigation)
+        section_tools.addWidget(self.section_hint)
+        controls_layout.insertWidget(0, self.section_tools)
+        self.timeline_context = ContextSummary()
+        controls_layout.insertWidget(1, self.timeline_context)
+        self.section_tools.setProperty('chrome', True)
+        self.status = ElidingLabel(auto_hide=True); self.status.setObjectName('muted'); self.status.setAccessibleName('Operation status')
+        self.transport = transport = QWidget(); transport.setProperty('chrome', True)
+        timeline = QHBoxLayout(transport); timeline.setContentsMargins(0, 0, 0, 0); timeline.setSpacing(6)
+        self.play = PlaybackButton(); self.play.setFixedSize(30, 28); self.play.toggled.connect(self.toggle_play); timeline.addWidget(self.play)
+        track = QWidget(); track.setFixedHeight(33); track_layout = QVBoxLayout(track); track_layout.setContentsMargins(0, 0, 0, 0); track_layout.setSpacing(0)
+        self.timeline = QSlider(Qt.Orientation.Horizontal); self.timeline.setObjectName('transportScrubber'); self.timeline.setFixedHeight(19)
+        self.timeline.valueChanged.connect(self.scrub); track_layout.addWidget(self.timeline)
+        self.cached_ranges = CachedRangeStrip(self.timeline); track_layout.addWidget(self.cached_ranges)
+        self.cached_ranges.gapRequested.connect(self.prepare_preview_gap)
+        timeline.addWidget(track, 1)
+        self.time_label = QLabel('00:00.00'); self.time_label.setObjectName('timecode'); self.time_label.setFont(terminal_font()); timeline.addWidget(self.time_label)
+        self.total_time_label = QLabel(); self.total_time_label.setObjectName('monitorMeta'); self.total_time_label.setAccessibleName('Total duration')
+        self.total_time_label.setToolTip('Duration of all clips and loops. Updates automatically when timing changes.')
+        timeline.addWidget(self.total_time_label); left_layout.addWidget(transport)
+        preview_line = QHBoxLayout(); preview_line.setContentsMargins(0, 0, 0, 3); preview_line.setSpacing(8)
+        self.preview_status = MonitorStatus('Preview paused', self.preview_activity); self.preview_status.setObjectName('muted'); self.preview_status.setAccessibleName('Monitor activity')
+        preview_line.addWidget(self.preview_status, 1)
+        self.cache_status = QLabel('Preview ready: 0 frames'); self.cache_status.setObjectName('monitorMeta'); self.cache_status.setAccessibleName('Prepared preview frames')
+        self.cached_ranges.rangesChanged.connect(self.refresh_cache_status)
+        self.cache_status.setToolTip('Highlighted parts of the playback track have prepared frames at this quality. Unprepared frames may play more slowly.')
+        preview_line.addWidget(self.cache_status); left_layout.addLayout(preview_line)
+        self.preparation_host = preparation_host = QWidget(); preparation_host.setProperty('chrome', True)
+        preparation_layout = QVBoxLayout(preparation_host)
+        preparation_layout.setContentsMargins(0, 0, 0, 0); preparation_layout.setSpacing(6)
+        self.timing_playback_host = QWidget()
+        timing_playback = PairedControlsLayout(self.timing_playback_host)
+        timing_playback.addWidget(self.clip_controls)
+        playback_host = QWidget(); playback_row = FlowLayout(playback_host, spacing=12, center_vertical=True)
+        timing_playback.addWidget(playback_host)
+        preparation_layout.addWidget(self.timing_playback_host)
+        self.preparation_details_host = QWidget()
+        preparation_details = PairedControlsLayout(self.preparation_details_host, right_width=220)
+        preparation_controls = QWidget(); preparation_row = FlowLayout(preparation_controls, spacing=12, center_vertical=True)
+        preparation_details.addWidget(preparation_controls)
+        preparation_layout.addWidget(self.preparation_details_host)
+        self.preview_scope = QComboBox(); self.preview_scope.addItems(['Entire timeline', 'Selected clips']); self.preview_scope.setAccessibleName('Playback scope')
+        self.preview_scope.setToolTip('Playback selection is separate from editing scope. Repeats play in timeline order.')
+        self.preview_scope.currentIndexChanged.connect(self.preview_scope_changed)
+        playback_label = QLabel('Playback'); preparation_label = QLabel('Preview')
+        label_width = max(playback_label.sizeHint().width(), preparation_label.sizeHint().width())
+        playback_label.setFixedWidth(label_width); preparation_label.setFixedWidth(label_width)
+        playback_row.addWidget(inline(playback_label, self.preview_scope))
+        self.scope_summary = QLabel(); self.scope_summary.setObjectName('monitorMeta')
+        self.quality = QComboBox(); self.quality.setAccessibleName('Preview resolution'); self.quality.addItems(['360 px', '720 px', 'Full canvas'])
+        self.quality.setToolTip(PREVIEW_HINT + ' Authored Low-res finish remains part of the artwork.')
+        self.quality.setMaximumWidth(112)
+        self.quality.currentIndexChanged.connect(lambda _index: self.invalidate())
+        self.preview_dimensions = QLabel(); self.preview_dimensions.setObjectName('monitorMeta')
+        self.preview_dimensions.setAccessibleName('Preview pixel dimensions')
+        detail_host = QWidget(); detail_flow = FlowLayout(detail_host, spacing=6)
+        detail_flow.addWidget(inline(QLabel('Preview resolution'), self.quality, self.preview_dimensions))
+        # Keep resolution and scoped preparation together, allowing narrow windows to wrap.
+        preview_line.removeWidget(self.cache_status); detail_flow.addWidget(self.cache_status)
+        left_layout.insertWidget(left_layout.count()-1, detail_host)
+        self.auto_prepare = QCheckBox('Auto prepare'); self.auto_prepare.setChecked(True)
+        self.auto_prepare.setToolTip('Prepare frames near the playhead after editing or scrubbing settles.')
+        self.auto_prepare.toggled.connect(self.auto_prepare_changed)
+        self.prepare_preview = QPushButton('Prepare range'); self.prepare_preview.setAccessibleName('Prepare preview range'); self.prepare_preview.setToolTip('Prepare the chosen number of frames at the selected resolution. With Loop prepared range enabled, playback continues over available frames. Completed frames use temporary lossless storage.')
+        self.prepare_preview.clicked.connect(self.prepare_playback)
+        self.prepare_full_preview = QPushButton('Prepare all frames')
+        self.prepare_full_preview.setAccessibleName('Prepare all preview frames')
+        self.prepare_full_preview.setToolTip('Prepare the entire timeline at the selected resolution. Uses temporary lossless disk storage, keeping memory bounded. Does not start playback.')
+        self.prepare_full_preview.clicked.connect(self.prepare_full_playback)
+        self.setup_preview_range()
+        preparation_details.addWidget(self.preview_range_summary)
+        left_layout.addWidget(self.gap_feedback)
+        playback_row.addWidget(self.loop_preview_range)
+        playback_row.addWidget(self.scope_summary)
+        preparation_row.addWidget(inline(preparation_label, self.auto_prepare))
+        preparation_row.addWidget(inline(self.preview_range_frames, self.prepare_preview))
+        preparation_row.addWidget(self.prepare_full_preview)
+        if self.workspace_settings:
+            self.auto_prepare.setChecked(self.workspace_settings.value('preview/auto_prepare', True, type=bool))
+            self.preview_scope.setCurrentIndex(int(self.workspace_settings.value('preview/scope', 0)))
+            self.quality.setCurrentIndex(int(self.workspace_settings.value('preview/quality', 0)))
+            self.preview_range_frames.setValue(int(self.workspace_settings.value('preview/range_frames', 150)))
+        controls_layout.addWidget(preparation_host)
+        controls_layout.addWidget(self.status)
+        self.export_progress = QProgressBar(); self.export_progress.setRange(0, 100); self.export_progress.setValue(0)
+        self.export_progress.setTextVisible(True); self.export_progress.setFormat('Ready to export')
+        self.export_progress.setAccessibleName('Export progress'); self.export_progress.setToolTip('Frames rendered for MP4 export.'); self.export_progress.hide()
+        self.cancel_export = QPushButton('Cancel export'); self.cancel_export.setEnabled(False); self.cancel_export.hide(); self.cancel_export.clicked.connect(self.cancel_export_job)
+        export_feedback = QHBoxLayout(); export_feedback.addWidget(self.export_progress, 1); export_feedback.addWidget(self.cancel_export)
+        controls_layout.addLayout(export_feedback)
+        controls_layout.addStretch(1)
+        self.preview_controls_scroll.setMinimumWidth(
+            controls_pane.minimumSizeHint().width() + self.preview_controls_scroll.verticalScrollBar().sizeHint().width())
+        # Keep transport and performance feedback beside the monitor while the
+        # expanded timeline/preparation/export controls can scroll independently.
+        self.preview_splitter.setStretchFactor(0, 1)
+        self.preview_splitter.setStretchFactor(1, 0)
+        self.preview_splitter.setSizes([600, 164])
+        self.preview_splitter.handle(1).setToolTip('Drag up or down to resize the monitor and timeline controls.')
+        split.addWidget(left)
+        self.inspector_host = QStackedWidget(); self.inspector_host.setMinimumWidth(380)
+        self.inspector_host.setObjectName('inspectorSurface')
+        self.inspector_scroll = scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        panel = QWidget(); panel.setMinimumWidth(0)
+        self.panel_layout = QVBoxLayout(panel); self.panel_layout.setContentsMargins(8, 0, 0, 0)
+        self.panel_layout.setAlignment(Qt.AlignmentFlag.AlignTop); scroll.setWidget(panel)
+        self.inspector_host.addWidget(scroll)
+        self.composer_host = QWidget(); self.composer_host.setMinimumWidth(0)
+        self.composer_host.setObjectName('inspectorSurface')
+        self.composer_layout = QVBoxLayout(self.composer_host)
+        self.composer_layout.setContentsMargins(8, 0, 0, 0)
+        self.inspector_host.addWidget(self.composer_host)
+        inspector_column = QWidget(); inspector_column.setMinimumWidth(380)
+        inspector_layout = QVBoxLayout(inspector_column); inspector_layout.setContentsMargins(8, 0, 0, 0)
+        inspector_layout.setSpacing(5)
+        self.context_header = ContextHeader(); inspector_layout.addWidget(self.context_header)
+        self.legacy_scope = QLabel(); self.legacy_scope.setWordWrap(True); self.legacy_scope.hide()
+        inspector_layout.addWidget(self.legacy_scope)
+        inspector_layout.addWidget(self.inspector_host, 1)
+        self.composer_layout.setContentsMargins(0, 0, 0, 0)
+        self.panel_layout.setContentsMargins(0, 0, 0, 0)
+        split.addWidget(inspector_column); split.setSizes([820, 420]); outer.addWidget(split, 1)
+        split.handle(1).setToolTip('Drag to resize the monitor and controls column.')
+        self.setCentralWidget(root)
+
+    def update_contextual_reset(self, label):
+        self.reset_controls_button.setText(label or 'Restore effect')
+        self.reset_controls_button.setAccessibleName(label or 'Restore effect')
+        self.reset_controls_button.setEnabled(bool(label) and self.composer is not None)
+        self.reset_controls_button.setToolTip(
+            'Restore the current panel in the shown editing scope. Other panels keep their settings.'
+            if label else 'Select an effect to restore its settings.')
+        show_reset = bool(label) and self.composer is not None and self.composer.look_tabs.currentWidget() is not self.composer.effects_panel
+        self.reset_controls_button.setVisible(show_reset)
+        if self.composer: self.composer.workspace_actions.setVisible(show_reset)
+        self.sync_timeline_editing_scope()
+
+    def sync_timeline_editing_scope(self):
+        panel = self.composer
+        section = None
+        if panel and panel.scope and not panel.global_scope_reason() and not panel.arrangement_button.isChecked():
+            section = panel.document['sections'][panel.index]['id']
+        self.section_timeline.set_editing_section(section)
+        self.refresh_workspace_context()
+
+    def refresh_resize_modes(self, footage):
+        menu = self.section_resize_mode
+        if menu.count() and (menu.findData('video') >= 0) == footage:
+            return
+        menu.clear()
+        if footage:
+            menu.addItem('Resize: Keep footage speed', 'effects')
+            menu.addItem('Resize: Stretch footage', 'video')
+        menu.addItem('Resize: Smart extend', 'smart')
+        if not footage:
+            menu.addItem('Resize: Stretch to fit', 'effects')
+        descriptions = {
+            'smart': 'Keep the timing of existing cues and continue procedural motion. Video follows its source limits.',
+            'effects': 'Scale animation and automation to the new duration. Imported video keeps its speed.',
+            'video': 'Retime footage, its audio and effects together to keep the same source interval.',
+        }
+        for index in range(menu.count()):
+            menu.setItemData(index, descriptions[menu.itemData(index)], Qt.ItemDataRole.ToolTipRole)
+
+    def refresh_timeline_view(self, *_args):
+        shots = self.composition is not None and self.timeline_view.currentIndex() == 1
+        entering_shots = shots and not getattr(self, '_showing_shots', False)
+        self._showing_shots = shots
+        self.section_scroll.setVisible(self.composition is not None and not shots)
+        self.shot_strip.setVisible(shots)
+        self.clip_controls.setVisible(self.composition is not None)
+        self.shot_strip.edit.setVisible(shots)
+        if shots:
+            self.shot_strip.set_document(self.composition, self.sequence, self.composition_index)
+        elif self.composition is not None:
+            self.shot_strip.set_timing_context(self.composition, self.composition_index)
+        if entering_shots:
+            sizes = self.preview_splitter.sizes()
+            if sizes[-1] < 280:
+                self.preview_splitter.setSizes([max(180, sum(sizes) - 280), 280])
+
+    def edit_shot(self, index):
+        if self.composer and 0 <= index < len(self.composition['sections']):
+            self.composer.select_section(index)
+            self.composer.look_tabs.setCurrentWidget(self.composer.object_panel)
+            self.composer.object_panel.reveal_control('text.content')
+
+    def refresh_view_zoom(self, percent):
+        with QSignalBlocker(self.view_zoom): self.view_zoom.setValue(percent)
+        with QSignalBlocker(self.fit_view_button): self.fit_view_button.setChecked(self.viewer.zoom == 0)
+
+    def global_group(self):
+        group = QGroupBox("Global timing")
+        layout = QVBoxLayout(group)
+        specs = [("treatment_fps", "Treatment FPS", 1, 120, 1), ("export_fps", "Export FPS", 1, 120, 1), ("loop_seconds", "Loop seconds", .1, 3600, .1), ("speed", "Animation speed", 0, 8, .05), ("depth", "Animation depth", 0, 1, .01), ("seed", "Seed", 0, 2**31 - 1, 1)]
+        self.global_controls = {}
+        for key, label, lo, hi, step in specs:
+            row = QHBoxLayout(); row.addWidget(QLabel(label)); spin = QSpinBox() if key in {"treatment_fps", "export_fps", "seed"} else QDoubleSpinBox(); spin.setRange(lo, hi); spin.setSingleStep(step); spin.setValue(self.preset[key]); spin.setKeyboardTracking(False); row.addWidget(spin); layout.addLayout(row); self.global_controls[key] = spin; spin.valueChanged.connect(lambda _v, k=key: self.global_changed(k))
+        row = QHBoxLayout(); row.addWidget(QLabel("Variation mode")); combo = QComboBox(); combo.addItems(["smooth", "stepped"]); combo.setCurrentText(self.preset["variation_mode"]); combo.currentTextChanged.connect(lambda value: self.global_changed("variation_mode", value)); row.addWidget(combo); layout.addLayout(row); self.global_controls["variation_mode"] = combo
+        modulation = QGroupBox("Animation modulation")
+        modulation_layout = QVBoxLayout(modulation)
+        self.mod_controls = {}
+        targets = self.preset.get("animation", {}).get("targets", {})
+        for target in ("blinds.aperture", "blinds.aperture_position", "blinds.curvature", "slab.width", "slab.spacing"):
+            values = targets.get(target, {"depth": 0.0, "rate": 0.0})
+            module_id, param_key = target.split(".", 1)
+            module = MODULE_BY_ID[module_id]
+            spec = next(spec for spec in module.params if spec.key == param_key)
+            block = QVBoxLayout(); title = QLabel(f"{module.label} · {spec.label}"); title.setToolTip(spec.hint); block.addWidget(title)
+            row = QHBoxLayout()
+            for key, label, lo, hi, step in (("depth", "depth", 0, 1, .01), ("rate", "rate", 0, 4, .01)):
+                row.addWidget(QLabel(label)); spin = QDoubleSpinBox(); spin.setRange(lo, hi); spin.setSingleStep(step); spin.setValue(values.get(key, 0)); spin.valueChanged.connect(self.modulation_changed); row.addWidget(spin); self.mod_controls[(target, key)] = spin
+            block.addLayout(row); modulation_layout.addLayout(block)
+        layout.addWidget(modulation)
+        return group
+
+    def sequence_group(self):
+        group = QGroupBox("Editable sequence cues")
+        layout = QVBoxLayout(group)
+        label = QLabel("15-second reference study · edit times, states and transition types")
+        label.setWordWrap(True)
+        layout.addWidget(label)
+        table = QTableWidget(len(self.sequence["cues"]), 6)
+        headers = ["Time", "State", "Transition", "Hold / blend", "Intensity", "Direction"]
+        table.setHorizontalHeaderLabels(headers)
+        table.setAlternatingRowColors(True)
+        table.setMinimumHeight(190)
+        table.setMaximumHeight(280)
+        for column, (label, minimum) in enumerate(zip(headers, (62, 100, 82, 82, 62, 62))):
+            table.setColumnWidth(column, max(minimum, table.fontMetrics().horizontalAdvance(label) + 22))
+            table.horizontalHeaderItem(column).setToolTip(label)
+        for row, cue in enumerate(self.sequence["cues"]):
+            values = (f"{cue['time']:.2f}", cue["state"], cue["transition"], f"{cue.get('duration', 0):.2f}", f"{cue.get('intensity', 1.0):.2f}", f"{cue.get('direction', 1.0):.2f}")
+            for column, value in enumerate(values):
+                table.setItem(row, column, QTableWidgetItem(value))
+        table.cellChanged.connect(self.sequence_cell_changed)
+        table.itemSelectionChanged.connect(self.sequence_selection_changed)
+        self.sequence_table = table
+        layout.addWidget(table)
+        buttons = QHBoxLayout()
+        add = QPushButton("Add cue"); add.clicked.connect(self.add_sequence_cue)
+        remove = QPushButton("Remove cue"); remove.clicked.connect(self.remove_sequence_cue)
+        buttons.addWidget(add); buttons.addWidget(remove); buttons.addStretch(1)
+        layout.addLayout(buttons)
+        return group
+
+    def sequence_settings_group(self):
+        group = QGroupBox("Sequence timing and field")
+        layout = QVBoxLayout(group)
+        self.sequence_updating = True
+        self.sequence_field_controls = {}
+        timing = QGridLayout()
+        for column, (key, label, minimum, maximum, step, integer) in enumerate((("duration", "seconds", min(self.sequence["duration"], 1 / self.sequence["fps"]), 3600, 1 / self.sequence["fps"], False), ("fps", "FPS", 1, 120, 1, True), ("seed", "seed", 0, 2**31 - 1, 1, True))):
+            timing.addWidget(QLabel(label), 0, column)
+            spin = QSpinBox() if integer else QDoubleSpinBox()
+            spin.setRange(minimum, maximum); spin.setSingleStep(step); spin.setValue(self.sequence[key]); spin.setKeyboardTracking(False)
+            spin.valueChanged.connect(lambda value, k=key: self.sequence_setting_changed(k, value))
+            timing.addWidget(spin, 1, column); self.sequence_field_controls[key] = spin
+        layout.addLayout(timing)
+        field_widget = QWidget()
+        field = QGridLayout(field_widget)
+        field.setContentsMargins(0, 0, 0, 0)
+        for index, (key, label, minimum, maximum, step) in enumerate((("valley_start", "valley in", 0, 3600, .01), ("valley_end", "valley out", 0, 3600, .01), ("valley_gain", "valley gain", 0, 2, .01), ("cloud_start", "cloud in", 0, 3600, .01), ("cloud_strength", "cloud", 0, 1, .01), ("cloud_late_start", "late cloud", 0, 3600, .01), ("cloud_late_rate", "late rate", 0, 1, .01))):
+            row, column = divmod(index, 2)
+            field.addWidget(QLabel(label), row, column * 2)
+            spin = QDoubleSpinBox(); spin.setRange(minimum, maximum); spin.setSingleStep(step); spin.setDecimals(2); spin.setValue(self.sequence["field"].get(key, 0.0)); spin.setKeyboardTracking(False)
+            spin.valueChanged.connect(lambda value, k=key: self.sequence_field_changed(k, value))
+            field.addWidget(spin, row, column * 2 + 1); self.sequence_field_controls[key] = spin
+        field_widget.setVisible(False)
+        field_toggle = QPushButton("Exposure and cloud track ▸")
+        field_toggle.setCheckable(True)
+        field_toggle.toggled.connect(field_widget.setVisible)
+        field_toggle.toggled.connect(lambda opened: field_toggle.setText("Exposure and cloud track ▾" if opened else "Exposure and cloud track ▸"))
+        layout.addWidget(field_toggle)
+        layout.addWidget(field_widget)
+        self.sequence_updating = False
+        return group
+
+    def sequence_state_group(self):
+        group = QGroupBox("Selected state")
+        layout = QVBoxLayout(group)
+        row = QHBoxLayout(); row.addWidget(QLabel("State"))
+        combo = QComboBox(); combo.addItems(list(self.sequence["states"]))
+        combo.setMinimumWidth(0)
+        combo.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        if self.sequence_state_name in self.sequence["states"]:
+            combo.setCurrentText(self.sequence_state_name)
+        else:
+            combo.setCurrentIndex(0)
+        combo.currentTextChanged.connect(self.select_sequence_state); row.addWidget(combo, 1)
+        duplicate = QPushButton("Duplicate state"); duplicate.clicked.connect(self.duplicate_sequence_state); row.addWidget(duplicate)
+        layout.addLayout(row)
+        self.sequence_state_combo = combo
+        self.sequence_state_controls = {}
+        self.sequence_enabled_controls = {}
+        self.sequence_state_name = combo.currentText()
+        state = self.sequence["states"][self.sequence_state_name]
+        base = normalize_synth(curated_presets()[state["preset"]])
+        overrides = state.get("overrides", {})
+        enabled = set(state.get("enabled", [entry["id"] for entry in base["modules"] if entry.get("enabled", True)]))
+        for entry in base["modules"]:
+            module = MODULE_BY_ID.get(entry.get("id"))
+            if module is None:
+                continue
+            module_box = QGroupBox(module.label); module_box.setCheckable(True); module_box.setChecked(entry["id"] in enabled)
+            module_box.toggled.connect(lambda checked, module_id=entry["id"]: self.sequence_module_enabled_changed(module_id, checked))
+            module_layout = QVBoxLayout(module_box)
+            for spec in module.params:
+                path = f"{module.id}.{spec.key}"
+                value = overrides.get(path, entry.get("params", {}).get(spec.key, spec.default))
+                control = SynthControl(spec, value); control.changed.connect(lambda path=path: self.sequence_state_control_changed(path)); module_layout.addWidget(control); self.sequence_state_controls[path] = control
+            layout.addWidget(module_box); self.sequence_enabled_controls[module.id] = module_box
+        return group
+
+    def rebuild_modules(self):
+        self._rebuild_modules()
+        self.update_composition_history()
+        self.bind_pending_text_titles()
+
+    def bind_pending_text_titles(self, *_args):
+        for control in self.findChildren(TextControl):
+            if not getattr(control, "_title_connected", False):
+                control.editor.textChanged.connect(self.update_document_title)
+                control._title_connected = True
+        self.update_document_title()
+
+    def _rebuild_modules(self):
+        self.refresh_canvas_controls()
+        self.save_study_button.setEnabled(self.composition is not None and self.study_job is None)
+        # These controls live outside the panel they belong to. Detach the
+        # persistent reset action and retire the previous FPS controls first.
+        self.reset_controls_button.setParent(self.centralWidget()); self.reset_controls_button.hide()
+        while self.workspace_fps_layout.count():
+            item = self.workspace_fps_layout.takeAt(0)
+            if item.widget(): item.widget().hide(); item.widget().deleteLater()
+        while self.timeline_navigation_layout.count():
+            item = self.timeline_navigation_layout.takeAt(0)
+            if item.widget(): item.widget().hide(); item.widget().deleteLater()
+        self.workspace_fps_host.setVisible(self.composition is not None)
+        if self.composer is not None:
+            self.composition_index = self.composer.index
+            self.composition_scope = self.composer.scope
+            self.composer_layout.removeWidget(self.composer)
+            self.composer.hide(); self.composer.deleteLater()
+        self.composer = None
+        self.inspector_host.setCurrentWidget(self.inspector_scroll)
+        while self.panel_layout.count():
+            item = self.panel_layout.takeAt(0); widget = item.widget()
+            if widget:
+                widget.hide()
+                widget.deleteLater()
+        self.controls.clear(); self.module_groups.clear()
+        self.sequence_table = None
+        self.sequence_state_controls = {}; self.sequence_enabled_controls = {}; self.sequence_field_controls = {}
+        for widget in self.preset_widgets:
+            widget.setVisible(self.composition is None)
+        for widget in self.composition_widgets:
+            widget.setVisible(self.composition is not None)
+        self.section_timeline.setVisible(self.composition is not None)
+        self.section_scroll.setVisible(self.composition is not None)
+        self.refresh_timeline_view()
+        self.section_tools.setVisible(self.composition is not None)
+        if self.composition is not None:
+            self.refresh_resize_modes('footage' in self.composition)
+        self.add_footage_section.setVisible(self.composition is not None and 'footage' in self.composition)
+        if self.composition is not None:
+            self.composer = CompositionPanel(self.composition, self.composition_index, self.composition_scope)
+            self.attach_performance_panel()
+            self.composer.resize_mode = self.section_resize_mode.currentData()
+            self.composer.changed.connect(self.composition_changed)
+            self.composer.changed.connect(self.bind_pending_text_titles)
+            self.composer.playhead_seconds = lambda: self.timeline.value()/self.composition["fps"]
+            self.composer.effects_panel.navigation_changed.connect(self.bind_pending_text_titles)
+            self.composer.object_panel.navigation_changed.connect(self.bind_pending_text_titles)
+            self.composer.object_editor.navigation_changed.connect(self.bind_pending_text_titles)
+            self.composer.failed.connect(lambda message: self.status.setText(f"Composition edit ignored: {message}"))
+            self.composer.sectionSelected.connect(self.composition_section_selected)
+            self.composer.detailsRequested.connect(self.open_detailed_copy)
+            self.composer.effects_panel.variation_requested.connect(self.open_effect_variation)
+            self.composer.object_editor.variation_requested.connect(self.open_effect_variation)
+            self.composer.effects_panel.discovery_enabled = True
+            self.composer.effects_panel.refresh_breakdown()
+            self.composer.effects_panel.discovery_requested.connect(self.open_effect_discovery)
+            self.composer.effects_panel.navigation_changed.connect(self.refresh_effect_explanations)
+            self.composer.object_panel.navigation_changed.connect(self.refresh_effect_explanations)
+            self.composer.object_editor.navigation_changed.connect(self.refresh_effect_explanations)
+            self.composer.look_tabs.currentChanged.connect(lambda _: self.refresh_effect_explanations())
+            self.composer.effects_panel.finishing_requested.connect(lambda: self.composer.look_tabs.setCurrentIndex(2))
+            self.composer.effects_panel.master_requested.connect(lambda: self.composer.look_tabs.setCurrentWidget(self.composer.master_panel))
+            self.composer.effects_panel.source_requested.connect(lambda: self.composer.look_tabs.setCurrentWidget(self.composer.video_panel))
+            self.composer.relinkRequested.connect(lambda: self.import_video_dialog(relink=True))
+            self.composer_layout.addWidget(self.composer)
+            self.composer.embed_workspace_controls(self.workspace_fps_layout, self.reset_controls_button, self.timeline_navigation_layout)
+            self.inspector_host.setCurrentWidget(self.composer_host)
+            self.composer.reset_context_changed.connect(self.update_contextual_reset)
+            self.update_contextual_reset(self.composer.reset_label())
+            self.section_timeline.set_document(self.composition, self.composer.index)
+            self.sync_timeline_editing_scope()
+            self.update_composition_history()
+            self.status.setText('')
+            return
+        if self.sequence is not None:
+            compose = QPushButton("Use this sequence in composer")
+            compose.clicked.connect(lambda: self.set_composition(composition_from_sequence(self.sequence), clean=False))
+            self.panel_layout.addWidget(compose)
+            self.panel_layout.addWidget(self.sequence_group())
+            self.panel_layout.addWidget(self.sequence_settings_group())
+            self.sequence_master_panel = MasterPanel()
+            self.sequence_master_panel.set_values(self.sequence.get('master'))
+            self.sequence_master_panel.edited.connect(self.change_sequence_master)
+            self.sequence_master_panel.resetRequested.connect(self.reset_sequence_master)
+            self.panel_layout.addWidget(self.sequence_master_panel)
+            self.panel_layout.addWidget(self.sequence_state_group())
+            note = QLabel("Sequence mode uses the selected-state inspector above. Standalone preset controls are hidden to keep edits reproducible."); note.setWordWrap(True); note.setObjectName("muted"); self.panel_layout.addWidget(note)
+            return
+        self.panel_layout.addWidget(self.global_group())
+        for index, entry in enumerate(self.preset["modules"]):
+            module = MODULE_BY_ID.get(entry.get("id"))
+            if not module: continue
+            group = QGroupBox(module.label); group.setCheckable(True); group.setChecked(entry.get("enabled", True)); group.toggled.connect(lambda checked, i=index: self.module_toggled(i, checked))
+            layout = QVBoxLayout(group)
+            description = QLabel(module.description); description.setWordWrap(True); layout.addWidget(description)
+            order = QHBoxLayout(); order.addStretch(1)
+            up = QPushButton("↑"); down = QPushButton("↓"); up.setFixedWidth(32); down.setFixedWidth(32); up.clicked.connect(lambda _=False, i=index: self.move_module(i, -1)); down.clicked.connect(lambda _=False, i=index: self.move_module(i, 1)); order.addWidget(up); order.addWidget(down); layout.addLayout(order)
+            for spec in module.params:
+                control = SynthControl(spec, entry.get("params", {}).get(spec.key, spec.default)); control.changed.connect(self.control_changed); layout.addWidget(control); self.controls[(index, spec.key)] = control
+            self.panel_layout.addWidget(group); self.module_groups.append((index, group))
+
+    def collect(self):
+        p = copy.deepcopy(self.preset)
+        for key, control in self.global_controls.items():
+            p[key] = control.currentText() if isinstance(control, QComboBox) else control.value()
+        for target in {target for target, _key in self.mod_controls}:
+            p["animation"]["targets"][target] = {key: self.mod_controls[(target, key)].value() for key in ("depth", "rate")}
+        for index, entry in enumerate(p["modules"]):
+            module = MODULE_BY_ID.get(entry.get("id"))
+            if not module:
+                continue
+            for spec in module.params:
+                control = self.controls.get((index, spec.key)); control and entry["params"].update({spec.key: control.value()})
+        for index, group in self.module_groups:
+            if index < len(p["modules"]): p["modules"][index]["enabled"] = group.isChecked()
+        return normalize_synth(p)
+
+    def global_changed(self, key, value=None):
+        self.preset = self.collect(); self.mark_custom(); self.update_timeline_max(); self.invalidate()
+        if self.play.isChecked(): self.schedule_play_tick()
+    def modulation_changed(self):
+        self.preset = self.collect(); self.mark_custom(); self.invalidate()
+
+    def mark_custom(self):
+        self.preset["name"] = "Custom"
+        if hasattr(self, "preset_combo"):
+            with QSignalBlocker(self.preset_combo):
+                self.preset_combo.setCurrentText("Custom")
+
+    def load_reference_sequence(self):
+        self.load_starter_id("approved")
+
+    def load_refined_sequence(self):
+        self.load_starter_id("refined")
+
+    def new_composition(self):
+        from nebula.documents.synth_composition import blank_composition
+        project = blank_composition(); project["canvas"] = self.current_canvas()
+        self.set_composition(project)
+
+    def new_piece_dialog(self):
+        dialog = NewPieceDialog(self.current_canvas(), self.preview_fps(), study_records(),
+                                self.starter_combo.currentData(), self)
+        request = dialog.request() if dialog.exec() == dialog.DialogCode.Accepted else None
+        dialog.deleteLater()
+        if request is not None: self.create_piece(**request)
+
+    def create_piece(self, kind, *, text=None, shape='rectangle', model='silhouette', study=None):
+        if kind == 'video':
+            self.import_video_dialog(); return
+        if kind == 'remix':
+            return self.load_starter_id(study) if study is not None else False
+        options = dict(shape=shape, model=model)
+        if text is not None: options['text'] = text
+        try:
+            project = new_piece(kind, self.current_canvas(), self.preview_fps(), **options)
+        except ValueError as exc:
+            self.status.setText(f'Could not create piece: {exc}'); return False
+        if not self.set_composition(project, clean=False): return False
+        self.timeline.setValue(0)
+        self.composer.look_tabs.setCurrentWidget(self.composer.object_panel)
+        self.status.setText('Edit your object, then open Effects → Add effect… to build its treatment. Save to keep this piece.')
+        return True
+
+    def load_particle_composition(self, refined=True):
+        self.load_starter_id("particle-head" if refined else "original-particles")
+
+    def load_particle_orbit(self):
+        self.load_starter_id("particle-orbit")
+
+    def load_starter(self):
+        if self.starter_combo.currentData() is not None:
+            try:
+                self.load_starter_id(self.starter_combo.currentData())
+            except (OSError, ValueError) as exc:
+                self.status.setText(f'Could not load study: {exc}')
+
+    def load_starter_id(self, identifier):
+        try: project = study_composition(identifier)
+        except (OSError, ValueError) as exc:
+            self.status.setText(f"Could not load study: {exc}"); return False
+        if not self.set_composition(project): return False
+        with QSignalBlocker(self.starter_combo):
+            self.starter_combo.setCurrentIndex(self.starter_combo.findData(identifier))
+        self.load_starter_button.setEnabled(True)
+        if identifier in ("particle-head", "particle-orbit", "original-particles", "ink-bloom"):
+            self.composer.object_panel.show_overview()
+            self.composer.look_tabs.setCurrentWidget(self.composer.object_panel)
+        elif identifier == "mixed-media":
+            self.composer.effects_panel.inspect_effect("frame_jitter")
+
+    def refresh_studies(self):
+        selected = self.starter_combo.currentData()
+        with QSignalBlocker(self.starter_combo):
+            self.starter_combo.clear()
+            for entry in study_records():
+                self.starter_combo.addItem(entry.label, entry.identifier)
+                self.starter_combo.setItemData(self.starter_combo.count() - 1,
+                                              entry.hint, Qt.ItemDataRole.ToolTipRole)
+            self.starter_combo.setCurrentIndex(self.starter_combo.findData(selected) if selected else -1)
+        self.load_starter_button.setEnabled(self.starter_combo.currentData() is not None)
+
+    def manage_studies(self):
+        if self.studies_dialog is None:
+            self.studies_dialog = StudiesDialog(self)
+            self.studies_dialog.libraryChanged.connect(self.refresh_studies)
+            self.studies_dialog.studyRequested.connect(self.load_starter_id)
+            self.studies_dialog.finished.connect(self.study_browser_priority_timer.stop)
+        else:
+            self.studies_dialog.refresh()
+        self.update_study_browser_priority()
+        self.studies_dialog.show(); self.studies_dialog.raise_(); self.studies_dialog.activateWindow()
+        self.study_browser_priority_timer.start()
+
+    def update_study_browser_priority(self):
+        if self.studies_dialog is None: return
+        busy = bool(self.discovery_session or self.closing or self.export_job or self.render_running or self.render_queued
+                    or self.preparation_explicit or self.play.isChecked() or self.preview_debounce.isActive())
+        if busy != self.studies_dialog._rendering_paused:
+            self.studies_dialog.set_rendering_paused(busy)
+
+    def save_study_dialog(self):
+        if self.discovery_session: self.dismiss_effect_discovery()
+        if self.audition_pending():
+            self.status.setText('Keep or discard the temporary variation before saving a study.'); return
+        if self.composition is None or self.study_job is not None: return
+        self.finish_focused_edit()
+        name, accepted = QInputDialog.getText(self, 'Save as study', 'Study name:', text=self.composition['name'])
+        if not accepted: return
+        if not name.strip() or len(name.strip()) > 80:
+            self.status.setText('Use a study name between 1 and 80 characters.'); return
+        if not self.prepare_document_save(): return
+        job = SaveStudyJob(self.composition, name.strip())
+        job.document_identity = self.document_identity
+        job.clean_revision = self.clean_revision
+        self.study_job = job; self.pending_jobs.append(job)
+        self.save_study_button.setEnabled(False)
+        self.status.setText('Saving study and its source video…' if 'footage' in self.composition else 'Saving study…')
+        job.signals.done.connect(lambda identifier, j=job: self.study_saved(j, identifier))
+        job.signals.failed.connect(lambda error, j=job: self.study_save_failed(j, error))
+        self.jobs.start(job)
+
+    def _finish_study_save(self, job):
+        if job in self.pending_jobs: self.pending_jobs.remove(job)
+        if self.study_job is job: self.study_job = None
+        if not self.closing: self.save_study_button.setEnabled(self.composition is not None)
+
+    def study_saved(self, job, identifier):
+        self._finish_study_save(job)
+        if self.closing: return
+        if (getattr(job, 'document_identity', None) is self.document_identity
+                and getattr(job, 'clean_revision', None) == self.clean_revision):
+            self.clean_document = ('composition', copy.deepcopy(job.project))
+            self.clean_revision += 1
+        self.update_document_title()
+        self.refresh_studies()
+        if self.studies_dialog is not None: self.studies_dialog.refresh()
+        self.status.setText(f'Saved study: {job.name}. Choose it in Studies to load a fresh copy.')
+
+    def study_save_failed(self, job, error):
+        self._finish_study_save(job)
+        if not self.closing: self.status.setText(f'Could not save study: {error}')
+
+    def current_canvas(self):
+        if self.composition is not None:
+            return normalize_canvas(self.composition.get("canvas"))
+        if self.sequence is not None and "canvas" in self.sequence:
+            return normalize_canvas(self.sequence["canvas"])
+        return normalize_canvas(self.preset)
+
+    def refresh_canvas_controls(self):
+        canvas = self.current_canvas()
+        if getattr(self, '_custom_canvas_document', None) is not self.document_identity:
+            self._custom_canvas_document = self.document_identity
+            self._custom_canvas = None
+        formats = {(w, h) for _key, _label, w, h in CANVAS_FORMATS}
+        if (canvas['width'], canvas['height']) not in formats:
+            self._custom_canvas = copy.deepcopy(canvas)
+        elif self._custom_canvas is None and 'reference' in canvas:
+            reference = canvas['reference']
+            if (reference['width'], reference['height']) not in formats:
+                self._custom_canvas = copy.deepcopy(reference)
+        is_video = self.sequence is not None and 'footage' in self.sequence
+        self.fit_subject.setVisible(not is_video)
+        self.source_preview.setVisible(is_video)
+        if not is_video:
+            with QSignalBlocker(self.source_preview): self.source_preview.setChecked(False)
+        with QSignalBlocker(self.canvas_combo), QSignalBlocker(self.fit_subject):
+            while self.canvas_combo.count() > len(CANVAS_FORMATS):
+                self.canvas_combo.removeItem(self.canvas_combo.count() - 1)
+            index = next((i for i, (_key, _label, w, h) in enumerate(CANVAS_FORMATS) if (w, h) == (canvas["width"], canvas["height"])), -1)
+            if self._custom_canvas is not None:
+                custom = self._custom_canvas
+                self.canvas_combo.addItem(f"Custom · {custom['width']}×{custom['height']}", "custom")
+                if index < 0: index = self.canvas_combo.count() - 1
+            self.canvas_combo.setCurrentIndex(index)
+            self.fit_subject.setChecked(canvas["framing"] in ('adaptive', 'fit'))
+        self.canvas_label.setText(f"{canvas['width']} × {canvas['height']} px")
+        self.viewer.set_canvas_size((canvas['width'], canvas['height']))
+        with QSignalBlocker(self.quality):
+            self.quality.setItemText(2, 'Full canvas')
+
+    def canvas_selected(self, index):
+        identifier = self.canvas_combo.itemData(index)
+        if identifier == 'custom' and self._custom_canvas is not None:
+            self.apply_canvas(self._custom_canvas)
+        elif identifier:
+            self.apply_canvas(resize_canvas(self.current_canvas(), format_canvas(identifier)))
+
+    def framing_changed(self, checked):
+        canvas = self.current_canvas()
+        self.apply_canvas(resize_canvas(canvas, canvas, fit=checked))
+
+    def apply_canvas(self, canvas):
+        canvas = normalize_canvas(canvas)
+        if canvas == self.current_canvas(): return
+        if self.composition is not None:
+            document = copy.deepcopy(self.composition); document["canvas"] = canvas
+            self.composer.commit(document, "canvas")
+        elif self.sequence is not None:
+            self.sequence = normalize_sequence(dict(self.sequence, canvas=canvas))
+            self.refresh_canvas_controls(); self.invalidate()
+        else:
+            self.preset.update(canvas); self.mark_custom()
+            self.refresh_canvas_controls(); self.invalidate()
+
+    def set_composition(self, project, *, clean=True, path=None, guard=True):
+        project = normalize_composition(project)
+        sequence = compile_composition(project)
+        if guard and not self.confirm_replacement(): return False
+        self.stop_performance_recording()
+        self.performance_timer.stop(); self.performance_needs_render = False
+        self.end_comparison()
+        self.cancel_video_import()
+        self.reset_soundtrack_work()
+        self.play.setChecked(False)
+        self.document_path = self.associated_document_path(path)
+        self.composition = project
+        self.sequence = sequence
+        self.document_identity = object()
+        self.starter_combo.setCurrentIndex(-1)
+        self.composition_index = 0; self.composition_scope = 0
+        with QSignalBlocker(self.timeline_view):
+            self.timeline_view.setCurrentIndex(1 if project.get('timeline_view') == 'shots' else 0)
+        self.section_timeline.set_document(project, 0, reset_selection=True)
+        if self.composer:
+            self.composer.index = 0; self.composer.scope = 0
+        self.undo_compositions.clear(); self.redo_compositions.clear(); self.edit_key = None
+        self.preset = normalize_synth(curated_presets()["Reference blinds"])
+        with QSignalBlocker(self.preset_combo):
+            self.preset_combo.setCurrentText("Reference blinds")
+        self.rebuild_modules(); self.update_timeline_max(); self.invalidate()
+        if clean: self.mark_document_clean()
+        self.update_document_title()
+        return True
+
+    def import_video_dialog(self, checked=False, relink=False):
+        section_id = self.composer.document['sections'][self.composer.index]['id'] if relink and self.composer and self.composer.scope else None
+        title = 'Choose video for selected clip' if section_id else 'Replace shared video' if relink else 'Import video as a new composition'
+        path, _ = QFileDialog.getOpenFileName(self, title, '',
+            'Video (*.mp4 *.mov *.m4v *.mkv *.avi *.webm);;All files (*)')
+        if path: self.start_video_import(path, relink, section_id=section_id)
+
+    def add_footage_section_dialog(self):
+        if not self.composer or not self.composition or 'footage' not in self.composition: return
+        if len(self.composition['sections']) >= MAX_SECTIONS:
+            self.status.setText(f'Use at most {MAX_SECTIONS} clips. Remove a clip before adding footage.'); return
+        index = self.composer.index
+        anchor = self.composition['sections'][index]['id']
+        dialog = AddVideoSectionDialog(self.composition, index, self)
+        if not dialog.exec(): return
+        path, _ = QFileDialog.getOpenFileName(self, 'Choose footage for new clip', '',
+            'Video (*.mp4 *.mov *.m4v *.mkv *.avi *.webm);;All files (*)')
+        if path:
+            self.start_video_import(path, add_section={'after_id': anchor, 'copy_from_id': dialog.look.currentData()})
+
+    def start_video_import(self, path, relink=False, *, section_id=None, add_section=None):
+        self.cancel_video_import()
+        self.play.setChecked(False)
+        job = ImportVideoJob(path)
+        job.document_identity = self.document_identity
+        job.section_id = section_id
+        job.add_section = add_section
+        self.import_job = job; self.pending_jobs.append(job)
+        self.import_video_button.setEnabled(False); self.cancel_import.show()
+        self.status.setText('Preparing video preview… You can keep editing. Original footage is used for export.')
+        job.signals.done.connect(lambda footage, j=job: self.video_imported(j, footage, relink))
+        job.signals.failed.connect(lambda error, j=job: self.video_import_failed(j, error))
+        self.jobs.start(job)
+
+    def cancel_video_import(self):
+        if self.import_job:
+            self.import_job.cancel.cancel()
+            self.import_job = None
+        if hasattr(self, 'cancel_import'):
+            self.cancel_import.hide(); self.import_video_button.setEnabled(True)
+
+    def _release_import(self, job):
+        if job in self.pending_jobs: self.pending_jobs.remove(job)
+        current = job is self.import_job
+        if current:
+            self.import_job = None; self.cancel_import.hide(); self.import_video_button.setEnabled(True)
+        return current and not self.closing
+
+    def video_import_failed(self, job, error):
+        if self._release_import(job): self.status.setText(f'Video import: {error}')
+
+    def video_imported(self, job, footage, relink):
+        if not self._release_import(job): return
+        if getattr(job, "document_identity", None) is not self.document_identity: return
+        addition = getattr(job, 'add_section', None)
+        if addition is not None:
+            if not self.composer or not self.composition or 'footage' not in self.composition: return
+            identifier = self.composer.add_video_section(footage, **addition)
+            if not identifier: return
+            self.status.setText('Clip added with independent footage. Undo removes it; other clips kept their settings.')
+        elif relink and self.composition and 'footage' in self.composition:
+            document = copy.deepcopy(self.composition)
+            section_id = getattr(job, 'section_id', None)
+            target = document if section_id is None else next((s for s in document['sections'] if s['id'] == section_id), None)
+            if target is None:
+                self.status.setText('The target clip was removed while loading. No footage was replaced.'); return
+            target['footage'] = relink_footage(target.get('footage', document['footage']), footage)
+            self.composer.commit(document, 'video-relink')
+            self.status.setText('Clip footage replaced. Effects and other clips kept their settings.' if section_id else 'Shared footage replaced. Independent clips kept their videos.')
+        else:
+            if getattr(job, 'document_identity', None) is not self.document_identity: return
+            project = video_composition(footage)
+            if not self.set_composition(project, clean=False): return
+            self.timeline.setValue(0)
+            self.status.setText('Video ready. Save to keep this new composition.')
+        self.composer.look_tabs.setCurrentWidget(self.composer.video_panel)
+
+    def composition_changed(self, document, action):
+        compiled = self.composer.compiled if self.composer and document is self.composer.document else compile_composition(document)
+        if self.edit_key != action or not action.startswith(("macro:", "geometry:", "effect-param:", 'effect-creative:', 'master:', 'video:')):
+            self.undo_compositions.append(copy.deepcopy(self.composition))
+            self.undo_compositions = self.undo_compositions[-30:]
+        self.edit_key = action; self.edit_timer.start(400)
+        self.redo_compositions.clear()
+        self.composition = copy.deepcopy(document); self.sequence = compiled
+        self.composition_index = self.composer.index; self.composition_scope = self.composer.scope
+        self.refresh_composition()
+
+    def refresh_composition(self):
+        self.composition_index = self.composer.index
+        self.refresh_canvas_controls()
+        self.reconcile_comparison()
+        old_time = self.current_time
+        self.update_timeline_max()
+        with QSignalBlocker(self.timeline):
+            self.timeline.setValue(round(old_time * self.composition["fps"]))
+        self.section_timeline.set_document(self.composition, self.composer.index)
+        self.refresh_timeline_view()
+        self.sync_timeline_editing_scope()
+        self.status.setText('')
+        self.update_composition_history(); self.invalidate()
+        if self.play.isChecked(): self.schedule_play_tick()
+
+    def composition_section_selected(self, index):
+        self.composition_index = index
+        self.section_timeline.set_document(self.composition, index)
+        self.refresh_timeline_view()
+        self.sync_timeline_editing_scope()
+        if not self.preview_scope.currentIndex():
+            self.timeline.setValue(round(section_ranges(self.composition)[index][0] * self.composition["fps"]))
+
+    def duplicate_timeline_sections(self, identifiers):
+        if not self.composer: return
+        copies = self.composer.duplicate_sections(identifiers)
+        if copies:
+            self.section_timeline.selected_ids = set(copies)
+            self.section_timeline.selection_anchor = copies[0]
+            self.section_timeline.update(); self.section_timeline.selectionChanged.emit()
+
+    def timeline_automation(self, section_id, event_id, operation):
+        if not self.composer: return
+        duplicate = self.composer.timeline_automation(section_id, event_id, operation)
+        if duplicate:
+            lane = self.section_timeline.automation_lane
+            lane.selected = (section_id, duplicate); lane.update()
+
+    def update_composition_history(self):
+        dialog=getattr(self,'visual_sound_dialog',None)
+        sound_edit=dialog is not None and dialog.isVisible() and not getattr(dialog, 'visuals_active', lambda: False)()
+        if hasattr(self, "undo_action"):
+            self.undo_action.setText('Undo sound edit' if sound_edit else 'Undo composition')
+            self.redo_action.setText('Redo sound edit' if sound_edit else 'Redo composition')
+            self.undo_action.setEnabled(self.composition is not None and bool(self.undo_compositions or (sound_edit and dialog.sound_undo)))
+            self.redo_action.setEnabled(self.composition is not None and bool(self.redo_compositions or (sound_edit and dialog.sound_redo)))
+        if dialog is not None:dialog.refresh_history_actions()
+        if self.composer:
+            self.composition_undo_button.setEnabled(bool(self.undo_compositions))
+            self.composition_redo_button.setEnabled(bool(self.redo_compositions))
+
+    def _restore_composition_history(self, source, destination):
+        if not source: return
+        self.performance_timer.stop()
+        self.stop_performance_recording()
+        selected_id = self.composer.document['sections'][self.composer.index]['id']
+        destination.append(copy.deepcopy(self.composition))
+        self.composition = source.pop(); self.sequence = compile_composition(self.composition)
+        self.composer.document = copy.deepcopy(self.composition)
+        self.composer.index = next((i for i, section in enumerate(self.composition['sections']) if section['id'] == selected_id),
+                                   min(self.composer.index, len(self.composition['sections']) - 1))
+        self.composer.refresh(); self.edit_key = None; self.refresh_composition()
+        self.refresh_performance_panels(force=True)
+
+    def undo_composition(self):
+        dialog=getattr(self,'visual_sound_dialog',None)
+        if dialog and dialog.isVisible() and not getattr(dialog, 'visuals_active', lambda: False)() and dialog.undo_draft():return
+        self._restore_composition_history(self.undo_compositions, self.redo_compositions)
+
+    def redo_composition(self):
+        dialog=getattr(self,'visual_sound_dialog',None)
+        if dialog and dialog.isVisible() and not getattr(dialog, 'visuals_active', lambda: False)() and dialog.redo_draft():return
+        self._restore_composition_history(self.redo_compositions, self.undo_compositions)
+
+    def open_detailed_copy(self):
+        window = SynthStudio(preset=self.preset, sequence=copy.deepcopy(self.sequence))
+        window.export_settings = self.export_settings
+        window.last_export_directory = self.last_export_directory
+        window.detailed_copy = True; window.update_document_title()
+        self.detail_windows.append(window)
+        window.show()
+
+    def change_sequence_master(self, key, value):
+        master = normalize_master(self.sequence.get('master')); master[key] = value
+        self.sequence['master'] = normalize_master(master)
+        self.sequence_master_panel.set_values(master); self.invalidate()
+
+    def reset_sequence_master(self):
+        self.sequence['master'] = normalize_master()
+        self.sequence_master_panel.set_values(self.sequence['master']); self.invalidate()
+
+    def sequence_cell_changed(self, row, column):
+        if self.sequence_updating or self.sequence is None or self.sequence_table is None:
+            return
+        try:
+            edited = copy.deepcopy(self.sequence)
+            cue = edited["cues"][row]
+            value = self.sequence_table.item(row, column).text().strip()
+            if column == 0:
+                cue["time"] = float(value)
+            elif column == 1:
+                if value not in self.sequence["states"]: raise ValueError("Unknown state")
+                cue["state"] = value
+            elif column == 2:
+                if value not in {"cut", "morph", "sweep", "flash"}: raise ValueError("Unknown transition")
+                cue["transition"] = value
+            elif column == 3:
+                cue["duration"] = max(0.0, float(value))
+            elif column == 4:
+                cue["intensity"] = float(value)
+            else:
+                cue["direction"] = float(value)
+            edited["cues"].sort(key=lambda item: item["time"])
+            self.sequence = normalize_sequence(edited)
+            self.rebuild_modules(); self.update_timeline_max(); self.invalidate()
+        except Exception as exc:
+            self.status.setText(f"Sequence edit ignored: {exc}")
+            self.sequence_updating = True
+            try:
+                cue = self.sequence["cues"][row]
+                for index, value in enumerate((cue["time"], cue["state"], cue["transition"], cue.get("duration", 0), cue.get("intensity", 1.0), cue.get("direction", 1.0))):
+                    self.sequence_table.item(row, index).setText(f"{value:.2f}" if isinstance(value, float) else str(value))
+            finally:
+                self.sequence_updating = False
+
+    def add_sequence_cue(self):
+        if self.sequence is None: return
+        time = self.timeline.value() / max(1, self.sequence["fps"])
+        state = self.sequence_state_name or next(iter(self.sequence["states"]))
+        self.sequence["cues"].append({"time": min(time, self.sequence["duration"]), "state": state, "transition": "cut", "duration": 0.0})
+        self.sequence["cues"].sort(key=lambda cue: cue["time"])
+        self.sequence = normalize_sequence(self.sequence); self.rebuild_modules(); self.invalidate()
+
+    def sequence_selection_changed(self):
+        if self.sequence_table is None or self.sequence_table.currentRow() < 0:
+            return
+        row = self.sequence_table.currentRow()
+        cue = self.sequence["cues"][row]
+        state = cue["state"]
+        self.timeline.setValue(round(cue["time"] * self.sequence["fps"]))
+        if state in self.sequence["states"] and hasattr(self, "sequence_state_combo"):
+            self.sequence_state_combo.setCurrentText(state)
+            with QSignalBlocker(self.sequence_table):
+                self.sequence_table.selectRow(row)
+
+    def select_sequence_state(self, name):
+        if self.sequence is None or name not in self.sequence["states"]:
+            return
+        self.sequence_state_name = name
+        active = [cue for cue in self.sequence["cues"] if cue["time"] <= self.current_time]
+        if not active or active[-1]["state"] != name:
+            first = next((cue for cue in self.sequence["cues"] if cue["state"] == name), None)
+            if first is not None:
+                self.timeline.setValue(round(first["time"] * self.sequence["fps"]))
+        self.rebuild_modules(); self.invalidate()
+
+    def sequence_state_control_changed(self, path):
+        if self.sequence_state_updating or self.sequence is None or self.sequence_state_name not in self.sequence["states"]:
+            return
+        state = self.sequence["states"][self.sequence_state_name]
+        state.setdefault("overrides", {})[path] = self.sequence_state_controls[path].value()
+        if path == 'ink_bloom.artwork' and state['overrides'][path]:
+            control = self.sequence_state_controls['ink_bloom.shape']
+            with QSignalBlocker(control): control.set_value(5)
+            state['overrides']['ink_bloom.shape'] = 5
+        if path == 'solid.model_data' and state['overrides'][path]:
+            control = self.sequence_state_controls['solid.shape']
+            with QSignalBlocker(control): control.set_value(2)
+            state['overrides']['solid.shape'] = 2
+        self.sequence = normalize_sequence(self.sequence); self.invalidate()
+
+    def sequence_module_enabled_changed(self, module_id, checked):
+        if self.sequence_state_updating or self.sequence is None or self.sequence_state_name not in self.sequence["states"]:
+            return
+        state = self.sequence["states"][self.sequence_state_name]
+        base = curated_presets()[state["preset"]]
+        enabled = set(state.get("enabled", [entry["id"] for entry in base["modules"] if entry.get("enabled", True)]))
+        if checked: enabled.add(module_id)
+        else: enabled.discard(module_id)
+        state["enabled"] = sorted(enabled)
+        self.sequence = normalize_sequence(self.sequence); self.invalidate()
+
+    def sequence_setting_changed(self, key, value):
+        if self.sequence_updating or self.sequence is None or self.sequence_field_controls is None:
+            return
+        edited = copy.deepcopy(self.sequence)
+        edited[key] = int(value) if key in {"fps", "seed"} else float(value)
+        if key == 'fps': edited['duration'] = max(edited['duration'], 1 / edited['fps'])
+        if key in {'fps', 'duration'} and edited.get('time_map'):
+            from nebula.documents.synth_retime import resize_time_map
+            edited['time_map'] = resize_time_map(edited['time_map'], edited['duration'])
+        if key in {'fps', 'duration'} and edited.get('video_segments'):
+            from nebula.documents.synth_retime import resize_time_map
+            edited['video_segments'] = resize_time_map(edited['video_segments'], edited['duration'])
+        try:
+            self.sequence = normalize_sequence(edited)
+        except ValueError as exc:
+            with QSignalBlocker(self.sequence_field_controls[key]):
+                self.sequence_field_controls[key].setValue(self.sequence[key])
+            self.status.setText(f"Sequence edit ignored: {exc}")
+            return
+        if key == 'fps':
+            control = self.sequence_field_controls['duration']
+            with QSignalBlocker(control):
+                control.setMinimum(1 / self.sequence['fps'])
+                control.setSingleStep(1 / self.sequence['fps'])
+                control.setValue(self.sequence['duration'])
+        self.update_timeline_max(); self.invalidate()
+
+    def sequence_field_changed(self, key, value):
+        if self.sequence_updating or self.sequence is None:
+            return
+        self.sequence.setdefault("field", {})[key] = float(value)
+        self.sequence = normalize_sequence(self.sequence); self.invalidate()
+
+    def duplicate_sequence_state(self):
+        if self.sequence is None or self.sequence_state_name not in self.sequence["states"]:
+            return
+        source = self.sequence["states"][self.sequence_state_name]
+        base = f"{self.sequence_state_name}_copy"; name = base; index = 2
+        while name in self.sequence["states"]:
+            name = f"{base}{index}"; index += 1
+        self.sequence["states"][name] = copy.deepcopy(source)
+        row = self.sequence_table.currentRow() if self.sequence_table is not None else -1
+        if row < 0:
+            row = max((index for index, cue in enumerate(self.sequence["cues"]) if cue["time"] <= self.current_time), default=0)
+        self.sequence["cues"][row]["state"] = name
+        self.sequence_state_name = name
+        self.sequence = normalize_sequence(self.sequence); self.rebuild_modules(); self.invalidate()
+
+    def remove_sequence_cue(self):
+        if self.sequence is None or self.sequence_table is None or self.sequence_table.currentRow() <= 0: return
+        del self.sequence["cues"][self.sequence_table.currentRow()]
+        self.sequence = normalize_sequence(self.sequence); self.rebuild_modules(); self.invalidate()
+
+    def suggested_output_path(self, suffix):
+        document = self.composition or self.sequence or self.preset
+        name = "".join(character if character.isalnum() or character in "-_" else "-" for character in document.get("name", "nebula").lower()).strip("-") or "nebula"
+        folder = Path.home() / ("Movies" if suffix == ".mp4" else "Documents")
+        if suffix == '.mp4':
+            remembered = self.export_settings.value('export/directory', '') if self.export_settings is not None else self.last_export_directory
+            if remembered and Path(remembered).expanduser().is_dir(): folder = Path(remembered).expanduser()
+        return str((folder if folder.is_dir() else Path.home()) / (name[:80] + suffix))
+
+    def protected_document_destination(self, path):
+        """Documents may never replace recipe resources, footage or preview proxies."""
+        from nebula.sources.synth_video import proxy_directory
+        from nebula.documents.synth_studies import studies_directory
+        resolved = Path(path).expanduser().resolve()
+        root = RESOURCE_ROOT.resolve()
+        from nebula.documents.study_library import library_directory
+        directories = (library_directory(), root / 'assets', proxy_directory(), studies_directory())
+        if self.video_frames.directory: directories += (Path(self.video_frames.directory),)
+        if any(resolved.is_relative_to(directory.resolve()) for directory in directories): return True
+        documents = (self.composition, self.sequence, self.preset, *(item['document'] for item in (self.composition or {}).get('snapshots', [])))
+        for document in documents:
+            if not document: continue
+            from nebula.documents.synth_section_sources import footage_references, soundtrack_references
+            from nebula.documents.synth_live_set import live_set_paths
+            for footage in (*footage_references(document), *soundtrack_references(document),
+                            *({'path': path} for path in live_set_paths(document))):
+                source = Path(footage['path']).expanduser()
+                if resolved == source.resolve(): return True
+                try:
+                    if resolved.exists() and source.exists() and os.path.samefile(resolved, source): return True
+                except OSError: pass
+        return False
+
+    def associated_document_path(self, path):
+        return Path(path) if path and not self.protected_document_destination(path) else None
+
+    def save_sequence_dialog(self, checked=False, *, save_as=False):
+        navigation = self.workspace_navigation
+        if navigation and navigation.montage:
+            return navigation.save(save_as)
+        if self.discovery_session: self.dismiss_effect_discovery()
+        if self.audition_pending():
+            self.status.setText('Keep or discard the temporary variation before saving.'); return False
+        self.finish_focused_edit()
+        path = str(self.document_path) if self.document_path and not save_as else None
+        if path is None:
+            from nebula.ui.synth_project_files import choose_save_path
+            kind = self.document_state()[0]
+            suggestion = self.document_path.with_suffix('.nebula') if self.document_path else self.suggested_output_path('.nebula')
+            path = choose_save_path(self, f"Save {kind}", suggestion)
+        if not path: return False
+        if self.protected_document_destination(path):
+            QMessageBox.critical(self, 'Save error', 'Choose a document file outside bundled resources, the Study library and source/proxy media.')
+            return False
+        if not self.resolve_sound_draft('saving'): return False
+        if not self.prepare_document_save(): return False
+        temporary = None
+        try:
+            target = Path(path).expanduser()
+            target.parent.mkdir(parents=True, exist_ok=True)
+            fd, temporary = tempfile.mkstemp(prefix=f'.{target.name}.', suffix='.json', dir=target.parent)
+            os.close(fd)
+            kind, document = self.document_state()
+            writer = {'composition': save_composition, 'sequence': save_sequence, 'preset': save_synth}[kind]
+            writer(temporary, document)
+            os.replace(temporary, target)
+        except Exception as exc:
+            QMessageBox.critical(self, 'Save error', str(exc)); return False
+        finally:
+            if temporary:
+                try: Path(temporary).unlink(missing_ok=True)
+                except OSError: pass
+        self.document_path = target
+        self.mark_document_clean()
+        self.remember_recent_project(saved=True)
+        return True
+
+    def save_as_dialog(self, checked=False):
+        return self.save_sequence_dialog(save_as=True)
+
+    def install_sequence(self, loaded, *, path=None):
+        self.end_comparison()
+        self.reset_soundtrack_work()
+        self.cancel_video_import(); self.play.setChecked(False)
+        self.composition = None; self.sequence = loaded
+        self.document_identity = object(); self.document_path = self.associated_document_path(path)
+        self.undo_compositions.clear(); self.redo_compositions.clear(); self.edit_key = None
+        base_name = next(iter(loaded['states'].values()))['preset']
+        self.preset = normalize_synth(curated_presets()[base_name])
+        with QSignalBlocker(self.preset_combo): self.preset_combo.setCurrentText(base_name)
+        self.rebuild_modules(); self.update_timeline_max(); self.invalidate(); self.mark_document_clean()
+
+    def load_sequence_dialog(self, checked=False):
+        navigation = self.workspace_navigation
+        if navigation and navigation.editor is self and hasattr(navigation.host, 'load_sequence_dialog'):
+            return navigation.host.load_sequence_dialog()
+        relocated_from = None
+        if self.recent_projects is not None:
+            from nebula.ui.synth_recent_projects_ui import RecentProjectsDialog
+            dialog = RecentProjectsDialog(self.recent_projects, self)
+            dialog.exec(); path = dialog.selected_path
+            relocated_from = dialog.relocated_from
+            dialog.deleteLater()
+        else:
+            from nebula.ui.synth_project_files import OPEN_FILTER
+            path, _ = QFileDialog.getOpenFileName(self, "Open composition, sequence or preset", "", OPEN_FILTER)
+        if not path: return False
+        opened = self.open_document_path(path)
+        if opened and relocated_from: self.recent_projects.remove(relocated_from)
+        return opened
+
+    def project_cover_work_busy(self):
+        navigation = self.workspace_navigation
+        view = navigation.active if navigation else self
+        if isinstance(view, SynthStudio):
+            return bool(view.closing or view.export_job or view.render_running or view.render_queued
+                        or view.preparation_explicit or view.play.isChecked() or view.preview_debounce.isActive())
+        return bool(view.closed or view.export_task or view.prepare_task or view.preview_task or view.timer.isActive())
+
+    def open_document_path(self, path):
+        try:
+            with open(path) as document: raw = json.load(document)
+            if raw.get('format') == 'nebula-montage':
+                from nebula.documents.synth_montage import load_montage
+                return self.open_montage(document=load_montage(path), path=path) is not None
+            if raw.get('format') == FORMAT:
+                if not self.set_composition(load_composition(path), path=path): return False
+            elif 'states' in raw:
+                loaded = load_sequence(path)
+                if not self.confirm_replacement(): return False
+                self.install_sequence(loaded, path=path)
+            else:
+                loaded = load_synth(path)
+                if not self.confirm_replacement(): return False
+                self.install_preset(loaded, path=path)
+            self.remember_recent_project()
+            return True
+        except Exception as exc:
+            QMessageBox.critical(self, "Document error", str(exc)); return False
+
+    def remember_recent_project(self, *, saved=False):
+        if self.recent_projects is None or self.document_path is None: return
+        packet = None
+        if (saved and self.cover_frame == (self.settings_generation, self.current_time)
+                and not self.preview_image_stale and not self.comparison and not self.preview_bypass()):
+            packet = self.viewer.packet
+        self.recent_projects.remember(self.document_path, self.current_time if saved else None, packet)
+
+    def open_montage(self, checked=False, *, document=None, path=None):
+        from nebula.documents.synth_montage import new_montage, add_asset, insert_clip
+        from nebula.ui.synth_navigation import WorkspaceNavigation
+        if self.export_job:
+            self.status.setText('Finish or cancel the export before opening a montage.'); return None
+        self.finish_focused_edit(); self.play.setChecked(False)
+        if not self.prepare_document_save(): return None
+        creating = document is None
+        if document is None:
+            document = new_montage(self.current_canvas(), self.composition['fps'] if self.composition else 30)
+            if self.composition:
+                document, key = add_asset(document, self.composition['name'], study=self.composition)
+                document, _ = insert_clip(document, key)
+                if self.composition.get('soundtrack'):
+                    document['soundtrack'] = copy.deepcopy(self.composition['soundtrack'])
+                    if document['soundtrack']['export_audio'] == 'footage': document['soundtrack']['export_audio'] = 'silent'
+        if not self.confirm_replacement('opening this montage'): return None
+        # The previous document has been saved/discarded by the replacement guard.
+        self.mark_document_clean()
+        navigation = self.workspace_navigation or WorkspaceNavigation(self)
+        window = navigation.show_montage(document, path=path)
+        if creating:
+            window.clean = None
+            window.refresh()
+        return window
+
+    def control_changed(self):
+        for (index, key), control in self.controls.items():
+            if key == 'artwork' and control is self.sender() and control.value():
+                shape = self.controls[(index, 'shape')]
+                with QSignalBlocker(shape): shape.set_value(5)
+            if key == 'model_data' and control is self.sender() and control.value():
+                shape = self.controls[(index, 'shape')]
+                with QSignalBlocker(shape): shape.set_value(2)
+        self.preset = self.collect(); self.mark_custom(); self.invalidate()
+    def module_toggled(self, index, checked): self.preset["modules"][index]["enabled"] = checked; self.mark_custom(); self.invalidate()
+
+    def move_module(self, index, delta):
+        new = index + delta
+        if 0 <= new < len(self.preset["modules"]):
+            self.preset = self.collect(); self.preset["modules"][index], self.preset["modules"][new] = self.preset["modules"][new], self.preset["modules"][index]; self.mark_custom(); self.rebuild_modules(); self.invalidate()
+
+    def current_preview_context(self):
+        return (*preview_context(self.performance_base_sequence(), self.preview_size(), self.preview_bypass(), self.video_frames.directory), self.comparison_context())
+
+    def capture_preview_validity(self):
+        from nebula.documents.synth_exploration import content
+        document = base_document(self.preview_document())
+        return RenderValidity.capture(self.document_identity, content(document) if document else None, self.performance_base_sequence(),
+                                      self.collect() if self.sequence is None else self.preset, self.current_preview_context())
+
+    def ensure_preview_context(self):
+        context = self.current_preview_context()
+        if self.preview_validity is None:
+            self.preview_validity = self.capture_preview_validity()
+            self.preview_frames.switch(context)
+        elif self.preview_validity.context != context:
+            self.invalidate(force_clear=True)
+            return False
+        return True
+
+    def invalidate(self, *, force_clear=False, comparison_switch=False, preserve_transport=False):
+        self.performance_base_cache = None
+        self.update_document_title()
+        current = self.capture_preview_validity()
+        sound_config = copy.deepcopy((self.preview_sequence() or {}).get('generated_sound'))
+        self.preview_sound_config = sound_config
+        performance = copy.deepcopy((self.preview_sequence() or {}).get('visual_performance'))
+        performance_changed = performance != getattr(self, 'preview_performance_config', None)
+        self.preview_performance_config = performance
+        self.refresh_performance_panels()
+        if not force_clear and not comparison_switch and current == self.preview_validity:
+            # Fast visual/sound edits keep prepared pixels and the transport.
+            self.refresh_soundtrack()
+            if performance_changed:
+                self.cover_frame = None
+                self.request_frame()
+            return
+        self.cancel_foreground_render()
+        self.preview_image_stale = True
+        self.trace_preview('invalidated', force_clear=force_clear, comparison_switch=comparison_switch)
+        retain = None if force_clear else retained_frame_predicate(self.preview_validity, current)
+        self.settings_generation += 1  # Worker rejection changes even when pixels can be retained.
+        if not comparison_switch:
+            if retain is None: self.preview_frames.clear()
+            else: self.preview_frames.retain(retain)
+        self.preview_frames.switch(current.context)
+        self.preview_validity = current
+        self.display_times.clear()
+        if self.play.isChecked() and not preserve_transport:
+            self.play_origin = self.active_preview_scope().position(self.timeline.value()); self.play_started = time.monotonic()
+        self.refresh_soundtrack()
+        self.cancel_preparation()
+        self.refresh_cached_ranges()
+        self.prepare_preview.setText('Prepare range')
+        self.schedule_auto_preparation()
+        self.preview_status.setText('Preview outdated · updating…')
+        self.render_queued = True
+        self.preview_debounce.start(100)
+        self.refresh_preview_activity()
+
+    def preview_activity(self):
+        """Describe actual work, separately from playback and cache readiness."""
+        if self.closing or self.preview_suspended: return 'idle', ''
+        foreground = self.render_job
+        if (foreground is not None and foreground.settings_generation == self.settings_generation
+                and not foreground.cancel.event.is_set()):
+            return 'loading', 'Updating preview…'
+        preparation = self.prepare_job
+        if (preparation is not None and preparation.generation == self.settings_generation
+                and not preparation.cancel.event.is_set()):
+            return 'loading', self.preparation_feedback()
+        if self.export_job:
+            if self.preview_image_stale:
+                return 'waiting', 'Preview waiting for export · changes pending'
+            return 'waiting', 'Preview preparation paused during export'
+        if self.render_queued or self.preview_debounce.isActive():
+            return 'loading', 'Updating preview…'
+        if self.warm_debounce.isActive() and not self.preview_frames.complete(self.timeline.maximum()+1):
+            return 'loading', 'Preparing preview…'
+        return 'idle', ''
+
+    def refresh_preview_activity(self):
+        if hasattr(self, 'preview_status'):
+            self.preview_status.refresh()
+            self.refresh_monitor_frame()
+
+    def batch_includes_playhead(self, batch):
+        fps = self.preview_fps()
+        source_time = self.performance_source_time(self.timeline.value() / fps)
+        return round(source_time * fps) in batch.frames
+
+    def refresh_monitor_frame(self):
+        fps = self.preview_fps()
+        seconds = self.timeline.value() / fps
+        target = (self.settings_generation, seconds)
+        if self.performance_needs_render:
+            state = 'updating'
+        elif self.viewer.packet is not None and self.cover_frame == target:
+            state = 'current'
+        elif self.failed_monitor_frame == target:
+            state = 'error'
+        else:
+            job = self.render_job
+            foreground = (job is not None and job.settings_generation == self.settings_generation
+                          and job.output_time == seconds and not job.cancel.event.is_set())
+            queued = self.render_queued and not self.waits_for_prepared_frame()
+            batch = self.prepare_job
+            preparing = (batch is not None and batch.generation == self.settings_generation
+                         and not batch.cancel.event.is_set()
+                         and self.batch_includes_playhead(batch))
+            if foreground or queued or preparing or self.performance_timer.isActive():
+                state = 'updating'
+            else:
+                state = 'waiting' if self.viewer.packet is not None else 'empty'
+        self.frame_status.set_state(state)
+
+    def preview_fps(self):
+        return self.sequence['fps'] if self.sequence is not None else self.preset['export_fps']
+
+    def preview_size(self):
+        return preview_size(self.current_canvas(), (360, 720, None)[self.quality.currentIndex()])
+
+    def base_preview_scope(self):
+        return resolve_scope(self.composition, self.section_timeline.selected_ids, self.timeline.maximum(), bool(self.preview_scope.currentIndex()))
+
+    def active_preview_scope(self):
+        if hasattr(self, 'loop_preview_range') and self.loop_preview_range.isChecked():
+            return self.prepared_playback_scope
+        return self.base_preview_scope()
+
+    def waits_for_prepared_frame(self):
+        # The effect browser renders its own A/B frames, even while the main
+        # transport is restricted to frames in a prepared loop.
+        return (self.discovery_session is None and
+                (self.loop_preview_range.isChecked() or self.preparing_gap is not None))
+
+    def refresh_preview_scope(self):
+        if not hasattr(self, 'scope_summary'): return
+        scope = self.active_preview_scope()
+        self.preview_scope.setEnabled(self.composition is not None)
+        self.scope_summary.setText(f'{scope.occurrences} occurrences · {scope.count/self.preview_fps():.2f}s' if self.preview_scope.currentIndex() and self.composition else '')
+        if self.loop_preview_range.isChecked(): self.scope_summary.setText(f'{scope.count/self.preview_fps():.2f}s loop')
+        self.refresh_workspace_context()
+        self.refresh_cache_status()
+
+    def preview_scope_label(self):
+        if hasattr(self, 'loop_preview_range') and self.loop_preview_range.isChecked(): return 'Prepared range'
+        navigation = self.workspace_navigation
+        block = bool(navigation and navigation.editor is self)
+        if self.preview_scope.currentIndex() and self.composition:
+            return 'Selected clips in block' if block else 'Selected clips'
+        return 'Block composition' if block else 'Timeline'
+
+    def refresh_cache_status(self):
+        if not hasattr(self, 'cache_status') or not hasattr(self, 'preview_scope'): return
+        self.refresh_prepared_range()
+        self.refresh_gap_feedback()
+        self.cached_ranges.set_scope(self.base_preview_scope(), self.preview_fps())
+        scope = self.active_preview_scope()
+        available = self.preview_frames.available()
+        count = sum(scope.contains(frame) for frame in available)
+        if self.loop_preview_range.isChecked():
+            count = scope.count  # Output frames; the ready loop may exceed its preparation target.
+        label = self.preview_scope_label()
+        self.cache_status.setText(cache_caption(label, count, scope.count))
+        if hasattr(self, 'preview_dimensions'):
+            w, h = self.preview_size()
+            self.preview_dimensions.setText(f'{w} × {h} px')
+            self.preview_dimensions.setToolTip(PREVIEW_HINT)
+        dialog = getattr(self, 'visual_sound_dialog', None)
+        if dialog:
+            total = self.timeline.maximum() + 1
+            ready = sum(0 <= frame < total for frame in available)
+            w, h = self.preview_size()
+            whole = 'Block composition' if self.workspace_navigation and self.workspace_navigation.editor is self else 'Timeline'
+            dialog.set_preview_status(f'{cache_caption(whole, ready, total)} · {w}×{h} px', self.preparation_full and self.preparation_explicit)
+        self.cache_status.setToolTip(f'{label}: {count} of {scope.count} frames prepared at this resolution for the current edits. Click a gap in the prepared-frame strip to fill it and join the neighboring spans. Export renders every frame.')
+
+    def preparation_feedback(self):
+        done = sum(self.preview_frames.contains(i) for i in self.preparation_target)
+        if self.preparing_gap is not None:
+            return f'Joining prepared spans · {done}/{len(self.preparation_target)} frames ready'
+        scope = ('block composition' if self.workspace_navigation and self.workspace_navigation.editor is self else 'entire timeline') if self.preparation_full else 'playback range'
+        return f'Preparing {scope} · {done}/{len(self.preparation_target)} frames'
+
+    def preview_scope_changed(self, *_args):
+        if not hasattr(self, 'preview_scope') or not hasattr(self, 'quality'): return
+        self.discard_preview_range()
+        self.play.setChecked(False)
+        self.cancel_preparation()
+        self.refresh_preview_scope()
+        scope = self.active_preview_scope()
+        if not scope.contains(self.timeline.value()): self.timeline.setValue(scope.frame_at(0))
+        self.schedule_auto_preparation()
+
+    def auto_prepare_changed(self, checked):
+        if not checked:
+            self.warm_debounce.stop()
+            if not self.preparation_explicit: self.cancel_preparation()
+        else: self.schedule_auto_preparation()
+        self.refresh_preview_activity()
+
+    def schedule_auto_preparation(self):
+        if getattr(self, 'gap_preparation_paused', False): return
+        if self.preview_suspended or self.discovery_session or self.closing or not hasattr(self, 'auto_prepare') or not self.auto_prepare.isChecked() or self.export_job: return
+        if self.loop_preview_range.isChecked() and (self.preparation_explicit or
+                all(self.preview_frames.contains(frame) for frame in self.prepared_range_sources)): return
+        self.warm_debounce.start(400)
+        self.refresh_preview_activity()
+
+    def _automatic_preparation(self):
+        self.refresh_preview_activity()
+        if self.gap_preparation_paused: return
+        if self.preview_suspended or self.closing or self.export_job: return
+        if self.preparation_explicit:
+            self._start_warm_batch(); return
+        if not self.auto_prepare.isChecked(): return
+        if self.preview_frames.complete(self.timeline.maximum() + 1): return
+        self.preparation_full = False
+        if self.loop_preview_range.isChecked():
+            # The requested window stays fixed as playback wraps and grows.
+            if all(self.preview_frames.contains(frame) for frame in self.prepared_range_sources): return
+            if not self.retain_preview_range(): return
+            self.preparation_target = self.prepared_range_sources
+            self.preparation_limited = False
+            self._start_warm_batch(); return
+        self.preparation_target, self.preparation_limited = self.preview_scheduler.plan(
+            self.active_preview_scope(), self.timeline.value(), self.preview_fps(), self.preview_size(), self.preparation_budget(), frame_count=self.preview_range_frames.value())
+        # Follow each real automatic request; a later loop must not resurrect
+        # the first window prepared before the user moved the playhead.
+        self.remember_preview_range(scope_from_frames(self.preparation_target))
+        self._start_warm_batch()
+
+    def _obsolete_preparation(self):
+        if self.prepare_job:
+            self.prepare_job.cancel.cancel(); self.prepare_job = None
+
+    def cancel_preparation(self):
+        if self.prepare_job or self.preparation_explicit or self.warm_debounce.isActive():
+            self.trace_preview('prepare_cancelled')
+        self._obsolete_preparation()
+        self.warm_debounce.stop()
+        self.preparation_target = (); self.preparation_explicit = False; self.preparation_full = False
+        self.preparing_gap = None
+        self.prepare_preview.setText('Prepare range')
+        self.prepare_full_preview.setText('Prepare all frames')
+        self.refresh_cache_status()
+        self.refresh_preview_activity()
+
+    def prepare_full_playback(self, checked=False):
+        if self.preparing_gap is not None or self.closing or self.export_job or self.audition_pending(): return
+        if self.preparation_full and self.preparation_explicit:
+            self.cancel_preparation()
+            self.preview_status.setText('Full preparation cancelled · prepared frames kept. Click Prepare all frames to resume.')
+            return
+        self.cancel_preparation()
+        if not self.ensure_preview_context(): return
+        try:
+            self.preview_frames.enable_full(self.preview_size(), self.timeline.maximum() + 1)
+        except OSError as exc:
+            self.preview_status.setText(str(exc)); self.status.setText(str(exc)); return
+        from nebula.render.synth_preview import PreviewScope
+        self.remember_preview_range(PreviewScope(((0, self.timeline.maximum() + 1),)), mode='all')
+        self.preparation_explicit = self.preparation_full = True
+        self.preparation_limited = False
+        self.preparation_target = range(self.timeline.maximum() + 1)
+        self.trace_preview('prepare_requested', reason='all')
+        self.prepare_full_preview.setText('Cancel full preview')
+        self.refresh_cache_status()
+        self._start_warm_batch()
+
+    def cache_preview_packet(self, frame, packet):
+        try: self.preview_frames.put(frame, packet)
+        except OSError as exc:
+            self.cancel_preparation()
+            self.preview_frames.disable_full()
+            self.preview_frames.put(frame, packet)
+            message = f'Full preview storage stopped: {exc}'
+            self.status.setText(message); self.preview_status.setText(message)
+
+    def prepare_playback(self, checked=False):
+        if self.closing or self.export_job or self.audition_pending(): return
+        if self.preparing_gap is not None:
+            self.cancel_preview_gap(); return
+        if self.preparation_explicit and not self.preparation_full:
+            self.cancel_preparation(); self.preview_status.setText('Ready · preparation cancelled; completed frames remain cached.'); return
+        self.prepare_configured_range()
+
+    def _preparation_ready(self):
+        self.preparing_gap = None
+        self.prepare_preview.setText('Prepare range')
+        self.preparation_explicit = False
+        self.prepare_full_preview.setText('Prepare all frames')
+        self.refresh_cache_status()
+        scope = self.active_preview_scope()
+        if self.preparation_full:
+            from nebula.render.synth_preview import PreviewScope
+            scope = PreviewScope(((0, self.timeline.maximum()+1),))
+        count = sum(scope.contains(frame) for frame in self.preview_frames.available())
+        label = self.preview_scope_label()
+        if self.preparation_full:
+            label = 'Block composition' if self.workspace_navigation and self.workspace_navigation.editor is self else 'Timeline'
+        range_ready = bool(self.preparation_target) and all(self.preview_frames.contains(i) for i in self.preparation_target)
+        self.preview_status.setText(preparation_caption(label, count, scope.count, range_ready))
+        if self.preparation_limited and not self.preparation_target:
+            self.preview_status.setText('Preview not prepared · range exceeds memory budget')
+        self.preview_status.setToolTip('Prepared ranges are shown in green below the playhead. Prepare range keeps the chosen frames at the selected resolution using temporary lossless storage. Enable Loop prepared range, then Play. Prepare all frames covers the complete composition. Neither changes the export.')
+
+    def _start_warm_batch(self):
+        if self.closing or self.export_job: return
+        if not self.ensure_preview_context(): return
+        if not self.preparation_target:
+            self._preparation_ready(); return
+        if self.warming_job: return
+        if self.render_running or self.render_queued or self.preview_debounce.isActive():
+            if not self.warm_debounce.isActive(): self.warm_debounce.start(100)
+            self.refresh_preview_activity()
+            return
+        frames = self.preview_scheduler.batch(self.preparation_target, self.preview_frames)
+        size = self.preview_size()
+        frames = frames[:max(1, self.preparation_budget() // (size[0]*size[1]*3))]
+        if not frames:
+            self._preparation_ready(); return
+        job = PreparePreviewJob(self.preset, self.performance_base_sequence(), size, frames, self.preview_fps(), self.settings_generation, self.preview_bypass())
+        self.trace_preview('batch_started', frames=tuple(frames))
+        job.reserved_bytes = len(frames)*size[0]*size[1]*3
+        self.preview_frames.reserve(job.reserved_bytes, self.preparation_target)
+        self.refresh_cached_ranges()
+        self.prepare_job = self.warming_job = job; self.pending_jobs.append(job)
+        if self.failed_monitor_frame is not None and self.batch_includes_playhead(job):
+            self.failed_monitor_frame = None
+        self.prepare_preview.setText('Cancel range' if self.preparation_explicit and not self.preparation_full else 'Prepare range')
+        self.refresh_gap_feedback()
+        self.preview_status.setText(self.preparation_feedback())
+        self.refresh_monitor_frame()
+        job.signals.done.connect(lambda result, j=job: self.preparation_finished(j, result=result))
+        job.signals.failed.connect(lambda error, j=job: self.preparation_finished(j, error))
+        self.jobs.start(job)
+
+    def prepared_frame(self, job, result):
+        generation, frame, packet = result
+        if self.closing or job is not self.prepare_job or generation != self.settings_generation: return
+        if not self.ensure_preview_context(): return
+        self.cache_preview_packet(frame, packet)
+        self.refresh_cached_ranges()
+        output_time = self.timeline.value()/self.preview_fps()
+        if frame == round(self.performance_source_time(output_time)*self.preview_fps()):
+            self.display_frame(output_time, packet, cached=True)
+
+    def preparation_progress(self, job, done, total):
+        if job is self.prepare_job and not self.closing:
+            self.preview_status.setText(self.preparation_feedback())
+
+    def preparation_finished(self, job, error=None, *, result=None):
+        if job in self.pending_jobs: self.pending_jobs.remove(job)
+        self.preview_frames.release(getattr(job, 'reserved_bytes', 0)); job.reserved_bytes = 0
+        if self.warming_job is job: self.warming_job = None
+        valid = not self.closing and job is self.prepare_job and job.generation == self.settings_generation
+        if valid and result is not None:
+            generation, packets = result
+            for frame, packet in packets: self.prepared_frame(job, (generation, frame, packet))
+        if job is self.prepare_job: self.prepare_job = None
+        if self.closing: return
+        if valid and error:
+            self.trace_preview('prepare_failed', error=str(error)[:300])
+            if self.batch_includes_playhead(job):
+                self.failed_monitor_frame = (self.settings_generation, self.timeline.value() / self.preview_fps())
+            if self.discovery_session: self.discovery_session.fail(error)
+            if self.preparing_gap is not None: self.cancel_preview_gap()
+            else: self.cancel_preparation()
+            self.prepare_preview.setText('Prepare range'); self.preview_status.setText(f'Limited by rendering · {error}'); return
+        if self.render_queued and not self.render_running and not self.preview_debounce.isActive(): QTimer.singleShot(0, self.request_frame)
+        if self.preparation_target: QTimer.singleShot(0, self._start_warm_batch)
+        else: self.schedule_auto_preparation()
+        self.refresh_preview_activity()
+
+    def update_timeline_max(self):
+        if hasattr(self, "timeline"):
+            duration = self.sequence["duration"] if self.sequence is not None else self.preset["loop_seconds"]
+            fps = self.sequence["fps"] if self.sequence is not None else self.preset["export_fps"]
+            # A duration edit can clamp the playhead. It is not an explicit seek
+            # outside the loop, and must not turn the user's loop choice off.
+            with QSignalBlocker(self.timeline):
+                self.timeline.setMaximum(max(1, round(duration * fps)) - 1)
+            centiseconds = round(duration * 100)
+            self.total_time_label.setText(f'Total {centiseconds // 6000:02d}:{(centiseconds % 6000) / 100:05.2f}')
+            self.total_time_label.setAccessibleDescription(f'{duration:.2f} seconds · {round(duration * fps)} frames at {fps} fps')
+            self.refresh_preview_scope()
+            self.refresh_soundtrack()
+    def request_frame(self):
+        if self.preview_suspended or self.closing: return
+        if not self.ensure_preview_context(): return
+        if self.loop_preview_range.isChecked() and self.prepared_range_stamp != self.preview_range_stamp():
+            self.refresh_preview_scope()
+        sequence = self.performance_base_sequence()
+        sample_time = self.performance_source_time(self.timeline.value() / self.preview_fps())
+        if sequence and 'footage' in sequence:
+            from nebula.documents.synth_section_sources import video_source_at
+            source, _time = video_source_at(sequence, sample_time)
+            try: check_source(source)
+            except (ValueError, OSError) as exc:
+                self.settings_generation += 1
+                self.failed_monitor_frame = (self.settings_generation, self.timeline.value() / self.preview_fps())
+                self.preview_frames.clear(); self.cached_ranges.set_ranges([]); self.cancel_preparation(); self.render_queued = False
+                self.preview_status.setText(f'Preview unavailable: {exc}')
+                if self.discovery_session: self.discovery_session.fail(exc)
+                return
+        self.request_serial += 1
+        fps = self.sequence["fps"] if self.sequence is not None else self.preset["export_fps"]
+        self.current_time = self.timeline.value() / max(1, fps)
+        if self.composition is not None:
+            self.section_timeline.set_time(self.current_time)
+        if self.preview_debounce.isActive():
+            self.render_queued = True
+            self.refresh_monitor_frame()
+            return
+        source_frame = round(sample_time * fps)
+        self.preview_frames.anchor(source_frame)
+        packet = self.preview_frames.get(source_frame)
+        if packet is not None:
+            self.render_queued = False
+            self.display_frame(self.current_time, packet, cached=True)
+            return
+        self.preview_image_stale = True
+        if self.waits_for_prepared_frame():
+            # Waiting for a prepared packet must not compete with/cancel its worker.
+            self.render_queued = False
+            self.refresh_cache_status()
+            self.refresh_preview_activity()
+            return
+        if not self.discovery_session:
+            self._obsolete_preparation()
+        if self.render_running or (self.discovery_session and self.warming_job):
+            self.render_queued = True
+            self.refresh_monitor_frame()
+            return
+        self.render_queued = False
+        size = self.preview_size()
+        if self.warming_job and self.preview_frames.reserved + size[0]*size[1]*3 > self.preview_frames.budget:
+            self.render_queued = True
+            self.refresh_monitor_frame()
+            return
+        self.render_running = True
+        job = RenderJob(self.preset, sample_time, size, self.settings_generation, self.request_serial, sequence, self.video_frames, self.preview_bypass())
+        job.output_time = self.current_time
+        self.render_job = job
+        self.failed_monitor_frame = None
+        self.refresh_preview_activity()
+        job.reserved_bytes = size[0]*size[1]*3 if size[0]*size[1]*3 <= self.preview_frames.budget else 0
+        self.preview_frames.reserve(job.reserved_bytes, (source_frame,))
+        self.refresh_cached_ranges()
+        self.pending_jobs.append(job)
+        job.signals.done.connect(lambda result, j=job: self._receive_foreground_frame(j, result))
+        job.signals.done.connect(lambda _result, j=job: self._release_job(j))
+        job.signals.failed.connect(lambda error, j=job: self.render_failed(error, j.output_time) if j.settings_generation == self.settings_generation and not self.closing and not j.cancel.event.is_set() else None)
+        job.signals.failed.connect(lambda _error, j=job: self._release_job(j))
+        self.jobs.start(job)
+
+    def _receive_foreground_frame(self, job, result):
+        self.preview_frames.release(getattr(job, 'reserved_bytes', 0)); job.reserved_bytes = 0
+        if job.cancel.event.is_set(): return
+        self.frame_ready(result, output_time=getattr(job, 'output_time', None))
+
+    def cancel_foreground_render(self):
+        if self.render_job is not None:
+            self.render_job.cancel.cancel()
+
+    def _release_job(self, job):
+        self.preview_frames.release(getattr(job, 'reserved_bytes', 0)); job.reserved_bytes = 0
+        if job in self.pending_jobs:
+            self.pending_jobs.remove(job)
+        if self.render_job is job:
+            self.render_job = None
+            self.render_running = False
+        if self.render_queued and not self.closing and not self.preview_debounce.isActive():
+            self.render_queued = False
+            QTimer.singleShot(0, self.request_frame)
+        if self.preparation_target: QTimer.singleShot(0, self._start_warm_batch)
+        elif not self.warm_debounce.isActive(): self.schedule_auto_preparation()
+        self.refresh_preview_activity()
+
+    def frame_ready(self, result, output_time=None):
+        if self.closing or not self.ensure_preview_context(): return
+        settings_generation, request_serial, time_seconds, size, raw, elapsed = result
+        if settings_generation != self.settings_generation or request_serial < self.last_displayed_request: return
+        if self.closing: return
+        self.last_displayed_request = request_serial
+        self.last_render_seconds = elapsed
+        self.cache_preview_packet(round(time_seconds*self.preview_fps()), (size, raw))
+        self.refresh_cached_ranges()
+        # A job from an earlier source mapping must never replace a newer view.
+        output_time = time_seconds if output_time is None else output_time
+        if not self.play.isChecked() and abs(output_time-self.current_time) > .5/self.preview_fps(): return
+        if abs(time_seconds - self.performance_source_time(output_time)) > .5/self.preview_fps(): return
+        self.display_frame(output_time, (size, raw))
+
+    def display_frame(self, time_seconds, packet, cached=False):
+        self.refresh_effect_explanations(time_seconds)
+        if self.discovery_session: self.discovery_session.accept_packet()
+        if self.comparison:
+            self.comparison['pending'] = False; self.refresh_comparison_controls()
+        if cached: self.last_displayed_request = max(self.last_displayed_request, self.request_serial)
+        packet = self.perform_packet(packet, time_seconds)
+        self.update_performance_playhead(time_seconds)
+        size, raw = packet
+        if self.visual_sound_dialog and self.visual_sound_dialog.isVisible():
+            self.visual_sound_dialog.set_video_frame(packet,time_seconds)
+        self.viewer.set_packet((size, raw)); self.time_label.setText(f"{int(time_seconds) // 60:02d}:{time_seconds % 60:05.2f}")
+        self.cover_frame = (self.settings_generation, time_seconds)
+        self.preview_image_stale = False
+        self.failed_monitor_frame = None
+        self.monitor_meta.setText(f"{size[0]}×{size[1]} / RGB")
+        fps = self.preview_fps()
+        if self.play.isChecked():
+            now = time.monotonic(); self.display_times.append(now)
+            while len(self.display_times) > 2 and now-self.display_times[0] > 2.: self.display_times.popleft()
+            actual = (len(self.display_times)-1)/max(.001, now-self.display_times[0]) if len(self.display_times)>1 else 0.
+            speed = f'{actual:.1f}' if actual else 'measuring'
+            note = ' · skipping preview frames' if actual and actual < fps*.9 else ''
+            self.preview_status.setText(f'Preview: {speed} / {fps} fps{note}' + (' · cached' if cached else ''))
+        elif not self.prepare_job:
+            self.preview_status.setText(f'Preview paused · {"cached frame" if cached else f"rendered in {self.last_render_seconds*1000:.0f} ms"}')
+        if self.play.isChecked() and not self.warm_debounce.isActive() and not self.preparation_explicit:
+            self.schedule_auto_preparation()
+        self.refresh_preview_activity()
+    def render_failed(self, message, output_time):
+        self.failed_monitor_frame = (self.settings_generation, output_time)
+        if self.discovery_session: self.discovery_session.fail(message)
+        self.status.setText(f"Render error: {message}")
+        self.preview_status.setText('Preview unavailable · see the operation status for details.')
+        self.refresh_monitor_frame()
+    def scrub(self, value):
+        if not self.advancing:
+            self.cancel_foreground_render()
+            if not self.discovery_session:
+                loop_scope = self.prepared_playback_scope if self.prepared_playback_scope.count else self.prepared_range_scope
+                if self.loop_preview_range.isChecked() and (not loop_scope or not loop_scope.contains(value)):
+                    self.loop_preview_range.setChecked(False)
+                if not self.waits_for_prepared_frame(): self.cancel_preparation()
+                self.schedule_auto_preparation()
+        if self.play.isChecked() and not self.advancing:
+            self.play_origin = self.active_preview_scope().position(value); self.play_started = time.monotonic(); self.display_times.clear()
+        if not self.advancing: self.sync_soundtrack(force=True)
+        self.request_frame()
+
+    def advance(self):
+        now = time.monotonic()
+        scope = self.active_preview_scope()
+        if not scope.count:
+            self.preview_status.setText('Waiting for prepared frames · playback will start automatically')
+            self.sync_soundtrack()
+            self.schedule_play_tick()
+            return
+        elapsed_frames = self.play_origin + (now-self.play_started)*self.preview_fps()+1e-8
+        frame = int(elapsed_frames)
+        self.advancing = True
+        try:
+            previous_frame = self.timeline.value()
+            self.timeline.setValue(scope.frame_at(frame % max(1, scope.count)))
+            if self.loop_preview_range.isChecked() and self.timeline.value() == previous_frame:
+                self.request_frame()
+        finally: self.advancing = False
+        rank = frame % max(1, scope.count)
+        mapping = (scope.intervals, frame // max(1, scope.count), self.timeline.value() - rank)
+        discontinuity = mapping != getattr(self, '_soundtrack_mapping', None)
+        self._soundtrack_mapping = mapping
+        seconds = (self.timeline.value() + elapsed_frames - frame) / self.preview_fps()
+        if self.loop_preview_range.isChecked():
+            previous = getattr(self, '_prepared_audio_position', None)
+            # A larger ready range alone is not an audio seek. Wraps/gaps are.
+            discontinuity = previous is None or abs(seconds - (previous[1] + now - previous[0])) > .5/self.preview_fps()
+            self._prepared_audio_position = (now, seconds)
+        self.sync_soundtrack(force=discontinuity, seconds=seconds)
+        self.schedule_play_tick()
+
+    def schedule_play_tick(self):
+        if not self.play.isChecked(): return
+        # Schedule against the transport clock, not a rounded repeating period.
+        # At 12 fps a repeating 83-ms timer sometimes visits the same frame twice,
+        # then leaves a visible 166-ms hold even with every frame cached.
+        fps = self.preview_fps()
+        elapsed = self.play_origin + (time.monotonic()-self.play_started)*fps
+        remaining = (math.floor(elapsed+1e-8)+1-elapsed)/fps
+        self.play_timer.start(max(1, math.ceil(remaining*1000)))
+
+    def toggle_play(self, checked):
+        if not checked: self.stop_performance_recording()
+        self.monitor_state.setText("[ PLAY ]" if checked else "[ HOLD ]")
+        fps = self.sequence["fps"] if self.sequence is not None else self.preset["export_fps"]
+        if checked:
+            if not self.loop_preview_range.isChecked() and self.preparing_gap is None: self.cancel_preparation()
+            scope = self.active_preview_scope()
+            self.advancing = True
+            try:
+                if scope.count and not scope.contains(self.timeline.value()): self.timeline.setValue(scope.frame_at(0))
+            finally: self.advancing = False
+            self.play_origin = scope.position(self.timeline.value()); self.play_started = time.monotonic(); self.display_times.clear()
+            self._soundtrack_mapping = None
+            self._prepared_audio_position = None
+            self.preview_status.setText(f'Preview: measuring / {fps} fps')
+            if self.loop_preview_range.isChecked(): self.schedule_auto_preparation()
+        else:
+            self.play_timer.stop(); self.preview_status.setText('Preview paused')
+        self.sync_soundtrack(force=True)
+        if checked: self.schedule_play_tick()
+    def install_preset(self, preset, *, path=None):
+        self.end_comparison()
+        self.reset_soundtrack_work()
+        self.cancel_video_import(); self.play.setChecked(False)
+        self.sequence = None; self.composition = None; self.preset = preset
+        self.document_identity = object(); self.document_path = self.associated_document_path(path)
+        self.undo_compositions.clear(); self.redo_compositions.clear(); self.edit_key = None
+        self.rebuild_modules(); self.update_timeline_max(); self.invalidate(); self.mark_document_clean()
+
+    def select_curated(self, name):
+        if name not in curated_presets(): return
+        if not self.confirm_replacement():
+            with QSignalBlocker(self.preset_combo): self.preset_combo.setCurrentText(self.preset.get('name', 'Custom'))
+            return
+        self.install_preset(copy.deepcopy(curated_presets()[name]))
+    def generate_variation(self):
+        if self.composition is not None:
+            self.composer.new_take()
+            return
+        if self.sequence is not None:
+            rng = random.Random(self.sequence["seed"] + 1)
+            self.sequence["seed"] = rng.randrange(2**31 - 1)
+            state = self.sequence["states"][self.sequence_state_name]
+            self.sequence_state_updating = True
+            try:
+                for path, control in self.sequence_state_controls.items():
+                    if control.lock.isChecked() or control.spec.kind in ('artwork', 'text', 'mesh', 'font'): continue
+                    spec = control.spec
+                    delta = (spec.maximum - spec.minimum) * .12
+                    value = max(spec.minimum, min(spec.maximum, control.value() + rng.uniform(-delta, delta)))
+                    value = round(value) if spec.kind == "int" else round(value / spec.step) * spec.step
+                    control.set_value(value)
+                    state.setdefault("overrides", {})[path] = control.value()
+            finally:
+                self.sequence_state_updating = False
+            self.sequence = normalize_sequence(self.sequence)
+            with QSignalBlocker(self.sequence_field_controls["seed"]):
+                self.sequence_field_controls["seed"].setValue(self.sequence["seed"])
+            self.invalidate()
+            return
+        self.preset = self.collect(); rng = random.Random(self.preset["seed"] + 1); self.preset["seed"] = rng.randrange(2**31 - 1); self.mark_custom()
+        with QSignalBlocker(self.global_controls["seed"]):
+            self.global_controls["seed"].setValue(self.preset["seed"])
+        for (index, key), control in self.controls.items():
+            if control.lock.isChecked() or control.spec.kind in ('artwork', 'text', 'mesh', 'font'): continue
+            spec = control.spec
+            if spec.kind == "float": control.set_value(round(rng.uniform(spec.minimum, spec.maximum) / spec.step) * spec.step)
+            else: control.set_value(rng.randint(int(spec.minimum), int(spec.maximum)))
+        self.preset = self.collect(); self.invalidate()
+    def save_preset_dialog(self, checked=False):
+        return self.save_sequence_dialog()
+
+    def load_preset_dialog(self, checked=False):
+        return self.load_sequence_dialog()
+
+    def export_summary_rows(self):
+        navigation = self.workspace_navigation
+        if navigation and navigation.montage:
+            rows = navigation.montage.export_summary_rows()
+            rows.insert(1, ('Editing', 'A block is open. Export returns to the complete montage and includes its applied edits.'))
+            return rows
+        rows = export_rows(self.sequence, preset=self.preset)
+        dialog = self.visual_sound_dialog
+        if dialog and dialog.has_sound_draft():
+            rows.insert(-1, ('Sound draft', 'Unapplied sound changes. Export will ask whether to apply them or use the applied sound shown above.'))
+        return rows
+
+    def export_dialog(self):
+        navigation = self.workspace_navigation
+        if navigation and navigation.montage:
+            return navigation.export()
+        if self.discovery_session: self.dismiss_effect_discovery()
+        if self.audition_pending():
+            self.status.setText('Keep or discard the temporary variation before exporting.'); return
+        if self.export_job: return
+        default_name = self.suggested_output_path(".mp4")
+        path, _ = QFileDialog.getSaveFileName(self, "Export synth sequence" if self.sequence is not None else "Export synth loop", default_name, "MP4 video (*.mp4)")
+        if not path: return
+        if self.protected_document_destination(path) or (self.document_path and Path(path).resolve() == self.document_path.resolve()):
+            self.status.setText('Choose an export destination different from your project and source media.')
+            return
+        if not self.resolve_sound_draft('exporting'): return
+        self.cancel_preparation()
+        self.export_button.setEnabled(False)
+        self.export_progress.setValue(0)
+        self.export_progress.setFormat('Exporting… 0%')
+        self.export_progress.show(); self.cancel_export.show()
+        QTimer.singleShot(0, lambda: self.preview_controls_scroll.ensureWidgetVisible(self.export_progress))
+        p = copy.deepcopy(self.preset) if self.sequence is not None else self.collect()
+        canvas = self.current_canvas(); size = (canvas["width"], canvas["height"])
+        job = ExportJob(p, path, size, self.sequence); self.export_job = job; self.cancel_export.setEnabled(True); self.pending_jobs.append(job)
+        self.refresh_preview_activity()
+        job.signals.progress.connect(lambda done, total, j=job: self.export_progressed(j, done, total))
+        job.signals.done.connect(lambda result, j=job: self.export_finished(j, result))
+        job.signals.done.connect(lambda _result, j=job: self._finish_export(j))
+        job.signals.failed.connect(lambda error, j=job: self.export_failed(j, error))
+        job.signals.failed.connect(lambda _error, j=job: self._finish_export(j))
+        self.jobs.start(job)
+
+    def export_progressed(self, job, done, total):
+        if self.export_job is not job or self.closing:
+            return
+        total = max(1, int(total))
+        done = max(0, min(total, int(done)))
+        percent = round(done * 100 / total)
+        self.export_progress.setValue(percent)
+        self.export_progress.setFormat(f'Exporting… {percent}% · frame {done}/{total}')
+        self.status.setText(f'Exporting frame {done}/{total} · {percent}%')
+
+    def export_finished(self, job, path):
+        if self.export_job is not job or self.closing:
+            return
+        self.last_export_directory = str(Path(path).expanduser().resolve().parent)
+        if self.export_settings is not None:
+            self.export_settings.setValue('export/directory', self.last_export_directory)
+            self.export_settings.sync()
+        self.export_progress.setValue(100)
+        self.export_progress.setFormat('Export complete · 100%')
+        self.status.setText(f'Exported {path}')
+
+    def export_failed(self, job, error):
+        if self.export_job is not job or self.closing:
+            return
+        cancelled = 'cancel' in str(error).lower()
+        self.export_progress.setFormat('Export cancelled' if cancelled else 'Export stopped')
+        self.status.setText(f'Export error: {error}')
+
+    def _finish_export(self, job):
+        if job in self.pending_jobs:
+            self.pending_jobs.remove(job)
+        if self.export_job is job:
+            self.export_job = None
+            self.cancel_export.setEnabled(False); self.cancel_export.hide(); self.export_progress.hide()
+            self.export_button.setEnabled(True)
+            self.preview_status.setText('Preview outdated · prepare frames to update' if self.preview_image_stale else 'Preview paused')
+            self.schedule_auto_preparation()
+            self.refresh_preview_activity()
+
+    def cancel_export_job(self):
+        if self.export_job:
+            self.export_job.cancel.cancel()
+            self.export_progress.setFormat('Cancelling export…')
+            self.status.setText("Cancelling export…")
+
+    def closeEvent(self, event):
+        navigation = self.workspace_navigation
+        if navigation and not navigation.disposing and navigation.montage:
+            if navigation.host is not self:
+                navigation.return_to_montage(); event.ignore(); return
+            if not navigation.can_leave(): event.ignore(); return
+            navigation.shutdown()
+        elif not self.closing and not (navigation and navigation.disposing) and not self.confirm_close():
+            event.ignore()
+            return
+        self.performance_timer.stop()
+        self.save_workspace()
+        self.closing = True
+        self.shot_strip.close()
+        self.cancel_foreground_render()
+        self.close_soundtrack()
+        self.study_browser_priority_timer.stop()
+        if self.studies_dialog is not None: self.studies_dialog.close()
+        QApplication.instance().removeEventFilter(self)
+        self.play_timer.stop()
+        self.preview_debounce.stop(); self.cancel_preparation()
+        self.cancel_video_import()
+        if self.study_job: self.study_job.cancel.cancel()
+        self.video_frames.cancel.cancel()
+        if not self.render_running: self.video_frames.close()
+        if self.export_job:
+            self.export_job.cancel.cancel()
+        self.jobs.waitForDone(1500)
+        self.preview_frames.clear()
+        super().closeEvent(event)
+
+
+    def refresh_effect_explanations(self, seconds=None):
+        if not self.composition or not self.composer or not self.sequence: return
+        import time
+        now = time.monotonic()
+        if self.play.isChecked() and isinstance(seconds, (int, float)) and now-getattr(self, '_explanation_time', 0)<.2: return
+        self._explanation_time = now
+        from nebula.effects.synth_effect_diagnostics import explain_effect
+        panel = self.composer.effects_panel
+        sid = self.composer.target()['id'] if self.composer.scope else None
+        from nebula.documents.synth_sequence import resolve_sequence_frame
+        seconds = seconds if isinstance(seconds, (int, float)) else self.timeline.value()/self.preview_fps()
+        # The editor owns an already compiled/normalized sequence. Revalidating
+        # every state here stalls cached video and starves live audio output.
+        source_seconds = seconds if self.comparison else self.performance_source_time(seconds)
+        resolved = resolve_sequence_frame(self.sequence, source_seconds, normalized=True)
+        panel.set_explanations(explain_effect(self.composition, self.sequence, panel.effect_id, source_seconds, sid, resolved))
+        from nebula.ui.synth_parameter_origin import FrameOrigins, performance_summary
+        origins = FrameOrigins(self.composition, self.sequence, seconds, resolved)
+        monitor_note = None
+        if self.comparison:
+            monitor_note = ('Monitor: A/B preview · editing the working project',
+                            'The monitor is comparing a snapshot or temporary preview. Exit comparison to inspect the working project’s frame values.')
+        elif self.preview_bypass():
+            monitor_note = ('Monitor: source preview · treatments bypassed',
+                            'Return to the processed preview to inspect frame values. Base editors still change the working project.')
+        for owner in (panel, self.composer.object_editor, self.composer.object_panel):
+            if not owner.isVisible(): continue
+            for path, control in owner.controls.items():
+                info = origins.describe(path, animated=control.study_animated,
+                                        automation_count=control.automation_count, selected_id=sid)
+                control.set_frame_origin(monitor_note if monitor_note and info else info)
+        title, detail = performance_summary(self.sequence.get('visual_performance'))
+        self.composer.performance_notice.setText(title + ' · <a href="perform">Open Perform</a>' if title else '')
+        self.composer.performance_notice.setToolTip(detail)
+        self.composer.performance_notice.setAccessibleDescription(detail)
+        self.composer.performance_notice.setVisible(bool(title))
+        for colors in (panel.color_panel, self.composer.object_panel.color_panel):
+            if colors.isVisible(): colors.refresh()
+        if panel.breakdown_host.isVisible():
+            panel.update_breakdown_status({key: explain_effect(self.composition, self.sequence, key, source_seconds, sid, resolved)
+                                           for key in panel.breakdown_rows})
+
+
+def run_synth_app(preset=None, *, project_paths=()):
+    app = QApplication.instance() or QApplication(sys.argv)
+    from nebula.ui.synth_project_files import ProjectFileOpener
+    file_opener = ProjectFileOpener(app)
+    apply_theme(app)
+    from nebula.core.studio_diagnostics import configure
+    configure()
+    state_dir = os.environ.get('NEBULA_STATE_DIR')
+    settings = QSettings(str(Path(state_dir) / 'settings.ini'), QSettings.Format.IniFormat) if state_dir else QSettings('AlanFnz', 'Nebula Studio')
+    from nebula.documents.synth_recent_projects import RecentProjects
+    recent_projects = RecentProjects(parent=app)
+    app.aboutToQuit.connect(recent_projects.close)
+    window = SynthStudio(preset, settings=settings, recent_projects=recent_projects); window.show_workspace()
+    recent_projects.busy = window.project_cover_work_busy
+    file_opener.bind(window, project_paths)
+    return app.exec()
+
+
+
+if __name__ == "__main__":
+    run_synth_app()

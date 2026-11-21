@@ -1,0 +1,41 @@
+__pycache__/
+*.pyc
+.env
+.DS_Store
+CLAUDE.md
+.claude/
+
+# project working directories
+*/frames_raw/
+*/frames_wobbled/
+*/frames_treated/
+*/source/
+*/output/
+*/tune_params.json
+tune_preview.png
+tune_source.png
+
+# Local desktop environment and validation output
+.venv/
+.pytest_cache/
+.validation/
+output/
+
+# Generated macOS application and packaging intermediates
+build/
+dist/
+
+# Authored projects belong to an external library.
+*.nebula
+*.nebula.json
+*.als
+*.blend
+*.wav
+*.mov
+*.mp4
+/projects/
+/studies/
+/personal/
+/presets/
+/authoring/
+/library/

@@ -1,0 +1,477 @@
+"""Editable, deterministic cue sequences for source-free synth transitions."""
+from __future__ import annotations
+from nebula.resources import RESOURCE_ROOT
+
+import copy
+import json
+import math
+from functools import lru_cache
+from pathlib import Path
+
+import numpy as np
+from PIL import Image
+
+from nebula.render.synth import MODULE_BY_ID, _seed, curated_presets, normalize_synth, render_synth_frame
+from nebula.core.synth_canvas import normalize_canvas, object_offset
+from nebula.core.synth_resolution import finish_resolution, render_resolution
+from nebula.effects.synth_intensity import amount as effect_amount, blend_images, low_res_strength, with_low_res
+from nebula.core.synth_ink_timing import DURATION_KEYS, stage_durations
+from nebula.effects.synth_master import apply_master, normalize_master
+from nebula.documents.synth_compat import render_version
+from nebula.documents.synth_retime import mapped_time, normalize_time_map
+from nebula.documents.synth_automation import normalize_automations, apply_automations
+from nebula.render.synth_instances import instance_ids, state_instance_ids
+
+SEQUENCE_SCHEMA_VERSION = 1
+COLOR_MOTION_SOURCES = ('color_field', 'prismatic_field')
+NEUTRAL_FIELD = {
+    "valley_start": 0.0,
+    "valley_end": 0.0,
+    "valley_gain": 1.0,
+    "cloud_start": 0.0,
+    "cloud_strength": 0.0,
+    "cloud_late_start": 0.0,
+    "cloud_late_rate": 0.0,
+}
+
+
+@lru_cache(maxsize=2)
+def _reference_data(refined=False):
+    from nebula.documents.study_library import library_directory
+    filename = "sequence-refined.json" if refined else "sequence.json"
+    path = library_directory() / filename
+    if path.is_file():
+        return json.loads(path.read_text(encoding="utf-8"))
+    return {"schema_version": 1, "name": "Untitled", "duration": 15., "fps": 25,
+            "seed": 2409, "field": dict(NEUTRAL_FIELD),
+            "states": {"base": {"preset": "Reference blinds", "enabled": [], "overrides": {}}},
+            "cues": [{"time": 0., "state": "base", "transition": "cut"}]}
+
+
+def reference_sequence(refined=False):
+    """Return an independent, editable copy of the initial sequence."""
+    result = copy.deepcopy(_reference_data(refined))
+    result['render_version'] = 1
+    return result
+
+
+@lru_cache(maxsize=1)
+def _preset_templates():
+    # Shared only for name lookup and copying. Each resolved state owns its settings.
+    return curated_presets()
+
+
+def normalize_sequence(raw=None):
+    if raw is None:
+        return reference_sequence()
+    if not isinstance(raw, dict):
+        raise ValueError("Synth sequence must be a JSON object")
+    if raw.get("schema_version", 0) not in (1, 2, 3, 4, 5, 6, 7):
+        raise ValueError(f"Unsupported sequence schema version: {raw.get('schema_version')}")
+    result = copy.deepcopy(reference_sequence())
+    if raw.get('schema_version') in (2, 3) or 'footage' in raw:
+        from nebula.sources.synth_video import normalize_footage
+        result.update(schema_version=2, footage=normalize_footage(raw.get('footage')))
+    if raw.get('soundtrack') is not None:
+        from nebula.audio.synth_soundtrack import normalize_soundtrack
+        result['soundtrack'] = normalize_soundtrack(raw['soundtrack'])
+    result['render_version'] = render_version(raw)
+    if 'effect_order' in raw:
+        from nebula.effects.synth_effect_order import normalize_order
+        result['effect_order'] = normalize_order(raw['effect_order'])
+    result["name"] = str(raw.get("name", result["name"]))
+    if "canvas" in raw:
+        result["canvas"] = normalize_canvas(raw["canvas"])
+    if 'master' in raw:
+        result['master'] = normalize_master(raw['master'])
+    for key, lo, hi in (("duration", 1 / 120, 3600), ("fps", 1, 120), ("seed", 0, 2**31 - 1)):
+        value = raw.get(key, result[key])
+        if not isinstance(value, (int, float)) or not math.isfinite(float(value)) or not lo <= float(value) <= hi:
+            raise ValueError(f"{key} is outside the supported range")
+        result[key] = int(value) if key in {"fps", "seed"} else float(value)
+    if 'time_map' in raw:
+        result['time_map'] = normalize_time_map(raw['time_map'], result['duration'])
+    if 'video_segments' in raw:
+        if 'footage' not in result: raise ValueError('Video segments need a video source')
+        from nebula.documents.synth_section_sources import normalize_video_segments
+        result['video_segments'] = normalize_video_segments(raw['video_segments'], result['duration'])
+        result['schema_version'] = 3
+    field = copy.deepcopy(raw.get("field", NEUTRAL_FIELD))
+    if not isinstance(field, dict):
+        raise ValueError("field must be an object")
+    result["field"] = copy.deepcopy(NEUTRAL_FIELD)
+    for key, default in NEUTRAL_FIELD.items():
+        value = field.get(key, default)
+        if not isinstance(value, (int, float)) or not math.isfinite(float(value)):
+            raise ValueError(f"field.{key} must be finite")
+        result["field"][key] = float(value)
+    states = raw.get("states", result["states"])
+    if not isinstance(states, dict):
+        raise ValueError("states must be an object")
+    result["states"] = {}
+    for name, state in states.items():
+        if not isinstance(name, str) or not isinstance(state, dict) or state.get("preset") not in _preset_templates():
+            raise ValueError(f"Unknown sequence state: {name}")
+        overrides = state.get("overrides", {})
+        if not isinstance(overrides, dict):
+            raise ValueError(f"{name}.overrides must be an object")
+        result["states"][name] = {"preset": state["preset"], "overrides": copy.deepcopy(overrides)}
+        if "enabled" in state:
+            result["states"][name]["enabled"] = list(state["enabled"])
+    cues = raw.get("cues", result["cues"])
+    if not isinstance(cues, list) or not cues:
+        raise ValueError("cues must be a non-empty list")
+    normalized = []
+    last = -1
+    for cue in cues:
+        if not isinstance(cue, dict) or cue.get("state") not in result["states"]:
+            raise ValueError("Each cue needs a known state")
+        time = cue.get("time")
+        duration = cue.get("duration", 0)
+        if not isinstance(time, (int, float)) or not math.isfinite(float(time)) or float(time) < 0 or float(time) > result["duration"]:
+            raise ValueError("Cue time is outside the sequence")
+        if not isinstance(duration, (int, float)) or not math.isfinite(float(duration)) or float(duration) < 0:
+            raise ValueError("Cue duration must be non-negative")
+        if float(time) < last:
+            raise ValueError("Cues must be sorted by time")
+        last = float(time)
+        item = {"time": float(time), "state": cue["state"], "transition": str(cue.get("transition", "cut")), "duration": min(float(duration), result["duration"] - float(time))}
+        for key in ("intensity", "direction"):
+            if key in cue:
+                value = cue[key]
+                lo, hi = (0, 3) if key == "intensity" else (-1, 1)
+                if not isinstance(value, (int, float)) or not math.isfinite(value) or not lo <= value <= hi:
+                    raise ValueError(f"Cue {key} is outside the supported range")
+                item[key] = float(value)
+        if 'color_continuation' in cue:
+            rates = cue['color_continuation']
+            if not isinstance(rates, dict) or any(
+                key not in COLOR_MOTION_SOURCES or type(value) not in (int, float) or not 0 < value <= 1
+                for key, value in rates.items()
+            ):
+                raise ValueError('Invalid color continuation rates')
+            if rates:
+                item['color_continuation'] = dict(rates)
+        if item["transition"] not in {"cut", "morph", "sweep", "flash"}:
+            raise ValueError("transition must be cut, morph, sweep or flash")
+        normalized.append(item)
+    result["cues"] = normalized
+    result.pop("automations", None)
+    if raw.get("automations") is not None:
+        events = normalize_automations(raw["automations"], duration=result["duration"], fractions=False)
+        if events: result["automations"] = events
+    if 'soundtrack' in result:
+        result['schema_version'] = 4
+    if raw.get('audio_reactivity') is not None:
+        from nebula.audio.synth_audio_reactivity import normalize_reactivity
+        result['audio_reactivity'] = normalize_reactivity(raw['audio_reactivity'], result.get('soundtrack'))
+        result['schema_version'] = 5
+    if raw.get('generated_sound') is not None:
+        from nebula.audio.synth_visual_sound import normalize_sound
+        result['generated_sound'] = normalize_sound(raw['generated_sound'])
+        result['schema_version'] = 6
+    if raw.get('visual_performance') is not None:
+        from nebula.documents.synth_performance import normalize_performance
+        result['visual_performance'] = normalize_performance(raw['visual_performance'])
+        result['schema_version'] = 7
+    return result
+
+
+def save_sequence(path, sequence):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(normalize_sequence(sequence), indent=2) + "\n")
+
+
+def load_sequence(path):
+    raw = json.loads(Path(path).read_text())
+    from nebula.documents.synth_section_sources import resolve_media_paths
+    resolve_media_paths(raw, Path(path).resolve().parent)
+    return normalize_sequence(raw)
+
+
+def _apply_override(preset, path, value):
+    parts = path.split(".")
+    if len(parts) == 1 and parts[0] in preset:
+        preset[parts[0]] = value
+        return
+    if len(parts) != 2:
+        return
+    module_id, key = parts
+    for entry in preset["modules"]:
+        if entry.get("id") == module_id:
+            entry.setdefault("params", {})[key] = value
+            return
+
+
+def _state_preset(sequence, state_name):
+    state = sequence["states"][state_name]
+    preset = copy.deepcopy(_preset_templates()[state["preset"]])
+    # Every state uses the same instance identities, including disabled slots.
+    # Appending preserves all historical module indices and random seeds.
+    for identifier in instance_ids(key for item in sequence['states'].values() for key in state_instance_ids(item)):
+        preset['modules'].append(dict(id=identifier, enabled=False,
+                                      params={p.key: p.default for p in MODULE_BY_ID[identifier].params}))
+    preset['render_version'] = render_version(sequence)
+    if 'effect_order' in sequence:
+        preset['effect_order'] = sequence['effect_order']
+    for path, value in state.get("overrides", {}).items():
+        _apply_override(preset, path, value)
+    if "enabled" in state:
+        enabled = set(state["enabled"])
+        for entry in preset["modules"]:
+            entry["enabled"] = entry.get("id") in enabled
+    # Authored study cues own their timing. Disable the standalone preset's
+    # slow LFO targets so a cue cannot be silently reshaped underneath it.
+    preset["animation"]["targets"] = {}
+    preset["seed"] = int((preset["seed"] + sequence["seed"]) % (2**31 - 1))
+    if "canvas" in sequence:
+        preset.update(sequence["canvas"])
+    return normalize_synth(preset)
+
+
+def color_continuation_cue(sequence, cues, start):
+    """Recover a field's earlier palette pace only when its ending slowed down."""
+    if len(cues) < 2 or cues[-1].get('color_continuation'):
+        return None
+    def active_rates(cue):
+        return {module['id']: module['params']['color_speed']
+                for module in _state_preset(sequence, cue['state'])['modules']
+                if module['enabled'] and module['id'] in COLOR_MOTION_SOURCES}
+
+    ending = active_rates(cues[-1])
+    deltas = {}
+    for earlier in reversed(cues[:-1]):
+        if len(deltas) == len(ending):
+            break
+        for key, rate in active_rates(earlier).items():
+            if key in ending and key not in deltas and rate > ending[key]:
+                deltas[key] = rate - ending[key]
+    if deltas:
+        return dict(time=start, state=cues[-1]['state'], transition='cut', duration=0.,
+                    color_continuation=deltas)
+    return None
+
+
+def _continue_colors(base, deltas, elapsed):
+    # Integral of a smoothstep speed ramp. Both phase and velocity match at
+    # the join. Absolute time keeps export, preview and seeking identical.
+    ramp = 1.4
+    u = min(1., elapsed / ramp)
+    distance = ramp * u**3 * (1. - .5*u) + max(0., elapsed - ramp)
+    modules = []
+    for module in base['modules']:
+        if module['enabled'] and module['id'] in deltas:
+            params = module['params']
+            phase = (params['color_phase'] + distance * base['speed'] * deltas[module['id']]) % 1.
+            module = dict(module, params=dict(params, color_phase=phase))
+        modules.append(module)
+    return dict(base, modules=modules)
+
+
+def _ease(value):
+    value = max(0.0, min(1.0, value))
+    return value * value * (3 - 2 * value)
+
+
+def _interpolate_presets(first, second, amount, *, progress=None):
+    """Interpolate numeric geometry/signal controls before rendering.
+
+    This keeps a transition spatially coherent: rows, apertures, slab widths
+    and exposure change as one generated form instead of dissolving two images.
+    """
+    result = copy.deepcopy(first)
+    for key in ("speed", "depth", "object_x", "object_y"):
+        if key in second and isinstance(second[key], (int, float)):
+            result[key] = float(first.get(key, second[key])) * (1 - amount) + float(second[key]) * amount
+    by_id = {entry.get("id"): entry for entry in second.get("modules", [])}
+    for entry in result.get("modules", []):
+        other = by_id.get(entry.get("id"))
+        if not other:
+            continue
+        ink = entry.get('id') == 'ink_bloom'
+        first_durations = stage_durations(entry['params']) if ink else {}
+        second_durations = stage_durations(other['params']) if ink else {}
+        entry["enabled"] = entry.get("enabled", True) if amount < .5 else other.get("enabled", True)
+        for key, value in other.get("params", {}).items():
+            original = entry.get("params", {}).get(key, value)
+            # A recipe sentinel is not a negative duration. Resolve only the
+            # stage being customized, preserving untouched legacy morphs.
+            if ink and key in DURATION_KEYS and (original >= 0 or value >= 0):
+                original, value = first_durations[key], second_durations[key]
+            module = MODULE_BY_ID.get(entry.get("id"))
+            spec = next((spec for spec in module.params if spec.key == key), None) if module else None
+            if spec and spec.choices:
+                entry.setdefault("params", {})[key] = original if amount < .5 else value
+                continue
+            if isinstance(original, (int, float)) and isinstance(value, (int, float)):
+                parameter_amount = amount
+                if (progress is not None and entry.get('id') == 'prismatic_field'
+                        and key in ('rotation', 'opening', 'gather', 'drift')):
+                    from nebula.sources.synth_prismatic import transition_progress
+                    parameter_amount = transition_progress(progress, amount, other['params'], rotation=key == 'rotation')
+                interpolated = float(original) * (1 - parameter_amount) + float(value) * parameter_amount
+                # Rounding can push an endpoint one ULP beyond its legal range
+                # (for example a constant font weight of 100 during a morph).
+                if spec:
+                    interpolated = max(spec.minimum, min(spec.maximum, interpolated))
+                entry.setdefault("params", {})[key] = round(interpolated) if spec and spec.kind == "int" else interpolated
+            elif amount >= .5:
+                entry.setdefault("params", {})[key] = value
+    return normalize_synth(result)
+
+
+def resolve_sequence_frame(sequence, time_seconds, *, normalized=False, state_cache=None):
+    """Exact renderer cue/base resolution, without rendering or decoding media.
+
+    An optional state_cache belongs to one immutable sequence. The sound
+    sampler uses it to avoid rebuilding held presets on every control tick.
+    """
+    seq = sequence if normalized else normalize_sequence(sequence)
+    t = max(0.0, min(float(seq["duration"]), float(time_seconds)))
+    effect_time = mapped_time(seq.get('time_map'), t, 'effects')
+    video_time = mapped_time(seq.get('time_map'), t, 'video')
+
+    def preset(cue):
+        name = cue['state']
+        if state_cache is None:
+            base = _state_preset(seq, name)
+        else:
+            if name not in state_cache:
+                if len(state_cache) >= 64:
+                    state_cache.clear()
+                state_cache[name] = _state_preset(seq, name)
+            base = state_cache[name]
+        if cue.get('color_continuation') and t > cue['time']:
+            elapsed = effect_time - mapped_time(seq.get('time_map'), cue['time'], 'effects')
+            return _continue_colors(base, cue['color_continuation'], max(0., elapsed))
+        return base
+
+    cue_index = 0
+    for index, cue in enumerate(seq["cues"]):
+        if cue["time"] <= t:
+            cue_index = index
+        else:
+            break
+    cue = seq["cues"][cue_index]
+    transition = cue.get("transition", "cut")
+    amount = 1.0
+    if transition != "cut" and cue.get("duration", 0) > 0:
+        amount = _ease((t - cue["time"]) / cue["duration"])
+        if amount >= 1:
+            amount = 1.0
+    if cue_index > 0 and transition != "cut" and amount < 1:
+        previous = seq["cues"][cue_index - 1]
+        first = preset(previous)
+        second = preset(cue)
+        # Sweeps and flashes are authored as event overlays: their target
+        # geometry is visible on the first frame of the event. Only morphs
+        # spend their onset frame on the previous geometry.
+        base = second if transition in {"sweep", "flash"} else _interpolate_presets(
+            first, second, amount, progress=(t-cue['time'])/cue['duration'])
+    else:
+        base = preset(cue)
+    base = apply_automations(base, seq.get("automations", ()), t)
+    if seq.get('visual_performance'):
+        from nebula.documents.synth_performance import apply_surface
+        base = apply_surface(base, seq['visual_performance'], t, seq['duration'])
+    return seq, t, effect_time, video_time, cue, transition, amount, base
+
+
+def render_sequence_frame(sequence, time_seconds, size=None, frame_provider=None, bypass=False, *, cancel=None):
+    seq = normalize_sequence(sequence)
+    config = seq.get('visual_performance') if not bypass else None
+    if config:
+        from nebula.documents.synth_performance import base_document, source_time, apply_frame
+        base = base_document(seq)
+        # Surface controls belong in the base renderer; fast controls follow it.
+        image = _render_sequence_frame_base(base, source_time(config, time_seconds, seq['duration'], seq['fps']), size, frame_provider, bypass, cancel=cancel)
+        return apply_frame(image, config, time_seconds, seq['duration'], seq.get('seed', 0))
+    return _render_sequence_frame_base(seq, time_seconds, size, frame_provider, bypass, cancel=cancel)
+
+
+def _render_sequence_frame_base(seq, time_seconds, size=None, frame_provider=None, bypass=False, *, cancel=None):
+    if 'footage' in seq and frame_provider is None:
+        from nebula.sources.synth_video import VideoFrameProvider
+        with VideoFrameProvider(cancel=cancel) as provider:
+            return _render_sequence_frame_base(seq, time_seconds, size, provider, bypass, cancel=cancel)
+    seq, t, effect_time, video_time, cue, transition, amount, base = resolve_sequence_frame(seq, time_seconds, normalized=True)
+    if not bypass and 'audio_reactivity' in seq:
+        from nebula.audio.synth_audio_reactivity import apply_reactivity
+        base = apply_reactivity(base, seq, t, cancel=cancel)
+    def render(base):
+        return _render_resolved_frame(seq, t, effect_time, video_time, cue, transition, amount, base, size, frame_provider, bypass)
+    strength = low_res_strength(base)
+    if not bypass and strength < 1:
+        dry = render(with_low_res(base, False))
+        return dry if strength <= 0 else blend_images(dry, render(with_low_res(base, True)), strength)
+    return render(base)
+
+
+def _render_resolved_frame(seq, t, effect_time, video_time, cue, transition, amount, base, size, frame_provider, bypass):
+    output, working, sampling = render_resolution(base, size)
+    source_image = None
+    source_mask = None
+    repetition_mask = None
+    if 'footage' in seq:
+        from nebula.sources.synth_video import frame_on_canvas
+        from nebula.documents.synth_section_sources import video_source_at
+        footage, video_time = video_source_at(seq, t, video_time)
+        source_size = output if bypass else working
+        source = frame_provider.frame(footage, video_time, edge=max(*output, *source_size))
+        source_image = frame_on_canvas(source, footage, base, source_size)
+        if bypass: return source_image
+        cutout = next((entry for entry in base['modules'] if entry['id'] == 'subject_cutout' and entry['enabled']), None)
+        if cutout and cutout['params']['mix'] > 0 and effect_amount(cutout['params']) > 0:
+            p = cutout['params']
+            continuity = {'retention': p['retention'], 'retention_seconds': p['retention_seconds']} if p['retention'] > 0 else {}
+            source_mask = frame_provider.mask(footage, video_time, base, p['mode'], **continuity)
+        repetition = next((entry for entry in base['modules'] if entry['id'] == 'signal_repetition' and entry['enabled']), None)
+        if repetition and repetition['params']['mix'] and repetition['params']['region'] == 3 and effect_amount(repetition['params']) > 0:
+            repetition_mask = source_mask if source_mask is not None and cutout['params']['mode'] == 0 else frame_provider.mask(footage, video_time, base, 0)
+        base['treatment_fps'] = footage['treatment_fps']
+    # Keep transition overlays and sequence noise on the same working raster.
+    # The synth receives that exact size, so it performs no intermediate resize.
+    current = render_synth_frame(base, time_seconds=effect_time, size=working, source_image=source_image, source_mask=source_mask, repetition_mask=repetition_mask) if source_image is not None else render_synth_frame(base, time_seconds=effect_time, size=working)
+    image = _apply_sequence_overlays(current, seq, effect_time, cue, transition, amount, base)
+    image = apply_master(image, seq.get('master'))
+    return finish_resolution(image, output, sampling)
+
+
+def _apply_sequence_overlays(current, seq, t, cue, transition, amount, base):
+    field = seq.get("field", NEUTRAL_FIELD)
+    valley = (field["valley_start"] < field["valley_end"] and
+              field["valley_start"] <= t <= field["valley_end"] and field["valley_gain"] != 1)
+    cloud_active = t >= field["cloud_start"] and field["cloud_strength"] > 0
+    transition_active = transition in ("sweep", "flash") and amount < 1
+    if not (transition_active or valley or cloud_active):
+        return current
+    result = np.asarray(current, dtype=np.float32) / 255
+    if transition == "sweep" and amount < 1:
+        direction = float(cue.get("direction", 1))
+        y = np.linspace(-1, 1, result.shape[0])[:, None]
+        edge = -1 + amount * 2 if direction >= 0 else 1 - amount * 2
+        sweep = np.clip((y - edge) / .16, 0, 1) if direction >= 0 else np.clip((edge - y) / .16, 0, 1)
+        result += sweep[..., None] * float(cue.get("intensity", .5)) * np.array((1.0, .985, .98), dtype=np.float32)[None, None, :]
+    if transition == "flash" and amount < 1:
+        # Flash peaks on its first held frame instead of vanishing at onset.
+        intensity = float(cue.get("intensity", .6)) * (1.0 - .35 * amount)
+        y, x = np.mgrid[0:result.shape[0], 0:result.shape[1]]
+        xn = x / max(1, result.shape[1] - 1) * 2 - 1
+        sweep = np.exp(-(((xn - (.15 + .55 * amount)) / .42) ** 2))
+        flash_color = np.array((1.0, .985, .98), dtype=np.float32)[None, None, :]
+        result = result * (1 - .90 * intensity) + flash_color * (.90 * intensity)
+        result += intensity * .12 * sweep[..., None] * flash_color
+    if valley:
+        result *= field["valley_gain"]
+    if cloud_active:
+        cloud_strength = field["cloud_strength"] if t < field["cloud_late_start"] else min(.2, field["cloud_strength"] + (t - field["cloud_late_start"]) * field["cloud_late_rate"])
+        rng = np.random.default_rng(_seed(seq["seed"], "sequence-cloud", round(t * seq["fps"])))
+        cloud = rng.normal(0, cloud_strength, result.shape[:2]).astype(np.float32)
+        y, x = np.mgrid[0:result.shape[0], 0:result.shape[1]]
+        dx, dy = object_offset(base, (result.shape[1], result.shape[0]))
+        if dx: x = x - dx
+        if dy: y = y - dy
+        cloud_mask = np.exp(-((((x / max(1, result.shape[1] - 1) - .62) / .42) ** 2) + (((y / max(1, result.shape[0] - 1) - .5) / .65) ** 2)))
+        result += cloud[..., None] * cloud_mask[..., None] * np.array((.72, .82, .78), dtype=np.float32)[None, None, :]
+    return Image.fromarray(np.clip(result * 255, 0, 255).astype(np.uint8), "RGB")

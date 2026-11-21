@@ -1,0 +1,1004 @@
+"""Native inspector for reusable effects and their authored parameter ranges."""
+from __future__ import annotations
+from nebula.effects.synth_intensity import intensity_path
+
+import copy
+import math
+
+from PySide6.QtCore import QSignalBlocker, Signal, Qt, QTimer
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QStackedWidget, QTabBar, QFrame, QLineEdit, QScrollArea, QSizePolicy, QCheckBox,
+)
+from nebula.ui.studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBox, SpinBox as QSpinBox
+from nebula.ui.studio_widgets import Slider, configure_parameter_spin, parameter_number
+from nebula.ui.synth_inspector import grouped_paths, control_group, matches_control
+from nebula.sources.synth_solids import hidden_controls as hidden_solid_controls
+
+from nebula.effects.synth_effects import EFFECTS, EFFECT_BY_ID, describe_effects, is_removed_effect, parameter, effects_for
+from nebula.render.synth_instances import base_id, REPEATABLE
+from nebula.ui.synth_artwork_ui import ArtworkControl
+from nebula.ui.synth_text_ui import TextControl
+from nebula.core.synth_ink_timing import DURATION_KEYS, TIMING_KEYS
+from nebula.sources.synth_subject import SOURCE_EFFECTS
+from nebula.documents.synth_creative import CREATIVE_CONTROLS
+from nebula.ui.synth_creative_ui import CreativeControlsPanel
+from nebula.effects.synth_effect_order import FIXED, movable, order_for_states
+from nebula.ui.synth_effect_order_ui import EffectDragHandle, EffectRack
+
+INK_DURATIONS = {f'ink_bloom.{key}' for key in DURATION_KEYS}
+INK_TIMING = tuple(f'ink_bloom.{key}' for key in TIMING_KEYS)
+SHARED_TIMING_CONTROLS = INK_TIMING[:8]
+TEXT_TIMING = tuple('text.' + key for key in ('reveal', 'reading_duration', 'reading_final', 'reading_transition', 'reading_weight', 'reading_breakup', 'reading_fragments', 'reading_loop', 'word_seconds', 'morph_hold', 'morph_seconds', 'morph_ease', 'morph_snap', 'morph_settle', 'morph_flow', 'morph_living', 'morph_loop', 'motion', 'zoom_start', 'zoom_end', 'period', 'ease', 'phase', 'cadence'))
+POLARITY_CONTROLS = tuple('broadcast.' + key for key in ('reverse', 'reverse_period', 'reverse_phase', 'reverse_blend', 'field_spread', 'reverse_stage', 'reverse_hue', 'reverse_saturation'))
+SIGNAL_CONTROLS = tuple('broadcast.' + key for key in ('static_style', 'static', 'timing', 'period', 'duration', 'duration_variation', 'phase', 'outages', 'sync_tear', 'rate', 'static_chroma', 'band', 'band_motion', 'band_interval', 'band_travel', 'band_variation', 'roll'))
+SCREEN_CONTROLS = tuple('broadcast.' + key for key in ('screen', 'screen_inset', 'screen_wear', 'halo', 'halo_radius', 'halo_hue', 'curve', 'vignette', 'halo_threshold'))
+REGION_CONTROLS = tuple('edge_phosphor.' + key for key in (
+    'fade_mode', 'neck_dissolve', 'fade_strength', 'fade_start', 'fade_width',
+    'fade_angle', 'fade_softness', 'fade_anchor', 'fade_x', 'fade_y', 'fade_curve'))
+
+
+from nebula.ui.synth_effect_parameter_ui import EffectParameter, format_value
+
+
+class EffectNameButton(QPushButton):
+    """Keep the state and actions visible when the inspector is narrow."""
+    def __init__(self, label):
+        super().__init__(label)
+        self.full_label = label
+        self.setMinimumWidth(56)
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.setText(self.fontMetrics().elidedText(self.full_label, Qt.TextElideMode.ElideRight,
+                                                  max(0, self.width() - 12)))
+
+
+class EffectChoice(QFrame):
+    """A compact, non-scrolling navigation row with a separate state badge."""
+    selected = Signal(str)
+    bypassRequested = Signal(str)
+    removeRequested = Signal(str)
+    restoreRequested = Signal(str)
+
+    def __init__(self, effect):
+        super().__init__()
+        self.setObjectName('effectChoice')
+        row = QHBoxLayout(self); row.setContentsMargins(2, 0, 7, 0); row.setSpacing(4)
+        self.order_handle = EffectDragHandle(effect.id, effect.label, self)
+        self.order_handle.hide(); row.addWidget(self.order_handle)
+        self.fixed_order = QLabel('·'); self.fixed_order.setFixedWidth(24)
+        self.fixed_order.setToolTip(FIXED.get(effect.id, ''))
+        self.fixed_order.setAccessibleName('Fixed position: ' + effect.label)
+        self.fixed_order.hide(); row.addWidget(self.fixed_order)
+        self.button = EffectNameButton(effect.label); self.button.setObjectName('effectChoiceButton')
+        self.button.setProperty('compact', True)
+        self.button.clicked.connect(lambda: self.selected.emit(effect.id))
+        row.addWidget(self.button, 1)
+        self.badge = QLabel(); self.badge.setObjectName('effectState'); row.addWidget(self.badge)
+        self.bypass = QPushButton('Bypass'); self.bypass.setVisible(effect.id not in SOURCE_EFFECTS)
+        self.bypass.setProperty('compact', True)
+        self.bypass.clicked.connect(lambda: self.bypassRequested.emit(effect.id)); row.addWidget(self.bypass)
+        self.remove = QPushButton('Remove'); self.remove.setVisible(effect.id not in SOURCE_EFFECTS)
+        self.remove.setProperty('compact', True); self.remove.setProperty('secondaryAction', True)
+        self.remove.setAccessibleName(f'Remove {effect.label}')
+        self.remove.clicked.connect(lambda: self.removeRequested.emit(effect.id)); row.addWidget(self.remove)
+        self.restore = QPushButton('↶'); self.restore.setFixedWidth(24); self.restore.setProperty('compact', True)
+        self.restore.setAccessibleName(f'Follow composition for {effect.label}')
+        self.restore.clicked.connect(lambda: self.restoreRequested.emit(effect.id)); row.addWidget(self.restore); self.restore.hide()
+
+    def refresh(self, effect, info, selected, bypassed):
+        state = 'Bypassed' if bypassed else 'Intermittent' if info['intermittent'] else 'On' if info['active'] else 'Off'
+        self.badge.setText(state)
+        self.bypass.setText("Resume" if bypassed else "Bypass")
+        self.bypass.setAccessibleName(f'{self.bypass.text()} {effect.label}')
+        self.button.setAccessibleName(f'Inspect {effect.label} · {state}')
+        self.setToolTip(effect.description + (' Active during part of this scope.' if info['intermittent'] else ''))
+        for widget, name, value in ((self, 'selected', selected), (self.badge, 'active', info['active'])):
+            if widget.property(name) != value:
+                widget.setProperty(name, value)
+                widget.style().unpolish(widget); widget.style().polish(widget); widget.update()
+
+
+class EffectsPanel(QWidget):
+    edited = Signal(str, object, str)
+    order_requested = Signal(str, object)
+    order_reset_requested = Signal()
+    automation_requested = Signal(str)
+    instance_requested = Signal(str)
+    timing_edited = Signal(str, object)
+    timing_reset = Signal()
+    timing_selected = Signal(bool)
+    navigation_changed = Signal()
+    controls_refreshed = Signal()
+    object_requested = Signal()
+    object_details_requested = Signal(str)
+    source_requested = Signal()
+    finishing_requested = Signal()
+    master_requested = Signal()
+    variation_requested = Signal(str)
+    discovery_requested = Signal(str, int, str)
+
+    def __init__(self, *, route_sources=False):
+        super().__init__()
+        self.route_sources = route_sources
+        self.automation_counts = {}
+        self.entries = {}; self.parent_entries = {}; self.summary = {}; self.authored_summary = {}
+        self.effect_id = "rays"; self.controls = {}; self.rows = {}; self.control_cache = {}
+        self.context_key = None; self.local = False; self.focused = True
+        self.shared_timing = {}; self.shared_summary = {}; self.context_scope_label = ''
+        self.discovery_enabled = False
+        self.updating = False; self.allowed_effects = None; self.browser = None
+        self.applied_ids = (); self.available_ids = (); self.effect_choices = {}; self.group_labels = {}
+        self.group_expansion = {}; self.revealed_path = None
+        self.filter_snapshot = None; self.filter_generation = 0; self.search_results = []
+        layout = QVBoxLayout(self); layout.setContentsMargins(8, 4, 8, 4); layout.setSpacing(4)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.scope_label = QLabel(); self.scope_label.setObjectName("sectionTitle"); self.scope_label.setWordWrap(True)
+        layout.addWidget(self.scope_label)
+        self.pages = QStackedWidget(); layout.addWidget(self.pages, 1)
+        self.overview = QWidget(); overview_layout = QVBoxLayout(self.overview); overview_layout.setContentsMargins(0, 0, 0, 0); overview_layout.setSpacing(4)
+        applied_header = QHBoxLayout(); applied_header.setSpacing(6)
+        self.applied_title = QLabel(); self.applied_title.setObjectName('sectionTitle'); applied_header.addWidget(self.applied_title, 1)
+        self.available_button = QPushButton('Add effect…'); self.available_button.clicked.connect(self.open_browser)
+        self.available_button.setProperty('compact', True); applied_header.addWidget(self.available_button)
+        overview_layout.addLayout(applied_header)
+        order_header = QHBoxLayout()
+        self.order_hint = QLabel('Top → bottom · drag to reorder'); self.order_hint.setObjectName('muted')
+        self.order_hint.setWordWrap(True); order_header.addWidget(self.order_hint, 1)
+        self.order_reset = QPushButton('Study order'); self.order_reset.setProperty('compact', True)
+        self.order_reset.setToolTip('Restore the embedded study’s processing order. Effect settings and automation stay intact.')
+        self.order_reset.clicked.connect(self.order_reset_requested.emit); order_header.addWidget(self.order_reset)
+        overview_layout.addLayout(order_header)
+        rack_scroll = QScrollArea(); rack_scroll.setWidgetResizable(True); rack_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        rack = QWidget(); rack_layout = QVBoxLayout(rack); rack_layout.setContentsMargins(0, 0, 0, 0); rack_layout.setSpacing(4)
+        self.applied_host = EffectRack(); self.applied_layout = QVBoxLayout(self.applied_host)
+        self.applied_host.reorderRequested.connect(self.order_requested.emit)
+        self.applied_layout.setContentsMargins(0, 0, 0, 0); self.applied_layout.setSpacing(3)
+        rack_layout.addWidget(self.applied_host)
+        self.empty_applied = QLabel('No image effects applied. Add an effect to treat the source.'); self.empty_applied.setWordWrap(True)
+        self.empty_applied.setObjectName('muted'); rack_layout.addWidget(self.empty_applied)
+        self.project_title = QLabel(); self.project_title.setObjectName('sectionTitle'); self.project_title.setWordWrap(True)
+        rack_layout.insertWidget(0, self.project_title)
+        self.clip_title = QLabel(); self.clip_title.setObjectName('sectionTitle'); self.clip_title.setWordWrap(True)
+        rack_layout.addWidget(self.clip_title)
+        self.clip_host = QWidget(); self.clip_layout = QVBoxLayout(self.clip_host)
+        self.clip_layout.setContentsMargins(0, 0, 0, 0); self.clip_layout.setSpacing(3); rack_layout.addWidget(self.clip_host)
+        self.clip_note = QLabel(); self.clip_note.setWordWrap(True); self.clip_note.setObjectName('muted'); rack_layout.addWidget(self.clip_note)
+        self.source_header = QWidget(); source_header_layout = QHBoxLayout(self.source_header)
+        source_header_layout.setContentsMargins(0, 0, 0, 0); source_header_layout.setSpacing(6)
+        self.source_title = QLabel('OBJECT / sources'); self.source_title.setObjectName('sectionTitle')
+        source_header_layout.addWidget(self.source_title, 1)
+        self.object_button = QPushButton('Edit object…'); self.object_button.clicked.connect(self.object_requested.emit)
+        self.object_button.setProperty('compact', True)
+        self.object_button.setToolTip('Choose an object or edit its sources, including composite objects.')
+        source_header_layout.addWidget(self.object_button); rack_layout.addWidget(self.source_header)
+        self.source_host = QWidget(); self.source_layout = QVBoxLayout(self.source_host); self.source_layout.setContentsMargins(0, 0, 0, 0)
+        self.source_layout.setSpacing(3)
+        rack_layout.addWidget(self.source_host)
+        self.breakdown_button = QPushButton('How this look is built ▸'); self.breakdown_button.setCheckable(True)
+        self.breakdown_button.setProperty('compact', True); self.breakdown_button.setProperty('secondaryAction', True)
+        rack_layout.addWidget(self.breakdown_button)
+        self.breakdown_host = QWidget(); self.breakdown_layout = QVBoxLayout(self.breakdown_host)
+        self.breakdown_layout.setContentsMargins(0, 0, 0, 0); self.breakdown_host.hide()
+        self.breakdown_button.toggled.connect(self.breakdown_host.setVisible)
+        self.breakdown_button.toggled.connect(lambda _expanded: self.navigation_changed.emit())
+        rack_layout.addWidget(self.breakdown_host); self.breakdown_rows = {}
+        rack_layout.addStretch(1)
+        rack_scroll.setWidget(rack); overview_layout.addWidget(rack_scroll, 1); self.pages.addWidget(self.overview)
+        # Retain the public row lookup for programmatic inspection. Discovery is in the dialog.
+        self.available_host = QWidget(); self.available_host.hide(); self.available_layout = QVBoxLayout(self.available_host)
+        for effect in EFFECTS:
+            choice = EffectChoice(effect); choice.selected.connect(self.inspect_choice)
+            choice.bypassRequested.connect(self.toggle_bypass)
+            choice.removeRequested.connect(self.remove_effect)
+            choice.restoreRequested.connect(lambda key: self.edited.emit(key, None, 'effect-restore'))
+            choice.order_handle.stepRequested.connect(self.move_effect_step)
+            self.available_layout.addWidget(choice); self.effect_choices[effect.id] = choice
+        self.editor = QWidget(); editor_layout = QVBoxLayout(self.editor); editor_layout.setContentsMargins(0, 0, 0, 0); editor_layout.setSpacing(4)
+        row = QHBoxLayout()
+        row.setSpacing(6)
+        self.back_button = QPushButton('← Effects'); self.back_button.setAccessibleName('Back to effects')
+        self.back_button.clicked.connect(self.show_overview); row.addWidget(self.back_button)
+        row.addStretch(1)
+        self.add_button = QPushButton('Add effect…'); self.add_button.clicked.connect(self.open_browser); row.addWidget(self.add_button)
+        self.back_button.setProperty('compact', True); self.add_button.setProperty('compact', True)
+        editor_layout.addLayout(row)
+        self.inspector_title = QLabel(); self.inspector_title.setObjectName('effectTitle'); self.inspector_title.setWordWrap(True)
+        editor_layout.addWidget(self.inspector_title)
+        row = QHBoxLayout(); row.setSpacing(4)
+        self.bypass_button = QPushButton('Bypass'); self.bypass_button.clicked.connect(lambda: self.toggle_bypass(self.effect_id)); row.addWidget(self.bypass_button)
+        self.instance_button = QPushButton('Add instance'); self.instance_button.setProperty('compact', True)
+        self.instance_button.setToolTip('Add an independent, neutral Tape damage pass after the existing image effects. Your current settings stay intact.')
+        self.instance_button.clicked.connect(lambda: self.instance_requested.emit(self.effect_id)); row.addWidget(self.instance_button)
+        self.remove_button = QPushButton('Remove'); self.remove_button.clicked.connect(lambda: self.remove_effect(self.effect_id)); row.addWidget(self.remove_button)
+        self.bypass_button.setProperty('compact', True); self.remove_button.setProperty('compact', True)
+        self.remove_button.setProperty('secondaryAction', True)
+        self.restore = QPushButton('Restore'); self.restore.setProperty('compact', True)
+        self.restore.setAccessibleName('Restore this effect'); self.restore.clicked.connect(self.restore_effect)
+        row.addWidget(self.restore)
+        row.addStretch(1)
+        editor_layout.addLayout(row)
+        self.intensity_host = QWidget()
+        self.intensity_layout = QVBoxLayout(self.intensity_host)
+        self.intensity_layout.setContentsMargins(0, 0, 0, 0)
+        editor_layout.addWidget(self.intensity_host)
+        self.frame_status = QLabel(); self.frame_status.setWordWrap(True); self.frame_status.setObjectName('muted'); self.frame_status.hide()
+        editor_layout.addWidget(self.frame_status)
+        self.explanation_link = QPushButton('Open relevant control'); self.explanation_link.setProperty('compact', True); self.explanation_link.hide()
+        self.explanation_link.clicked.connect(self.navigate_explanation); editor_layout.addWidget(self.explanation_link)
+        self.description = QLabel(); self.description.hide()
+        row = QHBoxLayout()
+        self.mode = QComboBox()
+        for label, value in (("Follow study", "recipe"), ("On throughout scope", "on"), ("Off throughout scope", "off")): self.mode.addItem(label, value)
+        self.mode.currentIndexChanged.connect(self.change_mode); row.addWidget(self.mode, 1)
+        self.activation_row = row; editor_layout.addLayout(row)
+        row = QHBoxLayout()
+        self.look = QComboBox(); row.addWidget(self.look, 1)
+        self.apply_button = QPushButton("Preview preset…"); self.apply_button.clicked.connect(self.apply_look); row.addWidget(self.apply_button)
+        self.preset_row = row; editor_layout.addLayout(row)
+        self.status = QLabel(); self.status.setWordWrap(True); self.status.setObjectName('muted'); editor_layout.addWidget(self.status)
+        self.parameter_tabs = QTabBar()
+        for title in ('Look', 'Timing', 'Signal', 'Screen'): self.parameter_tabs.addTab(title)
+        self.parameter_tabs.currentChanged.connect(self.change_parameter_tab); editor_layout.addWidget(self.parameter_tabs)
+        row = QHBoxLayout()
+        self.group = QComboBox(); self.group.setAccessibleName('Effect control group'); self.group.currentIndexChanged.connect(self.change_group); row.addWidget(self.group, 1)
+        self.filter = QLineEdit(); self.filter.setPlaceholderText('Find a control…'); self.filter.setClearButtonEnabled(True)
+        self.filter.setAccessibleName('Find effect control'); self.filter.textChanged.connect(self.change_filter); row.addWidget(self.filter, 1)
+        self.filter.returnPressed.connect(self.focus_filter_result)
+        self.show_all_controls = QCheckBox('Show all'); self.show_all_controls.setAccessibleName('Show all effect controls')
+        self.show_all_controls.setToolTip('Expand all groups in this tab. Turn off to restore your folded groups.')
+        self.show_all_controls.toggled.connect(self.show_controls); row.addWidget(self.show_all_controls)
+        editor_layout.addLayout(row)
+        self.parameter_scroll = QScrollArea(); self.parameter_scroll.setWidgetResizable(True); self.parameter_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.parameter_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.parameter_scroll.setMinimumHeight(100); editor_layout.addWidget(self.parameter_scroll, 1)
+        body = QWidget(); body_layout = QVBoxLayout(body); body_layout.setContentsMargins(0, 0, 2, 0)
+        self.activation_button = QPushButton('Activation && preset ▸'); self.activation_button.setCheckable(True)
+        self.activation_button.setProperty('compact', True)
+        self.activation_button.setToolTip('Choose activation timing or replace this effect’s settings with a preset.')
+        body_layout.addWidget(self.activation_button)
+        self.activation_host = QWidget(); activation_layout = QVBoxLayout(self.activation_host)
+        activation_layout.setContentsMargins(0, 0, 0, 6)
+        editor_layout.removeItem(self.activation_row); editor_layout.removeItem(self.preset_row); editor_layout.removeWidget(self.status)
+        activation_layout.addLayout(self.activation_row); activation_layout.addLayout(self.preset_row); activation_layout.addWidget(self.status)
+        self.description.setParent(self.activation_host); self.description.setWordWrap(True); self.description.setObjectName('muted')
+        activation_layout.addWidget(self.description); self.description.show()
+        body_layout.addWidget(self.activation_host); self.activation_host.hide()
+        self.activation_button.toggled.connect(self.show_activation)
+        self.timing_note = QLabel(); self.timing_note.setWordWrap(True); self.timing_note.setObjectName('muted'); body_layout.addWidget(self.timing_note)
+        self.restore_timing = QPushButton('Restore shared timing'); self.restore_timing.clicked.connect(self.timing_reset.emit); body_layout.addWidget(self.restore_timing)
+        self.creative_panel = CreativeControlsPanel()
+        self.creative_panel.changed.connect(self.change_creative)
+        self.creative_panel.restored.connect(self.restore_creative)
+        self.creative_panel.variation_requested.connect(self.variation_requested.emit)
+        body_layout.addWidget(self.creative_panel)
+        self.creative_notice = QLabel(); self.creative_notice.setWordWrap(True)
+        self.creative_notice.setObjectName('muted'); body_layout.addWidget(self.creative_notice)
+        from nebula.ui.synth_color_ui import ColorPanel
+        self.color_panel = ColorPanel(); body_layout.addWidget(self.color_panel); self.color_panel.hide()
+        self.parameter_host = QWidget(); self.parameter_layout = QVBoxLayout(self.parameter_host); self.parameter_layout.setContentsMargins(0, 0, 0, 0); body_layout.addWidget(self.parameter_host)
+        self.no_matches = QLabel('No matching controls in this tab.'); self.no_matches.setObjectName('muted'); body_layout.addWidget(self.no_matches); self.no_matches.hide()
+        self.other_matches = QWidget(); self.other_matches_layout = QVBoxLayout(self.other_matches)
+        self.other_matches_layout.setContentsMargins(0, 0, 0, 0)
+        self.other_match_buttons = []
+        for tab in range(4):
+            button = QPushButton(); button.setProperty('compact', True)
+            button.clicked.connect(lambda _checked=False, index=tab: self.open_search_tab(index))
+            self.other_match_buttons.append(button); self.other_matches_layout.addWidget(button)
+        body_layout.addWidget(self.other_matches); self.other_matches.hide()
+        self.note = QLabel('Use fixed value to override an animated control. Restore follows the composition or study again.')
+        self.note.setWordWrap(True); self.note.setObjectName('muted'); body_layout.addWidget(self.note); body_layout.addStretch(1)
+        self.note.hide()
+        self.parameter_scroll.setWidget(body); self.pages.addWidget(self.editor); self.pages.setCurrentWidget(self.editor)
+        self.parameter_host.setAccessibleDescription(self.note.text())
+
+    def show_activation(self, expanded):
+        self.activation_host.setVisible(expanded)
+        self.activation_button.setText('Activation && preset ' + ('▾' if expanded else '▸'))
+
+    def is_bypassed(self, effect_id):
+        return self.entries.get(effect_id, {}).get('bypassed', self.parent_entries.get(effect_id, {}).get('bypassed', False))
+
+    def show_overview(self):
+        self.focused = False; self.pages.setCurrentWidget(self.overview)
+        self.scope_label.setText(self.context_scope_label); self.timing_selected.emit(False); self.navigation_changed.emit()
+
+    def inspect_choice(self, effect_id):
+        if effect_id in SOURCE_EFFECTS: self.object_requested.emit()
+        else: self.inspect_effect(effect_id)
+
+    def browser_applied_ids(self):
+        # Authored disabled entries are still duplicates; Inspect preserves them.
+        return tuple(key for key in dict.fromkeys((*self.applied_ids, *self.parent_entries, *self.entries))
+                     if key in self.applied_ids or not is_removed_effect(self.entries.get(key, self.parent_entries.get(key))))
+
+    def open_browser(self):
+        if self.discovery_enabled:
+            self.discovery_requested.emit('', 0, 'add'); return
+        from nebula.ui.synth_effect_browser import EffectBrowserDialog
+        if self.browser is None:
+            self.browser = EffectBrowserDialog(self.allowed_effects, self.browser_applied_ids(), self)
+            self.browser.effectRequested.connect(self.add_effect)
+            self.browser.effectInspected.connect(self.inspect_effect)
+            self.browser.instanceRequested.connect(self.instance_requested.emit)
+            self.browser.objectRequested.connect(self.object_requested.emit)
+        self.browser.set_context(self.allowed_effects, self.browser_applied_ids())
+        self.browser.open()
+
+    def add_effect(self, effect_id, preset_index):
+        if effect_id in self.browser_applied_ids():
+            self.inspect_effect(effect_id); return
+        if effect_id not in EFFECT_BY_ID or effect_id in SOURCE_EFFECTS: return
+        if self.allowed_effects is not None and effect_id not in self.allowed_effects: return
+        self.inspect_effect(effect_id)
+        from nebula.effects.synth_effect_discovery import preset_entry
+        entry = preset_entry(effect_id, preset_index, self.entries.get(effect_id),
+                             self.parent_entries.get(effect_id), self.local)
+        self.edited.emit(effect_id, entry, 'effect-add')
+
+    def remove_effect(self, effect_id):
+        if self.updating or effect_id in SOURCE_EFFECTS or effect_id not in self.browser_applied_ids(): return
+        # An explicit Off entry prevents the embedded study or parent scope
+        # from bringing the removed effect back. Undo retains its old settings.
+        self.edited.emit(effect_id, {'mode': 'off', 'params': {}, 'bypassed': False}, 'effect-remove')
+        self.show_overview()
+
+    def toggle_bypass(self, effect_id):
+        if self.updating or effect_id in SOURCE_EFFECTS: return
+        entry = copy.deepcopy(self.entries.get(effect_id, {'mode': 'recipe', 'params': {}}))
+        entry['bypassed'] = not self.is_bypassed(effect_id)
+        self.edited.emit(effect_id, entry, 'effect-bypass')
+
+    def set_context(self, entries, parent_entries, states, scope_label, local, context_key, shared_timing=None, shared_states=None, allowed_effects=None, authored_states=None, *, clip_automations=(), effect_order=None, custom_order=False):
+        self.updating = True
+        self.entries = copy.deepcopy(entries); self.parent_entries = copy.deepcopy(parent_entries); self.local = local
+        self.summary = describe_effects(states); self.authored_summary = describe_effects(authored_states) if authored_states is not None else self.summary
+        self.allowed_effects = allowed_effects
+        self.context_effects = effects_for((*self.summary, *entries, *parent_entries,
+                                           *(event['path'].split('.')[0] for event in clip_automations)))
+        for effect in self.context_effects:
+            if effect.id not in self.summary or effect.id not in self.authored_summary:
+                empty = dict(active=False, intermittent=False, ranges={p: (parameter(p).default,) * 2 for p in effect.paths})
+                self.summary.setdefault(effect.id, empty); self.authored_summary.setdefault(effect.id, empty)
+            if effect.id not in self.effect_choices:
+                choice = EffectChoice(effect); choice.selected.connect(self.inspect_choice)
+                choice.bypassRequested.connect(self.toggle_bypass); choice.removeRequested.connect(self.remove_effect)
+                choice.restoreRequested.connect(lambda key: self.edited.emit(key, None, 'effect-restore'))
+                choice.order_handle.stepRequested.connect(self.move_effect_step)
+                self.available_layout.addWidget(choice); self.effect_choices[effect.id] = choice
+        visible_effects = [e for e in self.context_effects if allowed_effects is None or base_id(e.id) in allowed_effects]
+        self.shared_timing = copy.deepcopy(shared_timing or {})
+        self.shared_summary = describe_effects(shared_states)['ink_bloom'] if shared_states is not None else self.authored_summary['ink_bloom']
+        self.context_scope_label = scope_label if scope_label.startswith('Editing:') else 'Editing: ' + scope_label
+        active = [effect for effect in visible_effects if self.summary[effect.id]['active'] or self.is_bypassed(effect.id)]
+        initial_context = self.context_key is None
+        changed_context = context_key != self.context_key
+        editable = [e for e in visible_effects if not self.route_sources or e.id not in SOURCE_EFFECTS]
+        editable_active = [e for e in active if e in editable]
+        if editable and (self.effect_id not in {e.id for e in editable} or
+                (changed_context and not self.summary[self.effect_id]['active'] and not self.is_bypassed(self.effect_id) and active)):
+            self.effect_id = (editable_active or editable)[0].id
+        self.context_key = context_key
+        self.applied_ids = tuple(effect.id for effect in active)
+        self.available_ids = tuple(effect.id for effect in visible_effects if effect.id not in self.applied_ids)
+        treatments = [e for e in active if e.id not in SOURCE_EFFECTS]
+        sources = [e for e in active if e.id in SOURCE_EFFECTS]
+        automated = {event['path'] for event in clip_automations}
+        self.clip_effect_ids = tuple(e.id for e in visible_effects if local and e.id not in SOURCE_EFFECTS and
+                                     (e.id in entries or automated.intersection(e.paths)))
+        self.project_effect_ids = tuple(e.id for e in treatments if e.id not in self.clip_effect_ids)
+        self.render_order = order_for_states(shared_states if shared_states is not None else states, effect_order)
+        rank = {key: index for index, key in enumerate(self.render_order)}
+        def position(key):
+            if key in FIXED: return (2 if key == 'low_res' else 0, list(FIXED).index(key))
+            return (1, rank.get(key, len(rank)))
+        self.project_effect_ids = tuple(sorted(self.project_effect_ids, key=position))
+        self.clip_effect_ids = tuple(sorted(self.clip_effect_ids, key=position))
+        self.order_hint.setText('Order follows the composition · select Composition to reorder' if local else
+                                'Top → bottom · drag to reorder' if custom_order else 'Study order · drag to customize top → bottom')
+        self.order_hint.setToolTip('Custom order processes image effects from top to bottom after the source. Dotted rows have a fixed source or output role. Early Broadcast polarity and the source companion in Ghosts stay with the source.')
+        self.order_reset.setVisible(not local)
+        self.order_reset.setEnabled(custom_order)
+        self.rack_ids = set(self.applied_ids) | set(self.clip_effect_ids)
+        for button in (self.available_button, self.add_button):
+            button.setText('Add clip effect…' if local else 'Add shared effect…')
+            button.setToolTip('Add an effect only to this clip.' if local else 'Add a shared composition effect. Explicit clip overrides still take priority.')
+        self.applied_title.setText(f'IMAGE EFFECTS · {len(self.project_effect_ids) + len(self.clip_effect_ids)}'); self.empty_applied.setVisible(not treatments)
+        self.project_title.setText(f'SHARED EFFECTS · {len(self.project_effect_ids)}' + (' · inherited' if local else ''))
+        self.project_title.setVisible(bool(self.project_effect_ids))
+        self.applied_host.setVisible(bool(self.project_effect_ids))
+        self.empty_applied.setText('No shared image effects. Choose Add shared effect to share a treatment across clips.' if not local else 'No inherited composition image effects.')
+        self.empty_applied.setVisible(not self.project_effect_ids and not self.clip_effect_ids)
+        self.clip_title.setText(f'CLIP EFFECTS & OVERRIDES · {len(self.clip_effect_ids)}')
+        self.clip_title.setVisible(local)
+        self.clip_host.setVisible(local and bool(self.clip_effect_ids))
+        self.clip_note.setText('Edits here affect only this clip. Select Composition to change shared effects.' if self.clip_effect_ids else
+                               'No clip overrides. Editing an inherited effect creates settings for this clip.')
+        self.clip_note.setVisible(local)
+        object_available = allowed_effects is None or any(key in allowed_effects for key in SOURCE_EFFECTS)
+        self.source_title.setText(f'OBJECT · {len(sources)} ' + ('source' if len(sources) == 1 else 'sources') if sources else 'OBJECT · no source')
+        if self.route_sources: self.source_title.setText('Content, layout and motion → Object')
+        self.source_title.setVisible(object_available); self.source_header.setVisible(object_available)
+        self.source_host.setVisible(bool(sources) and not self.route_sources); self.object_button.setVisible(object_available)
+        for choice in self.effect_choices.values(): choice.hide()
+        display_ids = [*self.project_effect_ids, *self.clip_effect_ids]
+        display_ids += [e.id for e in self.context_effects if e.id not in display_ids]
+        for key in display_ids:
+            effect = EFFECT_BY_ID[key]
+            target = self.source_layout if effect.id in SOURCE_EFFECTS else self.clip_layout if effect.id in self.clip_effect_ids else self.applied_layout
+            target.addWidget(self.effect_choices[effect.id])
+            self.effect_choices[effect.id].setVisible(effect.id in self.rack_ids)
+            choice = self.effect_choices[key]
+            draggable = not local and key in self.project_effect_ids and movable(key)
+            choice.order_handle.rack = self.applied_host if draggable else None
+            choice.order_handle.setVisible(draggable)
+            choice.fixed_order.setVisible(key in FIXED and key in self.rack_ids)
+        self.applied_host.configure([key for key in self.project_effect_ids if not local and movable(key)],
+                                    self.effect_choices, context_key)
+        with QSignalBlocker(self.mode): self.mode.setItemText(0, 'Follow composition / study' if local else 'Follow study')
+        self.refresh_breakdown()
+        self.updating = False
+        self.refresh_effect()
+        if changed_context: self.parameter_scroll.verticalScrollBar().setValue(0)
+        if initial_context and not editable_active: self.show_overview()
+
+    def move_effect_step(self, identifier, delta):
+        ids = self.applied_host.identifiers
+        if self.local or identifier not in ids: return
+        index = ids.index(identifier)
+        if not 0 <= index + delta < len(ids): return
+        before = ids[index - 1] if delta < 0 else ids[index + 2] if index + 2 < len(ids) else None
+        self.order_requested.emit(identifier, before)
+
+    def inspect_effect(self, effect_id):
+        if self.updating or effect_id not in EFFECT_BY_ID: return
+        if self.route_sources and effect_id in SOURCE_EFFECTS:
+            self.object_details_requested.emit(effect_id); return
+        if self.allowed_effects is not None and base_id(effect_id) not in self.allowed_effects: return
+        self.filter_snapshot = None; self.filter_generation += 1
+        switched = self.effect_id != effect_id
+        self.revealed_path = None
+        self.effect_id = effect_id; self.focused = True; self.pages.setCurrentWidget(self.editor)
+        with QSignalBlocker(self.filter): self.filter.clear()
+        with QSignalBlocker(self.group): self.group.setCurrentIndex(0)
+        if switched:
+            self.activation_button.setChecked(False)
+            with QSignalBlocker(self.parameter_tabs): self.parameter_tabs.setCurrentIndex(0)
+        self.refresh_effect(); self.parameter_scroll.verticalScrollBar().setValue(0); self.navigation_changed.emit()
+
+    def show_available(self, expanded):
+        if expanded: self.open_browser()
+
+    def refresh_effect(self):
+        if not self.summary: return
+        self.updating = True
+        effect = EFFECT_BY_ID[self.effect_id]
+        self.inspector_title.setText(f'{"SOURCE" if effect.id in SOURCE_EFFECTS else "EDIT"} / {effect.label}')
+        self.inspector_title.setToolTip(effect.description)
+        for item in self.context_effects:
+            row = self.effect_choices[item.id]
+            row.refresh(item, self.summary[item.id], item.id == effect.id, self.is_bypassed(item.id))
+            row.restore.setVisible(self.local and item.id in self.entries and item.id not in SOURCE_EFFECTS)
+            row.restore.setToolTip('Remove this clip’s effect overrides and follow the composition or study again. Automation is kept.')
+            row.remove.setEnabled(item.id in self.browser_applied_ids())
+            row.bypass.setEnabled(self.summary[item.id]['active'] or self.is_bypassed(item.id))
+            row.setAccessibleDescription('Clip settings' if item.id in self.clip_effect_ids else 'Inherited composition effect' if self.local else 'Shared effect')
+        entry = self.entries.get(effect.id, {"mode": "recipe", "params": {}})
+        with QSignalBlocker(self.mode): self.mode.setCurrentIndex(self.mode.findData(entry["mode"]))
+        self.description.setText(effect.description)
+        self.instance_button.setVisible(base_id(effect.id) in REPEATABLE)
+        self.instance_button.setAccessibleName('Add another ' + EFFECT_BY_ID[base_id(effect.id)].label + ' instance')
+        self.restore.setEnabled(effect.id in self.entries)
+        self.restore.setToolTip("Remove only this effect's overrides in the selected scope. Follow the composition or study again.")
+        self.bypass_button.setVisible(effect.id not in SOURCE_EFFECTS)
+        self.bypass_button.setText('Resume' if self.is_bypassed(effect.id) else 'Bypass')
+        self.bypass_button.setAccessibleName(f'{self.bypass_button.text()} {effect.label}')
+        self.bypass_button.setToolTip('Temporarily disable this effect while retaining its activation timing and parameters.')
+        self.remove_button.setVisible(effect.id not in SOURCE_EFFECTS)
+        self.remove_button.setEnabled(effect.id in self.browser_applied_ids())
+        self.remove_button.setAccessibleName(f'Remove {effect.label}')
+        removal_hint = ('Remove this effect from the selected clip and clear its local settings. Other clips keep it.'
+                        if self.local else 'Remove this effect from the composition, including its clip settings.') + ' Its automation is removed too. Undo restores both.'
+        self.remove_button.setToolTip(removal_hint)
+        for item in self.effect_choices.values(): item.remove.setToolTip(removal_hint)
+        if tuple(self.controls) != effect.paths:
+            while self.intensity_layout.count():
+                widget = self.intensity_layout.takeAt(0).widget()
+                if widget: widget.hide()
+            while self.parameter_layout.count():
+                widget = self.parameter_layout.takeAt(0).widget()
+                if widget: widget.hide()
+            for label in self.group_labels.values(): label.deleteLater()
+            self.group_labels = {}
+            self.controls = self.control_cache.get(effect.id, {})
+            if not self.controls:
+                for path in effect.paths:
+                    control = EffectParameter(path)
+                    control.animate.connect(self.automation_requested.emit)
+                    control.changed.connect(lambda value, path=path, effect_id=effect.id: self.change_parameter(path, value, effect_id))
+                    control.reset.connect(lambda path=path, effect_id=effect.id: self.reset_parameter(path, effect_id))
+                    self.controls[path] = control
+                self.control_cache[effect.id] = self.controls
+            for path, control in self.controls.items():
+                layout = self.intensity_layout if path == intensity_path(effect.id) else self.parameter_layout
+                layout.addWidget(control)
+            with QSignalBlocker(self.look):
+                self.look.clear()
+                for label, _ in effect.looks or (("Default settings", {}),): self.look.addItem(label)
+            with QSignalBlocker(self.group): self.group.clear()
+        info = self.authored_summary[effect.id]
+        parent = self.parent_entries.get(effect.id, {})
+        available = info["active"] or entry["mode"] in {"on", "off"} or effect.id in self.entries
+        if effect.id == 'dye_transfer': self.color_panel.setEnabled(available)
+        self.creative_panel.refresh(effect.id, entry, parent, info, available, self.local)
+        for path, control in self.controls.items():
+            if path in INK_TIMING:
+                control.refresh(self.shared_summary['ranges'][path], self.shared_timing.get(path), False, True, scope_label='Composition', origin_label='Composition · shared timing', context_key=('shared-timing',))
+                control.origin.setText('Shared across all clips' if self.shared_timing else 'Recipe timing · edits apply to all clips')
+                control.setToolTip('One timing setup for the whole composition, regardless of the selected clip.')
+            else:
+                control.refresh(info["ranges"][path], entry["params"].get(path), path in parent.get("params", {}), available, parent_value=parent.get("params", {}).get(path), scope_label=self.context_scope_label.removeprefix("Editing: "), context_key=self.context_key)
+            control.set_automation_count(self.automation_counts.get(path, 0))
+            control.base_origin = control.origin.text()
+        self.apply_button.setToolTip("Replace the base settings; existing clip automation is retained.")
+        self.apply_button.setText("Preview preset…" if self.discovery_enabled and effect.id not in SOURCE_EFFECTS else "Replace with preset" if effect.id in self.applied_ids else "Apply preset")
+        self.status.setText("Active during part of the recipe. On keeps it enabled throughout." if info["intermittent"] else
+                            "Active. Unedited values keep following their recipe." if info["active"] else
+                            f"{effect.label} is off in this scope. Open Activation & preset to apply settings, or return to the effects overview.")
+        if self.is_bypassed(effect.id): self.status.setText('Bypassed · edits are retained. Resume restores the original activation timing.')
+        elif self.local: self.status.setText(self.status.text() + ' Unedited controls follow the composition or study.')
+        else: self.status.setText(self.status.text() + ' Clip overrides take priority.')
+        if effect.id == 'ink_bloom' and self.controls['ink_bloom.shape'].input.currentIndex() == 5 and not self.controls['ink_bloom.artwork'].input.value():
+            self.status.setText('Import artwork to supply the custom silhouette, or choose a built-in shape.')
+        self.show_controls()
+        if effect.id == 'dye_transfer': self.color_panel.refresh()
+        self.updating = False
+        self.controls_refreshed.emit()
+        self.navigation_changed.emit()
+
+    def set_automation_counts(self, counts):
+        self.automation_counts = counts
+        for path, control in self.controls.items(): control.set_automation_count(counts.get(path, 0))
+
+    def change_parameter_tab(self, _index):
+        self.filter_snapshot = None; self.filter_generation += 1
+        self.revealed_path = None
+        with QSignalBlocker(self.filter): self.filter.clear()
+        with QSignalBlocker(self.group): self.group.clear()
+        self.show_controls(); self.parameter_scroll.verticalScrollBar().setValue(0); self.navigation_changed.emit()
+
+    def change_group(self, _index):
+        self.revealed_path = None
+        self.show_controls()
+
+    def change_filter(self, text):
+        active = bool(text.strip())
+        if active and self.filter_snapshot is None:
+            self.filter_snapshot = (self.parameter_tabs.currentIndex(), self.group.currentData(), self.parameter_scroll.verticalScrollBar().value())
+        if active:
+            with QSignalBlocker(self.group): self.group.setCurrentIndex(0)
+        self.filter_generation += 1
+        generation = self.filter_generation
+        self.revealed_path = None
+        self.show_controls()
+        if not active and self.filter_snapshot is not None:
+            tab, title, scroll = self.filter_snapshot; self.filter_snapshot = None
+            with QSignalBlocker(self.parameter_tabs): self.parameter_tabs.setCurrentIndex(tab)
+            self.show_controls()
+            with QSignalBlocker(self.group): self.group.setCurrentIndex(max(0, self.group.findData(title)))
+            self.show_controls()
+            QTimer.singleShot(0, lambda: self.parameter_scroll.verticalScrollBar().setValue(scroll)
+                              if generation == self.filter_generation else None)
+        elif active: self.parameter_scroll.verticalScrollBar().setValue(0)
+
+    def focus_filter_result(self):
+        if not self.search_results:
+            button = next((b for b in self.other_match_buttons if b.isVisible()), None)
+            if button:
+                button.click()
+                if self.search_results: self.focus_filter_result()
+            return
+        control = self.controls[self.search_results[0]]
+        target = control.use_fixed if control.value_stack.currentIndex() == 1 else control.input
+        if hasattr(target, 'editor'): target = target.editor
+        elif control.spec.kind == 'font': target = target.choose
+        target.setFocus(Qt.FocusReason.OtherFocusReason)
+        self.parameter_scroll.ensureWidgetVisible(target, 0, 12)
+
+    def control_tab(self, path):
+        effect_id = base_id(self.effect_id)
+        if effect_id in CREATIVE_CONTROLS: return 1
+        if effect_id == 'broadcast':
+            return 1 if path in POLARITY_CONTROLS else 2 if path in SIGNAL_CONTROLS else 3 if path in SCREEN_CONTROLS else 0
+        if effect_id == 'ink_bloom': return 1 if path in INK_TIMING else 0
+        if effect_id == 'text': return 1 if path in TEXT_TIMING else 0
+        if effect_id == 'edge_phosphor': return 1 if path in REGION_CONTROLS else 0
+        return 0
+
+    def open_search_tab(self, index):
+        with QSignalBlocker(self.parameter_tabs): self.parameter_tabs.setCurrentIndex(index)
+        with QSignalBlocker(self.group): self.group.setCurrentIndex(0)
+        self.show_controls(); self.parameter_scroll.verticalScrollBar().setValue(0)
+        self.navigation_changed.emit()
+
+
+    def toggle_control_group(self, title, expanded):
+        # Expansion is navigation state, independent of project/clip settings.
+        key = (self.effect_id, self.parameter_tabs.currentIndex(), title)
+        self.group_expansion[key] = expanded
+        self.show_controls()
+        self.navigation_changed.emit()
+
+    def show_controls(self):
+        if not self.summary: return
+        effect = EFFECT_BY_ID[self.effect_id]
+        pilot = effect.id in CREATIVE_CONTROLS
+        with QSignalBlocker(self.parameter_tabs):
+            if effect.id != 'broadcast' and self.parameter_tabs.currentIndex() > 1:
+                self.parameter_tabs.setCurrentIndex(0)
+            for index in (2, 3): self.parameter_tabs.setTabVisible(index, effect.id == 'broadcast')
+        creative = pilot and self.parameter_tabs.currentIndex() == 0
+        ink = effect.id == 'ink_bloom'
+        text = effect.id == 'text'
+        broadcast = effect.id == 'broadcast'
+        polarity = broadcast and self.parameter_tabs.currentIndex() == 1
+        phosphor = effect.id == 'edge_phosphor'
+        region = phosphor and self.parameter_tabs.currentIndex() == 1
+        timing = ink and self.parameter_tabs.currentIndex() == 1
+        self.parameter_tabs.setTabText(0, 'Creative' if pilot else 'Look')
+        self.parameter_tabs.setTabText(1, 'Parameters' if pilot else 'Region' if phosphor else 'Polarity' if broadcast else 'Timing')
+        self.parameter_tabs.setVisible(pilot or ink or phosphor or text or broadcast)
+        self.creative_panel.setVisible(creative)
+        self.parameter_host.setVisible(not creative)
+        self.filter.setVisible(not creative)
+        self.show_all_controls.setVisible(not creative)
+        self.filter.setPlaceholderText('Find a control…')
+        self.filter.setToolTip('Search controls and groups. Matches in other tabs have a direct link. Press Enter to edit the first match. Clear to restore the previous view.')
+        self.note.hide()
+        adjustments = dict(self.parent_entries.get(effect.id, {}).get('creative', {}).get('values', {}))
+        adjustments.update(self.entries.get(effect.id, {}).get('creative', {}).get('values', {}))
+        adjusted = [spec for spec in CREATIVE_CONTROLS.get(effect.id, ()) if adjustments.get(spec.key, spec.neutral) != spec.neutral]
+        labels = ', '.join(f'{spec.label} {adjustments[spec.key]:+g} copies' if spec.operation == 'offset'
+                           else f'{spec.label} {adjustments[spec.key] * 100:.0f}%' for spec in adjusted)
+        self.creative_notice.setText('Creative adjustments still act after these base values: ' + labels + '. Open Creative to change or restore them.' if adjusted else '')
+        self.creative_notice.setVisible(pilot and not creative and bool(adjusted))
+        for path, control in self.controls.items():
+            influences = [spec.label for spec in adjusted if path in spec.paths]
+            origin = getattr(control, 'base_origin', control.origin.text())
+            control.origin.setText(origin + (' · adjusted by ' + ', '.join(influences) if influences else ''))
+        self.activation_button.setVisible(not timing)
+        self.activation_host.setVisible(not timing and self.activation_button.isChecked())
+        self.timing_note.setVisible(timing)
+        self.restore_timing.setVisible(timing)
+        self.restore_timing.setEnabled(bool(self.shared_timing))
+        self.restore.setVisible(not timing)
+        for widget in (self.mode, self.look, self.apply_button, self.status): widget.setVisible(not timing)
+        self.scope_label.setText('Editing: Composition · shared timing' if timing else self.context_scope_label)
+        if not self.focused: self.scope_label.setText(self.context_scope_label)
+        self.timing_selected.emit(timing and self.focused)
+        visible_paths = tuple(path for path in effect.paths if not ink or path not in INK_TIMING or path in SHARED_TIMING_CONTROLS)
+        if effect.id == 'image_memory':
+            shape = self.summary[effect.id]['ranges']['image_memory.shape']
+            if shape[0] == shape[1] and shape[0] != 2:
+                visible_paths = tuple(path for path in visible_paths if path != 'image_memory.sides')
+        if effect.id == 'spectral_tunnel':
+            ranges = self.summary[effect.id]['ranges']
+            for selector, value, path in (('shape', 3, 'sides'), ('motion', 0, 'amplitude')):
+                selected = ranges['spectral_tunnel.' + selector]
+                if selected[0] == selected[1] and selected[0] != value:
+                    visible_paths = tuple(p for p in visible_paths if p != 'spectral_tunnel.' + path)
+        if effect.id == 'chromatic_lattice':
+            ranges=self.summary[effect.id]['ranges']
+            for selector,value,path in (('shape',3,'sides'),('wave_shape',2,'angle')):
+                selected=ranges['chromatic_lattice.'+selector]
+                if selected[0]==selected[1] and selected[0]!=value:
+                    visible_paths=tuple(p for p in visible_paths if p!='chromatic_lattice.'+path)
+        if effect.id == 'solid':
+            hidden = hidden_solid_controls(self.summary[effect.id]['ranges'])
+            visible_paths = tuple(path for path in visible_paths if path not in hidden)
+        if effect.id == 'print_surface':
+            from nebula.effects.synth_print_paint import applicable_paths
+            visible_paths = applicable_paths(visible_paths, self.summary[effect.id]['ranges']['print_surface.surface'])
+        if effect.id == 'prismatic_field':
+            shape = self.summary[effect.id]['ranges']['prismatic_field.shape']
+            if shape[0] == shape[1] and shape[0] != 0:
+                visible_paths = tuple(path for path in visible_paths if path != 'prismatic_field.sides')
+        if text:
+            ranges = self.summary['text']['ranges']
+            from nebula.sources.synth_fonts import variable_weight
+            if ranges['text.font'][0] == ranges['text.font'][1] and not variable_weight(ranges['text.font'][0]):
+                visible_paths = tuple(path for path in visible_paths if path != 'text.weight')
+            reveal = ranges['text.reveal']
+            morph = reveal[0] == reveal[1] == 3
+            if reveal[0] == reveal[1]:
+                morph = reveal[0] == 3
+                visible_paths = tuple(path for path in visible_paths if
+                    (reveal[0] == 4 or not path.startswith('text.reading_')) and
+                    (reveal[0] != 4 or path not in ('text.word_seconds', 'text.fit', 'text.block_width', 'text.copies', 'text.copy_gap', 'text.copy_floor', 'text.wrap_columns')) and
+                    (morph or not path.startswith('text.morph_')) and
+                    (not morph or path not in ('text.word_seconds', 'text.fit', 'text.block_width', 'text.copies', 'text.copy_gap', 'text.copy_floor', 'text.wrap_columns', 'text.leading', 'text.align')))
+            if ranges['text.motion'][0] == ranges['text.motion'][1] and ranges['text.motion'][0] != 1:
+                visible_paths = tuple(path for path in visible_paths if path != 'text.ease')
+            if ranges['text.fit'][0] == ranges['text.fit'][1] and ranges['text.fit'][0] != 2:
+                visible_paths = tuple(path for path in visible_paths if path != 'text.block_width')
+            if not morph and reveal != (4, 4) and ranges['text.fit'][0] == ranges['text.fit'][1] and ranges['text.fit'][0] != 1:
+                visible_paths = tuple(path for path in visible_paths if path not in ('text.fit_width', 'text.copy_floor'))
+        if broadcast:
+            if self.summary['broadcast']['ranges']['broadcast.timing'] == (0, 0):
+                visible_paths = tuple(path for path in visible_paths if path != 'broadcast.duration_variation')
+            band_mode = self.summary['broadcast']['ranges']['broadcast.band_motion']
+            if band_mode == (0, 0):
+                visible_paths = tuple(path for path in visible_paths if path not in ('broadcast.band_interval', 'broadcast.band_travel', 'broadcast.band_variation'))
+            elif band_mode == (1, 1):
+                visible_paths = tuple(path for path in visible_paths if path != 'broadcast.roll')
+        if self.allowed_effects is not None and 'forms' not in self.allowed_effects:
+            visible_paths = tuple(path for path in visible_paths if not path.startswith('slab.'))
+        if effect.id == 'contour_melt' and self.summary['contour_melt']['ranges']['contour_melt.style'] == (0, 0):
+            visible_paths = tuple(path for path in visible_paths if path != 'contour_melt.groove')
+        if phosphor:
+            mode = self.summary['edge_phosphor']['ranges']['edge_phosphor.fade_mode']
+            legacy = mode == (0, 0)
+            region_paths = REGION_CONTROLS if mode[0] != mode[1] else REGION_CONTROLS[:2] if legacy else tuple(p for p in REGION_CONTROLS if p != 'edge_phosphor.neck_dissolve')
+            if mode == (2, 2): region_paths = tuple(p for p in region_paths if p != 'edge_phosphor.fade_anchor')
+            visible_paths = tuple(p for p in visible_paths if p not in REGION_CONTROLS or p in region_paths)
+            if region:
+                self.description.setText('Profile preset keeps the original neck blend. Choose Object to attach a reusable fade to a source, or Canvas to hold it in the viewport. The region affects contours, echoes, fill and surrounding light; it leaves the final background texture intact.')
+                sources = ('silhouette', 'forms', 'ink_bloom', 'particles', 'rays', 'text', 'radial_bloom', 'prismatic_field', 'solid', 'chromatic_lattice', 'image_memory')
+                anchor = self.summary['edge_phosphor']['ranges']['edge_phosphor.fade_anchor']
+                missing = mode == (1, 1) and (not any(self.summary[s]['active'] for s in sources) if anchor == (0, 0) else
+                          anchor[0] == anchor[1] and not self.summary[sources[int(anchor[0]) - 1]]['active'])
+                if missing:
+                    self.status.setText('The selected object anchor is not present. Choose an active object anchor or Canvas for this region.')
+                neck_control = self.controls['edge_phosphor.neck_dissolve']
+                neck_control.setEnabled(self.summary['silhouette']['active'])
+                if legacy and not self.summary['silhouette']['active']:
+                    self.status.setText('Profile preset needs Model silhouette. Choose Object or Canvas to use the directional region with this source.')
+            else:
+                self.description.setText(effect.description)
+        if effect.id == 'signal_repetition':
+            ranges = self.summary[effect.id]['ranges']
+            mode = ranges['signal_repetition.region']
+            if mode[0] == mode[1]:
+                key_fields = {'key_invert'} if mode[0] == 3 else {'key_floor', 'key_softness', 'key_invert'} if mode[0] == 1 else set() if mode[0] == 0 else None
+                if key_fields is not None:
+                    visible_paths = tuple(path for path in visible_paths
+                                          if not path.split('.')[1].startswith('key_') or path.split('.')[1] in key_fields)
+            if ranges['signal_repetition.outside_mix'] == (0., 0.):
+                visible_paths = tuple(path for path in visible_paths if not path.startswith('signal_repetition.outside_') or path.endswith('.outside_mix'))
+            if ranges['signal_repetition.edge_echo'] == (0., 0.):
+                visible_paths = tuple(path for path in visible_paths if path != 'signal_repetition.edge_distance')
+        # Search links use the same applicable controls as the destination tab.
+        # A hidden mode-specific parameter must not advertise an empty result.
+        searchable_paths = visible_paths
+        if not creative:
+            visible_paths = tuple(p for p in visible_paths if self.control_tab(p) == self.parameter_tabs.currentIndex())
+        if timing: visible_paths = tuple(p for p in SHARED_TIMING_CONTROLS if p in visible_paths)
+        if self.revealed_path in self.controls and self.revealed_path not in visible_paths:
+            visible_paths = (*visible_paths, self.revealed_path)
+        mix_path = intensity_path(effect.id)
+        self.intensity_host.setVisible(mix_path is not None)
+        visible_paths = tuple(path for path in visible_paths if path != mix_path)
+        groups = grouped_paths(visible_paths)
+        titles = tuple(title for title, _paths in groups)
+        if tuple(self.group.itemText(i) for i in range(1, self.group.count())) != titles:
+            with QSignalBlocker(self.group):
+                self.group.clear(); self.group.addItem('All groups', None)
+                for title in titles: self.group.addItem(title, title)
+        self.group.setVisible(not creative and len(titles) > 1)
+        query = self.filter.text().strip().casefold()
+        selected_group = None if query else self.group.currentData()
+        if selected_group:
+            visible_paths = next(paths for title, paths in groups if title == selected_group)
+        query = self.filter.text().strip().casefold()
+        self.color_panel.setVisible(effect.id == 'dye_transfer' and
+                                    self.color_panel.context_provider is not None and
+                                    not query and selected_group in (None, 'Color & light', 'Color channels'))
+        shown = {p for p in visible_paths if not query or matches_control(query, p, parameter(p), control_group(p))}
+        # Keep unchanged rows visible during value refreshes. Hiding a focused
+        # editor makes Qt transfer focus and scroll to a different control.
+        visible_controls = set()
+        visible_groups = set()
+        index = 0
+        for title, paths in grouped_paths(visible_paths):
+            matching = [p for p in paths if p in shown]
+            if not matching: continue
+            if title not in self.group_labels:
+                label = QPushButton(); label.setObjectName('controlGroup'); label.setCheckable(True)
+                label.setProperty('compact', True)
+                label.toggled.connect(lambda expanded, title=title: self.toggle_control_group(title, expanded))
+                self.group_labels[title] = label
+            key = (effect.id, self.parameter_tabs.currentIndex(), title)
+            expanded = (bool(query) or self.show_all_controls.isChecked() or bool(selected_group) or self.revealed_path in matching or
+                        self.group_expansion.get(key, title == titles[0] and title != 'Color channels'))
+            label = self.group_labels[title]
+            with QSignalBlocker(label): label.setChecked(expanded)
+            label.setText(title.replace('&', '&&') + (' ▾' if expanded else ' ▸'))
+            label.setAccessibleName(title + ' controls')
+            local_count = sum(p in self.entries.get(effect.id, {}).get('params', {}) for p in paths)
+            animated_count = sum(bool(self.automation_counts.get(p)) or self.controls[p].value_stack.currentIndex() == 1 for p in paths)
+            label.setAccessibleDescription(f'{local_count} local values · {animated_count} animated. Expand or collapse without changing values.')
+            label.setEnabled(not query and not self.show_all_controls.isChecked() and not selected_group)
+            label.setToolTip(f'{local_count} local values · {animated_count} animated. ' +
+                             ('Matching controls are expanded while searching.' if query else 'Collapse or expand this control group.'))
+            visible_groups.add(title)
+            if expanded: visible_controls.update(matching)
+            for widget in (label, *(self.controls[p] for p in matching)):
+                if self.parameter_layout.indexOf(widget) != index: self.parameter_layout.insertWidget(index, widget)
+                index += 1
+        for path, control in self.controls.items(): control.setVisible(path == mix_path or path in visible_controls)
+        for title, label in self.group_labels.items(): label.setVisible(title in visible_groups)
+        intensity_match = bool(query and mix_path and
+                               (query in parameter(mix_path).label.casefold() or query in mix_path.casefold()))
+        self.search_results = ([mix_path] if intensity_match else []) + [p for p in visible_paths if p in visible_controls]
+        self.no_matches.setVisible(not creative and not shown and not intensity_match)
+        other_tabs = {self.control_tab(p) for p in searchable_paths if query and p != mix_path and
+                      matches_control(query, p, parameter(p), control_group(p))}
+        other_tabs.discard(self.parameter_tabs.currentIndex())
+        for index, button in enumerate(self.other_match_buttons):
+            button.setVisible(not creative and index in other_tabs)
+            name = 'Shared timing · all clips' if ink and index == 1 else self.parameter_tabs.tabText(index)
+            button.setText(f'Matches in {name} →')
+        self.other_matches.setVisible(not creative and bool(other_tabs))
+        if timing:
+            loops = self.shared_summary['loop_seconds']
+            if not loops: loop = 'Enable Ink bloom to preview its timing.'
+            elif not math.isfinite(loops[1]): loop = 'Gesture speed is frozen in part or all of this scope.'
+            elif loops[0] == loops[1]: loop = f'Loop: {loops[0]:.2f} s at the current speed.'
+            else: loop = f'Loop varies: {loops[0]:.2f}–{loops[1]:.2f} s across this scope.'
+            self.timing_note.setText('Changes apply to every clip. ' + loop + ' Complete-cycle clips resize together to keep their boundaries aligned. Durations are at 1×; Stay folded is the total rest between gestures.')
+
+    def change_mode(self, index):
+        if self.updating or index < 0: return
+        entry = copy.deepcopy(self.entries.get(self.effect_id, {"mode": "recipe", "params": {}}))
+        entry["mode"] = self.mode.itemData(index)
+        self.edited.emit(self.effect_id, entry, "effect-mode")
+
+    def change_creative(self, key, value):
+        if self.updating: return
+        entry = copy.deepcopy(self.entries.get(self.effect_id, {'mode': 'recipe', 'params': {}}))
+        creative = entry.setdefault('creative', {'version': 1, 'values': {}})
+        creative.pop('variation', None)
+        creative['values'][key] = value
+        self.edited.emit(self.effect_id, entry, f'effect-creative:{self.context_key}:{self.effect_id}:{key}')
+
+    def restore_creative(self, key):
+        if self.updating: return
+        entry = copy.deepcopy(self.entries.get(self.effect_id, {'mode': 'recipe', 'params': {}}))
+        if key is None: entry.pop('creative', None)
+        elif 'creative' in entry:
+            entry['creative'].pop('variation', None)
+            entry['creative']['values'].pop(key, None)
+            if not entry['creative']['values']: entry.pop('creative')
+        if entry['mode'] == 'recipe' and not entry['params'] and set(entry) == {'mode', 'params'}:
+            entry = None
+        self.edited.emit(self.effect_id, entry, 'effect-creative-restore')
+
+    def change_parameter(self, path, value, effect_id=None):
+        effect_id = effect_id or self.effect_id
+        if self.updating: return
+        if path in INK_TIMING:
+            self.timing_edited.emit(path, value)
+            return
+        entry = copy.deepcopy(self.entries.get(effect_id, {"mode": "recipe", "params": {}}))
+        entry["params"][path] = value
+        if path == 'edge_phosphor.fade_mode' and value and 'edge_phosphor.fade_strength' not in entry['params']:
+            info = self.summary['edge_phosphor']['ranges']
+            strength = info['edge_phosphor.neck_dissolve'][1]
+            entry['params']['edge_phosphor.fade_strength'] = info['edge_phosphor.fade_strength'][1] or strength or 1.
+            if value == 1 and strength and self.summary['silhouette']['active']:
+                entry['params'].setdefault('edge_phosphor.fade_start', .9)
+                entry['params'].setdefault('edge_phosphor.fade_width', .38)
+        if path == 'ink_bloom.artwork' and value:
+            entry['params']['ink_bloom.shape'] = 5
+        if path == 'solid.model_data' and value:
+            entry['params']['solid.shape'] = 2
+        self.edited.emit(effect_id, entry, "model-replace" if path == "solid.model_data" else f"effect-param:{path}")
+
+    def reset_parameter(self, path, effect_id=None):
+        effect_id = effect_id or self.effect_id
+        if path in INK_TIMING:
+            self.timing_edited.emit(path, None)
+            return
+        entry = copy.deepcopy(self.entries.get(effect_id, {"mode": "recipe", "params": {}})); entry["params"].pop(path, None)
+        self.edited.emit(effect_id, entry, "effect-reset-param")
+
+    def restore_effect(self):
+        self.edited.emit(self.effect_id, None, "effect-restore")
+
+    def apply_look(self):
+        if self.discovery_enabled and self.effect_id not in SOURCE_EFFECTS:
+            self.discovery_requested.emit(self.effect_id, self.look.currentIndex(), 'replace'); return
+        from nebula.effects.synth_effect_discovery import preset_entry
+        entry = preset_entry(self.effect_id, self.look.currentIndex(), self.entries.get(self.effect_id),
+                             self.parent_entries.get(self.effect_id), self.local)
+        self.edited.emit(self.effect_id, entry, "effect-apply")
+
+    def set_explanations(self, explanations):
+        self.explanations = explanations
+        details = '\n'.join(item.scope + ': ' + item.message for item in explanations)
+        # Routine capability/threshold guidance is useful on demand. Actual
+        # inactive, missing, zero-strength and automated states stay explicit.
+        routine = {'configured', 'brightness-guidance', 'capability', 'transition'}
+        diagnostics = [item for item in explanations if item.code not in routine]
+        self.frame_status.setText('\n'.join(item.scope + ': ' + item.message for item in diagnostics))
+        self.frame_status.setVisible(bool(diagnostics))
+        self.frame_status.setToolTip(details)
+        self.frame_status.setAccessibleDescription(details)
+        self.inspector_title.setToolTip(EFFECT_BY_ID[self.effect_id].description + ('\n\n' + details if details else ''))
+        self.explanation_target = next((item.target for item in (*diagnostics, *explanations) if item.target), None)
+        self.explanation_link.setVisible(bool(self.explanation_target))
+        self.explanation_link.setText('Open relevant control' if diagnostics else 'Threshold guidance…')
+        self.explanation_link.setToolTip(details)
+
+    def reveal_control(self, path):
+        """Reveal a control through its tab, filters and collapsed group."""
+        if path not in self.controls: return False
+        effect_id = base_id(self.effect_id)
+        if effect_id in CREATIVE_CONTROLS: tab = 1
+        elif effect_id == 'broadcast':
+            tab = 1 if path in POLARITY_CONTROLS else 2 if path in SIGNAL_CONTROLS else 3 if path in SCREEN_CONTROLS else 0
+        elif effect_id == 'ink_bloom': tab = 1 if path in INK_TIMING else 0
+        elif effect_id == 'text': tab = 1 if path in TEXT_TIMING else 0
+        elif effect_id == 'edge_phosphor': tab = 1 if path in REGION_CONTROLS else 0
+        else: tab = 0
+        self.parameter_tabs.setCurrentIndex(tab)
+        with QSignalBlocker(self.group): self.group.setCurrentIndex(0)
+        with QSignalBlocker(self.filter): self.filter.setText(parameter(path).label)
+        self.revealed_path = path
+        self.show_controls()
+        self.parameter_scroll.ensureWidgetVisible(self.controls[path])
+        self.controls[path].setFocus(Qt.FocusReason.OtherFocusReason)
+        self.navigation_changed.emit()
+        return True
+
+    def navigate_explanation(self):
+        target = getattr(self, 'explanation_target', None)
+        if target == 'source': self.source_requested.emit(); return
+        if target == 'object': self.object_requested.emit(); return
+        if target == 'resume':
+            self.bypass_button.setFocus(); return
+        if target == 'activation':
+            if self.effect_id == 'ink_bloom' and self.parameter_tabs.currentIndex() == 1:
+                self.parameter_tabs.setCurrentIndex(0)
+            self.activation_button.setChecked(True)
+            self.parameter_scroll.ensureWidgetVisible(self.mode)
+            self.mode.setFocus(); return
+        if target in self.controls:
+            self.reveal_control(target)
+
+    def refresh_breakdown(self):
+        from nebula.effects.synth_effect_catalog import composition_contributions
+        while self.breakdown_layout.count():
+            item = self.breakdown_layout.takeAt(0)
+            if item.widget(): item.widget().deleteLater()
+        self.breakdown_rows = {}
+        video = self.allowed_effects is not None and 'forms' not in self.allowed_effects
+        if video:
+            button = QPushButton('Source video provides the image.'); button.clicked.connect(self.source_requested.emit)
+            self.breakdown_layout.addWidget(button)
+        for identifier, sentence, source in composition_contributions(self.summary, self.entries, self.parent_entries, video):
+            host = QWidget(); layout = QVBoxLayout(host); layout.setContentsMargins(0, 0, 0, 4)
+            button = QPushButton(EFFECT_BY_ID[identifier].label)
+            button.clicked.connect(lambda _checked=False, key=identifier: self.inspect_choice(key))
+            layout.addWidget(button)
+            label = QLabel(sentence); label.setWordWrap(True); layout.addWidget(label)
+            status = QLabel(); status.setWordWrap(True); status.setObjectName('muted'); layout.addWidget(status)
+            self.breakdown_rows[identifier] = status
+            if not source:
+                compare = QPushButton('Compare without this effect')
+                compare.clicked.connect(lambda _checked=False, key=identifier: self.discovery_requested.emit(key, 0, 'without'))
+                compare.setEnabled(self.discovery_enabled)
+                layout.addWidget(compare)
+            self.breakdown_layout.addWidget(host)
+        note = QLabel('Finishing, Master and authored transitions may also shape the result. This is a capability guide, not a layer stack.')
+        note.setWordWrap(True); self.breakdown_layout.addWidget(note)
+        for title, signal in (('Open Finishing', self.finishing_requested), ('Open Master', self.master_requested)):
+            button = QPushButton(title); button.clicked.connect(signal.emit); self.breakdown_layout.addWidget(button)
+
+    def update_breakdown_status(self, explanations):
+        for identifier, status in self.breakdown_rows.items():
+            info = self.summary[identifier]
+            facts = explanations.get(identifier, ())
+            primary = next((f for f in facts if f.code in ('bypassed','off','disabled','dependency','zero','missing-media')), None)
+            status.setText(primary.message if primary else 'Configured · active during part of this scope' if info['intermittent'] else 'Configured in this scope')

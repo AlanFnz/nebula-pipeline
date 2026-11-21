@@ -1,0 +1,11 @@
+pillow
+fonttools>=4.50,<5
+numpy
+rich
+pyfiglet
+textual>=0.50.0
+replicate
+requests
+
+# Static GLB/glTF geometry import (rendering uses embedded arrays).
+trimesh==4.11.2

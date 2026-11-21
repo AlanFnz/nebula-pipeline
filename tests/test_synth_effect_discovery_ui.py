@@ -1,0 +1,358 @@
+"""Observable audition lifecycle, ownership, transport and navigation contracts."""
+import copy
+import time
+import pytest
+from PySide6.QtCore import QEvent, QThreadPool, Qt
+from PySide6.QtWidgets import QApplication
+from PySide6.QtTest import QTest
+from nebula.documents.synth_starting_points import new_piece
+from nebula.ui.synth_studio import SynthStudio
+from nebula.ui.synth_effect_discovery_ui import EffectAuditionDialog
+from nebula.render.synth_effect_preview import EffectPreviewSession
+from nebula.documents.synth_exploration import capture_snapshot
+from nebula.sources.synth_video import inspect_video, video_composition
+from test_synth_video import clip
+
+REAL_REQUEST_FRAME = SynthStudio.request_frame
+
+
+@pytest.fixture
+def window(monkeypatch):
+    app=QApplication.instance() or QApplication([])
+    monkeypatch.setattr(SynthStudio,'request_frame',lambda self:None)
+    w=SynthStudio(composition=new_piece('shape'));w.auto_prepare.setChecked(False)
+    w.resize(1280,720);w.show();app.processEvents()
+    yield w
+    if w.discovery_session: w.discovery_dialog.reject()
+    w.mark_document_clean();w.close();QThreadPool.globalInstance().waitForDone(10000)
+    app.sendPostedEvents(None,QEvent.Type.DeferredDelete);app.processEvents()
+
+
+def select(dialog,identifier):
+    for row in range(dialog.table.rowCount()):
+        if dialog.table.item(row,0).data(Qt.ItemDataRole.UserRole)==identifier:
+            dialog.table.selectRow(row);return
+    raise AssertionError(identifier)
+
+
+@pytest.mark.parametrize('quality,size', [(0, (202, 360)), (1, (405, 720)), (2, (1080, 1920))])
+def test_audition_respects_monitor_quality_before_after_apply_and_cancel(window, quality, size):
+    from nebula.core.synth_canvas import resize_canvas
+    doc = copy.deepcopy(window.composition)
+    doc['canvas'] = resize_canvas(doc['canvas'], {'width': 1080, 'height': 1920})
+    window.set_composition(doc, clean=True)
+    window.quality.setCurrentIndex(quality)
+    assert window.preview_size() == size
+    for apply in (False, True):
+        window.open_effect_discovery(); d = window.discovery_dialog
+        select(d, 'tape'); d.debounce.stop(); d.render_selection()
+        assert window.preview_size() == size
+        d.session.accept_packet(); d.refresh_preview()
+        assert f'{size[0]}×{size[1]}' in d.preview_note.text()
+        d.switch_side('a'); assert window.preview_size() == size
+        d.switch_side('b'); assert window.preview_size() == size
+        if apply:
+            d.session.accept_packet(); d.apply_candidate()
+            assert 'tape' in window.composition['effects']
+        else:
+            d.reject(); assert window.composition == doc
+        assert window.preview_size() == size and window.quality.currentIndex() == quality
+
+
+def test_cancel_preserves_snapshot_comparison_quality_history_and_keyboard(window):
+    doc,sid=capture_snapshot(window.composition,'Before')
+    window.composer.commit(doc,'snapshot-capture');window.mark_document_clean()
+    window.compare_snapshot(sid);prior=window.comparison
+    window.quality.setCurrentIndex(2);window.timeline.setValue(3)
+    before=copy.deepcopy(window.composition);history=copy.deepcopy(window.undo_compositions)
+    window.open_effect_discovery()
+    d=window.discovery_dialog
+    select(d,'tape');d.debounce.stop();d.render_selection()
+    d.session.accept_packet();d.refresh_preview()
+    assert d.action.isEnabled() and not window.audition_pending()
+    d.search.setFocus();QTest.keyClick(d.search,Qt.Key.Key_Return)
+    assert window.composition==before
+    QTest.keyClick(d,Qt.Key.Key_Escape);QApplication.processEvents()
+    assert window.discovery_session is None and window.comparison is prior
+    assert window.timeline.value()==3 and window.quality.currentIndex()==2
+    assert window.undo_compositions==history and not window.has_unsaved_changes()
+
+
+def test_full_canvas_sampled_loop_fits_both_comparison_banks(window):
+    from nebula.core.synth_canvas import resize_canvas
+    doc = copy.deepcopy(window.composition)
+    doc['canvas'] = resize_canvas(doc['canvas'], {'width': 4096, 'height': 4096})
+    window.set_composition(doc, clean=True)
+    window.quality.setCurrentIndex(2)
+    window.timeline.setValue(window.timeline.maximum() - 1)
+    window.open_effect_discovery(); d = window.discovery_dialog
+    select(d, 'tape'); d.debounce.stop(); d.render_selection()
+    session = d.session
+    assert window.preview_size() == (4096, 4096)
+    assert session.samples and session.samples_limited
+    assert all(session.scope.contains(frame) for frame in session.samples)
+    assert len(session.samples) * 4096 * 4096 * 3 <= window.preparation_budget()
+    # Both banks must coexist, otherwise playback waits forever for evicted
+    # frames. Each packet remains at the requested full-canvas resolution.
+    assert len(session.samples) * 4096 * 4096 * 3 * 2 <= window.preview_frames.budget
+    d.refresh_preview()
+    assert 'Loop limited to' in d.preview_note.text()
+
+
+def test_selection_invalidates_late_packet_and_apply(window):
+    window.open_effect_discovery();d=window.discovery_dialog
+    select(d,'tape');d.debounce.stop();d.render_selection()
+    old=d.session.owner
+    select(d,'bloom')
+    assert d.session.owner is None and d.session.candidate is None
+    d.session.accept_packet();d.refresh_preview()
+    assert not d.action.isEnabled() and not d.session.ready
+    d.debounce.stop();d.render_selection();d.session.accept_packet();d.refresh_preview()
+    candidate=copy.deepcopy(d.session.candidate);history=len(window.undo_compositions)
+    d.action.click()
+    assert window.composition==candidate and len(window.undo_compositions)==history+1
+    window.undo_composition();assert 'bloom' not in window.composition['effects']
+    window.redo_composition();assert window.composition==candidate
+
+
+@pytest.mark.parametrize('scope, operation', [(0, 'add'), (1, 'replace')])
+def test_preview_intensity_applies_only_the_last_auditioned_mix(window, scope, operation):
+    window.composer.scope = scope
+    original = copy.deepcopy(window.composition)
+    window.open_effect_discovery('tape', 0, operation)
+    d = window.discovery_dialog
+    d.debounce.stop(); d.render_selection(); d.session.accept_packet()
+    assert d.intensity_row.isVisible() and d.intensity_number.value() == 100
+    d.switch_side('a')
+    d.intensity_slider.setValue(0)
+    assert d.intensity_number.value() == 0
+    d.debounce.stop(); d.render_selection()
+    def mix(doc):
+        target = doc['sections'][0] if scope else doc
+        return target['effects']['tape']['params']['tape.effect_intensity']
+    assert window.comparison['side'] == 'b' and mix(d.session.candidate) == 0
+    d.session.accept_packet()
+    d.intensity_number.setValue(32.75)
+    assert d.intensity_slider.value() == 33
+    d.session.accept_packet(); d.refresh_preview(); d.apply_candidate()
+    assert not d.action.isEnabled() and window.composition == original
+    d.debounce.stop(); d.render_selection(); d.session.accept_packet(); d.refresh_preview()
+    assert mix(window.comparison['candidate']) == 32.75
+    candidate = copy.deepcopy(d.session.candidate)
+    d.action.click()
+    assert window.composition == candidate
+    window.undo_composition()
+    assert window.composition == original
+
+
+def test_intensity_during_sample_playback_resumes_and_cancel_discards(window, monkeypatch):
+    original = copy.deepcopy(window.composition)
+    window.open_effect_discovery(); d = window.discovery_dialog
+    select(d, 'bloom'); d.debounce.stop(); d.render_selection(); d.session.accept_packet()
+    prepared = []
+    monkeypatch.setattr(d.session, 'prepare_samples', lambda: prepared.append(d.session.owner))
+    d.preview_play.setChecked(True)
+    d.intensity_slider.setValue(25)
+    assert d.preview_play.isChecked() and not d.transport.isActive()
+    d.debounce.stop(); d.render_selection(); d.refresh_preview()
+    assert not d.transport.isActive()
+    d.session.accept_packet(); d.refresh_preview()
+    assert d.transport.isActive() and len(prepared) == 2 and prepared[0] is not prepared[1]
+    select(d, 'tape')
+    assert d.intensity_number.value() == 100 and not d.preview_play.isChecked()
+    d.reject()
+    assert window.composition == original and not window.has_unsaved_changes()
+
+
+def test_applied_effect_restores_working_preview_after_audition(window, monkeypatch):
+    window.quality.setCurrentIndex(2)
+    size = window.preview_size()
+    window.composer.change_effect('bloom', {'mode': 'on', 'params': {}}, 'effect-add')
+    before = copy.deepcopy(window.composition)
+    history = copy.deepcopy(window.undo_compositions)
+    monkeypatch.setattr(SynthStudio, 'request_frame', REAL_REQUEST_FRAME)
+    # The fixture connected the no-render stub when constructing its timer.
+    window.preview_debounce.timeout.disconnect()
+    window.preview_debounce.timeout.connect(window.request_frame)
+    window.open_effect_discovery(); d = window.discovery_dialog
+    select(d, 'tape'); d.debounce.stop(); d.render_selection()
+    assert window.comparison is not None
+    for side in ('b', 'a'):
+        d.switch_side(side)
+        for _ in range(200):
+            QApplication.processEvents()
+            if window.viewer.packet is not None: break
+            time.sleep(.025)  # Let the Python render worker run between GUI events.
+        assert window.viewer.packet is not None, (d.preview_note.text(), window.preview_status.text())
+        assert window.viewer.packet[0] == size
+    # The old path cleared the viewport and had no comparison/context change
+    # left to trigger rendering when browsing another applied effect.
+    select(d, 'bloom'); d.debounce.stop(); d.render_selection()
+    assert window.comparison is None and d.session.candidate is None
+    for _ in range(200):
+        QApplication.processEvents()
+        if window.viewer.packet is not None: break
+        time.sleep(.025)
+    assert window.viewer.packet is not None
+    assert window.viewer.packet[0] == size
+    assert window.preview_sequence() == window.sequence
+    assert d.action.text() == 'Inspect effect' and d.action.isEnabled()
+    assert window.composition == before and window.undo_compositions == history
+
+
+def test_browsing_applied_effect_keeps_current_picture(window):
+    window.composer.change_effect('bloom', {'mode': 'on', 'params': {}}, 'effect-add')
+    window.open_effect_discovery(); d = window.discovery_dialog
+    d.debounce.stop(); d.render_selection()
+    if window.comparison: window.end_comparison()
+    packet = ((1, 1), b'\x12\x34\x56')
+    window.viewer.set_packet(packet)
+    select(d, 'bloom'); d.debounce.stop(); d.render_selection()
+    assert window.viewer.packet == packet
+    assert window.render_queued and window.preview_debounce.isActive()
+    assert d.session.candidate is None
+
+
+@pytest.mark.parametrize('warm_loop', [False, True])
+def test_prepared_loop_allows_effect_preview_to_render_new_frames(window, monkeypatch, warm_loop):
+    monkeypatch.setattr(window, 'preview_size', lambda: (96, 72))
+    monkeypatch.setattr(SynthStudio, 'request_frame', REAL_REQUEST_FRAME)
+    window.preview_debounce.timeout.disconnect()
+    window.preview_debounce.timeout.connect(window.request_frame)
+    window.ensure_preview_context()
+    if warm_loop:
+        window.request_frame()
+        wait_for_preview(lambda: window.viewer.packet is not None)
+    window.loop_preview_range.setChecked(True)
+    original = window.viewer.packet
+    window.open_effect_discovery(); dialog = window.discovery_dialog
+    select(dialog, 'bloom')
+    assert window.viewer.packet == original
+    wait_for_preview(lambda: dialog.session.effect_id == 'bloom' and dialog.session.ready)
+    assert dialog.session.samples and window.viewer.packet is not None
+    dialog.switch_side('a')
+    wait_for_preview(lambda: not window.comparison['pending'])
+    if warm_loop:
+        assert window.viewer.packet == original
+    dialog.intensity_number.setValue(37)
+    wait_for_preview(lambda: dialog.session.ready and window.comparison['side'] == 'b')
+    old_time = window.timeline.value()
+    dialog.preview_play.setChecked(True)
+    wait_for_preview(lambda: window.timeline.value() != old_time)
+    assert window.loop_preview_range.isChecked()
+    dialog.reject()
+    assert window.loop_preview_range.isChecked() and 'bloom' not in window.composition['effects']
+    assert window.viewer.packet == original
+    if warm_loop:
+        wait_for_preview(lambda: window.cover_frame == (window.settings_generation, 0))
+        assert window.viewer.packet == original and window.preview_frames.contains(0)
+
+
+def wait_for_preview(predicate):
+    limit = time.monotonic() + 5
+    while not predicate() and time.monotonic() < limit:
+        QApplication.processEvents()
+        time.sleep(.01)
+    assert predicate()
+
+
+def test_failure_stale_document_export_and_drafts_disable_or_reject(window):
+    session=EffectPreviewSession(window);session.select('tape');session.fail('Decode failed')
+    with pytest.raises(ValueError):session.apply()
+    window.composer.change_effect('bloom',{'mode':'on','params':{}},'edit')
+    assert session.closed and window.discovery_session is None
+    window.export_job=object()
+    with pytest.raises(ValueError,match='export'):EffectPreviewSession(window)
+    window.export_job=None
+
+
+def test_without_is_temporary_and_navigation_creates_no_edit(window):
+    before=copy.deepcopy(window.composition);history=copy.deepcopy(window.undo_compositions)
+    window.open_effect_discovery('tape',0,'without');d=window.discovery_dialog
+    d.debounce.stop();d.render_selection()
+    assert d.session.candidate['effects']['tape']['bypassed']
+    assert not d.intensity_row.isVisible()
+    assert not d.action.isVisible()
+    d.reject()
+    panel=window.composer.effects_panel
+    panel.inspect_effect('bloom');window.refresh_effect_explanations()
+    panel.navigate_explanation()
+    assert window.composition==before and window.undo_compositions==history
+
+
+def test_closed_browsers_release_copied_documents(window):
+    for _ in range(10):
+        window.open_effect_discovery('tape',0,'replace');window.discovery_dialog.reject()
+        QApplication.sendPostedEvents(None,QEvent.Type.DeferredDelete);QApplication.processEvents()
+    assert not window.findChildren(EffectAuditionDialog)
+    assert window.discovery_dialog is None and window.discovery_session is None
+
+
+def test_cutout_waits_for_explicit_preparation_and_cannot_apply_previous_effect(window,clip):
+    document=video_composition(clip)
+    window.set_composition(document,clean=True)
+    window.open_effect_discovery();d=window.discovery_dialog
+    select(d,'tape');d.debounce.stop();d.render_selection();d.session.accept_packet()
+    select(d,'subject_cutout');d.debounce.stop();d.render_selection()
+    d.session.accept_packet();d.refresh_preview()
+    assert d.session.candidate is None and not d.action.isEnabled()
+    assert 'Prepare preview' in d.preview_note.text()
+
+
+def test_selected_section_explicit_seek_uses_nearest_actual_occurrence(window):
+    doc=copy.deepcopy(window.composition)
+    second=copy.deepcopy(doc['sections'][0]);second['id']='second';second['loops']=2
+    doc['sections'].append(second);window.composer.commit(doc,'sections')
+    window.composer.select_section(1)
+    window.preview_scope.setCurrentIndex(1)
+    window.section_timeline.selected_ids={doc['sections'][0]['id']}
+    window.timeline.setValue(0)
+    session=EffectPreviewSession(window,'second','replace');session.select('tape')
+    assert session.samples==()
+    session.seek_selected()
+    assert session.target_scope.contains(window.timeline.value()) and session.samples
+    assert all(session.target_scope.contains(frame) for frame in session.samples)
+    session.close()
+    assert window.timeline.value()==0
+
+
+def test_object_preset_workflow_stays_available(window):
+    window.composer.open_object_details('forms', False)
+    panel=window.composer.object_editor
+    panel.inspect_effect('forms');panel.apply_look()
+    assert window.discovery_session is None
+    assert window.composition['effects']['forms']['mode']=='on'
+
+
+def test_search_and_category_changes_audition_the_current_selected_effect(window):
+    window.open_effect_discovery();d=window.discovery_dialog
+    select(d,'bloom');d.debounce.stop();d.render_selection();d.session.accept_packet()
+    d.search.setText('Tape')
+    assert d.session.owner is None and d.debounce.isActive()
+    d.debounce.stop();d.render_selection();d.session.accept_packet();d.refresh_preview()
+    assert d.session.effect_id=='tape' and d.action.isEnabled()
+    assert d.action.text()=='Apply effect' and d.action.accessibleName()=='Apply selected effect'
+
+
+def test_current_preparation_failure_stops_play_and_offers_retry(window, monkeypatch):
+    from types import SimpleNamespace
+    window.open_effect_discovery('tape',0,'replace');d=window.discovery_dialog
+    d.debounce.stop();d.render_selection();d.session.accept_packet()
+    job=SimpleNamespace(generation=window.settings_generation,reserved_bytes=0,frames=d.session.samples)
+    monkeypatch.setattr(d.session, 'prepare_samples', lambda: None)
+    window.preparation_explicit=True
+    d.preview_play.setChecked(True)
+    # Use the actual current preparation identity after Play's new request.
+    window.prepare_job=window.warming_job=job
+    window.preparation_finished(job,error='Decode failed in sampled loop')
+    d.refresh_preview()
+    assert d.session.error and not d.preview_play.isChecked() and not d.transport.isActive()
+    assert d.retry.isVisible() and not d.action.isEnabled()
+
+
+def test_halo_diagnostic_navigation_opens_a_live_editable_parameter(window):
+    window.composer.change_effect('cloud',{'mode':'on','params':{'slab.cloud_strength':0}},'halo')
+    panel=window.composer.effects_panel;panel.inspect_effect('cloud')
+    window.refresh_effect_explanations();panel.navigate_explanation();QApplication.processEvents()
+    assert panel.controls['slab.cloud_strength'].isVisible()
+    assert panel.controls['slab.cloud_strength'].isEnabled()

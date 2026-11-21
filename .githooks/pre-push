@@ -1,0 +1,10 @@
+#!/bin/bash
+set -euo pipefail
+while read -r local_ref head remote_ref base; do
+    case "$head" in 0000000000000000000000000000000000000000) continue;; esac
+    case "$base" in
+        0000000000000000000000000000000000000000) range="$head";;
+        *) range="$base..$head";;
+    esac
+    git rev-list "$range" | python3 scripts/check_public_tree.py --commits || exit 1
+done
