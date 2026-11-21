@@ -8,19 +8,28 @@ from nebula.documents.synth_composition import compile_composition, load_composi
 from nebula.effects.synth_effect_discovery import effect_candidate
 from nebula.effects.synth_effects import effect_preset, state_values
 from nebula.documents.synth_sequence import render_sequence_frame
+from nebula.documents.synth_starting_points import new_piece
 from test_synth_effects_editor_integration import make_window
 
 
-def test_whole_clip_remove_clears_section_overrides_is_one_undo_and_round_trips(make_window, tmp_path):
-    window = make_window()
-    document = copy.deepcopy(window.composition)
+@pytest.fixture
+def two_clips():
+    project = new_piece('shape')
+    second = copy.deepcopy(project['sections'][0])
+    second['id'] = 'second'
+    project['sections'].append(second)
+    return project
+
+
+def test_whole_clip_remove_clears_section_overrides_is_one_undo_and_round_trips(make_window, tmp_path, two_clips):
+    document = two_clips
     from nebula.documents.synth_creative import CREATIVE_CONTROLS
     key = CREATIVE_CONTROLS['ghosts'][0].key
     document['effects']['ghosts'] = dict(effect_preset('ghosts'), bypassed=True,
                                        creative={'version': 1, 'values': {key: CREATIVE_CONTROLS['ghosts'][0].neutral}})
     document['sections'][1]['effects']['ghosts'] = dict(mode='on', params={'smear.ghosts': 8}, bypassed=False)
     document['effects']['tape'] = effect_preset('tape')
-    window.set_composition(document)
+    window = make_window(composition=document)
     original = copy.deepcopy(window.composition)
     before_pixels = render_sequence_frame(window.sequence, 6.2, (64, 48)).tobytes()
     panel = window.composer.effects_panel
@@ -54,11 +63,10 @@ def test_whole_clip_remove_clears_section_overrides_is_one_undo_and_round_trips(
     assert window.composition['effects']['ghosts']['params'] == effect_preset('ghosts')['params']
 
 
-def test_section_remove_shadows_inherited_bypass_and_can_be_added_again(make_window):
-    window = make_window()
-    document = copy.deepcopy(window.composition)
+def test_section_remove_shadows_inherited_bypass_and_can_be_added_again(make_window, two_clips):
+    document = two_clips
     document['effects']['tape'] = dict(effect_preset('tape'), bypassed=True)
-    window.set_composition(document)
+    window = make_window(composition=document)
     original = copy.deepcopy(window.composition)
     window.composer.select_section(1)
     panel = window.composer.effects_panel
@@ -81,7 +89,9 @@ def test_section_remove_shadows_inherited_bypass_and_can_be_added_again(make_win
 
 
 def test_remove_embedded_study_effect_stays_absent_and_sources_have_no_remove(make_window):
-    window = make_window()
+    project = new_piece('shape')
+    project['source']['states']['blank']['overrides']['slab.ghost_opacity'] = .4
+    window = make_window(composition=project)
     panel = window.composer.effects_panel
     original = copy.deepcopy(window.composition)
     assert 'ghosts' in panel.applied_ids
@@ -91,11 +101,12 @@ def test_remove_embedded_study_effect_stays_absent_and_sources_have_no_remove(ma
     for state in window.sequence['states'].values():
         values, enabled = state_values(state)
         assert 'smear' not in enabled and values['slab.ghost_opacity'] == 0
-    panel.inspect_effect('rays')
-    assert panel.remove_button.isHidden()
-    assert panel.effect_choices['rays'].remove.isHidden()
+    panel.inspect_effect('forms')
+    assert window.composer.look_tabs.currentWidget() is window.composer.object_panel
+    assert window.composer.object_editor.remove_button.isHidden()
+    assert panel.effect_choices['forms'].remove.isHidden()
     edited = copy.deepcopy(window.composition)
-    panel.remove_effect('rays')
+    panel.remove_effect('forms')
     assert window.composition == edited
     window.undo_composition()
     assert window.composition == original

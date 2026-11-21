@@ -7,7 +7,7 @@ from PySide6.QtCore import QThreadPool, Qt
 from PySide6.QtGui import QContextMenuEvent
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
-from nebula.documents.synth_composition import compile_composition, load_composition, normalize_composition, reference_composition, save_composition, section_placements, section_ranges
+from nebula.documents.synth_starting_points import new_piece
 from nebula.ui.synth_studio import SynthStudio
 
 @pytest.fixture
@@ -15,7 +15,11 @@ def window(tmp_path, monkeypatch):
     app = QApplication.instance() or QApplication([])
     from pathlib import Path
     monkeypatch.setattr(Path, 'home', classmethod(lambda cls: tmp_path))
-    window = SynthStudio()
+    document = new_piece('shape')
+    template = document['sections'][0]
+    document['sections'] = [dict(copy.deepcopy(template), id=f'clip-{i}', duration=i + 1.)
+                            for i in range(6)]
+    window = SynthStudio(composition=document)
     window.resize(1440, 960)
     window.show()
     app.processEvents()
