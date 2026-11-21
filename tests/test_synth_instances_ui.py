@@ -19,6 +19,7 @@ def test_instance_ui_add_animate_remove_undo_save_and_reopen(make_window, tmp_pa
     assert window.composition['effects']['tape'] == original['effects']['tape']
     assert panel.inspector_title.text() == 'EDIT / Tape damage · 2'
     assert len(window.undo_compositions) == 1
+    panel.parameter_tabs.setCurrentIndex(1)  # Open the detailed effect parameters.
     assert panel.controls['tape@2.pull'].animate_button.isVisible()
     panel.controls['tape@2.pull'].animate_button.click()
     dialog = composer.automation_dialogs[-1]

@@ -150,6 +150,7 @@ def test_native_source_rotation_control_is_global_and_undoable(window,tmp_path):
     panel.duplicate_section()
     panel.select_section(1)
     panel.look_tabs.setCurrentWidget(panel.video_panel)
+    panel.video_panel.edit_shared.click()
     control = panel.video_panel.controls['rotation']
     assert control.accessibleName() == 'Video Rotation'
     assert control.minimum() == -180 and control.maximum() == 180
