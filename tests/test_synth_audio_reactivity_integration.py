@@ -260,6 +260,8 @@ def test_obsolete_foreground_is_cancelled_by_edit_and_close(editor):
     editor.render_job = job
     editor.render_running = True
     editor.invalidate()
+    assert not job.cancel.event.is_set()
+    editor.apply_audio_reactivity(mapping_config(editor.authored_soundtrack()))
     assert job.cancel.event.is_set()
     job = RenderJob({}, 0., (2, 2), editor.settings_generation, 2, sequence=editor.sequence)
     editor.render_job = job

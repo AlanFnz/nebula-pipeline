@@ -168,9 +168,11 @@ class SaveStudyJob(QRunnable):
 
 
 class RenderJob(QRunnable):
-    def __init__(self, preset, time_seconds, size, settings_generation, request_serial, sequence=None, frame_provider=None, bypass=False):
+    def __init__(self, preset, time_seconds, size, settings_generation, request_serial,
+                 sequence=None, frame_provider=None, bypass=False, *, output_time=None):
         super().__init__()
         self.preset, self.time_seconds, self.size = copy.deepcopy(preset), time_seconds, size
+        self.output_time = time_seconds if output_time is None else output_time
         self.settings_generation, self.request_serial = settings_generation, request_serial
         self.sequence = copy.deepcopy(sequence)
         self.signals = JobSignals()
@@ -2443,8 +2445,8 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
             self.refresh_monitor_frame()
             return
         self.render_running = True
-        job = RenderJob(self.preset, sample_time, size, self.settings_generation, self.request_serial, sequence, self.video_frames, self.preview_bypass())
-        job.output_time = self.current_time
+        job = RenderJob(self.preset, sample_time, size, self.settings_generation, self.request_serial,
+                        sequence, self.video_frames, self.preview_bypass(), output_time=self.current_time)
         self.render_job = job
         self.failed_monitor_frame = None
         self.refresh_preview_activity()
@@ -2461,7 +2463,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
     def _receive_foreground_frame(self, job, result):
         self.preview_frames.release(getattr(job, 'reserved_bytes', 0)); job.reserved_bytes = 0
         if job.cancel.event.is_set(): return
-        self.frame_ready(result, output_time=getattr(job, 'output_time', None))
+        self.frame_ready(result, output_time=job.output_time)
 
     def cancel_foreground_render(self):
         if self.render_job is not None:
