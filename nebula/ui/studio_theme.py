@@ -4,6 +4,7 @@ from nebula.resources import RESOURCE_ROOT
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QPalette, QIcon
 
 from _version import __version__
+from nebula.ui.studio_graphite import GRAPHITE_STYLE
 
 
 # Keep the original names stable: custom-painted timeline/viewer widgets use them.
@@ -54,6 +55,7 @@ QLabel#monitorState { color: @cursor@; font-size: 11px; }
 QLabel#timecode { color: @text@; background: @input@; border: 1px solid @border@; border-radius: 4px; padding: 5px 7px; }
 QLabel[warning="true"] { color: @warning@; }
 QLabel[destructive="true"] { color: @destructive@; }
+SynthViewer { background: @monitor@; }
 QFrame#monitorFrame { border: 1px solid @border@; border-radius: 6px; background: @monitor@; }
 QWidget#monitorHeader { background: @panel@; border-bottom: 1px solid @border@; }
 QWidget[actionGroup="true"] { border-left: 1px solid @border@; }
@@ -203,7 +205,7 @@ QSlider#transportScrubber::sub-page:horizontal { background: @border_hover@; }
 
 
 def _stylesheet():
-    sheet = _STYLE
+    sheet = _STYLE + GRAPHITE_STYLE
     for name, color in COLORS.items():
         sheet = sheet.replace(f"@{name}@", color)
     assets = RESOURCE_ROOT / "assets"

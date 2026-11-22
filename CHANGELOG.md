@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.126.0 · 2026-11-22
+
+The composition header, monitor and inspector use the Studio Graphite palette. Document actions and canvas settings have distinct rows, with clearer headings and keyboard focus in the inspector.
+
 ## 0.125.1 · 2026-11-22
 
 When editing intensity across multiple clips, the inspector shows how many clips it affects and where the other controls apply.

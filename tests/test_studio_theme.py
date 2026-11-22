@@ -3,7 +3,7 @@ import os
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 
 import pytest
-from PySide6.QtCore import Qt, qInstallMessageHandler
+from PySide6.QtCore import QPoint, Qt, qInstallMessageHandler
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QPalette
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox,
@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
 )
 
 from nebula.ui.studio_theme import COLORS, apply_theme, terminal_font, ui_font
+from nebula.ui.synth_effect_parameter_ui import EffectParameter
 
 
 @pytest.fixture
@@ -55,6 +56,27 @@ def test_shared_palette_and_numeric_typography(themed_app):
         assert clock.font().family() == terminal_font().family()
     finally:
         dialog.close()
+
+
+@pytest.mark.parametrize('width, wrapped', [(560, False), (375, True)])
+def test_inspector_numeric_fields_align_with_and_without_animation(themed_app, width, wrapped):
+    panel = QWidget()
+    panel.setObjectName('inspectorColumn')
+    layout = QVBoxLayout(panel)
+    layout.setContentsMargins(0, 0, 0, 0)
+    controls = [EffectParameter(path) for path in ('film_burn.reading_clarity', 'film_burn.opening')]
+    for control in controls:
+        layout.addWidget(control)
+    panel.resize(width, 190)
+    panel.show()
+    themed_app.processEvents()
+    try:
+        fixed, animatable = controls
+        assert fixed.animate_button is None and animatable.animate_button is not None
+        assert all(c._row_mode == (wrapped, False) for c in controls)
+        assert fixed.input.mapTo(panel, QPoint()).x() == animatable.input.mapTo(panel, QPoint()).x()
+    finally:
+        panel.close()
 
 
 def test_dialog_widget_matrix_has_no_style_parser_errors(themed_app):

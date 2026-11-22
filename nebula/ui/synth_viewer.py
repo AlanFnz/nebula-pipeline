@@ -63,7 +63,7 @@ class SynthViewer(QWidget):
         self.set_zoom(self.display_scale() * factor, anchor)
 
     def paintEvent(self, event):
-        painter = QPainter(self); painter.fillRect(self.rect(), QColor(COLORS['monitor']))
+        painter = QPainter(self); painter.fillRect(self.rect(), self.palette().window())
         if not self.packet:
             painter.setPen(QColor(COLORS['muted'])); painter.setFont(terminal_font())
             painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, '> awaiting signal\n\nLuminous sources / irregular blinds')

@@ -729,7 +729,7 @@ class CompositionPanel(QWidget):
         self.playhead_seconds = lambda: 0.
         self.automation_dialogs = []
         layout = QVBoxLayout(self); layout.setContentsMargins(0, 0, 0, 0); layout.setSpacing(5)
-        title = QLabel("INSPECTOR"); title.setObjectName("sectionTitle")
+        title = QLabel("Inspector"); title.setObjectName("inspectorTitle")
         title_row = QHBoxLayout(); title_row.addWidget(title); title_row.addStretch(1)
         self.timeline_summary = QLabel(); self.timeline_summary.setObjectName('muted')
         self.timeline_summary.setToolTip('Total duration and clip count for the whole timeline, including loops.')
@@ -819,6 +819,7 @@ class CompositionPanel(QWidget):
         self.intensity_scope_label.hide()
         shape_layout.addWidget(self.intensity_scope_label)
         self.scope_combo = QComboBox(); self.scope_combo.addItems(["Composition", "Selected clip"])
+        self.scope_combo.setObjectName('editingScope')
         self.scope_combo.currentIndexChanged.connect(self.change_scope)
         scope_row = QHBoxLayout(); scope_row.addWidget(self.scope_combo, 1); shape_layout.addLayout(scope_row)
         self.timing_scope_label = QLabel('Editing: Composition · shared timing'); self.timing_scope_label.hide()
