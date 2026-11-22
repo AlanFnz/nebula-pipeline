@@ -745,6 +745,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.section_timeline.selected.connect(lambda index: self.composer and self.composer.select_section(index, preserve_scope=True))
         self.section_timeline.editRequested.connect(lambda index: self.composer and self.composer.select_section(index))
         self.section_timeline.selectionChanged.connect(self.preview_scope_changed)
+        self.section_timeline.selectionChanged.connect(self.sync_intensity_selection)
         self.section_timeline.durationRequested.connect(lambda identifier, duration: self.composer and self.composer.stretch_section(identifier, duration))
         self.section_timeline.stretchRequested.connect(lambda identifiers, factor: self.composer and self.composer.stretch_sections(identifiers, factor))
         self.section_timeline.reorderRequested.connect(lambda identifiers, before: self.composer and self.composer.reorder_sections(identifiers, before))
@@ -1204,6 +1205,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
             self.composer.reset_context_changed.connect(self.update_contextual_reset)
             self.update_contextual_reset(self.composer.reset_label())
             self.section_timeline.set_document(self.composition, self.composer.index)
+            self.sync_intensity_selection()
             self.sync_timeline_editing_scope()
             self.update_composition_history()
             self.status.setText('')
@@ -1592,6 +1594,10 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.status.setText('')
         self.update_composition_history(); self.invalidate()
         if self.play.isChecked(): self.schedule_play_tick()
+
+    def sync_intensity_selection(self):
+        if self.composer:
+            self.composer.set_intensity_selection(self.section_timeline.selected_ids)
 
     def composition_section_selected(self, index):
         self.composition_index = index

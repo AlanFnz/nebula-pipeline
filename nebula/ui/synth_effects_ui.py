@@ -24,6 +24,7 @@ from nebula.documents.synth_creative import CREATIVE_CONTROLS
 from nebula.ui.synth_creative_ui import CreativeControlsPanel
 from nebula.effects.synth_effect_order import FIXED, movable, order_for_states
 from nebula.ui.synth_effect_order_ui import EffectDragHandle, EffectRack
+from nebula.ui.synth_selection_intensity import SelectionIntensity
 
 INK_DURATIONS = {f'ink_bloom.{key}' for key in DURATION_KEYS}
 INK_TIMING = tuple(f'ink_bloom.{key}' for key in TIMING_KEYS)
@@ -223,6 +224,9 @@ class EffectsPanel(QWidget):
         self.intensity_layout = QVBoxLayout(self.intensity_host)
         self.intensity_layout.setContentsMargins(0, 0, 0, 0)
         editor_layout.addWidget(self.intensity_host)
+        self.selection_intensity = SelectionIntensity() if route_sources else None
+        if self.selection_intensity:
+            editor_layout.addWidget(self.selection_intensity)
         self.frame_status = QLabel(); self.frame_status.setWordWrap(True); self.frame_status.setObjectName('muted'); self.frame_status.hide()
         editor_layout.addWidget(self.frame_status)
         self.explanation_link = QPushButton('Open relevant control'); self.explanation_link.setProperty('compact', True); self.explanation_link.hide()
@@ -777,7 +781,8 @@ class EffectsPanel(QWidget):
         if self.revealed_path in self.controls and self.revealed_path not in visible_paths:
             visible_paths = (*visible_paths, self.revealed_path)
         mix_path = intensity_path(effect.id)
-        self.intensity_host.setVisible(mix_path is not None)
+        self.intensity_host.setVisible(mix_path is not None and not
+                                       (self.selection_intensity and self.selection_intensity.toggle.isChecked()))
         visible_paths = tuple(path for path in visible_paths if path != mix_path)
         groups = grouped_paths(visible_paths)
         titles = tuple(title for title, _paths in groups)

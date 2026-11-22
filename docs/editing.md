@@ -77,6 +77,14 @@ keeps that mix. **Cancel** discards it. **Bypass / Resume** keeps settings. **Re
 and its automation in the selected scope. Removing a project effect also clears
 its clip overrides. Undo restores it.
 
+To adjust several clips, click the first and Shift-click the last in the timeline,
+or press ⌘A with the timeline focused to select all. Open an effect in the
+inspector and choose **Edit N clips**. **Mixed values** shows the range of their
+base intensities. Drag **Offset** to move them together until one reaches 0 or
+100%. Type a percentage in **Set all (%)** to give every selected clip that
+base. Clip automation still applies. One Undo restores the entire selection’s
+previous settings, including inherited values.
+
 **How this look is built** opens the controls behind the current treatment.
 See the [effects reference](effects-reference.md) for choosing one.
 

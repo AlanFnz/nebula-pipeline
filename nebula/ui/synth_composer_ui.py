@@ -22,7 +22,8 @@ from nebula.ui.synth_master_ui import MasterPanel
 from nebula.sources.synth_subject import select_subject, restore_subject
 from nebula.ui.synth_subject_ui import SubjectPanel
 from nebula.ui.synth_video_ui import VideoSourcePanel
-from nebula.effects.synth_effects import EFFECTS
+from nebula.effects.synth_effects import EFFECTS, EFFECT_BY_ID, effect_active, parameter, state_values
+from nebula.effects.synth_intensity import intensity_path
 from nebula.sources.synth_video import VIDEO_EFFECTS, apply_treatment
 
 
@@ -837,6 +838,12 @@ class CompositionPanel(QWidget):
         shape_layout.addWidget(self.performance_notice)
         self.look_tabs = InspectorTabs()
         self.effects_panel = EffectsPanel(route_sources=True)
+        self.intensity_selection = frozenset()
+        batch = self.effects_panel.selection_intensity
+        batch.toggle.toggled.connect(self.refresh_selection_intensity)
+        batch.offset_requested.connect(lambda delta: self.edit_selection_intensity(delta, relative=True))
+        batch.absolute_requested.connect(lambda value: self.edit_selection_intensity(value, relative=False))
+        self.effects_panel.controls_refreshed.connect(self.refresh_selection_intensity)
         self.effects_panel.color_panel.context_provider = self.color_context
         self.effects_panel.color_panel.changed.connect(self.change_color)
         self.effects_panel.color_panel.restored.connect(self.restore_color)
@@ -1053,6 +1060,7 @@ class CompositionPanel(QWidget):
             compiled = compile_composition(self.document, base_states=base_states,
                                            project_states=project_states, project_base_states=project_base_states)
             self.compiled = compiled
+            self.intensity_base_states = base_states if base_states is not None else compiled['states']
             self._color_palette_cache = {}
             source_plays = [placement for placement in section_placements(self.document) if placement[0] == self.index]
             self.video_panel.refresh(source_section.get('footage', video) if source_section else video, source_section,
@@ -1207,6 +1215,60 @@ class CompositionPanel(QWidget):
             for section in document['sections']:
                 section['effects'].pop(effect_id, None)
         self.commit(document, f"{action}:{self.scope}:{self.index}:{effect_id}")
+
+    def set_intensity_selection(self, clip_ids):
+        self.intensity_selection = frozenset(clip_ids)
+        self.refresh_selection_intensity()
+
+    def selected_intensity_bases(self, effect_id, path):
+        """Use the same fixed base as the single-clip editor, before clip automation."""
+        result = {}
+        shared = self.document['effects'].get(effect_id, {}).get('params', {})
+        for clip in self.document['sections']:
+            if clip['id'] not in self.intensity_selection:
+                continue
+            local = clip['effects'].get(effect_id, {}).get('params', {})
+            value = local.get(path, shared.get(path))
+            if value is None:
+                authored = []
+                for source in self.document['source']['states']:
+                    state = self.intensity_base_states.get(f"{clip['id']}:{source}")
+                    if state is not None:
+                        values, enabled = state_values(state)
+                        if effect_active(EFFECT_BY_ID[effect_id], values, enabled) and path in values:
+                            authored.append(values[path])
+                value = min(authored, default=parameter(path).default)
+            result[clip['id']] = value
+        return result
+
+    def refresh_selection_intensity(self):
+        panel = self.effects_panel
+        editor = panel.selection_intensity
+        path = intensity_path(panel.effect_id)
+        editor.set_target(panel.effect_id if path else None, self.intensity_selection)
+        editing = editor.toggle.isChecked()
+        panel.intensity_host.setVisible(path is not None and not editing)
+        if editing:
+            values = self.selected_intensity_bases(panel.effect_id, path)
+            if len(values) >= 2:
+                editor.set_values(values.values())
+
+    def edit_selection_intensity(self, value, *, relative):
+        panel = self.effects_panel
+        if self.updating or not panel.selection_intensity.toggle.isChecked():
+            return
+        effect_id = panel.effect_id
+        path = intensity_path(effect_id)
+        bases = self.selected_intensity_bases(effect_id, path)
+        if len(bases) < 2 or (relative and value == 0):
+            return
+        document = copy.deepcopy(self.document)
+        for clip in document['sections']:
+            if clip['id'] in bases:
+                entry = clip['effects'].setdefault(effect_id, {'mode': 'recipe', 'params': {}})
+                entry['params'][path] = max(0., min(100., bases[clip['id']] + value)) if relative else value
+        if document != self.document:
+            self.commit(document, 'selection-intensity')
 
     def lattice_palette_options(self):
         summary = self.effects_panel.summary
