@@ -79,7 +79,9 @@ its clip overrides. Undo restores it.
 
 To adjust several clips, click the first and Shift-click the last in the timeline,
 or press ⌘A with the timeline focused to select all. Open an effect in the
-inspector and choose **Edit N clips**. **Mixed values** shows the range of their
+inspector and choose **Edit N clips**. The inspector header shows how many clips
+the intensity affects. **Other controls** shows where the other edits apply.
+**Mixed values** shows the range of their
 base intensities. Drag **Offset** to move them together until one reaches 0 or
 100%. Type a percentage in **Set all (%)** to give every selected clip that
 base. Clip automation still applies. One Undo restores the entire selection’s

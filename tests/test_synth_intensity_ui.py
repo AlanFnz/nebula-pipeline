@@ -164,3 +164,47 @@ def test_batch_select_all_follows_study_and_respects_common_limit(make_window):
     assert local[1]['bypassed'] and batch.slider.maximum() == 0
     panel.inspect_effect('tape')
     assert not batch.toggle.isChecked() and panel.intensity_host.isVisible()
+
+
+def test_header_reports_only_the_visible_batch_intensity_target(make_window):
+    project = document()
+    for key in ('second', 'third'):
+        project['sections'].append(dict(copy.deepcopy(project['sections'][0]), id=key))
+    window = make_window(composition=project)
+    original = copy.deepcopy(window.composition)
+    composer = window.composer
+    panel = composer.effects_panel
+    timeline = window.section_timeline
+    panel.inspect_effect('broadcast')
+    timeline.select_at(0)
+    timeline.select_at(2, Qt.KeyboardModifier.ShiftModifier)
+    label = composer.intensity_scope_label
+    scope = composer.scope_combo
+    toggle = panel.selection_intensity.toggle
+    assert not label.isVisible() and scope.currentText() == 'Editing: Composition'
+    toggle.click()
+    assert label.isVisible() and label.text() == 'Intensity on 3 selected clips'
+    assert scope.currentText() == 'Other controls: Composition'
+    assert label.text() in scope.accessibleDescription()
+    assert 'Intensity on 3 selected clips · Other controls: Composition' in window.timeline_context.text()
+
+    scope.setCurrentIndex(1)
+    assert label.isVisible() and scope.currentText() == 'Other controls: ' + composer.clip_scope_name()
+    composer.look_tabs.setCurrentWidget(composer.master_panel)
+    assert not label.isVisible() and scope.currentText().startswith('Return scope: ')
+    composer.look_tabs.setCurrentWidget(panel)
+    assert label.isVisible()
+    panel.show_overview()
+    assert not label.isVisible() and scope.currentText().startswith('Editing: Clip ')
+    panel.inspect_effect('broadcast')
+    assert label.isVisible()
+
+    timeline.select_at(0)
+    assert not label.isVisible() and not toggle.isChecked()
+    assert 'Other controls:' not in window.timeline_context.text()
+    timeline.select_at(1, Qt.KeyboardModifier.ShiftModifier)
+    toggle.click()
+    assert label.isVisible() and label.text() == 'Intensity on 2 selected clips'
+    toggle.click()
+    assert not label.isVisible() and scope.currentText().startswith('Editing: Clip ')
+    assert window.composition == original and not window.undo_compositions

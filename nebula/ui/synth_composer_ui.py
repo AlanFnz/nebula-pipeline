@@ -815,6 +815,9 @@ class CompositionPanel(QWidget):
 
         shape = QWidget()
         shape_layout = QVBoxLayout(shape); shape_layout.setContentsMargins(0, 0, 0, 0); shape_layout.setSpacing(5)
+        self.intensity_scope_label = QLabel()
+        self.intensity_scope_label.hide()
+        shape_layout.addWidget(self.intensity_scope_label)
         self.scope_combo = QComboBox(); self.scope_combo.addItems(["Composition", "Selected clip"])
         self.scope_combo.currentIndexChanged.connect(self.change_scope)
         scope_row = QHBoxLayout(); scope_row.addWidget(self.scope_combo, 1); shape_layout.addLayout(scope_row)
@@ -841,6 +844,7 @@ class CompositionPanel(QWidget):
         self.intensity_selection = frozenset()
         batch = self.effects_panel.selection_intensity
         batch.toggle.toggled.connect(self.refresh_selection_intensity)
+        batch.toggle.toggled.connect(self.emit_reset_context)
         batch.offset_requested.connect(lambda delta: self.edit_selection_intensity(delta, relative=True))
         batch.absolute_requested.connect(lambda value: self.edit_selection_intensity(value, relative=False))
         self.effects_panel.controls_refreshed.connect(self.refresh_selection_intensity)
@@ -978,27 +982,42 @@ class CompositionPanel(QWidget):
             return 'Shared timing'
         return ''
 
+    def intensity_scope_text(self):
+        panel = self.effects_panel
+        if (self.look_tabs.currentWidget() is panel and panel.focused
+                and panel.selection_intensity.toggle.isChecked() and not self.arrangement_button.isChecked()):
+            return f'Intensity on {len(self.intensity_selection)} selected clips'
+        return ''
+
     def editing_scope_name(self):
         if self.arrangement_button.isChecked(): return 'Clip timing / composition duration'
         reason = self.global_scope_reason()
         if reason: return ('All internal clips' if self.block_context else 'All clips') + ' · ' + reason
-        return f'Clip {self.index + 1}' if self.scope else 'Block composition' if self.block_context else 'Composition'
+        scope = f'Clip {self.index + 1}' if self.scope else 'Block composition' if self.block_context else 'Composition'
+        intensity = self.intensity_scope_text()
+        return f'{intensity} · Other controls: {scope}' if intensity else scope
 
     def refresh_scope_context(self):
         if not hasattr(self, 'take_label'): return
         reason = self.global_scope_reason()
         shared = 'Block composition' if self.block_context else 'Composition'
-        prefix = 'Return scope: ' if reason else 'Editing: '
+        intensity = self.intensity_scope_text()
+        self.intensity_scope_label.setText(intensity)
+        self.intensity_scope_label.setVisible(bool(intensity))
+        prefix = 'Return scope: ' if reason else 'Other controls: ' if intensity else 'Editing: '
         self.scope_combo.setItemText(0, prefix + shared)
         self.scope_combo.setItemText(1, prefix + self.clip_scope_name())
         self.scope_combo.setVisible(True)
         self.scope_combo.setEnabled(not reason)
-        self.scope_combo.setAccessibleName('Remembered editing scope' if reason else 'Editing scope')
+        self.scope_combo.setAccessibleName('Remembered editing scope' if reason else
+                                          'Editing scope for other controls' if intensity else 'Editing scope')
         all_clips = 'all internal clips in this block' if self.block_context else 'all clips in this composition'
         hint = (f'{reason} affects {all_clips}. The scope above is kept for when you return to Object, Effects or Finishing.'
                 if reason else 'Shared settings apply to ' + all_clips + '; explicit clip overrides take priority. '
                 'Single-click selects a clip; double-click edits it. Playback has its own range.')
         target = prefix + (self.clip_scope_name() if self.scope else shared)
+        if intensity:
+            hint = f'{intensity}. This selector sets the editing scope for the other controls.'
         self.scope_combo.setToolTip(target + '\n' + hint)
         self.scope_combo.setAccessibleDescription(target + '. ' + hint)
         timing = reason == 'Shared timing'
