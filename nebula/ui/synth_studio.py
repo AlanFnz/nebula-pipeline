@@ -2051,7 +2051,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.preview_validity = current
         self.display_times.clear()
         if self.play.isChecked() and not preserve_transport:
-            self.play_origin = self.active_preview_scope().position(self.timeline.value()); self.play_started = time.monotonic()
+            self.anchor_playback_clock()
         self.refresh_soundtrack()
         self.cancel_preparation()
         self.refresh_cached_ranges()
@@ -2533,6 +2533,20 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.status.setText(f"Render error: {message}")
         self.preview_status.setText('Preview unavailable · see the operation status for details.')
         self.refresh_monitor_frame()
+    def anchor_playback_clock(self):
+        scope = self.active_preview_scope()
+        self.play_origin = scope.position(self.timeline.value())
+        self.play_started = time.monotonic()
+        # Play and explicit seeks position the audio immediately. Anchor the
+        # first tick to that same project frame, including nonzero selections.
+        if scope.count:
+            frame = scope.frame_at(self.play_origin)
+            self._soundtrack_mapping = (scope.intervals, 0, frame - self.play_origin)
+            self._prepared_audio_position = (self.play_started, frame / self.preview_fps())
+        else:
+            self._soundtrack_mapping = None
+            self._prepared_audio_position = None
+
     def scrub(self, value):
         if not self.advancing:
             self.cancel_foreground_render()
@@ -2543,7 +2557,8 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
                 if not self.waits_for_prepared_frame(): self.cancel_preparation()
                 self.schedule_auto_preparation()
         if self.play.isChecked() and not self.advancing:
-            self.play_origin = self.active_preview_scope().position(value); self.play_started = time.monotonic(); self.display_times.clear()
+            self.anchor_playback_clock()
+            self.display_times.clear()
         if not self.advancing: self.sync_soundtrack(force=True)
         self.request_frame()
 
@@ -2598,9 +2613,8 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
             try:
                 if scope.count and not scope.contains(self.timeline.value()): self.timeline.setValue(scope.frame_at(0))
             finally: self.advancing = False
-            self.play_origin = scope.position(self.timeline.value()); self.play_started = time.monotonic(); self.display_times.clear()
-            self._soundtrack_mapping = None
-            self._prepared_audio_position = None
+            self.anchor_playback_clock()
+            self.display_times.clear()
             self.preview_status.setText(f'Preview: measuring / {fps} fps')
             if self.loop_preview_range.isChecked(): self.schedule_auto_preparation()
         else:

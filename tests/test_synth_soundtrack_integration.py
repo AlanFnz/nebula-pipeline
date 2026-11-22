@@ -176,6 +176,35 @@ def test_relink_too_short_keeps_track_and_settings(studio, soundtrack):
     assert 'shorter' in studio.soundtrack_lane.status
 
 
+@pytest.mark.parametrize('prepared_loop', [True, False])
+def test_first_tick_keeps_soundtrack_playing_until_loop_wrap(studio, soundtrack, monkeypatch, prepared_loop):
+    clock = [100.]
+    monkeypatch.setattr('nebula.ui.synth_studio.time.monotonic', lambda: clock[0])
+    project = copy.deepcopy(studio.composition)
+    project['fps'] = 5
+    project['sections'][0]['duration'] = 1
+    studio.composer.commit(project, 'duration')
+    studio.apply_soundtrack(dict(soundtrack, offset=-1., end_mode='loop'))
+    if prepared_loop:
+        width, height = studio.preview_size()
+        packet = ((width, height), bytes(width * height * 3))
+        for frame in range(5):
+            studio.preview_frames.put(frame, packet)
+        studio.loop_preview_range.setChecked(True)
+    assert studio.active_preview_scope().count == 5
+    monitor = studio.soundtrack_playback
+    monitor.syncs.clear()
+    studio.play.setChecked(True)
+    assert monitor.syncs == [(0., True, True)]
+    for frame in range(1, 6):
+        clock[0] = 100. + frame / 5
+        studio.advance()
+        seconds, playing, seek = monitor.syncs[-1]
+        assert seconds == pytest.approx((frame % 5) / 5, abs=1e-6)
+        assert playing
+        assert seek == (frame == 5)
+
+
 def test_low_fps_preserves_fractional_clock_and_same_frame_wrap(studio, soundtrack, monkeypatch):
     clock = [100.]
     monkeypatch.setattr('nebula.ui.synth_studio.time.monotonic', lambda: clock[0])
