@@ -266,6 +266,23 @@ def test_fit_remains_a_mode_and_transport_strip_tracks_the_scrubber(window):
     assert not window.has_unsaved_changes()
 
 
+def test_preview_readout_wraps_activity_below_coverage_in_a_narrow_column(window):
+    monitor = window.preview_splitter.widget(0)
+    window.resize(1800, 900)
+    for width, stacked in ((1050, False), (480, True)):
+        window.splitter.setSizes([width, 1800 - width])
+        QApplication.processEvents()
+        widgets = (window.quality, window.cache_status, window.preview_status)
+        assert all(inside(widget, monitor) for widget in widgets)
+        quality, coverage, activity = [
+            widget.rect().translated(widget.mapTo(monitor, QPoint())) for widget in widgets]
+        if stacked:
+            assert activity.top() > max(quality.bottom(), coverage.bottom())
+        else:
+            assert quality.right() < coverage.left() < coverage.right() < activity.left()
+            assert abs(activity.center().y() - quality.center().y()) <= 1
+
+
 def test_export_feedback_is_reachable_and_only_occupies_space_during_export(window, monkeypatch, tmp_path):
     from PySide6.QtWidgets import QFileDialog
     monkeypatch.setattr(window.jobs, 'start', lambda job: None)

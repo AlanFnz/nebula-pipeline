@@ -5,7 +5,7 @@ import copy
 import math
 
 from PySide6.QtCore import Qt, QRectF, QPoint, QSignalBlocker, Signal, QSize, QTimer
-from PySide6.QtGui import QAction, QColor, QPainter, QPen, QCursor, QKeySequence, QBrush
+from PySide6.QtGui import QAction, QColor, QFont, QPainter, QPen, QCursor, QKeySequence, QBrush
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox, QLabel,
     QPushButton, QCheckBox, QTabWidget, QSizePolicy, QMenu, QInputDialog, QAbstractScrollArea, QApplication, QScrollArea, QFrame, QStackedWidget,
@@ -13,7 +13,8 @@ from PySide6.QtWidgets import (
 from nebula.ui.studio_widgets import ComboBox as QComboBox, DoubleSpinBox as QDoubleSpinBox, SpinBox as QSpinBox, Slider as QSlider
 
 from nebula.render.synth import SHAPES
-from nebula.ui.studio_theme import COLORS, terminal_font
+from nebula.ui.studio_graphite import GRAPHITE
+from nebula.ui.studio_theme import terminal_font
 from nebula.documents.synth_composition import MAX_SECTIONS, MACROS, compile_composition, default_geometry, effective_geometry, neutral_macros, normalize_composition, proportional_section_durations, resize_total_duration, section_placements, section_ranges, vary_composition
 from nebula.ui.synth_effects_ui import EffectsPanel
 from nebula.core.synth_shared_timing import edit_shared_timing, restore_shared_timing, without_timing
@@ -28,8 +29,8 @@ from nebula.sources.synth_video import VIDEO_EFFECTS, apply_treatment
 
 
 class SectionTimeline(QWidget):
-    LANE_HEIGHT = 62
-    BLOCK_TOP = 5
+    LANE_HEIGHT = 74
+    BLOCK_TOP = 17
     BLOCK_HEIGHT = 46
     BLOCK_BOTTOM = BLOCK_TOP + BLOCK_HEIGHT
     READOUT_TOP = BLOCK_BOTTOM + 1
@@ -56,6 +57,10 @@ class SectionTimeline(QWidget):
         self.selection_anchor = None
         self.context_menu = None
         self.time = 0
+        self.metadata_font = terminal_font()
+        self.metadata_font.setPixelSize(11)
+        self.ruler_font = QFont(self.metadata_font)
+        self.ruler_font.setPixelSize(10)
         self._hover_edge = None
         self._resize = None
         self._reorder = None
@@ -377,11 +382,33 @@ class SectionTimeline(QWidget):
         return (QRectF(rect.left() + padding, rect.top() + 2, width, line_height),
                 QRectF(rect.left() + padding, rect.top() + 2 + line_height, width, line_height))
 
+    def paint_time_ruler(self, painter, scale):
+        # Choose a 1/2/5 interval with enough room for the time label.
+        minimum_interval = 64 / scale
+        decade = 10 ** math.floor(math.log10(minimum_interval))
+        interval = next(step * decade for step in (1, 2, 5, 10) if step * decade >= minimum_interval)
+        spacing = interval * scale
+        visible = self.visibleRegion().boundingRect()
+        painter.setFont(self.ruler_font)
+        metrics = painter.fontMetrics()
+        for index in range(max(0, math.floor(visible.left() / spacing)), math.ceil(visible.right() / spacing) + 1):
+            x = round(index * spacing)
+            label = f'{index * interval:g}s'
+            painter.setPen(QColor(GRAPHITE['control']))
+            painter.drawLine(x, self.BLOCK_TOP - 6, x, self.BLOCK_TOP - 2)
+            if x + 4 + metrics.horizontalAdvance(label) <= self.width():
+                painter.setPen(QColor(GRAPHITE['secondary']))
+                painter.drawText(x + 4, self.BLOCK_TOP - 4, label)
+
     def paintEvent(self, event):
         painter = QPainter(self)
+        painter.fillRect(event.rect(), QColor(GRAPHITE['background']))
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         document = self.display_document()
         placements = section_placements(document) if document else []
+        scale = self.pixels_per_second()
+        if placements and scale > 0:
+            self.paint_time_ruler(painter, scale)
         selected_indices = self.selected_indices()
         selection_end = selected_indices[-1] if len(selected_indices) > 1 else None
         for occurrence, ((index, _start, _end, repetition), rect) in enumerate(zip(placements, self.rectangles())):
@@ -390,20 +417,19 @@ class SectionTimeline(QWidget):
             painter.save()
             if self._reorder and self._reorder['active'] and selected: painter.setOpacity(.45)
             editing = section['id'] == self.editing_section_id
-            painter.setBrush(QColor(COLORS["selected"] if editing else COLORS["panel"]))
-            painter.setPen(QPen(QColor(COLORS["accent"] if selected else COLORS["border"]), 1))
+            painter.setBrush(QColor(GRAPHITE["selection"] if editing else GRAPHITE["panel"]))
+            painter.setPen(QPen(QColor(GRAPHITE["accent"] if selected else GRAPHITE["control"]), 2 if selected else 1))
             painter.drawRoundedRect(rect, 4, 4)
             painter.save()
             painter.setClipRect(rect.adjusted(1, 1, -1, -1))
             title_rect, metadata_rect = self.text_rectangles(rect)
             number = f'{index + 1:02d}' + (f' / ↻{repetition}' if repetition > 1 else '')
             label = document["phrases"][section["phrase"]]["name"]
-            label_font = self.font(); label_font.setPixelSize(12); painter.setFont(label_font)
-            painter.setPen(QColor(COLORS["text"]))
+            label_font = self.font(); label_font.setPixelSize(12); label_font.setBold(selected); painter.setFont(label_font)
+            painter.setPen(QColor(GRAPHITE["text"]))
             label = painter.fontMetrics().elidedText(f'{number} {label}', Qt.TextElideMode.ElideRight, int(title_rect.width()))
             painter.drawText(title_rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, label)
-            small_font = terminal_font(); small_font.setPixelSize(11)
-            painter.setFont(small_font); painter.setPen(QColor(COLORS["muted"]))
+            painter.setFont(self.metadata_font); painter.setPen(QColor(GRAPHITE["secondary"]))
             loops = int(section.get('loops', 1))
             metadata = painter.fontMetrics().elidedText(f"{section['duration']:.2f}s ×{loops}",
                                                       Qt.TextElideMode.ElideRight, int(metadata_rect.width()))
@@ -411,23 +437,25 @@ class SectionTimeline(QWidget):
             painter.restore()
             if selected or occurrence == self._hover_edge:
                 selection_edge = index == selection_end
-                painter.setPen(QPen(QColor(COLORS['accent'] if occurrence == self._hover_edge or selection_edge else COLORS['muted']),
+                painter.setPen(QPen(QColor(GRAPHITE['accent'] if occurrence == self._hover_edge or selection_edge else GRAPHITE['secondary']),
                                     4 if selection_edge else 2))
-                edge = min(self.width()-2,round(_end*self.pixels_per_second()-3))
+                edge = min(self.width()-2,round(_end*scale-3))
                 painter.drawLine(edge, self.BLOCK_TOP + 12, edge, self.BLOCK_BOTTOM - 12)
             painter.restore()
         if self.document:
-            x = max(1, min(self.width()-1,self.time*self.pixels_per_second()))
-            painter.setPen(QPen(QColor(COLORS["cursor"]), 1))
-            painter.drawLine(int(x), 2, int(x), self.BLOCK_BOTTOM + 2)
-            painter.fillRect(QRectF(x - 3, 0, 6, 3), QColor(COLORS["cursor"]))
+            x = max(1, min(self.width()-1,self.time*scale))
+            marker = QColor(GRAPHITE['marker'])
+            painter.fillRect(QRectF(round(x)-1, 0, 2, self.BLOCK_BOTTOM + 2), marker)
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(marker)
+            painter.drawPolygon([QPoint(round(x)-5, 0), QPoint(round(x)+5, 0), QPoint(round(x), 6)])
         if self._resize is not None:
             drag = self._resize
-            painter.setPen(QPen(QColor(COLORS['cursor']),1,Qt.PenStyle.DashLine))
+            painter.setPen(QPen(QColor(GRAPHITE['marker']),1,Qt.PenStyle.DashLine))
             painter.drawLine(round(drag['original_edge']), self.BLOCK_TOP,
                              round(drag['original_edge']), self.BLOCK_BOTTOM)
-            font = terminal_font(); font.setPixelSize(11); painter.setFont(font)
-            painter.setPen(QColor(COLORS['accent']))
+            painter.setFont(self.metadata_font)
+            painter.setPen(QColor(GRAPHITE['accent']))
             visible = self.visibleRegion().boundingRect()
             readout = f"{drag['frames']/drag['fps']:.2f}s per play · {drag['frames']/drag['original_frames']:.2f}× length · release to apply · Esc cancel"
             if 'identifiers' in drag:
@@ -440,8 +468,8 @@ class SectionTimeline(QWidget):
             drag = self._reorder
             visible = self.visibleRegion().boundingRect()
             count = len(drag['identifiers'])
-            font = terminal_font(); font.setPixelSize(11); painter.setFont(font)
-            color = QColor(COLORS['accent'] if drag['valid'] and drag['changed'] else COLORS['muted'])
+            painter.setFont(self.metadata_font)
+            color = QColor(GRAPHITE['accent'] if drag['valid'] and drag['changed'] else GRAPHITE['secondary'])
             if drag['valid']:
                 x = max(2, min(self.width() - 3, round(drag['marker'])))
                 painter.setPen(QPen(color, 3)); painter.drawLine(x, 3, x, self.BLOCK_BOTTOM)
@@ -458,7 +486,7 @@ class SectionTimeline(QWidget):
             width = min(200, max(70, painter.fontMetrics().horizontalAdvance(label) + 20))
             x = max(visible.left(), min(drag['position'].x() + 12, visible.right() - width))
             ghost = QRectF(x, self.BLOCK_TOP + 10, width, 26)
-            painter.setOpacity(.9); painter.setPen(QPen(color, 1)); painter.setBrush(QColor(COLORS['selected']))
+            painter.setOpacity(.9); painter.setPen(QPen(color, 1)); painter.setBrush(QColor(GRAPHITE['selection']))
             painter.drawRoundedRect(ghost, 3, 3)
             painter.drawText(ghost.adjusted(8, 0, -8, 0), Qt.AlignmentFlag.AlignCenter,
                              painter.fontMetrics().elidedText(label, Qt.TextElideMode.ElideRight, width - 16))
@@ -1988,20 +2016,20 @@ class CachedRangeStrip(QWidget):
         width = self.slider.width()
         count = max(1, self.slider.maximum() + 1)
         y = (self.height() - 3) / 2
-        painter.fillRect(QRectF(origin, y, width, 3), QColor(COLORS['border']))
+        painter.fillRect(QRectF(origin, y, width, 3), QColor(GRAPHITE['divider']))
         for start, end in self.ranges:
-            painter.fillRect(QRectF(origin + width*start/count, y, max(1, width*(end-start)/count), 3), QColor(COLORS['muted']))
+            painter.fillRect(QRectF(origin + width*start/count, y, max(1, width*(end-start)/count), 4), QColor(GRAPHITE['accent']))
         if self.hover_gap:
             start, end = self.hover_gap
-            painter.fillRect(QRectF(origin + width*start/count, y-1, max(1, width*(end-start)/count), 5), QColor(COLORS['accent']))
+            painter.fillRect(QRectF(origin + width*start/count, y-1, max(1, width*(end-start)/count), 5), QColor(GRAPHITE['focus']))
         if self.preparing_gap is not None:
             start, end = self.preparing_gap
             rect = QRectF(origin + width*start/count, y-2, max(2, width*(end-start)/count), 7)
-            painter.fillRect(rect, QColor(COLORS['selected']))
-            painter.setPen(QColor(COLORS['accent']))
-            painter.setBrush(QBrush(QColor(COLORS['accent']), Qt.BrushStyle.BDiagPattern))
+            painter.fillRect(rect, QColor(GRAPHITE['panel']))
+            painter.setPen(QColor(GRAPHITE['warning']))
+            painter.setBrush(QBrush(QColor(GRAPHITE['warning']), Qt.BrushStyle.BDiagPattern))
             painter.drawRect(rect)
             for a, b in self.ranges:
                 a, b = max(a, start), min(b, end)
                 if a < b:
-                    painter.fillRect(QRectF(origin + width*a/count, y-2, max(1, width*(b-a)/count), 7), QColor(COLORS['accent']))
+                    painter.fillRect(QRectF(origin + width*a/count, y-2, max(1, width*(b-a)/count), 7), QColor(GRAPHITE['accent']))

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.127.0 · 2026-11-22
+
+Studio Graphite now extends to the timeline and playback controls. A time ruler and a shared playhead color make cuts easier to locate. Prepared frames appear in sage, with an amber hatch while a gap is being filled. Preview resolution, coverage and activity share a row when space allows.
+
 ## 0.126.0 · 2026-11-22
 
 The composition header, monitor and inspector use the Studio Graphite palette. Document actions and canvas settings have distinct rows, with clearer headings and keyboard focus in the inspector.

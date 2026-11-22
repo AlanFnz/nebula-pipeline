@@ -9,6 +9,7 @@ from PySide6.QtGui import QAction, QKeySequence, QPainter, QPainterPath, QColor,
 from PySide6.QtWidgets import (QWidget, QDialog, QVBoxLayout, QHBoxLayout, QLabel,
     QFormLayout, QPushButton, QDialogButtonBox, QCheckBox, QListWidget, QMenu)
 from nebula.ui.studio_widgets import ComboBox, DoubleSpinBox, configure_parameter_spin
+from nebula.ui.studio_graphite import GRAPHITE
 from nebula.ui.studio_theme import COLORS
 from nebula.documents.synth_automation import TARGETS, STAGES, target_parameter, absolute_event, envelope, normalize_automations
 from nebula.effects.synth_effects import EFFECTS
@@ -277,18 +278,18 @@ class AutomationLane(QWidget):
 
     def paintEvent(self, _event):
         painter = QPainter(self); painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.fillRect(self.rect(), QColor(COLORS['panel']))
+        painter.fillRect(self.rect(), QColor(GRAPHITE['panel']))
         for rect, sid, eid, origin, event in self.rectangles():
             selected = self.selected == (sid,eid)
-            color = QColor(COLORS['warning'] if event['enabled'] else COLORS['disabled'])
-            painter.setPen(QPen(color, 2 if selected else 1)); painter.setBrush(QColor(COLORS['raised'] if selected else COLORS['panel']))
+            color = QColor(GRAPHITE['warning'] if event['enabled'] else GRAPHITE['disabled'])
+            painter.setPen(QPen(color, 2 if selected else 1)); painter.setBrush(QColor(GRAPHITE['raised'] if selected else GRAPHITE['panel']))
             painter.drawRoundedRect(rect, 2, 2)
             curve = QPainterPath(QPointF(rect.left(), rect.bottom()-2))
             length = sum(event[k] for k in STAGES[1:])
             for i in range(41):
                 curve.lineTo(rect.left()+rect.width()*i/40, rect.bottom()-2-envelope(dict(event, enabled=True), event['start']+length*i/40)*(rect.height()-4))
             painter.drawPath(curve)
-        painter.setPen(QPen(QColor(COLORS['cursor']), 1)); x = self.timeline.time*self.timeline.pixels_per_second(); painter.drawLine(QPointF(x,0), QPointF(x,self.height()))
+        painter.setPen(QPen(QColor(GRAPHITE['marker']), 1)); x = self.timeline.time*self.timeline.pixels_per_second(); painter.drawLine(QPointF(x,0), QPointF(x,self.height()))
 
     def open_menu(self, hits, global_position):
         if self.menu: self.menu.deleteLater()

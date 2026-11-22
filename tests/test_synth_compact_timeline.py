@@ -5,12 +5,12 @@ from PySide6.QtCore import QPoint, QPointF, Qt
 from PySide6.QtGui import QColor
 from PySide6.QtTest import QTest
 
-from nebula.ui.studio_theme import COLORS
+from nebula.ui.studio_graphite import GRAPHITE
 from test_synth_timeline_resize import app, document, timeline
 
 
 def test_compact_blocks_share_paint_and_hit_bounds(timeline):
-    assert timeline.height() == 62
+    assert timeline.height() == timeline.LANE_HEIGHT
     for occurrence, rect in enumerate(timeline.rectangles()):
         assert rect.height() == 46
         assert timeline.occurrence_at(rect.center()) == occurrence
@@ -31,9 +31,9 @@ def test_edit_fill_is_independent_of_multi_selection_and_does_not_edit(timeline)
         return [image.pixelColor(round(rect.left() + 10), round(rect.bottom() - 3))
                 for rect in timeline.rectangles()]
 
-    assert fills() == [QColor(COLORS['panel'])] * 3
+    assert fills() == [QColor(GRAPHITE['panel'])] * 3
     timeline.set_editing_section('beta')
-    assert fills() == [QColor(COLORS['panel']), QColor(COLORS['selected']), QColor(COLORS['panel'])]
+    assert fills() == [QColor(GRAPHITE['panel']), QColor(GRAPHITE['selection']), QColor(GRAPHITE['panel'])]
     # Arrangement/playback selection can move without changing inspector scope.
     QTest.mouseClick(timeline, Qt.MouseButton.LeftButton,
                      pos=timeline.rectangles()[2].center().toPoint())
@@ -41,10 +41,10 @@ def test_edit_fill_is_independent_of_multi_selection_and_does_not_edit(timeline)
     assert timeline.editing_section_id == 'beta'
     timeline.selected_ids = selected
     timeline.set_editing_section(None)
-    assert fills() == [QColor(COLORS['panel'])] * 3
+    assert fills() == [QColor(GRAPHITE['panel'])] * 3
     image = timeline.grab().toImage()
     rect = timeline.rectangles()[1]
-    assert image.pixelColor(round(rect.left()), round(rect.top() + 3)) != QColor(COLORS['panel'])
+    assert image.pixelColor(round(rect.left()), round(rect.top() + 3)) != QColor(GRAPHITE['panel'])
     assert timeline.selected_ids == selected and timeline.document == original
     assert 'Editing: Composition' in timeline.accessibleDescription()
 
@@ -79,7 +79,7 @@ def test_edit_scope_fills_every_occurrence_and_clears_deleted_owner(timeline):
     image = timeline.grab().toImage()
     for occurrence in (0, 2):
         rect = timeline.rectangles()[occurrence]
-        assert image.pixelColor(round(rect.left() + 10), round(rect.bottom() - 3)) == QColor(COLORS['selected'])
+        assert image.pixelColor(round(rect.left() + 10), round(rect.bottom() - 3)) == QColor(GRAPHITE['selection'])
     doc['sections'] = doc['sections'][1:]
     doc.pop('timeline_loops')
     timeline.set_document(doc)

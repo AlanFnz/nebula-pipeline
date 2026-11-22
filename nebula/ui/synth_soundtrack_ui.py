@@ -6,7 +6,7 @@ from PySide6.QtCore import Qt, Signal, QRectF
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import (QApplication, QWidget, QDialog, QVBoxLayout, QHBoxLayout,
                              QFormLayout, QLabel, QPushButton, QCheckBox)
-from nebula.ui.studio_theme import COLORS
+from nebula.ui.studio_graphite import GRAPHITE
 from nebula.ui.studio_widgets import ComboBox, DoubleSpinBox, Slider
 
 
@@ -168,7 +168,7 @@ class SoundtrackLane(QWidget):
 
     def paintEvent(self, event):
         p = QPainter(self)
-        p.fillRect(self.rect(), QColor(COLORS['panel']))
+        p.fillRect(self.rect(), QColor(GRAPHITE['panel']))
         if not self.track:
             return
         track = self.track
@@ -183,8 +183,8 @@ class SoundtrackLane(QWidget):
         if duration > 0 and used > 0:
             x0 = int(max(0., min(self.width(), offset / duration * self.width())))
             x1 = self.width() if loop else int(max(0., min(self.width(), (offset + used) / duration * self.width())))
-            p.fillRect(QRectF(x0, 18, max(0, x1 - x0), 27), QColor(COLORS['selected']))
-            p.setPen(QColor(COLORS['accent']))
+            p.fillRect(QRectF(x0, 18, max(0, x1 - x0), 27), QColor(GRAPHITE['raised']))
+            p.setPen(QColor(GRAPHITE['accent']))
             if self.peaks and source_duration > 0:
                 for x in range(max(0, x0), x1):
                     elapsed = (x + .5) / max(1, self.width()) * duration - offset
@@ -196,16 +196,16 @@ class SoundtrackLane(QWidget):
                     p.drawLine(x, int(32 - amplitude), x, int(32 + amplitude))
             else:
                 p.drawLine(x0, 32, x1, 32)
-            p.setPen(QColor(COLORS['border_hover']))
+            p.setPen(QColor(GRAPHITE['control']))
             if offset >= 0:
                 p.drawLine(x0, 18, x0, 45)
             elif x1 > 0:
                 p.drawLine(2, 32, 7, 27)
                 p.drawLine(2, 32, 7, 37)
             if self._drag_offset is not None and x1 > x0:
-                p.setPen(QPen(QColor(COLORS['accent']), 1.5))
+                p.setPen(QPen(QColor(GRAPHITE['accent']), 1.5))
                 p.drawRect(QRectF(x0, 18, max(0, x1 - x0 - 1), 27))
-        p.setPen(QColor(COLORS['muted']))
+        p.setPen(QColor(GRAPHITE['secondary']))
         name = track.get('name', 'Soundtrack')
         placement = f'Start {offset:.2f} s'
         if offset < 0 and used > 0:
@@ -221,11 +221,11 @@ class SoundtrackLane(QWidget):
         p.drawText(QRectF(6, 1, max(0, self.width() - 12), 16), Qt.AlignmentFlag.AlignLeft,
                    p.fontMetrics().elidedText(label, Qt.TextElideMode.ElideRight, max(0, self.width() - 12)))
         if duration > 0:
-            p.setPen(QPen(QColor(COLORS['cursor']), 1.5))
+            p.setPen(QPen(QColor(GRAPHITE['marker']), 1.5))
             x = min(self.width() - 1, self.time / duration * self.width())
             p.drawLine(int(x), 0, int(x), self.height())
         if self.hasFocus():
-            p.setPen(QColor(COLORS['focus']))
+            p.setPen(QColor(GRAPHITE['focus']))
             p.drawRect(self.rect().adjusted(0, 0, -1, -1))
 
 

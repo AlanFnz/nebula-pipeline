@@ -105,7 +105,7 @@ def test_lane_repeated_selection_drag_cancel_and_single_release_commit(make_wind
     window=make_window(composition=p); panel=window.composer
     apply_pull(panel.open_automation('tape.pull'))
     lane=window.section_timeline.automation_lane; QApplication.processEvents()
-    assert not lane.isHidden() and window.section_timeline.height()==92
+    assert not lane.isHidden() and window.section_timeline.height() == window.section_timeline.LANE_HEIGHT + lane.height()
     assert window.section_scroll.viewport().height() == window.section_timeline.height()
     assert lane.mapTo(window.section_scroll.viewport(), lane.rect().bottomRight()).y() < window.section_scroll.viewport().height()
     rects=lane.rectangles(); assert len(rects)==2 and rects[0][2]==rects[1][2]

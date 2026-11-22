@@ -10,7 +10,7 @@ from PySide6.QtGui import QIcon, QPixmap, QColor
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem, QListView, QLabel, QPushButton, QStyledItemDelegate, QStyle
 
 from nebula.core.media import Cancellation
-from nebula.ui.studio_theme import COLORS
+from nebula.ui.studio_graphite import GRAPHITE
 from nebula.ui.studio_widgets import DoubleSpinBox, SpinBox
 from nebula.ui.synth_workspace_widgets import FlowLayout, inline
 from nebula.documents.synth_composition import section_ranges
@@ -69,15 +69,17 @@ class _ShotCard(QStyledItemDelegate):
         painter.save()
         rect = option.rect.adjusted(3, 2, -3, -2)
         selected = bool(option.state & QStyle.StateFlag.State_Selected)
-        painter.fillRect(rect, QColor(COLORS['selected'] if selected else COLORS['panel']))
+        painter.fillRect(rect, QColor(GRAPHITE['selection'] if selected else GRAPHITE['panel']))
+        if selected:
+            painter.fillRect(QRect(rect.x(), rect.y(), rect.width(), 2), QColor(GRAPHITE['accent']))
         icon = index.data(Qt.ItemDataRole.DecorationRole)
         if icon:
             icon.paint(painter, QRect(rect.x() + 8, rect.y() + 4, rect.width() - 16, 81))
         lines = index.data(Qt.ItemDataRole.DisplayRole).split('\n')
-        painter.setFont(option.font); painter.setPen(QColor(COLORS['text']))
+        painter.setFont(option.font); painter.setPen(QColor(GRAPHITE['text']))
         title = option.fontMetrics.elidedText(lines[0], Qt.TextElideMode.ElideRight, rect.width() - 12)
         painter.drawText(QRect(rect.x() + 6, rect.y() + 87, rect.width() - 12, 16), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, title)
-        painter.setPen(QColor(COLORS['muted']))
+        painter.setPen(QColor(GRAPHITE['secondary']))
         painter.drawText(QRect(rect.x() + 6, rect.y() + 104, rect.width() - 12, 16), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, lines[-1])
         painter.restore()
 

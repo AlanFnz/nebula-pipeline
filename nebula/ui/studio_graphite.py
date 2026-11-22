@@ -2,11 +2,12 @@
 from string import Template
 
 
-_GRAPHITE = {
+GRAPHITE = {
     'canvas': '#0E1012', 'background': '#17191C', 'panel': '#202328',
     'raised': '#292D32', 'divider': '#383D44', 'control': '#75808D',
     'text': '#E7E9EC', 'secondary': '#ADB4BE', 'disabled': '#818791',
     'accent': '#B4CF98', 'on_accent': '#171E13', 'selection': '#303C2D',
+    'marker': '#CDA0C5', 'warning': '#E3BD7E',
     'accent_hover': '#C2DDA6', 'accent_pressed': '#9AB880', 'focus': '#9CC5F4',
 }
 
@@ -35,6 +36,32 @@ QWidget#monitorHeader { background: $panel; border-bottom: 1px solid $divider; }
 #monitorHeader QDoubleSpinBox { background: $background; color: $text; }
 
 #monitorHeader QPushButton:enabled:focus, #monitorHeader QPushButton:enabled:!checked:focus { border-color: $focus; }
+
+QWidget#playbackTransport { background: $panel; border-bottom: 1px solid $divider; }
+#playbackTransport .QWidget, #previewReadout .QWidget, #timelineWorkspace .QWidget { background: transparent; }
+#playbackTransport PlaybackButton:enabled { background: $raised; border-color: $control; }
+#playbackTransport PlaybackButton:enabled:hover, #playbackTransport PlaybackButton:checked { background: $selection; border-color: $accent; }
+#playbackTransport PlaybackButton:enabled:focus { border-color: $focus; }
+#playbackTransport QLabel#timecode { background: transparent; border: none; color: $text; font-size: 14px; font-weight: 600; }
+#playbackTransport QSlider#transportScrubber::groove:horizontal { background: $divider; height: 3px; }
+#playbackTransport QSlider#transportScrubber::sub-page:horizontal { background: $control; }
+#playbackTransport QSlider#transportScrubber::handle:horizontal { background: $marker; border-color: $marker; width: 9px; border-radius: 3px; margin: -5px 0; }
+#playbackTransport QSlider#transportScrubber::handle:horizontal:focus { border-color: $focus; }
+#playbackTransport QLabel#monitorMeta, #previewReadout QLabel, #timelineWorkspace QLabel#monitorMeta { color: $secondary; }
+
+QWidget#previewReadout, QWidget#timelineWorkspace { background: $background; }
+#timelineWorkspace QWidget#timelineToolbar { background: $panel; border-bottom: 1px solid $divider; }
+#timelineWorkspace ContextSummary { color: $secondary; }
+#timelineWorkspace QComboBox:enabled, #timelineWorkspace QAbstractSpinBox:enabled,
+#previewReadout QComboBox:enabled { background: $panel; border-color: $control; color: $text; }
+#timelineWorkspace QAbstractSpinBox > QLineEdit { background: transparent; border: none; }
+#timelineToolbar QPushButton[secondaryAction="true"]:enabled { background: transparent; color: $text; }
+#timelineWorkspace QPushButton:enabled:hover, #timelineWorkspace QToolButton:enabled:hover { background: $raised; border-color: $control; }
+#timelineWorkspace QPushButton:checked:enabled { background: $selection; color: $text; border-color: $accent; }
+#timelineWorkspace QCheckBox::indicator:checked:enabled { background-color: $accent; border-color: $accent; }
+#timelineWorkspace QComboBox:enabled:focus, #timelineWorkspace QAbstractSpinBox:enabled:focus,
+#timelineWorkspace QAbstractButton:enabled:focus, #previewReadout QComboBox:enabled:focus { border-color: $focus; }
+#timelineWorkspace QCheckBox::indicator:focus { border-color: $focus; }
 
 QWidget#inspectorColumn { background: $panel; border-left: 1px solid $divider; }
 #inspectorColumn .QWidget, #inspectorColumn QWidget#inspectorSurface,
@@ -79,4 +106,4 @@ QWidget#inspectorColumn { background: $panel; border-left: 1px solid $divider; }
 #inspectorColumn QAbstractSpinBox:focus, #inspectorColumn QComboBox:focus,
 #inspectorColumn QComboBox#editingScope:focus, #inspectorColumn QPushButton#controlGroup:focus,
 #inspectorColumn InspectorTabs > QTabBar::tab:focus { border-color: $focus; }
-""").substitute(_GRAPHITE)
+""").substitute(GRAPHITE)
