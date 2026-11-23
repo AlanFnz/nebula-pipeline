@@ -65,10 +65,11 @@ class EffectChoice(QFrame):
     def __init__(self, effect):
         super().__init__()
         self.setObjectName('effectChoice')
-        row = QHBoxLayout(self); row.setContentsMargins(2, 0, 7, 0); row.setSpacing(4)
+        row = QHBoxLayout(self); row.setContentsMargins(5, 3, 5, 3); row.setSpacing(4)
         self.order_handle = EffectDragHandle(effect.id, effect.label, self)
         self.order_handle.hide(); row.addWidget(self.order_handle)
         self.fixed_order = QLabel('·'); self.fixed_order.setFixedWidth(24)
+        self.fixed_order.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.fixed_order.setToolTip(FIXED.get(effect.id, ''))
         self.fixed_order.setAccessibleName('Fixed position: ' + effect.label)
         self.fixed_order.hide(); row.addWidget(self.fixed_order)
@@ -95,7 +96,7 @@ class EffectChoice(QFrame):
         self.bypass.setAccessibleName(f'{self.bypass.text()} {effect.label}')
         self.button.setAccessibleName(f'Inspect {effect.label} · {state}')
         self.setToolTip(effect.description + (' Active during part of this scope.' if info['intermittent'] else ''))
-        for widget, name, value in ((self, 'selected', selected), (self.badge, 'active', info['active'])):
+        for widget, name, value in ((self, 'selected', selected), (self.badge, 'active', info['active'] and not bypassed)):
             if widget.property(name) != value:
                 widget.setProperty(name, value)
                 widget.style().unpolish(widget); widget.style().polish(widget); widget.update()
@@ -399,8 +400,8 @@ class EffectsPanel(QWidget):
             return (1, rank.get(key, len(rank)))
         self.project_effect_ids = tuple(sorted(self.project_effect_ids, key=position))
         self.clip_effect_ids = tuple(sorted(self.clip_effect_ids, key=position))
-        self.order_hint.setText('Order follows the composition · select Composition to reorder' if local else
-                                'Top → bottom · drag to reorder' if custom_order else 'Study order · drag to customize top → bottom')
+        self.order_hint.setText('Top → bottom · edit order in Composition' if local else
+                                'Top → bottom · drag to reorder' if custom_order else 'Study order, top → bottom · drag to reorder')
         self.order_hint.setToolTip('Custom order processes image effects from top to bottom after the source. Dotted rows have a fixed source or output role. Early Broadcast polarity and the source companion in Ghosts stay with the source.')
         self.order_reset.setVisible(not local)
         self.order_reset.setEnabled(custom_order)
@@ -408,9 +409,10 @@ class EffectsPanel(QWidget):
         for button in (self.available_button, self.add_button):
             button.setText('Add clip effect…' if local else 'Add shared effect…')
             button.setToolTip('Add an effect only to this clip.' if local else 'Add a shared composition effect. Explicit clip overrides still take priority.')
-        self.applied_title.setText(f'IMAGE EFFECTS · {len(self.project_effect_ids) + len(self.clip_effect_ids)}'); self.empty_applied.setVisible(not treatments)
+        heading = 'Image effects' if local else 'Shared effects'
+        self.applied_title.setText(f'{heading} · {len(self.project_effect_ids) + len(self.clip_effect_ids)}')
         self.project_title.setText(f'SHARED EFFECTS · {len(self.project_effect_ids)}' + (' · inherited' if local else ''))
-        self.project_title.setVisible(bool(self.project_effect_ids))
+        self.project_title.setVisible(local and bool(self.project_effect_ids))
         self.applied_host.setVisible(bool(self.project_effect_ids))
         self.empty_applied.setText('No shared image effects. Choose Add shared effect to share a treatment across clips.' if not local else 'No inherited composition image effects.')
         self.empty_applied.setVisible(not self.project_effect_ids and not self.clip_effect_ids)

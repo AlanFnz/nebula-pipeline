@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.128.0 · 2026-11-23
+
+Studio Graphite now extends to the effect list and preset previews. The list highlights the selected effect and shows its processing order and bypass state. The preview window groups Before, Preview and Intensity, and distinguishes temporary adjustments from effects already applied.
+
 ## 0.127.0 · 2026-11-22
 
 Studio Graphite now extends to the timeline and playback controls. A time ruler and a shared playhead color make cuts easier to locate. Prepared frames appear in sage, with an amber hatch while a gap is being filled. Preview resolution, coverage and activity share a row when space allows.

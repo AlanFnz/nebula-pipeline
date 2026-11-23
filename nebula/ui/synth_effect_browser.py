@@ -28,6 +28,7 @@ class EffectBrowserDialog(QDialog):
 
     def __init__(self, allowed_effects=None, applied_ids=(), parent=None, *, compact=False):
         super().__init__(parent)
+        if compact: self.setObjectName('effectAudition')
         self.setWindowTitle('Add effect')
         self.setAccessibleName('Add image effect')
         self.resize(720, 600)
@@ -43,8 +44,8 @@ class EffectBrowserDialog(QDialog):
         scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setWidget(body)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         scroll.setFrameShape(QFrame.Shape.NoFrame); outer.addWidget(scroll, 1)
-        heading = QLabel('IMAGE EFFECTS'); heading.setObjectName('sectionTitle')
-        layout.addWidget(heading)
+        self.heading = QLabel('IMAGE EFFECTS'); self.heading.setObjectName('sectionTitle')
+        layout.addWidget(self.heading)
         hint = QLabel('Browse treatments for your image. Choose a preset, then Add effect.')
         self.browser_hint = hint
         hint.setWordWrap(True); layout.addWidget(hint)
@@ -87,7 +88,7 @@ class EffectBrowserDialog(QDialog):
         self.status.setWordWrap(True); layout.addWidget(self.status)
 
         self.title = QLabel('Select an effect')
-        self.title.setObjectName('sectionTitle')
+        self.title.setObjectName('auditionTitle' if compact else 'sectionTitle')
         self.title.setTextFormat(Qt.TextFormat.PlainText)
         layout.addWidget(self.title)
         self.description = QLabel()
@@ -183,7 +184,9 @@ class EffectBrowserDialog(QDialog):
             for row, effect in enumerate(entries):
                 applied = effect.id in self.applied_ids
                 status = 'Applied' if applied else 'Available'
-                values = (effect.label + ' · ' + status,) if self.compact else (effect.label, effect.category, status)
+                values = (effect.label, effect.category, status)
+                if self.compact:
+                    values = (f'{effect.label} · Applied' if applied else effect.label,)
                 for column, value in enumerate(values):
                     item = QListWidgetItem(value) if self.compact else QTableWidgetItem(value)
                     item.setData(Qt.ItemDataRole.UserRole, effect.id)

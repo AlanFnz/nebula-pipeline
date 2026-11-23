@@ -106,4 +106,49 @@ QWidget#inspectorColumn { background: $panel; border-left: 1px solid $divider; }
 #inspectorColumn QAbstractSpinBox:focus, #inspectorColumn QComboBox:focus,
 #inspectorColumn QComboBox#editingScope:focus, #inspectorColumn QPushButton#controlGroup:focus,
 #inspectorColumn InspectorTabs > QTabBar::tab:focus { border-color: $focus; }
+
+#inspectorColumn QFrame#effectChoice {
+    background: $panel; border: 0; border-left: 3px solid transparent;
+    border-bottom: 1px solid $divider; border-radius: 0;
+}
+#inspectorColumn QFrame#effectChoice[selected="true"] { background: $selection; border-left-color: $accent; }
+#effectChoice QPushButton#effectChoiceButton { color: $text; font-weight: 600; background: transparent; }
+#effectChoice EffectDragHandle, #effectChoice QPushButton[secondaryAction="true"] {
+    background: transparent; color: $secondary; border-color: transparent;
+}
+#effectChoice QPushButton:enabled:hover { background: $raised; color: $text; border-color: $control; }
+#effectChoice QPushButton#effectChoiceButton:hover { background: $raised; }
+#effectChoice QPushButton#effectChoiceButton:focus, #effectChoice QPushButton:enabled:focus { border-color: $focus; }
+#effectChoice QLabel#effectState { color: $secondary; padding: 0 3px; font-weight: 600; }
+#effectChoice QLabel#effectState[active="true"] { color: $accent; }
+
+QDialog#effectAudition, #effectAudition QScrollArea, #effectAudition .QWidget { background: $background; }
+#effectAudition QWidget#auditionControls {
+    background: $panel; border: 1px solid $divider; border-radius: 5px;
+}
+#auditionControls .QWidget { background: transparent; }
+#effectAudition QLabel#auditionTitle { color: $text; font-size: 16px; font-weight: 600; }
+#effectAudition QLabel#auditionState { color: $text; font-weight: 600; }
+#effectAudition QLabel#auditionReadout, #effectAudition QLabel#auditionScope,
+#effectAudition DialogContext, #effectAudition QLabel#muted { color: $secondary; }
+#effectAudition QListWidget { background: $panel; color: $text; border: 1px solid $divider; border-radius: 4px; }
+#effectAudition QListWidget::item { padding: 4px 7px; border-left: 3px solid transparent; }
+#effectAudition QListWidget::item:selected { background: $selection; color: $text; border-left-color: $accent; }
+#effectAudition QListWidget::item:hover:!selected { background: $raised; }
+#effectAudition QLineEdit, #effectAudition QComboBox, #effectAudition QAbstractSpinBox { background: $panel; color: $text; border-color: $control; }
+#effectAudition QAbstractSpinBox > QLineEdit { background: transparent; border: 0; }
+#effectAudition QPushButton[comparisonSide="true"] { background: $background; color: $secondary; }
+#effectAudition QPushButton[comparisonSide="true"]:checked { background: $selection; color: $text; border-color: $accent; }
+#effectAudition QPushButton#primary:enabled { background: $accent; color: $on_accent; border-color: $accent; }
+#effectAudition QPushButton#primary:enabled:hover { background: $accent_hover; }
+#effectAudition QPushButton#primary:enabled:pressed { background: $accent_pressed; }
+#effectAudition QPushButton:disabled { color: $disabled; }
+#effectAudition QPushButton#primary:disabled { background: $raised; border-color: $divider; color: $disabled; }
+#effectAudition QSlider::groove:horizontal { background: $divider; height: 2px; }
+#effectAudition QSlider::sub-page:horizontal:enabled { background: $accent; }
+#effectAudition QSlider::handle:horizontal:enabled { background: $text; border-color: $text; width: 8px; margin: -5px 0; border-radius: 3px; }
+#effectAudition QSlider::handle:horizontal:focus { background: $focus; border-color: $focus; }
+#effectAudition QAbstractButton:enabled:focus, #effectAudition QPushButton#primary:enabled:focus,
+#effectAudition QPushButton[comparisonSide="true"]:enabled:focus, #effectAudition QListWidget:focus,
+#effectAudition QComboBox:focus, #effectAudition QLineEdit:focus, #effectAudition QAbstractSpinBox:focus { border-color: $focus; }
 """).substitute(GRAPHITE)

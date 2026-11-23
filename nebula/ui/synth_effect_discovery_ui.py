@@ -22,26 +22,55 @@ class EffectAuditionDialog(EffectBrowserDialog):
         self.setWindowModality(Qt.WindowModality.ApplicationModal if sys.platform == 'darwin' else Qt.WindowModality.WindowModal)
         self.setWindowTitle('Compare contribution' if operation == 'without' else 'Preview effect preset')
         from nebula.ui.synth_workspace_context import DialogContext
-        self.document_context = DialogContext(self); self.layout().insertWidget(0, self.document_context)
-        self.resize(430, 620); self.setMinimumWidth(380)
-        self.browser_hint.setText('Choose a preset to audition on your piece, then Apply effect.' if operation == 'add' else 'Preview fixed preset values in this scope before replacing.' if operation == 'replace' else 'Compare the piece with this treatment temporarily bypassed.')
+        self.document_context = DialogContext(self)
+        context = QHBoxLayout()
+        context.addWidget(self.document_context, 1)
+        self.target_label = QLabel(panel.context_scope_label)
+        self.target_label.setWordWrap(True)
+        self.target_label.setObjectName('auditionScope')
+        context.addWidget(self.target_label)
+        self.layout().insertLayout(0, context)
+        self.setMinimumWidth(380)
+        self.heading.hide(); self.browser_hint.hide(); self.selection_note.hide()
+        self.object_heading.hide(); self.object_note.hide()
+        self.table.setAlternatingRowColors(False)
+        self.table.setAccessibleDescription('Select an effect to preview it. Applied effects open in the inspector.')
+        catalog_actions = QHBoxLayout()
+        catalog_actions.addWidget(self.status, 1); catalog_actions.addWidget(self.object_button)
+        self.object_button.setProperty('secondaryAction', True)
+        self.body_layout.insertLayout(self.body_layout.indexOf(self.results) + 1, catalog_actions)
         self.action.setAccessibleName('Replace with preset' if operation == 'replace' else 'Apply selected effect')
         self.action.setText('Replace with preset' if operation == 'replace' else 'Apply effect')
         self.action.clicked.disconnect()
         self.action.clicked.connect(self.apply_candidate)
         self.table.setMaximumHeight(180); self.results.setMaximumHeight(180)
         self.body_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        self.target_label = QLabel('Composition' if section_id is None else panel.context_scope_label.removeprefix('Editing: '))
-        self.target_label.setWordWrap(True)
-        self.body_layout.insertWidget(1, self.target_label)
         self.diagnostic_note = QLabel(); self.diagnostic_note.setWordWrap(True)
-        self.diagnostic_note.setObjectName('muted'); self.body_layout.insertWidget(self.body_layout.count()-1, self.diagnostic_note)
+        self.diagnostic_note.setObjectName('muted')
+        self.details = QPushButton('Preview details ▸'); self.details.setCheckable(True)
+        self.details.setAccessibleName('Preview details')
+        self.details.setAutoDefault(False); self.details.setProperty('secondaryAction', True)
+        self.details.toggled.connect(self.diagnostic_note.setVisible)
+        self.details.toggled.connect(lambda expanded: self.details.setText('Preview details ▾' if expanded else 'Preview details ▸'))
+        self.body_layout.addWidget(self.details, 0, Qt.AlignmentFlag.AlignLeft)
+        self.body_layout.addWidget(self.diagnostic_note); self.diagnostic_note.hide()
+        self.body_layout.addStretch(1)
         self.transport_host = QWidget(); transport_layout = QVBoxLayout(self.transport_host)
-        transport_layout.setContentsMargins(0, 0, 0, 0)
+        self.transport_host.setObjectName('auditionControls')
+        transport_layout.setContentsMargins(10, 8, 10, 8)
+        side_row = QHBoxLayout(); side_row.setSpacing(2)
+        self.preview_state = QLabel(); self.preview_state.setObjectName('auditionState')
+        side_row.addWidget(self.preview_state, 1)
+        self.before = QPushButton('Before'); self.after = QPushButton('Preview')
+        if operation == 'without': self.after.setText('Without effect')
+        for button in (self.before, self.after):
+            button.setProperty('comparisonSide', True); button.setCheckable(True)
+            button.setAutoDefault(False); side_row.addWidget(button)
+        transport_layout.addLayout(side_row)
         self.layout().insertWidget(self.layout().count()-1, self.transport_host)
         self.preview_note = QLabel('Select a treatment to preview.'); self.preview_note.setWordWrap(True)
         self.preview_note.setAccessibleName('Effect preview status')
-        transport_layout.addWidget(self.preview_note)
+        self.preview_note.setObjectName('auditionReadout')
         self.intensity_row = QWidget()
         mix = QHBoxLayout(self.intensity_row)
         mix.setContentsMargins(0, 0, 0, 0)
@@ -61,18 +90,15 @@ class EffectAuditionDialog(EffectBrowserDialog):
         self.intensity_slider.valueChanged.connect(self.intensity_number.setValue)
         self.intensity_number.valueChanged.connect(self.change_intensity)
         row = QHBoxLayout()
-        self.before = QPushButton('Before'); self.after = QPushButton('Preview')
-        self.before.setCheckable(True); self.after.setCheckable(True)
         self.preview_play = QPushButton('Play preview'); self.preview_play.setCheckable(True)
-        for button in (self.before, self.after, self.preview_play):
-            button.setAutoDefault(False); row.addWidget(button)
-        transport_layout.addLayout(row)
+        self.preview_play.setAutoDefault(False); row.addWidget(self.preview_play)
         self.before.clicked.connect(lambda: self.switch_side('a'))
         self.after.clicked.connect(lambda: self.switch_side('b'))
         self.preview_play.toggled.connect(self.play_sample)
         self.scrubber = QSlider(Qt.Orientation.Horizontal); self.scrubber.setAccessibleName('Sampled effect preview position')
         self.scrubber.valueChanged.connect(self.scrub_sample)
-        transport_layout.addWidget(self.scrubber)
+        row.addWidget(self.scrubber, 1); transport_layout.addLayout(row)
+        transport_layout.addWidget(self.preview_note)
         row = QHBoxLayout()
         self.selected_section = QPushButton('Preview selected clip'); self.selected_section.clicked.connect(self.seek_section)
         self.retry = QPushButton('Retry'); self.retry.clicked.connect(self.render_selection)
@@ -93,10 +119,15 @@ class EffectAuditionDialog(EffectBrowserDialog):
             self.object_button.hide(); self.object_note.hide(); self.object_heading.hide()
             self.preset.setCurrentIndex(preset)
             self.preset_row.setVisible(operation != 'without')
-            self.selection_note.setText('Fixed preset values replace this effect in the displayed scope.' if operation == 'replace' else 'Temporary bypass only. Close restores your piece.')
         if operation == 'without': self.action.hide(); self.cancel_button.setText('Close')
         screen = studio.screen().availableGeometry()
-        self.resize(430, min(620, screen.height()-60))
+        self.resize(440, min(365 if effect_id else 630, screen.height()-60))
+        controls = (self.search, self.category, self.table, self.object_button, self.preset,
+                    self.details, self.before, self.after, self.intensity_slider, self.intensity_number,
+                    self.preview_play, self.scrubber, self.selected_section, self.retry, self.prepare,
+                    self.instance_action, self.cancel_button, self.action)
+        for first, second in zip(controls, controls[1:]):
+            self.setTabOrder(first, second)
         self.selection_changed()
 
     def update_selection(self):
@@ -113,6 +144,16 @@ class EffectAuditionDialog(EffectBrowserDialog):
     def selection_changed(self, *_):
         if not hasattr(self, 'debounce'): return
         identifier = self.selected_effect_id()
+        applied = identifier in self.applied_ids
+        audition = bool(identifier and not applied)
+        state = {'add': 'Preview only', 'replace': 'Preset preview', 'without': 'Temporary bypass'}
+        self.preview_state.setText('Applied' if applied else state[self.operation])
+        self.title.setVisible(bool(identifier)); self.description.setVisible(bool(identifier))
+        self.transport_host.setVisible(bool(identifier))
+        for widget in (self.before, self.after, self.preview_play, self.scrubber):
+            widget.setVisible(audition)
+        self.details.setVisible(audition); self.diagnostic_note.setVisible(audition and self.details.isChecked())
+        self.action.setText('Inspect effect' if applied else 'Replace with preset' if self.operation == 'replace' else 'Apply effect')
         path = intensity_path(identifier)
         editable = bool(path and identifier not in self.applied_ids and self.operation != 'without')
         self.intensity_row.setVisible(editable)
@@ -124,20 +165,23 @@ class EffectAuditionDialog(EffectBrowserDialog):
                 self.intensity_number.setValue(value)
                 self.intensity_slider.setValue(round(value))
         self.transport.stop(); self.preview_play.setChecked(False)
-        self.session.ready = False
+        self.session.ready = False; self.session.error = ''
         self.session.candidate = None; self.session.owner = None
         self.session.effect_id = None
         self.studio.cancel_preparation()
         if self.studio.comparison: self.studio.end_comparison()
         self.action.setEnabled(False)
-        if self.selected_effect_id() in self.applied_ids:
+        if applied:
             # Inspecting an existing effect has no temporary candidate. Keep
             # the picture and request the working piece at the monitor quality,
             # including when returning from a different preset comparison.
             self.studio.invalidate(comparison_switch=True)
-        self.preview_note.setText('Loading selected preset…')
+        self.preview_note.setText('Inspect to edit the current settings.' if applied else 'Loading selected preset…')
         self.diagnostic_note.clear(); self.diagnostic_key = None
-        self.debounce.start(300)
+        self.debounce.stop()
+        if audition:
+            self.debounce.start(300)
+        self.refresh_preview()
 
     def change_intensity(self, value):
         with QSignalBlocker(self.intensity_slider):
@@ -153,8 +197,8 @@ class EffectAuditionDialog(EffectBrowserDialog):
 
     def render_selection(self, explicit=False):
         identifier = self.selected_effect_id()
+        if not identifier: return
         if identifier in self.applied_ids:
-            self.preview_note.setText('Already applied. Inspect keeps its current settings.')
             self.action.setText('Inspect effect'); self.action.setEnabled(True)
             return
         self.action.setText('Replace with preset' if self.operation == 'replace' else 'Apply effect')
@@ -191,7 +235,7 @@ class EffectAuditionDialog(EffectBrowserDialog):
         self.before.setChecked(side == 'a'); self.after.setChecked(side == 'b')
         self.before.setEnabled(session.candidate is not None); self.after.setEnabled(session.candidate is not None)
         self.preview_play.setEnabled(self.preview_play.isChecked() or (session.ready and bool(session.samples)))
-        self.scrubber.setEnabled(bool(session.samples))
+        self.scrubber.setEnabled(session.candidate is not None and bool(session.samples))
         if session.error:
             self.transport.stop(); self.preview_play.setChecked(False)
             self.preview_note.setText('Preview unavailable: ' + session.error)

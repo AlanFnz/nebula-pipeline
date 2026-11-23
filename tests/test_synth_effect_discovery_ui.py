@@ -334,6 +334,32 @@ def test_search_and_category_changes_audition_the_current_selected_effect(window
     assert d.action.text()=='Apply effect' and d.action.accessibleName()=='Apply selected effect'
 
 
+def test_applied_and_empty_results_clear_draft_controls(window):
+    window.composer.change_effect('tape', {'mode': 'on', 'params': {}}, 'effect-add')
+    original = copy.deepcopy(window.composition)
+    window.open_effect_discovery()
+    dialog = window.discovery_dialog
+    select(dialog, 'bloom')
+    assert dialog.preview_state.text() == 'Preview only' and dialog.intensity_row.isVisible()
+    dialog.debounce.stop(); dialog.render_selection(); dialog.session.accept_packet()
+
+    select(dialog, 'tape')
+    assert dialog.preview_state.text() == 'Applied'
+    assert not dialog.intensity_row.isVisible() and not dialog.before.isVisible()
+    assert dialog.action.text() == 'Inspect effect' and dialog.action.isEnabled()
+    assert window.comparison is None
+
+    dialog.search.setText('no matching treatment')
+    assert dialog.empty.isVisible() and not dialog.transport_host.isVisible()
+    assert not dialog.action.isEnabled() and not dialog.debounce.isActive()
+    dialog.search.clear()
+    select(dialog, 'bloom')
+    assert dialog.transport_host.isVisible() and dialog.before.isVisible()
+    assert dialog.debounce.isActive() and not dialog.action.isEnabled()
+    dialog.reject()
+    assert window.composition == original
+
+
 def test_current_preparation_failure_stops_play_and_offers_retry(window, monkeypatch):
     from types import SimpleNamespace
     window.open_effect_discovery('tape',0,'replace');d=window.discovery_dialog
