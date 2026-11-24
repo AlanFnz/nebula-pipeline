@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.133.0 · 2026-11-24
+
+Radial bloom adds an optional nested gradient pattern. Edit the disc spacing and twist, gradient focus, palette colors, color cycle and radial diffusion in Object.
+
 ## 0.132.0 · 2026-11-24
 
 Montage gives music markers their own lane above the clips. The playhead, selected cuts and insertion point have distinct shapes. The block timing inspector groups the selected block, source In, duration, speed and Apply timing.

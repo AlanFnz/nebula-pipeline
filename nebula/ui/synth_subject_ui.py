@@ -88,7 +88,7 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
         self.object_jump.activated.connect(self.jump_to_object_group); navigation.addWidget(self.object_jump)
         header.addWidget(self.object_navigation)
         from nebula.ui.synth_color_ui import ColorPanel
-        from nebula.sources.synth_blender_colors import BLENDER_COLORS
+        from nebula.sources.synth_blender_colors import BLENDER_COLORS, RADIAL_COLORS
         from nebula.sources.synth_lattice_colors import LATTICE_COLORS
         from nebula.sources.synth_lattice_palettes import PALETTES
         from nebula.ui.synth_palette_ui import PaletteSelector
@@ -96,7 +96,7 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
         self.palette_selector = PaletteSelector(PALETTES); layout.addWidget(self.palette_selector)
         self.palette_selector.chosen.connect(self.palette_changed.emit)
         self.palette_selector.hide()
-        self.color_panel = ColorPanel((*BLENDER_COLORS,*LATTICE_COLORS)); layout.addWidget(self.color_panel)
+        self.color_panel = ColorPanel((*BLENDER_COLORS, *LATTICE_COLORS), palette=RADIAL_COLORS); layout.addWidget(self.color_panel)
         self.color_panel.hide()
         self.text_layout_note = QLabel(); self.text_layout_note.setWordWrap(True)
         self.text_layout_note.setObjectName('muted'); layout.addWidget(self.text_layout_note)
@@ -143,10 +143,10 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
 
     def refresh_object_colors(self, query=''):
         self.palette_selector.hide()
-        if self.kind not in ('blender','lattice'):
+        if self.kind not in ('blender', 'lattice', 'radial'):
             self.color_panel.hide(); return
         from nebula.sources.synth_blender_colors import scene_colors, color_spec
-        module = 'blender_scene' if self.kind == 'blender' else 'chromatic_lattice'
+        module = SUBJECTS[self.kind][1][0]
         ranges = self.object_ranges[module]['ranges']
         params = {path.split('.', 1)[1]: value[0] for path, value in ranges.items()}
         if self.kind == 'lattice':
@@ -155,6 +155,9 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
             if keys and self.palette_context_provider and (not query or query in 'color palette skin'):
                 self.palette_selector.refresh(*self.palette_context_provider())
                 self.palette_selector.show()
+        elif self.kind == 'radial':
+            from nebula.sources.synth_blender_colors import RADIAL_COLORS
+            keys = tuple(spec.key for spec in RADIAL_COLORS) if params.get('pattern') == 1 else ()
         else: keys = scene_colors(params, self.part_selector.currentData())
         if query:
             keys = tuple(k for k in keys if query in (color_spec(k).label + ' color palette ' + ' '.join(color_spec(k).channels)).casefold())
@@ -283,7 +286,7 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
         with QSignalBlocker(self.selector): self.selector.setCurrentIndex(self.selector.findData(self.kind))
         self.restore.setEnabled(any(entries.get(key, {}).get('mode', 'recipe') != 'recipe' for key in SOURCE_EFFECTS))
         scope = 'this clip' if local else 'the composition'
-        notes = {'prismatic': 'Choose the final shape and its placement. Transition easing and Turn settle shape the authored movements. Folds & motion contains the fold rhythm and rotation; Color & light contains the color drift. Color emulsion adds the film texture separately.', 'radial': 'Expanding crowns and fine branching rays. Use the motion, vibration, color and optical groups below.', 'silhouette': 'A fixed human silhouette. Adjust its pose and framing here; Edge phosphor and Scan drag treat its outline.',
+        notes = {'prismatic': 'Choose the final shape and its placement. Transition easing and Turn settle shape the authored movements. Folds & motion contains the fold rhythm and rotation; Color & light contains the color drift. Color emulsion adds the film texture separately.', 'radial': 'Choose branching crowns or nested gradient discs. For discs, adjust the center, turn between copies, color swatches and cycle time.', 'silhouette': 'A fixed human silhouette. Adjust its pose and framing here; Edge phosphor and Scan drag treat its outline.',
                  'text': 'Text edits the typeface, main wording and subtitle. The typeface applies to both text blocks. Layout controls size, spacing, frame and placement; Motion controls word changes and animation. Effects treats the resulting image.',
                  'ink': 'Edit the printed silhouette here. Its unfold, turn and refold motion stays with it.',
                  'particles': 'The model is the target of the particles. Adjust its size, pose and point density here.',
@@ -316,7 +319,7 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
         self.wording_host.setVisible(self.kind == 'text')
         self.text_tabs.setVisible(self.kind == 'text')
         self.part_navigation.setVisible(self.kind == 'blender' and self.pages.currentWidget() is self.overview_scroll)
-        if self.kind not in ('blender','lattice'):
+        if self.kind not in ('blender', 'lattice', 'radial'):
             self.color_panel.hide(); self.palette_selector.hide()
         self.text_layout_note.hide()
         self.details.setText('Text appearance…' if self.kind == 'text' else 'Activation & preset…')
@@ -390,6 +393,14 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
         def selected(effect, key, value):
             low, high = summary[effect]['ranges'][effect + '.' + key]
             return low == high and low != value
+        if self.kind == 'radial':
+            from nebula.sources.synth_radial_gradients import CROWN_ONLY, SHARED
+            modes = summary['radial_bloom']['ranges']['radial_bloom.pattern']
+            if modes[0] == modes[1]:
+                for path in self.controls:
+                    key = path.split('.', 1)[1]
+                    if key not in SHARED and (key in CROWN_ONLY) == bool(modes[0]):
+                        hide(path)
         if self.kind == 'memory' and selected('image_memory', 'shape', 2): hide('image_memory.sides')
         if self.kind == 'blender':
             from nebula.sources.synth_blender_parts import PARTS, parts_for

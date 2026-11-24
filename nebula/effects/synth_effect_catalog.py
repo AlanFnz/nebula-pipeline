@@ -107,7 +107,7 @@ CONTRIBUTIONS = {
     'film_burn': 'Film burn exposes the print with moving leaks, luminous edges and rough film gates.',
     'print_collage': 'Print collage crops, repeats and overprints impressions of the source.',
     'film_emulsion': 'Color emulsion adds optical fringes, softness and moving grain.',
-    'radial_bloom': 'Radial bloom creates expanding crowns and branching rays.',
+    'radial_bloom': 'Radial bloom creates branching crowns or overlapping gradient discs.',
     'forms': 'Luminous forms provide the geometric source.',
     'rays': 'Rays provide a striped light source.',
     'text': 'Text provides the lettering.',

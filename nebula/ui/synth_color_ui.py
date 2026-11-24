@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QAction, QColor
 from PySide6.QtWidgets import (QWidget, QFrame, QLabel, QPushButton, QVBoxLayout,
                                QHBoxLayout, QGridLayout, QDialog, QColorDialog,
                                QDialogButtonBox)
@@ -161,18 +161,37 @@ class ColorCard(QFrame):
 
 
 class ColorPanel(QWidget):
-    """Two aligned visual controls; their numeric channels remain discoverable."""
+    """Color cards and compact palette swatches share the same scoped picker."""
     changed = Signal(str, object, object)
     restored = Signal(str)
 
-    def __init__(self, specs=COLORS):
+    def __init__(self, specs=COLORS, *, palette=()):
         super().__init__()
-        self.specs = specs
-        self.active_keys = {spec.key for spec in specs}
+        self.specs = (*specs, *palette)
+        self.active_keys = {spec.key for spec in self.specs}
         self.context_provider = None
         self.cards = {}
         layout = QVBoxLayout(self); layout.setContentsMargins(0, 4, 0, 4); layout.setSpacing(6)
-        for spec in self.specs:
+        self.chips = {}
+        self.chip_row = QWidget()
+        row = QHBoxLayout(self.chip_row)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(3)
+        for spec in palette:
+            button = QPushButton()
+            button.setMinimumWidth(0)
+            button.setFixedHeight(26)
+            button.setAccessibleName('Choose ' + spec.label.lower())
+            button.clicked.connect(lambda _checked=False, key=spec.key: self.open_picker(key))
+            restore = QAction('Restore ' + spec.label.lower(), button)
+            restore.triggered.connect(lambda _checked=False, key=spec.key: self.restored.emit(key))
+            button.addAction(restore)
+            button.setContextMenuPolicy(Qt.ContextMenuPolicy.ActionsContextMenu)
+            self.chips[spec.key] = button
+            row.addWidget(button, 1)
+        self.chip_row.setVisible(bool(palette))
+        layout.addWidget(self.chip_row)
+        for spec in specs:
             card = ColorCard(spec); self.cards[spec.key] = card
             card.choose.connect(self.open_picker); card.restore.connect(self.restored.emit)
             layout.addWidget(card)
@@ -183,11 +202,24 @@ class ColorPanel(QWidget):
         if self.context_provider is None: return
         for spec in self.specs:
             if spec.key in self.active_keys:
-                self.cards[spec.key].refresh(self.context_provider(spec.key))
+                context = self.context_provider(spec.key)
+                if spec.key in self.chips:
+                    button = self.chips[spec.key]
+                    color = display_color(context['hsv'])
+                    style = f'background: {color.name()}; border: 1px solid #778181; border-radius: 3px; padding: 0;'
+                    if button.styleSheet() != style:
+                        button.setStyleSheet(style)
+                    button.setToolTip(f'{spec.label} · {color.name().upper()}')
+                    button.setAccessibleDescription(button.toolTip())
+                    button.actions()[0].setEnabled(context['overridden'])
+                else:
+                    self.cards[spec.key].refresh(context)
 
     def show_colors(self, keys):
         self.active_keys = set(keys)
         for key, card in self.cards.items(): card.setVisible(key in self.active_keys)
+        for key, chip in self.chips.items(): chip.setVisible(key in self.active_keys)
+        self.chip_row.setVisible(bool(self.active_keys.intersection(self.chips)))
         self.setVisible(bool(self.active_keys))
         self.refresh()
 

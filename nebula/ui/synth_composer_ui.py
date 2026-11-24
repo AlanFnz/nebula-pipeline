@@ -1375,6 +1375,10 @@ class CompositionPanel(QWidget):
                     from nebula.sources.synth_blender_colors import scene_colors
                     params = next(m['params'] for m in preset['modules'] if m['id'] == spec.module)
                     values += [tuple(params[c] for c in color_spec(k).channels) for k in scene_colors(params)]
+                elif spec.module == 'radial_bloom':
+                    from nebula.sources.synth_blender_colors import RADIAL_COLORS
+                    params = next(m['params'] for m in preset['modules'] if m['id'] == spec.module)
+                    values += [tuple(params[c] for c in stop.channels) for stop in RADIAL_COLORS]
                 elif spec.module == 'chromatic_lattice':
                     from nebula.sources.synth_lattice_colors import lattice_colors
                     params = next(m['params'] for m in preset['modules'] if m['id'] == spec.module)
@@ -1384,7 +1388,7 @@ class CompositionPanel(QWidget):
             cache[key] = palette[:48]
         overridden = any(path in self.target()['effects'].get(spec.module, {}).get('params', {}) for path in spec.paths)
         extra = {}
-        if spec.module in ('blender_scene','chromatic_lattice'):
+        if spec.module in ('blender_scene', 'chromatic_lattice', 'radial_bloom'):
             extra = dict(scope_id=section_id if self.scope else None,
                          scope_note='Sets the base color in the chosen scope. Clip overrides, automation and lighting remain active.')
         return dict(**extra, hsv=current, palette=cache[key], section_id=section_id,

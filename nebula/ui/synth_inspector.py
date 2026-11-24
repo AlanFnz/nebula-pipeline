@@ -163,6 +163,11 @@ def control_group(path):
         if key in ('style', 'width', 'separation', 'groove'): return 'Contours'
         return 'Texture & light'
     if module == 'radial_bloom':
+        if key.startswith('stop_'): return 'Palette stops'
+        if key in ('pattern', 'copies', 'copy_scale', 'copy_angle', 'center_x', 'center_y', 'disc_x', 'disc_y', 'orientation'): return 'Shape & layout'
+        if key in ('focus_x', 'focus_y', 'spread', 'falloff'): return 'Gradient'
+        if key in ('cycle', 'direction', 'motion_period', 'motion_phase', 'motion_ease', 'pan_x', 'pan_y', 'disc_travel_x', 'disc_travel_y', 'pace_swing', 'ease_phase'): return 'Motion & timing'
+        if key in ('diffusion', 'lens_x', 'lens_y'): return 'Optical finish'
         if key.startswith('vibration'): return 'Ray vibration'
         if key in ('expansion', 'petals'): return 'Shape & layout'
         if key in ('flow', 'variation', 'rotation', 'phase', 'center_drift', 'drift_speed'): return 'Motion & timing'

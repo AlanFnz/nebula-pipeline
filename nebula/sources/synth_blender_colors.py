@@ -2,6 +2,7 @@
 from nebula.ui.synth_color_ui import ColorSpec, COLORS
 from nebula.sources.synth_blender_parts import PARTS
 from nebula.sources.synth_lattice_colors import LATTICE_COLORS
+from nebula.sources.synth_radial_gradients import STOP_KEYS, CHANNELS
 
 
 def color(key, label, *channels):
@@ -20,8 +21,13 @@ BLENDER_COLORS = (
 )
 
 
+RADIAL_COLORS = tuple(
+    ColorSpec('radial_' + key, f'Gradient color {index}', tuple(key+'_'+ch for ch in CHANNELS), 'radial_bloom')
+    for index, key in enumerate(STOP_KEYS, 1))
+
+
 def color_spec(key):
-    return next(spec for spec in (*COLORS, *BLENDER_COLORS, *LATTICE_COLORS) if spec.key == key)
+    return next(spec for spec in (*COLORS, *BLENDER_COLORS, *LATTICE_COLORS, *RADIAL_COLORS) if spec.key == key)
 
 
 def scene_colors(params, part=None):

@@ -57,11 +57,12 @@ FAMILY_GROUPS = {
         ('Folds & motion', 'fold_depth fold_period fold_phase rotation_speed turn_variation transition_ease turn_settle drift'),
         ('Color & light', 'palette color_phase color_speed wash shading saturation light')),
     'radial': (
-        ('Shape & detail', 'expansion petals detail branching'),
-        ('Motion & drift', 'flow variation rotation phase center_drift drift_speed'),
+        ('Shape & detail', 'pattern expansion copies copy_scale copy_angle center_x center_y disc_x disc_y orientation petals detail branching'),
+        ('Gradient', 'focus_x focus_y spread falloff'),
+        ('Motion & drift', 'cycle direction motion_period motion_phase motion_ease pan_x pan_y disc_travel_x disc_travel_y rotation pace_swing ease_phase flow variation phase center_drift drift_speed'),
         ('Ray vibration', 'vibration vibration_speed vibration_wavelength vibration_irregularity'),
         ('Color & light', 'palette color_phase color_speed light'),
-        ('Optical finish', 'softness grain')),
+        ('Optical finish', 'diffusion lens_x lens_y softness grain')),
     'silhouette': (
         ('Model & scale', 'model scale definition'),
         ('Pose & framing', 'yaw pitch roll center_x center_y'),
@@ -92,6 +93,9 @@ def family_groups(kind):
     prefix = available[0].split('.')[0]
     groups = [(0, title, index == 0, tuple(f'{prefix}.{key}' for key in keys.split()))
               for index, (title, keys) in enumerate(FAMILY_GROUPS[kind])]
+    if kind == 'radial':
+        stops = tuple(path for path in available if path.startswith('radial_bloom.stop_'))
+        groups.append((0, 'Palette stops', False, stops))
     if kind == 'blender':
         from nebula.sources.synth_blender_parts import groups as part_groups
         groups.extend(part_groups())
