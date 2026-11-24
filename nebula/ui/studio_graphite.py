@@ -40,6 +40,15 @@ QWidget#monitorHeader { background: $panel; border-bottom: 1px solid $divider; }
 QListWidget#montageMaterial { background: $panel; border: 1px solid $divider; border-radius: 3px; }
 QListWidget#montageMaterial:focus { border-color: $focus; }
 
+QFrame#montageTiming { background: $panel; border: 1px solid $divider; border-radius: 4px; }
+#montageTiming .QWidget, #montageTiming QLabel { background: transparent; }
+#montageTiming QLabel#timingTarget { color: $text; font-weight: 600; }
+#montageTiming QAbstractSpinBox { background: $background; border-color: $control; }
+#montageTiming QAbstractSpinBox > QLineEdit { border: 0; background: transparent; }
+#montageTiming QPushButton#applyTiming:enabled { background: $accent; color: $on_accent; }
+#montageTiming QPushButton:enabled:focus, #montageTiming QPushButton#applyTiming:enabled:focus,
+#montageTiming QAbstractSpinBox:enabled:focus { border-color: $focus; }
+
 QWidget#soundMixer { background: $background; }
 #soundMixer QGroupBox {
     background: $panel; border: 1px solid $divider; border-radius: 4px;

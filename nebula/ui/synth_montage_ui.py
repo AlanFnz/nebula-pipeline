@@ -11,7 +11,7 @@ from pathlib import Path
 from PySide6.QtCore import Qt, Signal, QObject, QRunnable, QThreadPool, QTimer, QRectF, QEvent, QSignalBlocker
 from PySide6.QtGui import QImage, QPixmap, QIcon, QPainter, QColor, QPen, QAction, QKeySequence
 from PySide6.QtWidgets import (QMainWindow, QWidget, QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
-    QLabel, QPushButton, QListWidget, QListWidgetItem, QSplitter, QScrollArea,
+    QLabel, QPushButton, QListWidget, QListWidgetItem, QSplitter, QScrollArea, QFrame,
     QFileDialog, QMessageBox, QDialogButtonBox, QInputDialog, QCheckBox, QProgressBar, QTabWidget, QToolTip)
 
 from nebula.ui.studio_widgets import SpinBox, DoubleSpinBox, Slider, ComboBox
@@ -71,6 +71,9 @@ class ImageMonitor(QLabel):
 
 
 class MontageTimeline(QWidget):
+    MARKER_TOP = 22
+    BLOCK_TOP = 48
+
     selectRequested = Signal(str, bool)
     seekRequested = Signal(int)
     moveRequested = Signal(str, int)
@@ -97,46 +100,70 @@ class MontageTimeline(QWidget):
     def frame_at(self, x): return max(0, round((x-12) / self.scale * self.document['fps']))
 
     def rectangles(self):
-        return [(c, a, b, QRectF(self.x(a), 30, max(2, self.x(b)-self.x(a)-2), 70)) for c,a,b in placements(self.document)]
+        return [(c, a, b, QRectF(self.x(a), self.BLOCK_TOP, max(2, self.x(b)-self.x(a)-2), 54)) for c,a,b in placements(self.document)]
 
     def insertion(self, x):
         rects = self.rectangles()
         return next((i for i,(_,a,b,r) in enumerate(rects) if x < r.center().x()), len(rects))
 
+    def marker_spans(self):
+        markers = self.document['markers']
+        for index, marker in enumerate(markers):
+            start = self.x(marker['frame'])
+            end = self.x(markers[index+1]['frame']) if index+1 < len(markers) else self.width()
+            yield marker, start, end
+
     def paintEvent(self, event):
-        p = QPainter(self); p.fillRect(self.rect(), QColor('#121819'))
-        p.setPen(QColor('#879391'))
-        total = sum(c['frames'] for c in self.document['clips'])
-        for second in range(int(total / self.document['fps'])+1):
-            x=self.x(second*self.document['fps']); p.drawText(int(x),17,f'{second}s')
+        p = QPainter(self)
+        p.fillRect(event.rect(), QColor(GRAPHITE['background']))
+        p.setPen(QColor(GRAPHITE['secondary']))
+        fps = self.document['fps']
+        total_seconds = sum(c['frames'] for c in self.document['clips']) // fps
+        # Leave room for the longest label, including at minimum zoom.
+        step = max(1, math.ceil((p.fontMetrics().horizontalAdvance(f'{total_seconds}s') + 12) / self.scale))
+        first = max(0, math.floor((event.rect().left() - 12) / self.scale / step) * step)
+        last = min(total_seconds, math.ceil((event.rect().right() - 12) / self.scale))
+        for second in range(first, last+1, step):
+            p.drawText(round(self.x(second*fps)), 16, f'{second}s')
+        lane = QRectF(0, self.MARKER_TOP, self.width(), self.BLOCK_TOP - self.MARKER_TOP - 3)
+        p.fillRect(lane, QColor(GRAPHITE['panel']))
+        p.setPen(QColor(GRAPHITE['secondary']))
+        for marker, start, end in self.marker_spans():
+            if end < event.rect().left() or start > event.rect().right():
+                continue
+            p.fillRect(QRectF(start, lane.top()+3, 2, lane.height()-6), QColor(GRAPHITE['control']))
+            label_rect = QRectF(start+5, lane.top(), max(0, end-start-8), lane.height())
+            metrics = p.fontMetrics()
+            # At dense cuts keep the tick and tooltip instead of a single letter and ellipsis.
+            if label_rect.width() >= min(metrics.horizontalAdvance(marker['name']), metrics.horizontalAdvance('000000…')):
+                label = metrics.elidedText(marker['name'], Qt.TextElideMode.ElideRight, int(label_rect.width()))
+                p.drawText(label_rect, Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, label)
         for index,(clip,a,b,rect) in enumerate(self.rectangles(),1):
             chosen=clip['id'] in self.selected
-            p.setBrush(QColor('#30493d' if chosen else '#20292c')); p.setPen(QColor('#acd991' if chosen else '#465153'))
+            p.setBrush(QColor(GRAPHITE['selection' if chosen else 'panel']))
+            p.setPen(QPen(QColor(GRAPHITE['accent' if chosen else 'control']), 2 if chosen else 1))
             p.drawRoundedRect(rect,4,4)
-            p.save(); p.setClipRect(rect.adjusted(4,2,-3,-2)); p.setPen(QColor('#e4e9e5'))
+            p.save(); p.setClipRect(rect.adjusted(4,2,-3,-2)); p.setPen(QColor(GRAPHITE['text']))
             label=clip_label(index,clip['name'],rect.width()-10,p.fontMetrics())
             p.drawText(rect.adjusted(5,4,-5,-2), Qt.AlignmentFlag.AlignTop, label)
             duration=f"{clip['frames']/self.document['fps']:.3f}s"
             if p.fontMetrics().horizontalAdvance(duration)<=rect.width()-10:
-                p.drawText(rect.adjusted(5,35,-5,-2), Qt.AlignmentFlag.AlignTop, duration)
+                p.setPen(QColor(GRAPHITE['secondary']))
+                p.drawText(rect.adjusted(5,2,-5,-4), Qt.AlignmentFlag.AlignBottom, duration)
             p.restore()
-        for marker in self.document['markers']:
-            x=self.x(marker['frame']); p.setPen(QPen(QColor('#e7b8d8'),1)); p.drawLine(int(x),22,int(x),108)
-        markers=self.document['markers']
-        for index,marker in enumerate(markers):
-            x=self.x(marker['frame'])
-            next_x=self.x(markers[index+1]['frame']) if index+1<len(markers) else self.width()
-            width=max(0,int(next_x-x-6))
-            if width>18:
-                label=p.fontMetrics().elidedText(marker['name'],Qt.TextElideMode.ElideRight,width)
-                p.drawText(int(x)+3,28,label)
-        p.setPen(QPen(QColor('#ffffff'),2)); x=int(self.x(self.frame)); p.drawLine(x,30,x,114)
+        x = round(self.x(self.frame))
+        playhead = QColor(GRAPHITE['marker'])
+        p.fillRect(QRectF(x-4, self.MARKER_TOP-4, 9, 3), playhead)
+        p.fillRect(QRectF(x, self.MARKER_TOP-1, 1, self.height()-self.MARKER_TOP), playhead)
+        if self.hasFocus():
+            p.setPen(QPen(QColor(GRAPHITE['focus']), 1, Qt.PenStyle.DashLine))
+            p.drawLine(event.rect().left(), self.height()-1, event.rect().right(), self.height()-1)
         if self.drop_index is not None:
             boundary = sum(c['frames'] for c in self.document['clips'][:self.drop_index])
             x = round(self.x(boundary))
             accent = QColor(GRAPHITE['accent'])
             p.setPen(QPen(accent, 3))
-            p.drawLine(x, 25, x, 109)
+            p.drawLine(x, self.BLOCK_TOP, x, 109)
             width = p.fontMetrics().horizontalAdvance('Insert') + 10
             height = p.fontMetrics().height() + 2
             badge = QRectF(max(0, min(x - 1, self.width() - width)), self.height() - height, width, height)
@@ -147,12 +174,9 @@ class MontageTimeline(QWidget):
     def event(self, event):
         if event.type()==QEvent.Type.ToolTip:
             text=''
-            if event.pos().y()<30:
-                markers=self.document['markers']
-                for i,marker in enumerate(markers):
-                    x=self.x(marker['frame'])
-                    end=self.x(markers[i+1]['frame']) if i+1<len(markers) else self.width()
-                    if x-3<=event.pos().x()<end-3:
+            if self.MARKER_TOP <= event.pos().y() < self.BLOCK_TOP:
+                for marker, x, end in self.marker_spans():
+                    if x <= event.pos().x() < end:
                         text=f"{time_label(marker['frame'],self.document['fps'])} · {marker['name']}"; break
             else:
                 for clip,a,b,rect in self.rectangles():
@@ -408,22 +432,36 @@ class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
         self.prepare_button=self.button('Prepare range',self.prepare,middle)
         self.prepare_button.setToolTip('Prepare a bounded playback range near the playhead at the selected resolution. Export renders every frame of the montage.')
         split.addWidget(center)
-        inspector=QWidget(); right=QVBoxLayout(inspector); right.addWidget(QLabel('TARGET BLOCK'))
-        self.clip_name=QLabel('Target: None'); self.clip_name.setWordWrap(True); self.clip_name.setTextFormat(Qt.TextFormat.PlainText); right.addWidget(self.clip_name)
-        self.timing_empty=QLabel(); self.timing_empty.setWordWrap(True); right.addWidget(self.timing_empty)
+        inspector=QWidget(); right=QVBoxLayout(inspector)
+        timing_panel=QFrame(); timing_panel.setObjectName('montageTiming')
+        timing=QVBoxLayout(timing_panel); timing.setContentsMargins(8,7,8,8); timing.setSpacing(5)
+        right.addWidget(timing_panel)
+        timing.addWidget(QLabel('Block timing'))
+        self.clip_name=ElidingLabel('Target: None'); self.clip_name.setObjectName('timingTarget'); timing.addWidget(self.clip_name)
+        self.timing_empty=QLabel(); self.timing_empty.setWordWrap(True); timing.addWidget(self.timing_empty)
         self.timing_fields=QWidget(); form=QFormLayout(self.timing_fields); form.setContentsMargins(0,0,0,0)
+        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.DontWrapRows)
+        form.setHorizontalSpacing(7); form.setVerticalSpacing(4)
         self.source_in=DoubleSpinBox(); self.source_in.setDecimals(12); self.source_in.setRange(0,432000); self.source_in.setAccessibleName('Block source In frame')
         self.length=SpinBox(); self.length.setRange(1,432000); self.length.setAccessibleName('Clip duration frames')
         self.speed=DoubleSpinBox(); self.speed.setDecimals(12); self.speed.setRange(.05,16); self.speed.setValue(1); self.speed.setSuffix(' ×'); self.speed.setAccessibleName('Montage block speed')
-        for label,control in [('Source In · frames',self.source_in),('Duration · frames',self.length),('Speed',self.speed)]: form.addRow(label,control)
+        self.source_in.setSuffix(' fr'); self.length.setSuffix(' fr')
+        self.source_in.setToolTip('Start within the source, in montage frames.')
+        self.length.setToolTip('Duration of this block in montage frames.')
+        for label,control in [('Source In',self.source_in),('Duration',self.length),('Speed',self.speed)]:
+            control.setAlignment(Qt.AlignmentFlag.AlignRight); form.addRow(label,control)
         for control in (self.source_in,self.length,self.speed):
             control.setKeyboardTracking(False); control.valueChanged.connect(self.update_timing_state)
             control.lineEdit().textEdited.connect(self.timing_text_edited)
             control.editingFinished.connect(self.update_timing_state)
-        right.addWidget(self.timing_fields)
-        self.timing_state=QLabel(); self.timing_state.setWordWrap(True); self.timing_state.setTextFormat(Qt.TextFormat.PlainText); right.addWidget(self.timing_state)
-        self.apply_timing_button=self.button('Apply timing',self.apply_timing,right)
-        self.revert_timing_button=self.button('Revert timing draft',self.revert_timing,right)
+        timing.addWidget(self.timing_fields)
+        self.timing_state=QLabel(); self.timing_state.setWordWrap(True); self.timing_state.setTextFormat(Qt.TextFormat.PlainText); timing.addWidget(self.timing_state)
+        timing_actions=QHBoxLayout(); timing_actions.setSpacing(4); timing.addLayout(timing_actions)
+        self.apply_timing_button=self.button('Apply timing',self.apply_timing,timing_actions)
+        self.apply_timing_button.setObjectName('applyTiming')
+        self.revert_timing_button=self.button('Revert draft',self.revert_timing,timing_actions)
+        self.revert_timing_button.setAccessibleName('Revert timing draft')
         self.edit_button=self.button('Edit study / effects…',self.edit_selected,right)
         self.copy_button=self.button('Copy treatment',self.copy_look,right); self.paste_button=self.button('Apply treatment to selection',self.paste_look,right)
         self.duplicate_button=self.button('Duplicate selection',self.duplicate,right); self.remove_button=self.button('Remove selection',self.remove_selected,right)

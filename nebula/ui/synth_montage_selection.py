@@ -52,7 +52,8 @@ class MontageSelection:
     def update_inspector(self):
         clip = self.active_clip(); count = len(self.selected)
         title = ('Target: ' + self.block_label(clip['id'])) if clip else f'Target: {count} blocks' if count else 'Target: None'
-        self.clip_name.setText(title); self.clip_name.setToolTip(title)
+        self.clip_name.setText(title)
+        self.apply_timing_button.setVisible(clip is not None)
         self.timing_fields.setVisible(clip is not None)
         self.timing_fields.setEnabled(clip is not None)
         self.timing_empty.setVisible(clip is None)
@@ -95,14 +96,17 @@ class MontageSelection:
         draft = self.has_timing_draft()
         self.apply_timing_button.setEnabled(draft); self.revert_timing_button.setVisible(draft)
         self.timing_state.setVisible(self.timing_key is not None)
-        self.timing_state.setText(f"Timing draft for {self.block_label(self.timing_key)} · not applied"
-                                 if draft else 'Timing applied to this block.')
+        self.timing_state.setText(self.draft_caption() if draft else 'Applied')
+
+    def draft_caption(self):
+        number = self.block_label(self.timing_key).split(' · ', 1)[0]
+        return f'{number} · unapplied timing'
 
     def timing_text_edited(self, *_):
         # Let a typed value be applied directly, before Tab/focus commits it.
         if self.timing_key is None: return
         self.apply_timing_button.setEnabled(True); self.revert_timing_button.show()
-        self.timing_state.setText(f'Timing draft for {self.block_label(self.timing_key)} · not applied')
+        self.timing_state.setText(self.draft_caption())
 
     def revert_timing(self):
         self.load_timing_values(); self.update_timing_state()

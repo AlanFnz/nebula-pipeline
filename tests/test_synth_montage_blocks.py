@@ -2,7 +2,7 @@
 import copy
 import pytest
 
-from PySide6.QtCore import Qt, QItemSelectionModel
+from PySide6.QtCore import QPoint, Qt, QItemSelectionModel
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 
@@ -155,6 +155,21 @@ def test_clicking_a_short_cut_near_viewport_edge_does_not_scroll_or_edit(window)
     QTest.mouseClick(window.timeline, Qt.MouseButton.LeftButton, pos=rect.center().toPoint())
     assert window.selected == {key} and window.document == original and not window.undo_stack
     assert window.scroll.horizontalScrollBar().value() == position
+
+
+def test_marker_lane_seeks_over_a_short_cut_without_retargeting_its_timing(window):
+    original = dense_document(window)
+    window.select_clip('intro')
+    window.zoom(220)
+    timeline = window.timeline
+    marker, start, _ = next(timeline.marker_spans())
+    body = next(rect for clip, a, b, rect in timeline.rectangles() if a <= marker['frame'] < b)
+    x = round(start)
+    QTest.mouseClick(timeline, Qt.MouseButton.LeftButton, pos=QPoint(x, timeline.MARKER_TOP+6))
+    assert window.frame == marker['frame'] and window.selected == {'intro'}
+    QTest.mouseClick(timeline, Qt.MouseButton.LeftButton, pos=QPoint(x, round(body.center().y())))
+    assert window.selected == {'shot-0'} and window.length.value() == 4
+    assert window.document == original and not window.undo_stack
 
 
 def test_short_labels_preserve_proportional_width_and_no_partial_number(window):
