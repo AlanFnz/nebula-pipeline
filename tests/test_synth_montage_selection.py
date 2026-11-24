@@ -5,12 +5,14 @@ import os
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 
 import pytest
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import QEvent, QMimeData, QPoint, QPointF, Qt, QTimer
+from PySide6.QtGui import QDragEnterEvent, QDragMoveEvent, QDropEvent, QIcon, QPixmap
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QDialog, QFileDialog
 
 from nebula.documents.synth_montage import add_asset, insert_clip, load_montage, normalize_montage, replace_clip
 from nebula.ui.synth_montage_ui import MontageWindow, SourceRangeDialog
+from nebula.ui.synth_montage_material import ASSET_MIME, LibraryList
 from test_synth_montage import project, montage
 
 
@@ -77,6 +79,68 @@ def test_material_target_and_playhead_are_independent_and_multiselect_is_explici
     assert not window.copy_button.isEnabled() and not window.timing_fields.isEnabled()
     assert window.remove_button.isEnabled() and window.duplicate_button.isEnabled()
     assert window.document == original
+
+
+def test_material_rows_keep_names_size_and_scroll_as_previews_arrive(window):
+    library = LibraryList()
+    names = {str(i): dict(kind='study', name=f'{i:02d} · An extended material title 🎞️ — variation {i}') for i in range(48)}
+    requests = []
+    library.thumbnailRequested.connect(requests.append)
+    try:
+        library.resize(230, 210)
+        library.set_material(names, [], {})
+        library.show()
+        QApplication.processEvents()
+        assert library.horizontalScrollBar().maximum() == 0
+        assert library.visualItemRect(library.item(2)).bottom() < library.viewport().height()
+        assert '47' not in requests
+        library.setCurrentRow(1)
+        library.scrollToBottom()
+        QApplication.processEvents()
+        assert '47' in requests
+        at_end = library.verticalScrollBar().value()
+        size = library.visualItemRect(library.item(47)).size()
+        preview = QPixmap(110, 72)
+        preview.fill(Qt.GlobalColor.blue)
+        library.item(47).setIcon(QIcon(preview))
+        library.set_material(names, [], {'47': preview})
+        QApplication.processEvents()
+        assert library.currentRow() == 1 and library.verticalScrollBar().value() == at_end
+        item = library.item(47)
+        assert not item.icon().isNull() and library.visualItemRect(item).size() == size
+        assert names['47']['name'] in item.toolTip()
+        assert names['47']['name'] in item.data(Qt.ItemDataRole.AccessibleTextRole)
+    finally:
+        library.close()
+
+
+def test_material_drop_marks_the_boundary_and_inserts_there(window, monkeypatch):
+    original = copy.deepcopy(window.document)
+    target = original['clips'][1]['id']
+    window.select_clip(target)
+    mime = QMimeData()
+    mime.setData(ASSET_MIME, original['clips'][0]['asset'].encode())
+    timeline = window.timeline
+    def send(kind, x):
+        point = QPoint(round(x), 55)
+        if kind is QDropEvent:
+            point = QPointF(point)
+        event = kind(point, Qt.DropAction.CopyAction, mime, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier)
+        QApplication.sendEvent(timeline, event)
+        assert event.isAccepted()
+    send(QDragEnterEvent, timeline.x(0))
+    assert timeline.drop_index == 0
+    send(QDragMoveEvent, timeline.x(22))
+    assert timeline.drop_index == 2
+    QApplication.sendEvent(timeline, QEvent(QEvent.Type.DragLeave))
+    assert timeline.drop_index is None and window.document == original
+    send(QDragEnterEvent, timeline.x(12))
+    assert timeline.drop_index == 1 and window.selected == {target}
+    choose_range(monkeypatch, 2, 9)
+    send(QDropEvent, timeline.x(12))
+    assert timeline.drop_index is None and window.document['clips'][1]['frames'] == 7
+    window.undo()
+    assert window.document == original and window.selected == {target}
 
 
 def test_timing_draft_stay_discard_apply_and_undo_have_named_destination(window, monkeypatch):

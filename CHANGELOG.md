@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.131.0 · 2026-11-24
+
+Montage Material shows compact thumbnails as you scroll, names on up to two lines and usage counts. Hover over a row for its full name. Dragging a source marks the insertion point on the timeline. Replace block identifies the target before you confirm the source range.
+
 ## 0.130.0 · 2026-11-24
 
 The synthesizer mixer aligns channel levels, Mute, Solo and the three EQ bands for side-by-side editing. Compact dials leave room for gain and frequency values at 1280 × 800. Chimes keeps its independent high-pass control below the EQ.

@@ -37,16 +37,15 @@ class MontageSelection:
     def update_material_context(self, *_):
         key = self.library_key(); asset = self.document['assets'].get(key)
         if asset:
-            uses = sum(c['asset'] == key for c in self.document['clips'])
-            text = f"Material source: {asset['name']}\n{asset['kind'].title()} · {uses} use{'s' if uses != 1 else ''}"
+            text = f"Material source: {asset['name']}"
         else: text = 'Material source: None'
-        self.material_context.setText(text); self.material_context.setToolTip(text)
+        self.material_context.setText(text)
         clip = self.active_clip()
         self.insert_button.setEnabled(asset is not None)
         self.replace_button.setEnabled(asset is not None and clip is not None)
-        if asset is None: hint = 'Choose material to insert or replace a block.'
-        elif clip is None: hint = 'Select exactly one timeline block to replace it. Insert range adds a new block.'
-        else: hint = f"Replace targets {self.block_label(clip['id'])}."
+        if asset is None: hint = 'Choose a material source.'
+        elif clip is None: hint = 'Select one block to replace.'
+        else: hint = f"Replace target: {self.block_label(clip['id'])}"
         self.material_hint.setText(hint)
         self.replace_button.setToolTip(hint + ' Keeps target duration, speed and treatment.')
 

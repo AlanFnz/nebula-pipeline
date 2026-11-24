@@ -8,10 +8,10 @@ import time
 from collections import OrderedDict
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal, QObject, QRunnable, QThreadPool, QTimer, QSize, QRectF, QMimeData, QEvent, QSignalBlocker
-from PySide6.QtGui import QImage, QPixmap, QIcon, QPainter, QColor, QPen, QDrag, QAction, QKeySequence
+from PySide6.QtCore import Qt, Signal, QObject, QRunnable, QThreadPool, QTimer, QRectF, QEvent, QSignalBlocker
+from PySide6.QtGui import QImage, QPixmap, QIcon, QPainter, QColor, QPen, QAction, QKeySequence
 from PySide6.QtWidgets import (QMainWindow, QWidget, QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
-    QLabel, QPushButton, QListWidget, QListWidgetItem, QAbstractItemView, QSplitter, QScrollArea,
+    QLabel, QPushButton, QListWidget, QListWidgetItem, QSplitter, QScrollArea,
     QFileDialog, QMessageBox, QDialogButtonBox, QInputDialog, QCheckBox, QProgressBar, QTabWidget, QToolTip)
 
 from nebula.ui.studio_widgets import SpinBox, DoubleSpinBox, Slider, ComboBox
@@ -23,7 +23,9 @@ from nebula.documents.synth_montage import (FORMAT, identifier, new_montage, nor
 from nebula.ui.synth_soundtrack_ui import SoundtrackLane, SoundtrackDialog
 from nebula.audio.synth_soundtrack_preview import SoundtrackPreview
 from nebula.ui.synth_output_ui import ExportSummaryButton, export_rows, PREVIEW_HINT, cache_caption
-from nebula.ui.synth_workspace_widgets import FlowLayout, inline
+from nebula.ui.synth_workspace_widgets import ElidingLabel, FlowLayout, inline
+from nebula.ui.studio_graphite import GRAPHITE
+from nebula.ui.synth_montage_material import ASSET_MIME, LibraryList
 from nebula.ui.synth_monitor_status import MonitorFrameStatus
 from nebula.ui.synth_montage_selection import MontageSelection
 from nebula.ui.synth_montage_blocks import BlockBrowser, MontageBlockNavigation, block_details, clip_label, time_label
@@ -68,17 +70,6 @@ class ImageMonitor(QLabel):
         super().resizeEvent(event); self.scale_image()
 
 
-class LibraryList(QListWidget):
-    def __init__(self):
-        super().__init__(); self.setIconSize(QSize(110,72)); self.setDragEnabled(True)
-        self.setAccessibleName('Montage media library')
-
-    def startDrag(self, actions):
-        if not self.currentItem(): return
-        mime = QMimeData(); mime.setData('application/x-nebula-asset', self.currentItem().data(Qt.ItemDataRole.UserRole).encode())
-        drag = QDrag(self); drag.setMimeData(mime); drag.exec(Qt.DropAction.CopyAction)
-
-
 class MontageTimeline(QWidget):
     selectRequested = Signal(str, bool)
     seekRequested = Signal(int)
@@ -91,12 +82,14 @@ class MontageTimeline(QWidget):
     def __init__(self):
         super().__init__(); self.document = new_montage(); self.selected = set(); self.frame = 0
         self.scale = 65.; self.snap = True; self.gesture = None
+        self.drop_index = None
         self.setFixedHeight(116); self.setAcceptDrops(True); self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setAccessibleName('Montage timeline')
         self.setToolTip('Drag clips to reorder. Drag their right edge to trim. Drop library material to insert. Shift-click to select several clips.')
 
     def set_document(self, document, selected):
         self.document = document; self.selected = set(selected)
+        self.drop_index = None
         total = sum(c['frames'] for c in document['clips'])
         self.setMinimumWidth(max(650, round(total / document['fps'] * self.scale)+24)); self.update()
 
@@ -138,6 +131,18 @@ class MontageTimeline(QWidget):
                 label=p.fontMetrics().elidedText(marker['name'],Qt.TextElideMode.ElideRight,width)
                 p.drawText(int(x)+3,28,label)
         p.setPen(QPen(QColor('#ffffff'),2)); x=int(self.x(self.frame)); p.drawLine(x,30,x,114)
+        if self.drop_index is not None:
+            boundary = sum(c['frames'] for c in self.document['clips'][:self.drop_index])
+            x = round(self.x(boundary))
+            accent = QColor(GRAPHITE['accent'])
+            p.setPen(QPen(accent, 3))
+            p.drawLine(x, 25, x, 109)
+            width = p.fontMetrics().horizontalAdvance('Insert') + 10
+            height = p.fontMetrics().height() + 2
+            badge = QRectF(max(0, min(x - 1, self.width() - width)), self.height() - height, width, height)
+            p.fillRect(badge, accent)
+            p.setPen(QColor(GRAPHITE['on_accent']))
+            p.drawText(badge, Qt.AlignmentFlag.AlignCenter, 'Insert')
 
     def event(self, event):
         if event.type()==QEvent.Type.ToolTip:
@@ -204,12 +209,27 @@ class MontageTimeline(QWidget):
         else: super().keyPressEvent(event)
 
     def dragEnterEvent(self,event):
-        if event.mimeData().hasFormat('application/x-nebula-asset'): event.acceptProposedAction()
+        self.dragMoveEvent(event)
 
-    def dragMoveEvent(self,event): self.dragEnterEvent(event)
+    def dragMoveEvent(self, event):
+        key = bytes(event.mimeData().data(ASSET_MIME)).decode('utf-8', errors='replace')
+        if key in self.document['assets']:
+            self.drop_index = self.insertion(event.position().x())
+            event.acceptProposedAction()
+        else:
+            self.drop_index = None
+            event.ignore()
+        self.update()
+
+    def dragLeaveEvent(self, event):
+        self.drop_index = None
+        self.update()
+        event.accept()
 
     def dropEvent(self,event):
-        key=bytes(event.mimeData().data('application/x-nebula-asset')).decode()
+        self.drop_index = None
+        self.update()
+        key=bytes(event.mimeData().data(ASSET_MIME)).decode('utf-8', errors='replace')
         if key in self.document['assets']:
             self.insertRequested.emit(key,self.insertion(event.position().x())); event.acceptProposedAction()
 
@@ -332,7 +352,7 @@ class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
 
     def initialize_media(self):
         if self.closed: return
-        for key in list(self.document['assets'])[:32]: self.thumbnail(key)
+        self.library.request_visible_thumbnails()
         self.refresh_waveform()
 
     def refresh_waveform(self):
@@ -361,16 +381,18 @@ class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
         material=QWidget(); material_layout=QVBoxLayout(material); material_layout.setContentsMargins(0,4,0,0)
         self.button('Import videos / studies…',self.import_dialog,material_layout)
         self.library=LibraryList(); material_layout.addWidget(self.library,1)
+        self.library.thumbnailRequested.connect(self.thumbnail)
         self.material_tabs.addTab(material,'Material')
         self.block_browser=BlockBrowser(); self.material_tabs.addTab(self.block_browser,'Block list')
         self.block_browser.selectionRequested.connect(self.select_from_block_list)
         self.block_browser.editRequested.connect(self.edit_from_block_list)
         self.library.currentItemChanged.connect(self.update_material_context)
-        self.material_context=QLabel('Material source: None'); self.material_context.setWordWrap(True); self.material_context.setTextFormat(Qt.TextFormat.PlainText); left.addWidget(self.material_context)
+        self.material_context=ElidingLabel('Material source: None'); left.addWidget(self.material_context)
         self.library.itemDoubleClicked.connect(lambda _:self.choose_range())
-        self.insert_button=self.button('Insert range…',self.choose_range,left)
-        self.replace_button=self.button('Replace target block…',self.replace_selected,left)
-        self.material_hint=QLabel(); self.material_hint.setWordWrap(True); left.addWidget(self.material_hint)
+        actions=QHBoxLayout(); actions.setSpacing(4); left.addLayout(actions)
+        self.insert_button=self.button('Insert range…',self.choose_range,actions)
+        self.replace_button=self.button('Replace block…',self.replace_selected,actions)
+        self.material_hint=ElidingLabel(); left.addWidget(self.material_hint)
         split.addWidget(library)
         center=QWidget(); middle=QVBoxLayout(center); self.monitor=ImageMonitor('Import videos or a study to begin'); middle.addWidget(self.monitor,1)
         transport=QHBoxLayout(); self.play=self.button('Play',self.toggle_play,transport); self.scrub=Slider(Qt.Orientation.Horizontal); self.scrub.setAccessibleName('Montage playhead'); transport.addWidget(self.scrub,1)
@@ -414,7 +436,7 @@ class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
         self.snap=QCheckBox('Snap clip edges to markers'); self.snap.setChecked(True); right.addWidget(self.snap)
         self.snap.toggled.connect(lambda b:setattr(self.timeline,'snap',b)); right.addStretch()
         inspector_scroll=QScrollArea(); inspector_scroll.setWidgetResizable(True); inspector_scroll.setWidget(inspector)
-        inspector_scroll.setMinimumWidth(270); split.addWidget(inspector_scroll); split.setSizes([250,780,300])
+        inspector_scroll.setMinimumWidth(270); split.addWidget(inspector_scroll); split.setSizes([280,750,300])
         tools=QHBoxLayout()
         for label,method in [('Split at playhead',self.split),('Select all',self.select_all),('Soundtrack',self.soundtrack_dialog)]: self.button(label,method,tools)
         tools.addWidget(QLabel('Timeline zoom')); self.zoom_control=Slider(Qt.Orientation.Horizontal); self.zoom_control.setRange(25,220); self.zoom_control.setValue(65); self.zoom_control.setMaximumWidth(160); self.zoom_control.valueChanged.connect(self.zoom); self.zoom_control.setAccessibleName('Montage timeline zoom'); tools.addWidget(self.zoom_control)
@@ -495,14 +517,7 @@ class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
         self.setWindowTitle(f"Nebula · Montage / {self.document['name']}{' *' if self.document!=self.clean else ''}")
         self.undo_button.setEnabled(bool(self.undo_stack)); self.redo_button.setEnabled(bool(self.redo_stack))
         for action,stack in zip(self.history_actions,(self.undo_stack,self.redo_stack)): action.setEnabled(bool(stack))
-        current=self.library.currentItem().data(Qt.ItemDataRole.UserRole) if self.library.currentItem() else None
-        self.library.clear()
-        for key,asset in self.document['assets'].items():
-            uses=sum(c['asset']==key for c in self.document['clips'])
-            item=QListWidgetItem(f"{asset['name']}\n{asset['kind'].title()} · {uses} use{'s' if uses!=1 else ''}"); item.setData(Qt.ItemDataRole.UserRole,key)
-            if key in self.thumbnails: item.setIcon(QIcon(self.thumbnails[key]))
-            self.library.addItem(item)
-            if key==current: self.library.setCurrentItem(item)
+        self.library.set_material(self.document['assets'], self.document['clips'], self.thumbnails)
         self.selected.intersection_update(c['id'] for c in self.document['clips'])
         self.update_track_geometry()
         total=sum(c['frames'] for c in self.document['clips']); self.scrub.blockSignals(True); self.scrub.setRange(0,max(0,total-1)); self.scrub.blockSignals(False)
@@ -672,18 +687,25 @@ class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
             return imported
         def done(items):
             if identity is not self.identity: return
-            document=self.document; keys=[]
-            for item in items: document,key=add_asset(document,**item); keys.append(key)
+            document=self.document
+            for item in items: document,_=add_asset(document,**item)
             self.commit(document); self.status.setText(f'{len(items)} items imported. Double-click to choose a range.')
-            for key in keys: self.thumbnail(key)
         self.task(inspect,done)
 
     def thumbnail(self,key):
-        doc=copy.deepcopy(self.document)
+        if self.closed or key in self.thumbnails or key not in self.document['assets']:
+            return
+        # Reserve the slot before queuing work. A missing source keeps its placeholder.
+        self.thumbnails[key] = None
+        identity = self.identity
+        source = new_montage(self.document['canvas'], self.document['fps'])
+        source['assets'][key] = copy.deepcopy(self.document['assets'][key])
         def render(cancel,progress):
-            temp=new_montage(doc['canvas'],doc['fps']); temp['assets']={key:doc['assets'][key]}; temp,_=insert_clip(temp,key,frames=1)
+            temp,_=insert_clip(source,key,frames=1)
             with MontageRenderer(temp,cancel,preview=True) as renderer: return image_packet(renderer.frame(0,(110,72)))
         def done(packet):
+            if identity is not self.identity:
+                return
             self.thumbnails[key]=pixmap(packet)
             for i in range(self.library.count()):
                 item=self.library.item(i)
@@ -826,7 +848,7 @@ class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
         path,_=QFileDialog.getOpenFileName(self,'Open montage','',OPEN_FILTER)
         if not path or not self.may_replace(): return
         def load():
-            doc=load_montage(path); self.stop(); self.identity=object(); self.document=doc; self.clean=copy.deepcopy(doc); self.path=Path(path); self.undo_stack=[]; self.redo_stack=[]; self.invalidate(); self.refresh(); self.initialize_media()
+            doc=load_montage(path); self.stop(); self.identity=object(); self.thumbnails.clear(); self.document=doc; self.clean=copy.deepcopy(doc); self.path=Path(path); self.undo_stack=[]; self.redo_stack=[]; self.invalidate(); self.refresh(); self.initialize_media()
         self.guarded(load)
     def export_summary_rows(self):
         rows=export_rows(self.document,montage=True)

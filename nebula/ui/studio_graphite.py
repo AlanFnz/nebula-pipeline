@@ -37,6 +37,9 @@ QWidget#monitorHeader { background: $panel; border-bottom: 1px solid $divider; }
 
 #monitorHeader QPushButton:enabled:focus, #monitorHeader QPushButton:enabled:!checked:focus { border-color: $focus; }
 
+QListWidget#montageMaterial { background: $panel; border: 1px solid $divider; border-radius: 3px; }
+QListWidget#montageMaterial:focus { border-color: $focus; }
+
 QWidget#soundMixer { background: $background; }
 #soundMixer QGroupBox {
     background: $panel; border: 1px solid $divider; border-radius: 4px;
