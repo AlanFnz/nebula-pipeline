@@ -3,20 +3,35 @@ import math
 from PySide6.QtCore import Qt, QPointF, QRectF, Signal, QSignalBlocker
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QDial, QDoubleSpinBox
+from nebula.ui.studio_graphite import GRAPHITE
 
 
 class SoundDial(QDial):
-    def __init__(self,parent=None):
-        super().__init__(parent);self.setRange(0,10000);self.setFixedSize(78,78)
+    def __init__(self,parent=None, *, compact=False):
+        super().__init__(parent);self.setRange(0,10000)
+        self.compact = compact
+        diameter = 48 if compact else 78
+        self.setFixedSize(diameter, diameter)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus);self.origin=None;self.number=None
 
     def paintEvent(self,event):
         p=QPainter(self);p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        accent=QColor('#acd88f' if self.isEnabled() else '#58625c');rect=QRectF(9,9,60,60)
-        p.setPen(QPen(QColor('#39413f'),4,Qt.PenStyle.SolidLine,Qt.PenCapStyle.RoundCap));p.drawArc(rect,225*16,-270*16)
+        p.scale(self.width()/78, self.height()/78)
+        if self.compact:
+            accent = QColor(GRAPHITE['accent'] if self.isEnabled() else GRAPHITE['disabled'])
+            track, face, outline = GRAPHITE['control'], GRAPHITE['raised'], GRAPHITE['divider']
+            if self.hasFocus():
+                p.setPen(QPen(QColor(GRAPHITE['focus']), 3))
+                p.drawEllipse(QRectF(3, 3, 72, 72))
+        else:
+            accent = QColor('#acd88f' if self.isEnabled() else '#58625c')
+            track, face = '#39413f', '#26312d'
+            outline = '#829981' if self.hasFocus() else '#3d4742'
+        rect=QRectF(9,9,60,60)
+        p.setPen(QPen(QColor(track),4,Qt.PenStyle.SolidLine,Qt.PenCapStyle.RoundCap));p.drawArc(rect,225*16,-270*16)
         ratio=self.value()/10000
         p.setPen(QPen(accent,4,Qt.PenStyle.SolidLine,Qt.PenCapStyle.RoundCap));p.drawArc(rect,225*16,round(-270*16*ratio))
-        p.setPen(QPen(QColor('#829981' if self.hasFocus() else '#3d4742'),1));p.setBrush(QColor('#26312d'));p.drawEllipse(QRectF(17,17,44,44))
+        p.setPen(QPen(QColor(outline),1));p.setBrush(QColor(face));p.drawEllipse(QRectF(17,17,44,44))
         angle=math.radians(225-270*ratio);center=QPointF(39,39)
         p.setPen(QPen(accent,3,Qt.PenStyle.SolidLine,Qt.PenCapStyle.RoundCap))
         p.drawLine(center+QPointF(math.cos(angle)*11,-math.sin(angle)*11),center+QPointF(math.cos(angle)*20,-math.sin(angle)*20))
@@ -52,14 +67,15 @@ class SoundNumber(QDoubleSpinBox):
 class SoundKnob(QWidget):
     valueChanged=Signal(float)
 
-    def __init__(self,name,low,high,step=1.,suffix='',*,log=False,integer=False,parent=None):
-        super().__init__(parent);self.log=log;self.low=low;self.high=high;self.setMinimumWidth(106)
+    def __init__(self,name,low,high,step=1.,suffix='',*,log=False,integer=False,compact=False,parent=None):
+        super().__init__(parent);self.log=log;self.low=low;self.high=high
+        self.setMinimumWidth(96 if compact else 106)
         layout=QVBoxLayout(self);layout.setContentsMargins(3,2,3,2);layout.setSpacing(2)
         label=QLabel(name);label.setAlignment(Qt.AlignmentFlag.AlignCenter);layout.addWidget(label)
-        self.dial=SoundDial();self.dial.setAccessibleName(name+' knob');layout.addWidget(self.dial,0,Qt.AlignmentFlag.AlignHCenter)
+        self.dial=SoundDial(compact=compact);self.dial.setAccessibleName(name+' knob');layout.addWidget(self.dial,0,Qt.AlignmentFlag.AlignHCenter)
         self.number=SoundNumber();self.number.setRange(low,high);self.number.setDecimals(0 if integer else 2);self.dial.number=self.number
         self.number.setSingleStep(step);self.number.setSuffix(suffix);self.number.setAccessibleName(name)
-        self.number.setAlignment(Qt.AlignmentFlag.AlignCenter);self.number.setFixedWidth(110)
+        self.number.setAlignment(Qt.AlignmentFlag.AlignCenter);self.number.setFixedWidth(90 if compact else 110)
         self.number.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.NoButtons);self.number.setKeyboardTracking(False)
         layout.addWidget(self.number,0,Qt.AlignmentFlag.AlignHCenter)
         self.dial.setToolTip('Drag up/down. Shift: fine adjustment. Arrow keys: adjust. Type a value below.')

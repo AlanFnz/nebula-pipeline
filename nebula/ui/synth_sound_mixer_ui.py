@@ -1,8 +1,19 @@
-"""Independent drone/arpeggio channel strips for the layered instrument."""
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox, QCheckBox, QLabel
+"""Channel levels, monitoring switches and EQ for the layered instruments."""
 from PySide6.QtCore import Signal
+from PySide6.QtWidgets import QCheckBox, QGridLayout, QGroupBox, QLabel, QVBoxLayout, QWidget
+
+from nebula.audio.synth_sound_mixer import BANDS, CHANNELS
 from nebula.ui.synth_sound_knob import SoundKnob
-from nebula.audio.synth_sound_mixer import CHANNELS, BANDS
+
+
+def band_grid(parent):
+    grid = QGridLayout(parent)
+    grid.setContentsMargins(0, 0, 0, 0)
+    grid.setHorizontalSpacing(6)
+    grid.setVerticalSpacing(3)
+    for index in range(len(BANDS)):
+        grid.setColumnStretch(index, 1)
+    return grid
 
 
 class SoundMixer(QWidget):
@@ -10,48 +21,97 @@ class SoundMixer(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        layout = QVBoxLayout(self); layout.setContentsMargins(0, 0, 0, 0)
-        hint = QLabel('Balance the Drone and Arpeggio. Each has its own EQ. Both then pass through the shared Drive and visual Filter in Sound.')
-        hint.setWordWrap(True); layout.addWidget(hint);self.hint=hint;self.default_hint=hint.text()
-        strips = QGridLayout(); layout.addLayout(strips);self.strips=strips;self.channels = {};self.boxes={};self.color_wave=False
-        for index,(key, title) in enumerate((*CHANNELS,('pad','Root pad'),('wave','Wave sine'),('chimes','Chimes'),('choir','Choir'),('sub','Sub bass'))):
-            box = QGroupBox(title); column = QVBoxLayout(box)
-            strips.addWidget(box,index//2,index%2)
-            self.boxes[key]=box
-            controls = {}; top = QHBoxLayout(); column.addLayout(top)
-            level = SoundKnob('Level', -60, 6, .5, ' dB'); controls['level_db'] = level
-            level.number.setAccessibleName(title+' level'); level.dial.setAccessibleName(title+' level knob')
+        self.setObjectName('soundMixer')
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
+        self.default_hint = 'Balance the Drone and Arpeggio. Each has its own EQ. Both then pass through the shared Drive and visual Filter in Sound.'
+        self.hint = QLabel(self.default_hint)
+        self.hint.setObjectName('mixerHint')
+        self.hint.setWordWrap(True)
+        layout.addWidget(self.hint)
+
+        self.strips = QGridLayout()
+        self.strips.setSpacing(8)
+        self.strips.setColumnStretch(0, 1)
+        self.strips.setColumnStretch(1, 1)
+        layout.addLayout(self.strips)
+        self.channels = {}
+        self.boxes = {}
+        self.color_wave = False
+        layers = (*CHANNELS, ('pad', 'Root pad'), ('wave', 'Wave sine'), ('chimes', 'Chimes'),
+                  ('choir', 'Choir'), ('sub', 'Sub bass'))
+        for index, (key, title) in enumerate(layers):
+            controls = {}
+            self.channels[key] = controls
+            box = QGroupBox(title)
+            self.boxes[key] = box
+            self.strips.addWidget(box, index // 2, index % 2)
+            column = QVBoxLayout(box)
+            column.setContentsMargins(6, 8, 6, 6)
+            column.setSpacing(8)
+
+            top = band_grid(None)
+            column.addLayout(top)
+            level = SoundKnob('Level', -60, 6, .5, ' dB', compact=True)
+            controls['level_db'] = level
+            level.number.setAccessibleName(title + ' level')
+            level.dial.setAccessibleName(title + ' level knob')
             level.setToolTip('Channel level before the shared Drive and Filter. 0 dB preserves the original balance. Use Mute for silence.')
-            top.addWidget(level); switches = QVBoxLayout(); top.addLayout(switches)
+            top.addWidget(level, 0, 0)
+            switches = QVBoxLayout()
+            switches.setSpacing(4)
+            switches.addStretch()
+            top.addLayout(switches, 0, 1, 1, 2)
             for field, label in (('mute', 'Mute'), ('solo', 'Solo'), ('eq_enabled', 'EQ on')):
-                control = QCheckBox(label); control.setAccessibleName(title+' '+label)
-                controls[field] = control; switches.addWidget(control); control.toggled.connect(self.toggled)
+                control = QCheckBox(label)
+                control.setAccessibleName(title + ' ' + label)
+                controls[field] = control
+                switches.addWidget(control)
+                control.toggled.connect(self.toggled)
+            switches.addStretch()
             controls['solo'].setToolTip('Hear this channel on its own. Multiple Solo buttons play those channels together. Mute takes priority.')
-            if key=='chimes':
-                hp=QHBoxLayout();column.addLayout(hp)
-                enabled=QCheckBox('High-pass on');enabled.setAccessibleName('Chimes high-pass enabled')
-                cutoff=SoundKnob('High-pass cutoff',20,18000,10,' Hz',log=True)
-                cutoff.number.setAccessibleName('Chimes high-pass frequency');cutoff.dial.setAccessibleName('Chimes high-pass frequency knob')
-                cutoff.setToolTip('Remove frequencies below this cutoff at 12 dB/octave, before EQ, reverb and delay. Independent of EQ on. Type Hz or turn the knob while listening.')
-                hp.addWidget(cutoff);hp.addWidget(enabled);controls.update(highpass_enabled=enabled,highpass_hz=cutoff)
-                enabled.toggled.connect(cutoff.setEnabled);enabled.toggled.connect(self.toggled)
-            eq = QWidget(); grid = QGridLayout(eq); grid.setContentsMargins(0, 0, 0, 0); grid.setSpacing(2); column.addWidget(eq)
-            for index, (band, name, _, low, high) in enumerate(BANDS):
-                gain = SoundKnob(name, -18, 18, .5, ' dB')
-                frequency = SoundKnob('Frequency', low, high, 10, ' Hz', log=True)
+
+            eq = QWidget()
+            eq.setObjectName('mixerBands')
+            grid = band_grid(eq)
+            column.addWidget(eq)
+            for band_index, (band, name, _, low, high) in enumerate(BANDS):
+                gain = SoundKnob(name, -18, 18, .5, ' dB', compact=True)
+                frequency = SoundKnob('Frequency', low, high, 10, ' Hz', log=True, compact=True)
                 frequency.dial.hide()
                 frequency.setToolTip('Type the frequency below the gain knob. The EQ setting is retained while EQ is off.')
-                for field, knob, row in ((band+'_db', gain, 0), (band+'_hz', frequency, 1)):
-                    knob.setMinimumWidth(90); knob.number.setFixedWidth(100)
-                    knob.number.setAccessibleName(f'{title} {name} '+('gain' if row==0 else 'frequency'))
-                    knob.dial.setAccessibleName(knob.number.accessibleName()+' knob')
-                    controls[field] = knob; grid.addWidget(knob, row, index)
-                gain.setToolTip('Broad bell EQ, Q 0.8.' if band=='mid' else 'Low shelf EQ.' if band=='low' else 'High shelf EQ.')
+                for field, knob, row in ((band + '_db', gain, 0), (band + '_hz', frequency, 1)):
+                    knob.number.setAccessibleName(f'{title} {name} ' + ('gain' if row == 0 else 'frequency'))
+                    knob.dial.setAccessibleName(knob.number.accessibleName() + ' knob')
+                    controls[field] = knob
+                    grid.addWidget(knob, row, band_index)
+                gain.setToolTip('Broad bell EQ, Q 0.8.' if band == 'mid' else 'Low shelf EQ.' if band == 'low' else 'High shelf EQ.')
             controls['eq_enabled'].toggled.connect(eq.setEnabled)
-            column.addStretch(); self.channels[key] = controls
-        foot = QLabel('0 dB = unchanged · Solo isolates a channel · EQ off keeps your settings. Channel controls are saved and exported; Listen level below only changes monitoring.')
-        foot.setWordWrap(True); layout.addWidget(foot); layout.addStretch();self.foot=foot
-        for key in ('pad','wave','chimes','choir','sub'):self.boxes[key].hide()
+
+            if key == 'chimes':
+                hp = band_grid(None)
+                column.addLayout(hp)
+                enabled = QCheckBox('High-pass on')
+                enabled.setAccessibleName('Chimes high-pass enabled')
+                cutoff = SoundKnob('High-pass cutoff', 20, 18000, 10, ' Hz', log=True, compact=True)
+                cutoff.number.setAccessibleName('Chimes high-pass frequency')
+                cutoff.dial.setAccessibleName('Chimes high-pass frequency knob')
+                cutoff.setToolTip('Remove frequencies below this cutoff at 12 dB/octave, before EQ, reverb and delay. Independent of EQ on. Type Hz or turn the knob while listening.')
+                hp.addWidget(cutoff, 0, 0)
+                hp.addWidget(enabled, 0, 1, 1, 2)
+                controls.update(highpass_enabled=enabled, highpass_hz=cutoff)
+                enabled.toggled.connect(cutoff.setEnabled)
+                enabled.toggled.connect(self.toggled)
+            column.addStretch(1)
+            if key not in ('body', 'arpeggio'):
+                box.hide()
+
+        self.foot = QLabel('0 dB = unchanged · Solo isolates a channel · EQ off keeps your settings. Channel controls are saved and exported; Listen level below only changes monitoring.')
+        self.foot.setObjectName('mixerHint')
+        self.foot.setWordWrap(True)
+        layout.addWidget(self.foot)
+        layout.addStretch()
 
     def set_color_wave(self,active):
         self.color_wave=active

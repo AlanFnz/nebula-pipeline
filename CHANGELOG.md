@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.130.0 · 2026-11-24
+
+The synthesizer mixer aligns channel levels, Mute, Solo and the three EQ bands for side-by-side editing. Compact dials leave room for gain and frequency values at 1280 × 800. Chimes keeps its independent high-pass control below the EQ.
+
 ## 0.129.0 · 2026-11-24
 
 Numeric inspector controls align each value with its Restore action. In a narrow inspector the slider shares a second line with the value, and Animate stays beside the label. When editing intensity across clips, the selected range appears beside the clip count.

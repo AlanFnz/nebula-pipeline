@@ -94,6 +94,36 @@ def test_inspector_numeric_fields_align_with_and_without_animation(themed_app, w
         panel.close()
 
 
+@pytest.mark.parametrize('width,height', [(1280, 800), (1726, 960)])
+def test_mixer_aligns_common_controls_with_chimes_highpass(themed_app, width, height):
+    from nebula.audio.synth_lattice_sound import color_wave_sound
+    from nebula.ui.synth_visual_sound_ui import VisualSoundDialog
+
+    dialog = VisualSoundDialog()
+    try:
+        dialog.set_config(color_wave_sound())
+        dialog.tabs.setCurrentIndex(4)
+        dialog.resize(width, height)
+        dialog.sound_splitter.setSizes([width // 3, 2 * width // 3])
+        dialog.show()
+        themed_app.processEvents()
+        mixer = dialog.mixer
+        opening, chimes = mixer.channels['body'], mixer.channels['chimes']
+        scroll = dialog.tabs.currentWidget()
+        assert scroll.horizontalScrollBar().maximum() == 0
+        for key in ('level_db', 'mute', 'solo', 'eq_enabled',
+                    'low_db', 'mid_db', 'high_db', 'low_hz', 'mid_hz', 'high_hz'):
+            left, right = opening[key], chimes[key]
+            assert left.isVisible() and right.isVisible()
+            assert left.mapTo(mixer, QPoint()).y() == right.mapTo(mixer, QPoint()).y()
+        cutoff_top = chimes['highpass_hz'].mapTo(mixer, QPoint()).y()
+        freq_bottom = chimes['high_hz'].mapTo(mixer, chimes['high_hz'].rect().bottomLeft()).y()
+        assert cutoff_top > freq_bottom
+        assert not dialog.has_sound_draft()
+    finally:
+        dialog.close()
+
+
 def test_dialog_widget_matrix_has_no_style_parser_errors(themed_app):
     messages = []
     previous = qInstallMessageHandler(lambda _kind, _context, message: messages.append(message))

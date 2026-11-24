@@ -37,6 +37,22 @@ QWidget#monitorHeader { background: $panel; border-bottom: 1px solid $divider; }
 
 #monitorHeader QPushButton:enabled:focus, #monitorHeader QPushButton:enabled:!checked:focus { border-color: $focus; }
 
+QWidget#soundMixer { background: $background; }
+#soundMixer QGroupBox {
+    background: $panel; border: 1px solid $divider; border-radius: 4px;
+    margin-top: 16px; padding: 5px 3px 3px;
+}
+#soundMixer QGroupBox::title { color: $text; font-weight: 600; left: 9px; padding: 0 3px; }
+#soundMixer SoundKnob, #soundMixer QWidget#mixerBands, #soundMixer QLabel { background: transparent; }
+#soundMixer QLabel#mixerHint { color: $secondary; }
+#soundMixer QDoubleSpinBox { background: $background; border-color: $control; color: $text; }
+#soundMixer QDoubleSpinBox > QLineEdit { background: transparent; border: 0; }
+#soundMixer QDoubleSpinBox:disabled { border-color: $divider; color: $disabled; background: $panel; }
+#soundMixer QDoubleSpinBox:enabled:focus, #soundMixer QCheckBox::indicator:focus { border-color: $focus; }
+#soundMixer QCheckBox:focus { color: $focus; }
+#soundMixer QCheckBox::indicator:checked { background: $accent; border-color: $accent; }
+#soundMixer QCheckBox::indicator:checked:focus { border-color: $focus; }
+
 QWidget#playbackTransport { background: $panel; border-bottom: 1px solid $divider; }
 #playbackTransport .QWidget, #previewReadout .QWidget, #timelineWorkspace .QWidget { background: transparent; }
 #playbackTransport PlaybackButton:enabled { background: $raised; border-color: $control; }
