@@ -42,7 +42,7 @@ class StepSequencer(QWidget):
         self.focus_button.toggled.connect(self.focusRequested); row.addWidget(self.focus_button); layout.addLayout(row)
         self.grid = QWidget(); grid = QHBoxLayout(self.grid); grid.setContentsMargins(0, 0, 0, 0); grid.setSpacing(2)
         labels = QWidget(); labels.setFixedSize(54, 196)
-        for text, y, height in (('Step', 2, 20), ('On / rest', 24, 20), ('Note', 78, 20), ('Velocity', 136, 20), ('Gate', 166, 20)):
+        for text, y, height in (('Step', 2, 20), ('On / rest', 24, 20), ('Note', 46, 20), ('Velocity', 136, 20), ('Gate', 166, 20)):
             label = QLabel(text, labels); label.setGeometry(0, y, 54, height)
         labels.setToolTip('Note = pitch. Velocity = strength. Gate = note duration within its step; release continues afterward.')
         grid.addWidget(labels); self.cells = []

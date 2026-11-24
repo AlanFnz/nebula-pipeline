@@ -2,7 +2,7 @@
 from PySide6.QtCore import Qt, Signal, QRectF, QSize, QPointF, QSignalBlocker
 from PySide6.QtGui import QColor, QPainter, QPen, QPolygonF
 from PySide6.QtWidgets import QAbstractButton
-from nebula.ui.studio_theme import COLORS
+from nebula.ui.studio_graphite import GRAPHITE
 
 
 class StepCell(QAbstractButton):
@@ -49,32 +49,32 @@ class StepCell(QAbstractButton):
         if not self.entry: return
         p = QPainter(self); p.setRenderHint(QPainter.RenderHint.Antialiasing)
         r = QRectF(self.rect()).adjusted(1, 1, -1, -1)
-        p.fillRect(r, QColor(COLORS['selected'] if self.isChecked() else COLORS['input']))
-        color = QColor(COLORS['text'] if self.in_pattern else COLORS['disabled'])
+        p.fillRect(r, QColor(GRAPHITE['selection'] if self.isChecked() else GRAPHITE['background']))
+        color = QColor(GRAPHITE['text'] if self.in_pattern else GRAPHITE['disabled'])
         p.setPen(color)
-        font = p.font(); font.setPixelSize(11); p.setFont(font)
+        font = p.font(); font.setPixelSize(12); p.setFont(font)
         p.drawText(QRectF(0, 2, self.width(), 20), Qt.AlignmentFlag.AlignCenter, str(self.index + 1))
         p.drawText(QRectF(0, 24, self.width(), 20), Qt.AlignmentFlag.AlignCenter, 'On' if self.entry['enabled'] else '—')
         p.drawText(QRectF(0, 46, self.width(), 20), Qt.AlignmentFlag.AlignCenter, self.note)
-        bar_color = QColor(COLORS['accent'] if self.in_pattern and self.entry['enabled'] else COLORS['disabled'])
+        bar_color = QColor(GRAPHITE['accent'] if self.in_pattern and self.entry['enabled'] else GRAPHITE['disabled'])
         # Pitch contour, then two aligned level lanes. Rest and out-of-length
         # steps retain their contour, so extending a pattern is predictable.
-        p.fillRect(QRectF(self.width()/2-3, 69, 6, 61), QColor(COLORS['border']))
+        p.fillRect(QRectF(self.width()/2-3, 69, 6, 61), QColor(GRAPHITE['divider']))
         height = (self.entry['semitones'] + 12) / 36 * 59 + 2
         p.fillRect(QRectF(self.width()/2-3, 130-height, 6, height), bar_color)
         for key, top in (('velocity', 136), ('gate', 166)):
             p.setPen(color)
             p.drawText(QRectF(0, top, self.width(), 20), Qt.AlignmentFlag.AlignCenter, f"{self.entry[key]*100:.0f}%")
-            p.fillRect(QRectF(4, top+22, self.width()-8, 3), QColor(COLORS['border']))
+            p.fillRect(QRectF(4, top+22, self.width()-8, 3), QColor(GRAPHITE['divider']))
             p.fillRect(QRectF(4, top+22, (self.width()-8)*self.entry[key], 3), bar_color)
         if self.isChecked():
-            p.setPen(QPen(QColor(COLORS['accent']), 2)); p.drawRect(r)
+            p.setPen(QPen(QColor(GRAPHITE['accent']), 2)); p.drawRect(r)
         if self.hasFocus():
-            p.setPen(QPen(QColor(COLORS['text']), 1, Qt.PenStyle.DotLine)); p.drawRect(r.adjusted(3, 3, -3, -3))
+            p.setPen(QPen(QColor(GRAPHITE['focus']), 1, Qt.PenStyle.DashLine)); p.drawRect(r.adjusted(3, 3, -3, -3))
         if self.playing:
-            p.setPen(Qt.PenStyle.NoPen); p.setBrush(QColor(COLORS['cursor']))
+            p.setPen(Qt.PenStyle.NoPen); p.setBrush(QColor(GRAPHITE['marker']))
             p.drawPolygon(QPolygonF([QPointF(3, 4), QPointF(9, 8), QPointF(3, 12)]))
-            p.fillRect(QRectF(2, 193, self.width()-4, 2), QColor(COLORS['cursor']))
+            p.fillRect(QRectF(2, 193, self.width()-4, 2), QColor(GRAPHITE['marker']))
         p.end()
 
     def mousePressEvent(self, event):

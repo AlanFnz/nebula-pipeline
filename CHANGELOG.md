@@ -4,6 +4,8 @@
 
 Montage gives music markers their own lane above the clips. The playhead, selected cuts and insertion point have distinct shapes. The block timing inspector groups the selected block, source In, duration, speed and Apply timing.
 
+The step sequencer aligns note names with their row label. A blue focus outline distinguishes keyboard navigation from the selected and playing steps.
+
 ## 0.131.0 · 2026-11-24
 
 Montage Material shows compact thumbnails as you scroll, names on up to two lines and usage counts. Hover over a row for its full name. Dragging a source marks the insertion point on the timeline. Replace block identifies the target before you confirm the source range.
