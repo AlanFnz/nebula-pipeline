@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.134.0 · 2026-11-24
+
+Nested gradients have a Color palette menu in Object. A preset changes the eight colors together in the selected editing scope. Choose Study colors or Composition colors to return to the inherited palette.
+
 ## 0.133.0 · 2026-11-24
 
 Radial bloom adds an optional nested gradient pattern. Edit the disc spacing and twist, gradient focus, palette colors, color cycle and radial diffusion in Object.

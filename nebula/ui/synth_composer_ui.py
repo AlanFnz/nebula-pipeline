@@ -899,8 +899,8 @@ class CompositionPanel(QWidget):
         self.object_panel.color_panel.context_provider = self.color_context
         self.object_panel.color_panel.changed.connect(self.change_color)
         self.object_panel.color_panel.restored.connect(self.restore_color)
-        self.object_panel.palette_context_provider = self.lattice_palette_context
-        self.object_panel.palette_changed.connect(self.change_lattice_palette)
+        self.object_panel.palette_context_provider = self.object_palette_context
+        self.object_panel.palette_changed.connect(self.change_object_palette)
         geometry_layout = self.object_panel.signal_layout
         self.object_panel.selected.connect(self.change_object)
         self.object_panel.restored.connect(self.restore_object)
@@ -1324,30 +1324,55 @@ class CompositionPanel(QWidget):
         eye = summary['chromatic_lattice']['ranges']['chromatic_lattice.eye_enabled'][1] > 0
         return dict(eye=eye, broadcast=summary['broadcast']['active'])
 
-    def lattice_palette_context(self):
-        from nebula.sources.synth_lattice_palettes import matching_palette
+    def object_palette_context(self):
+        scope = f'Clip {self.index+1}' if self.scope else 'Composition'
+        if self.object_panel.kind == 'radial':
+            from nebula.sources.synth_radial_palettes import COLOR_PATHS, PALETTES, palette_values
+            from nebula.sources.synth_palettes import matches_ranges
+            params = self.target()['effects'].get('radial_bloom', {}).get('params', {})
+            key = 'inherit'
+            if any(path in params for path in COLOR_PATHS):
+                ranges = self.effects_panel.summary['radial_bloom']['ranges']
+                key = next((p.key for p in PALETTES if matches_ranges(palette_values(p), ranges)), None)
+            return dict(key=key, palettes=PALETTES, note=f'{scope} · Eight gradient colors.',
+                        inherit_label='Composition colors' if self.scope else 'Study colors')
+        from nebula.sources.synth_lattice_palettes import PALETTES, matching_palette
         ranges = {path: values for item in self.effects_panel.summary.values()
                   for path,values in item['ranges'].items()}
         options = self.lattice_palette_options()
         key = matching_palette(ranges, **options)
-        scope = f'Clip {self.index+1}' if self.scope else 'Composition'
         note = f'{scope} · Cells, background' + (' and eye.' if options['eye'] else '.')
         if options['broadcast']: note += ' Also matches Broadcast wear accents.'
         note += ' Individual colors remain editable; clip overrides and automation still apply.'
-        return key, note
+        return dict(key=key, note=note, palettes=PALETTES, order=(2, 0, 1, 3, 4))
 
-    def change_lattice_palette(self, key):
-        if self.updating or self.object_panel.kind != 'lattice': return
-        from nebula.sources.synth_lattice_palettes import PALETTES, palette_values
-        if key not in {p.key for p in PALETTES}: return
-        # Choosing the already resolved palette is read-only, even if inherited.
-        if self.lattice_palette_context()[0] == key: return
+    def change_object_palette(self, key):
+        kind = self.object_panel.kind
+        if self.updating or kind not in ('lattice', 'radial'): return
+        context = self.object_palette_context()
+        if context['key'] == key: return
         document = copy.deepcopy(self.document)
         effects = self.target(document)['effects']
-        for path,value in palette_values(key, **self.lattice_palette_options()).items():
-            module = path.split('.',1)[0]
-            entry = effects.setdefault(module, {'mode':'recipe','params':{}})
-            entry['params'][path] = value
+        if kind == 'radial' and key == 'inherit':
+            from nebula.sources.synth_radial_palettes import COLOR_PATHS
+            entry = effects['radial_bloom']
+            for path in COLOR_PATHS:
+                entry['params'].pop(path, None)
+            if entry == {'mode': 'recipe', 'params': {}}:
+                del effects['radial_bloom']
+        else:
+            selected = next((p for p in context['palettes'] if p.key == key), None)
+            if selected is None: return
+            if kind == 'radial':
+                from nebula.sources.synth_radial_palettes import palette_values
+                values = palette_values(selected)
+            else:
+                from nebula.sources.synth_lattice_palettes import palette_values
+                values = palette_values(key, **self.lattice_palette_options())
+            for path, value in values.items():
+                module = path.split('.', 1)[0]
+                entry = effects.setdefault(module, {'mode': 'recipe', 'params': {}})
+                entry['params'][path] = value
         self.commit(document, f'color-palette:{self.scope}:{self.index}:{key}')
 
     def color_context(self, key):

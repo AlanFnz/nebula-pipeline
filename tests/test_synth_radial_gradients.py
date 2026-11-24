@@ -1,4 +1,5 @@
 """Independent material and disc clocks, backwards compatibility and editable stops."""
+import copy
 import numpy as np
 from PySide6.QtWidgets import QDialog
 
@@ -67,3 +68,58 @@ def test_object_palette_edit_can_be_undone_as_one_change(make_window, monkeypatc
     assert composer.color_context('radial_stop_4')['hsv'] == (.33, .44, .55)
     window.undo_composition()
     assert composer.document == before
+
+
+def test_palette_menu_preserves_geometry_and_restores_authored_colors(make_window, tmp_path):
+    from nebula.documents.synth_composition import load_composition, save_composition
+    from nebula.sources.synth_radial_palettes import PALETTES, palette_values
+    doc = composition(pattern=1)
+    doc['effects']['radial_bloom'] = dict(mode='recipe', params={
+        'radial_bloom.center_x': -.5, 'radial_bloom.stop_3_position': .41})
+    window = make_window(composition=doc)
+    composer = window.composer
+    composer.look_tabs.setCurrentWidget(composer.object_panel)
+    menu = composer.object_panel.palette_selector.combo
+    before = copy.deepcopy(composer.document)
+    assert menu.currentText() == 'Study colors'
+    assert menu.count() == len(PALETTES) + 2
+    for palette in PALETTES:
+        menu.activated.emit(menu.findData(palette.key))
+        expected = copy.deepcopy(before)
+        expected['effects']['radial_bloom']['params'].update(palette_values(palette))
+        assert composer.document == expected
+        assert menu.currentData() == palette.key
+    path = tmp_path / 'palette.nebula'
+    save_composition(path, composer.document)
+    assert load_composition(path) == composer.document
+    composer.change_color('radial_stop_4', (.3, .4, .5), None)
+    assert menu.currentData() is None
+    window.undo_composition()
+    assert menu.currentData() == PALETTES[-1].key
+    menu.activated.emit(menu.findData('inherit'))
+    assert composer.document == before
+    window.undo_composition()
+    assert composer.document == expected
+
+
+def test_clip_palette_inheritance_and_crowns_visibility(make_window):
+    doc = composition(pattern=1)
+    other = copy.deepcopy(doc['sections'][0])
+    other['id'] = 'other'
+    doc['sections'].append(other)
+    window = make_window(composition=doc)
+    composer = window.composer
+    composer.look_tabs.setCurrentWidget(composer.object_panel)
+    menu = composer.object_panel.palette_selector.combo
+    menu.activated.emit(menu.findData('jade'))
+    shared = copy.deepcopy(composer.document)
+    composer.select_section(1)
+    assert menu.currentText() == 'Composition colors'
+    menu.activated.emit(menu.findData('ember'))
+    assert composer.document['sections'][0] == shared['sections'][0]
+    assert composer.document['effects'] == shared['effects']
+    menu.activated.emit(menu.findData('inherit'))
+    assert composer.document == shared
+    crowns = make_window(composition=composition(pattern=0)).composer
+    crowns.look_tabs.setCurrentWidget(crowns.object_panel)
+    assert crowns.object_panel.palette_selector.isHidden()

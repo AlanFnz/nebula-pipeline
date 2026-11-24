@@ -90,10 +90,9 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
         from nebula.ui.synth_color_ui import ColorPanel
         from nebula.sources.synth_blender_colors import BLENDER_COLORS, RADIAL_COLORS
         from nebula.sources.synth_lattice_colors import LATTICE_COLORS
-        from nebula.sources.synth_lattice_palettes import PALETTES
         from nebula.ui.synth_palette_ui import PaletteSelector
         self.palette_context_provider = None
-        self.palette_selector = PaletteSelector(PALETTES); layout.addWidget(self.palette_selector)
+        self.palette_selector = PaletteSelector(); layout.addWidget(self.palette_selector)
         self.palette_selector.chosen.connect(self.palette_changed.emit)
         self.palette_selector.hide()
         self.color_panel = ColorPanel((*BLENDER_COLORS, *LATTICE_COLORS), palette=RADIAL_COLORS); layout.addWidget(self.color_panel)
@@ -152,13 +151,14 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
         if self.kind == 'lattice':
             from nebula.sources.synth_lattice_colors import lattice_colors
             keys = lattice_colors(params)
-            if keys and self.palette_context_provider and (not query or query in 'color palette skin'):
-                self.palette_selector.refresh(*self.palette_context_provider())
-                self.palette_selector.show()
         elif self.kind == 'radial':
             from nebula.sources.synth_blender_colors import RADIAL_COLORS
             keys = tuple(spec.key for spec in RADIAL_COLORS) if params.get('pattern') == 1 else ()
         else: keys = scene_colors(params, self.part_selector.currentData())
+        if (keys and self.kind in ('lattice', 'radial') and self.palette_context_provider
+                and (not query or query in 'color palette skin presets')):
+            self.palette_selector.refresh(**self.palette_context_provider())
+            self.palette_selector.show()
         if query:
             keys = tuple(k for k in keys if query in (color_spec(k).label + ' color palette ' + ' '.join(color_spec(k).channels)).casefold())
         self.color_panel.show_colors(keys)

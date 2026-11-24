@@ -5,19 +5,12 @@ painting materials, not prescribed religious color schemes. No render defaults
 or effect activation change when the menu is opened.
 """
 from dataclasses import dataclass
-import colorsys
+from nebula.sources.synth_palettes import Palette, hsv, matches_ranges
 
 
 @dataclass(frozen=True)
-class LatticePalette:
-    key: str
-    label: str
-    colors: tuple  # First cell, second cell, paper, eye, eye ink (exact HSV).
+class LatticePalette(Palette):
     accents: tuple  # Existing Broadcast wear field, halo and edge hues.
-
-
-def hsv(hex_color):
-    return colorsys.rgb_to_hsv(*(int(hex_color[i:i+2], 16)/255 for i in (1,3,5)))
 
 
 def palette(key, label, colors, accents):
@@ -56,7 +49,6 @@ def matching_palette(ranges, *, eye=True, broadcast=False):
     """Custom/animated if any authored color differs across the editing scope."""
     for candidate in PALETTES:
         values = palette_values(candidate.key, eye=eye, broadcast=broadcast)
-        if all(path in ranges and all(abs(v-value)<1e-9 for v in ranges[path])
-               for path,value in values.items()):
+        if matches_ranges(values, ranges):
             return candidate.key
     return None
