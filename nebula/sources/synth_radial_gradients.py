@@ -8,6 +8,8 @@ import math
 import numpy as np
 from PIL import Image, ImageFilter
 
+from nebula.effects.synth_echo import held_clock
+
 STOP_COUNT = 8
 CHANNELS = ('hue', 'saturation', 'light')
 STOP_KEYS = tuple(f'stop_{i}' for i in range(1, STOP_COUNT + 1))
@@ -23,6 +25,21 @@ def travel(p, seconds):
     phase = (seconds/p['motion_period'] + p['motion_phase']) % 1
     position = .5 - .5*math.cos(2*math.pi*phase)
     return position + p['motion_ease']*math.sin(2*math.pi*position)/(2*math.pi)
+
+
+def _exposure_rate(p):
+    """Fit whole exposures to the disc cycle, including fractional periods."""
+    fps = p.get('print_cadence', 0)
+    if not fps:
+        return 0
+    period = p['motion_period']
+    return max(1, round(period * fps)) / period
+
+
+def print_time(p, seconds):
+    if p.get('step_scope') == 1:
+        return held_clock(seconds, 1., _exposure_rate(p))
+    return seconds
 
 
 def gradient_parameters(P):
@@ -54,6 +71,11 @@ def gradient_parameters(P):
             'Maximum offset as a percentage of each disc’s radius. The outer field stays anchored. Zero restores the original path.')
     yield P('wiggle_lag_ms', 'Wiggle lag (ms)', 50, 0, 250, 1,
             'Delay between neighboring discs at normal playback speed. Zero moves them in sync. The wiggle repeats with Disc cycle.')
+    yield P('print_cadence', 'Print cadence (fps)', 0, 0, 60, 1,
+            'Prints per second at normal speed, fitted to whole exposures per disc cycle. Zero gives continuous motion.')
+    yield P('step_scope', 'Step scope', 0, 0, 1, 1,
+            'Hold each disc’s delayed wiggle or expose the complete gradient together. Finishing effects keep their own timing.',
+            choices=('Wiggle only', 'Whole print'))
     yield P('diffusion', 'Radial diffusion', .04, 0, .4, .001, 'Softens disc boundaries along rays from the center of the artwork.')
     yield P('lens_x', 'Diffusion center X', 0., -3, 3, .01, 'Lens origin relative to the canvas center, in shorter artwork edges.')
     yield P('lens_y', 'Diffusion center Y', 0., -3, 3, .01)
@@ -95,9 +117,14 @@ def _wiggle_offsets(p, seconds):
     period = p['motion_period']
     phase = (seconds / period + p['motion_phase']) % 1
     lag = p.get('wiggle_lag_ms', 50) / (1000 * period)
+    rate = _exposure_rate(p) if p.get('step_scope', 0) == 0 else 0
     offsets = [(0., 0.)]  # The outermost disc supplies the full-canvas background.
     for index in range(count - 1):
-        angle = math.tau * ((phase - index * lag) % 1)
+        disc_phase = phase - index * lag
+        if rate:
+            # Sample after the delay so neighboring discs change pose at staggered times.
+            disc_phase = held_clock(seconds - index * lag * period, 1., rate) / period + p['motion_phase']
+        angle = math.tau * (disc_phase % 1)
         # Integer harmonics close at the disc loop boundary, including their velocities.
         slow = 5 * angle
         mid = 9 * angle + .7
@@ -178,6 +205,7 @@ _cached_field = lru_cache(maxsize=1)(_disc_field)
 
 def render_gradients(p, size, center, unit, seconds):
     w, h = size
+    seconds = print_time(p, seconds)
     movement = travel(p, seconds)
     wiggle_offsets = _wiggle_offsets(p, seconds)
     moving = any(p[k] for k in ('rotation', 'pan_x', 'pan_y', 'disc_travel_x', 'disc_travel_y'))

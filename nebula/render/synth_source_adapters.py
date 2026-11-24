@@ -50,7 +50,8 @@ def source_frame(preset, size, time, anchor='auto', continuous_time=None):
         seconds = time if continuous_time is None else continuous_time
         center, unit = radial_frame(p, size, seconds, preset)
         if p.get('pattern') == 1:
-            angle = p['orientation'] + p['rotation']*seconds*preset['speed']
+            from nebula.sources.synth_radial_gradients import print_time
+            angle = p['orientation'] + p['rotation'] * print_time(p, seconds * preset['speed'])
             return LocalFrame(center, max(1., unit*p['expansion']), -angle)
         return LocalFrame(center, max(1., unit * .5 * p['expansion']),
                           -p['rotation'] * seconds * preset['speed'])

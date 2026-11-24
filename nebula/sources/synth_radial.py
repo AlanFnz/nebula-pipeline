@@ -9,7 +9,7 @@ import numpy as np
 from PIL import Image, ImageFilter
 
 from nebula.core.synth_canvas import content_size, object_offset
-from nebula.sources.synth_radial_gradients import gradient_parameters, render_gradients, travel
+from nebula.sources.synth_radial_gradients import gradient_parameters, print_time, render_gradients, travel
 
 
 def modules(Module, P):
@@ -56,7 +56,7 @@ def radial_frame(p, size, seconds, preset):
     ox, oy = object_offset(preset, (w, h))
     t = float(seconds) * preset.get('speed', 1.)
     if p.get('pattern') == 1:
-        movement = travel(p, t)
+        movement = travel(p, print_time(p, t))
         return (w*.5 + ox + (p['center_x'] + movement*p['pan_x'])*unit,
                 h*.5 + oy + (p['center_y'] + movement*p['pan_y'])*unit), unit
     drift = p['center_drift'] * unit

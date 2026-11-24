@@ -78,6 +78,49 @@ def test_wiggle_moves_inner_discs_with_a_held_palette_and_survives_extend():
     assert first == frame(longer, 4.25)
 
 
+def test_print_cadence_holds_color_and_geometry_and_zero_restores_continuous_motion():
+    params = dict(pattern=1, motion_period=2., cycle=2., rotation=0.,
+                  pan_y=.25, disc_travel_x=.35, wiggle_amount=3.)
+    smooth = composition(**params)
+    printed = composition(**params, print_cadence=10, step_scope=1)
+    samples = [frame(printed, i / 30) for i in range(6)]
+    assert samples[:3] == [frame(smooth, 0.)] * 3
+    assert samples[3:] == [frame(smooth, .1)] * 3
+    assert samples[0] != samples[3]
+    assert frame(printed, 2. + 1/30) == samples[0]
+    expanded = stretch_section(printed, printed['sections'][0]['id'], 8., 'smart')
+    assert frame(expanded, 6. + 4/30) == samples[3]
+    assert frame(composition(**params, step_scope=1, print_cadence=0), .075) == frame(smooth, .075)
+
+
+def test_wiggle_only_steps_after_each_discs_delay_and_keeps_color_continuous():
+    from nebula.sources.synth_radial_gradients import _wiggle_offsets
+    p = dict(copies=3, wiggle_amount=2., wiggle_lag_ms=50, motion_period=6., motion_phase=.25,
+             print_cadence=10, step_scope=0)
+    early = _wiggle_offsets(p, .12)
+    late = _wiggle_offsets(p, .17)
+    assert early[1] == late[1]
+    assert early[2] != late[2]
+    assert late[2] == early[1]
+    project = composition(pattern=1, rotation=0., **p)
+    assert frame(project, .16) != frame(project, .185)
+
+
+def test_fractional_disc_period_has_whole_exposures_and_stable_anchor():
+    from nebula.documents.synth_sequence import resolve_sequence_frame
+    from nebula.render.synth_source_adapters import source_frame
+    from nebula.sources.synth_radial_gradients import print_time
+    p = dict(motion_period=2.04, print_cadence=8, step_scope=1)
+    for t in (0., .1, .333, 1.9):
+        assert np.isclose(print_time(p, t + 2.04) - print_time(p, t), 2.04)
+    project = composition(pattern=1, pan_x=.5, rotation=8., **p)
+    preset = resolve_sequence_frame(compile_composition(project), 0.)[-1]
+    def anchor(t):
+        return source_frame(preset, (96, 80), 0., 'radial_bloom', t)
+    assert anchor(0.) == anchor(.1)
+    assert anchor(0.) != anchor(.14)
+
+
 def test_object_palette_edit_can_be_undone_as_one_change(make_window, monkeypatch):
     window = make_window(composition=composition(pattern=1))
     composer = window.composer

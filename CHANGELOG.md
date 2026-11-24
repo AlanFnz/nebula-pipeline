@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.136.0 · 2026-11-24
+
+Nested gradients can hold poses at a print cadence. In Object → Motion & drift, choose Wiggle only to stagger the holds between discs or Whole print to step the geometry and color together.
+
 ## 0.135.0 · 2026-11-24
 
 Nested gradients can wiggle each disc around its animated center. Object → Motion & drift sets the amount and delay between neighbors. The wiggle repeats with the disc cycle.
