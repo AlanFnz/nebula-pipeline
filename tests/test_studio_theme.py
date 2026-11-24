@@ -73,8 +73,23 @@ def test_inspector_numeric_fields_align_with_and_without_animation(themed_app, w
     try:
         fixed, animatable = controls
         assert fixed.animate_button is None and animatable.animate_button is not None
+        animatable.set_automation_count(2)
+        animatable.refresh((0.2, 1.3), None, False, True)
+        assert animatable.animated_value.isVisible() and not animatable.slider.isVisible()
+        animatable.refresh((0.2, 1.3), 0.8, False, True)
+        themed_app.processEvents()
         assert all(c._row_mode == (wrapped, False) for c in controls)
-        assert fixed.input.mapTo(panel, QPoint()).x() == animatable.input.mapTo(panel, QPoint()).x()
+        for name in ('input', 'reset_button', 'slider'):
+            positions = [getattr(c, name).mapTo(panel, QPoint()).x() for c in controls]
+            assert positions[0] == positions[1]
+        for c in controls:
+            end_of_value = c.input.mapTo(panel, QPoint(c.input.width(), 0)).x()
+            assert c.reset_button.mapTo(panel, QPoint()).x() == end_of_value + c._row.horizontalSpacing()
+            assert c.reset_button.text() == 'Restore'
+        if wrapped:
+            assert animatable.animate_button.geometry().bottom() < animatable.reset_button.y()
+        else:
+            assert animatable.animate_button.x() > animatable.slider.geometry().right()
     finally:
         panel.close()
 

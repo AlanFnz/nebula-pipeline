@@ -84,6 +84,23 @@ QWidget#inspectorColumn { background: $panel; border-left: 1px solid $divider; }
 #inspectorColumn QPushButton#controlGroup:hover { background: $raised; }
 #inspectorColumn QLabel#sectionTitle { color: $secondary; font-size: 12px; }
 #inspectorColumn EffectParameter QLabel[parameterLabel="true"] { color: $text; font-size: 13px; }
+#inspectorColumn EffectParameter QPushButton#animateParameter,
+#inspectorColumn EffectParameter QPushButton#restoreParameter {
+    background: transparent; border: 1px solid transparent; color: $secondary;
+}
+#inspectorColumn EffectParameter QPushButton#animateParameter:hover:enabled,
+#inspectorColumn EffectParameter QPushButton#restoreParameter:hover:enabled {
+    color: $text; background: $raised; border-color: $control;
+}
+#inspectorColumn EffectParameter QPushButton#animateParameter:focus:enabled,
+#inspectorColumn EffectParameter QPushButton#restoreParameter:focus:enabled { border-color: $focus; }
+#inspectorColumn EffectParameter QPushButton#restoreParameter:disabled,
+#inspectorColumn EffectParameter QPushButton#animateParameter:disabled { color: $disabled; }
+#inspectorColumn EffectParameter QLabel#animatedRange {
+    background: $raised; color: $text; border: 0; border-left: 2px solid $marker; border-radius: 0;
+}
+#inspectorColumn QLabel#intensityScope { color: $accent; font-weight: 600; }
+#inspectorColumn SelectionIntensity QLabel#intensityRange { color: $text; font-weight: 600; }
 #inspectorColumn QSlider::groove:horizontal { background: $divider; height: 2px; }
 #inspectorColumn QSlider::sub-page:horizontal:enabled { background: $accent; height: 2px; }
 #inspectorColumn QSlider::handle:horizontal:enabled { background: $text; border-color: $text; width: 8px; margin: -5px 0; border-radius: 3px; }

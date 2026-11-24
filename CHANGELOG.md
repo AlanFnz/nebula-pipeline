@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.129.0 · 2026-11-24
+
+Numeric inspector controls align each value with its Restore action. In a narrow inspector the slider shares a second line with the value, and Animate stays beside the label. When editing intensity across clips, the selected range appears beside the clip count.
+
 ## 0.128.0 · 2026-11-23
 
 Studio Graphite now extends to the effect list and preset previews. The list highlights the selected effect and shows its processing order and bypass state. The preview window groups Before, Preview and Intensity, and distinguishes temporary adjustments from effects already applied.

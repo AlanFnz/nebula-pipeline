@@ -844,6 +844,7 @@ class CompositionPanel(QWidget):
         shape = QWidget()
         shape_layout = QVBoxLayout(shape); shape_layout.setContentsMargins(0, 0, 0, 0); shape_layout.setSpacing(5)
         self.intensity_scope_label = QLabel()
+        self.intensity_scope_label.setObjectName('intensityScope')
         self.intensity_scope_label.hide()
         shape_layout.addWidget(self.intensity_scope_label)
         self.scope_combo = QComboBox(); self.scope_combo.addItems(["Composition", "Selected clip"])

@@ -72,9 +72,9 @@ class EffectParameter(QWidget):
         self.automation_count = 0
         self.numeric_maximum = None
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
-        layout = QVBoxLayout(self); layout.setContentsMargins(0, 0, 0, 6); layout.setSpacing(4)
+        layout = QVBoxLayout(self); layout.setContentsMargins(0, 0, 0, 4); layout.setSpacing(3)
         self.slider = None
-        self._row = ParameterRowLayout(self); self._row.setSpacing(6)
+        self._row = ParameterRowLayout(self); self._row.setHorizontalSpacing(6); self._row.setVerticalSpacing(2)
         self._row_mode = None
         self._label_container = QWidget()
         label_row = QHBoxLayout(self._label_container)
@@ -121,7 +121,8 @@ class EffectParameter(QWidget):
         self._block_input = block_input
         self.input.setMinimumWidth(0 if block_input or spec.choices else 110)
         if self.slider:
-            self.input.setFixedWidth(136)
+            self.input.setAlignment(Qt.AlignmentFlag.AlignRight)
+            self.input.setFixedWidth(max(116, self.input.minimumSizeHint().width()))
         elif not block_input and not spec.choices:
             self.input.setMaximumWidth(145)
         self.input.setToolTip(spec.hint); self.input.setAccessibleName(spec.label)
@@ -148,11 +149,15 @@ class EffectParameter(QWidget):
         from nebula.render.synth_instances import base_path
         if base_path(path) in TARGETS:
             self.animate_button = QPushButton("Animate…"); self.animate_button.setProperty("compact", True)
+            self.animate_button.setObjectName('animateParameter')
             self.animate_button.setMinimumHeight(28)
             self.animate_button.setAccessibleName("Animate " + spec.label)
             self.animate_button.setToolTip("Add a temporary clip gesture; the displayed value remains the base. Existing events are edited separately.")
             self.animate_button.clicked.connect(lambda: self.animate.emit(self.path))
-        self.reset_button = QPushButton('↶'); self.reset_button.setFixedSize(30, 28)
+        self.reset_button = QPushButton('Restore')
+        self.reset_button.setObjectName('restoreParameter')
+        self.reset_button.setProperty('compact', True)
+        self.reset_button.setFixedSize(max(56, self.reset_button.sizeHint().width()), 28)
         self.reset_button.setAccessibleName(f'Restore {spec.label}')
         self.reset_button.clicked.connect(self.reset.emit)
         self.presets = None
@@ -194,28 +199,18 @@ class EffectParameter(QWidget):
     def _row_metrics(self, width):
         """Read-only measurements shared by layout probes and actual reflow."""
         animated = self.value_stack.currentWidget() is self.animated_value
-        # A shared label column keeps adjacent rows aligned, including hue
-        # indicators and labels of different lengths.
-        label_width = 144 if self.slider else 160
-        action_width = self.reset_button.width()
-        if self.animate_button: action_width += self.animate_button.sizeHint().width() + 6
+        label_width = 136
+        action_width = self.animate_button.sizeHint().width() if self.animate_button else 0
         if self.spec.choices:
             value_width = max(self.input.fontMetrics().horizontalAdvance(choice)
                               for choice in self.spec.choices) + 40
         else:
             value_width = max(self.input.minimumWidth(), self.input.minimumSizeHint().width())
-        # Keep numeric fields in the same column even on rows without Animate.
-        # In a narrow inspector the actions move above the actual value.
-        trailing_width = action_width
-        if self.slider:
-            trailing_width = self.reset_button.width() + self._row.horizontalSpacing() + self._animation_column_width()
-        needed = label_width + trailing_width + value_width + 18
-        if self.slider and not animated: needed += 98
+        gap = self._row.horizontalSpacing()
+        needed = label_width + value_width + self.reset_button.width() + max(76, action_width) + 3 * gap
+        if self.slider and not animated: needed += 90 + gap
         wrapped = self._block_input or width < needed
         return wrapped, animated, label_width, action_width, value_width
-
-    def _animation_column_width(self):
-        return max(76, self.animate_button.sizeHint().width() if self.animate_button else 0)
 
     def _row_height(self, width):
         wrapped, animated, label_width, action_width, value_width = self._row_metrics(width)
@@ -226,19 +221,20 @@ class EffectParameter(QWidget):
             requested = widget.heightForWidth(max(1, int(space))) if widget.hasHeightForWidth() else -1
             return max(widget.minimumSizeHint().height(), widget.sizeHint().height() if requested < 0 else requested)
 
-        label_space = available-action_width-6 if wrapped else label_width
-        first = max(height(self._label_container, label_space), self.reset_button.sizeHint().height(),
-                    self.animate_button.sizeHint().height() if self.animate_button else 0)
+        label_space = available - action_width - 6 if wrapped else label_width
+        if self._block_input: label_space -= self.reset_button.width() + 6
+        first = max(height(self._label_container, label_space),
+                    max(self.animate_button.minimumHeight(), self.animate_button.sizeHint().height()) if self.animate_button else 0)
         if self._block_input:
-            return first+top+bottom
-        value_space = available if wrapped and (not self.slider or animated) else value_width
+            return max(first, self.reset_button.height()) + top + bottom
+        value_space = available - self.reset_button.width() - 6 if wrapped else value_width
         value = height(self.value_stack, value_space) if animated else self.input.sizeHint().height()
-        second = max(value, self.slider.sizeHint().height() if self.slider and not animated else 0)
+        second = max(value, self.reset_button.height(), self.slider.sizeHint().height() if self.slider and not animated else 0)
         return (first+self._row.verticalSpacing()+second if wrapped else max(first, second))+top+bottom
 
     def _arrange_row(self, width=None):
         """Wrap controls before their useful editing widths become cramped."""
-        wrapped, animated, label_width, _action_width, _value_width = self._row_metrics(self.width() if width is None else width)
+        wrapped, animated, label_width, action_width, _ = self._row_metrics(self.width() if width is None else width)
         if not self._block_input:
             maximum_height = 16777215 if animated else self.input.sizeHint().height()
             if self.value_stack.maximumHeight() != maximum_height:
@@ -246,38 +242,47 @@ class EffectParameter(QWidget):
         mode = (wrapped, animated)
         if mode == self._row_mode: return
         self._row_mode = mode
+        if self.slider is not None:
+            # The hidden study-range label also contributes to the stack's
+            # size hint. Only its read-only page needs that extra width.
+            self.value_stack.setMinimumWidth(0 if animated else self.input.width())
+            self.value_stack.setMaximumWidth(16777215 if animated else self.input.width())
         while self._row.count(): self._row.takeAt(0)
         for column in range(5):
             self._row.setColumnStretch(column, 0)
             self._row.setColumnMinimumWidth(column, 0)
+        numeric = self.slider is not None and not animated
         if wrapped:
-            self._row.addWidget(self._label_container, 0, 0, 1, 2)
-            if self.animate_button:
-                self._row.addWidget(self.reset_button, 0, 2)
-                self._row.addWidget(self.animate_button, 0, 3)
+            # The number and its restore action stay together on the editing
+            # line. Optional automation belongs to the label above it.
+            if numeric:
+                self._row.addWidget(self._label_container, 0, 0, 1, 3)
+                self._row.addWidget(self.value_stack, 1, 0)
+                self._row.addWidget(self.reset_button, 1, 1)
+                self._row.addWidget(self.slider, 1, 2, 1, 2)
+                self._row.setColumnStretch(2, 1)
             else:
-                self._row.addWidget(self.reset_button, 0, 2, 1, 2, Qt.AlignmentFlag.AlignRight)
-            self._row.setColumnStretch(0, 1)
-            if not self._block_input:
-                if self.slider and not animated:
-                    self._row.addWidget(self.slider, 1, 0, 1, 2)
-                    self._row.addWidget(self.value_stack, 1, 2, 1, 2)
+                self._row.addWidget(self._label_container, 0, 0)
+                self._row.setColumnStretch(0, 1)
+                if self._block_input:
+                    self._row.addWidget(self.reset_button, 0, 1)
                 else:
-                    self._row.addWidget(self.value_stack, 1, 0, 1, 4)
+                    self._row.addWidget(self.value_stack, 1, 0, 1, 3)
+                    self._row.addWidget(self.reset_button, 1, 3, Qt.AlignmentFlag.AlignRight)
+            if self.animate_button: self._row.addWidget(self.animate_button, 0, 3, Qt.AlignmentFlag.AlignRight)
         else:
             self._row.addWidget(self._label_container, 0, 0)
             self._row.setColumnMinimumWidth(0, label_width)
-            self._row.setColumnStretch(0, 0)
-            if self.slider and not animated:
-                self._row.addWidget(self.slider, 0, 1)
-                self._row.setColumnStretch(1, 2)
-            self._row.addWidget(self.value_stack, 0, 2)
-            if self.spec.choices or animated: self._row.setColumnStretch(2, 2)
-            self._row.addWidget(self.reset_button, 0, 3)
-            if self.slider:
-                # Qt omits inter-column spacing when the last cell is empty.
-                gap = 0 if self.animate_button else self._row.horizontalSpacing()
-                self._row.setColumnMinimumWidth(4, self._animation_column_width() + gap)
+            self._row.addWidget(self.value_stack, 0, 1)
+            self._row.addWidget(self.reset_button, 0, 2)
+            if numeric:
+                self._row.addWidget(self.slider, 0, 3)
+                self._row.setColumnStretch(3, 1)
+            else:
+                self._row.setColumnStretch(1, 1)
+            # Qt drops the spacing before a reserved but empty last column.
+            gap = 0 if self.animate_button else self._row.horizontalSpacing()
+            self._row.setColumnMinimumWidth(4, max(76, action_width) + gap)
             if self.animate_button: self._row.addWidget(self.animate_button, 0, 4)
         self._row.invalidate()
         self.updateGeometry()
