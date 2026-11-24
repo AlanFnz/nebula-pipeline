@@ -51,6 +51,33 @@ def test_coincident_stops_wrap_cleanly_and_last_color_wins():
     assert 63 <= pixels[0] <= 64
 
 
+def test_disc_wiggle_is_delayed_radius_relative_and_loopable():
+    from nebula.sources.synth_radial_gradients import _wiggle_offsets
+    p = dict(copies=5, wiggle_amount=2., wiggle_lag_ms=50, motion_period=6., motion_phase=.25)
+    offsets = _wiggle_offsets(p, .875)
+    assert offsets[0] == (0., 0.)
+    assert offsets[1] != offsets[2]
+    np.testing.assert_allclose(offsets[2:], _wiggle_offsets(p, .825)[1:-1], atol=1e-12)
+    np.testing.assert_allclose(offsets, _wiggle_offsets(p, 6.875), atol=1e-12)
+    np.testing.assert_allclose(np.asarray(offsets) * 2, _wiggle_offsets(dict(p, wiggle_amount=4.), .875))
+    assert len(set(_wiggle_offsets(dict(p, wiggle_lag_ms=0), .875)[1:])) == 1
+
+
+def test_wiggle_moves_inner_discs_with_a_held_palette_and_survives_extend():
+    params = dict(pattern=1, direction=2, rotation=0., motion_period=2., expansion=.6)
+    original = composition(**params)
+    assert frame(original, .25) == frame(composition(**params, wiggle_amount=0., wiggle_lag_ms=200), .25)
+    one_disc = composition(**params, copies=1, wiggle_amount=8.)
+    assert frame(one_disc, .25) == frame(composition(**params, copies=1), .25)
+    project = composition(**params, wiggle_amount=3., wiggle_lag_ms=50)
+    first = frame(project, .25)
+    assert first != frame(original, .25)
+    assert first != frame(project, .75)
+    assert first == frame(project, 2.25)
+    longer = stretch_section(project, project['sections'][0]['id'], 8., 'smart')
+    assert first == frame(longer, 4.25)
+
+
 def test_object_palette_edit_can_be_undone_as_one_change(make_window, monkeypatch):
     window = make_window(composition=composition(pattern=1))
     composer = window.composer

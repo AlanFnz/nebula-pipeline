@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.135.0 · 2026-11-24
+
+Nested gradients can wiggle each disc around its animated center. Object → Motion & drift sets the amount and delay between neighbors. The wiggle repeats with the disc cycle.
+
 ## 0.134.0 · 2026-11-24
 
 Nested gradients have a Color palette menu in Object. A preset changes the eight colors together in the selected editing scope. Choose Study colors or Composition colors to return to the inherited palette.

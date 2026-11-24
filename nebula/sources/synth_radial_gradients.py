@@ -50,6 +50,10 @@ def gradient_parameters(P):
     yield P('pan_y', 'Center travel Y', 0., -3, 3, .001)
     yield P('disc_travel_x', 'Disc travel X', 0., -2, 2, .001, 'Horizontal travel in each disc’s own rotated coordinates, in radii.')
     yield P('disc_travel_y', 'Disc travel Y', 0., -2, 2, .001)
+    yield P('wiggle_amount', 'Disc wiggle (%)', 0., 0, 15, .05,
+            'Maximum offset as a percentage of each disc’s radius. The outer field stays anchored. Zero restores the original path.')
+    yield P('wiggle_lag_ms', 'Wiggle lag (ms)', 50, 0, 250, 1,
+            'Delay between neighboring discs at normal playback speed. Zero moves them in sync. The wiggle repeats with Disc cycle.')
     yield P('diffusion', 'Radial diffusion', .04, 0, .4, .001, 'Softens disc boundaries along rays from the center of the artwork.')
     yield P('lens_x', 'Diffusion center X', 0., -3, 3, .01, 'Lens origin relative to the canvas center, in shorter artwork edges.')
     yield P('lens_y', 'Diffusion center Y', 0., -3, 3, .01)
@@ -82,7 +86,30 @@ def _ramp(swatches):
     return np.clip(values, 0, 1).astype(np.float32)
 
 
-def _disc_field(size, center, radius, count, ratio, turn, angle, dx, dy, fx, fy, falloff, diffusion, lens):
+def _wiggle_offsets(p, seconds):
+    """Radius-relative offsets, sampled directly from a periodic two-axis path."""
+    amount = p.get('wiggle_amount', 0.) / 100
+    count = int(p['copies'])
+    if not amount or count == 1:
+        return ()
+    period = p['motion_period']
+    phase = (seconds / period + p['motion_phase']) % 1
+    lag = p.get('wiggle_lag_ms', 50) / (1000 * period)
+    offsets = [(0., 0.)]  # The outermost disc supplies the full-canvas background.
+    for index in range(count - 1):
+        angle = math.tau * ((phase - index * lag) % 1)
+        # Integer harmonics close at the disc loop boundary, including their velocities.
+        slow = 5 * angle
+        mid = 9 * angle + .7
+        fast = 14 * angle - 1.1
+        x = .59 * math.sin(slow) + .28 * math.sin(mid) + .13 * math.sin(fast)
+        y = .41 * math.cos(slow) - .28 * math.cos(mid) + .09 * math.cos(fast)
+        offsets.append((amount * x, amount * y))
+    return tuple(offsets)
+
+
+def _disc_field(size, center, radius, count, ratio, turn, angle, dx, dy, fx, fy, falloff, diffusion, lens,
+                wiggle_offsets=()):
     # Build one material coordinate for the visible portion of each disc.
     # The largest disc's gradient continues beyond its rim to fill the canvas.
     w, h = size
@@ -103,6 +130,10 @@ def _disc_field(size, center, radius, count, ratio, turn, angle, dx, dy, fx, fy,
         c, s = math.cos(a), math.sin(a)
         center_x = cx + radius * (c*dx - s*dy)
         center_y = cy + radius * (s*dx + c*dy)
+        if wiggle_offsets:
+            offset_x, offset_y = wiggle_offsets[index]
+            center_x += radius * offset_x
+            center_y += radius * offset_y
         x0 = max(0, math.floor(center_x-radius-pad)) if index else 0
         x1 = min(w, math.ceil(center_x+radius+pad)) if index else w
         y0 = max(0, math.floor(center_y-radius-pad)) if index else 0
@@ -148,14 +179,15 @@ _cached_field = lru_cache(maxsize=1)(_disc_field)
 def render_gradients(p, size, center, unit, seconds):
     w, h = size
     movement = travel(p, seconds)
+    wiggle_offsets = _wiggle_offsets(p, seconds)
     moving = any(p[k] for k in ('rotation', 'pan_x', 'pan_y', 'disc_travel_x', 'disc_travel_y'))
-    build = _cached_field if not moving and w*h <= 2_100_000 else _disc_field
+    build = _cached_field if not moving and not wiggle_offsets and w*h <= 2_100_000 else _disc_field
     field, blends = build(size, center, unit*p['expansion'], int(p['copies']), p['copy_scale'],
                   p['copy_angle'], (p['orientation'] + p['rotation']*seconds) % 360,
                   p['disc_x'] + movement*p['disc_travel_x'],
                   p['disc_y'] + movement*p['disc_travel_y'],
                   p['focus_x'], p['focus_y'], p['falloff'], p['diffusion'],
-                  (w*.5 + unit*p['lens_x'], h*.5 + unit*p['lens_y']))
+                  (w*.5 + unit*p['lens_x'], h*.5 + unit*p['lens_y']), wiggle_offsets)
     sign = (1, -1, 0)[int(p['direction'])]
     cycle = (sign * seconds / p['cycle']) % 1
     angle = 2*math.pi*cycle
