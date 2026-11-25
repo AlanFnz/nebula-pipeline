@@ -114,7 +114,8 @@ ORBITAL_KEYS = frozenset(p.key for p in orbital_parameters(lambda key,*a,**kw:Si
 
 def suspended_parameters(P):
     return (
-        P('ring_count', 'Number of rings', 6, 1, 6, 1, 'Distribute the bands between the outer rim and the center disc.'),
+        P('ring_count', 'Number of rings', 6, 1, 6, 1, 'Distribute the bands between the outer rim and the center piece.'),
+        P('center_shape', 'Center shape', 0, 0, 1, 1, 'Choose the geometry on the center axis. Use the part selector to edit its material, scale and independent rotation.', choices=('Disc', 'Infinity loop')),
         P('face_camber', 'Face curvature', .35, 0., 1., .01, 'Bow the polished faces gently from the hub to the rim.'),
         P('lens_squeeze', 'Horizontal squeeze', 1., .3, 2., .005, 'Anamorphic projection. Compress or widen the image while keeping the reflections on the physical sculpture.'),
         P('perspective', 'Perspective', 0., 0., .45, .01, 'Zero is orthographic. Higher values bring the camera closer while preserving the size at the center.'),
@@ -162,6 +163,8 @@ def render_blender_scene(arr, p, seconds, preset):
     parameters = {k:v for k,v in p.items() if k not in MOTION_KEYS and not k.startswith('part_')}
     if p.get('scene', 0) != 2:
         parameters = {k:v for k,v in parameters.items() if k not in SUSPENDED_KEYS}
+    if not parameters.get('center_shape'):
+        parameters.pop('center_shape', None)
     # Frame the same physical scene when the canvas is resized or repositioned.
     if not p.get('scene',0):
         parameters = {k:v for k,v in parameters.items() if k not in ORBITAL_KEYS and k != 'scene'}

@@ -22,16 +22,18 @@ SUSPENDED_PARTS = tuple(
 PARTS = RELIC_PARTS + ORBITAL_PARTS[1:] + (SUSPENDED_PARTS[5],)
 
 
-def parts_for(scene=0, ring_count=6):
+def parts_for(scene=0, ring_count=6, center_shape=0):
     if scene == 2:
         count = max(1, min(6, int(ring_count)))
-        return SUSPENDED_PARTS[:count] + SUSPENDED_PARTS[-1:]
+        center = ('core', 'Infinity loop', True) if center_shape == 1 else SUSPENDED_PARTS[-1]
+        return SUSPENDED_PARTS[:count] + (center,)
     return ORBITAL_PARTS if scene == 1 else RELIC_PARTS
 
 
 def parameters(P):
     result = []
     for part, label, follows in PARTS:
+        if part == 'core': label = 'Center'
         prefix = 'part_' + part + '_'
         def add(key, name, default, lo=0, hi=1, step=.01, hint='', choices=()):
             result.append(P(prefix+key, label+' · '+name, default, lo, hi, step, hint, choices=choices))
@@ -108,6 +110,7 @@ def part_poses(p, seconds, speed=1.):
 def groups():
     result = []
     for page, (part, label, _) in enumerate(PARTS, 1):
+        if part == 'core': label = 'Center'
         prefix = 'blender_scene.part_'+part+'_'
         transform = ['visible','follow'] + [kind+'_'+axis for kind in ('position','rotation','scale') for axis in 'xyz']
         for title, opened, fields in (

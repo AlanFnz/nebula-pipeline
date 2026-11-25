@@ -25,6 +25,7 @@ from PIL import Image
 SCRIPT = RESOURCE_ROOT/'assets/blender/scene_worker.py'
 RUNNER = SCRIPT.with_name('assembly_worker.py')
 SUSPENDED = SCRIPT.with_name('suspended_rings.py')
+SUSPENDED_CENTER = SCRIPT.with_name('suspended_center.py')
 CACHE = Path.home()/'Library/Caches/Nebula Studio/blender-v1'
 PREFIX = b'NEBULA_FRAME '
 
@@ -47,6 +48,12 @@ def motion_path():
     return path if path.is_file() else SCRIPT.with_name("orbital-motion-v1.json")
 
 
+def _runner(params):
+    if params.get('scene') == 2:
+        return SUSPENDED_CENTER if params.get('center_shape') == 1 else SUSPENDED
+    return RUNNER
+
+
 def cache_key(params, angle, size, executable, parts=None):
     stat = executable.stat()
     payload = dict(params=params, angle=angle, size=list(size),
@@ -55,6 +62,8 @@ def cache_key(params, angle, size, executable, parts=None):
     if params.get('scene',0) == 2:
         payload['variant_builder'] = hashlib.sha256(SUSPENDED.read_bytes() +
             SCRIPT.with_name('reflection_stage.py').read_bytes() + SCRIPT.with_name('orbital_scene.py').read_bytes()).hexdigest()
+        if _runner(params) == SUSPENDED_CENTER:
+            payload['center_builder'] = hashlib.sha256(SUSPENDED_CENTER.read_bytes()).hexdigest()
     elif params.get('scene',0):
         payload['variant_builder'] = hashlib.sha256(RUNNER.read_bytes()+SCRIPT.with_name('orbital_scene.py').read_bytes()+motion_path().read_bytes()).hexdigest()
     if params.get('orbital_finish',0) or any(params.get(f'orbit_shape_{i}',0) for i in range(1,6)):
@@ -102,7 +111,7 @@ class BlenderWorker:
     def request(self, payload, executable):
         with self.lock:
             try:
-                runner = SUSPENDED if payload['params'].get('scene') == 2 else RUNNER
+                runner = _runner(payload['params'])
                 if self.process is None or self.process.poll() is not None or (self.executable, self.runner) != (executable, runner):
                     self.close(); self.logs.clear(); self.executable, self.runner = executable, runner
                     self.process = subprocess.Popen([str(executable),'--background','--factory-startup',

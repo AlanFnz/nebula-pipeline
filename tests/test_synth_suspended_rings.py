@@ -62,3 +62,32 @@ def test_object_navigation_filters_parts_and_exposes_the_light_rig(make_window, 
     assert 'blender_scene.lens_squeeze' in panel.object_eligible
     assert 'blender_scene.base_width' not in panel.object_eligible
     assert panel.color_panel.cards['blender_strip'].isVisible()
+
+
+def test_center_shape_is_opt_in_and_the_center_turn_continues_after_extension(requests):
+    for scene in (0, 1, 2):
+        for settings in ({}, {'center_shape': int(scene != 2)}):
+            render_sequence_frame(compile_composition(composition(scene, **settings)), .5, (48, 64))
+        assert requests[-1] == requests[-2]
+        assert 'center_shape' not in requests[-1][0]
+    project = composition(2, center_shape=1, ring_count=1, part_core_follow=0,
+                          part_core_turns_x=-1, part_core_period=4.)
+    longer = stretch_section(project, project['sections'][0]['id'], 8., 'smart')
+    for doc, seconds in ((project, .5), (longer, 4.5), (longer, 5.)):
+        render_sequence_frame(compile_composition(doc), seconds, (48, 64))
+    assert requests[-3] == requests[-2]
+    params, _, parts = requests[-1]
+    assert synth_blender_bridge._runner(params) == synth_blender_bridge.SUSPENDED_CENTER
+    assert parts['core']['rotation'][0] == pytest.approx(270.)
+    assert not parts['core']['follow']
+    assert synth_blender_bridge._runner({'scene': 2}) == synth_blender_bridge.SUSPENDED
+
+
+def test_center_geometry_has_its_own_part_and_shape_controls(make_window, requests):
+    studio = make_window(composition=composition(2, ring_count=1, center_shape=1))
+    panel = studio.composer.object_panel
+    studio.composer.look_tabs.setCurrentWidget(panel)
+    assert [panel.part_selector.itemText(i) for i in range(panel.part_selector.count())] == [
+        'Whole assembly', 'Ring 1 / outer', 'Infinity loop']
+    assert panel.controls['blender_scene.hoop_bow'].label.text() == 'Crossing depth'
+    assert {'blender_scene.center_shape', 'blender_scene.tube_radius', 'blender_scene.hoop_bow'} <= panel.object_eligible

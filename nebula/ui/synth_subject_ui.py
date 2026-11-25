@@ -189,11 +189,12 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
         key = PARTS[page-1][0] if page else None
         self.part_selector.setCurrentIndex(max(0,self.part_selector.findData(key)))
 
-    def refresh_part_navigation(self, scene, count=6):
+    def refresh_part_navigation(self, scene, count=6, center_shape=0):
         from nebula.sources.synth_blender_parts import parts_for
-        parts = parts_for(scene, count)
-        keys = [self.part_selector.itemData(i) for i in range(1,self.part_selector.count())]
-        if keys == [p[0] for p in parts]: return
+        parts = parts_for(scene, count, center_shape)
+        items = [(self.part_selector.itemData(i), self.part_selector.itemText(i))
+                 for i in range(1, self.part_selector.count())]
+        if items == [(key, label) for key, label, _ in parts]: return
         current = self.part_selector.currentData()
         with QSignalBlocker(self.part_selector):
             self.part_selector.clear(); self.part_selector.addItem('Whole assembly',None)
@@ -408,18 +409,26 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
             ranges = summary['blender_scene']['ranges']
             scene = ranges['blender_scene.scene'][0]
             count = int(ranges['blender_scene.ring_count'][1])
-            self.refresh_part_navigation(scene, count)
+            center_shapes = ranges['blender_scene.center_shape']
+            self.refresh_part_navigation(scene, count, center_shapes[0])
             active_parts = {p[0] for p in parts_for(scene, count)}
-            center_size = self.controls['blender_scene.core_size']
-            center_label = 'Center disc size' if scene == 2 else center_size.spec.label
-            center_size.label.setText(center_label)
-            center_size.input.setAccessibleName(center_label)
-            center_size.slider.setAccessibleName(center_label + ' slider')
+            labels = {}
+            if scene == 2:
+                labels['core_size'] = 'Center disc size' if center_shapes == (0, 0) else 'Center size'
+                labels.update(tube_radius='Infinity stroke radius', hoop_bow='Crossing depth')
+            for key in ('core_size', 'tube_radius', 'hoop_bow'):
+                control = self.controls['blender_scene.' + key]
+                label = labels.get(key, control.spec.label)
+                control.label.setText(label)
+                control.input.setAccessibleName(label)
+                control.slider.setAccessibleName(label + ' slider')
             if scene != 2:
                 hide(*('blender_scene.'+key for key in SUSPENDED_KEYS))
             if scene == 0: hide(*('blender_scene.'+key for key in ORBITAL_KEYS))
             elif scene == 2:
-                unused = ('tube_radius','hoop_bow','hoop_twist','axle_length','base_width','crown_size',
+                if center_shapes == (0, 0):
+                    hide('blender_scene.tube_radius', 'blender_scene.hoop_bow')
+                unused = ('hoop_twist','axle_length','base_width','crown_size',
                           'orbital_finish','yin_dot','yin_darkness','orbit_tumble','paint_light',
                           'sky_light','stage_bands','stage_motion','horizon_depth')
                 hide(*('blender_scene.'+key for key in unused))

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.139.0 · 2026-11-25
+
+Suspended rings can carry an infinity loop on the center axis. Choose its shape, stroke radius and crossing depth in Object, then select the center piece to adjust its material and independent rotation.
+
 ## 0.138.1 · 2026-11-25
 
 Print surface adds a Continuous sheet option under Paper extent. Moving scans can follow the paper grain, fibers and ink density beyond the canvas edges.

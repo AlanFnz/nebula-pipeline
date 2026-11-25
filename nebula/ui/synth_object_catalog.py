@@ -17,7 +17,7 @@ OBJECT_PATHS = {
 # A registry fallback keeps future controls reachable without changing a study.
 FAMILY_GROUPS = {
     'blender': (
-        ('Sculpture', 'scene ring_count ring_width tube_radius hoop_bow hoop_twist body_height base_width crown_size axle_length band_width band_depth ring_gap edge_radius face_camber core_size'),
+        ('Sculpture', 'scene ring_count center_shape core_size ring_width tube_radius hoop_bow hoop_twist body_height base_width crown_size axle_length band_width band_depth ring_gap edge_radius face_camber'),
         ('Loop & motion', 'period phase direction ease pose_steps orbit_tumble orbit_pattern motion_exposure exposure_delay'),
         ('Camera', 'size camera_yaw camera_elevation lens_squeeze perspective'),
         ('Material', 'yin_dot yin_darkness metal_hue metal_saturation metal_light metallic roughness transmission ior angle_tint reflection_contrast paint_light accent_hue accent_saturation accent_light surface_grain'),
