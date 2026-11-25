@@ -6,13 +6,13 @@ Works with any source; no sculpture masks, reference images or frame history.
 import math
 import numpy as np
 from PIL import Image, ImageFilter
-from nebula.effects.synth_print import _rng, _paper_noise, _fresh_noise
+from nebula.effects.synth_print import _rng, _scan_paper, _fresh_noise
 
 
 PAINT_KEYS = frozenset(('paint_flatten', 'paint_tones', 'paint_wash', 'paint_drift',
     'paint_registration', 'paint_outline', 'paint_outline_width', 'paint_rim', 'paint_period'))
 PAINT_SHARED = frozenset(('surface', 'cadence', 'ink_grain', 'ink_wear', 'grain_size',
-    'boil', 'paper_motion', 'registration', 'rotation_jitter', 'softness', 'mix', 'effect_intensity'))
+    'boil', 'paper_extent', 'paper_motion', 'registration', 'rotation_jitter', 'softness', 'mix', 'effect_intensity'))
 
 
 def applicable_paths(paths, mode):
@@ -49,9 +49,8 @@ def render_painted_surface(arr, p, time, speed, seed):
     rng=_rng(seed,311,tick)
     # Reuse Print surface's paper tooth, held random clock and noise utilities.
     size=max(.65,p['grain_size']*unit)
-    fixed=_paper_noise(seed,w,h,size,0)
     sx,sy=np.rint(rng.uniform(-1,1,2)*p['paper_motion']*min(w,h)).astype(int)
-    fixed=(np.roll(fixed,(sy,sx),(0,1))-.5)*3.5
+    fixed=(_scan_paper(seed,w,h,size,0,sx,sy,p.get('paper_extent',0))-.5)*3.5
     tooth=_fresh_noise(rng,w,h,size,size)
     grain=fixed*(1-p['boil'])+tooth*p['boil']
     wash=_fresh_noise(rng,w,h,max(3,unit*42),max(3,unit*60))

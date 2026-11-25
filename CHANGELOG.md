@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.138.1 · 2026-11-25
+
+Print surface adds a Continuous sheet option under Paper extent. Moving scans can follow the paper grain, fibers and ink density beyond the canvas edges.
+
 ## 0.138.0 · 2026-11-25
 
 The Blender scene source can suspend up to six nested bands around a center disc. Each band has its own rotation axis, phase and pace. The studio includes colored reflection strips, a two-tone backdrop and adjustable lens squeeze.

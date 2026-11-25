@@ -20,6 +20,8 @@ INK_PALETTES = (
     ((.94, .94, .88), (.64, .66, .60), (.92, .91, .81), (.98, .98, .94)),
 )
 
+MAX_PAPER_MOVEMENT = .3
+
 
 def _rng(seed, *parts):
     return np.random.default_rng(np.random.SeedSequence([int(seed), *(int(x) & 0xffffffff for x in parts)]))
@@ -169,6 +171,37 @@ def _paper_noise(seed, width, height, grain_size, layer):
     return result
 
 
+@lru_cache(maxsize=6)
+def _stock_lattice(seed, columns, rows, layer):
+    values = _rng(seed, 71, layer).random((rows, columns), dtype=np.float32)
+    return Image.fromarray(values)
+
+
+def _scan_paper(seed, width, height, grain_size, layer, sx, sy, extent):
+    if extent == 0:
+        tile = _paper_noise(seed, width, height, grain_size, layer)
+        return np.roll(tile, (sy, sx), axis=(0, 1))
+
+    # Keep a fixed sheet for the full travel of the control. Only the visible
+    # window is resampled. Angled fibers use sheet coordinates on both axes.
+    margin = math.ceil(min(width, height) * MAX_PAPER_MOVEMENT)
+    stretch = 1.3 if layer == 2 else 1.
+    shear = .5 if layer == 2 else 0.
+    cell_x, cell_y = grain_size * stretch, grain_size / stretch
+    sheet_height = height + 2 * margin
+    sheet_width = width + 2 * margin + shear * sheet_height
+    # Two extra cells on each side keep bicubic taps inside the lattice.
+    columns = math.ceil(sheet_width / cell_x) + 4
+    rows = math.ceil(sheet_height / cell_y) + 4
+    lattice = _stock_lattice(seed, columns, rows, layer)
+    origin_y = margin - sy
+    origin_x = margin - sx + shear * origin_y
+    matrix = (1 / cell_x, shear / cell_x, 2 + origin_x / cell_x,
+              0., 1 / cell_y, 2 + origin_y / cell_y)
+    resample = Image.Resampling.BILINEAR if layer else Image.Resampling.BICUBIC
+    return np.asarray(lattice.transform((width, height), Image.Transform.AFFINE, matrix, resample))
+
+
 def _fresh_noise(rng, width, height, cell_x, cell_y):
     """One full-frame random field, without texture reuse or wrapped edges."""
     shape = (max(2, math.ceil(height / cell_y)), max(2, math.ceil(width / cell_x)))
@@ -213,12 +246,11 @@ def render_print_surface(arr, p, time, speed, seed):
     tick = math.floor(time * speed * p['cadence'] + 1e-8)
     rng = _rng(seed, 47, tick)
     # The sheet moves a little between scans; the fibers themselves persist.
-    fine = _paper_noise(seed, w, h, max(.7, p['grain_size'] * scale), 0)
-    coarse = _paper_noise(seed, w, h, max(2., p['grain_size'] * scale * 100), 1)
-    fibers = _paper_noise(seed, w, h, max(1., p['grain_size'] * scale * 1.5), 2)
     sx, sy = np.rint(rng.uniform(-1, 1, 2) * p['paper_motion'] * min(w, h)).astype(int)
-    fine = np.roll(fine, (sy, sx), (0, 1)); coarse = np.roll(coarse, (sy, sx), (0, 1))
-    fibers = np.roll(fibers, (sy, sx), (0, 1))
+    extent = p.get('paper_extent', 0)
+    fine = _scan_paper(seed, w, h, max(.7, p['grain_size'] * scale), 0, sx, sy, extent)
+    coarse = _scan_paper(seed, w, h, max(2., p['grain_size'] * scale * 100), 1, sx, sy, extent)
+    fibers = _scan_paper(seed, w, h, max(1., p['grain_size'] * scale * 1.5), 2, sx, sy, extent)
     live = rng.random((h, w)).astype(np.float32)
     grain = fine * (1 - p['boil']) + live * p['boil']
     y, x = np.mgrid[:h, :w].astype(np.float32)

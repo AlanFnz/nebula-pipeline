@@ -46,7 +46,7 @@ from nebula.sources.synth_memory import modules as memory_modules, render_image_
 from nebula.sources.synth_tension import modules as tension_modules, render_signal_tension
 from nebula.effects.synth_dye_transfer import modules as dye_transfer_modules, render_dye_transfer
 from nebula.core.synth_canvas import content_size, normalize_canvas, source_framing, object_offset
-from nebula.effects.synth_print import render_ink_bloom, render_print_surface
+from nebula.effects.synth_print import MAX_PAPER_MOVEMENT, render_ink_bloom, render_print_surface
 from nebula.effects.synth_profile import render_silhouette, render_edge_phosphor, render_scan_drag
 from nebula.effects.synth_profile_v1 import render_edge_phosphor as render_edge_phosphor_v1
 from nebula.documents.synth_compat import CURRENT_RENDER_VERSION, frozen_data, frozen_defaults, render_version
@@ -427,7 +427,8 @@ MODULES = (
         P("fibers", "Paper fibers", .75, 0, 2, .01),
         P("mottle", "Uneven stock", .45, 0, 1, .01),
         P("boil", "Texture boil", .25, 0, 1, .01, "Fresh grain within each scan; the underlying sheet remains persistent."),
-        P("paper_motion", "Paper movement", .06, 0, .3, .005),
+        P("paper_extent", "Paper extent", 0, 0, 1, 1, "Continuous sheet scans a moving window into larger paper. Canvas tile wraps paper at the canvas edges.", choices=("Canvas tile", "Continuous sheet")),
+        P("paper_motion", "Paper movement", .06, 0, MAX_PAPER_MOVEMENT, .005),
         P("rotation_jitter", "Rotation jitter", .45, 0, 3, .05),
         P("dust", "Dust flecks", .12, 0, 1, .01),
         P("softness", "Scan softness", .8, 0, 3, .05),
