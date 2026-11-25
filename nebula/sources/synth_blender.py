@@ -16,7 +16,7 @@ def modules(Module, P):
     return (
         Module('blender_scene', 'Blender scene',
             'A procedural 3D sculpture rendered by Blender. Geometry, light and camera changes prepare new frames; cached frames are reused by preview and export.', (
-            P('scene', 'Sculpture', 0, 0, 1, 1, choices=('Optical relic', 'Orbital rings')),
+            P('scene', 'Sculpture', 0, 0, 2, 1, choices=('Optical relic', 'Orbital rings', 'Suspended rings')),
             P('scene_version', 'Scene version', 1, 1, 1, 1, 'Versioned procedural sculpture geometry.'),
             P('ring_width', 'Hoop width', 1., .4, 1.6, .01),
             P('tube_radius', 'Hoop thickness', .085, .025, .20, .005),
@@ -49,7 +49,7 @@ def modules(Module, P):
             P('light_size', 'Light softness', 4., .5, 8., .1),
             P('light_power', 'Light strength', 1000., 100., 3000., 25.),
             P('exposure', 'Exposure', .4, -3., 3., .05),
-        ) + orbital_parameters(P) + part_parameters(P)),
+        ) + orbital_parameters(P) + suspended_parameters(P) + part_parameters(P)),
         Module('optical_diffusion', 'Optical diffusion',
             'Photographic softness, broad highlight diffusion and fine grain. Works after any generated object or imported footage.', (
             P('softness', 'Focus softness', 2.2, 0., 8., .1, 'Pixels at a 720-pixel artwork width.'),
@@ -83,7 +83,7 @@ def orbital_parameters(P):
         P('accent_hue', 'Ivory hue', .12, 0., 1., .01),
         P('accent_saturation', 'Ivory saturation', .18, 0., 1., .01),
         P('accent_light', 'Ivory brightness', .88, 0., 1., .01),
-        P('surface_grain', 'Paint texture', .5, 0., 1., .01),
+        P('surface_grain', 'Surface texture', .5, 0., 1., .01),
         P('sky_light', 'Sky brightness', .48, 0., 1., .01),
         P('ground_hue', 'Ground hue', .21, 0., 1., .01),
         P('ground_saturation', 'Ground saturation', .65, 0., 1., .01),
@@ -111,6 +111,30 @@ def orbital_parameters(P):
 
 ORBITAL_KEYS = frozenset(p.key for p in orbital_parameters(lambda key,*a,**kw:SimpleNamespace(key=key)))
 
+
+def suspended_parameters(P):
+    return (
+        P('ring_count', 'Number of rings', 6, 1, 6, 1, 'Distribute the bands between the outer rim and the center disc.'),
+        P('face_camber', 'Face curvature', .35, 0., 1., .01, 'Bow the polished faces gently from the hub to the rim.'),
+        P('lens_squeeze', 'Horizontal squeeze', 1., .3, 2., .005, 'Anamorphic projection. Compress or widen the image while keeping the reflections on the physical sculpture.'),
+        P('perspective', 'Perspective', 0., 0., .45, .01, 'Zero is orthographic. Higher values bring the camera closer while preserving the size at the center.'),
+        P('transmission', 'Transmission', 0., 0., 1., .01, 'Amount of light transmitted through the nonmetallic part of the material.'),
+        P('ior', 'Index of refraction', 1.48, 1., 2.5, .01),
+        P('angle_tint', 'Angle tint', 0., 0., 1., .01, 'Clear the material color when viewed head-on and deepen it at oblique angles.'),
+        P('reflection_hue', 'Strip light hue', .08, 0., 1., .01),
+        P('reflection_saturation', 'Strip light saturation', .65, 0., 1., .01),
+        P('reflection_light', 'Strip light brightness', .92, 0., 1., .01),
+        P('reflection_spread', 'Strip hue separation', .18, -.5, .5, .01, 'Hue difference between the upper and lower reflected strips.'),
+        P('orbit_turns_6', 'Ring 6 · Orbit turns', 1, -8, 8, 1),
+        P('orbit_phase_6', 'Ring 6 · Orbit phase', 0., -180., 180., 1.),
+        P('orbit_tilt_6', 'Ring 6 · Axis tilt', 0., -90., 90., 1.),
+        P('orbit_pace_6', 'Ring 6 · Pace variation', 0., 0., 1., .05),
+        P('orbit_drift_6', 'Ring 6 · Axis drift', 0., 0., 45., 1.),
+    )
+
+
+SUSPENDED_KEYS = frozenset(p.key for p in suspended_parameters(lambda key,*a,**kw:SimpleNamespace(key=key)))
+
 ORBITAL_SMOOTH_KEYS = frozenset(f'orbit_smooth_{i}' for i in range(2,6))
 ORBITAL_DRIFT_KEYS = frozenset(f'orbit_{field}_{i}' for field in ('pace','drift') for i in range(1,6))
 ORBITAL_MOTION_KEYS = ORBITAL_SMOOTH_KEYS | ORBITAL_DRIFT_KEYS | {'orbit_pattern'}
@@ -136,6 +160,8 @@ def render_blender_scene(arr, p, seconds, preset):
     cw, ch = content_size(preset, (w,h))
     dx, dy = object_offset(preset, (w,h))
     parameters = {k:v for k,v in p.items() if k not in MOTION_KEYS and not k.startswith('part_')}
+    if p.get('scene', 0) != 2:
+        parameters = {k:v for k,v in parameters.items() if k not in SUSPENDED_KEYS}
     # Frame the same physical scene when the canvas is resized or repositioned.
     if not p.get('scene',0):
         parameters = {k:v for k,v in parameters.items() if k not in ORBITAL_KEYS and k != 'scene'}
@@ -143,7 +169,8 @@ def render_blender_scene(arr, p, seconds, preset):
     if not parameters.get('orbital_finish',0): parameters.pop('orbital_finish',None)
     if not any(parameters.get(f'orbit_shape_{i}',0) for i in range(1,6)):
         for key in ORBITAL_VARIANT_KEYS-ORBITAL_MOTION_KEYS-{'orbital_finish'}: parameters.pop(key,None)
-    if not any(parameters.get(key,0.) for key in ORBITAL_DRIFT_KEYS): parameters.pop('orbit_pattern',None)
+    if not any(parameters.get(key,0.) for key in ORBITAL_DRIFT_KEYS | {'orbit_drift_6', 'orbit_pace_6'}):
+        parameters.pop('orbit_pattern',None)
     for key in ORBITAL_MOTION_KEYS:
         if not parameters.get(key,0.): parameters.pop(key,None)
     for key, default in COLOR_DEFAULTS.items():
@@ -152,7 +179,7 @@ def render_blender_scene(arr, p, seconds, preset):
     def sample(time):
         parts = part_poses(p,time,preset['speed'])
         angle = rotation(time,p,preset['speed'],symmetric=not parts and not p.get('scene',0))
-        if p.get('scene',0): angle = stepped_orbit(angle,p.get('pose_steps',0))
+        if p.get('scene',0): angle = stepped_orbit(angle,p.get('pose_steps',0), authored=p['scene'] == 1)
         image = render_frame(parameters,angle,(w,h),parts=parts) if parts else render_frame(parameters,angle,(w,h))
         return np.asarray(image,np.float32)/255.
     out=sample(seconds)
@@ -169,10 +196,10 @@ def orbital_steps():
     return tuple(json.loads(motion_path().read_text())['steps'])
 
 
-def stepped_orbit(angle, count):
+def stepped_orbit(angle, count, *, authored=True):
     if not count:return angle
     phase=(angle/math.tau)%1.
-    if count == 60:
+    if count == 60 and authored:
         steps=orbital_steps();phase=steps[max(0,bisect_right(steps,phase+1e-8)-1)]
     else:phase=math.floor(phase*count+1e-8)/count
     return round(phase*math.tau,9)

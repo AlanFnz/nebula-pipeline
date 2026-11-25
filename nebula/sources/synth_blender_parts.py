@@ -16,10 +16,16 @@ RELIC_PARTS = PARTS
 ORBITAL_PARTS = (PARTS[0],
     *((f'ring{i}',f'Ring {i}'+(' / outer' if i==1 else ' / inner' if i==5 else ''),True) for i in range(1,6)),
     ('core','Center sphere',True), ('finial','Top finial',False))
-PARTS = RELIC_PARTS + ORBITAL_PARTS[1:]
+SUSPENDED_PARTS = tuple(
+    (f'ring{i}', f'Ring {i}' + (' / outer' if i == 1 else ''), True) for i in range(1, 7)
+) + (('core', 'Center disc', True),)
+PARTS = RELIC_PARTS + ORBITAL_PARTS[1:] + (SUSPENDED_PARTS[5],)
 
 
-def parts_for(scene=0):
+def parts_for(scene=0, ring_count=6):
+    if scene == 2:
+        count = max(1, min(6, int(ring_count)))
+        return SUSPENDED_PARTS[:count] + SUSPENDED_PARTS[-1:]
     return ORBITAL_PARTS if scene == 1 else RELIC_PARTS
 
 
@@ -75,7 +81,7 @@ def part_poses(p, seconds, speed=1.):
     Disabled custom materials and idle motion do not invalidate cached renders.
     """
     result = {}
-    for part, _, follows in parts_for(p.get('scene',0)):
+    for part, _, follows in parts_for(p.get('scene',0), p.get('ring_count',6)):
         prefix = 'part_'+part+'_'
         def value(key, default): return p.get(prefix+key, default)
         position = [value('position_'+a, 0.) for a in 'xyz']

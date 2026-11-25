@@ -16,6 +16,9 @@ BLENDER_COLORS = (
     color('ground', 'Ground color', 'ground_hue', 'ground_saturation', 'ground_light'),
     color('paint', 'Paint color', 'metal_hue', 'metal_saturation', 'paint_light'),
     color('accent', 'Accent color', 'accent_hue', 'accent_saturation', 'accent_light'),
+    color('lower', 'Lower backdrop color', 'ground_hue', 'ground_saturation', 'ground_light'),
+    color('softbox', 'Softbox color', 'accent_hue', 'accent_saturation', 'accent_light'),
+    color('strip', 'Strip light color', 'reflection_hue', 'reflection_saturation', 'reflection_light'),
     *(color('part_' + part, label + ' color', *(f'part_{part}_{c}' for c in ('hue', 'saturation', 'light')))
       for part, label, _ in PARTS),
 )
@@ -33,6 +36,8 @@ def color_spec(key):
 def scene_colors(params, part=None):
     if part:
         return () if params.get(f'part_{part}_inherit', 1) else ('blender_part_' + part,)
+    if params.get('scene') == 2:
+        return ('blender_background', 'blender_lower', 'blender_metal', 'blender_softbox', 'blender_strip')
     painted = params.get('scene', 0) == 1 and params.get('orbital_finish', 0) == 0
     return (('blender_sky', 'blender_ground', 'blender_paint', 'blender_accent') if painted
             else ('blender_background', 'blender_metal'))

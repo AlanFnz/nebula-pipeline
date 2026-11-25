@@ -24,6 +24,7 @@ from PIL import Image
 
 SCRIPT = RESOURCE_ROOT/'assets/blender/scene_worker.py'
 RUNNER = SCRIPT.with_name('assembly_worker.py')
+SUSPENDED = SCRIPT.with_name('suspended_rings.py')
 CACHE = Path.home()/'Library/Caches/Nebula Studio/blender-v1'
 PREFIX = b'NEBULA_FRAME '
 
@@ -51,7 +52,10 @@ def cache_key(params, angle, size, executable, parts=None):
     payload = dict(params=params, angle=angle, size=list(size),
                    executable=[str(executable),stat.st_size,stat.st_mtime_ns],
                    builder=hashlib.sha256(SCRIPT.read_bytes()+SCRIPT.with_name('studio_stage.py').read_bytes()).hexdigest())
-    if params.get('scene',0):
+    if params.get('scene',0) == 2:
+        payload['variant_builder'] = hashlib.sha256(SUSPENDED.read_bytes() +
+            SCRIPT.with_name('reflection_stage.py').read_bytes() + SCRIPT.with_name('orbital_scene.py').read_bytes()).hexdigest()
+    elif params.get('scene',0):
         payload['variant_builder'] = hashlib.sha256(RUNNER.read_bytes()+SCRIPT.with_name('orbital_scene.py').read_bytes()+motion_path().read_bytes()).hexdigest()
     if params.get('orbital_finish',0) or any(params.get(f'orbit_shape_{i}',0) for i in range(1,6)):
         payload['orbital_geometry'] = hashlib.sha256(SCRIPT.with_name('orbital_variants.py').read_bytes()).hexdigest()
@@ -64,6 +68,7 @@ class BlenderWorker:
     def __init__(self):
         self.process = None
         self.executable = None
+        self.runner = None
         self.buffer = b''
         self.logs = deque(maxlen=12)
         self.lock = threading.RLock()
@@ -97,10 +102,11 @@ class BlenderWorker:
     def request(self, payload, executable):
         with self.lock:
             try:
-                if self.process is None or self.process.poll() is not None or self.executable != executable:
-                    self.close(); self.logs.clear(); self.executable = executable
+                runner = SUSPENDED if payload['params'].get('scene') == 2 else RUNNER
+                if self.process is None or self.process.poll() is not None or (self.executable, self.runner) != (executable, runner):
+                    self.close(); self.logs.clear(); self.executable, self.runner = executable, runner
                     self.process = subprocess.Popen([str(executable),'--background','--factory-startup',
-                        '--disable-autoexec','--python',str(RUNNER)],stdin=subprocess.PIPE,
+                        '--disable-autoexec','--python',str(runner)],stdin=subprocess.PIPE,
                         stdout=subprocess.PIPE,stderr=subprocess.STDOUT,bufsize=0,
                         env={**os.environ, 'NEBULA_ORBITAL_MOTION': str(motion_path())})
                     response = self.receive()

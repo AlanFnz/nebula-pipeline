@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.138.0 · 2026-11-25
+
+The Blender scene source can suspend up to six nested bands around a center disc. Each band has its own rotation axis, phase and pace. The studio includes colored reflection strips, a two-tone backdrop and adjustable lens squeeze.
+
 ## 0.137.0 · 2026-11-25
 
 The monitor shows the editable playhead frame beside the timecode. Frame numbering starts at zero. Type a frame number and press Enter to go there.
