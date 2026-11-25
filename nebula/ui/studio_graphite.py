@@ -22,9 +22,9 @@ GRAPHITE_STYLE = Template("""
 #workspaceHeader QPushButton[secondaryAction="true"]:enabled { color: $text; }
 #workspaceHeader QPushButton[secondaryAction="true"]:focus { border-color: $focus; }
 #workspaceHeader QPushButton[secondaryAction="true"]:hover { background: $raised; }
-#workspaceHeader QPushButton#primary:enabled { background: $accent; border-color: $accent; color: $on_accent; }
-#workspaceHeader QPushButton#primary:hover { background: $accent_hover; }
-#workspaceHeader QPushButton#primary:pressed { background: $accent_pressed; }
+#workspaceHeader QToolButton#primary:enabled, #workspaceHeader QPushButton#primary:enabled { background: $accent; border-color: $accent; color: $on_accent; }
+#workspaceHeader QToolButton#primary:hover, #workspaceHeader QPushButton#primary:hover { background: $accent_hover; }
+#workspaceHeader QToolButton#primary:pressed, #workspaceHeader QPushButton#primary:pressed { background: $accent_pressed; }
 
 QFrame#monitorFrame { background: $canvas; border: 1px solid $divider; border-radius: 0; }
 SynthViewer#studioViewer { background: $canvas; }
@@ -145,7 +145,7 @@ QWidget#inspectorColumn { background: $panel; border-left: 1px solid $divider; }
 #inspectorColumn QLineEdit:hover { border-color: $control; }
 
 #workspaceHeader QAbstractButton:focus, #workspaceHeader QAbstractSpinBox:focus,
-#workspaceHeader QComboBox:focus, #workspaceHeader QPushButton#primary:focus,
+#workspaceHeader QComboBox:focus, #workspaceHeader QToolButton#primary:focus, #workspaceHeader QPushButton#primary:focus,
 #monitorHeader QDoubleSpinBox:focus,
 #inspectorColumn QAbstractButton:focus, #inspectorColumn QLineEdit:focus,
 #inspectorColumn QAbstractSpinBox:focus, #inspectorColumn QComboBox:focus,

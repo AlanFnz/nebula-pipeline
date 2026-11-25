@@ -73,6 +73,7 @@ class PreviewRangeStudio:
         self.gap_feedback.setVisible(busy)
         self.cached_ranges.set_preparing_gap(gap)
         self.timeline.setEnabled(not busy)
+        self.frame_number.setEnabled(not busy)
         self.preview_range_frames.setEnabled(not busy)
         self.preview_scope.setEnabled(not busy and self.composition is not None)
         self.prepare_full_preview.setEnabled(not busy)

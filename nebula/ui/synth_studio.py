@@ -12,6 +12,7 @@ import sys
 import time
 import math
 from collections import deque
+from functools import partial
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
@@ -33,7 +34,9 @@ from nebula.ui.synth_monitor_status import MonitorFrameStatus, MonitorStatus
 from nebula.core.media import Cancellation
 from nebula.ui.studio_theme import COLORS, apply_theme, terminal_font, ui_font
 from nebula.render.synth import MODULE_BY_ID, curated_presets, default_synth_preset, load_synth, normalize_synth, render_synth_frame, save_synth
-from nebula.documents.synth_media import export_synth_video
+from nebula.documents.synth_media import export_still, export_synth_video, render_output_frame
+from nebula.ui.studio_task import Task
+from nebula.ui.synth_frame_export_ui import ExportButton, FrameExportDialog, PlayheadFrame, frame_timecode
 from nebula.documents.synth_sequence import load_sequence, normalize_sequence, reference_sequence, render_sequence_frame, save_sequence
 from nebula.documents.synth_composition import MAX_SECTIONS, FORMAT, compile_composition, composition_from_sequence, load_composition, normalize_composition, reference_composition, save_composition, section_ranges
 from nebula.ui.synth_composer_ui import CompositionPanel, SectionTimeline, CachedRangeStrip
@@ -353,6 +356,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.save_action = action(file_menu, 'Save', QKeySequence.StandardKey.Save, self.save_sequence_dialog)
         self.save_as_action = action(file_menu, 'Save As…', QKeySequence.StandardKey.SaveAs, self.save_as_dialog)
         self.open_action = action(file_menu, 'Open…', QKeySequence.StandardKey.Open, self.load_sequence_dialog)
+        file_menu.addAction(self.export_button.frame_action)
         action(file_menu, 'Close window', QKeySequence.StandardKey.Close, lambda: self.window().close())
         self.soundtrack_action = action(file_menu, 'Soundtrack…', QKeySequence(), self.open_soundtrack)
         self.undo_action = action(edit_menu, 'Undo composition', QKeySequence.StandardKey.Undo, self.undo_composition)
@@ -640,8 +644,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
             if text == 'Undo': self.composition_undo_button = button
             if text == 'Redo': self.composition_redo_button = button
             command_row.addWidget(button); self.composition_widgets.append(button)
-        self.export_button = QPushButton('Export MP4'); self.export_button.setObjectName('primary')
-        self.export_button.clicked.connect(self.export_dialog)
+        self.export_button = ExportButton(self.export_dialog, self.export_frame_dialog)
         self.export_summary = ExportSummaryButton(self, self.export_summary_rows, self.export_button)
         command_row.addWidget(inline(self.export_button, self.export_summary, separated=True))
         header.addWidget(commands)
@@ -835,6 +838,8 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.cached_ranges.gapRequested.connect(self.prepare_preview_gap)
         timeline.addWidget(track, 1)
         self.time_label = QLabel('00:00.00'); self.time_label.setObjectName('timecode'); self.time_label.setFont(terminal_font()); timeline.addWidget(self.time_label)
+        self.frame_number = PlayheadFrame(self.timeline, lambda: self.play.setChecked(False))
+        timeline.addWidget(self.frame_number)
         self.total_time_label = QLabel(); self.total_time_label.setObjectName('monitorMeta'); self.total_time_label.setAccessibleName('Total duration')
         self.total_time_label.setToolTip('Duration of all clips and loops. Updates automatically when timing changes.')
         timeline.addWidget(self.total_time_label); left_layout.addWidget(transport)
@@ -1602,6 +1607,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.update_timeline_max()
         with QSignalBlocker(self.timeline):
             self.timeline.setValue(round(old_time * self.composition["fps"]))
+        self.refresh_playhead_readout()
         self.section_timeline.set_document(self.composition, self.composer.index)
         self.refresh_timeline_view()
         self.sync_timeline_editing_scope()
@@ -1836,8 +1842,9 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
     def suggested_output_path(self, suffix):
         document = self.composition or self.sequence or self.preset
         name = "".join(character if character.isalnum() or character in "-_" else "-" for character in document.get("name", "nebula").lower()).strip("-") or "nebula"
-        folder = Path.home() / ("Movies" if suffix == ".mp4" else "Documents")
-        if suffix == '.mp4':
+        is_export = suffix in ('.mp4', '.png', '.jpg')
+        folder = Path.home() / ("Movies" if is_export else "Documents")
+        if is_export:
             remembered = self.export_settings.value('export/directory', '') if self.export_settings is not None else self.last_export_directory
             if remembered and Path(remembered).expanduser().is_dir(): folder = Path(remembered).expanduser()
         return str((folder if folder.is_dir() else Path.home()) / (name[:80] + suffix))
@@ -2406,6 +2413,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
             # outside the loop, and must not turn the user's loop choice off.
             with QSignalBlocker(self.timeline):
                 self.timeline.setMaximum(max(1, round(duration * fps)) - 1)
+            self.refresh_playhead_readout()
             centiseconds = round(duration * 100)
             self.total_time_label.setText(f'Total {centiseconds // 6000:02d}:{(centiseconds % 6000) / 100:05.2f}')
             self.total_time_label.setAccessibleDescription(f'{duration:.2f} seconds · {round(duration * fps)} frames at {fps} fps')
@@ -2529,7 +2537,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         size, raw = packet
         if self.visual_sound_dialog and self.visual_sound_dialog.isVisible():
             self.visual_sound_dialog.set_video_frame(packet,time_seconds)
-        self.viewer.set_packet((size, raw)); self.time_label.setText(f"{int(time_seconds) // 60:02d}:{time_seconds % 60:05.2f}")
+        self.viewer.set_packet((size, raw))
         self.cover_frame = (self.settings_generation, time_seconds)
         self.preview_image_stale = False
         self.failed_monitor_frame = None
@@ -2567,7 +2575,12 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
             self._soundtrack_mapping = None
             self._prepared_audio_position = None
 
+    def refresh_playhead_readout(self):
+        self.frame_number.sync()
+        self.time_label.setText(frame_timecode(self.timeline.value(), self.preview_fps()))
+
     def scrub(self, value):
+        self.refresh_playhead_readout()
         if not self.advancing:
             self.cancel_foreground_render()
             if not self.discovery_session:
@@ -2723,15 +2736,39 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
             self.status.setText('Choose an export destination different from your project and source media.')
             return
         if not self.resolve_sound_draft('exporting'): return
+        p = copy.deepcopy(self.preset) if self.sequence is not None else self.collect()
+        canvas = self.current_canvas(); size = (canvas["width"], canvas["height"])
+        job = ExportJob(p, path, size, self.sequence)
+        self.start_export_job(job, 'Exporting… 0%')
+
+    def export_frame_dialog(self):
+        if self.export_job: return
+        frame = self.timeline.value()
+        self.play.setChecked(False)
+        preset = self.preset if self.sequence is not None else self.collect()
+        render = partial(render_output_frame, copy.deepcopy(preset), copy.deepcopy(self.sequence), frame)
+        scope = 'Working composition' if self.composition else 'Sequence' if self.sequence else 'Preset'
+        if self.comparison: scope += ' (B)'
+        if self.workspace_navigation and self.workspace_navigation.editor is self: scope = 'Open block'
+        options = FrameExportDialog.choose(self, self.suggested_output_path('.png'), self.current_canvas(),
+                                           frame, self.preview_fps(), scope, render)
+        if not options: return
+        path, size, quality = options
+        if self.protected_document_destination(path) or (self.document_path and path.resolve() == self.document_path.resolve()):
+            self.status.setText('Choose an export destination different from your project and source media.')
+            return
+        job = Task(lambda cancel, _progress: export_still(render, path, size, quality, cancel))
+        self.start_export_job(job, f'Exporting frame {frame}…')
+
+    def start_export_job(self, job, label):
         self.cancel_preparation()
         self.export_button.setEnabled(False)
         self.export_progress.setValue(0)
-        self.export_progress.setFormat('Exporting… 0%')
+        self.export_progress.setFormat(label)
+        self.status.setText(label)
         self.export_progress.show(); self.cancel_export.show()
         QTimer.singleShot(0, lambda: self.preview_controls_scroll.ensureWidgetVisible(self.export_progress))
-        p = copy.deepcopy(self.preset) if self.sequence is not None else self.collect()
-        canvas = self.current_canvas(); size = (canvas["width"], canvas["height"])
-        job = ExportJob(p, path, size, self.sequence); self.export_job = job; self.cancel_export.setEnabled(True); self.pending_jobs.append(job)
+        self.export_job = job; self.cancel_export.setEnabled(True); self.pending_jobs.append(job)
         self.refresh_preview_activity()
         job.signals.progress.connect(lambda done, total, j=job: self.export_progressed(j, done, total))
         job.signals.done.connect(lambda result, j=job: self.export_finished(j, result))

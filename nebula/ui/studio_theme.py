@@ -75,13 +75,13 @@ QPushButton:pressed, QToolButton:pressed { background: @panel@; border-color: @b
 QPushButton:checked, QToolButton:checked { background: @selected@; border-color: @accent@; color: @selection_text@; }
 QPushButton:focus, QToolButton:focus { border-color: @focus@; }
 QPushButton:disabled, QToolButton:disabled { background: @disabled_surface@; color: @disabled@; border-color: @disabled_border@; }
-QPushButton#primary, QPushButton[primary="true"], QDialogButtonBox QPushButton:default {
+QToolButton#primary, QPushButton#primary, QPushButton[primary="true"], QDialogButtonBox QPushButton:default {
     background: @accent@; color: @on_accent@; border-color: @accent@; font-weight: 600;
 }
-QPushButton#primary:hover, QPushButton[primary="true"]:hover, QDialogButtonBox QPushButton:default:hover { background: @accent_hover@; border-color: @accent_hover@; }
-QPushButton#primary:pressed, QPushButton[primary="true"]:pressed, QDialogButtonBox QPushButton:default:pressed { background: @accent_pressed@; border-color: @accent_pressed@; }
-QPushButton#primary:focus, QPushButton[primary="true"]:focus, QDialogButtonBox QPushButton:default:focus { border-color: @text@; }
-QPushButton#primary:disabled, QPushButton[primary="true"]:disabled, QDialogButtonBox QPushButton:default:disabled { background: @selected@; color: @disabled@; border-color: @disabled_border@; }
+QToolButton#primary:hover, QPushButton#primary:hover, QPushButton[primary="true"]:hover, QDialogButtonBox QPushButton:default:hover { background: @accent_hover@; border-color: @accent_hover@; }
+QToolButton#primary:pressed, QPushButton#primary:pressed, QPushButton[primary="true"]:pressed, QDialogButtonBox QPushButton:default:pressed { background: @accent_pressed@; border-color: @accent_pressed@; }
+QToolButton#primary:focus, QPushButton#primary:focus, QPushButton[primary="true"]:focus, QDialogButtonBox QPushButton:default:focus { border-color: @text@; }
+QToolButton#primary:disabled, QPushButton#primary:disabled, QPushButton[primary="true"]:disabled, QDialogButtonBox QPushButton:default:disabled { background: @selected@; color: @disabled@; border-color: @disabled_border@; }
 QPushButton[secondaryAction="true"] { background: transparent; border-color: transparent; color: @muted@; }
 QPushButton[secondaryAction="true"]:hover { background: @hover@; border-color: @border_hover@; color: @text@; }
 QPushButton[secondaryAction="true"]:focus { border-color: @focus@; color: @text@; }
@@ -186,6 +186,7 @@ QWidget#monitorHeader QPushButton, QWidget#monitorHeader QDoubleSpinBox {
 QWidget#monitorHeader QDoubleSpinBox { background: @raised@; }
 QToolButton { padding: 3px 20px 3px 7px; }
 QToolButton::menu-button { width: 16px; border-left: 1px solid @border@; }
+QToolButton#primary::menu-button { background: @raised@; border-top-right-radius: 3px; border-bottom-right-radius: 3px; }
 QToolButton::menu-arrow { image: url("@CHEVRON@"); width: 8px; height: 6px; }
 QMenuBar { background: @panel@; }
 QMenuBar::item { background: transparent; padding: 5px 8px; }

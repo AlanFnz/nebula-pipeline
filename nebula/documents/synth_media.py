@@ -1,4 +1,4 @@
-"""Atomic FFmpeg export for source-free synth presets."""
+"""Movie and still-image export for the synth workspace."""
 from __future__ import annotations
 
 import os
@@ -10,6 +10,41 @@ from nebula.core.media import Cancellation, Cancelled
 from nebula.render.synth import normalize_synth, render_synth_frame
 
 
+def render_output_frame(preset, sequence, index, size, cancel, frame_provider=None):
+    """The RGB frame at an absolute index on the export clock, before encoding."""
+    if sequence is not None:
+        from nebula.documents.synth_sequence import render_sequence_frame
+        return render_sequence_frame(sequence, index / sequence['fps'], size=size,
+                                     frame_provider=frame_provider, cancel=cancel)
+    seconds = index / preset['export_fps']
+    return render_synth_frame(preset, frame=round(seconds * preset['treatment_fps']),
+                              time_seconds=seconds, size=size)
+
+
+def export_still(render, path, size, jpeg_quality, cancel):
+    """Render the pinned frame and replace the destination only after a successful encode."""
+    path = Path(path)
+    suffix = path.suffix.lower()
+    if suffix not in ('.png', '.jpg', '.jpeg'):
+        raise ValueError('Choose a PNG or JPEG image')
+    cancel.check()
+    image = render(size, cancel)
+    cancel.check()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix='.nebula-frame-', dir=path.parent)
+    try:
+        with os.fdopen(fd, 'wb') as stream:
+            if suffix == '.png':
+                image.save(stream, format='PNG')
+            else:
+                image.convert('RGB').save(stream, format='JPEG', quality=jpeg_quality, subsampling=0)
+        cancel.check()
+        os.replace(temporary, path)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
+    return path
+
+
 def export_synth_video(preset, output, start=0, count=None, cancel=None, progress=None, size=None, sequence=None):
     """Render a deterministic synth loop to MP4.
 
@@ -18,12 +53,10 @@ def export_synth_video(preset, output, start=0, count=None, cancel=None, progres
     export FPS therefore changes cadence without changing the animation clock.
     """
     p = normalize_synth(preset)
-    sequence_renderer = None
     sequence_data = None
     if sequence is not None:
-        from nebula.documents.synth_sequence import normalize_sequence, render_sequence_frame
+        from nebula.documents.synth_sequence import normalize_sequence
         sequence_data = normalize_sequence(sequence)
-        sequence_renderer = render_sequence_frame
     cancel = cancel or Cancellation()
     output = Path(output)
     footage = sequence_data.get('footage') if sequence_data else None
@@ -85,12 +118,7 @@ def export_synth_video(preset, output, start=0, count=None, cancel=None, progres
             cancel.attach(proc)
             for index in range(start, start + count):
                 cancel.check()
-                time_seconds = index / export_fps
-                if sequence_renderer:
-                    image = sequence_renderer(sequence_data, time_seconds, size=(width, height), frame_provider=provider, cancel=cancel) if provider else sequence_renderer(sequence_data, time_seconds, size=(width, height), cancel=cancel)
-                else:
-                    treatment_frame = round(time_seconds * p["treatment_fps"])
-                    image = render_synth_frame(p, frame=treatment_frame, time_seconds=time_seconds, size=(width, height))
+                image = render_output_frame(p, sequence_data, index, (width, height), cancel, provider)
                 proc.stdin.write(image.tobytes())
                 if progress:
                     progress(index - start + 1, count)

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.137.0 · 2026-11-25
+
+The monitor shows the editable playhead frame beside the timecode. Frame numbering starts at zero. Type a frame number and press Enter to go there.
+
+The arrow beside Export MP4 opens Export frame. Save a PNG or JPEG at the full canvas size or with a 360 or 720 px longest edge. The still uses the working edits at the selected frame.
+
 ## 0.136.0 · 2026-11-24
 
 Nested gradients can hold poses at a print cadence. In Object → Motion & drift, choose Wiggle only to stagger the holds between discs or Whole print to step the geometry and color together.

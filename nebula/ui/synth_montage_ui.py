@@ -8,7 +8,7 @@ import time
 from collections import OrderedDict
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal, QObject, QRunnable, QThreadPool, QTimer, QRectF, QEvent, QSignalBlocker
+from PySide6.QtCore import Qt, Signal, QThreadPool, QTimer, QRectF, QEvent, QSignalBlocker
 from PySide6.QtGui import QImage, QPixmap, QIcon, QPainter, QColor, QPen, QAction, QKeySequence
 from PySide6.QtWidgets import (QMainWindow, QWidget, QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
     QLabel, QPushButton, QListWidget, QListWidgetItem, QSplitter, QScrollArea, QFrame,
@@ -16,13 +16,15 @@ from PySide6.QtWidgets import (QMainWindow, QWidget, QDialog, QVBoxLayout, QHBox
 
 from nebula.ui.studio_widgets import SpinBox, DoubleSpinBox, Slider, ComboBox
 from nebula.ui.synth_workspace_context import ContextHeader, ContextSummary, montage_context
-from nebula.core.media import Cancellation
+from nebula.ui.studio_task import Task
 from nebula.documents.synth_montage import (FORMAT, identifier, new_montage, normalize_montage, load_montage, save_montage,
     placements, source_duration, clip_project, add_asset, insert_clip, replace_clip, split_clip,
     treatment, apply_treatment, MontageRenderer, export_montage)
 from nebula.ui.synth_soundtrack_ui import SoundtrackLane, SoundtrackDialog
 from nebula.audio.synth_soundtrack_preview import SoundtrackPreview
 from nebula.ui.synth_output_ui import ExportSummaryButton, export_rows, PREVIEW_HINT, cache_caption
+from nebula.ui.synth_frame_export_ui import ExportButton, FrameExportDialog, PlayheadFrame
+from nebula.documents.synth_media import export_still
 from nebula.ui.synth_workspace_widgets import ElidingLabel, FlowLayout, inline
 from nebula.ui.studio_graphite import GRAPHITE
 from nebula.ui.synth_montage_material import ASSET_MIME, LibraryList
@@ -37,21 +39,6 @@ def image_packet(image): return image.size, image.convert('RGB').tobytes()
 def pixmap(packet):
     (w,h), data = packet
     return QPixmap.fromImage(QImage(data, w, h, w*3, QImage.Format.Format_RGB888).copy())
-
-
-class TaskSignals(QObject):
-    done = Signal(object)
-    failed = Signal(str)
-    progress = Signal(int, int)
-
-
-class Task(QRunnable):
-    def __init__(self, function):
-        super().__init__(); self.function = function; self.cancel = Cancellation(); self.signals = TaskSignals()
-
-    def run(self):
-        try: self.signals.done.emit(self.function(self.cancel, self.signals.progress.emit))
-        except Exception as error: self.signals.failed.emit(str(error))
 
 
 class ImageMonitor(QLabel):
@@ -396,7 +383,7 @@ class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
         top=QHBoxLayout(); brand=QLabel('nebula_  /  Montage'); brand.setObjectName('brand'); top.addWidget(brand)
         for label,method in [('Open',self.open_dialog),('Save',self.save),('Save as',lambda:self.save(True))]: self.button(label,method,top)
         self.undo_button=self.button('Undo',self.undo,top); self.redo_button=self.button('Redo',self.redo,top)
-        top.addStretch(); self.export_button=self.button('Export MP4',self.export_dialog,top); self.export_button.setObjectName('primary')
+        top.addStretch(); self.export_button=ExportButton(self.export_dialog,self.export_frame_dialog); top.addWidget(self.export_button)
         self.export_summary=ExportSummaryButton(self,self.export_summary_rows,self.export_button); top.addWidget(self.export_summary); layout.addLayout(top)
         self.context_header=ContextHeader(); layout.addWidget(self.context_header)
         split=QSplitter(); layout.addWidget(split,1)
@@ -420,7 +407,9 @@ class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
         split.addWidget(library)
         center=QWidget(); middle=QVBoxLayout(center); self.monitor=ImageMonitor('Import videos or a study to begin'); middle.addWidget(self.monitor,1)
         transport=QHBoxLayout(); self.play=self.button('Play',self.toggle_play,transport); self.scrub=Slider(Qt.Orientation.Horizontal); self.scrub.setAccessibleName('Montage playhead'); transport.addWidget(self.scrub,1)
-        self.timecode=QLabel(); transport.addWidget(self.timecode); self.detail=ComboBox(); self.detail.addItems(['360 px','720 px','Full canvas']); self.detail.setAccessibleName('Preview resolution'); self.detail.setToolTip(PREVIEW_HINT); self.detail.currentIndexChanged.connect(self.preview_detail_changed)
+        self.timecode=QLabel(); transport.addWidget(self.timecode)
+        self.frame_number=PlayheadFrame(self.scrub,self.stop); transport.addWidget(self.frame_number)
+        self.detail=ComboBox(); self.detail.addItems(['360 px','720 px','Full canvas']); self.detail.setAccessibleName('Preview resolution'); self.detail.setToolTip(PREVIEW_HINT); self.detail.currentIndexChanged.connect(self.preview_detail_changed)
         middle.addLayout(transport); self.scrub.valueChanged.connect(self.seek)
         detail_host=QWidget(); detail_flow=FlowLayout(detail_host,spacing=6)
         self.preview_dimensions=QLabel(); self.preview_dimensions.setObjectName('monitorMeta')
@@ -515,6 +504,7 @@ class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
             if key: action.setShortcut(QKeySequence(key))
             action.triggered.connect(callback); menu.addAction(action)
             if label in ('Undo','Redo'): self.history_actions.append(action)
+        file_menu.addAction(self.export_button.frame_action)
 
     def guarded(self,function):
         try: return function()
@@ -559,6 +549,8 @@ class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
         self.selected.intersection_update(c['id'] for c in self.document['clips'])
         self.update_track_geometry()
         total=sum(c['frames'] for c in self.document['clips']); self.scrub.blockSignals(True); self.scrub.setRange(0,max(0,total-1)); self.scrub.blockSignals(False)
+        self.frame_number.setEnabled(bool(total))
+        self.export_button.setEnabled(bool(total) and self.export_task is None)
         marker_item=self.marker_list.currentItem()
         marker_identity=marker_item.data(Qt.ItemDataRole.UserRole+1) if marker_item else None
         with QSignalBlocker(self.marker_list):
@@ -594,6 +586,7 @@ class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
     def seek(self,frame):
         total=sum(c['frames'] for c in self.document['clips']); self.frame=max(0,min(int(frame),max(0,total-1)))
         self.scrub.blockSignals(True); self.scrub.setValue(self.frame); self.scrub.blockSignals(False)
+        self.frame_number.sync()
         self.timeline.frame=self.frame; self.timeline.update(); self.wave.set_time(self.frame/self.document['fps'])
         self.timecode.setText(f"{self.frame/self.document['fps']:.2f} / {total/self.document['fps']:.2f}s")
         if not self.timer.isActive(): self.audio.sync(self.frame/self.document['fps'],False)
@@ -901,13 +894,37 @@ class MontageWindow(MontageSelection, MontageBlockNavigation, QMainWindow):
         if path: self.start_export(path)
     def start_export(self,path):
         if not self.resolve_timing('exporting the montage'): return
-        self.stop(); doc=copy.deepcopy(self.document); self.export_button.setEnabled(False); self.progress.show(); self.progress.setValue(0); self.cancel_button.show()
-        self.status.setText('Rendering the complete montage at full canvas quality…')
+        self.stop(); doc=copy.deepcopy(self.document)
+        self.start_export_task(lambda c,p:export_montage(doc,path,c,p),'Rendering the complete montage at full canvas quality…')
+
+    def export_frame_dialog(self):
+        if self.export_task or not self.document['clips']: return
+        self.stop()
+        if not self.resolve_timing('exporting a frame'): return
+        frame = self.frame
+        doc = copy.deepcopy(self.document)
+        def render(size, cancel):
+            with MontageRenderer(doc, cancel) as renderer:
+                return renderer.frame(frame, size)
+        suggested = (self.path or Path.home() / 'Montage').with_suffix('.png')
+        options = FrameExportDialog.choose(self, suggested, doc['canvas'], frame, doc['fps'], 'Montage', render)
+        if not options: return
+        path, size, quality = options
+        from nebula.documents.synth_montage import protect_destination
+        try:
+            protect_destination(doc, path)
+        except ValueError as error:
+            self.status.setText(str(error)); return
+        self.start_export_task(lambda c,p:export_still(render,path,size,quality,c),f'Exporting frame {frame}…')
+
+    def start_export_task(self,function,label):
+        self.export_button.setEnabled(False); self.progress.show(); self.progress.setValue(0); self.cancel_button.show()
+        self.status.setText(label)
         def finished(value):
-            self.export_task=None; self.export_button.setEnabled(True); self.progress.hide(); self.cancel_button.hide(); self.status.setText(f'Export complete: {value}')
+            self.export_task=None; self.export_button.setEnabled(bool(self.document['clips'])); self.progress.hide(); self.cancel_button.hide(); self.status.setText(f'Export complete: {value}')
         def failed(error):
-            self.export_task=None; self.export_button.setEnabled(True); self.progress.hide(); self.cancel_button.hide(); self.status.setText(f'Export stopped: {error}')
-        task=self.task(lambda c,p:export_montage(doc,path,c,p),finished,failed); self.export_task=task
+            self.export_task=None; self.export_button.setEnabled(bool(self.document['clips'])); self.progress.hide(); self.cancel_button.hide(); self.status.setText(f'Export stopped: {error}')
+        task=self.task(function,finished,failed); self.export_task=task
         task.signals.progress.connect(lambda a,b:self.progress.setValue(round(a*100/b)))
     def cancel_export(self):
         if self.export_task: self.export_task.cancel.cancel()

@@ -37,6 +37,11 @@ waiting. **Changes pending** means the displayed image has not caught up with
 edits. Auto prepare can resume after export; the movie uses the project as it
 was when export started. Hover a shortened status to read its full text.
 
+**Frame** beside the timecode shows the absolute playhead position, starting at
+zero. Both readouts follow a seek immediately. Type a frame number and press
+Enter to jump there. In the composer, focus the monitor or scrubber and press
+Left or Right to step one frame in the playback scope. Hold Shift to step ten.
+
 ## Prepare frames
 
 Choose a frame count beside **Prepare range**, position the playhead, then prepare.
@@ -108,6 +113,17 @@ include the time it happened and these logs alongside a screenshot or recording.
 If `NEBULA_STATE_DIR` is set, logs go there instead.
 
 ## Export details
+
+Choose **Export frame…** from the arrow beside **Export MP4** or from **File**.
+The dialog pins the playhead frame and working edits when it opens. It shows a
+thumbnail, frame number, time and output dimensions. **Full canvas** is selected
+each time. **360 px** and **720 px** limit the longest edge while keeping the
+canvas proportions. PNG preserves the rendered pixels. JPEG offers adjustable
+quality. The suggested filename includes the zero-based frame number.
+
+With A/B comparison active, the still uses working B. In a Montage, the still
+uses the montage playhead. Inside a block editor it uses the open block's local
+frame, as shown in the save dialog.
 
 **Details** beside Export MP4 shows the full document, dimensions, FPS, duration
 and audio route. Inside a Montage block, it describes the parent Montage, whose
