@@ -51,6 +51,7 @@ from nebula.effects.synth_profile import render_silhouette, render_edge_phosphor
 from nebula.effects.synth_profile_v1 import render_edge_phosphor as render_edge_phosphor_v1
 from nebula.documents.synth_compat import CURRENT_RENDER_VERSION, frozen_data, frozen_defaults, render_version
 from nebula.sources.synth_artwork import validate_artwork
+from nebula.sources.synth_folded_gradient import validate_design
 from nebula.sources.synth_mesh import validate_mesh
 from nebula.effects.synth_jitter import render_frame_jitter
 from nebula.core.synth_resolution import finish_resolution, render_resolution
@@ -883,6 +884,9 @@ def normalize_synth(raw=None):
                 continue
             if spec.kind == 'text':
                 params[spec.key] = validate_text(value)
+                continue
+            if spec.kind == 'polar':
+                params[spec.key] = validate_design(value)
                 continue
             if spec.kind == 'mesh':
                 params[spec.key] = validate_mesh(value)

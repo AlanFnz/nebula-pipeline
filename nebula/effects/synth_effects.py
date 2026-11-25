@@ -11,6 +11,7 @@ from dataclasses import dataclass, replace
 
 from nebula.render.synth import MODULE_BY_ID, Param, curated_presets
 from nebula.sources.synth_artwork import validate_artwork
+from nebula.sources.synth_folded_gradient import validate_design
 from nebula.sources.synth_mesh import validate_mesh
 from nebula.sources.synth_text import validate_text
 from nebula.sources.synth_fonts import validate_font
@@ -55,7 +56,7 @@ EFFECTS = (
     Effect('prismatic_field', 'Prismatic field', 'Crossed color planes open, turn and gather into a polygon. Geometry, fold rhythm, palette and moving color clouds are independent controls.', paths('prismatic_field'), ('prismatic_field',)),
     Effect('film_emulsion', 'Color emulsion', 'Soft optical edges, local color bleed, registration fringes and fresh colored grain. Works with objects, text and footage. Defaults to late image finishing.', paths('film_emulsion'), ('film_emulsion',), looks=(('Soft optical film', {}), ('Fine grain', {'film_emulsion.grain': .04, 'film_emulsion.grain_size': .7, 'film_emulsion.softness': 1.}), ('Rough emulsion', {'film_emulsion.grain': .12, 'film_emulsion.grain_size': 1.6, 'film_emulsion.registration': 4.}))),
     Effect('contour_melt', 'Contour melt', 'Luminous double contours and drifting solid-to-hollow exposure, with soft glow and emulsion grain. Works on text, shapes and footage.', paths('contour_melt'), ('contour_melt',)),
-    Effect('radial_bloom', 'Radial bloom', 'Branching crowns or nested gradient discs. Discs have separate color and motion cycles. Flow, center drift, palette and optical softness are independent controls. Ray vibration bends the rays from their origin; audio can drive its intensity, expansion, detail and light.', paths('radial_bloom'), ('radial_bloom',)),
+    Effect('radial_bloom', 'Radial bloom', 'Branching crowns, nested gradient discs or a folded rosette with editable rays and inks. Discs have separate color and motion cycles. Flow, center drift, palette and optical softness are independent controls. Ray vibration bends the rays from their origin; audio can drive its intensity, expansion, detail and light.', paths('radial_bloom'), ('radial_bloom',)),
     Effect('scan_modulation', 'Scan modulation', 'Interrupt source rows with coupled oscillators, color-lock failures and bright points. Apply to the whole picture, highlights or a color range; Selection view helps tune the key. Works with footage, text and generated objects.', paths('scan_modulation'), ('scan_modulation',)),
     Effect('signal_repetition', 'Signal repetition', 'Compress and repeat source fragments inside an image selection. Moving scan bands, silhouette-following contours and colored fringes work with footage, text or generated objects.', paths('signal_repetition'), ('signal_repetition',),
            looks=(('Dense signal', {}), ('Broad echoes', {'signal_repetition.spacing': 120., 'signal_repetition.sample_width': 280., 'signal_repetition.wave': 24.}), ('Fine comb', {'signal_repetition.spacing': 22., 'signal_repetition.sample_width': 300., 'signal_repetition.wave': 8.}),
@@ -190,6 +191,9 @@ def normalize_effects(raw):
                 continue
             if spec.kind == 'text':
                 values[path] = validate_text(value)
+                continue
+            if spec.kind == 'polar':
+                values[path] = validate_design(value)
                 continue
             if spec.kind == 'mesh':
                 values[path] = validate_mesh(value)

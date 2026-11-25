@@ -43,7 +43,7 @@ def print_time(p, seconds):
 
 
 def gradient_parameters(P):
-    yield P('pattern', 'Pattern', 0, 0, 1, 1, choices=('Branching crowns', 'Nested gradients'))
+    yield P('pattern', 'Pattern', 0, 0, 2, 1, choices=('Branching crowns', 'Nested gradients', 'Folded rosette'))
     yield P('copies', 'Disc count', 14, 1, 48, 1)
     yield P('copy_scale', 'Scale per copy', .80, .45, .98, .001, 'Radius of each disc relative to the one beneath it.')
     yield P('copy_angle', 'Turn per copy', 12., -180, 180, .1, 'Degrees of rotation between neighboring discs.')
@@ -55,14 +55,14 @@ def gradient_parameters(P):
     yield P('focus_x', 'Gradient focus X', .4, -8, 8, .01, 'Position of the gradient inside each disc, in disc radii.')
     yield P('focus_y', 'Gradient focus Y', .3, -8, 8, .01)
     yield P('spread', 'Gradient spread', .65, -3, 3, .001, 'Palette cycles per disc radius.')
-    yield P('cycle', 'Color cycle (s)', 8., .25, 120, .01, 'Seconds per turn of the palette at normal speed.')
+    yield P('cycle', 'Color cycle (s)', 8., .25, 120, .01, 'Seconds per palette turn in Nested gradients or per pass through the poses of a Folded rosette.')
     yield P('direction', 'Color direction', 0, 0, 2, 1, choices=('Forward', 'Reverse', 'Hold'))
     yield P('pace_swing', 'Cycle easing', 0., 0, 1, .01, 'Vary the speed within each color cycle.')
     yield P('ease_phase', 'Easing phase', 0., 0, 1, .01)
     yield P('falloff', 'Gradient falloff', 1., .2, 3, .01, 'Shape the transition from the focus to the rim.')
     yield P('motion_period', 'Disc cycle (s)', 8., .25, 120, .01, 'Time to reach the other pose and return.')
     yield P('motion_ease', 'Disc easing', 0., -1, 1, .01, 'Adjust the acceleration between the two poses.')
-    yield P('motion_phase', 'Disc phase', 0., 0, 1, .001)
+    yield P('motion_phase', 'Disc phase', 0., 0, 1, .001, 'Starting point in the movement. In a folded rosette, Hold lets you select an individual pose.')
     yield P('pan_x', 'Center travel X', 0., -3, 3, .001, 'Horizontal distance from the starting center to its farthest point, in artwork edges.')
     yield P('pan_y', 'Center travel Y', 0., -3, 3, .001)
     yield P('disc_travel_x', 'Disc travel X', 0., -2, 2, .001, 'Horizontal travel in each disc’s own rotated coordinates, in radii.')

@@ -8,14 +8,16 @@ from __future__ import annotations
 import numpy as np
 from PIL import Image, ImageFilter
 
+from nebula.sources import synth_folded_gradient as folded
 from nebula.core.synth_canvas import content_size, object_offset
 from nebula.sources.synth_radial_gradients import gradient_parameters, print_time, render_gradients, travel
 
 
 def modules(Module, P):
     return (Module('radial_bloom', 'Radial bloom',
-        'Branching crowns or nested gradient discs with independent motion and color.', (
+        'Branching crowns, nested gradient discs and folded gradient rosettes.', (
         *gradient_parameters(P),
+        *folded.parameters(P),
         P('expansion', 'Expansion', 1., .3, 3., .01, 'Scale the complete pattern. Audio can gently pulse this without changing the flow clock.'),
         P('petals', 'Petals', 18, 3, 48, 1),
         P('detail', 'Branch detail', .72, 0, 1, .01, 'Fine branching along the petal edges.'),
@@ -55,6 +57,8 @@ def radial_frame(p, size, seconds, preset):
     unit = max(1., min(cw, ch))
     ox, oy = object_offset(preset, (w, h))
     t = float(seconds) * preset.get('speed', 1.)
+    if p.get('pattern') == 2:
+        return (w*.5 + ox + p['center_x']*unit, h*.5 + oy + p['center_y']*unit), unit
     if p.get('pattern') == 1:
         movement = travel(p, print_time(p, t))
         return (w*.5 + ox + (p['center_x'] + movement*p['pan_x'])*unit,
@@ -88,6 +92,8 @@ def render_radial_bloom(arr, p, seconds, preset):
     h, w = arr.shape[:2]
     (cx, cy), unit = radial_frame(p, (w, h), seconds, preset)
     t = float(seconds) * preset.get('speed', 1.)
+    if p.get('pattern') == 2:
+        return folded.render_folded(p, (w, h), (cx, cy), unit, t)
     if p.get('pattern') == 1:
         return render_gradients(p, (w, h), (cx, cy), unit, t)
     y, x = np.mgrid[:h, :w].astype(np.float32)

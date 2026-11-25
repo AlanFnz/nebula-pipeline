@@ -14,6 +14,8 @@ from nebula.render.synth_instances import base_path
 from nebula.effects.synth_intensity import PATHS
 
 TARGETS = frozenset({
+    'radial_bloom.core_scale', 'radial_bloom.ray_scale', 'radial_bloom.aperture_scale',
+    'radial_bloom.ray_sharpness', 'radial_bloom.fan_width', 'radial_bloom.motion_phase',
     'text.scroll_position', 'text.scroll_rate', 'text.scroll_bottom',
     'curved_screen.angle', 'curved_screen.curve', 'curved_screen.scale', 'curved_screen.grid',
     'curved_screen.vibration', 'curved_screen.flutter', 'curved_screen.breathing', 'curved_screen.boil',

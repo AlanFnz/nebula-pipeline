@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.140.0 · 2026-11-25
+
+Radial bloom adds a Folded rosette pattern. Animate mirrored gradient stops, adjust the center, rays and outer facets separately, and recolor the eight inks from Object. Gradient designs travel with the project.
+
 ## 0.139.0 · 2026-11-25
 
 Suspended rings can carry an infinity loop on the center axis. Choose its shape, stroke radius and crossing depth in Object, then select the center piece to adjust its material and independent rotation.

@@ -10,6 +10,7 @@ from nebula.ui.studio_widgets import Slider, configure_parameter_spin, parameter
 from nebula.effects.synth_effects import parameter
 from nebula.ui.synth_artwork_ui import ArtworkControl
 from nebula.ui.synth_mesh_ui import MeshControl
+from nebula.ui.synth_polar_design_ui import PolarDesignControl
 from nebula.ui.synth_text_ui import TextControl
 from nebula.ui.synth_font_ui import FontControl
 from nebula.sources.synth_fonts import font_label
@@ -43,6 +44,7 @@ def format_value(path, value):
     spec = parameter(path)
     if spec.kind == 'font': return font_label(value, spec.choices)
     if spec.kind == 'text': return value.replace('\n', ' / ')[:60] or 'Empty text'
+    if spec.kind == 'polar': return 'Embedded gradient design' if value else 'Default gradient design'
     if spec.kind == 'mesh': return 'Embedded 3D model' if value else 'No model'
     if spec.kind == 'artwork': return 'Embedded artwork' if value else 'No artwork'
     if spec.choices:
@@ -90,8 +92,8 @@ class EffectParameter(QWidget):
             label_row.addWidget(self.hue_swatch)
         if spec.kind == 'font':
             self.input = FontControl(spec.choices); self.input.changed.connect(self.emit_change)
-        elif spec.kind in ('artwork', 'text', 'mesh'):
-            self.input = {'artwork': ArtworkControl, 'text': TextControl, 'mesh': MeshControl}[spec.kind]()
+        elif spec.kind in ('artwork', 'text', 'mesh', 'polar'):
+            self.input = {'artwork': ArtworkControl, 'text': TextControl, 'mesh': MeshControl, 'polar': PolarDesignControl}[spec.kind]()
             self.input.changed.connect(self.emit_change)
         elif self.presentation.checkbox:
             self.input = QCheckBox()
@@ -117,7 +119,7 @@ class EffectParameter(QWidget):
             self.slider.sliderMoved.connect(self.preview_slider)
             self.slider.valueChanged.connect(self.commit_slider)
             self.input.valueChanged.connect(self.sync_slider)
-        block_input = spec.kind in ('artwork', 'text', 'mesh', 'font')
+        block_input = spec.kind in ('artwork', 'text', 'mesh', 'font', 'polar')
         self._block_input = block_input
         self.input.setMinimumWidth(0 if block_input or spec.choices else 110)
         if self.slider:

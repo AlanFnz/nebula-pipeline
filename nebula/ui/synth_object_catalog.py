@@ -58,6 +58,7 @@ FAMILY_GROUPS = {
         ('Color & light', 'palette color_phase color_speed wash shading saturation light')),
     'radial': (
         ('Shape & detail', 'pattern expansion copies copy_scale copy_angle center_x center_y disc_x disc_y orientation petals detail branching'),
+        ('Folded rosette', 'fold_design core_scale ray_scale aperture_scale ray_sharpness fan_width'),
         ('Gradient', 'focus_x focus_y spread falloff'),
         ('Motion & drift', 'cycle direction motion_period motion_phase motion_ease wiggle_amount wiggle_lag_ms print_cadence step_scope pan_x pan_y disc_travel_x disc_travel_y rotation pace_swing ease_phase flow variation phase center_drift drift_speed'),
         ('Ray vibration', 'vibration vibration_speed vibration_wavelength vibration_irregularity'),

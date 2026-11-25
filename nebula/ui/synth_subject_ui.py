@@ -153,7 +153,7 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
             keys = lattice_colors(params)
         elif self.kind == 'radial':
             from nebula.sources.synth_blender_colors import RADIAL_COLORS
-            keys = tuple(spec.key for spec in RADIAL_COLORS) if params.get('pattern') == 1 else ()
+            keys = tuple(spec.key for spec in RADIAL_COLORS) if params.get('pattern') in (1, 2) else ()
         else: keys = scene_colors(params, self.part_selector.currentData())
         if (keys and self.kind in ('lattice', 'radial') and self.palette_context_provider
                 and (not query or query in 'color palette skin presets')):
@@ -287,7 +287,7 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
         with QSignalBlocker(self.selector): self.selector.setCurrentIndex(self.selector.findData(self.kind))
         self.restore.setEnabled(any(entries.get(key, {}).get('mode', 'recipe') != 'recipe' for key in SOURCE_EFFECTS))
         scope = 'this clip' if local else 'the composition'
-        notes = {'prismatic': 'Choose the final shape and its placement. Transition easing and Turn settle shape the authored movements. Folds & motion contains the fold rhythm and rotation; Color & light contains the color drift. Color emulsion adds the film texture separately.', 'radial': 'Choose branching crowns or nested gradient discs. For discs, adjust the center, turn between copies, color swatches and cycle time.', 'silhouette': 'A fixed human silhouette. Adjust its pose and framing here; Edge phosphor and Scan drag treat its outline.',
+        notes = {'prismatic': 'Choose the final shape and its placement. Transition easing and Turn settle shape the authored movements. Folds & motion contains the fold rhythm and rotation; Color & light contains the color drift. Color emulsion adds the film texture separately.', 'radial': 'Choose crowns, nested discs or a folded rosette. For the rosette, edit the rays, center, aperture, inks and travel time.', 'silhouette': 'A fixed human silhouette. Adjust its pose and framing here; Edge phosphor and Scan drag treat its outline.',
                  'text': 'Text edits the typeface, main wording and subtitle. The typeface applies to both text blocks. Layout controls size, spacing, frame and placement; Motion controls word changes and animation. Effects treats the resulting image.',
                  'ink': 'Edit the printed silhouette here. Its unfold, turn and refold motion stays with it.',
                  'particles': 'The model is the target of the particles. Adjust its size, pose and point density here.',
@@ -396,12 +396,24 @@ class SubjectPanel(ObjectGroupsMixin, QWidget):
             return low == high and low != value
         if self.kind == 'radial':
             from nebula.sources.synth_radial_gradients import CROWN_ONLY, SHARED
+            from nebula.sources.synth_folded_gradient import DESIGN_CONTROLS, SHARED_CONTROLS
             modes = summary['radial_bloom']['ranges']['radial_bloom.pattern']
             if modes[0] == modes[1]:
                 for path in self.controls:
                     key = path.split('.', 1)[1]
-                    if key not in SHARED and (key in CROWN_ONLY) == bool(modes[0]):
+                    if modes[0] == 2:
+                        ink = key.startswith('stop_') and not key.endswith('_position')
+                        if key not in DESIGN_CONTROLS | SHARED_CONTROLS and not ink:
+                            hide(path)
+                    elif key in DESIGN_CONTROLS or (key not in SHARED and (key in CROWN_ONLY) == bool(modes[0])):
                         hide(path)
+            labels = {'center_x': 'Center X', 'center_y': 'Center Y', 'petals': 'Ray count',
+                      'cycle': 'Travel time (s)', 'direction': 'Travel direction', 'motion_phase': 'Starting pose'}
+            for key, title in labels.items():
+                control = self.controls['radial_bloom.' + key]
+                label = title if modes == (2, 2) else control.spec.label
+                control.label.setText(label)
+                control.input.setAccessibleName(label)
         if self.kind == 'memory' and selected('image_memory', 'shape', 2): hide('image_memory.sides')
         if self.kind == 'blender':
             from nebula.sources.synth_blender_parts import PARTS, parts_for

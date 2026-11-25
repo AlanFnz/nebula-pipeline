@@ -50,6 +50,7 @@ from nebula.documents.synth_starting_points import new_piece
 from nebula.ui.synth_font_ui import FontControl
 from nebula.ui.synth_artwork_ui import ArtworkControl
 from nebula.ui.synth_mesh_ui import MeshControl
+from nebula.ui.synth_polar_design_ui import PolarDesignControl
 from nebula.ui.synth_text_ui import TextControl
 from nebula.sources.synth_text import validate_text
 from nebula.effects.synth_master import normalize_master
@@ -75,8 +76,8 @@ class SynthControl(QWidget):
         self.spec = spec
         self.lock = QCheckBox("lock")
         self.lock.setToolTip("Keep this parameter fixed when Generate variation is pressed.")
-        if spec.kind in ('artwork', 'text', 'mesh', 'font'):
-            self.spin = FontControl(spec.choices) if spec.kind == 'font' else {'artwork': ArtworkControl, 'text': TextControl, 'mesh': MeshControl}[spec.kind]()
+        if spec.kind in ('artwork', 'text', 'mesh', 'font', 'polar'):
+            self.spin = FontControl(spec.choices) if spec.kind == 'font' else {'artwork': ArtworkControl, 'text': TextControl, 'mesh': MeshControl, 'polar': PolarDesignControl}[spec.kind]()
             self.spin.setValue(value)
             self.spin.changed.connect(lambda _value: self.changed.emit())
             layout = QVBoxLayout(self); layout.addWidget(QLabel(spec.label)); layout.addWidget(self.spin)
@@ -2680,7 +2681,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
             self.sequence_state_updating = True
             try:
                 for path, control in self.sequence_state_controls.items():
-                    if control.lock.isChecked() or control.spec.kind in ('artwork', 'text', 'mesh', 'font'): continue
+                    if control.lock.isChecked() or control.spec.kind in ('artwork', 'text', 'mesh', 'font', 'polar'): continue
                     spec = control.spec
                     delta = (spec.maximum - spec.minimum) * .12
                     value = max(spec.minimum, min(spec.maximum, control.value() + rng.uniform(-delta, delta)))
@@ -2698,7 +2699,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         with QSignalBlocker(self.global_controls["seed"]):
             self.global_controls["seed"].setValue(self.preset["seed"])
         for (index, key), control in self.controls.items():
-            if control.lock.isChecked() or control.spec.kind in ('artwork', 'text', 'mesh', 'font'): continue
+            if control.lock.isChecked() or control.spec.kind in ('artwork', 'text', 'mesh', 'font', 'polar'): continue
             spec = control.spec
             if spec.kind == "float": control.set_value(round(rng.uniform(spec.minimum, spec.maximum) / spec.step) * spec.step)
             else: control.set_value(rng.randint(int(spec.minimum), int(spec.maximum)))
