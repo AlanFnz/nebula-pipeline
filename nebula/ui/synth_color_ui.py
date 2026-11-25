@@ -3,12 +3,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QAction, QColor
+from PySide6.QtCore import Qt, Signal, QSize
+from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import (QWidget, QFrame, QLabel, QPushButton, QVBoxLayout,
                                QHBoxLayout, QGridLayout, QDialog, QColorDialog,
                                QDialogButtonBox)
 from nebula.ui.studio_widgets import ComboBox
+from nebula.sources.synth_palettes import SHARED_PALETTES
 
 
 @dataclass(frozen=True)
@@ -34,6 +35,17 @@ def display_color(hsv):
     import colorsys
     rgb = colorsys.hsv_to_rgb(*hsv)
     return QColor.fromRgbF(*(min(1., max(0., value)) for value in rgb))
+
+
+def palette_icon(colors):
+    image = QPixmap(80, 18)
+    painter = QPainter(image)
+    for index, color in enumerate(colors):
+        left = index * image.width() // len(colors)
+        right = (index + 1) * image.width() // len(colors)
+        painter.fillRect(left, 0, right - left, image.height(), display_color(color))
+    painter.end()
+    return QIcon(image)
 
 
 def swatch_style(color):
@@ -64,19 +76,29 @@ class ColorPicker(QDialog):
         self.scope_note = QLabel(); self.scope_note.setObjectName('muted'); self.scope_note.setWordWrap(True)
         layout.addWidget(self.scope_note)
         self.scope.currentIndexChanged.connect(self.update_scope_note); self.update_scope_note()
-        layout.addWidget(QLabel('Colors in this project'))
+        swatch_row = QHBoxLayout()
+        swatch_row.addWidget(QLabel('Swatches'))
+        self.swatch_source = ComboBox()
+        self.swatch_source.setAccessibleName('Swatch palette')
+        self.swatch_source.setIconSize(QSize(64, 15))
+        self.swatch_source.addItem('Project colors')
+        for palette in SHARED_PALETTES:
+            self.swatch_source.addItem(palette_icon(palette.colors), palette.label)
+        swatch_row.addWidget(self.swatch_source, 1)
+        layout.addLayout(swatch_row)
+        self.swatch_sets = (context['palette'], *(p.colors for p in SHARED_PALETTES))
         palette = QGridLayout(); palette.setSpacing(6)
         self.palette_buttons = []
-        for index, hsv in enumerate(context['palette']):
-            color = display_color(hsv)
+        for index in range(max(map(len, self.swatch_sets))):
             button = QPushButton(); button.setFixedSize(36, 30)
-            button.setStyleSheet(swatch_style(color))
-            button.setAccessibleName(f'Project color {color.name().upper()}')
-            button.setToolTip(f'{color.name().upper()} · use this project color')
-            button.clicked.connect(lambda checked=False, hsv=hsv: self.select_swatch(hsv))
+            button.setAutoDefault(False)
+            button.clicked.connect(lambda checked=False, i=index: self.select_swatch(
+                self.swatch_sets[self.swatch_source.currentIndex()][i]))
             palette.addWidget(button, index // 12, index % 12)
             self.palette_buttons.append(button)
         layout.addLayout(palette)
+        self.swatch_source.currentIndexChanged.connect(self.show_swatches)
+        self.show_swatches(0)
         self.picker = QColorDialog(display_color(self.original), self)
         self.picker.setOptions(QColorDialog.ColorDialogOption.DontUseNativeDialog |
                                QColorDialog.ColorDialogOption.NoButtons)
@@ -99,6 +121,18 @@ class ColorPicker(QDialog):
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Ok)
         buttons.button(QDialogButtonBox.StandardButton.Ok).setText('Apply color')
         buttons.accepted.connect(self.accept); buttons.rejected.connect(self.reject); layout.addWidget(buttons)
+
+    def show_swatches(self, index):
+        colors = self.swatch_sets[index]
+        label = self.swatch_source.itemText(index) if index else 'Project'
+        for i, button in enumerate(self.palette_buttons):
+            button.setVisible(i < len(colors))
+            if i < len(colors):
+                color = display_color(colors[i])
+                button.setStyleSheet(swatch_style(color))
+                name = f'{label} color {color.name().upper()}'
+                button.setAccessibleName(name)
+                button.setToolTip(name)
 
     def update_scope_note(self):
         if 'scope_note' in self.context:

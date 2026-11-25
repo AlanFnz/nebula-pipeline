@@ -9,6 +9,7 @@ import numpy as np
 from PIL import Image, ImageFilter
 
 from nebula.sources import synth_folded_gradient as folded
+from nebula.sources.synth_palettes import PaletteTable
 from nebula.core.synth_canvas import content_size, object_offset
 from nebula.sources.synth_radial_gradients import gradient_parameters, print_time, render_gradients, travel
 
@@ -28,7 +29,7 @@ def modules(Module, P):
         P('phase', 'Starting phase', .12, 0, 1, .01),
         P('center_drift', 'Center drift', .28, 0, 1, .01),
         P('drift_speed', 'Drift speed', .3, 0, 2, .01),
-        P('palette', 'Palette', 0, 0, 2, 1, choices=('Dusty cyan / rose', 'Violet / ember', 'Silver / ink')),
+        CROWN_PALETTES.parameter(P),
         P('color_phase', 'Color phase', .0, 0, 1, .01),
         P('color_speed', 'Color drift', .018, 0, .3, .001),
         P('light', 'Light', 1., 0, 2, .01),
@@ -41,14 +42,15 @@ def modules(Module, P):
     )),)
 
 
-PALETTES = (
-    ((.16,.22,.29),(.29,.34,.43),(.40,.43,.59),(.58,.44,.64),
-     (.69,.51,.62),(.37,.64,.75),(.66,.73,.76),(.75,.74,.68),(.29,.48,.61)),
-    ((.12,.10,.23),(.32,.20,.41),(.59,.26,.52),(.85,.40,.45),
-     (.92,.64,.43),(.64,.45,.62),(.48,.43,.67),(.70,.65,.78),(.25,.28,.48)),
-    ((.08,.11,.15),(.20,.24,.28),(.42,.46,.51),(.71,.74,.75),
-     (.86,.85,.81),(.59,.64,.67),(.33,.40,.45),(.69,.75,.76),(.18,.23,.28)),
-)
+CROWN_PALETTES = PaletteTable((
+    ('Dusty cyan / rose', ((.16,.22,.29),(.29,.34,.43),(.40,.43,.59),(.58,.44,.64),
+                           (.69,.51,.62),(.37,.64,.75),(.66,.73,.76),(.75,.74,.68),(.29,.48,.61))),
+    ('Violet / ember', ((.12,.10,.23),(.32,.20,.41),(.59,.26,.52),(.85,.40,.45),
+                        (.92,.64,.43),(.64,.45,.62),(.48,.43,.67),(.70,.65,.78),(.25,.28,.48))),
+    ('Silver / ink', ((.08,.11,.15),(.20,.24,.28),(.42,.46,.51),(.71,.74,.75),
+                      (.86,.85,.81),(.59,.64,.67),(.33,.40,.45),(.69,.75,.76),(.18,.23,.28))),
+), slots=(4, 3, 2, 1, 0, 7, 6, 3, 5))
+PALETTES = np.asarray(CROWN_PALETTES.rgb, dtype=np.float32)
 
 
 def radial_frame(p, size, seconds, preset):
@@ -119,7 +121,7 @@ def render_radial_bloom(arr, p, seconds, preset):
     field += pulse*(.11+.10*p['branching'])*np.log(np.maximum(tooth,.008))
     forks = np.abs(tooth-.16*np.abs(np.sin(u*4)))
     field -= pulse*p['detail']*.07*np.log(np.maximum(forks,.006))
-    colors = np.asarray(PALETTES[int(p['palette'])], dtype=np.float32)
+    colors = PALETTES[int(p['palette'])]
     coordinate = field*3.35 + 9*(p['color_phase']+p['color_speed']*t)
     index = np.floor(coordinate).astype(np.int32)
     fraction = (coordinate-index)[...,None]

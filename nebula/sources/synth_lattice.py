@@ -11,6 +11,7 @@ from PIL import Image, ImageFilter
 from nebula.core.synth_canvas import content_size, object_offset
 from nebula.sources.synth_lattice_relief import parameters as relief_parameters
 from nebula.sources.synth_lattice_eye import parameters as eye_parameters
+from nebula.sources.synth_palettes import PaletteTable
 
 
 def modules(Module, P):
@@ -29,7 +30,7 @@ def modules(Module, P):
         P('direction', 'Travel direction', 0, 0, 1, 1, choices=('Inward', 'Outward')),
         P('angle', 'Wave orientation', 45., -180, 180, 1, 'Direction used by Parallel bands and Printed relief sweeps.'),
         P('pulse', 'Pulse depth', 1., 0, 1, .01, 'Zero holds every cell at Maximum size; color can keep moving.'),
-        P('palette', 'Palette', 0, 0, 3, 1, choices=('Neon spectrum', 'Ember / rose', 'Lagoon / violet', 'Pearl / silver')),
+        CELL_PALETTES.parameter(P),
         P('color_rhythm', 'Color timing', 0, 0, 1, 1, 'Musical phrase locks color changes and size pulses to one repeating beat cycle.', choices=('Free optical', 'Musical phrase')),
         P('bpm', 'Tempo (BPM)', 96., 30, 240, 1, 'Tempo at global speed 1. Applies in Musical phrase mode; generated notes follow the same clock.'),
         P('phrase_bars', 'Phrase length (4/4 bars)', 2, 1, 4, 1, 'Number of four-beat bars per visual phrase. Opening, color steps and return repeat together.'),
@@ -54,20 +55,21 @@ def modules(Module, P):
 # Three optical moods per palette; each has a cool face, transition and warm
 # edge. Keeping the gradient direction stable avoids flipping the light when
 # the palette travels through cyan and amber.
-PALETTES = np.asarray((
-    (((.28,.22,.60),(.92,.015,.35),(1.,.015,.07)),
-     ((.24,.28,.70),(.08,.70,.70),(1.,.65,.035)),
-     ((1.,.66,.055),(1.,.24,.015),(.96,.015,.025))),
-    (((.35,.10,.43),(.93,.06,.29),(1.,.35,.08)),
-     ((.64,.24,.48),(1.,.52,.39),(1.,.81,.42)),
-     ((.97,.59,.13),(.90,.14,.06),(.54,.025,.09))),
-    (((.25,.10,.65),(.09,.48,.76),(.10,.88,.78)),
-     ((.40,.25,.77),(.22,.71,.80),(.70,.89,.66)),
-     ((.44,.74,.86),(.36,.30,.68),(.16,.07,.38))),
-    (((.28,.34,.43),(.57,.66,.73),(.88,.91,.89)),
-     ((.59,.63,.68),(.83,.87,.88),(.94,.89,.78)),
-     ((.80,.80,.76),(.45,.49,.55),(.17,.21,.29))),
-), dtype=np.float32)
+CELL_PALETTES = PaletteTable((
+    ('Neon spectrum', ((.28,.22,.60),(.92,.015,.35),(1.,.015,.07),
+                       (.24,.28,.70),(.08,.70,.70),(1.,.65,.035),
+                       (1.,.66,.055),(1.,.24,.015),(.96,.015,.025))),
+    ('Ember / rose', ((.35,.10,.43),(.93,.06,.29),(1.,.35,.08),
+                      (.64,.24,.48),(1.,.52,.39),(1.,.81,.42),
+                      (.97,.59,.13),(.90,.14,.06),(.54,.025,.09))),
+    ('Lagoon / violet', ((.25,.10,.65),(.09,.48,.76),(.10,.88,.78),
+                         (.40,.25,.77),(.22,.71,.80),(.70,.89,.66),
+                         (.44,.74,.86),(.36,.30,.68),(.16,.07,.38))),
+    ('Pearl / silver', ((.28,.34,.43),(.57,.66,.73),(.88,.91,.89),
+                        (.59,.63,.68),(.83,.87,.88),(.94,.89,.78),
+                        (.80,.80,.76),(.45,.49,.55),(.17,.21,.29))),
+), slots=(3, 2, 1, 5, 6, 7, 2, 7, 0))
+PALETTES = np.asarray(CELL_PALETTES.rgb, dtype=np.float32).reshape(-1, 3, 3, 3)
 
 
 def lattice_frame(p, size, preset):

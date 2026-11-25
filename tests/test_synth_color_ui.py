@@ -7,6 +7,7 @@ import pytest
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QApplication, QDialog
 from nebula.ui.synth_color_ui import COLORS, ColorPicker, display_color
+from nebula.sources.synth_palettes import SHARED_PALETTES
 from nebula.documents.synth_composition import composition_from_sequence, normalize_composition, compile_composition
 from nebula.documents.synth_sequence import normalize_sequence, resolve_sequence_frame
 from test_synth_effects_editor_integration import make_window
@@ -134,4 +135,21 @@ def test_cards_and_numeric_animation_ranges_fit_without_editing(make_window, wid
     control = panel.controls['dye_transfer.paper_hue']
     assert control.animated_value.text().startswith('Study range')
     assert control.value_stack.currentWidget() == control.animated_value
+    assert not window.has_unsaved_changes()
+
+
+def test_browsing_shared_swatches_preserves_hdr_until_an_ink_is_chosen(make_window):
+    window = make_window(composition=document())
+    context = window.composer.color_context('paper')
+    dialog = ColorPicker(COLORS[0], context)
+    shared = SHARED_PALETTES[-1]
+    dialog.swatch_source.setCurrentText(shared.label)
+    assert dialog.selected_hsv() == context['hsv']
+    dialog.palette_buttons[2].click()
+    assert dialog.selected_hsv() == shared.colors[2]
+    dialog.swatch_source.setCurrentIndex(0)
+    assert dialog.selected_hsv() == shared.colors[2]
+    dialog.palette_buttons[0].click()
+    assert dialog.selected_hsv() == tuple(context['palette'][0])
+    dialog.reject()
     assert not window.has_unsaved_changes()

@@ -12,6 +12,7 @@ import numpy as np
 from PIL import Image, ImageFilter
 
 from nebula.core.synth_canvas import content_size, object_offset
+from nebula.sources.synth_palettes import PaletteTable
 
 MAX_TRACES = 96
 
@@ -37,7 +38,7 @@ def modules(Module, P):
         P('period', 'Motion period', 6.4, 2, 30, .1, 'Seconds per main turn at global speed 1. Wandering loops evolve over several turns.'),
         P('variation', 'Motion variation', .65, 0, 1, .01, 'Smooth changes of speed and curvature. No sudden position jumps.'),
         P('phase', 'Starting phase', .12, 0, 1, .01),
-        P('palette', 'Palette', 0, 0, 3, 1, choices=('Amber / lagoon', 'Rose / ultraviolet', 'Silver / phosphor', 'Ember / ink')),
+        MEMORY_PALETTES.parameter(P),
         P('color_speed', 'Color evolution', .10, 0, .5, .01, 'Color cycles per source second. Zero keeps the deposition color fixed; Aging color shift still colors older traces.'),
         P('color_shift', 'Aging color shift', .65, 0, 1, .01, 'How much remembered color changes as the traces age.'),
         P('light', 'Brightness', 1., 0, 2, .01),
@@ -49,12 +50,13 @@ def modules(Module, P):
 
 
 # Young highlights, intermediate pigment, and the cold residual memory.
-PALETTES = np.asarray((
-    ((1., .73, .29), (.91, .23, .15), (.04, .58, .60)),
-    ((1., .62, .79), (.60, .17, .69), (.13, .31, .87)),
-    ((.91, .97, .82), (.34, .77, .47), (.11, .39, .38)),
-    ((1., .81, .54), (.83, .25, .10), (.24, .17, .28)),
-), np.float32)
+MEMORY_PALETTES = PaletteTable((
+    ('Amber / lagoon', ((1., .73, .29), (.91, .23, .15), (.04, .58, .60))),
+    ('Rose / ultraviolet', ((1., .62, .79), (.60, .17, .69), (.13, .31, .87))),
+    ('Silver / phosphor', ((.91, .97, .82), (.34, .77, .47), (.11, .39, .38))),
+    ('Ember / ink', ((1., .81, .54), (.83, .25, .10), (.24, .17, .28))),
+), slots=(0, 2, 6))
+PALETTES = np.asarray(MEMORY_PALETTES.rgb, np.float32)
 
 
 def _smooth(x):

@@ -1,9 +1,17 @@
 """A compact palette menu with visual samples; applying remains document-owned."""
 from PySide6.QtCore import Signal, QSignalBlocker, QSize
-from PySide6.QtGui import QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel
 from nebula.ui.studio_widgets import ComboBox
-from nebula.ui.synth_color_ui import display_color
+from nebula.ui.synth_color_ui import palette_icon
+
+
+def add_parameter_choices(combo, spec):
+    combo.addItems(spec.choices)
+    if spec.swatches:
+        combo.setIconSize(QSize(56, 14))
+        for index, colors in enumerate(spec.swatches):
+            if colors:
+                combo.setItemIcon(index, palette_icon(colors))
 
 
 class PaletteSelector(QWidget):
@@ -38,13 +46,6 @@ class PaletteSelector(QWidget):
                     self.combo.addItem(inherit_label, 'inherit')
                 for palette in palettes:
                     colors = palette.colors if order is None else tuple(palette.colors[i] for i in order)
-                    image = QPixmap(80, 18)
-                    painter = QPainter(image)
-                    for index, color in enumerate(colors):
-                        left = index * image.width() // len(colors)
-                        right = (index + 1) * image.width() // len(colors)
-                        painter.fillRect(left, 0, right-left, image.height(), display_color(color))
-                    painter.end()
-                    self.combo.addItem(QIcon(image), palette.label, palette.key)
+                    self.combo.addItem(palette_icon(colors), palette.label, palette.key)
             self.combo.setCurrentIndex(max(0,self.combo.findData(key)))
         self.note.setText(note)

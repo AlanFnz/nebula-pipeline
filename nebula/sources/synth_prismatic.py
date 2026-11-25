@@ -9,6 +9,7 @@ import numpy as np
 from PIL import Image, ImageFilter
 
 from nebula.core.synth_canvas import content_size, object_offset
+from nebula.sources.synth_palettes import PaletteTable
 
 
 def modules(Module, P):
@@ -31,7 +32,7 @@ def modules(Module, P):
             P('turn_settle', 'Turn settle', 0., 0, 1, .01, 'Let an authored turn slightly pass its target, then settle back. Does not affect the color or grain.'),
             P('drift', 'Hinge drift', .1, 0, 1, .01),
             P('ribbon', 'Edge ribbon', .45, 0, 1, .01, 'A narrow secondary color plane travels beside the main fold.'),
-            P('palette', 'Palette', 0, 0, 2, 1, choices=('Optical green / violet', 'Warm film / rose', 'Silver / ink')),
+            OPTICAL_PALETTES.parameter(P),
             P('color_phase', 'Color phase', 0., 0, 1, .01),
             P('color_speed', 'Color drift', .16, 0, 1, .01, 'Palette cycles per second, independent of the fold motion.'),
             P('wash', 'Color clouds', .75, 0, 1, .01, 'Broad moving patches within the color planes.'),
@@ -55,18 +56,19 @@ def modules(Module, P):
     )
 
 
-PALETTES = (
-    ((.28,.65,.33),(.57,.74,.39),(.74,.67,.32),(.74,.18,.30),
-     (.58,.025,.48),(.23,.13,.45),(.16,.48,.48),(.33,.64,.39)),
-    ((.75,.52,.29),(.73,.36,.35),(.65,.17,.41),(.34,.14,.42),
-     (.27,.39,.40),(.48,.62,.42),(.71,.66,.38),(.75,.56,.40)),
-    ((.16,.18,.2),(.28,.3,.31),(.46,.47,.45),(.69,.68,.61),
-     (.76,.75,.68),(.55,.57,.56),(.32,.35,.36),(.18,.20,.23)),
-)
+OPTICAL_PALETTES = PaletteTable((
+    ('Optical green / violet', ((.28,.65,.33),(.57,.74,.39),(.74,.67,.32),(.74,.18,.30),
+                                (.58,.025,.48),(.23,.13,.45),(.16,.48,.48),(.33,.64,.39))),
+    ('Warm film / rose', ((.75,.52,.29),(.73,.36,.35),(.65,.17,.41),(.34,.14,.42),
+                          (.27,.39,.40),(.48,.62,.42),(.71,.66,.38),(.75,.56,.40))),
+    ('Silver / ink', ((.16,.18,.2),(.28,.3,.31),(.46,.47,.45),(.69,.68,.61),
+                      (.76,.75,.68),(.55,.57,.56),(.32,.35,.36),(.18,.20,.23))),
+))
+PALETTES = np.asarray(OPTICAL_PALETTES.rgb, dtype=np.float32)
 
 
 def _colors(coordinate, palette):
-    colors = np.asarray(PALETTES[int(palette)], np.float32)
+    colors = PALETTES[int(palette)]
     phase = coordinate * len(colors)
     index = np.floor(phase).astype(np.int32)
     blend = (phase-index)[...,None]

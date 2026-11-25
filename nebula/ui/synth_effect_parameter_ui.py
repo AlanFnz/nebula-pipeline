@@ -13,6 +13,7 @@ from nebula.ui.synth_mesh_ui import MeshControl
 from nebula.ui.synth_polar_design_ui import PolarDesignControl
 from nebula.ui.synth_text_ui import TextControl
 from nebula.ui.synth_font_ui import FontControl
+from nebula.ui.synth_palette_ui import add_parameter_choices
 from nebula.sources.synth_fonts import font_label
 from nebula.core.synth_ink_timing import DURATION_KEYS
 from nebula.ui.synth_parameter_presentation import presentation
@@ -99,7 +100,7 @@ class EffectParameter(QWidget):
             self.input = QCheckBox()
             self.input.toggled.connect(self.toggle_checkbox)
         elif spec.choices:
-            self.input = QComboBox(); self.input.addItems(spec.choices)
+            self.input = QComboBox(); add_parameter_choices(self.input, spec)
             self.input.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
             self.input.setMinimumContentsLength(12)
             self.input.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)

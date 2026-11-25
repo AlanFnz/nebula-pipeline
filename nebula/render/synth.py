@@ -46,7 +46,7 @@ from nebula.sources.synth_memory import modules as memory_modules, render_image_
 from nebula.sources.synth_tension import modules as tension_modules, render_signal_tension
 from nebula.effects.synth_dye_transfer import modules as dye_transfer_modules, render_dye_transfer
 from nebula.core.synth_canvas import content_size, normalize_canvas, source_framing, object_offset
-from nebula.effects.synth_print import MAX_PAPER_MOVEMENT, render_ink_bloom, render_print_surface
+from nebula.effects.synth_print import INK_PALETTE_MENU, MAX_PAPER_MOVEMENT, render_ink_bloom, render_print_surface
 from nebula.effects.synth_profile import render_silhouette, render_edge_phosphor, render_scan_drag
 from nebula.effects.synth_profile_v1 import render_edge_phosphor as render_edge_phosphor_v1
 from nebula.documents.synth_compat import CURRENT_RENDER_VERSION, frozen_data, frozen_defaults, render_version
@@ -72,6 +72,7 @@ class Param:
     kind: str = "float"
     hint: str = ""
     choices: tuple[str, ...] = ()
+    swatches: tuple = ()
 
 
 @dataclass(frozen=True)
@@ -82,13 +83,13 @@ class Module:
     params: tuple[Param, ...]
 
 
-def P(key, label, default, minimum=0, maximum=1, step=.01, hint="", kind=None, choices=()):
+def P(key, label, default, minimum=0, maximum=1, step=.01, hint="", kind=None, choices=(), swatches=()):
     if kind is None:
         integer_bounds = float(minimum).is_integer() and float(maximum).is_integer()
         kind = "int" if isinstance(default, int) and not isinstance(default, bool) and step == 1 and integer_bounds else "float"
     if kind == "int":
         step = 1
-    return Param(key, label, default, minimum, maximum, step, kind=kind, hint=hint, choices=choices)
+    return Param(key, label, default, minimum, maximum, step, kind=kind, hint=hint, choices=choices, swatches=swatches)
 
 
 SHAPES = ("Rectangle", "Ellipse", "Circle", "Polygon")
@@ -232,7 +233,7 @@ MODULES = (
         P("points", "Points per stamp", 12, 3, 32, 1),
         P("point_depth", "Point depth", .4, .05, .85, .01),
         P("irregularity", "Ragged shape", .72, 0, 1, .01, "Uneven tip lengths and notches; stable for a given take."),
-        P("palette", "Ink palette", 0, 0, 2, 1, choices=("CMY / white", "Warm print", "Monochrome")),
+        INK_PALETTE_MENU.parameter(P, 'Ink palette'),
         P("split_ink", "Split ink", 1., 0, 1, .01, "A second ink color on the edge of each impression."),
         P("back_ink", "Reverse-side ink", .9, 0, 1, .01, "Use the first palette ink on reverse faces, revealing the other colors as the cluster turns."),
         P("saturation", "Saturation", 1., 0, 1, .01),

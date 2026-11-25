@@ -48,6 +48,7 @@ from nebula.ui.synth_new_piece_ui import NewPieceDialog
 from nebula.ui.synth_add_section_ui import AddVideoSectionDialog
 from nebula.documents.synth_starting_points import new_piece
 from nebula.ui.synth_font_ui import FontControl
+from nebula.ui.synth_palette_ui import add_parameter_choices
 from nebula.ui.synth_artwork_ui import ArtworkControl
 from nebula.ui.synth_mesh_ui import MeshControl
 from nebula.ui.synth_polar_design_ui import PolarDesignControl
@@ -84,7 +85,7 @@ class SynthControl(QWidget):
             self.lock.setChecked(True); self.lock.hide()
             return
         if spec.choices:
-            self.spin = QComboBox(); self.spin.addItems(spec.choices); self.spin.setCurrentIndex(int(value))
+            self.spin = QComboBox(); add_parameter_choices(self.spin, spec); self.spin.setCurrentIndex(int(value))
             self.spin.currentIndexChanged.connect(lambda _value: self.changed.emit())
             layout = QVBoxLayout(self); layout.setContentsMargins(0, 3, 0, 4)
             label = QLabel(spec.label); label.setToolTip(spec.hint); layout.addWidget(label)

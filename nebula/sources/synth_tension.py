@@ -8,8 +8,16 @@ from __future__ import annotations
 import math
 import numpy as np
 from PIL import Image, ImageFilter
+from nebula.sources.synth_palettes import PaletteTable
 
 MAX_ECHOES = 5
+FILAMENT_PALETTES = PaletteTable((
+    ('Source colors', ()),
+    ('Copper / ice', ((1.,.44,.18),(.18,.87,1.))),
+    ('Violet / acid', ((.92,.22,1.),(.71,1.,.25))),
+    ('Silver / phosphor', ((.87,.97,1.),(.31,.94,.60))),
+), slots=(2, 6))
+FILAMENT_TINTS = np.asarray(FILAMENT_PALETTES.rgb[1:], np.float32)
 
 
 def modules(Module, P):
@@ -32,7 +40,7 @@ def modules(Module, P):
         P('registration', 'Layer offset', 0., 0, 1, .01, 'Small independent position and angle changes of the figure, pulled signal and echoes. Gives each impression its own registration.'),
         P('registration_fps', 'Offset cadence', 24., 1, 60, 1, 'Changes per second of Layer offset, at global speed 1. Lower values hold each offset longer; preview and export use the same clock.'),
         P('phase', 'Starting phase', 0., 0, 1, .01),
-        P('palette', 'Filament palette', 1, 0, 3, 1, choices=('Source colors', 'Copper / ice', 'Violet / acid', 'Silver / phosphor')),
+        FILAMENT_PALETTES.parameter(P, 'Filament palette', default=1),
         P('color', 'Filament color', .70, 0, 1, .01, 'Color added to pulled details and residual impressions. Zero retains the source colors.'),
         P('glow', 'Filament glow', .32, 0, 1, .01),
         P('region', 'Affected region', 0, 0, 1, 1, choices=('Highlights', 'Whole image')),
@@ -278,9 +286,7 @@ def render_signal_tension(arr, p, seconds, speed, seed, reference):
             echo,energy=deform(t-lag,i+1)
             trace+=echo*(energy*(1-age)**1.7*.27*float(_smooth((t-lag)/.3)))
     if p['palette']:
-        colors=np.array((((1.,.44,.18),(.18,.87,1.)),
-                         ((.92,.22,1.),(.71,1.,.25)),
-                         ((.87,.97,1.),(.31,.94,.60))),np.float32)[int(p['palette'])-1]
+        colors=FILAMENT_TINTS[int(p['palette'])-1]
         tint=colors[0]+(.5+.5*np.sin(v*8+t*.42+u*3))[...,None]*(colors[1]-colors[0])
         tintmix=p['color']*min(1.,force*1.8)
         live=live*(1-tintmix)+live.max(axis=2)[...,None]*tint*tintmix

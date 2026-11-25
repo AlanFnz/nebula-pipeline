@@ -12,6 +12,7 @@ import numpy as np
 from PIL import Image, ImageFilter
 
 from nebula.core.synth_canvas import content_size, object_offset
+from nebula.sources.synth_palettes import PaletteTable
 
 
 def modules(Module, P):
@@ -45,7 +46,7 @@ def modules(Module, P):
         P('flow', 'Surface flow', .16, -2, 2, .01, 'Cycles per second, independent of the camera choreography.'),
         P('cadence', 'Motion FPS', 12., 1, 60, 1),
         P('loop_seconds', 'Surface loop duration', 0., 0, 3600, .1, 'Zero keeps the original drift. A duration makes the surface and background oscillations periodic; camera keyframes must also return to their starting pose.'),
-        P('palette', 'Palette', 0, 0, 4, 1, choices=('Violet / tangerine', 'Teal / coral', 'Ink / parchment', 'Rose / midnight', 'Filmed violet / orange')),
+        FOLD_PALETTES.parameter(P),
         P('hue_shift', 'Palette rotation', 0., -1, 1, .01),
         P('saturation', 'Saturation', 1., 0, 1.5, .01),
         P('light', 'Exposure', 1., 0, 2, .01),
@@ -59,13 +60,13 @@ def modules(Module, P):
     )),)
 
 
-PALETTES = (
-    ((.32,.14,.88), (1.,.58,.78), (1.,.40,.035), (1.,.255,.015), (.96,.015,.46)),
-    ((.015,.49,.53), (.72,.97,.84), (1.,.63,.33), (.94,.27,.18), (.63,.09,.28)),
-    ((.13,.12,.19), (.80,.77,.66), (.42,.36,.27), (.83,.79,.67), (.56,.49,.43)),
-    ((.67,.035,.36), (.97,.67,.61), (.49,.21,.83), (.055,.03,.15), (.19,.07,.36)),
-    ((.43,.27,.92), (1.,.64,.76), (1.,.40,.035), (1.,.27,.02), (.97,.02,.50)),
-)
+FOLD_PALETTES = PaletteTable((
+    ('Violet / tangerine', ((.32,.14,.88), (1.,.58,.78), (1.,.40,.035), (1.,.255,.015), (.96,.015,.46))),
+    ('Teal / coral', ((.015,.49,.53), (.72,.97,.84), (1.,.63,.33), (.94,.27,.18), (.63,.09,.28))),
+    ('Ink / parchment', ((.13,.12,.19), (.80,.77,.66), (.42,.36,.27), (.83,.79,.67), (.56,.49,.43))),
+    ('Rose / midnight', ((.67,.035,.36), (.97,.67,.61), (.49,.21,.83), (.055,.03,.15), (.19,.07,.36))),
+    ('Filmed violet / orange', ((.43,.27,.92), (1.,.64,.76), (1.,.40,.035), (1.,.27,.02), (.97,.02,.50))),
+), slots=(3, 0, 2, 6, 5))
 
 
 def _height(u, v, p):
@@ -87,7 +88,7 @@ def _height(u, v, p):
 
 
 def _palette(p):
-    colors = np.asarray(PALETTES[int(p['palette'])], np.float32).copy()
+    colors = np.array(FOLD_PALETTES.rgb[int(p['palette'])], np.float32)
     for i, color in enumerate(colors):
         h,s,v = colorsys.rgb_to_hsv(*map(float,color))
         colors[i] = colorsys.hsv_to_rgb((h+p['hue_shift'])%1, min(1.,s*p['saturation']),v)

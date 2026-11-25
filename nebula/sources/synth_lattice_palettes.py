@@ -5,7 +5,7 @@ painting materials, not prescribed religious color schemes. No render defaults
 or effect activation change when the menu is opened.
 """
 from dataclasses import dataclass
-from nebula.sources.synth_palettes import Palette, hsv, matches_ranges
+from nebula.sources.synth_palettes import Palette, SHARED_PALETTES, hsv, matches_ranges
 
 
 @dataclass(frozen=True)
@@ -15,6 +15,12 @@ class LatticePalette(Palette):
 
 def palette(key, label, colors, accents):
     return LatticePalette(key, label, tuple(map(hsv, colors)), accents)
+
+
+def printed_palette(p):
+    # Face A, face B, paper, eye and ink; Broadcast uses the same field and accents.
+    colors = tuple(p.colors[i] for i in (2, 6, 5, 0, 4))
+    return LatticePalette(p.key, p.label, colors, tuple(p.colors[i][0] for i in (5, 2, 6)))
 
 
 PALETTES = (
@@ -31,7 +37,7 @@ PALETTES = (
             ('#CC83A2','#DDD0AC','#30212F','#F0DFCF','#21131D'),(.94,.94,.09)),
     palette('mineral', 'Turquoise / vermilion',
             ('#4BA8AE','#D16C52','#172831','#E6D3A5','#102129'),(.58,.50,.04)),
-)
+) + tuple(printed_palette(p) for p in SHARED_PALETTES)
 
 
 def palette_values(key, *, eye=True, broadcast=False):

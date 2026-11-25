@@ -12,13 +12,15 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 from nebula.sources.synth_artwork import decode_artwork, project_artwork
 from nebula.core.synth_ink_timing import gesture_phase
+from nebula.sources.synth_palettes import PaletteTable
 
 
-INK_PALETTES = (
-    ((.89, .18, .75), (.015, .72, .87), (.99, .94, .37), (.93, .96, .94)),
-    ((.94, .31, .12), (.08, .44, .72), (.97, .81, .43), (.96, .93, .82)),
-    ((.94, .94, .88), (.64, .66, .60), (.92, .91, .81), (.98, .98, .94)),
-)
+INK_PALETTE_MENU = PaletteTable((
+    ('CMY / white', ((.89, .18, .75), (.015, .72, .87), (.99, .94, .37), (.93, .96, .94))),
+    ('Warm print', ((.94, .31, .12), (.08, .44, .72), (.97, .81, .43), (.96, .93, .82))),
+    ('Monochrome', ((.94, .94, .88), (.64, .66, .60), (.92, .91, .81), (.98, .98, .94))),
+), slots=(2, 6, 1, 0))
+INK_PALETTES = np.asarray(INK_PALETTE_MENU.rgb, dtype=np.float32)
 
 MAX_PAPER_MOVEMENT = .3
 
@@ -105,7 +107,7 @@ def render_ink_bloom(arr, p, time, speed, seed, content_size=None, offset=(0., 0
     count = int(p['count'])
     rng = _rng(seed, 31)
     local_offsets = rng.uniform(-1, 1, (count, 3))
-    palette = np.array(INK_PALETTES[int(p['palette'])], dtype=np.float32)
+    palette = INK_PALETTES[int(p['palette'])]
     gray = palette.mean(axis=1, keepdims=True)
     palette = gray + (palette - gray) * p['saturation']
     # Center magenta, then alternating cyan/white/yellow impressions.

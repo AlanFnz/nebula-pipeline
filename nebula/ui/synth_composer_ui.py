@@ -1344,7 +1344,7 @@ class CompositionPanel(QWidget):
         note = f'{scope} · Cells, background' + (' and eye.' if options['eye'] else '.')
         if options['broadcast']: note += ' Also matches Broadcast wear accents.'
         note += ' Individual colors remain editable; clip overrides and automation still apply.'
-        return dict(key=key, note=note, palettes=PALETTES, order=(2, 0, 1, 3, 4))
+        return dict(key=key, note=note, palettes=PALETTES, order=(2, 0, 1, 3, 4) if options['eye'] else (2, 0, 1))
 
     def change_object_palette(self, key):
         kind = self.object_panel.kind

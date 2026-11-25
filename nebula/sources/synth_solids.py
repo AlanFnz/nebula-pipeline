@@ -8,10 +8,7 @@ import math
 import numpy as np
 
 from nebula.core.synth_canvas import content_size, object_offset
-from nebula.sources.synth_prismatic import _cloud, _colors
-
-
-PALETTES = ('Optical green / violet', 'Warm film / rose', 'Silver / ink')
+from nebula.sources.synth_prismatic import OPTICAL_PALETTES, _cloud, _colors
 
 
 def hidden_controls(ranges):
@@ -37,7 +34,7 @@ def modules(Module, P):
     return (
         Module('color_field', 'Color field',
                'Moving optical color clouds behind generated objects. Remains visible with No object.', (
-            P('palette', 'Palette', 0, 0, 2, 1, choices=PALETTES),
+            OPTICAL_PALETTES.parameter(P),
             P('color_phase', 'Color phase', .02, 0, 1, .01),
             P('color_speed', 'Color drift', .09, 0, 1, .01),
             P('wash', 'Color clouds', .85, 0, 1, .01),
@@ -60,7 +57,7 @@ def modules(Module, P):
             P('perspective', 'Perspective', .7, 0, 1, .01, 'Zero uses parallel projection; larger values deepen perspective.'),
             P('pip_size', 'Dot size', .073, .025, .14, .001),
             P('pip_light', 'Dot brightness', .14, 0, 1, .01),
-            P('palette', 'Palette', 0, 0, 2, 1, choices=PALETTES),
+            OPTICAL_PALETTES.parameter(P),
             P('color_phase', 'Color phase', .48, 0, 1, .01),
             P('color_speed', 'Color drift', .09, 0, 1, .01),
             P('wash', 'Surface clouds', .55, 0, 1, .01),

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.141.0 · 2026-11-25
+
+Eight shared palettes are available in the object and effect palette menus.
+Swatches show the inks used by each treatment. Individual color pickers also
+offer the collection alongside the colors already in the project.
+
 ## 0.140.0 · 2026-11-25
 
 Radial bloom adds a Folded rosette pattern. Animate mirrored gradient stops, adjust the center, rays and outer facets separately, and recolor the eight inks from Object. Gradient designs travel with the project.
