@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.143.0 · 2026-11-26
+
+Folded rosettes can move through their poses at an even visual speed. With an
+outward pulse, the return to the first pose is part of the same timed cycle.
+
 ## 0.142.0 · 2026-11-26
 
 Folded rosettes can start a new outward pulse after the last pose. The next

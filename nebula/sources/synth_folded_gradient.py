@@ -15,7 +15,7 @@ RADIUS_UNITS = 4096
 MAX_DESIGN_BYTES = 4_000_000
 PULSE_FRACTION = .18  # Fraction of the next pass during which both sets of rays are visible.
 DESIGN_CONTROLS = frozenset(('fold_design', 'core_scale', 'ray_scale', 'aperture_scale',
-                             'ray_sharpness', 'fan_width', 'fold_repeat'))
+                             'ray_sharpness', 'fan_width', 'fold_repeat', 'fold_pacing'))
 SHARED_CONTROLS = frozenset(('pattern', 'expansion', 'center_x', 'center_y', 'orientation',
                              'petals', 'cycle', 'direction', 'motion_phase', 'rotation',
                              'light', 'softness'))
@@ -27,6 +27,9 @@ def parameters(P):
     yield P('fold_repeat', 'After last pose', 0, 0, 1, 1,
             'Choose how the next pass begins. Outward pulse opens the next set of rays from the center, at the current travel tempo.',
             choices=('Reverse path', 'Outward pulse'))
+    yield P('fold_pacing', 'Travel pacing', 0, 0, 1, 1,
+            'Even speed gives larger visible changes more time. With Outward pulse, Travel time includes the return to the first pose.',
+            choices=('Authored timing', 'Even speed'))
     yield P('core_scale', 'Center size', 1., .1, 3., .01, 'Scale the central region inside each ray.')
     yield P('ray_scale', 'Ray length', 1., .15, 3., .01, 'Stretch the rays between the center and the aperture.')
     yield P('aperture_scale', 'Aperture size', 1., .15, 3., .01, 'Adjust the width of the surrounding facets.')
@@ -120,7 +123,95 @@ def _pose_at(p, t):
     return stops
 
 
+def _pulse_scales(pulse):
+    return 1 - .5 * (1 - pulse) ** 2, 1 + pulse
+
+
+def _pulse_stops(incoming, outgoing, pulse):
+    incoming_scale, outgoing_scale = _pulse_scales(pulse)
+    outgoing[..., 0] *= outgoing_scale
+    incoming[..., 0] *= incoming_scale
+    return incoming, outgoing, pulse
+
+
+def _pulse_mix(radius_fraction, pulse):
+    feather = .46
+    front = np.clip((pulse * (1 + feather) - radius_fraction) / feather, 0, 1)
+    return front * front * (3 - 2 * front)
+
+
+def _sample_inks(guides, radii):
+    return np.asarray([[np.interp(radii, knots[:, 0], knots[:, channel]) for channel in (1, 2, 3)]
+                       for knots in guides], dtype=np.float32)
+
+
+@lru_cache(maxsize=4)
+def _travel_curve(design, reverse, outward):
+    """Cumulative visible change along the authored path and optional closing pulse."""
+    times, poses, _, _ = decode_design(design)
+    if reverse:
+        times, poses = 1 - times[::-1], poses[::-1]
+    # Sample ink along representative rays, including the field beyond the last stop.
+    # Measuring in artwork space keeps the same clock at every output size and palette.
+    wedges = np.linspace(0, poses.shape[1] - 1, min(8, poses.shape[1]), dtype=int)
+    guides = np.linspace(0, poses.shape[2] - 1, min(5, poses.shape[2]), dtype=int)
+    sampled = poses[:, wedges[:, None], guides].reshape(len(times), -1, poses.shape[-2], 4)
+    extent = float(poses[..., -1, 0].max())
+    radii = np.linspace(0, 1.6 * extent, 120, dtype=np.float32)
+    previous = _sample_inks(sampled[0], radii)
+    positions, distances = [0.], [0.]
+
+    def record(position, inks):
+        nonlocal previous
+        distances.append(distances[-1] + float(np.abs(inks - previous).mean()))
+        positions.append(position)
+        previous = inks
+
+    for i in range(1, len(times)):
+        delta = sampled[i] - sampled[i - 1]
+        for step in range(1, 9):
+            f = step / 8
+            position = times[i - 1] + f * (times[i] - times[i - 1])
+            record(position, _sample_inks(sampled[i - 1] + f * delta, radii))
+
+    if outward:
+        last_extent = float(poses[-1, ..., -1, 0].max())
+        first_extent = float(poses[0, ..., -1, 0].max())
+        for step in range(1, 49):
+            f = step / 48
+            incoming_scale, outgoing_scale = _pulse_scales(f)
+            # The lookup table holds its edge color beyond the current extent.
+            pulse_extent = max(last_extent * outgoing_scale, first_extent * incoming_scale)
+            mix = _pulse_mix(np.minimum(radii / pulse_extent, 1), f)
+            old = _sample_inks(sampled[-1], radii / outgoing_scale)
+            new = _sample_inks(sampled[0], radii / incoming_scale)
+            record(1 + f, old + mix * (new - old))
+
+    positions = np.asarray(positions)
+    uniform = positions / positions[-1]
+    if distances[-1] == 0:
+        return positions, uniform
+    # A small time component makes the inverse well defined across identical poses.
+    return positions, .995 * np.asarray(distances) / distances[-1] + .005 * uniform
+
+
+def _even_stops(p, seconds):
+    reverse = p['direction'] == 1
+    outward = bool(p.get('fold_repeat'))
+    positions, distances = _travel_curve(p['fold_design'], reverse, outward)
+    start = np.interp(p['motion_phase'], positions, distances)
+    travel = start + seconds / p['cycle']
+    distance = travel % 1 if outward else 1 - abs(1 - travel % 2)
+    position = np.interp(distance, distances, positions)
+    if position <= 1:
+        return _pose_at(p, 1 - position if reverse else position), None, 0.
+    first, last = (1., 0.) if reverse else (0., 1.)
+    return _pulse_stops(_pose_at(p, first), _pose_at(p, last), position - 1)
+
+
 def _moving_stops(p, seconds):
+    if p.get('fold_pacing') and p['direction'] != 2 and len(decode_design(p['fold_design'])[0]) > 1:
+        return _even_stops(p, seconds)
     travel = p['motion_phase'] + seconds / p['cycle']
     if (not p.get('fold_repeat') or p['direction'] == 2 or travel <= 1
             or len(decode_design(p['fold_design'])[0]) == 1):
@@ -138,10 +229,7 @@ def _moving_stops(p, seconds):
     # Keep the previous rays travelling out while their successors open in
     # the center. Each pass uses the same clock, even after a direct seek.
     pulse = phase / PULSE_FRACTION
-    outgoing = _pose_at(p, end)
-    outgoing[..., 0] *= 1 + pulse
-    incoming[..., 0] *= 1 - .5 * (1 - pulse) ** 2
-    return incoming, outgoing, pulse
+    return _pulse_stops(incoming, _pose_at(p, end), pulse)
 
 
 def _fill_gradient(table, stops, radii, rows, mix=None):
@@ -174,9 +262,7 @@ def _gradient_table(stops, scale, outgoing, pulse):
     mix = None
     if outgoing is not None:
         _fill_gradient(table, outgoing, radii, rows)
-        feather = .46
-        front = np.clip((pulse * (1 + feather) - radii / extent) / feather, 0, 1)
-        mix = front * front * (3 - 2 * front)
+        mix = _pulse_mix(radii / extent, pulse)
     _fill_gradient(table, stops, radii, rows, mix)
     return table, rows, (columns - 1) / extent
 

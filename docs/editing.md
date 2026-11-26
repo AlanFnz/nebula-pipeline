@@ -51,7 +51,10 @@ Drag a clip to reorder it or its right edge to resize it. For generated clips,
 and continues procedural movement into the extra seconds. A
 Prismatic field that slowed for the ending eases back toward its earlier color
 pace. For folded rosettes, **Object → Motion & drift → After last pose → Outward pulse**
-starts each new pass from the center. A static
+starts each new pass from the center. **Travel pacing → Even speed** gives
+larger changes between poses more time. With **Outward pulse**, **Travel time**
+covers one complete cycle, including the transition back to the first pose.
+Longer clips continue at that pace. A static
 title holds. Choose **Stretch to fit** to spread the same action
 over the new duration. Shift-click selects a range; Command-click adds
 individual clips. To stretch a selection, drag the last selected clip's right edge.
