@@ -131,6 +131,25 @@ def test_even_outward_cycle_closes_and_continues_when_extended(direction, tmp_pa
     assert 0 < np.abs(near_start - start).mean() < np.abs(far - start).mean() / 3
 
 
+@pytest.mark.parametrize('direction', (0, 1))
+@pytest.mark.parametrize('pacing', (0, 1))
+def test_loop_poses_replays_the_drawn_join_on_seek_export_and_extend(direction, pacing):
+    design = default_design()
+    design['poses'][1]['at'] = .25
+    design['poses'].append(dict(design['poses'][0], at=1.))
+    settings = dict(pattern=2, fold_design=json.dumps(design), cycle=2.,
+                    rotation=0., softness=0., direction=direction, fold_pacing=pacing)
+    first_pass = compile_composition(composition(**settings))
+    project = composition(fold_repeat=2, **settings)
+    seq = compile_composition(stretch_section(project, project['sections'][0]['id'], 8., 'smart'))
+    for index in (47, 0, 1, 8, 21):
+        expected = render_sequence_frame(first_pass, index / 24, (96, 80)).tobytes()
+        assert render_sequence_frame(seq, (48 + index) / 24, (96, 80)).tobytes() == expected
+        assert render_output_frame(None, seq, 96 + index, (96, 80), None).tobytes() == expected
+    held = composition(**dict(settings, direction=2, motion_phase=.25), fold_repeat=2)
+    assert frame(held, 3.) == frame(held, 0.)
+
+
 def test_vector_bands_fan_and_palette_are_live_and_old_patterns_ignore_them():
     source = dict(pattern=2, petals=8, rotation=0., softness=0.)
     base = frame(composition(**source), 1.)

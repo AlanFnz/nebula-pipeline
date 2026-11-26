@@ -24,9 +24,9 @@ SHARED_CONTROLS = frozenset(('pattern', 'expansion', 'center_x', 'center_y', 'or
 def parameters(P):
     yield P('fold_design', 'Gradient design', '', kind='polar',
             hint='Embedded vector gradient. Each pose moves the stops on the same set of mirrored spokes.')
-    yield P('fold_repeat', 'After last pose', 0, 0, 1, 1,
-            'Choose how the next pass begins. Outward pulse opens the next set of rays from the center, at the current travel tempo.',
-            choices=('Reverse path', 'Outward pulse'))
+    yield P('fold_repeat', 'After last pose', 0, 0, 2, 1,
+            'Outward pulse opens new rays from the center. Loop poses restarts at the first pose. Use matching end poses for a seamless loop.',
+            choices=('Reverse path', 'Outward pulse', 'Loop poses'))
     yield P('fold_pacing', 'Travel pacing', 0, 0, 1, 1,
             'Even speed gives larger visible changes more time. With Outward pulse, Travel time includes the return to the first pose.',
             choices=('Authored timing', 'Even speed'))
@@ -197,11 +197,11 @@ def _travel_curve(design, reverse, outward):
 
 def _even_stops(p, seconds):
     reverse = p['direction'] == 1
-    outward = bool(p.get('fold_repeat'))
-    positions, distances = _travel_curve(p['fold_design'], reverse, outward)
+    repeat = p.get('fold_repeat', 0)
+    positions, distances = _travel_curve(p['fold_design'], reverse, repeat == 1)
     start = np.interp(p['motion_phase'], positions, distances)
     travel = start + seconds / p['cycle']
-    distance = travel % 1 if outward else 1 - abs(1 - travel % 2)
+    distance = travel % 1 if repeat else 1 - abs(1 - travel % 2)
     position = np.interp(distance, distances, positions)
     if position <= 1:
         return _pose_at(p, 1 - position if reverse else position), None, 0.
@@ -213,6 +213,9 @@ def _moving_stops(p, seconds):
     if p.get('fold_pacing') and p['direction'] != 2 and len(decode_design(p['fold_design'])[0]) > 1:
         return _even_stops(p, seconds)
     travel = p['motion_phase'] + seconds / p['cycle']
+    if p.get('fold_repeat') == 2 and p['direction'] != 2:
+        phase = travel % 1
+        return _pose_at(p, 1 - phase if p['direction'] == 1 else phase), None, 0.
     if (not p.get('fold_repeat') or p['direction'] == 2 or travel <= 1
             or len(decode_design(p['fold_design'])[0]) == 1):
         return _pose_at(p, pose_position(p, seconds)), None, 0.

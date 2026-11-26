@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.144.0 · 2026-11-26
+
+Folded rosettes with matching end poses can replay their authored motion
+continuously with **Loop poses**, including when a clip is extended.
+
 ## 0.143.0 · 2026-11-26
 
 Folded rosettes can move through their poses at an even visual speed. With an

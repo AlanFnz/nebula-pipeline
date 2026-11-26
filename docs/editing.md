@@ -54,7 +54,9 @@ pace. For folded rosettes, **Object → Motion & drift → After last pose → O
 starts each new pass from the center. **Travel pacing → Even speed** gives
 larger changes between poses more time. With **Outward pulse**, **Travel time**
 covers one complete cycle, including the transition back to the first pose.
-Longer clips continue at that pace. A static
+Longer clips continue at that pace. For a design whose last pose matches its
+first, choose **After last pose → Loop poses** to play the join as drawn.
+**Authored timing** follows the original pose times. A static
 title holds. Choose **Stretch to fit** to spread the same action
 over the new duration. Shift-click selects a range; Command-click adds
 individual clips. To stretch a selection, drag the last selected clip's right edge.
