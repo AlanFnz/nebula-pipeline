@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.142.0 · 2026-11-26
+
+Folded rosettes can start a new outward pulse after the last pose. The next
+pass opens from the center at the current travel tempo as the outer rays advance.
+
 ## 0.141.0 · 2026-11-25
 
 Eight shared palettes are available in the object and effect palette menus.

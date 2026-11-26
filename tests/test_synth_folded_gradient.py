@@ -33,6 +33,53 @@ def test_mesh_interpolates_in_both_directions_and_extends_beyond_the_authored_en
         assert render_output_frame(None, seq, round(t * seq['fps']), (96, 80), None).tobytes() == expected
 
 
+@pytest.mark.parametrize('direction', (0, 1))
+def test_outward_pulse_preserves_first_pass_and_continues_on_seek_and_export(direction, tmp_path):
+    cycle_frames = 95
+    settings = dict(pattern=2, petals=8, cycle=cycle_frames/24, direction=direction,
+                    rotation=0., softness=0.)
+    original = composition(**settings)
+    project = composition(fold_repeat=1, **settings)
+    longer = stretch_section(project, project['sections'][0]['id'], 12., 'smart')
+    path = tmp_path / 'extended.nebula'
+    save_composition(path, longer)
+    seq = compile_composition(load_composition(path))
+
+    def exported(index):
+        return render_output_frame(None, seq, index, (96, 80), None).tobytes()
+
+    for index in (0, 47, 94, 95):
+        assert exported(index) == frame(original, index / 24)
+    assert exported(2 * cycle_frames) == exported(cycle_frames)
+    for offset in (30, 8, 1):
+        index = cycle_frames + offset
+        assert exported(index) == exported(index + cycle_frames)
+        assert exported(index) == render_sequence_frame(seq, index / 24, (96, 80)).tobytes()
+        assert exported(index) != frame(original, (cycle_frames - offset) / 24)
+    assert exported(cycle_frames + 30) == frame(original, 30 / 24)
+
+
+def test_next_pulse_opens_at_the_center_and_respects_a_held_pose():
+    design = default_design()
+    for pose, color in zip(design['poses'], ((240, 50, 30), (30, 65, 220))):
+        for wedge in pose['wedges']:
+            for guide in wedge:
+                for knot in guide:
+                    knot[1:] = color
+    settings = dict(pattern=2, cycle=2., rotation=0., softness=0., fold_repeat=1,
+                    fold_design=json.dumps(design))
+    project = composition(**settings)
+    pixels = lambda t: np.frombuffer(frame(project, t), np.uint8).reshape(80, 96, 3)
+    opening = pixels(2.125)
+    assert opening[40, 48, 0] > opening[40, 48, 2]
+    np.testing.assert_array_equal(opening[0, 0], pixels(2.)[0, 0])
+    held = composition(direction=2, motion_phase=.2, **settings)
+    assert frame(held, 3.) == frame(held, 0.)
+    design['poses'] = design['poses'][:1]
+    single = composition(**dict(settings, fold_design=json.dumps(design)))
+    assert frame(single, 2.125) == frame(single, 0.)
+
+
 def test_vector_bands_fan_and_palette_are_live_and_old_patterns_ignore_them():
     source = dict(pattern=2, petals=8, rotation=0., softness=0.)
     base = frame(composition(**source), 1.)
@@ -69,6 +116,7 @@ def test_object_exposes_the_palette_and_only_applicable_fold_controls(make_windo
     window.composer.look_tabs.setCurrentWidget(panel)
     assert 'radial_bloom.fold_design' in panel.object_eligible
     assert 'radial_bloom.ray_scale' in panel.object_eligible
+    assert 'radial_bloom.fold_repeat' in panel.object_eligible
     assert 'radial_bloom.copy_angle' not in panel.object_eligible
     assert 'radial_bloom.stop_1_position' not in panel.object_eligible
     assert panel.controls['radial_bloom.petals'].label.text() == 'Ray count'

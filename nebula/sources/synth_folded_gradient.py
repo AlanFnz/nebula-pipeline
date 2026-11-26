@@ -13,8 +13,9 @@ from nebula.sources.synth_radial_gradients import STOP_KEYS, CHANNELS
 
 RADIUS_UNITS = 4096
 MAX_DESIGN_BYTES = 4_000_000
+PULSE_FRACTION = .18  # Fraction of the next pass during which both sets of rays are visible.
 DESIGN_CONTROLS = frozenset(('fold_design', 'core_scale', 'ray_scale', 'aperture_scale',
-                             'ray_sharpness', 'fan_width'))
+                             'ray_sharpness', 'fan_width', 'fold_repeat'))
 SHARED_CONTROLS = frozenset(('pattern', 'expansion', 'center_x', 'center_y', 'orientation',
                              'petals', 'cycle', 'direction', 'motion_phase', 'rotation',
                              'light', 'softness'))
@@ -23,6 +24,9 @@ SHARED_CONTROLS = frozenset(('pattern', 'expansion', 'center_x', 'center_y', 'or
 def parameters(P):
     yield P('fold_design', 'Gradient design', '', kind='polar',
             hint='Embedded vector gradient. Each pose moves the stops on the same set of mirrored spokes.')
+    yield P('fold_repeat', 'After last pose', 0, 0, 1, 1,
+            'Choose how the next pass begins. Outward pulse opens the next set of rays from the center, at the current travel tempo.',
+            choices=('Reverse path', 'Outward pulse'))
     yield P('core_scale', 'Center size', 1., .1, 3., .01, 'Scale the central region inside each ray.')
     yield P('ray_scale', 'Ray length', 1., .15, 3., .01, 'Stretch the rays between the center and the aperture.')
     yield P('aperture_scale', 'Aperture size', 1., .15, 3., .01, 'Adjust the width of the surrounding facets.')
@@ -93,9 +97,8 @@ def pose_position(p, seconds):
     return 1 - abs(1 - t)
 
 
-def _pose(p, seconds):
+def _pose_at(p, t):
     times, poses, inks, bands = decode_design(p['fold_design'])
-    t = pose_position(p, seconds)
     right = min(len(times) - 1, int(np.searchsorted(times, t, side='right')))
     left = max(0, right - 1)
     f = (t - times[left]) / (times[right] - times[left]) if right != left else 0.
@@ -117,15 +120,32 @@ def _pose(p, seconds):
     return stops
 
 
-def _gradient_table(stops, scale):
-    wedges, guides, _, _ = stops.shape
-    # Render the gradient from its interpolated vector knots at the current
-    # output scale. Adjacent wedges have separate edge colors at a fold.
-    rows = min(192, max(16, math.ceil(scale * math.pi / wedges / 2)))
-    extent = float(stops[..., -1, 0].max())
-    columns = min(4096, max(32, math.ceil(extent * scale) + 1))
-    radii = np.linspace(0, extent, columns, dtype=np.float32)
-    table = np.empty((wedges * (rows + 1), columns, 3), np.float32)
+def _moving_stops(p, seconds):
+    travel = p['motion_phase'] + seconds / p['cycle']
+    if (not p.get('fold_repeat') or p['direction'] == 2 or travel <= 1
+            or len(decode_design(p['fold_design'])[0]) == 1):
+        return _pose_at(p, pose_position(p, seconds)), None, 0.
+
+    phase = travel % 1
+    forward = p['direction'] == 0
+    end = 1. if forward else 0.
+    if phase == 0:
+        return _pose_at(p, end), None, 0.
+    incoming = _pose_at(p, phase if forward else 1 - phase)
+    if phase >= PULSE_FRACTION:
+        return incoming, None, 0.
+
+    # Keep the previous rays travelling out while their successors open in
+    # the center. Each pass uses the same clock, even after a direct seek.
+    pulse = phase / PULSE_FRACTION
+    outgoing = _pose_at(p, end)
+    outgoing[..., 0] *= 1 + pulse
+    incoming[..., 0] *= 1 - .5 * (1 - pulse) ** 2
+    return incoming, outgoing, pulse
+
+
+def _fill_gradient(table, stops, radii, rows, mix=None):
+    guides = stops.shape[1]
     for i in range(rows + 1):
         u = i / rows * (guides - 1)
         left = min(int(u), guides - 2)
@@ -133,17 +153,41 @@ def _gradient_table(stops, scale):
         for wedge, knots in enumerate(section):
             line = table[wedge * (rows + 1) + i]
             for channel in range(3):
-                line[:, channel] = np.interp(radii, knots[:, 0], knots[:, channel + 1])
+                values = np.interp(radii, knots[:, 0], knots[:, channel + 1])
+                if mix is None:
+                    line[:, channel] = values
+                else:
+                    line[:, channel] += mix * (values - line[:, channel])
+
+
+def _gradient_table(stops, scale, outgoing, pulse):
+    wedges = len(stops)
+    # Adjacent wedges have separate edge colors at a fold. Both passes use
+    # the same radial grid, so the transition works at any preview or export size.
+    rows = min(192, max(16, math.ceil(scale * math.pi / wedges / 2)))
+    extent = float(stops[..., -1, 0].max())
+    if outgoing is not None:
+        extent = max(extent, float(outgoing[..., -1, 0].max()))
+    columns = min(4096, max(32, math.ceil(extent * scale) + 1))
+    radii = np.linspace(0, extent, columns, dtype=np.float32)
+    table = np.empty((wedges * (rows + 1), columns, 3), np.float32)
+    mix = None
+    if outgoing is not None:
+        _fill_gradient(table, outgoing, radii, rows)
+        feather = .46
+        front = np.clip((pulse * (1 + feather) - radii / extent) / feather, 0, 1)
+        mix = front * front * (3 - 2 * front)
+    _fill_gradient(table, stops, radii, rows, mix)
     return table, rows, (columns - 1) / extent
 
 
 def render_folded(p, size, center, unit, seconds):
     w, h = size
     scale = max(.01, unit * p['expansion'])
-    stops = _pose(p, seconds)
+    stops, outgoing, pulse = _moving_stops(p, seconds)
     source_count = len(stops)
     count = int(p['petals'])
-    table, rows, columns_per_unit = _gradient_table(stops, scale)
+    table, rows, columns_per_unit = _gradient_table(stops, scale, outgoing, pulse)
     # Match the nearest authored sector with the same tip/valley orientation.
     source_wedges = np.arange(source_count)
     lookup = [min(source_wedges[j % 2::2], key=lambda k: abs((k + .5) / source_count - (j + .5) / count))
