@@ -97,7 +97,7 @@ def test_browsing_selection_filtering_and_presets_never_request_an_edit(browser)
     assert (allowed, applied, EFFECTS) == before and events == []
 
 
-@pytest.mark.parametrize('identifier,index', [('print_surface', 2), ('low_res', 3), ('bloom', 0)])
+@pytest.mark.parametrize('identifier,index', [('print_surface', 2), ('low_res', 3), ('bloom', 0), ('broadcast', 2)])
 def test_explicit_add_emits_the_selected_existing_preset(browser, identifier, index):
     dialog = browser()
     events = observe(dialog)

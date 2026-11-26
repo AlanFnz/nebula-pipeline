@@ -72,6 +72,11 @@ Use Polarity for reversals, Signal for static and interruptions, and Screen for
 glass curvature, shading and halation. **Before finishing** applies polarity
 before grain and tape; final-screen reversal is also available.
 
+Choose the **Soft CRT** preset for gentle curvature, a drifting shadow tint and
+light corner shading. In **Screen → Corner shading**, lower the value to bring
+the outer image closer to its original brightness. **Screen curvature** controls
+the shape of the frame independently.
+
 Random interruption timing varies gaps around the chosen interval. Duration
 zero disables scheduled interruptions, but Random outages can still add flashes.
 Static FPS changes noise cadence independently. Rolling bands have their own

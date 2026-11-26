@@ -603,7 +603,7 @@ MODULES += (
         P('edge_width', 'Fringe width', .004, .001, .03, .001, 'Horizontal signal delay as a fraction of canvas width.'),
         P('edge_hue', 'Fringe color', .8, 0, 1, .01, 'The two sides of an edge use complementary hues.'),
         P('curve', 'Screen curvature', .07, 0, .5, .005),
-        P('vignette', 'Corner shading', .4, 0, 1, .01),
+        P('vignette', 'Corner shading', .4, 0, 1, .01, 'Darkening increases from the center toward the corners. Lower this to brighten the outer image while keeping the screen curvature.'),
         P('wash', 'Exposure wash', 0., 0, 1, .01, 'Fresh, uneven color exposures follow Field hue and color spread. Changes at Static FPS.'),
         P('static_style', 'Signal loss texture', 0, 0, 1, 1, choices=('Snow', 'Broken sync')),
         P('static_chroma', 'Static color', .6, 0, 1, .01, 'Color carrier streaks in Broken sync interruptions.'),

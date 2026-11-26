@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.145.0 · 2026-11-26
+
+Broadcast wear adds a **Soft CRT** preset with gentle screen curvature, light
+corner shading and a drifting color field in the shadows.
+
 ## 0.144.0 · 2026-11-26
 
 Folded rosettes with matching end poses can replay their authored motion
