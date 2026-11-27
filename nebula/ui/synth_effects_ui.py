@@ -136,6 +136,7 @@ class EffectsPanel(QWidget):
     def __init__(self, *, route_sources=False):
         super().__init__()
         self.route_sources = route_sources
+        self.poster_artwork = False
         self.automation_counts = {}
         self.entries = {}; self.parent_entries = {}; self.summary = {}; self.authored_summary = {}
         self.effect_id = "rays"; self.controls = {}; self.rows = {}; self.control_cache = {}
@@ -400,9 +401,12 @@ class EffectsPanel(QWidget):
         self.applied_ids = tuple(effect.id for effect in active)
         self.available_ids = tuple(effect.id for effect in visible_effects if effect.id not in self.applied_ids)
         treatments = [e for e in active if e.id not in SOURCE_EFFECTS]
+        if self.poster_artwork:
+            treatments = [e for e in treatments if base_id(e.id) not in ('type_overprint', 'color_field')]
         sources = [e for e in active if e.id in SOURCE_EFFECTS]
         automated = {event['path'] for event in clip_automations}
         self.clip_effect_ids = tuple(e.id for e in visible_effects if local and e.id not in SOURCE_EFFECTS and
+                                     (not self.poster_artwork or base_id(e.id) not in ('type_overprint', 'color_field')) and
                                      (e.id in entries or automated.intersection(e.paths)))
         self.project_effect_ids = tuple(e.id for e in treatments if e.id not in self.clip_effect_ids)
         self.render_order = order_for_states(shared_states if shared_states is not None else states, effect_order)
@@ -417,7 +421,11 @@ class EffectsPanel(QWidget):
         self.order_hint.setToolTip('Custom order processes image effects from top to bottom after the source. Dotted rows have a fixed source or output role. Early Broadcast polarity and the source companion in Ghosts stay with the source.')
         self.order_reset.setVisible(not local)
         self.order_reset.setEnabled(custom_order)
-        self.rack_ids = set(self.applied_ids) | set(self.clip_effect_ids)
+        if self.poster_artwork:
+            visible = [key for key in self.project_effect_ids if movable(key)]
+            self.poster_study_order = [key for key in order_for_states(shared_states or states) if key in visible]
+            self.order_reset.setEnabled(custom_order and visible != self.poster_study_order)
+        self.rack_ids = set(self.project_effect_ids) | set(self.clip_effect_ids) | {s.id for s in sources}
         for button in (self.available_button, self.add_button):
             button.setText('Add clip effect…' if local else 'Add shared effect…')
             button.setToolTip('Add an effect only to this clip.' if local else 'Add a shared composition effect. Explicit clip overrides still take priority.')
@@ -437,6 +445,10 @@ class EffectsPanel(QWidget):
         object_available = allowed_effects is None or any(key in allowed_effects for key in SOURCE_EFFECTS)
         self.source_title.setText(f'OBJECT · {len(sources)} ' + ('source' if len(sources) == 1 else 'sources') if sources else 'OBJECT · no source')
         if self.route_sources: self.source_title.setText('Content, layout and motion → Object')
+        if self.poster_artwork:
+            self.source_title.setText('Poster artwork')
+            self.object_button.setText('Edit layers…')
+            self.object_button.setToolTip('Edit text, ink plates and paper in Layers.')
         self.source_title.setVisible(object_available); self.source_header.setVisible(object_available)
         self.source_host.setVisible(bool(sources) and not self.route_sources); self.object_button.setVisible(object_available)
         for choice in self.effect_choices.values(): choice.hide()
@@ -556,7 +568,7 @@ class EffectsPanel(QWidget):
                 control.origin.setText('Shared across all clips' if self.shared_timing else 'Recipe timing · edits apply to all clips')
                 control.setToolTip('One timing setup for the whole composition, regardless of the selected clip.')
             else:
-                control.refresh(info["ranges"][path], entry["params"].get(path), path in parent.get("params", {}), available, parent_value=parent.get("params", {}).get(path), scope_label=self.context_scope_label.removeprefix("Editing: "), context_key=self.context_key)
+                self.refresh_base_control(control, effect.id, available)
             control.set_automation_count(self.automation_counts.get(path, 0))
             control.base_origin = control.origin.text()
         self.apply_button.setToolTip("Replace the base settings; existing clip automation is retained.")
@@ -932,6 +944,14 @@ class EffectsPanel(QWidget):
         if entry['mode'] == 'recipe' and not entry['params'] and set(entry) == {'mode', 'params'}:
             entry = None
         self.edited.emit(self.effect_id, entry, 'effect-creative-restore')
+
+    def refresh_base_control(self, control, owner, available=True):
+        path = control.path
+        fixed = self.entries.get(owner, {}).get('params', {}).get(path)
+        parent = self.parent_entries.get(owner, {}).get('params', {})
+        control.refresh(self.authored_summary[owner]['ranges'][path], fixed, path in parent, available,
+                        parent_value=parent.get(path), scope_label=self.context_scope_label.removeprefix('Editing: '),
+                        context_key=self.context_key)
 
     def change_parameter(self, path, value, effect_id=None):
         effect_id = effect_id or self.effect_id

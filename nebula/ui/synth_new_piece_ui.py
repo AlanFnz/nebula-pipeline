@@ -28,7 +28,8 @@ class NewPieceDialog(QDialog):
                    ('shape', 'Shape', 'A geometric source'),
                    ('model', 'Model', 'A classical human head'),
                    ('video', 'Video', 'Import your footage'),
-                   ('remix', 'Remix a study', 'Build on an example'))
+                   ('remix', 'Remix a study', 'Build on an example'),
+                   ('poster', 'Poster', 'Type, ink and paper'))
         for index, (key, label, hint) in enumerate(choices):
             button = QPushButton(f'{label}\n{hint}'); button.setCheckable(True)
             button.setMinimumHeight(64); button.setAccessibleName(f'Start with {label}')
@@ -40,11 +41,16 @@ class NewPieceDialog(QDialog):
         for key, _label, _hint in choices:
             page = QWidget(); page_layout = QVBoxLayout(page); page_layout.setContentsMargins(0, 8, 0, 0)
             self.page_by_kind[key] = page; self.pages.addWidget(page)
-            if key == 'text':
+            if key in ('text', 'poster'):
                 page_layout.addWidget(QLabel('Wording'))
-                self.text = QPlainTextEdit(DEFAULT_TEXT); self.text.setAccessibleName('New piece wording')
-                self.text.setMaximumHeight(96); self.text.textChanged.connect(self.validate)
-                page_layout.addWidget(self.text)
+                field = QPlainTextEdit('STUDIO\nEDITION' if key == 'poster' else DEFAULT_TEXT)
+                field.setAccessibleName('Poster wording' if key == 'poster' else 'New piece wording')
+                field.setMaximumHeight(96); field.textChanged.connect(self.validate)
+                page_layout.addWidget(field)
+                if key == 'poster':
+                    self.poster_text = field
+                else:
+                    self.text = field
             elif key == 'shape':
                 page_layout.addWidget(QLabel('Shape'))
                 self.shape = ComboBox(); self.shape.setAccessibleName('Starting shape')
@@ -89,14 +95,17 @@ class NewPieceDialog(QDialog):
         if not hasattr(self, 'create'): return
         self.create.setText({'video': 'Choose video…', 'remix': 'Remix study'}.get(self.kind, 'Create piece'))
         message = ''
-        if self.kind == 'text':
+        if self.kind in ('text', 'poster'):
             try:
-                if not validate_text(self.text.toPlainText()).strip(): message = 'Enter some text to start with.'
+                if not validate_text(self.wording()).strip(): message = 'Enter some text to start with.'
             except ValueError as exc: message = str(exc)
         elif self.kind == 'remix' and self.study.currentData() is None:
             message = 'Choose a study to remix.'
         self.error.setText(message); self.create.setEnabled(not message)
 
+    def wording(self):
+        return (self.poster_text if self.kind == 'poster' else self.text).toPlainText()
+
     def request(self):
-        return dict(kind=self.kind, text=self.text.toPlainText(), shape=self.shape.currentData(),
+        return dict(kind=self.kind, text=self.wording(), shape=self.shape.currentData(),
                     model=self.model.currentData(), study=self.study.currentData())

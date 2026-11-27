@@ -78,3 +78,10 @@ def move_before(order, identifier, before=None):
     result = [key for key in order if key != identifier]
     result.insert(result.index(before) if before else len(result), identifier)
     return result
+
+
+def replace_ordered_slots(order, arranged):
+    """Reorder a subset in its existing slots, preserving intervening artwork."""
+    members = set(arranged)
+    replacements = iter(arranged)
+    return [next(replacements) if key in members else key for key in order]

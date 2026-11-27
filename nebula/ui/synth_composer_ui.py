@@ -741,6 +741,7 @@ class InspectorTabs(QTabWidget):
 
 class CompositionPanel(QWidget):
     changed = Signal(object, str)
+    automation_opened = Signal()
     failed = Signal(str)
     sectionSelected = Signal(int)
     detailsRequested = Signal()
@@ -870,7 +871,13 @@ class CompositionPanel(QWidget):
         shape_layout.addWidget(self.value_sources_help)
         shape_layout.addWidget(self.performance_notice)
         self.look_tabs = InspectorTabs()
+        self.layers_panel = None
+        if 'poster' in self.document:
+            from nebula.ui.synth_poster_layers import PosterLayers
+            self.layers_panel = PosterLayers(self)
+            self.look_tabs.addTab(self.layers_panel, 'Layers')
         self.effects_panel = EffectsPanel(route_sources=True)
+        self.effects_panel.poster_artwork = self.layers_panel is not None
         self.intensity_selection = frozenset()
         batch = self.effects_panel.selection_intensity
         batch.toggle.toggled.connect(self.refresh_selection_intensity)
@@ -893,7 +900,7 @@ class CompositionPanel(QWidget):
         self.effects_panel.timing_selected.connect(self.show_timing_scope)
         self.effects_panel.navigation_changed.connect(self.emit_reset_context)
         self.effects_panel.controls_refreshed.connect(self.update_memory_limits)
-        self.effects_panel.object_requested.connect(lambda: self.look_tabs.setCurrentWidget(self.object_panel))
+        self.effects_panel.object_requested.connect(lambda: self.look_tabs.setCurrentWidget(self.layers_panel or self.object_panel))
         self.look_tabs.addTab(self.effects_panel, "Effects")
         self.object_panel = SubjectPanel(); geometry_page = self.object_panel
         self.object_panel.color_panel.context_provider = self.color_context
@@ -923,6 +930,7 @@ class CompositionPanel(QWidget):
         self.object_panel.navigation_changed.connect(lambda: self.show_timing_scope(False))
         self.effects_panel.object_details_requested.connect(lambda effect: self.open_object_details(effect, False))
         treatment_page = QWidget(); treatment_layout = QVBoxLayout(treatment_page)
+        self.finishing_panel = treatment_page
         self.look_tabs.addTab(geometry_page, "Object"); self.look_tabs.addTab(treatment_page, "Finishing")
         self.master_panel = MasterPanel()
         self.master_panel.edited.connect(self.change_master)
@@ -1077,7 +1085,7 @@ class CompositionPanel(QWidget):
             video = self.document.get('footage')
             self.look_tabs.setTabVisible(self.look_tabs.indexOf(self.video_panel), bool(video))
             self.look_tabs.setTabVisible(self.look_tabs.indexOf(self.object_panel), not video)
-            self.look_tabs.setTabVisible(2, not video)
+            self.look_tabs.setTabVisible(self.look_tabs.indexOf(self.finishing_panel), not video)
             self.details_button.setVisible(not video)
             source_section = self.document['sections'][self.index] if self.scope else None
             minimum_frames = sum(int(self.document['sections'][index].get('loops', 1))
@@ -1165,6 +1173,8 @@ class CompositionPanel(QWidget):
             self.take_label.setText("Default controls in this scope" if pristine else (f"Take {target['variation']}" if target["variation"] else "Custom adjustments"))
         finally:
             self.updating = False
+        if self.layers_panel is not None:
+            self.layers_panel.refresh()
         self.update_memory_limits()
         self.emit_reset_context()
 
@@ -1222,18 +1232,25 @@ class CompositionPanel(QWidget):
 
     def reorder_effect(self, identifier, before):
         if self.updating or self.scope: return
-        from nebula.effects.synth_effect_order import move_before
+        from nebula.effects.synth_effect_order import move_before, replace_ordered_slots
         visible = self.effects_panel.applied_host.identifiers
         if identifier not in visible or (before is not None and before not in visible): return
-        if move_before(visible, identifier, before) == visible: return
-        order = move_before(self.effects_panel.render_order, identifier, before)
+        arranged = move_before(visible, identifier, before)
+        if arranged == visible: return
+        order = (replace_ordered_slots(self.effects_panel.render_order, arranged) if self.layers_panel else
+                 move_before(self.effects_panel.render_order, identifier, before))
         document = copy.deepcopy(self.document)
         document['effect_order'] = order
         self.commit(document, 'effect-reorder')
 
     def reset_effect_order(self):
         if self.updating or self.scope or 'effect_order' not in self.document: return
-        document = copy.deepcopy(self.document); document.pop('effect_order')
+        document = copy.deepcopy(self.document)
+        if self.layers_panel:
+            from nebula.effects.synth_effect_order import replace_ordered_slots
+            document['effect_order'] = replace_ordered_slots(self.effects_panel.render_order, self.effects_panel.poster_study_order)
+        else:
+            document.pop('effect_order')
         self.commit(document, 'effect-order-reset')
 
     def change_effect(self, effect_id, entry, action):
@@ -1395,6 +1412,8 @@ class CompositionPanel(QWidget):
             palette = []
             for name in self.compiled['states']:
                 preset = _state_preset(self.compiled, name)
+                if key.startswith('layer_fill/') and not any(m['id'] == spec.module for m in preset['modules']):
+                    continue
                 values = [hsv(preset)]
                 if spec.module == 'blender_scene':
                     from nebula.sources.synth_blender_colors import scene_colors
@@ -1413,7 +1432,7 @@ class CompositionPanel(QWidget):
             cache[key] = palette[:48]
         overridden = any(path in self.target()['effects'].get(spec.module, {}).get('params', {}) for path in spec.paths)
         extra = {}
-        if spec.module in ('blender_scene', 'chromatic_lattice', 'radial_bloom'):
+        if spec.module in ('blender_scene', 'chromatic_lattice', 'radial_bloom') or 'poster' in self.document:
             extra = dict(scope_id=section_id if self.scope else None,
                          scope_note='Sets the base color in the chosen scope. Clip overrides, automation and lighting remain active.')
         return dict(**extra, hsv=current, palette=cache[key], section_id=section_id,
@@ -1471,6 +1490,7 @@ class CompositionPanel(QWidget):
         return self.document['sections'][-1]['id']
 
     def _show_automation_dialog(self, dialog):
+        self.automation_opened.emit()
         self.automation_dialogs.append(dialog)
         def finished():
             if dialog in self.automation_dialogs: self.automation_dialogs.remove(dialog)
@@ -1908,6 +1928,7 @@ class CompositionPanel(QWidget):
     def reset_label(self):
         if self.arrangement_button.isChecked(): return ''
         page = self.look_tabs.currentWidget()
+        if page is self.layers_panel: return ''
         if page is self.master_panel: return 'Reset master'
         if page is self.object_panel:
             if self.object_panel.pages.currentWidget() is self.object_editor and self.object_editor.effect_id == 'ink_bloom' and self.object_editor.parameter_tabs.currentIndex() == 1:
@@ -1927,6 +1948,7 @@ class CompositionPanel(QWidget):
     def reset_controls(self):
         if self.arrangement_button.isChecked(): return
         page = self.look_tabs.currentWidget()
+        if page is self.layers_panel: return
         if page is self.master_panel:
             self.reset_master(); return
         if page is self.effects_panel and self.effects_panel.focused:

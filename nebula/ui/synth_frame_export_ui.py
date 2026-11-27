@@ -55,17 +55,31 @@ class ExportButton(QToolButton):
     def __init__(self, movie, still):
         super().__init__()
         self.setObjectName('primary')
-        self.setText('Export MP4')
         self.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
-        self.clicked.connect(movie)
-        menu = QMenu(self)
-        self.frame_action = menu.addAction('Export frame…', still)
-        self.setMenu(menu)
+        self.setMenu(QMenu(self))
+        self.movie_action = self.menu().addAction('Export MP4', movie)
+        self.frame_action = self.menu().addAction('Export frame…', still)
+        self.clicked.connect(lambda: (still if self.poster else movie)())
+        self.set_context(False, False)
+
+    def set_context(self, poster, comparing, *, montage=False, still=False):
+        self.poster = poster = poster and not montage
+        movie_label = 'Export montage' if montage else 'Export B MP4' if comparing else 'Export MP4'
+        if poster and still:
+            movie_label = 'Animate and export B MP4…' if comparing else 'Animate and export MP4…'
+        self.movie_action.setText(movie_label)
+        self.frame_action.setText(('Export poster B…' if comparing else 'Export poster…') if poster else 'Export frame…')
+        self.setText((self.frame_action if poster else self.movie_action).text())
+        self.menu().removeAction(self.frame_action if poster else self.movie_action)
+        secondary = self.movie_action if poster else self.frame_action
+        if secondary not in self.menu().actions():
+            self.menu().addAction(secondary)
 
     def changeEvent(self, event):
         super().changeEvent(event)
         if event.type() == QEvent.Type.EnabledChange and hasattr(self, 'frame_action'):
             self.frame_action.setEnabled(self.isEnabled())
+            self.movie_action.setEnabled(self.isEnabled())
 
 
 class FrameExportDialog(QFileDialog):
@@ -78,7 +92,8 @@ class FrameExportDialog(QFileDialog):
         self.setStyleSheet('QFileDialog QToolButton { padding: 2px; }')
         self.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
         self.setFileMode(QFileDialog.FileMode.AnyFile)
-        self.setWindowTitle('Export frame')
+        self.setWindowTitle('Export poster' if getattr(getattr(parent, 'export_button', None), 'poster', False)
+                            else 'Export frame')
         self.setLabelText(QFileDialog.DialogLabel.FileType, 'Format')
         self.setNameFilters([self.PNG, self.JPEG])
         self.setDefaultSuffix('png')

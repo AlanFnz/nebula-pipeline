@@ -141,7 +141,7 @@ class WorkspaceNavigation(QObject):
         editor.quality.setCurrentIndex(montage.detail.currentIndex())
         editor.save_button.setAccessibleName('Save montage')
         editor.save_button.setToolTip('Save the complete montage, including this block.')
-        editor.export_button.setText('Export montage')
+        editor.export_button.set_context(False, False, montage=True)
         editor.document_title.setText(clip['name'])
         bar = QWidget()
         row = QHBoxLayout(bar); row.setContentsMargins(0, 0, 0, 4)

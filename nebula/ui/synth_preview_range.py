@@ -269,7 +269,7 @@ class PreviewRangeStudio:
         self.cached_ranges.set_ranges(self.cached_timeline_scope().intervals)
 
     def prepare_preview_gap(self, frame):
-        if self.preparing_gap is not None or self.closing or self.export_job or self.audition_pending(): return
+        if self.still_poster or self.preparing_gap is not None or self.closing or self.export_job or self.audition_pending(): return
         if not self.ensure_preview_context(): return
         coverage = self.cached_timeline_scope()
         match = cached_gap(coverage.intervals, frame, self.base_preview_scope())
@@ -291,7 +291,7 @@ class PreviewRangeStudio:
         self._start_warm_batch()
 
     def prepare_configured_range(self):
-        if self.preparing_gap is not None: return
+        if self.still_poster or self.preparing_gap is not None: return
         looping = self.loop_preview_range.isChecked()
         if not looping:
             self.play.setChecked(False)

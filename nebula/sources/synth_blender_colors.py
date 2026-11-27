@@ -30,6 +30,11 @@ RADIAL_COLORS = tuple(
 
 
 def color_spec(key):
+    if key.startswith('layer_fill/'):
+        from nebula.render.synth_instances import base_id
+        owner = key.split('/', 1)[1]
+        if owner == 'text' or base_id(owner) == 'type_overprint':
+            return ColorSpec(key, 'Layer fill', ('hue', 'saturation', 'brightness' if owner == 'text' else 'light'), owner)
     return next(spec for spec in (*COLORS, *BLENDER_COLORS, *LATTICE_COLORS, *RADIAL_COLORS) if spec.key == key)
 
 

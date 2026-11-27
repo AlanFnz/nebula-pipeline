@@ -56,7 +56,7 @@ class ExplorationStudio:
                 with QSignalBlocker(button): button.setChecked(side == key)
             self.compare_a.setToolTip('Preview saved A. Editing still targets working B.'); self.compare_b.setToolTip('Preview working B or the temporary audition.')
         if hasattr(self, 'export_button'):
-            self.export_button.setText('Export B MP4' if active else 'Export MP4')
+            self.refresh_export_button()
             self.export_button.setToolTip('Export working B. A/B comparison only changes the viewer.' if active else '')
 
     def begin_comparison(self, first, label, candidate=None, snapshot_id=None, purpose=None):

@@ -6,6 +6,54 @@ Object edits generated material, Source edits footage, Effects treats the image,
 and Master adjusts the finished image. Use [Montage](native-montage.md) to assemble
 independent studies and footage.
 
+## Poster layers
+
+Choose **New piece → Poster** to start with editable type, an ink plate and paper.
+New and saved posters open on their first frame. While editing a still, Nebula
+renders that frame when you change a layer, preview an effect or change resolution.
+In **Layers**, select a word to edit its wording or typeface. Click a printed
+letter in the monitor and drag with **Move**. Clicking through a letter opening
+selects the plate or paper underneath. Drag the plate itself to reposition it,
+or enter its center in canvas pixels. **Escape** cancels a drag and **Undo**
+restores the whole move.
+
+Double-click a word in the monitor to edit it. Enter applies the wording,
+Shift+Enter starts another line and Escape cancels. With Move active and the
+monitor focused, arrow keys nudge the selected layer by one canvas pixel.
+Hold Shift for ten pixels. Center guides appear near the center of a plate or
+the sheet. **Align center…** places a layer exactly on the sheet or another
+plate. Hold Option (Alt) to drag freely. A selected plate has corner handles
+for proportional scaling and a round rotation handle above its top edge.
+
+Use **+ Layer** for text or an ink plate. **Duplicate** copies a separate
+impression with its clip edits and automation. For the primary text source or
+the built-in Dye transfer plate, it creates an editable impression using the
+current source settings. The first row prints in front. Drag a row
+to change its depth, or use Option/Alt with the up and down arrows in the list.
+Click the eye to show or hide it throughout the
+composition. Turn on **Animate poster** above the monitor for the timeline,
+playback and the usual **Auto prepare** setting. **Animate this layer…** also
+turns on animation and opens the clip automation editor for that layer.
+Turn **Animate poster** off to stop playback and preparation and keep working
+on the frame under the playhead. The poster retains its timing and animation.
+
+**Export poster…** saves the current frame as PNG or JPEG, initially at
+**Full canvas**. Choose **Animate and export MP4…** from its dropdown to enter
+animation mode when you confirm a video export.
+
+For posters with a footer, select **Footer** to move it together or expand the
+group to select one inscription. **Paper** is fixed to the canvas. **Print finish**
+opens the treatments used for the impression. **Hand** pans the view.
+
+Select **Paper → Texture** to adjust grain on the exposed sheet. Select an ink
+plate to change its breakup, grain size, density gradient or edges. A plate
+with **Use paper tooth** follows the sheet’s grain size. Select a word or an
+individual footer inscription to adjust its **Ink grain**, **Ink pinholes** and
+**Ink grain size**. Use **Animate…** beside the grain or pinhole amount to
+change the ink coverage over a clip. Open **Shared print texture** for settings that affect
+several layers, such as the paper relief or the source ink breakup in Dye
+transfer. A caption printed after that finish has its own ink controls.
+
 ## Scope and inherited settings
 
 The inspector header names the composition or Montage block and its file status.

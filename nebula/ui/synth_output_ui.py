@@ -45,13 +45,17 @@ def export_audio_label(document, *, montage=False):
     return 'Silent · no audio track'
 
 
-def export_rows(document, *, preset=None, montage=False):
+def export_rows(document, *, preset=None, montage=False, still_frame=None):
     data = document if document is not None else preset
     canvas = data.get('canvas', preset or data)
+    width, height = canvas['width'], canvas['height']
+    if still_frame is not None:
+        return [('Export', data.get('name', 'Untitled')), ('Range', f'Single frame · Frame {still_frame}'),
+                ('Canvas', f'{width} × {height} px'), ('Format', 'PNG or JPEG'),
+                ('Resolution', 'Full canvas by default · 720 px or 360 px available')]
     fps = data['fps'] if document is not None else data['export_fps']
     frames = sum(c['frames'] for c in data['clips']) if montage else max(1, round(
         (data['duration'] if document is not None else data['loop_seconds']) * fps))
-    width, height = canvas['width'], canvas['height']
     rows = [('Export', data.get('name', 'Untitled')),
             ('Range', 'Entire montage' if montage else 'Entire composition' if document is not None else 'Entire loop'),
             ('Canvas', f'{width} × {height} px'),
@@ -75,7 +79,7 @@ class ExportSummaryButton(QToolButton):
         super().__init__(parent)
         self.provider, self.export_button = provider, export_button
         self.setText('Details'); self.setAccessibleName('Export summary')
-        self.setToolTip('Export summary — document, output size, timing and applied audio.')
+        self.setToolTip('Show the document, export range and output settings.')
         self.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self.setProperty('secondaryAction', True)
         menu = QMenu(self); self.setMenu(menu)
@@ -92,4 +96,5 @@ class ExportSummaryButton(QToolButton):
     def refresh_summary(self):
         self.rows = self.provider()
         self.summary_text.setText('\n\n'.join(f'{name}\n{value}' for name, value in self.rows))
+        self.export_action.setText(self.export_button.text().rstrip('…') + '…')
         self.export_action.setEnabled(self.export_button.isEnabled())

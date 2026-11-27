@@ -110,7 +110,8 @@ angle** and lower **Edge exposure brightness** under **Color & light**.
 **Type overprint** adds editable lettering at a position on the artwork.
 Each instance has its own wording, typeface, size, color and intensity.
 **Ink grain** varies the coverage inside its letters and **Ink pinholes**
-reveals the surface underneath.
+reveals the surface underneath. On a poster, select the inscription in
+**Layers** to edit both under **Texture**.
 The Effects list shows the wording beside each active text plate.
 Use **Add another instance** for another text block. Its position in the
 effect list determines which subsequent treatments affect the lettering.

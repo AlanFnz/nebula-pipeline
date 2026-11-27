@@ -20,7 +20,7 @@ from PySide6.QtCore import QEvent, QObject, QRunnable, QSettings, QSignalBlocker
 from PySide6.QtGui import QAction, QIcon, QKeySequence
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QFileDialog, QGroupBox,
-    QHBoxLayout, QGridLayout, QLabel, QMainWindow, QPushButton, QScrollArea,
+    QHBoxLayout, QGridLayout, QLabel, QMainWindow, QPushButton, QScrollArea, QButtonGroup,
     QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QMessageBox, QSizePolicy, QFrame, QInputDialog,
     QProgressBar, QMenu, QToolButton, QLineEdit, QPlainTextEdit, QTextEdit, QAbstractSpinBox, QAbstractSlider, QAbstractButton, QStackedWidget, QComboBox as NativeComboBox,
 )
@@ -56,7 +56,7 @@ from nebula.ui.synth_text_ui import TextControl
 from nebula.sources.synth_text import validate_text
 from nebula.effects.synth_master import normalize_master
 from nebula.ui.synth_master_ui import MasterPanel
-from nebula.ui.synth_viewer import SynthViewer
+from nebula.ui.synth_poster_viewer import PosterViewer
 from nebula.sources.synth_video import VideoFrameProvider, inspect_video, prepare_proxy, video_composition, relink_footage, check_source
 from nebula.render.synth_preview import PreviewScheduler, resolve_scope, RenderValidity, preview_context, retained_frame_predicate
 from nebula.render.synth_comparison_preview import ComparisonFrames
@@ -344,7 +344,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
     def build_actions(self):
         file_menu = self.menuBar().addMenu('File')
         edit_menu = self.menuBar().addMenu('Edit')
-        transport_menu = self.menuBar().addMenu('Preview')
+        self.transport_menu = self.menuBar().addMenu('Preview')
         def action(menu, label, shortcut, callback):
             item = QAction(label, self)
             item.setShortcut(shortcut)
@@ -363,10 +363,10 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.soundtrack_action = action(file_menu, 'Soundtrack…', QKeySequence(), self.open_soundtrack)
         self.undo_action = action(edit_menu, 'Undo composition', QKeySequence.StandardKey.Undo, self.undo_composition)
         self.redo_action = action(edit_menu, 'Redo composition', QKeySequence.StandardKey.Redo, self.redo_composition)
-        action(transport_menu, 'Play / pause', QKeySequence('Space'), lambda: self.play.setChecked(not self.play.isChecked()))
+        action(self.transport_menu, 'Play / pause', QKeySequence('Space'), lambda: self.play.setChecked(not self.play.isChecked()))
         for label, key, delta in (('Previous frame', 'Left', -1), ('Next frame', 'Right', 1),
                                   ('Back ten frames', 'Shift+Left', -10), ('Forward ten frames', 'Shift+Right', 10)):
-            action(transport_menu, label, QKeySequence(key), lambda _checked=False, d=delta: self.step_frame(d))
+            action(self.transport_menu, label, QKeySequence(key), lambda _checked=False, d=delta: self.step_frame(d))
         self.composition_undo_button.setToolTip(self.undo_action.toolTip())
         self.composition_redo_button.setToolTip(self.redo_action.toolTip())
         self.viewer.setToolTip(self.viewer.toolTip() + ' Space: play/pause. Arrows: step frames; Shift: ten frames.')
@@ -387,6 +387,9 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
                     widget = widget.parentWidget()
                 event.ignore(); return True
             local_editor = False
+            if focus is getattr(self, 'viewer', None) and focus is not None and focus.wants_arrow(event):
+                event.accept()
+                return True
             widget = focus
             while widget and widget is not self:
                 if isinstance(widget, (QLineEdit, QPlainTextEdit, QTextEdit, QAbstractSpinBox)):
@@ -406,6 +409,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         return super().eventFilter(watched, event)
 
     def step_frame(self, delta):
+        if self.still_poster: return
         self.play.setChecked(False)
         scope = self.active_preview_scope()
         self.timeline.setValue(scope.step(self.timeline.value(), delta))
@@ -448,6 +452,8 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.save_button.setAccessibleName('Save ' + context.owner)
         self.save_button.setToolTip(context.save_hint)
         self.export_button.setToolTip('Export the complete montage, including this block.' if context.block
+                                      else 'Save the current poster frame as PNG or JPEG. Full canvas is the default.'
+                                      if self.composition is not None and 'poster' in self.composition
                                       else 'Export the complete ' + context.owner + ' at the output canvas size.')
         if self.composition is not None and self.composer is not None:
             panel = self.composer
@@ -475,7 +481,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
 
     def pending_text_edits(self):
         if self.composer is not None:
-            return self.composer.pending_text_edits()
+            return self.viewer.pending_wording() + self.composer.pending_text_edits()
         controls = [control.spin for control in (self.sequence_state_controls if self.sequence is not None else self.controls).values()]
         return [(control, control.editor.toPlainText()) for control in controls
                 if isinstance(control, TextControl) and control.editor.toPlainText() != control.value()]
@@ -492,6 +498,8 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         if self.discovery_session: self.dismiss_effect_discovery()
         try:
             if self.composer is not None:
+                if not self.viewer.finish_wording():
+                    return False
                 return self.composer.prepare_text_save()
             drafts = self.pending_text_edits()
             for _control, value in drafts:
@@ -617,7 +625,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         header.addWidget(inline(brand, self.document_title, spacing=12))
         self.composition_widgets = []; self.preset_widgets = []
         self.new_piece_button = QPushButton('New piece'); self.new_piece_button.clicked.connect(self.new_piece_dialog)
-        self.new_piece_button.setToolTip('Start with Text, Shape, Model, Video, or remix an existing study.')
+        self.new_piece_button.setToolTip('Start with Text, Shape, Model, Video, Poster, or remix an existing study.')
         self.import_video_button = QPushButton('Import video'); self.import_video_button.clicked.connect(self.import_video_dialog)
         self.import_video_button.setToolTip('Start a new composition from a video file.')
         self.montage_button = montage_button = QPushButton('Montage'); montage_button.clicked.connect(self.open_montage)
@@ -741,6 +749,22 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         zoom_label = QLabel('View zoom'); zoom_label.setObjectName('monitorMeta'); zoom_label.setBuddy(self.view_zoom)
         monitor_flow.addWidget(inline(zoom_label, minus, self.view_zoom, plus, spacing=4))
         monitor_flow.addWidget(inline(fit, actual, spacing=4))
+        self.move_layer = QPushButton('Move')
+        self.move_layer.setAccessibleName('Move poster layers')
+        self.hand_tool = QPushButton('Hand')
+        self.hand_tool.setAccessibleName('Pan poster view')
+        tools = QButtonGroup(self)
+        for button in (self.move_layer, self.hand_tool):
+            button.setCheckable(True)
+            tools.addButton(button)
+        self.move_layer.toggled.connect(lambda on: self.viewer.set_move_tool(on))
+        self.poster_animation = QPushButton('Animate poster')
+        self.poster_animation.setCheckable(True)
+        self.poster_animation.setToolTip('Open the timeline for playback and frame preparation. Turn off to work on the current frame as a still.')
+        self.poster_animation.toggled.connect(self.poster_animation_changed)
+        self.poster_tools = inline(self.move_layer, self.hand_tool, self.poster_animation, spacing=4)
+        self.poster_tools.hide()
+        monitor_flow.addWidget(self.poster_tools)
         self.source_preview = QCheckBox('Before / source'); self.source_preview.setAccessibleName('Before / source')
         self.source_preview.setToolTip('Compare this footage frame before treatments. Export includes treatments.')
         self.source_preview.toggled.connect(lambda _checked: self.invalidate()); monitor_flow.addWidget(self.source_preview)
@@ -753,7 +777,8 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         fullscreen.clicked.connect(self.toggle_fullscreen); monitor_actions.layout().addWidget(fullscreen); self.fullscreen_button = fullscreen
         monitor_flow.addWidget(monitor_actions)
         monitor_layout.addWidget(monitor_header)
-        self.viewer = SynthViewer(); self.viewer.setObjectName('studioViewer'); monitor_layout.addWidget(self.viewer, 1)
+        self.viewer = PosterViewer(); self.viewer.setObjectName('studioViewer'); monitor_layout.addWidget(self.viewer, 1)
+        self.viewer.wording_changed.connect(self.update_document_title)
         self.viewer.frameCleared.connect(self.refresh_monitor_frame)
         left_layout.addWidget(monitor, 1)
         self.viewer.zoomChanged.connect(self.refresh_view_zoom)
@@ -909,13 +934,22 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
             self.quality.setCurrentIndex(int(self.workspace_settings.value('preview/quality', 0)))
             self.preview_range_frames.setValue(int(self.workspace_settings.value('preview/range_frames', 150)))
         controls_layout.addWidget(preparation_host)
-        controls_layout.addWidget(self.status)
+        # The same progress and cancel controls must be reachable with the timeline closed.
+        self.still_feedback_layout = QVBoxLayout()
+        left_layout.addLayout(self.still_feedback_layout)
+        self.timeline_feedback_layout = QVBoxLayout()
+        controls_layout.addLayout(self.timeline_feedback_layout)
+        self.operation_feedback = QWidget()
+        feedback_layout = QVBoxLayout(self.operation_feedback)
+        feedback_layout.setContentsMargins(0, 0, 0, 0)
+        feedback_layout.addWidget(self.status)
         self.export_progress = QProgressBar(); self.export_progress.setRange(0, 100); self.export_progress.setValue(0)
         self.export_progress.setTextVisible(True); self.export_progress.setFormat('Ready to export')
         self.export_progress.setAccessibleName('Export progress'); self.export_progress.setToolTip('Frames rendered for MP4 export.'); self.export_progress.hide()
         self.cancel_export = QPushButton('Cancel export'); self.cancel_export.setEnabled(False); self.cancel_export.hide(); self.cancel_export.clicked.connect(self.cancel_export_job)
         export_feedback = QHBoxLayout(); export_feedback.addWidget(self.export_progress, 1); export_feedback.addWidget(self.cancel_export)
-        controls_layout.addLayout(export_feedback)
+        feedback_layout.addLayout(export_feedback)
+        self.timeline_feedback_layout.addWidget(self.operation_feedback)
         controls_layout.addStretch(1)
         self.preview_controls_scroll.setMinimumWidth(
             controls_pane.minimumSizeHint().width() + self.preview_controls_scroll.verticalScrollBar().sizeHint().width())
@@ -1156,6 +1190,21 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.update_document_title()
 
     def _rebuild_modules(self):
+        self.viewer.bind(None, self.poster_editable)
+        poster = self.composition is not None and 'poster' in self.composition
+        self.poster_tools.setVisible(poster)
+        if getattr(self, '_poster_view_identity', None) is not self.document_identity:
+            self._poster_view_identity = self.document_identity
+            with QSignalBlocker(self.poster_animation):
+                self.poster_animation.setChecked(False)
+            self.move_layer.setChecked(True)
+            if poster:
+                self.discard_preview_range()
+                self.cancel_preparation()
+                with QSignalBlocker(self.timeline):
+                    self.timeline.setValue(0)
+                self.current_time = 0.
+        self.refresh_poster_transport()
         self.refresh_canvas_controls()
         self.save_study_button.setEnabled(self.composition is not None and self.study_job is None)
         # These controls live outside the panel they belong to. Detach the
@@ -1167,7 +1216,6 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         while self.timeline_navigation_layout.count():
             item = self.timeline_navigation_layout.takeAt(0)
             if item.widget(): item.widget().hide(); item.widget().deleteLater()
-        self.workspace_fps_host.setVisible(self.composition is not None)
         if self.composer is not None:
             self.composition_index = self.composer.index
             self.composition_scope = self.composer.scope
@@ -1201,6 +1249,14 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
             self.composer.changed.connect(self.composition_changed)
             self.composer.changed.connect(self.bind_pending_text_titles)
             self.composer.playhead_seconds = lambda: self.timeline.value()/self.composition["fps"]
+            if self.composer.layers_panel:
+                self.viewer.bind(self.composer.layers_panel, self.poster_editable)
+                self.viewer.can_nudge = lambda: (not self.closing and not self.play.isChecked() and not self.comparison
+                                                 and not self.discovery_session)
+                self.composer.layers_panel.animate_requested.connect(self.composer.parameter_automation)
+                self.composer.automation_opened.connect(lambda: self.poster_animation.setChecked(True))
+                self.viewer.set_move_tool(self.move_layer.isChecked())
+                self.composer.look_tabs.currentChanged.connect(lambda _: self.viewer.update())
             self.composer.effects_panel.navigation_changed.connect(self.bind_pending_text_titles)
             self.composer.object_panel.navigation_changed.connect(self.bind_pending_text_titles)
             self.composer.object_editor.navigation_changed.connect(self.bind_pending_text_titles)
@@ -1216,7 +1272,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
             self.composer.object_panel.navigation_changed.connect(self.refresh_effect_explanations)
             self.composer.object_editor.navigation_changed.connect(self.refresh_effect_explanations)
             self.composer.look_tabs.currentChanged.connect(lambda _: self.refresh_effect_explanations())
-            self.composer.effects_panel.finishing_requested.connect(lambda: self.composer.look_tabs.setCurrentIndex(2))
+            self.composer.effects_panel.finishing_requested.connect(lambda: self.composer.look_tabs.setCurrentWidget(self.composer.finishing_panel))
             self.composer.effects_panel.master_requested.connect(lambda: self.composer.look_tabs.setCurrentWidget(self.composer.master_panel))
             self.composer.effects_panel.source_requested.connect(lambda: self.composer.look_tabs.setCurrentWidget(self.composer.video_panel))
             self.composer.relinkRequested.connect(lambda: self.import_video_dialog(relink=True))
@@ -1317,8 +1373,12 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
             self.status.setText(f'Could not create piece: {exc}'); return False
         if not self.set_composition(project, clean=False): return False
         self.timeline.setValue(0)
-        self.composer.look_tabs.setCurrentWidget(self.composer.object_panel)
-        self.status.setText('Edit your object, then open Effects → Add effect… to build its treatment. Save to keep this piece.')
+        if kind == 'poster':
+            self.composer.look_tabs.setCurrentWidget(self.composer.layers_panel)
+            self.status.setText('Select type or an ink plate in the monitor to move it.')
+        else:
+            self.composer.look_tabs.setCurrentWidget(self.composer.object_panel)
+            self.status.setText('Edit your object, then open Effects → Add effect… to build its treatment. Save to keep this piece.')
         return True
 
     def load_particle_composition(self, refined=True):
@@ -2105,6 +2165,8 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         if self.export_job:
             if self.preview_image_stale:
                 return 'waiting', 'Preview waiting for export · changes pending'
+            if self.still_poster:
+                return 'waiting', 'Export in progress'
             return 'waiting', 'Preview preparation paused during export'
         if self.render_queued or self.preview_debounce.isActive():
             return 'loading', 'Updating preview…'
@@ -2164,7 +2226,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
     def waits_for_prepared_frame(self):
         # The effect browser renders its own A/B frames, even while the main
         # transport is restricted to frames in a prepared loop.
-        return (self.discovery_session is None and
+        return (not self.still_poster and self.discovery_session is None and
                 (self.loop_preview_range.isChecked() or self.preparing_gap is not None))
 
     def refresh_preview_scope(self):
@@ -2234,7 +2296,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.refresh_preview_activity()
 
     def schedule_auto_preparation(self):
-        if getattr(self, 'gap_preparation_paused', False): return
+        if self.still_poster or getattr(self, 'gap_preparation_paused', False): return
         if self.preview_suspended or self.discovery_session or self.closing or not hasattr(self, 'auto_prepare') or not self.auto_prepare.isChecked() or self.export_job: return
         if self.loop_preview_range.isChecked() and (self.preparation_explicit or
                 all(self.preview_frames.contains(frame) for frame in self.prepared_range_sources)): return
@@ -2243,7 +2305,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
 
     def _automatic_preparation(self):
         self.refresh_preview_activity()
-        if self.gap_preparation_paused: return
+        if self.still_poster or self.gap_preparation_paused: return
         if self.preview_suspended or self.closing or self.export_job: return
         if self.preparation_explicit:
             self._start_warm_batch(); return
@@ -2281,7 +2343,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.refresh_preview_activity()
 
     def prepare_full_playback(self, checked=False):
-        if self.preparing_gap is not None or self.closing or self.export_job or self.audition_pending(): return
+        if self.still_poster or self.preparing_gap is not None or self.closing or self.export_job or self.audition_pending(): return
         if self.preparation_full and self.preparation_explicit:
             self.cancel_preparation()
             self.preview_status.setText('Full preparation cancelled · prepared frames kept. Click Prepare all frames to resume.')
@@ -2340,7 +2402,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.preview_status.setToolTip('Prepared ranges are shown in green below the playhead. Prepare range keeps the chosen frames at the selected resolution using temporary lossless storage. Enable Loop prepared range, then Play. Prepare all frames covers the complete composition. Neither changes the export.')
 
     def _start_warm_batch(self):
-        if self.closing or self.export_job: return
+        if self.still_poster or self.closing or self.export_job: return
         if not self.ensure_preview_context(): return
         if not self.preparation_target:
             self._preparation_ready(); return
@@ -2528,6 +2590,45 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         if abs(time_seconds - self.performance_source_time(output_time)) > .5/self.preview_fps(): return
         self.display_frame(output_time, (size, raw))
 
+    @property
+    def still_poster(self):
+        return self.composition is not None and 'poster' in self.composition and not self.poster_animation.isChecked()
+
+    def refresh_poster_transport(self):
+        timed = not self.still_poster
+        self.refresh_export_button()
+        self.transport.setVisible(timed)
+        self.preview_controls_scroll.setVisible(timed)
+        self.cache_status.setVisible(timed)
+        self.workspace_fps_host.setVisible(timed and self.composition is not None)
+        self.transport_menu.setEnabled(timed)
+        slot = self.timeline_feedback_layout if timed else self.still_feedback_layout
+        if slot.indexOf(self.operation_feedback) < 0:
+            slot.addWidget(self.operation_feedback)
+            self.operation_feedback.show()
+
+    def poster_animation_changed(self, enabled):
+        self.refresh_poster_transport()
+        if enabled:
+            self.refresh_preview_scope()
+            self.schedule_auto_preparation()
+        else:
+            self.play.setChecked(False)
+            self.discard_preview_range()
+            self.cancel_preparation()
+            # A loop may have been waiting for its first frame. Render that frame
+            # normally once its worker has been cancelled.
+            if self.cover_frame != (self.settings_generation, self.timeline.value() / self.preview_fps()):
+                self.request_frame()
+            else:
+                self.preview_status.setText('Poster preview ready')
+
+    def poster_editable(self):
+        return (not self.closing and not self.play.isChecked() and not self.comparison
+                and not self.discovery_session and not self.preview_image_stale
+                and self.viewer.layers is not None and self.viewer.layers.at_playhead
+                and self.cover_frame == (self.settings_generation, self.current_time))
+
     def display_frame(self, time_seconds, packet, cached=False):
         self.refresh_effect_explanations(time_seconds)
         if self.discovery_session: self.discovery_session.accept_packet()
@@ -2542,6 +2643,8 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.viewer.set_packet((size, raw))
         self.cover_frame = (self.settings_generation, time_seconds)
         self.preview_image_stale = False
+        if self.viewer.layers and not self.play.isChecked() and not self.comparison and not self.discovery_session:
+            self.viewer.layers.refresh(time_seconds)
         self.failed_monitor_frame = None
         self.monitor_meta.setText(f"{size[0]}×{size[1]} / RGB")
         fps = self.preview_fps()
@@ -2552,6 +2655,8 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
             speed = f'{actual:.1f}' if actual else 'measuring'
             note = ' · skipping preview frames' if actual and actual < fps*.9 else ''
             self.preview_status.setText(f'Preview: {speed} / {fps} fps{note}' + (' · cached' if cached else ''))
+        elif self.still_poster:
+            self.preview_status.setText('Poster preview ready')
         elif not self.prepare_job:
             self.preview_status.setText(f'Preview paused · {"cached frame" if cached else f"rendered in {self.last_render_seconds*1000:.0f} ms"}')
         if self.play.isChecked() and not self.warm_debounce.isActive() and not self.preparation_explicit:
@@ -2638,6 +2743,9 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.play_timer.start(max(1, math.ceil(remaining*1000)))
 
     def toggle_play(self, checked):
+        if checked and self.still_poster:
+            with QSignalBlocker(self.play): self.play.setChecked(False)
+            return
         if not checked: self.stop_performance_recording()
         self.monitor_state.setText("[ PLAY ]" if checked else "[ HOLD ]")
         fps = self.sequence["fps"] if self.sequence is not None else self.preset["export_fps"]
@@ -2717,11 +2825,18 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
             rows = navigation.montage.export_summary_rows()
             rows.insert(1, ('Editing', 'A block is open. Export returns to the complete montage and includes its applied edits.'))
             return rows
+        if self.still_poster:
+            return export_rows(self.sequence, still_frame=self.timeline.value())
         rows = export_rows(self.sequence, preset=self.preset)
         dialog = self.visual_sound_dialog
         if dialog and dialog.has_sound_draft():
             rows.insert(-1, ('Sound draft', 'Unapplied sound changes. Export will ask whether to apply them or use the applied sound shown above.'))
         return rows
+
+    def refresh_export_button(self):
+        self.export_button.set_context(self.composition is not None and 'poster' in self.composition,
+                                       bool(self.comparison), still=self.still_poster,
+                                       montage=bool(self.workspace_navigation and self.workspace_navigation.editor is self))
 
     def export_dialog(self):
         navigation = self.workspace_navigation
@@ -2741,9 +2856,13 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         p = copy.deepcopy(self.preset) if self.sequence is not None else self.collect()
         canvas = self.current_canvas(); size = (canvas["width"], canvas["height"])
         job = ExportJob(p, path, size, self.sequence)
+        if self.still_poster:
+            self.poster_animation.setChecked(True)
         self.start_export_job(job, 'Exporting… 0%')
 
     def export_frame_dialog(self):
+        if not self.viewer.finish_wording():
+            return
         if self.export_job: return
         frame = self.timeline.value()
         self.play.setChecked(False)
@@ -2769,7 +2888,8 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
         self.export_progress.setFormat(label)
         self.status.setText(label)
         self.export_progress.show(); self.cancel_export.show()
-        QTimer.singleShot(0, lambda: self.preview_controls_scroll.ensureWidgetVisible(self.export_progress))
+        if not self.still_poster:
+            QTimer.singleShot(0, lambda: self.preview_controls_scroll.ensureWidgetVisible(self.export_progress))
         self.export_job = job; self.cancel_export.setEnabled(True); self.pending_jobs.append(job)
         self.refresh_preview_activity()
         job.signals.progress.connect(lambda done, total, j=job: self.export_progressed(j, done, total))
@@ -2814,7 +2934,10 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
             self.export_job = None
             self.cancel_export.setEnabled(False); self.cancel_export.hide(); self.export_progress.hide()
             self.export_button.setEnabled(True)
-            self.preview_status.setText('Preview outdated · prepare frames to update' if self.preview_image_stale else 'Preview paused')
+            if self.still_poster:
+                self.preview_status.setText('Updating preview…' if self.preview_image_stale else 'Poster preview ready')
+            else:
+                self.preview_status.setText('Preview outdated · prepare frames to update' if self.preview_image_stale else 'Preview paused')
             self.schedule_auto_preparation()
             self.refresh_preview_activity()
 
