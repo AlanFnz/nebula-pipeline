@@ -212,6 +212,42 @@ def _fresh_noise(rng, width, height, cell_x, cell_y):
     return (field - field.mean()) / max(float(field.std()), 1e-6)
 
 
+def paper_grain_controls(P):
+    return (
+        P('paper_grain', 'Bare paper grain', 0., 0., 1., .01, 'Grain of the exposed paper. Solid printing covers it.'),
+        P('paper_grain_size', 'Bare paper grain size', 1.5, .4, 12., .1, 'Grain size in pixels at a 720-pixel artwork width.'),
+    )
+
+
+def paper_grain_field(p, seed, size, artwork_width):
+    cell = max(.7, p['paper_grain_size'] * artwork_width / 720)
+    grain = _paper_noise(seed, *size, cell, 59)
+    return ((grain - .5) * (.32 * p['paper_grain']))[..., None]
+
+
+def type_grain_controls(P):
+    return (
+        P('ink_grain', 'Ink grain', 0., 0., 1., .01, 'Vary the ink coverage within this lettering.'),
+        P('ink_pinholes', 'Ink pinholes', 0., 0., 1., .01, 'Leave small openings in this lettering, revealing the surface beneath it.'),
+        P('ink_grain_size', 'Ink grain size', 1.5, .4, 12., .1, 'Size of the grain and pores in pixels at a 720-pixel artwork width.'),
+    )
+
+
+def textured_type_mask(mask, p, seed, unit, scale=(1., 1.), impression=0):
+    """Apply dry ink in glyph coordinates before positioning or clipping the mask."""
+    grain, holes = p.get('ink_grain', 0.), p.get('ink_pinholes', 0.)
+    if not (grain or holes):
+        return mask
+    rng = _rng(seed, 373, impression)
+    cell = p['ink_grain_size'] * unit
+    noise = _fresh_noise(rng, *mask.size, max(.75, cell / scale[0]), max(.75, cell / scale[1]))
+    loss = grain * np.clip(.16 + .115 * noise, 0., .65)
+    if holes:
+        loss += holes * np.clip((noise - 1.20) * 1.8, 0., 1.)
+    alpha = np.asarray(mask) * (1. - np.minimum(loss, 1.))
+    return Image.fromarray(np.rint(alpha).astype(np.uint8))
+
+
 def frame_noise_background(width, height, p, tick, seed):
     """Independent grain and density patches for every held frame/seed."""
     rng = _rng(seed, 109, tick)

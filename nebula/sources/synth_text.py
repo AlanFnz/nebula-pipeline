@@ -10,6 +10,7 @@ from PIL import Image, ImageDraw, ImageChops
 from nebula.sources.synth_fonts import FONTS, FONT_FILES, load_font, resolve_font
 
 from nebula.core.synth_canvas import content_size, object_offset
+from nebula.effects.synth_print import paper_grain_field, textured_type_mask
 
 
 def validate_text(value):
@@ -284,23 +285,35 @@ def repeat_mask(mask, copies, gap):
     return result
 
 
-def render_text(arr, p, time, preset):
-    h, w = arr.shape[:2]
+def placed_text_mask(p, time, preset, size, *, print_ink=False):
+    w, h = size
     dx, dy = object_offset(preset, (w, h))
+    reference = content_size(preset, size)
     if p['reveal'] == 5:
         from nebula.sources.synth_text_scroll import scroll_mask
-        placed = scroll_mask(p, time, preset['speed'], (w, h), content_size(preset, (w, h)), (dx, dy))
-        alpha = np.asarray(placed, dtype=np.float32) / 255 * p['opacity']
-        ink = color(p['hue'], p['saturation'], p['brightness'])
-        paper = color(p['back_hue'], p['back_saturation'], p['back_brightness'])
-        return paper + alpha[..., None] * (ink - paper)
-    mask, sx, sy = text_layout(p, time, preset['speed'], content_size(preset, (w, h)))
+        return scroll_mask(p, time, preset['speed'], size, reference, (dx, dy),
+                           ink_seed=preset['seed'] if print_ink else None)
+    mask, sx, sy = text_layout(p, time, preset['speed'], reference)
+    if print_ink:
+        mask = textured_type_mask(mask, p, preset['seed'], reference[0] / 720, (sx, sy))
     angle = math.radians(p['rotation']); c, s = math.cos(angle), math.sin(angle)
     cx, cy = w / 2 + dx, h / 2 + dy
     coefficients = (c / sx, s / sx, mask.width / 2 - (c * cx + s * cy) / sx,
                     -s / sy, c / sy, mask.height / 2 - (-s * cx + c * cy) / sy)
-    placed = mask.transform((w, h), Image.Transform.AFFINE, coefficients, Image.Resampling.BICUBIC)
+    return mask.transform((w, h), Image.Transform.AFFINE, coefficients, Image.Resampling.BICUBIC)
+
+
+def render_text(arr, p, time, preset):
+    h, w = arr.shape[:2]
+    placed = placed_text_mask(p, time, preset, (w, h))
+    if p.get('ink_grain') or p.get('ink_pinholes'):
+        worn = placed_text_mask(p, time, preset, (w, h), print_ink=True)
+        # Bicubic resampling can ring outside the original contour. Ink loss
+        # only removes coverage, including on a rotated or scrolling line.
+        placed = ImageChops.darker(placed, worn)
     alpha = np.asarray(placed, dtype=np.float32) / 255 * p['opacity']
     ink = color(p['hue'], p['saturation'], p['brightness'])
     paper = color(p['back_hue'], p['back_saturation'], p['back_brightness'])
+    if p.get('paper_grain'):
+        paper = paper + paper_grain_field(p, preset['seed'], (w, h), content_size(preset, (w, h))[0])
     return paper + alpha[..., None] * (ink - paper)

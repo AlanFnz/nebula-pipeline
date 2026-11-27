@@ -558,7 +558,6 @@ class EffectsPanel(QWidget):
         if effect.id == 'ink_bloom' and self.controls['ink_bloom.shape'].input.currentIndex() == 5 and not self.controls['ink_bloom.artwork'].input.value():
             self.status.setText('Import artwork to supply the custom silhouette, or choose a built-in shape.')
         self.show_controls()
-        if effect.id == 'dye_transfer': self.color_panel.refresh()
         self.updating = False
         self.controls_refreshed.emit()
         self.navigation_changed.emit()
@@ -703,6 +702,28 @@ class EffectsPanel(QWidget):
         if effect.id == 'solid':
             hidden = hidden_solid_controls(self.summary[effect.id]['ranges'])
             visible_paths = tuple(path for path in visible_paths if path not in hidden)
+        if effect.id == 'dye_transfer':
+            from nebula.effects.synth_dye_transfer import MASK_TARGETS
+            ranges = self.summary[effect.id]['ranges']
+            shape = ranges['dye_transfer.mask_shape']
+            low, high = ranges['dye_transfer.mask_target']
+            mask_colors = {f'mask_{material}' for target in range(int(low), int(high) + 1)
+                           for material in MASK_TARGETS[target]} if shape[1] else set()
+            hidden = {path for spec in self.color_panel.specs
+                      if spec.key.startswith('mask_') and spec.key not in mask_colors for path in spec.paths}
+            if shape == (5, 5):
+                hidden.update(('dye_transfer.mask_size', 'dye_transfer.mask_aspect'))
+            if not shape[0] <= 6 <= shape[1]:
+                hidden.update(('dye_transfer.mask_inset_x', 'dye_transfer.mask_inset_y'))
+            if not mask_colors:
+                hidden.update(('dye_transfer.mask_density_ramp', 'dye_transfer.mask_dry_ink', 'dye_transfer.mask_grain_size'))
+            visible_paths = tuple(path for path in visible_paths if path not in hidden)
+        if effect.id == 'photocopy':
+            from nebula.effects.synth_photocopy import COPY_CONTROLS, PLATE_CONTROLS
+            low, high = self.summary[effect.id]['ranges']['photocopy.process']
+            if low == high:
+                hidden = COPY_CONTROLS if low else PLATE_CONTROLS
+                visible_paths = tuple(path for path in visible_paths if path.split('.')[1] not in hidden)
         if effect.id == 'print_surface':
             from nebula.effects.synth_print_paint import applicable_paths
             visible_paths = applicable_paths(visible_paths, self.summary[effect.id]['ranges']['print_surface.surface'])
@@ -798,9 +819,12 @@ class EffectsPanel(QWidget):
         if selected_group:
             visible_paths = next(paths for title, paths in groups if title == selected_group)
         query = self.filter.text().strip().casefold()
-        self.color_panel.setVisible(effect.id == 'dye_transfer' and
-                                    self.color_panel.context_provider is not None and
-                                    not query and selected_group in (None, 'Color & light', 'Color channels'))
+        if (effect.id == 'dye_transfer' and self.color_panel.context_provider is not None and
+                not query and selected_group in (None, 'Color & light', 'Color channels', 'Print mask')):
+            colors = mask_colors if selected_group == 'Print mask' else {'paper', 'ink'} | mask_colors
+            self.color_panel.show_colors(colors)
+        else:
+            self.color_panel.hide()
         shown = {p for p in visible_paths if not query or matches_control(query, p, parameter(p), control_group(p))}
         # Keep unchanged rows visible during value refreshes. Hiding a focused
         # editor makes Qt transfer focus and scroll to a different control.

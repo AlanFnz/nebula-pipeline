@@ -14,6 +14,10 @@ from nebula.render.synth_instances import base_path
 from nebula.effects.synth_intensity import PATHS
 
 TARGETS = frozenset({
+    'photocopy.grain', 'photocopy.paper_grain', 'photocopy.paper_tint', 'photocopy.pinholes',
+    'photocopy.halftone', 'photocopy.screen_angle', 'photocopy.dot_size', 'photocopy.edge_fade',
+    'text.ink_grain', 'text.ink_pinholes',
+    'text.paper_grain', 'color_field.paper_grain', 'dye_transfer.paper_grain',
     'radial_bloom.core_scale', 'radial_bloom.ray_scale', 'radial_bloom.aperture_scale',
     'radial_bloom.ray_sharpness', 'radial_bloom.fan_width', 'radial_bloom.motion_phase',
     'text.scroll_position', 'text.scroll_rate', 'text.scroll_bottom',
@@ -24,7 +28,8 @@ TARGETS = frozenset({
     'dye_transfer.scale', 'dye_transfer.x', 'dye_transfer.y', 'dye_transfer.angle',
     'dye_transfer.paper_hue', 'dye_transfer.paper_saturation', 'dye_transfer.paper_light',
     'dye_transfer.ink_hue', 'dye_transfer.ink_light', 'dye_transfer.wash',
-    'dye_transfer.ink_veil', 'dye_transfer.ink_veil_x', 'dye_transfer.ink_veil_width',
+    'dye_transfer.ink_veil', 'dye_transfer.ink_veil_x', 'dye_transfer.ink_veil_y', 'dye_transfer.ink_veil_width',
+    'dye_transfer.edge_leak_angle', 'dye_transfer.edge_leak_light',
     'dye_transfer.drag', 'dye_transfer.drag_mix', 'dye_transfer.softness',
     'dye_transfer.warp', 'dye_transfer.erosion', 'dye_transfer.halo',
     'dye_transfer.opening', 'dye_transfer.gate_x', 'dye_transfer.level',
@@ -33,7 +38,11 @@ TARGETS = frozenset({
     'dye_transfer.registration', 'dye_transfer.focus_flutter', 'dye_transfer.shutter',
     'dye_transfer.mask_size', 'dye_transfer.mask_aspect', 'dye_transfer.mask_x',
     'dye_transfer.mask_y', 'dye_transfer.mask_angle', 'dye_transfer.mask_softness',
-    'dye_transfer.mask_opacity',
+    'dye_transfer.mask_opacity', 'dye_transfer.mask_irregularity',
+    'dye_transfer.stock_relief', 'dye_transfer.dry_ink', 'dye_transfer.mask_dry_ink',
+    'dye_transfer.mask_inset_x', 'dye_transfer.mask_inset_y', 'dye_transfer.mask_density_ramp',
+    'dye_transfer.mask_ink_hue', 'dye_transfer.mask_ink_saturation', 'dye_transfer.mask_ink_light',
+    'dye_transfer.mask_paper_hue', 'dye_transfer.mask_paper_saturation', 'dye_transfer.mask_paper_light',
     'contact_print.exposure', 'contact_print.leak_x', 'contact_print.leak_y',
     'contact_print.leak_width', 'contact_print.leak_height', 'contact_print.positive',
     'contact_print.ink_density', 'contact_print.ink_lift', 'contact_print.density',

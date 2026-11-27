@@ -27,6 +27,8 @@ class ColorSpec:
 COLORS = (
     ColorSpec('paper', 'Background color', ('paper_hue', 'paper_saturation', 'paper_light')),
     ColorSpec('ink', 'Ink color', ('ink_hue', 'ink_saturation', 'ink_light')),
+    ColorSpec('mask_ink', 'Second ink color', ('mask_ink_hue', 'mask_ink_saturation', 'mask_ink_light')),
+    ColorSpec('mask_paper', 'Second paper color', ('mask_paper_hue', 'mask_paper_saturation', 'mask_paper_light')),
 )
 
 

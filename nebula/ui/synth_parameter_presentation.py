@@ -34,7 +34,7 @@ DEGREES = frozenset({
     'curved_screen.angle',
     'curved_screen.sphere_axis', 'curved_screen.sphere_phase',
     'chromatic_lattice.eye_ripple_rotation',
-    'dye_transfer.angle',
+    'dye_transfer.angle', 'dye_transfer.mask_angle',
     'signal_tension.direction',
     'print_collage.bar_angle',
     'image_memory.rotation', 'image_memory.drift_angle',
@@ -50,11 +50,11 @@ DEGREES = frozenset({
     'screen_mesh.angle', 'crt_capture.angle',
 })
 DEGREES_PER_SECOND = frozenset({'image_memory.spin', 'particles.rotation_speed', 'particles.orbit_speed', 'prismatic_field.rotation_speed', 'solid.turn_speed', 'solid.tumble_speed', 'solid.roll_speed'})
-PIXELS = frozenset({'chromatic_lattice.eye_separation', 'low_res.resolution', 'print_surface.paint_drift', 'print_surface.paint_registration', 'print_surface.paint_outline_width', 'chromatic_lattice.eye_reveal_grain', 'chromatic_lattice.eye_ripple_glow_radius'})
+PIXELS = frozenset({'chromatic_lattice.eye_separation', 'low_res.resolution', 'print_surface.paint_drift', 'print_surface.paint_registration', 'print_surface.paint_outline_width', 'chromatic_lattice.eye_reveal_grain', 'chromatic_lattice.eye_ripple_glow_radius', 'dye_transfer.mask_irregularity', 'dye_transfer.mask_softness', 'dye_transfer.fiber_size'})
 PERCENTAGES = frozenset({'image_memory.amplitude_x', 'image_memory.amplitude_y',
     'chromatic_lattice.eye_ripple_size', 'chromatic_lattice.eye_ripple_position', 'chromatic_lattice.eye_ripple_fluid', 'chromatic_lattice.eye_ripple_glow'})
 HUES = frozenset({
-    'dye_transfer.paper_hue', 'dye_transfer.ink_hue',
+    'dye_transfer.paper_hue', 'dye_transfer.ink_hue', 'dye_transfer.mask_paper_hue', 'dye_transfer.mask_ink_hue',
     'film_burn.paper_hue', 'film_burn.ink_hue', 'film_burn.leak_hue',
     'signal_repetition.key_hue', 'signal_repetition.hue', 'signal_repetition.fringe_hue', 'signal_repetition.outside_hue',
     'particles.hue', 'edge_phosphor.hue', 'edge_phosphor.fringe_hue',
@@ -79,6 +79,11 @@ def presentation(path):
             if field.startswith('rotation_'): return ParameterPresentation(unit='°')
             if field == 'period': return ParameterPresentation(unit=' s')
             if field == 'hue': return ParameterPresentation(hue=True)
+    if base_path(path) == 'dye_transfer.mask_grain_size':
+        return ParameterPresentation(unit=' px', minimum_text='Use paper tooth')
+    if base_path(path) in ('text.ink_grain_size', 'text.paper_grain_size',
+                           'color_field.paper_grain_size', 'dye_transfer.paper_grain_size'):
+        return ParameterPresentation(unit=' px')
     if base_path(path) == 'low_res.resolution':
         return ParameterPresentation(unit=' px', presets=(180, 240, 360, 480, 720, 1080, 1440, 2160))
     if base_path(path) == 'signal_tension.registration_fps': return ParameterPresentation(unit=' fps')

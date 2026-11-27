@@ -12,6 +12,50 @@ def _noise(rng, width, height, cell):
     return field / max(float(field.std()), 1e-6)
 
 
+PLATE_CONTROLS = frozenset(('paper_grain', 'paper_tint', 'pinholes', 'edge_fade', 'edge_width'))
+COPY_CONTROLS = frozenset(('tint', 'tint_drift', 'exposure', 'blackout',
+                           'light_drift', 'flutter', 'period', 'phase'))
+
+
+def _lattice(xx, yy, pitch, angle):
+    angle = math.radians(angle)
+    u = (xx * math.cos(angle) + yy * math.sin(angle)) / pitch
+    v = (-xx * math.sin(angle) + yy * math.cos(angle)) / pitch
+    return (np.cos(u * math.tau) + np.cos(v * math.tau)) * .5
+
+
+def _screened_plate(coverage, p, xx, yy, scale, grain, clumps, fine):
+    # Preserve a little exposure headroom at either end of the plate. Both
+    # stock and solid ink can then resolve the same continuous screen.
+    h, w = coverage.shape
+    pitch = p['dot_size'] * scale
+    angle = math.radians(p['screen_angle'])
+    highest_frequency = max(abs(math.cos(angle)), abs(math.sin(angle))) / pitch
+    # Subpixel screens merge into the local tone in reduced previews.
+    visibility = np.clip((.50 - highest_frequency) / .045, 0., 1.)
+    screen = 0.
+    if p['halftone'] and visibility:
+        screen = _lattice(xx, yy, pitch, p['screen_angle']) * (.15 * p['halftone'] * visibility)
+    depth = yy / max(1, h - 1)
+    edge = np.clip((depth - .37) / .63, 0., 1.)
+    lateral = (xx / max(1, w - 1) - p['light_x']) / p['light_width']
+    shade = 1 - np.exp(-lateral**2 - ((depth - .22) * 1.5)**2)
+    paper = .12 + .18 * p['light_depth'] * shade + p['paper_tint'] * edge**2
+    paper += p['paper_grain'] * (.052 * grain + .041 * clumps)
+    ink = .88 + p['grain'] * (.072 * grain + .027 * clumps)
+    # Occasional missing pigment leaves a small pale island within dense ink.
+    holes = np.clip((grain + .28 * fine - 1.65) * .95, 0., 1.)
+    ink -= (holes * .62 + np.maximum(fine - 2.7, 0.) * .65) * p['pinholes']
+    if p['edge_fade']:
+        mask = Image.fromarray(np.uint8(coverage * 255))
+        spread = np.asarray(mask.filter(ImageFilter.GaussianBlur(p['edge_width'] * scale)), dtype=np.float32) / 255
+        ink -= np.maximum(coverage - spread, 0.) * p['edge_fade']
+    # As the lower edge picks up tint, the unprinted paper loses contrast.
+    stock_contrast = 1 - np.minimum(1., p['paper_tint'] * 4) * edge**2
+    plate = np.clip(paper + (ink - paper) * coverage + screen * (stock_contrast + (1 - stock_contrast) * coverage), 0., 1.)
+    return p['black'] + plate.astype(np.float32) * (p['white'] - p['black'])
+
+
 def render_photocopy(arr, p, time, seed):
     if p['mix'] == 0: return arr
     h, w = arr.shape[:2]
@@ -37,6 +81,9 @@ def render_photocopy(arr, p, time, seed):
     ink = np.clip((luma - p['threshold']) * p['contrast'] + .5, 0, 1)
     ink = ink * (1 - p['invert']) + (1 - ink) * p['invert']
     yy, xx = np.mgrid[:h, :w].astype(np.float32)
+    if p.get('process', 0):
+        plate = _screened_plate(ink, p, xx, yy, scale, grain, clumps, fine)
+        return arr * (1 - p['mix']) + plate[..., None] * p['mix']
     x = (xx - w * p['light_x']) / min(w, h)
     y = (yy - h * .5) / min(w, h)
     phase = time / p['period'] + p['phase']
@@ -54,11 +101,8 @@ def render_photocopy(arr, p, time, seed):
     tone = ink * light * exposure
     # The screen is a continuous angled dot lattice. Its ink coverage follows
     # the image; it is not a rectangular texture pasted over the composition.
-    angle = math.radians(p['screen_angle'])
     pitch = max(1., p['dot_size'] * scale)
-    u = (xx * math.cos(angle) + yy * math.sin(angle)) / pitch
-    v = (-xx * math.sin(angle) + yy * math.cos(angle)) / pitch
-    dots = (np.cos(u * math.tau) + np.cos(v * math.tau)) * .5
+    dots = _lattice(xx, yy, pitch, p['screen_angle'])
     screen = np.clip((tone - .48 + dots * .42) * 6 + .5, 0, 1)
     screened = tone * (1 - p['halftone']) + screen * p['halftone']
     # Fresh, multi-scale toner every scan; darkest ink retains fine paper tooth.

@@ -153,3 +153,37 @@ def test_browsing_shared_swatches_preserves_hdr_until_an_ink_is_chosen(make_wind
     assert dialog.selected_hsv() == tuple(context['palette'][0])
     dialog.reject()
     assert not window.has_unsaved_changes()
+
+
+def test_mask_cards_follow_the_target_and_edit_the_three_channels_together(make_window, monkeypatch):
+    doc = document()
+    doc['effects']['dye_transfer']['params'].update({'dye_transfer.mask_shape': 4, 'dye_transfer.mask_target': 1})
+    window = make_window(composition=doc)
+    panel = window.composer.effects_panel
+    panel.inspect_effect('dye_transfer')
+    cards = panel.color_panel
+    assert cards.active_keys == {'paper', 'ink', 'mask_ink'}
+    panel.group.setCurrentIndex(panel.group.findData('Print mask'))
+    assert cards.active_keys == {'mask_ink'}
+    panel.controls['dye_transfer.mask_target'].input.setCurrentIndex(2)
+    assert cards.active_keys == {'mask_paper'}
+    before = copy.deepcopy(window.composer.document)
+    def choose_paper(dialog):
+        dialog.select_swatch((.65, .94, .82))
+        return QDialog.DialogCode.Accepted
+    monkeypatch.setattr(ColorPicker, 'exec', choose_paper)
+    cards.open_picker('mask_paper')
+    assert window.composer.color_context('mask_paper')['hsv'] == (.65, .94, .82)
+    window.undo_composition()
+    assert window.composer.document == before
+    panel.controls['dye_transfer.mask_target'].input.setCurrentIndex(3)
+    assert cards.active_keys == {'mask_ink', 'mask_paper'}
+    panel.controls['dye_transfer.mask_shape'].input.setCurrentIndex(5)
+    assert not panel.controls['dye_transfer.mask_size'].isVisible()
+    assert panel.controls['dye_transfer.mask_angle'].isVisible()
+    assert not panel.controls['dye_transfer.mask_inset_x'].isVisible()
+    panel.controls['dye_transfer.mask_shape'].input.setCurrentIndex(6)
+    assert panel.controls['dye_transfer.mask_inset_x'].isVisible()
+    assert panel.controls['dye_transfer.mask_inset_y'].isVisible()
+    panel.controls['dye_transfer.mask_shape'].input.setCurrentIndex(0)
+    assert cards.isHidden()

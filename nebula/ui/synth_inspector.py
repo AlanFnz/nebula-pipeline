@@ -66,11 +66,23 @@ def control_group(path):
         if key in ('phase','flow','cadence'): return 'Motion & timing'
         if key in ('palette','hue_shift','saturation','light','highlight','light_angle','background_motion'): return 'Color & light'
         return 'Optical finish'
+    if module == 'text' and key in ('ink_grain', 'ink_pinholes', 'ink_grain_size'):
+        return 'Ink texture'
+    if module in ('text', 'color_field', 'dye_transfer') and key in ('paper_grain', 'paper_grain_size'):
+        return 'Paper stock'
     if module == 'text' and key.startswith('press_'): return 'Letterpress'
+    if module == 'photocopy':
+        if key in ('process', 'contrast', 'threshold', 'invert'): return 'Print process'
+        if key in ('paper_grain', 'paper_tint'): return 'Paper stock'
+        if key in ('grain', 'grain_size', 'pinholes', 'edge_wear', 'edge_fade', 'edge_width'): return 'Ink deposit'
+        if key in ('halftone', 'dot_size', 'screen_angle'): return 'Halftone screen'
     if module == 'dye_transfer':
+        if key in ('stock_relief', 'fiber_size', 'dry_ink', 'mask_dry_ink', 'mask_grain_size'):
+            return 'Paper & ink'
         if key.startswith('ink_veil'): return 'Light through ink'
-        if key in ('paper_hue', 'paper_saturation', 'paper_light', 'ink_hue', 'ink_saturation', 'ink_light'): return 'Color channels'
-        if key.startswith('mask_'): return 'Optical silhouette'
+        if key.startswith(('paper_', 'mask_paper_', 'mask_ink_')) or key in ('ink_hue', 'ink_saturation', 'ink_light'):
+            return 'Color channels'
+        if key.startswith('mask_'): return 'Print mask'
         if key in ('scale', 'x', 'y', 'angle'): return 'Shape & layout'
         if key in ('weave', 'cadence', 'registration', 'focus_flutter', 'shutter'): return 'Motion & timing'
         if key in ('opening', 'gate_x', 'gate_softness'): return 'Film gate'

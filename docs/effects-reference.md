@@ -85,6 +85,28 @@ Continuous sweep or Irregular passes controls.
 ## Photocopy and foreground extraction
 
 **Photocopy** controls toner, halftones, worn edges and uneven exposure.
+Choose **Fine screened plate** for a continuous angled screen. **Paper stock**
+controls the grain and lower-edge tint on the sheet. **Ink deposit** controls
+the pigment grain, pinholes and the falloff inside each printed contour.
+Set **Print FPS** to zero to hold the impression. To color the plate, place
+**Dye transfer** after it and choose the stock and ink colors there. Setting
+its **Print cadence** to zero also holds the film grain and registration.
+
+For spot-color work on textured stock, choose **Dye transfer → Dry relief
+print**. Under **Paper & ink**, adjust **Paper relief** to bring out the
+fiber, then vary **Source ink breakup** and **Second plate breakup**
+independently. Where the source ink is thin, you can see the plate beneath
+it. Thin areas in that plate expose the paper. **Paper tooth size** sets
+the scale of the shared surface. **Plate grain size** can give the second
+impression a coarser or finer grain. **Bare paper grain** shows through
+where the sheet is exposed.
+
+**Light through ink → Reveal underprint** lets the source ink thin over a
+localized area. Set the light position over a letter to reveal the colored
+plate where the two impressions overlap. On a single-color print this
+reveals the stock. To shade a corner of the sheet, set **Edge exposure
+angle** and lower **Edge exposure brightness** under **Color & light**.
+
 **Subject cutout** extracts video foreground before image treatments. Choose
 Foreground, People or Crowd, then adjust cutoff, feathering and expansion.
 Mask continuity can fill short gaps; blur and occlusion can still leave imperfect

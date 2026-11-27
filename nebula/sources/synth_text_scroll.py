@@ -5,7 +5,7 @@ import numpy as np
 from PIL import Image, ImageChops
 
 
-def scroll_mask(p, time, speed, size, reference_size, offset):
+def scroll_mask(p, time, speed, size, reference_size, offset, *, ink_seed=None):
     from nebula.sources.synth_text import glyph_mask, letterpress_settings, text_pose
     w, h = size; cw, ch = reference_size
     clock, zoom = text_pose(p, time, speed)
@@ -41,6 +41,9 @@ def scroll_mask(p, time, speed, size, reference_size, offset):
         left, above = max(0, math.floor(x)), max(0, math.floor(y))
         right, below = min(w, math.ceil(x+mw)), min(h, math.ceil(y+mh))
         if right<=left or below<=above: continue
+        if ink_seed is not None:
+            from nebula.effects.synth_print import textured_type_mask
+            mask = textured_type_mask(mask, p, ink_seed, cw / 720, (sx, sy), index)
         # Only allocate the visible footprint, even at maximum size/stretch.
         stamp = mask.transform((right-left, below-above), Image.Transform.AFFINE,
             (1/sx,0,(left-x)/sx,0,1/sy,(above-y)/sy), Image.Resampling.BICUBIC)

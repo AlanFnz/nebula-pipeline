@@ -14,6 +14,21 @@ In the composition inspector, open **Effects → Dye transfer**. The Background
 color and Ink color cards show the color at the preview frame, before texture,
 lighting and other effects. Click a swatch or **Choose…** to open the picker.
 
+For a second impression, start with the **Two-color poster** preset or open
+**Print mask** in an existing Dye transfer effect. Choose a **Mask shape** and
+set **Apply mask to** to **Ink**, **Paper** or **Ink and paper**. The matching
+second color swatches appear above the controls. **Rectangle** gives the plate
+a width and height. **Straight cut** colors one side of a line. Position
+and rotate the plate with **Mask X**, **Mask Y** and **Mask angle**. **Mask
+edge irregularity** gives the cut an uneven outline that travels with it.
+Use **Animate…** beside the position or angle to move the cut during a clip.
+
+For a **Stepped rectangle**, adjust **Corner cut width** and **Corner cut
+height**. **Plate density gradient** varies the second color along the local
+vertical axis. Positive values make the lower end denser, and rotating the
+mask turns the gradient with it. **Paper & ink** controls the fiber and
+the pickup of the two impressions.
+
 The picker supports a visual spectrum, RGB/HSV controls, hex entry, screen
 sampling, and a **Swatches** menu. Choose **Project colors** or a shared palette,
 then click an individual ink to preview it. Choosing an

@@ -8,6 +8,7 @@ import math
 import numpy as np
 
 from nebula.core.synth_canvas import content_size, object_offset
+from nebula.effects.synth_print import paper_grain_controls, paper_grain_field
 from nebula.sources.synth_prismatic import OPTICAL_PALETTES, _cloud, _colors
 
 
@@ -38,6 +39,7 @@ def modules(Module, P):
             P('color_phase', 'Color phase', .02, 0, 1, .01),
             P('color_speed', 'Color drift', .09, 0, 1, .01),
             P('wash', 'Color clouds', .85, 0, 1, .01),
+            *paper_grain_controls(P),
             P('scale', 'Cloud size', 1., .2, 4, .01, 'Larger values make broader patches.'),
             P('flow', 'Cloud motion', .43, 0, 2, .01),
             P('saturation', 'Saturation', 1., 0, 1.5, .01),
@@ -94,7 +96,10 @@ def render_color_field(arr, p, seconds, preset):
     cloud=(.19*_cloud(x*2.1/p['scale'],y*2.1/p['scale'],t*p['flow'],seed)+
            .075*_cloud(x*4.7/p['scale'],y*4.7/p['scale'],t*p['flow']*.31/.43,seed+917))*p['wash']
     field=_colors(p['color_phase']+t*p['color_speed']+x*.045+y*.07+cloud,p['palette'])
-    return np.asarray(arr*(1-p['mix'])+_grade(field,p)*p['mix'],np.float32)
+    background = _grade(field,p)
+    if p.get('paper_grain'):
+        background = background + paper_grain_field(p, seed, (w, h), content_size(preset, (w, h))[0])
+    return np.asarray(arr*(1-p['mix'])+background*p['mix'],np.float32)
 
 
 def solid_frame(p, size, seconds, preset):

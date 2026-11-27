@@ -22,6 +22,7 @@ from nebula.sources.synth_particles import render_particles
 from nebula.effects.synth_tape import render_tape_damage
 from nebula.render.synth_instances import InstanceRegistry, instance_base, base_id
 from nebula.effects.synth_photocopy import render_photocopy
+from nebula.effects.synth_print import paper_grain_controls, type_grain_controls
 from nebula.sources.synth_text import FONTS, validate_text, render_text
 from nebula.sources.synth_fonts import validate_font
 from nebula.effects.synth_contour import modules as contour_modules, render_contour_melt
@@ -479,8 +480,8 @@ MODULES = (
         P("exposure", "Copy exposure", 0., -4, 3, .05, "Exposure in stops."),
         P("blackout", "Dark exposure pulse", .75, 0, 1, .01, "Brief dark pass within each cycle; zero disables it."),
         P("cadence", "Print FPS", 12., 0, 60, 1, "Fresh toner and exposure flutter per second; zero freezes the grain."),
-        P("dot_size", "Screen dot size", 8., 2, 40, .5),
-        P("screen_angle", "Screen angle", -22., -90, 90, 1),
+        P("dot_size", "Screen dot size", 8., 2, 40, .01, "Spacing between screen dots in pixels at a 720 px short edge."),
+        P("screen_angle", "Screen angle", -22., -90, 90, .1),
         P("light_depth", "Uneven illumination", .7, 0, 1, .01),
         P("light_width", "Light width", .5, .05, 2, .01),
         P("light_x", "Light position", .5, -1, 2, .01),
@@ -495,6 +496,12 @@ MODULES = (
         P("edge_wear", "Frayed ink edges", 1.8, 0, 8, .1),
         P("invert", "Negative", 0., 0, 1, .01),
         P("mix", "Mix", 1., 0, 1, .01),
+        P("process", "Print process", 0, 0, 1, 1, "Screened plate prints a continuous dot grid through the paper and ink.", choices=("Photocopy", "Screened plate")),
+        P("paper_grain", "Paper grain", .55, 0, 2, .01, "Variation in the bare stock, independent of toner grain."),
+        P("paper_tint", "Lower-edge tint", 0., 0, .6, .005, "Build up background ink gradually towards the bottom of the sheet."),
+        P("pinholes", "Ink pinholes", .45, 0, 1, .01, "Small gaps where the ink fails to cover the paper."),
+        P("edge_fade", "Ink edge falloff", 0., 0, 1, .01, "Deposit less ink along the inside of the printed contour."),
+        P("edge_width", "Ink edge width", 12., .5, 48, .5, "Width of the ink falloff in pixels at a 720 px short edge."),
     )),
 )
 MODULES += (
@@ -519,6 +526,8 @@ MODULES += (
         P('saturation', 'Text saturation', .3, 0, 1, .01),
         P('brightness', 'Text brightness', 1., 0, 3, .05),
         P('opacity', 'Text opacity', 1., 0, 1, .01),
+        *type_grain_controls(P),
+        *paper_grain_controls(P),
         P('stretch_x', 'Width stretch', 1., .15, 4, .05, 'Intentional typographic stretch, independent of canvas shape.'),
         P('stretch_y', 'Height stretch', 1., .15, 8, .05),
         P('rotation', 'Text rotation', 0., -180, 180, 1),
