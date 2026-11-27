@@ -1,5 +1,55 @@
 # Changelog
 
+## 0.151.1 · 2026-11-27
+
+Posters open on a single frame. **Animate poster** opens playback and enables
+preview preparation. Turning it off stops preparation at the current frame.
+Still exports and effect comparisons stay on that frame.
+
+## 0.151.0 · 2026-11-27
+
+Poster lettering can be edited directly in the monitor. Move a layer with the
+arrow keys, align its center to the sheet or a plate, and use the plate handles
+to scale and rotate it. Layers can be added, duplicated, hidden and reordered.
+The inspector identifies local texture, shared ink and sheet adjustments.
+Posters open with still-image export as the primary action and offer clip
+automation from the selected layer.
+
+## 0.150.1 · 2026-11-27
+
+Studio opens in a normal window the first time. Later launches restore the
+window mode and size you last used.
+
+## 0.150.0 · 2026-11-27
+
+Poster layers have a Texture section. Shape the exposed paper, adjust the grain
+and edges of a second ink plate, or give an individual inscription grain and
+pinholes. Shared sheet and ink settings are labeled separately. Existing
+prints keep their appearance until a setting is edited.
+
+## 0.149.0 · 2026-11-27
+
+Poster compositions open with a Layers inspector. Select lettering or an ink
+plate directly in the monitor and drag it into place. Each move can be undone
+in one step. The Hand tool pans the view. Open Timeline to animate the print.
+
+## 0.148.0 · 2026-11-27
+
+Dye transfer can print two independently worn impressions on a continuous
+paper texture. The Dry relief print preset uses a stepped rectangle with
+adjustable corners and a density gradient that turns with the plate.
+
+## 0.147.0 · 2026-11-27
+
+Photocopy adds a fine screened plate with separate controls for paper grain,
+ink pinholes and lower-edge tint. Dye transfer can hold a single impression.
+Type overprint adds editable lettering anywhere in the image effect stack.
+
+## 0.146.0 · 2026-11-26
+
+Dye transfer adds a **Two-color poster** preset. A movable print mask can
+switch ink and paper colors independently, with an adjustable cut edge.
+
 ## 0.145.0 · 2026-11-26
 
 Broadcast wear adds a **Soft CRT** preset with gentle screen curvature, light
