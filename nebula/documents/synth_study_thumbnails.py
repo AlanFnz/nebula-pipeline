@@ -62,10 +62,11 @@ def render_thumbnail(project, bounds, cancel=None, frame_provider=None):
     cancel.check()
     sequence = compile_composition(project)
     size = fitted_size(project['canvas'], bounds)
-    image = render_sequence_frame(sequence, sequence['duration'] / 3, size, frame_provider)
+    poster = 'poster' in project
+    image = render_sequence_frame(sequence, 0. if poster else sequence['duration'] / 3, size, frame_provider)
     cancel.check()
     # At most one deterministic alternate; a dark intentional composition stays dark.
-    if max(ImageStat.Stat(image.convert('RGB')).mean) < 3:
+    if not poster and max(ImageStat.Stat(image.convert('RGB')).mean) < 3:
         image = render_sequence_frame(sequence, sequence['duration'] * 2 / 3, size, frame_provider)
     cancel.check()
     output = BytesIO(); image.save(output, format='PNG')

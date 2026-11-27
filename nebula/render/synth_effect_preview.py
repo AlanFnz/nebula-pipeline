@@ -44,6 +44,10 @@ class EffectPreviewSession:
 
     def update_samples(self, frame):
         studio = self.studio
+        if studio.still_poster:
+            self.samples = ()
+            self.samples_limited = False
+            return
         width, height = studio.preview_size()
         # Reserve half the shared cache for each comparison side. Shorten the
         # loop at large resolutions instead of lowering the monitor quality.

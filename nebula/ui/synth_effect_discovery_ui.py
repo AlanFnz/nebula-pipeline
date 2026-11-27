@@ -150,8 +150,10 @@ class EffectAuditionDialog(EffectBrowserDialog):
         self.preview_state.setText('Applied' if applied else state[self.operation])
         self.title.setVisible(bool(identifier)); self.description.setVisible(bool(identifier))
         self.transport_host.setVisible(bool(identifier))
-        for widget in (self.before, self.after, self.preview_play, self.scrubber):
+        for widget in (self.before, self.after):
             widget.setVisible(audition)
+        for widget in (self.preview_play, self.scrubber):
+            widget.setVisible(audition and not self.studio.still_poster)
         self.details.setVisible(audition); self.diagnostic_note.setVisible(audition and self.details.isChecked())
         self.action.setText('Inspect effect' if applied else 'Replace with preset' if self.operation == 'replace' else 'Apply effect')
         path = intensity_path(identifier)
@@ -228,7 +230,8 @@ class EffectAuditionDialog(EffectBrowserDialog):
         applied = self.selected_effect_id() in self.applied_ids
         matching = session.effect_id == self.selected_effect_id() and session.preset == self.preset.currentIndex()
         self.action.setEnabled(applied or (matching and session.ready and not session.error and not self.debounce.isActive()))
-        self.selected_section.setVisible(session.section_id is not None and not session.target_scope.contains(self.studio.timeline.value()))
+        self.selected_section.setVisible(not self.studio.still_poster and session.section_id is not None
+                                        and not session.target_scope.contains(self.studio.timeline.value()))
         self.prepare.setVisible(self.selected_effect_id() == 'subject_cutout')
         self.retry.setVisible(bool(session.error))
         side = self.studio.comparison['side'] if self.studio.comparison else None
@@ -244,7 +247,9 @@ class EffectAuditionDialog(EffectBrowserDialog):
                 self.play_sample(True)
             seconds = self.studio.timeline.value()/self.studio.preview_fps()
             size = self.studio.preview_size()
-            note = f'{"Ready" if session.ready else "Loading"} · {seconds:.2f}s · {size[0]}×{size[1]} · sampled up to 12 fps'
+            timing = 'Poster frame' if self.studio.still_poster else f'{seconds:.2f}s'
+            note = f'{"Ready" if session.ready else "Loading"} · {timing} · {size[0]}×{size[1]}'
+            if not self.studio.still_poster: note += ' · sampled up to 12 fps'
             if session.samples_limited: note += f'\nLoop limited to {len(session.samples)} frames at this resolution.'
             if session.section_id and not session.target_scope.contains(self.studio.timeline.value()): note += '\nCurrent frame is outside the selected clip.'
             if session.section_id and session.target_scope.contains(self.studio.timeline.value()):
@@ -265,7 +270,8 @@ class EffectAuditionDialog(EffectBrowserDialog):
                 text = '\n'.join(f.scope + ': ' + f.message for f in facts)
                 matching = session.matching_samples()
                 if matching: text += '\nNo visible difference in these matching preview frames. Try relevant strength or threshold controls after Apply.'
-                self.diagnostic_note.setText(text + '\nIntermittent treatments may not fire in this short window.')
+                if not self.studio.still_poster: text += '\nIntermittent treatments may not fire in this short window.'
+                self.diagnostic_note.setText(text)
 
     def switch_side(self, side):
         self.studio.set_comparison_side(side)

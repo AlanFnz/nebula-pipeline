@@ -4,10 +4,16 @@ import os
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 
 import pytest
+from PIL import Image
 from PySide6.QtCore import QThreadPool
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QFileDialog
 
+from nebula.core.media import Cancellation
+from nebula.documents import synth_sequence, synth_study_thumbnails
+from nebula.documents.synth_composition import save_composition
+from nebula.documents.synth_recent_projects import render_project_cover
 from nebula.documents.synth_starting_points import new_piece
+from nebula.ui.synth_frame_export_ui import FrameExportDialog
 from nebula.ui.synth_studio import PreparePreviewJob, RenderJob, SynthStudio
 
 
@@ -90,3 +96,55 @@ def test_only_the_poster_frame_is_prepared_until_animation_is_enabled(poster_pre
     assert not studio.still_poster and studio.transport.isVisible() and studio.poster_tools.isHidden()
     studio.set_composition(new_piece('poster'), guard=False)
     assert studio.still_poster and studio.timeline.value() == 0 and not studio.has_unsaved_changes()
+
+
+def test_still_export_and_effect_preview_leave_animation_off(poster_preview, tmp_path, monkeypatch):
+    studio, jobs = poster_preview
+    studio.open_effect_discovery('bloom')
+    dialog = studio.discovery_dialog
+    assert not dialog.session.samples and not dialog.preview_play.isVisible() and not dialog.scrubber.isVisible()
+    dialog.session.prepare_samples()
+    assert not jobs
+    dialog.reject()
+    studio.preview_debounce.stop()
+    studio.request_frame()
+    while jobs:
+        jobs.pop(0).run()
+    path = tmp_path / 'poster.png'
+    monkeypatch.setattr(FrameExportDialog, 'choose', lambda *args: (path, (160, 200), 90))
+    studio.export_button.click()
+    assert studio.still_poster and studio.export_progress.isVisible() and studio.cancel_export.isVisible()
+    assert studio.transport.isHidden() and studio.preview_controls_scroll.isHidden()
+    assert len(jobs) == 1 and jobs[0] is studio.export_job
+    jobs.pop().run()
+    with Image.open(path) as saved:
+        assert saved.size == (160, 200)
+    assert studio.still_poster and not studio.warm_debounce.isActive()
+    assert not jobs and not studio.has_unsaved_changes()
+
+    monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *args: ('', ''))
+    studio.export_button.movie_action.trigger()
+    assert studio.still_poster and not jobs
+    monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *args: (str(tmp_path / 'poster.mp4'), ''))
+    studio.export_button.movie_action.trigger()
+    assert not studio.still_poster and studio.transport.isVisible()
+    job = jobs.pop()
+    assert job is studio.export_job
+    studio._finish_export(job)
+
+
+def test_poster_covers_use_one_frame_even_if_the_paper_is_black(tmp_path, monkeypatch):
+    frames = []
+    def black_frame(sequence, seconds, size, *args, **kwargs):
+        frames.append(seconds)
+        return Image.new('RGB', size)
+
+    monkeypatch.setattr(synth_sequence, 'render_sequence_frame', black_frame)
+    monkeypatch.setattr(synth_study_thumbnails, 'render_sequence_frame', black_frame)
+    document = new_piece('poster', {'width': 160, 'height': 200}, fps=24)
+    path = tmp_path / 'print.nebula'
+    save_composition(path, document)
+    synth_study_thumbnails.render_thumbnail(document, (64, 64))
+    render_project_cover(path, None, Cancellation())
+    render_project_cover(path, 3 / 24, Cancellation())
+    assert frames == [0., 0., 3 / 24]

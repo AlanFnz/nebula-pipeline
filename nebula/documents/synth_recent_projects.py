@@ -163,7 +163,10 @@ def render_project_cover(path, seconds, cancel):
             image = renderer.frame(frame, fitted_size(project['canvas'], BOUNDS))
     elif kind in ('Composition', 'Sequence'):
         sequence = compile_composition(load_composition(path)) if kind == 'Composition' else load_sequence(path)
-        t = sequence['duration']/3 if seconds is None else min(seconds, max(0, sequence['duration']-1/sequence['fps']))
+        if seconds is None:
+            t = 0. if 'poster' in raw else sequence['duration']/3
+        else:
+            t = min(seconds, max(0, sequence['duration']-1/sequence['fps']))
         with tempfile.TemporaryDirectory(prefix='nebula-project-cover-') as scratch:
             with VideoFrameProvider(preview=True, cancel=cancel, directory=scratch, budget=8*1024**2) as provider:
                 image = render_sequence_frame(sequence, t, fitted_size(sequence['canvas'], BOUNDS), provider, cancel=cancel)
