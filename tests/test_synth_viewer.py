@@ -116,12 +116,14 @@ def test_workspace_zoom_and_column_width_do_not_change_the_document(app):
         window.close(); QThreadPool.globalInstance().waitForDone(10000); app.processEvents()
 
 
-def test_first_launch_fullscreen_then_restores_window_mode_splitter_and_zoom(app, tmp_path):
+def test_first_launch_windowed_then_restores_window_mode_splitter_and_zoom(app, tmp_path):
     settings = QSettings(str(tmp_path / 'workspace.ini'), QSettings.Format.IniFormat)
     window = SynthStudio(settings=settings); window.show_workspace(); app.processEvents()
     try:
-        assert window.isFullScreen()
+        assert not window.isFullScreen() and not window.isMaximized()
         assert not window.fullscreen_button.isCheckable()
+        QTest.mouseClick(window.fullscreen_button, Qt.MouseButton.LeftButton); app.processEvents()
+        assert window.isFullScreen()
         QTest.mouseClick(window.fullscreen_button, Qt.MouseButton.LeftButton); app.processEvents()
         assert not window.isFullScreen()
         assert window.fullscreen_button.accessibleName() == 'Full screen'

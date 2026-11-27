@@ -541,7 +541,7 @@ class SynthStudio(PreviewRangeStudio, PerformanceStudio, VisualSoundStudio, Audi
             self.show(); return
         if settings.contains('window/geometry'):
             self.restoreGeometry(settings.value('window/geometry'))
-        mode = settings.value('window/mode', 'fullscreen')
+        mode = settings.value('window/mode', 'normal')
         if mode == 'fullscreen': self.showFullScreen()
         elif mode == 'maximized': self.showMaximized()
         else: self.showNormal()
