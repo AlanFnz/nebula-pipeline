@@ -148,6 +148,9 @@ def normalize_composition(raw):
         from nebula.documents.synth_exploration import normalize_snapshots
         snapshots = normalize_snapshots(raw['snapshots'])
     result = copy.deepcopy(raw)
+    if 'poster' in raw:
+        from nebula.documents.synth_poster import normalize_poster
+        result['poster'] = normalize_poster(raw['poster'])
     from nebula.documents.synth_live_set import LIVE_SET, normalize_live_set
     if raw.get(LIVE_SET) is not None: result[LIVE_SET] = normalize_live_set(raw[LIVE_SET])
     else: result.pop(LIVE_SET, None)
@@ -545,6 +548,9 @@ def compile_composition(raw, *, base_states=None, project_states=None, project_b
     result = copy.deepcopy(project["source"])
     if 'effect_order' in project:
         result['effect_order'] = list(project['effect_order'])
+    stack = {k: v for k, v in project.get('poster', {}).items() if k in ('order', 'hidden')}
+    if stack:
+        result['poster_stack'] = stack
     result.pop("soundtrack", None)
     result.pop('visual_performance', None)
     if 'visual_performance' in project:

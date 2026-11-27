@@ -10,18 +10,20 @@ DEFAULT_TEXT = 'REVOLUTION IS NOW'
 
 
 def new_piece(kind, canvas=None, fps=25, *, text=DEFAULT_TEXT, shape='rectangle', model='silhouette'):
-    if kind not in ('text', 'shape', 'model'):
-        raise ValueError('Choose Text, Shape or Model for generated material.')
+    if kind not in ('poster', 'text', 'shape', 'model'):
+        raise ValueError('Choose Poster, Text, Shape or Model for generated material.')
     if shape not in {value.lower() for value in SHAPES}:
         raise ValueError('Unknown starting shape.')
     if model not in ('silhouette', 'particles'):
         raise ValueError('Unknown model presentation.')
-    if kind == 'text' and not validate_text(text).strip():
+    if kind in ('poster', 'text') and not validate_text(text).strip():
         raise ValueError('Enter some text to start with.')
+    if kind == 'poster' and canvas is None:
+        canvas = {'width': 1080, 'height': 1350}
     size = normalize_canvas(canvas)
     # New material is authored for this canvas, without a previous piece's crop.
     canvas = dict(width=size['width'], height=size['height'], framing='adaptive')
-    module = {'text': 'text', 'shape': 'slab', 'model': model}[kind]
+    module = {'poster': 'text', 'text': 'text', 'shape': 'slab', 'model': model}[kind]
     project = blank_composition()
     project.update(name=f'Untitled {kind}', fps=fps, canvas=canvas,
                    render_version=CURRENT_RENDER_VERSION)
@@ -29,9 +31,14 @@ def new_piece(kind, canvas=None, fps=25, *, text=DEFAULT_TEXT, shape='rectangle'
     source.update(name=project['name'], fps=fps, duration=6., canvas=canvas,
                   render_version=CURRENT_RENDER_VERSION)
     params = {f'{module}.{spec.key}': spec.default for spec in MODULE_BY_ID[module].params}
-    if kind == 'text':
+    if kind in ('poster', 'text'):
         params.update({'text.content': text, 'text.saturation': 0., 'text.back_brightness': 0.,
                        'text.size': .18, 'text.fit_width': .85})
+        if kind == 'poster':
+            from nebula.effects.synth_effects import effect_preset
+            project['poster'] = {}
+            project['effects']['dye_transfer'] = effect_preset('dye_transfer', 5)
+            project['effect_order'] = ['dye_transfer']
     elif kind == 'shape':
         params.update({'slab.position_x': 0., 'slab.position_y': 0., 'slab.width': .48,
                        'slab.height': .45, 'slab.notch': 0., 'slab.jitter': 0.,

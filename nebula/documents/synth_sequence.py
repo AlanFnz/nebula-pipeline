@@ -79,6 +79,9 @@ def normalize_sequence(raw=None):
     if 'effect_order' in raw:
         from nebula.effects.synth_effect_order import normalize_order
         result['effect_order'] = normalize_order(raw['effect_order'])
+    if 'poster_stack' in raw:
+        from nebula.documents.synth_poster import normalize_poster
+        result['poster_stack'] = normalize_poster(raw['poster_stack'])
     result["name"] = str(raw.get("name", result["name"]))
     if "canvas" in raw:
         result["canvas"] = normalize_canvas(raw["canvas"])
@@ -400,7 +403,7 @@ def _render_sequence_frame_base(seq, time_seconds, size=None, frame_provider=Non
         from nebula.audio.synth_audio_reactivity import apply_reactivity
         base = apply_reactivity(base, seq, t, cancel=cancel)
     def render(base):
-        return _render_resolved_frame(seq, t, effect_time, video_time, cue, transition, amount, base, size, frame_provider, bypass)
+        return _render_resolved_frame(seq, t, effect_time, video_time, cue, transition, amount, base, size, frame_provider, bypass, cancel)
     strength = low_res_strength(base)
     if not bypass and strength < 1:
         dry = render(with_low_res(base, False))
@@ -408,7 +411,7 @@ def _render_sequence_frame_base(seq, time_seconds, size=None, frame_provider=Non
     return render(base)
 
 
-def _render_resolved_frame(seq, t, effect_time, video_time, cue, transition, amount, base, size, frame_provider, bypass):
+def _render_resolved_frame(seq, t, effect_time, video_time, cue, transition, amount, base, size, frame_provider, bypass, cancel):
     output, working, sampling = render_resolution(base, size)
     source_image = None
     source_mask = None
@@ -432,7 +435,18 @@ def _render_resolved_frame(seq, t, effect_time, video_time, cue, transition, amo
         base['treatment_fps'] = footage['treatment_fps']
     # Keep transition overlays and sequence noise on the same working raster.
     # The synth receives that exact size, so it performs no intermediate resize.
-    current = render_synth_frame(base, time_seconds=effect_time, size=working, source_image=source_image, source_mask=source_mask, repetition_mask=repetition_mask) if source_image is not None else render_synth_frame(base, time_seconds=effect_time, size=working)
+    def render(preset):
+        if cancel is not None:
+            cancel.check()
+        if source_image is None:
+            return render_synth_frame(preset, time_seconds=effect_time, size=working)
+        return render_synth_frame(preset, time_seconds=effect_time, size=working, source_image=source_image,
+                                  source_mask=source_mask, repetition_mask=repetition_mask)
+    if seq.get('poster_stack') and not bypass:
+        from nebula.documents.synth_poster import render_stack
+        current = render_stack(base, effect_time, working, seq['poster_stack'], render)
+    else:
+        current = render(base)
     image = _apply_sequence_overlays(current, seq, effect_time, cue, transition, amount, base)
     image = apply_master(image, seq.get('master'))
     return finish_resolution(image, output, sampling)
