@@ -54,6 +54,7 @@ PIXELS = frozenset({'chromatic_lattice.eye_separation', 'low_res.resolution', 'p
 PERCENTAGES = frozenset({'image_memory.amplitude_x', 'image_memory.amplitude_y',
     'chromatic_lattice.eye_ripple_size', 'chromatic_lattice.eye_ripple_position', 'chromatic_lattice.eye_ripple_fluid', 'chromatic_lattice.eye_ripple_glow'})
 HUES = frozenset({
+    'type_overprint.hue',
     'dye_transfer.paper_hue', 'dye_transfer.ink_hue', 'dye_transfer.mask_paper_hue', 'dye_transfer.mask_ink_hue',
     'film_burn.paper_hue', 'film_burn.ink_hue', 'film_burn.leak_hue',
     'signal_repetition.key_hue', 'signal_repetition.hue', 'signal_repetition.fringe_hue', 'signal_repetition.outside_hue',
@@ -81,7 +82,7 @@ def presentation(path):
             if field == 'hue': return ParameterPresentation(hue=True)
     if base_path(path) == 'dye_transfer.mask_grain_size':
         return ParameterPresentation(unit=' px', minimum_text='Use paper tooth')
-    if base_path(path) in ('text.ink_grain_size', 'text.paper_grain_size',
+    if base_path(path) in ('type_overprint.ink_grain_size', 'text.ink_grain_size', 'text.paper_grain_size',
                            'color_field.paper_grain_size', 'dye_transfer.paper_grain_size'):
         return ParameterPresentation(unit=' px')
     if base_path(path) == 'low_res.resolution':

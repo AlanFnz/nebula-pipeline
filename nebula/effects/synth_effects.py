@@ -171,6 +171,8 @@ EFFECTS = (
                   ("Chunky / 180 px", {"low_res.resolution": 180}),
                   ("Fine / 720 px", {"low_res.resolution": 720}),
                   ("Crisp pixels / 240 px", {"low_res.resolution": 240, "low_res.sampling": 1}))),
+    Effect('type_overprint', 'Type overprint', 'Add editable lettering with its own typeface, position, ink color and intensity. Drag the effect in the stack to print it before or after a texture.',
+           paths('type_overprint'), ('type_overprint',), looks=(('Caption', {}), ('Blank text plate', {'type_overprint.content': ''}))),
 )
 EFFECTS = tuple(replace(effect, paths=(*effect.paths, intensity_path(effect.id)))
                 if intensity_path(effect.id) and intensity_path(effect.id) not in effect.paths else effect

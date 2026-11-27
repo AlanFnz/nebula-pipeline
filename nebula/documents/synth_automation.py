@@ -16,7 +16,10 @@ from nebula.effects.synth_intensity import PATHS
 TARGETS = frozenset({
     'photocopy.grain', 'photocopy.paper_grain', 'photocopy.paper_tint', 'photocopy.pinholes',
     'photocopy.halftone', 'photocopy.screen_angle', 'photocopy.dot_size', 'photocopy.edge_fade',
-    'text.ink_grain', 'text.ink_pinholes',
+    'type_overprint.height', 'type_overprint.x', 'type_overprint.y', 'type_overprint.hue',
+    'type_overprint.mask_x', 'type_overprint.mask_y', 'type_overprint.mask_angle', 'type_overprint.mask_size',
+    'text.size', 'type_overprint.size',
+    'type_overprint.ink_grain', 'type_overprint.ink_pinholes', 'text.ink_grain', 'text.ink_pinholes',
     'text.paper_grain', 'color_field.paper_grain', 'dye_transfer.paper_grain',
     'radial_bloom.core_scale', 'radial_bloom.ray_scale', 'radial_bloom.aperture_scale',
     'radial_bloom.ray_sharpness', 'radial_bloom.fan_width', 'radial_bloom.motion_phase',

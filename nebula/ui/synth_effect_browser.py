@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
 )
 
 from nebula.ui.studio_widgets import ComboBox
+from nebula.render.synth_instances import REPEATABLE, base_id
 from nebula.effects.synth_effect_catalog import CATEGORIES, SOURCE_EFFECT_IDS, effect_catalog
 
 
@@ -123,7 +124,7 @@ class EffectBrowserDialog(QDialog):
         actions = QHBoxLayout(); actions.addStretch(1)
         self.instance_action = QPushButton('Add another instance')
         self.instance_action.setAutoDefault(False)
-        self.instance_action.setToolTip('Add a neutral Tape damage pass with independent settings and automation.')
+        self.instance_action.setToolTip('Add another pass with independent settings and automation.')
         self.instance_action.clicked.connect(self.request_instance); actions.addWidget(self.instance_action)
         self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel)
         self.cancel_button = self.buttons.button(QDialogButtonBox.StandardButton.Cancel)
@@ -218,7 +219,7 @@ class EffectBrowserDialog(QDialog):
                 self.preset.setCurrentIndex(self._preset_choices.get(identifier, 0))
         applied = identifier in self.applied_ids
         self.action.setText('Inspect effect' if applied else 'Add effect')
-        self.instance_action.setVisible(identifier == 'tape' and applied)
+        self.instance_action.setVisible(base_id(identifier) in REPEATABLE and applied)
         self.action.setAccessibleName('Inspect selected effect' if applied else 'Add selected effect')
         self.preset_row.setVisible(effect is not None and not applied)
         self.preset.setEnabled(effect is not None and not applied)
@@ -260,8 +261,9 @@ class EffectBrowserDialog(QDialog):
         self.accept()
 
     def request_instance(self):
-        if self.selected_effect_id() != 'tape': return
-        self.instanceRequested.emit('tape'); self.accept()
+        identifier = self.selected_effect_id()
+        if base_id(identifier) not in REPEATABLE: return
+        self.instanceRequested.emit(identifier); self.accept()
 
     def keyPressEvent(self, event):
         if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):

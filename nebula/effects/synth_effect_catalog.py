@@ -10,6 +10,7 @@ from nebula.render.synth_instances import instance_ids, base_id
 SOURCE_EFFECT_IDS = frozenset(('blender_scene', 'spectral_tunnel', 'pleated_field', 'image_memory', 'chromatic_lattice', 'radial_bloom', 'forms', 'rays', 'ink_bloom', 'particles', 'silhouette', 'text', 'prismatic_field', 'solid'))
 CATEGORIES = ('Distortion', 'Texture', 'Light & color', 'Motion & echoes', 'Cutout', 'Finishing', 'Other')
 EFFECT_CATEGORIES = {
+    'type_overprint': 'Finishing',
     'curved_screen': 'Distortion',
     'dye_transfer': 'Texture',
     'signal_tension': 'Distortion',

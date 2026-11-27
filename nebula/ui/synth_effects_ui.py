@@ -51,8 +51,12 @@ class EffectNameButton(QPushButton):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        self.setText(self.fontMetrics().elidedText(self.full_label, Qt.TextElideMode.ElideRight,
-                                                  max(0, self.width() - 12)))
+        self.update_label(self.full_label)
+
+    def update_label(self, label):
+        self.full_label = label
+        visible = self.fontMetrics().elidedText(label, Qt.TextElideMode.ElideRight, max(0, self.width() - 12))
+        self.setText(visible.replace('&', '&&'))
 
 
 class EffectChoice(QFrame):
@@ -94,7 +98,15 @@ class EffectChoice(QFrame):
         self.badge.setText(state)
         self.bypass.setText("Resume" if bypassed else "Bypass")
         self.bypass.setAccessibleName(f'{self.bypass.text()} {effect.label}')
-        self.button.setAccessibleName(f'Inspect {effect.label} · {state}')
+        label = effect.label
+        if base_id(effect.id) == 'type_overprint' and info['active']:
+            first, last = info.get('ranges', {}).get(effect.id + '.content', ('', ''))
+            wording = ' '.join(first.split())
+            if first == last and wording:
+                label = f'“{wording}” · {label}'
+        if label != self.button.full_label:
+            self.button.update_label(label)
+        self.button.setAccessibleName(f'Inspect {label} · {state}')
         self.setToolTip(effect.description + (' Active during part of this scope.' if info['intermittent'] else ''))
         for widget, name, value in ((self, 'selected', selected), (self.badge, 'active', info['active'] and not bypassed)):
             if widget.property(name) != value:
@@ -211,7 +223,7 @@ class EffectsPanel(QWidget):
         row = QHBoxLayout(); row.setSpacing(4)
         self.bypass_button = QPushButton('Bypass'); self.bypass_button.clicked.connect(lambda: self.toggle_bypass(self.effect_id)); row.addWidget(self.bypass_button)
         self.instance_button = QPushButton('Add instance'); self.instance_button.setProperty('compact', True)
-        self.instance_button.setToolTip('Add an independent, neutral Tape damage pass after the existing image effects. Your current settings stay intact.')
+        self.instance_button.setToolTip('Add another pass after the existing image effects, with independent settings and automation.')
         self.instance_button.clicked.connect(lambda: self.instance_requested.emit(self.effect_id)); row.addWidget(self.instance_button)
         self.remove_button = QPushButton('Remove'); self.remove_button.clicked.connect(lambda: self.remove_effect(self.effect_id)); row.addWidget(self.remove_button)
         self.bypass_button.setProperty('compact', True); self.remove_button.setProperty('compact', True)
@@ -683,6 +695,22 @@ class EffectsPanel(QWidget):
         if not self.focused: self.scope_label.setText(self.context_scope_label)
         self.timing_selected.emit(timing and self.focused)
         visible_paths = tuple(path for path in effect.paths if not ink or path not in INK_TIMING or path in SHARED_TIMING_CONTROLS)
+        if base_id(effect.id) == 'type_overprint':
+            low, high = self.summary[effect.id]['ranges'][effect.id + '.layout']
+            if low == high:
+                common = {'layout', 'hue', 'saturation', 'light', 'effect_intensity'}
+                block = {'content', 'font', 'height', 'width', 'tracking', 'x', 'y',
+                         'ink_grain', 'ink_pinholes', 'ink_grain_size'}
+                def relevant(path):
+                    name = path.split('.')[1]
+                    if name in common:
+                        return True
+                    if low == 2:
+                        return name.startswith('mask_')
+                    if low == 0:
+                        return name in block
+                    return not name.startswith('mask_') and name not in ('height', 'width')
+                visible_paths = tuple(p for p in visible_paths if relevant(p))
         if effect.id == 'image_memory':
             shape = self.summary[effect.id]['ranges']['image_memory.shape']
             if shape[0] == shape[1] and shape[0] != 2:

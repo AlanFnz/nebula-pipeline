@@ -31,6 +31,8 @@ VIDEO_MODULES = frozenset(('subject_cutout', 'photocopy', 'broadcast', 'stretch_
 PROXY_EDGE = 720
 VIDEO_EFFECTS += ('curved_screen', 'optical_diffusion', 'dye_transfer', 'signal_tension', 'scan_modulation', 'crt_capture', 'signal_repetition', 'film_emulsion', 'film_burn', 'print_collage', 'optical_print', 'contact_print')
 VIDEO_MODULES |= {'curved_screen', 'optical_diffusion', 'dye_transfer', 'signal_tension', 'scan_modulation', 'crt_capture', 'signal_repetition', 'contour_melt', 'film_emulsion', 'film_burn', 'print_collage', 'optical_print', 'contact_print'}
+VIDEO_EFFECTS += ('type_overprint',)
+VIDEO_MODULES |= {'type_overprint'}
 _PROXY_LOCK = threading.Lock()
 
 

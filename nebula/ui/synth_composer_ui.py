@@ -1450,16 +1450,17 @@ class CompositionPanel(QWidget):
         self.commit(document, f'effect-color-restore:{self.scope}:{self.index}:{key}')
 
     def add_effect_instance(self, effect_id):
-        from nebula.render.synth_instances import base_id, REPEATABLE, document_instance_ids, MAX_INSTANCES
+        from nebula.render.synth_instances import base_id, NEUTRAL_LOOK, document_instance_ids, MAX_INSTANCES
         from nebula.effects.synth_effects import effect_preset
-        if base_id(effect_id) not in REPEATABLE: return
-        numbers = [int(key.split('@')[1]) for key in document_instance_ids(self.document)]
+        base = base_id(effect_id)
+        if base not in NEUTRAL_LOOK: return
+        numbers = [int(key.split('@')[1]) for key in document_instance_ids(self.document) if base_id(key) == base]
         number = max([1, *numbers]) + 1
         if number > MAX_INSTANCES:
-            QMessageBox.information(self, 'Effect instances', 'This composition already uses the maximum number of Tape damage passes.'); return
-        identifier = f'{base_id(effect_id)}@{number}'
+            QMessageBox.information(self, 'Effect instances', 'This composition already uses the maximum number of passes for this effect.'); return
+        identifier = f'{base}@{number}'
         # A clean pass contributes nothing until the artist edits or animates it.
-        self.change_effect(identifier, effect_preset(identifier, 3), 'effect-instance-add')
+        self.change_effect(identifier, effect_preset(identifier, NEUTRAL_LOOK[base]), 'effect-instance-add')
         self.effects_panel.inspect_effect(identifier)
 
     def automation_section_id(self):

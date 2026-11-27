@@ -70,6 +70,22 @@ def test_add_browser_and_section_scope_allocate_unique_instances(make_window):
     window.redo_composition(); assert 'tape@3' in window.composition['sections'][1]['effects']
 
 
+def test_add_independent_text_plate_alongside_tape_instances(make_window):
+    doc = piece()
+    doc['effects']['tape@2'] = effect_preset('tape@2', 3)
+    doc['effects']['type_overprint'] = effect_preset('type_overprint')
+    window = make_window(composition=doc)
+    panel = window.composer.effects_panel
+    panel.inspect_effect('type_overprint')
+    panel.instance_button.click()
+    QApplication.processEvents()
+    assert panel.effect_id == 'type_overprint@2'
+    assert window.composition['effects']['type_overprint@2']['params']['type_overprint@2.content'] == ''
+    assert window.composition['effects']['tape@2'] == doc['effects']['tape@2']
+    window.undo_composition()
+    assert 'type_overprint@2' not in window.composition['effects']
+
+
 def test_audition_add_instance_closes_preview_without_overwriting_base(make_window):
     window = make_window(composition=piece())
     original = copy.deepcopy(window.composition)
@@ -84,3 +100,16 @@ def test_audition_add_instance_closes_preview_without_overwriting_base(make_wind
     assert window.composition['effects']['tape'] == original['effects']['tape']
     assert window.composition['effects']['tape@2'] == effect_preset('tape@2', 3)
     assert len(window.undo_compositions) == 1
+
+
+def test_type_plates_show_their_wording_in_the_effect_list(make_window):
+    doc = piece()
+    for key, wording in [('type_overprint', 'FIRST'), ('type_overprint@2', 'INK &\nPAPER')]:
+        doc['effects'][key] = effect_preset(key)
+        doc['effects'][key]['params'][key + '.content'] = wording
+    window = make_window(composition=doc)
+    panel = window.composer.effects_panel
+    row = panel.effect_choices['type_overprint@2']
+    assert row.button.full_label == '“INK & PAPER” · Type overprint · 2'
+    assert 'INK & PAPER' in row.button.accessibleName()
+    assert panel.effect_choices['type_overprint'].button.full_label == '“FIRST” · Type overprint'

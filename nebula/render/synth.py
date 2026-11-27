@@ -22,6 +22,7 @@ from nebula.sources.synth_particles import render_particles
 from nebula.effects.synth_tape import render_tape_damage
 from nebula.render.synth_instances import InstanceRegistry, instance_base, base_id
 from nebula.effects.synth_photocopy import render_photocopy
+from nebula.effects.synth_type_overprint import modules as type_overprint_modules, render_type_overprint
 from nebula.effects.synth_print import paper_grain_controls, type_grain_controls
 from nebula.sources.synth_text import FONTS, validate_text, render_text
 from nebula.sources.synth_fonts import validate_font
@@ -783,6 +784,7 @@ MODULES += pleated_modules(Module, P)
 MODULES += tunnel_modules(Module, P)
 MODULES += blender_modules(Module, P)
 MODULES += curved_screen_modules(Module, P)
+MODULES += type_overprint_modules(Module, P, {m.id: m.params for m in MODULES})
 MODULES = add_parameters(MODULES, P)
 MODULE_BY_ID = InstanceRegistry({module.id: module for module in MODULES})
 
@@ -1371,6 +1373,7 @@ def _breakup(arr, p, t, preset):
 
 
 RENDERERS = {
+    'type_overprint': render_type_overprint,
     'optical_diffusion': render_optical_diffusion,
     'film_burn': lambda arr, params, t, preset, index: render_film_burn(arr, params, t, preset['speed'], _seed(preset['seed'], 'film-burn'), content_size(preset, (arr.shape[1], arr.shape[0]))),
     'film_emulsion': lambda arr, params, t, preset, index: render_film_emulsion(arr, params, t, preset['speed'], _seed(preset['seed'], 'film-emulsion'), content_size(preset, (arr.shape[1], arr.shape[0]))),

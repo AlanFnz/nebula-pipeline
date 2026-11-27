@@ -66,11 +66,16 @@ def control_group(path):
         if key in ('phase','flow','cadence'): return 'Motion & timing'
         if key in ('palette','hue_shift','saturation','light','highlight','light_angle','background_motion'): return 'Color & light'
         return 'Optical finish'
-    if module == 'text' and key in ('ink_grain', 'ink_pinholes', 'ink_grain_size'):
+    if module in ('text', 'type_overprint') and key in ('ink_grain', 'ink_pinholes', 'ink_grain_size'):
         return 'Ink texture'
     if module in ('text', 'color_field', 'dye_transfer') and key in ('paper_grain', 'paper_grain_size'):
         return 'Paper stock'
     if module == 'text' and key.startswith('press_'): return 'Letterpress'
+    if module == 'type_overprint':
+        if key in ('content', 'font', 'tracking'): return 'Type'
+        if key in ('height', 'width', 'x', 'y'): return 'Placement'
+        if key in ('hue', 'saturation', 'light'): return 'Ink'
+        return 'Output & blending'
     if module == 'photocopy':
         if key in ('process', 'contrast', 'threshold', 'invert'): return 'Print process'
         if key in ('paper_grain', 'paper_tint'): return 'Paper stock'

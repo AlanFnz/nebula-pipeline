@@ -206,6 +206,28 @@ def resolve_font(value):
     raise FontUnavailable(f"Font unavailable: {font_label(value)}. Install the original font or choose a replacement in its Typeface control.")
 
 
+def resolve_companion_fonts(document, directory):
+    """Reconnect typefaces carried beside a moved project, using their pinned bytes."""
+    def visit(node):
+        if isinstance(node, list):
+            for item in node:
+                if isinstance(item, (dict, list)): visit(item)
+        elif isinstance(node, dict):
+            for key, value in node.items():
+                if isinstance(value, (dict, list)):
+                    visit(value)
+                elif isinstance(value, str) and key.rsplit('.', 1)[-1] in ('font', 'typeface'):
+                    try:
+                        data = _parse(value)
+                        original = Path(data['path'])
+                        sibling = Path(directory) / original.name
+                        if sibling != original and sibling.is_file() and _digest(sibling, _stamp(sibling)) == data['sha256']:
+                            node[key] = json.dumps(dict(data, path=str(sibling.resolve())), sort_keys=True, separators=(',', ':'))
+                    except (OSError, ValueError):
+                        continue
+    visit(document)
+
+
 def load_font(value, size, weight=400):
     if not isinstance(value, str):
         font = ImageFont.truetype(str(FONT_ROOT / FONT_FILES[int(value)]), size)

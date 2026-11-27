@@ -1,20 +1,23 @@
 """Stable identities for additional image passes, without altering legacy slots.
 
-Only Tape damage is currently repeatable. New passes default to creation order
-after the image chain; explicit effect order can move them without changing seeds.
+New passes follow the image chain. Explicit effect order can move them
+without changing their seed identities.
 """
 from collections.abc import Mapping
 from dataclasses import replace
 import re
 
-REPEATABLE = frozenset({'tape'})
+NEUTRAL_LOOK = {'tape': 3, 'type_overprint': 1}
+REPEATABLE = frozenset(NEUTRAL_LOOK)
 MAX_INSTANCES = 64
 
 
 def instance_base(identifier):
     if not isinstance(identifier, str) or '@' not in identifier: return None
-    match = re.fullmatch(r'(tape)@([2-9]|[1-5][0-9]|6[0-4])', identifier)
-    return match[1] if match else None
+    base, _, suffix = identifier.partition('@')
+    if base in REPEATABLE and re.fullmatch(r'[2-9]|[1-5][0-9]|6[0-4]', suffix):
+        return base
+    return None
 
 
 def base_id(identifier):
@@ -27,7 +30,7 @@ def base_path(path):
 
 
 def instance_ids(keys):
-    return sorted({key for key in keys if instance_base(key)}, key=lambda key: int(key.split('@')[1]))
+    return sorted({key for key in keys if instance_base(key)}, key=lambda key: (int(key.split('@')[1]), key))
 
 
 def state_instance_ids(state):

@@ -15,7 +15,7 @@ covers scope, order and animation.
 | Scan displacement and filmed screens | Scan modulation, CRT capture, Screen mesh, Curved screen, Scan drag |
 | Repeated image fragments | Slice echo, Signal repetition |
 | Signal faults and unstable motion | Tape damage, Broadcast wear, Frame jitter |
-| Printing | Photocopy, Print surface, Contact print, Dye transfer |
+| Printing | Photocopy, Print surface, Contact print, Dye transfer, Type overprint |
 | Strained forms | Signal tension |
 
 ## Cyan, scan and CRT treatments
@@ -106,6 +106,16 @@ localized area. Set the light position over a letter to reveal the colored
 plate where the two impressions overlap. On a single-color print this
 reveals the stock. To shade a corner of the sheet, set **Edge exposure
 angle** and lower **Edge exposure brightness** under **Color & light**.
+
+**Type overprint** adds editable lettering at a position on the artwork.
+Each instance has its own wording, typeface, size, color and intensity.
+**Ink grain** varies the coverage inside its letters and **Ink pinholes**
+reveals the surface underneath.
+The Effects list shows the wording beside each active text plate.
+Use **Add another instance** for another text block. Its position in the
+effect list determines which subsequent treatments affect the lettering.
+When moving a project that uses a custom font, put the original font file
+beside the project. Nebula checks the font's saved fingerprint when it opens.
 
 **Subject cutout** extracts video foreground before image treatments. Choose
 Foreground, People or Crowd, then adjust cutoff, feathering and expansion.

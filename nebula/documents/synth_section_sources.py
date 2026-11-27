@@ -20,7 +20,9 @@ def footage_references(document):
 
 def resolve_media_paths(document, directory):
     from nebula.documents.synth_live_set import resolve_live_set_paths
+    from nebula.sources.synth_fonts import resolve_companion_fonts
     resolve_live_set_paths(document, directory)
+    resolve_companion_fonts(document, directory)
     for footage in (*footage_references(document), *soundtrack_references(document)):
         source = Path(footage['path'])
         if not source.is_absolute(): footage['path'] = str((Path(directory) / source).resolve())
